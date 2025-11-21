@@ -1,2 +1,3 @@
 # LiuXin-alpha
-Pulic, development fork of LiuXin. Alpha. DO NOT USE IN PROD.
+
+Public, development fork of LiuXin. Alpha. DO NOT USE IN PROD.

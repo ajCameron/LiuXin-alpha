@@ -1,0 +1,4 @@
+
+"""
+Stores files and metadata.
+"""
