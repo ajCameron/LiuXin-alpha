@@ -35,7 +35,7 @@ def rebuild_file_path(split_file_path):
 # Calculating the path to the folder LiuXin is executing in
 LiuXin_path = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 LiuXin_path_split = LiuXin_path.split(os.sep)
-LiuXin_base_folder_split = LiuXin_path_split[:-1]
+LiuXin_base_folder_split = LiuXin_path_split[:-2]
 LiuXin_base_folder = rebuild_file_path(LiuXin_base_folder_split)
 
 # paths to the other random folder that LiuXin likes for operational purposes
