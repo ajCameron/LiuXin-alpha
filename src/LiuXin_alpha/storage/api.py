@@ -5,13 +5,13 @@ Contains the fundamental APIs for the storage class.
 
 # Todo: Rules about what can be stored in which store?
 
-from typing import Union, Optional
+from typing import Optional
 
 import abc
 import dataclasses
 import pprint
 
-from LiuXin_alpha.utils.event_log.api import EventLogAPI
+from src.LiuXin_alpha.utils.event_log.api import EventLogAPI
 
 
 @dataclasses.dataclass
@@ -29,16 +29,6 @@ class SingleFileStatus:
     url: str       # - Some form of resource ULR to get at the file
 
     last_checked: str   # - When did we last KNOW we had the file?
-
-
-@dataclasses.dataclass
-class FileStatus:
-    """
-    Status for a file on the system - includes LiuXin wide metadata
-    """
-
-    copies: str         # - Number of copies the system has access to?
-    protected: bool     # - Does the system consider the file to be protected?
 
 
 class SingleFile(abc.ABC):
@@ -91,7 +81,30 @@ class SingleFile(abc.ABC):
 
 
 @dataclasses.dataclass
-class StoreStatus:
+class FileStatus:
+    """
+    Status for a file on the system - includes LiuXin wide metadata
+    """
+
+    copies: str         # - Number of copies the system has access to?
+    protected: bool     # - Does the system consider the file to be protected?
+
+
+@dataclasses.dataclass
+class StorageBackendCheckStatus:
+    """
+    How did the store do when we were running self checks?
+    """
+    store_marker_file: bool
+
+    read: bool
+    write: bool
+
+    sundry: bool
+
+
+@dataclasses.dataclass
+class StorageBackendStatus:
     """
     What's happening with the given store?
 
@@ -104,10 +117,13 @@ class StoreStatus:
     uuid: str           # - UUID for the store (definitely unique)
 
     # - Store status
-    file_count: int         # - How many entries the store _thinks_ it has
+    file_count: Optional[int]    # - How many LiuXin files the store _thinks_ it has
+                                 # - this can be quite an expensive operation - so can be None if not needed
     store_free_space: int   # - Free space available for LiuXin use
     # - NOTE - This should be a MINIMUM not a MAXIMUM
     # -Some stores are under compression - so it's hard to know the TRUE total size
+
+    check_status: StorageBackendCheckStatus  # - Result of checks being carried out on the storage backend.
 
     checked: bool           # - Has the store passed self checks?
 
@@ -118,10 +134,53 @@ class StoreStatus:
     event_log: EventLogAPI      # - query the status of this bit of the system
 
 
-class Store(abc.ABC):
+class StorageBackendAPI(abc.ABC):
     """
     Represents a file and metadata store on the system.
+
+    Every store backend plugins should inherit from this class.
     """
+
+    def __init__(self, url: str) -> None:
+        """
+        Initialize the store.
+
+        :param url:
+        """
+        self.set_url(url)
+
+    @abc.abstractmethod
+    def startup(self) -> StorageBackendStatus:
+        """
+        Preform store startup and report the status.
+
+        :return:
+        """
+
+    @abc.abstractmethod
+    def self_test(self) -> StorageBackendStatus:
+        """
+        Preform tests on the store.
+
+        :return:
+        """
+
+    @abc.abstractmethod
+    @property
+    def url(self) -> None:
+        """
+        Return the url of the store.
+        :return:
+        """
+
+    @abc.abstractmethod
+    def set_url(self, new_url: str) -> None:
+        """
+        Set the URL for the backend store.
+
+        :param new_url:
+        :return:
+        """
 
     @abc.abstractmethod
     @property
@@ -161,7 +220,7 @@ class Store(abc.ABC):
         """
 
     @abc.abstractmethod
-    def status(self) -> dict[str, Union[str, bool, int]]:
+    def status(self) -> StorageBackendStatus:
         """
         The current status of the store.
 
@@ -177,3 +236,28 @@ class Store(abc.ABC):
         :return:
         """
         return pprint.pformat(self.status())
+
+
+class StorageAPI(abc.ABC):
+    """
+    Provides management and frontend for actually working with the stores.
+    """
+
+    @abc.abstractmethod
+    def add_storage_backend(self, new_store: StorageBackendAPI) -> None:
+        """
+        Manually add a new storage backend to the system.
+
+        :param new_store:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def add_file(self, file_bytes: bytes):
+        """
+        Add a file to the store.
+
+        :param file_bytes:
+        :return:
+        """
+

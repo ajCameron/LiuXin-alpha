@@ -27,3 +27,11 @@ As ever, I couldn't find something which did all of this in a way I wanted, so I
 
 This project shares a LOT of common code with calibre.
 You could consider it a fork with teeth.
+
+## Philosophy
+
+### NO deletion
+
+At a philosophical level, my belief is that ORIGINAL FILES SHOULD NEVER BE DELETED.
+Derived files can be deleted at will, but the original file should never be removed.
+There is, in fact, a special flag for original files.

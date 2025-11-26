@@ -1,0 +1,3 @@
+
+Note - every API class, from every API module, should end with API.
+Explicit is better than implict after all...

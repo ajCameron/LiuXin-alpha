@@ -1,6 +1,6 @@
 
 """
-The store mamager class is responsible for preforming all actions relevant to the stores.
+The store manager class is responsible for preforming all actions relevant to the stores.
 
 This includes
  - creation of store
@@ -10,4 +10,5 @@ This includes
 and, of course,
  - retrieving and storing files
 
+This is usually accessed via the Storage class.
 """
