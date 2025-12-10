@@ -34,9 +34,9 @@ from functools import partial
 
 from LiuXin_alpha.constants.paths import LiuXin_prefs_folder
 
-from LiuXin.utils.lx_libraries.liuxin_json import LiuXinJSON
+from LiuXin_alpha.utils.libraries.liuxin_json import LiuXinJSON
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 class EncodeError(Exception):
@@ -1166,7 +1166,7 @@ class Preferences(object):
         #: Set the maximum number of sort 'levels'
         # Set the maximum number of sort 'levels' that calibre will use to resort the
         # library after certain operations such as searches or device insertion. Each
-        # sort level adds a performance penalty. If the database is large (thousands of
+        # sort level adds a performance penalty. If the databases is large (thousands of
         # books) the penalty might be noticeable. If you are not concerned about multi-
         # level sorts, and if you are seeing a slowdown, reduce the value of this tweak.
         maximum_resort_levels = 5
@@ -1708,8 +1708,8 @@ def set_to_string(pyset):
 
 def py_set_converter(py_set_string):
     """
-    Converted intended to be used with set fields from the database - turns them into sets of unicode strings.
-    Takes a string from the database and returns it as a set.
+    Converted intended to be used with set fields from the databases - turns them into sets of unicode strings.
+    Takes a string from the databases and returns it as a set.
     :param py_set_string:
     :return py_set:
     """

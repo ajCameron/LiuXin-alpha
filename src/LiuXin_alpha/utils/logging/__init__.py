@@ -3,7 +3,7 @@
 This is looking to be a common pattern, so a specific event log would be helpful.
 
 This is intended to be embedded in a lot of classes - and provide a common interface
-(probably out to the database, but the advantage of common interface is it doesn't need to be decided now).
+(probably out to the databases, but the advantage of common interface is it doesn't need to be decided now).
 """
 
 import logging
@@ -11,12 +11,25 @@ import logging
 
 default_log = logging.getLogger("LiuXin_alpha-default-log")
 
-LiuXin_print = print
+
+def multi_string_print(*args: str) -> None:
+    """
+    Print when multiple arguments are given.
+
+    :param args:
+    :return:
+    """
+    print("\n".join(args))
+
+
+
+LiuXin_print = multi_string_print
+LiuXin_warning_print = multi_string_print
 
 
 def prints(*args, **kwargs):
     """
-    Print unicode arguments safely by encoding them to preferred_encoding.
+    Print Unicode arguments safely by encoding them to preferred_encoding.
 
     Has the same signature as the print function from Python 3.
     Except for the additional keyword argument safe_encode.

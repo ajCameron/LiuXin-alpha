@@ -56,12 +56,12 @@ CREATOR_ROLE_REKEY_SCHEME = {
     frozenset(["bkp", "book_producer"]): "book_producer",
 }
 
-# What types of creator are recognized by MetaData (and the database)
+# What types of creator are recognized by MetaData (and the databases)
 CREATOR_CATEGORIES = CREATOR_ROLE_REKEY_SCHEME.values()
 
 CREATOR_TYPE_CAT_DIR = dict((plural_singular_mapper(cc), cc) for cc in CREATOR_CATEGORIES)
 
-# Todo: This should now be stored in the database
+# Todo: This should now be stored in the databases
 CREATOR_TYPES = set([c for c in CREATOR_CATEGORIES])
 
 # Keyed with the short version (an OPF MARC code) valued with the full name
@@ -248,7 +248,7 @@ METADATA_EXPLANATIONS = {
     "is a data format) or the path if that type is a path a list so that you "
     "can add more than one cover.",
     "creators": "the name of whoever created this work",
-    "creators_id_map": "map of the creator name(s) to creator entries in the LiuXin database",
+    "creators_id_map": "map of the creator name(s) to creator entries in the LiuXin databases",
     "creator_type": "author, director, composer e.t.c - more flexibility is good",
     "creator_sort": "The sort key for this entry in the creators table. If the user has set a "
     "custom one. I'd like it a lot if the user didn't do this thing. But no "
@@ -274,22 +274,22 @@ METADATA_EXPLANATIONS = {
     " and dubs.",
     "pubdate": "The publication date of the document",
     "publisher": "The publisher(s) of the document",
-    "publisher_id_map": "A map between the publisher name and the  corresponding entry in the " "LiuXin database.",
+    "publisher_id_map": "A map between the publisher name and the  corresponding entry in the " "LiuXin databases.",
     "producer": "if it matters - I guess would be the editor of an anthology",
     "ratings": "Keyed off the name of the ratings body. Valued by the rating.",
     "rights": "Who owns the rights to a work",
     "series": "Which series the work belongs to",
-    "series_id_map": "A map between the series and the LiuXin database series.",
+    "series_id_map": "A map between the series and the LiuXin databases series.",
     "series_index": "The position of the title in the various series. "
     "Keyed with the name of the series and valued with the position of the "
     "title in that series.",
     "subject": "What it says on the tin.",
     "synopsis": "An HTML formatted synopsis of the title.",
     "tags": "A set of tags for the title",
-    "tags_id_map": "A mapping between the given tags and the tag_ids in the LiuXin database",
-    "timestamp": "When the work was added to the database",
+    "tags_id_map": "A mapping between the given tags and the tag_ids in the LiuXin databases",
+    "timestamp": "When the work was added to the databases",
     "title": "The title of the work",
-    "title_id_map": "A mapping between the title of the work and a title_id in the LiuXin" " database",
+    "title_id_map": "A mapping between the title of the work and a title_id in the LiuXin" " databases",
     "user_metadata": "Keyed off the metadata name.",
     "wordcount": "The wordcount of the document (freely avalible in some formats).",
 }

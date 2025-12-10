@@ -133,7 +133,7 @@ class Base(object):
 
     def foreign_key(self, class_name, separate_class_name_and_id_with_underscore=1):
         """Returns class_name in underscored form, with "_id" tacked on at the end.
-        This is for use in dealing with the database."""
+        This is for use in dealing with the databases."""
         if separate_class_name_and_id_with_underscore:
             tail = "_id"
         else:

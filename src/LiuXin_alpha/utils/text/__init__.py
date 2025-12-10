@@ -8,6 +8,10 @@ from typing import Optional
 import re
 
 
+def isbytestring(obj):
+    return isinstance(obj, (str, bytes))
+
+
 def url_slash_cleaner(url):
     """
     Removes redundant /'s from urls.

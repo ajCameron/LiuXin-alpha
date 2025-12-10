@@ -12,7 +12,7 @@ from __future__ import print_function
 # Broadly a collection of everything which can be included in a webpage
 
 
-# Files for immediate inclusion in the database
+# Files for immediate inclusion in the databases
 
 # Files which might want to be included, but probably need more work
 # (by default the Grey List is everything which is not black or white. This is just a start).

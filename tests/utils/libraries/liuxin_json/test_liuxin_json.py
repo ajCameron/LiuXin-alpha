@@ -16,6 +16,13 @@ class TestLiuXinJson:
 
         assert LiuXinJSON is not None
 
+    def test_dump_with_liuxin_json(self) -> None:
+        """
+        Tests dumping an object to string with LiuXin json.
 
+        :return:
+        """
+        from LiuXin_alpha.utils.libraries.liuxin_json import LiuXinJSON
 
-
+        test_case = LiuXinJSON()
+        assert test_case.dumps("This is a very simple test.") == '"VGhpcyBpcyBhIHZlcnkgc2ltcGxlIHRlc3Qu"'

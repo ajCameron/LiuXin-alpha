@@ -62,7 +62,7 @@ VERBOSE_DEBUG = False
 
 # Causes LiuXin to print a lot.
 # This included, but is not limited to
-# 1 - Any statement executed on the database
+# 1 - Any statement executed on the databases
 # 2 - Any warning produced during normal operation
 # 3 - Anything that seems unusual. Including, but not limited to
 # - - OPF files having two sections identifiable as metadata

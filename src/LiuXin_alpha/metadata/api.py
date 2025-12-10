@@ -17,7 +17,11 @@ import dataclasses
 class BookMetadataAPI(abc.ABC):
     """
     Complete metadata for a book.
+
+    Contains all the metadata for a book in various types of container.
     """
+
+
 
 
 
@@ -38,7 +42,9 @@ class FileMetadata:
 @dataclasses.dataclass
 class FileLineage:
     """
+    Files can be derived from each other, so each file can have a lineage.
 
+    (often this lineage will be one file deep).
     """
 
 
