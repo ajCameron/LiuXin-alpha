@@ -8,6 +8,7 @@ Works are at the top of the tree - everything descends from them.
 from typing import Optional, Iterable
 
 
+
 class WorkContainer:
     """
     Container for information from the Works table.
@@ -58,6 +59,12 @@ class WorksContainer:
     _works: list[WorkContainer] = []
 
     def __init__(self, works: Iterable[WorkContainer]) -> None:
+        """
+        Initialize the WorksContainer.
+
+        :param works:
+        """
+        self._works = [wc for wc in works]
 
 
 

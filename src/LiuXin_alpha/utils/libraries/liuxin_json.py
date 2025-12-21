@@ -7,10 +7,8 @@ from __future__ import print_function
 # This is to get around some annoying, improperly escaped characters in the calibre tweaks, so that they can be all
 # merged with preferences
 
-from past.builtins import basestring
-
 import base64
-import imp
+import importlib
 import re
 import sys
 
@@ -23,9 +21,10 @@ from json.decoder import WHITESPACE
 from json.decoder import WHITESPACE_STR
 from json.decoder import scanstring as original_scanstr
 
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, six_string_types as basestring, six_unichar as unichr
 
-from past.builtins import unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
+
 
 
 class ParseError(Exception):
@@ -35,7 +34,9 @@ class ParseError(Exception):
 class LiuXinJSON(object):
     def __init__(self):
 
-        modded_json = imp.load_module("modded_json", *imp.find_module("json"))
+        m = importlib.import_module("json")
+        sys.modules["modded_json"] = m
+        modded_json = m
 
         modded_json.encoder.encode_basestring_ascii = self.to_base64_str
         modded_json.encoder.encode_basestring = self.to_base64_str

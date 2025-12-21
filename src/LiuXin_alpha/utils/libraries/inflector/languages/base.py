@@ -9,10 +9,11 @@ import unicodedata
 
 
 class Base(object):
-    """Locale inflectors must inherit from this base class inorder to provide
-    the basic Inflector functionality"""
+    """
+    Locale inflectors must inherit from this base class inorder to provide the basic Inflector functionality.
+    """
 
-    def conditional_plural(self, number_of_records, word):
+    def conditional_plural(self, number_of_records: int, word: str) -> str:
         """Returns the plural form of a word if first parameter is greater than 1"""
 
         if number_of_records > 1:
@@ -20,29 +21,32 @@ class Base(object):
         else:
             return word
 
-    def titleize(self, word, uppercase=""):
+    def titleize(self, word: str, uppercase: str = "") -> str:
         """Converts an underscored or CamelCase word into a English sentence.
-        The titleize function converts text like "WelcomePage",
-        "welcome_page" or  "welcome page" to this "Welcome Page".
-        If second parameter is set to 'first' it will only
-        capitalize the first character of the title."""
+
+        The titleize function converts text like "WelcomePage", "welcome_page" or  "welcome page" to this
+        "Welcome Page".
+        If second parameter is set to 'first' it will only capitalize the first character of the title.
+        """
 
         if uppercase == "first":
             return self.humanize(self.underscore(word)).capitalize()
         else:
             return self.humanize(self.underscore(word)).title()
 
-    def camelize(self, word):
-        '''Returns given word as CamelCased
-        Converts a word like "send_email" to "SendEmail". It
-        will remove non alphanumeric character from the word, so
-        "who's online" will be converted to "WhoSOnline"'''
+    def camelize(self, word: str) -> str:
+        """
+        Returns given word as CamelCased Converts a word like "send_email" to "SendEmail".
+
+        It will remove non-alphanumeric character from the word, so "who's online" will be converted to "WhoSOnline".
+        """
         return "".join(w[0].upper() + w[1:] for w in re.sub("[^A-Z^a-z^0-9^:]+", " ", word).split(" "))
 
-    def underscore(self, word):
-        """Converts a word "into_it_s_underscored_version"
-        Convert any "CamelCased" or "ordinary Word" into an
-        "underscored_word".
+    def underscore(self, word: str) -> str:
+        """
+        Converts a word "into_it_s_underscored_version"
+
+        Convert any "CamelCased" or "ordinary Word" into an "underscored_word".
         This can be really useful for creating friendly URLs."""
 
         return re.sub(
@@ -55,13 +59,14 @@ class Base(object):
             ),
         ).lower()
 
-    def humanize(self, word, uppercase=""):
-        """Returns a human-readable string from word
-        Returns a human-readable string from word, by replacing
-        underscores with a space, and by upper-casing the initial
-        character by default.
-        If you need to uppercase all the words you just have to
-        pass 'all' as a second parameter."""
+    def humanize(self, word: str, uppercase: str = "") -> str:
+        """
+        Returns a human-readable string from word
+
+        Returns a human-readable string from word, by replacing underscores with a space,
+        and by upper-casing the initial character by default.
+        If you need to uppercase all the words you just have to pass 'all' as a second parameter.
+        """
 
         if uppercase == "first":
             return re.sub("_id$", "", word).replace("_", " ").capitalize()

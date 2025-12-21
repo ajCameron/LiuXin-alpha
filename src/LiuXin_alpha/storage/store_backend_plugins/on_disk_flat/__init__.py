@@ -5,8 +5,7 @@ Flat stores every file very simply - in a single folder with its name the LiuXin
 Mostly for testing purposes.
 """
 
-
-from src.LiuXin_alpha.storage.api import StorageBackendAPI
+from LiuXin_alpha.storage.api.storage_api import StorageBackendAPI
 
 
 class OnDiskFlatStorageBackend(StorageBackendAPI):

@@ -7,6 +7,12 @@ This is intended to be embedded in a lot of classes - and provide a common inter
 """
 
 import logging
+import sys
+import os
+
+from LiuXin_alpha.utils.which_os import iswindows
+
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
 
 default_log = logging.getLogger("LiuXin_alpha-default-log")
@@ -19,6 +25,7 @@ def multi_string_print(*args: str) -> None:
     :param args:
     :return:
     """
+    args = [str(arg) for arg in args]
     print("\n".join(args))
 
 
@@ -42,7 +49,11 @@ def prints(*args, **kwargs):
     file = kwargs.get("file", sys.stdout)
     sep = kwargs.get("sep", " ")
     end = kwargs.get("end", "\n")
-    enc = preferred_encoding
+    try:
+        enc = preferred_encoding
+    except:
+        enc = sys.getdefaultencoding()
+
     safe_encode = kwargs.get("safe_encode", False)
 
     if "CALIBRE_WORKER" in os.environ:
@@ -53,7 +64,7 @@ def prints(*args, **kwargs):
         if isinstance(arg, str):
 
             if iswindows:
-                from LiuXin.utils.terminal import Detect
+                from LiuXin_alpha.utils.terminal import Detect
 
                 # Todo: This is absolutely not working in any way at all - even a bit
                 # Todo: In fact, it is on fire. Right now. Actual flames.

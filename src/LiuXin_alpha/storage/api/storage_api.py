@@ -1,93 +1,20 @@
 
 """
-Contains the fundamental APIs for the storage class.
+Contains API elements for the actual storage classes.
 """
 
-# Todo: Rules about what can be stored in which store?
 
-from typing import Optional
+from __future__ import annotations
 
 import abc
 import dataclasses
 import pprint
+from typing import Optional, Iterator
 
-from src.LiuXin_alpha.utils.event_log.api import EventLogAPI
+from LiuXin_alpha.storage.api.file_api import SingleFileAPI
+from LiuXin_alpha.utils.logging.api import EventLogAPI
+from LiuXin_alpha.metadata.api import MetadataContainerAPI
 
-
-@dataclasses.dataclass
-class SingleFileStatus:
-    """
-    Contains the status of a file.
-
-    This contains no metadata at all.
-    Only information on the file itself is stored and presented.
-    What this information means can be backend dependent.
-    """
-    uuid: str      # - If you want to do anything with a folder store, you need the file uuid
-    size: int      # - File size in bytes
-    hash: str      # - Hash of the file itself
-    url: str       # - Some form of resource ULR to get at the file
-
-    last_checked: str   # - When did we last KNOW we had the file?
-
-
-class SingleFile(abc.ABC):
-    """
-    Container representing a single file in a single store.
-    """
-    status: SingleFileStatus          # - Status for the file on the system
-
-    store: str                      # - Which store is the file in?
-    file_url: str                   # - url to this instance of the file
-
-    binary: Optional[bytes] = None      # - Binary bits of the file
-
-    loaded: bool = False        # - Has the file actually been loaded into this dataclass?
-
-    @property
-    def uuid(self) -> str:
-        """
-        Return the uuid for the file stored in the status.
-
-        :return:
-        """
-        return self.status.uuid
-
-    @property
-    def size(self) -> int:
-        """
-        Return the size for the individual file.
-
-        :return:
-        """
-        return self.status.size
-
-    @property
-    def hash(self) -> str:
-        """
-        Return the hash of the file.
-        :return:
-        """
-        return self.status.hash
-
-    @property
-    def url(self) -> str:
-        """
-        Return the URL of the file.
-
-        :return:
-        """
-        return self.status.url
-
-
-@dataclasses.dataclass
-class FileStatus:
-    """
-    Status for a file on the system - includes LiuXin wide metadata
-    """
-
-    copies: str         # - Number of copies the system has access to?
-    protected: bool     # - Does the system consider the file to be protected?
 
 
 @dataclasses.dataclass
@@ -140,14 +67,28 @@ class StorageBackendAPI(abc.ABC):
 
     Every store backend plugins should inherit from this class.
     """
+    _url: str
+    _name: str
+    _uuid: Optional[str]
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, name: Optional[str] = None, uuid: Optional[str] = None) -> None:
         """
         Initialize the store.
 
         :param url:
         """
         self.set_url(url)
+        self._name = name if name is not None else self.url_to_name(url)
+        self._uuid = uuid
+
+    @abc.abstractmethod
+    def url_to_name(self, url: str) -> str:
+        """
+        Generate a name from a URL.
+
+        :param url:
+        :return:
+        """
 
     @abc.abstractmethod
     def startup(self) -> StorageBackendStatus:
@@ -165,15 +106,24 @@ class StorageBackendAPI(abc.ABC):
         :return:
         """
 
-    @abc.abstractmethod
     @property
-    def url(self) -> None:
+    def url(self) -> str:
         """
         Return the url of the store.
         :return:
         """
+        return self._url
 
-    @abc.abstractmethod
+    @url.setter
+    def url(self, url: str) -> None:
+        """
+        Cannot directly set the url of a store.
+
+        :param url:
+        :return:
+        """
+        raise AttributeError("Cannot directly set the url of a store.")
+
     def set_url(self, new_url: str) -> None:
         """
         Set the URL for the backend store.
@@ -181,8 +131,8 @@ class StorageBackendAPI(abc.ABC):
         :param new_url:
         :return:
         """
+        self._url = new_url
 
-    @abc.abstractmethod
     @property
     def name(self) -> str:
         """
@@ -190,8 +140,18 @@ class StorageBackendAPI(abc.ABC):
 
         :return:
         """
+        return self._name
 
-    @abc.abstractmethod
+    @name.setter
+    def name(self, name: str) -> None:
+        """
+        Cannot directly set the name of a store.
+
+        :param name:
+        :return:
+        """
+        raise AttributeError("Cannot directly set the name of a store.")
+
     @property
     def uuid(self) -> str:
         """
@@ -199,8 +159,18 @@ class StorageBackendAPI(abc.ABC):
 
         :return:
         """
+        return self._uuid
 
-    @abc.abstractmethod
+    @uuid.setter
+    def uuid(self, uuid: str) -> None:
+        """
+        Cannot directly set the uuid of a store.
+
+        :param uuid:
+        :return:
+        """
+        raise AttributeError("Cannot directly set the uuid of a store.")
+
     @property
     def online(self) -> bool:
         """
@@ -209,7 +179,6 @@ class StorageBackendAPI(abc.ABC):
         :return:
         """
 
-    @abc.abstractmethod
     @property
     def checked(self) -> bool:
         """
@@ -237,10 +206,29 @@ class StorageBackendAPI(abc.ABC):
         """
         return pprint.pformat(self.status())
 
+    def file_exists(self, file_url: str) -> bool:
+        """
+        Does a given file actually exist in the store?
+
+        :param file_url:
+        :return:
+        """
+
+    def true_files(self) -> Iterator[SingleFileAPI]:
+        """
+        Represents files ACTUALLY in the store.
+
+        It's often useful to have an accounting for the files ACTUALLY present - provide it.
+        :return:
+        """
+
 
 class StorageAPI(abc.ABC):
     """
     Provides management and frontend for actually working with the stores.
+
+    There is probably only going to be one implementation of this class.
+    But presenting an API is good practice.
     """
 
     @abc.abstractmethod
@@ -253,11 +241,52 @@ class StorageAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def add_file(self, file_bytes: bytes):
+    def add_file(self,
+                 file_bytes: bytes,
+                 metadata: Optional[MetadataContainerAPI] = None) -> bool:
         """
-        Add a file to the store.
+        Add a file to storage.
 
         :param file_bytes:
+        :param metadata: Some stores are metadata aware.
+                         This means that they, in some way, store the file and the metadata together
+                         This can be
+                         - some meaningful file name
+                         - directly stored as a json file
+                         It's up to the store. Separation of concerns and all!
         :return:
         """
 
+    @abc.abstractmethod
+    def retrieve_file(self,
+                      file_url: Optional[str],
+                      metadata: Optional[MetadataContainerAPI]) -> SingleFileAPI:
+        """
+        Retrieve and return a file in the form of a container providing the SingleFileAPI.
+
+        :param file_url:
+        :param metadata:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def delete_file(self,
+                    file_url: Optional[str] = None,
+                    metadata: Optional[MetadataContainerAPI] = None,
+                    file_container: Optional[SingleFileAPI] = None) -> bool:
+        """
+        Delete a file in a store.
+
+        :param file_url:
+        :param metadata:
+        :param file_container:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def iter(self) -> Iterator[SingleFileAPI]:
+        """
+        Iterate over all files in storage.
+
+        :return:
+        """

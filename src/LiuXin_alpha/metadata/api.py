@@ -13,15 +13,47 @@ It also includes the API for the plugins used to read and write metadata from fi
 import abc
 import dataclasses
 
+from typing import Optional
 
-class BookMetadataAPI(abc.ABC):
+
+class MetadataContainerAPI(abc.ABC):
     """
-    Complete metadata for a book.
+    Fundamental API for the metadata containers.
+
+    Probably SO fundamental that there's no actual stuff that can be hung on it.
+    But it seems neater to have something at the root of the class hierarchy.
+    """
+
+
+class BookMetadataContainerAPI(MetadataContainerAPI):
+    """
+    Complete metadata for a "book" shaped object.
 
     Contains all the metadata for a book in various types of container.
     """
+    def __init__(self, title: str) -> None:
+        """
+        Container for all the metadata of the book.
+
+        :param title:
+        """
+        self.title = title
 
 
+class FileAddStatusAPI:
+    """
+    Status of trying to add a file to a store.
+
+    The status should depend on the store itself.
+    """
+    status: bool                        # - True if we did add, False otherwise
+    error_str: Optional[str] = None     # - If something has gone wrong
+
+
+class WorkContainerAPI:
+    """
+    API for the work containers.
+    """
 
 
 

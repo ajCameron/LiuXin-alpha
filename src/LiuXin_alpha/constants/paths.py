@@ -3,17 +3,22 @@
 Paths to various resources.
 """
 
-
 from __future__ import print_function
+
+
+from typing import Iterable, Tuple
+
+
 
 import os
 
 from copy import deepcopy
 
 
-def rebuild_file_path(split_file_path):
+def rebuild_file_path(split_file_path: Iterable[str]) -> str:
     """
     Used when a path has been split down into a tuple or an index.
+
     Calls os.path.join repeatably with every element of the iterable.
     :param split_file_path:
     :return:
@@ -35,7 +40,7 @@ def rebuild_file_path(split_file_path):
 # Calculating the path to the folder LiuXin is executing in
 LiuXin_path = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 LiuXin_path_split = LiuXin_path.split(os.sep)
-LiuXin_base_folder_split = LiuXin_path_split[:-2]
+LiuXin_base_folder_split = LiuXin_path_split[:-3]
 LiuXin_base_folder = rebuild_file_path(LiuXin_base_folder_split)
 
 # paths to the other random folder that LiuXin likes for operational purposes
@@ -45,8 +50,6 @@ LiuXin_calibre_caches = os.path.join(LiuXin_calibre_prefs_folder, "caches")
 LiuXin_calibre_config_folder = os.path.join(LiuXin_prefs_folder, "calibre_config")
 config_dir = LiuXin_calibre_config_folder
 CONFIG_DIR_MODE = 0o0700
-
-LiuXin_debug_folder = os.path.join(LiuXin_base_folder, "LiuXin_debug")
 
 LiuXin_scratch_folder = os.path.join(LiuXin_base_folder, "LiuXin_scratch")
 
@@ -78,14 +81,11 @@ LiuXin_base_folder = rebuild_file_path(LiuXin_base_folder_split)
 
 LiuXin_prefs_folder = os.path.join(LiuXin_base_folder, "LiuXin_prefs")
 LiuXin_calibre_prefs_folder = os.path.join(LiuXin_prefs_folder, "calibre_prefs")
-LiuXin_calibre_caches = os.path.join(LiuXin_calibre_prefs_folder, "caches")
+
 LiuXin_calibre_config_folder = os.path.join(LiuXin_prefs_folder, "calibre_config")
 
-config_dir = LiuXin_calibre_config_folder
-CONFIG_DIR_MODE = 0o700
-
 LiuXin_debug_folder = os.path.join(LiuXin_base_folder, "LiuXin_debug")
-LiuXin_scratch_folder = os.path.join(LiuXin_base_folder, "LiuXin_scratch")
+
 LiuXin_data_folder = os.path.join(LiuXin_base_folder, "LiuXin_data")
 LiuXin_calibre_resources = os.path.join(LiuXin_data_folder, "calibre_resources")
 LiuXin_calibre_resources_folder = os.path.join(LiuXin_data_folder, "calibre_resources")

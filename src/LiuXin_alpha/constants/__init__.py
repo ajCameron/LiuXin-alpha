@@ -23,6 +23,7 @@ from LiuXin_alpha.utils.logging import LiuXin_print
 __license__ = "GPL v3"
 __appname__ = "LiuXin"
 
+from LiuXin_alpha.utils.which_os import iswindows, isosx, isportable
 
 LIUXIN_NUMERIC_VERSION = (0, 0, 8)
 __version__ = ".".join(map(str, LIUXIN_NUMERIC_VERSION))
@@ -113,25 +114,6 @@ class Resource_Error(Exception):
 ALLOWED_DOC_TYPES = ["ebook"]
 
 
-_plat = sys.platform.lower()
-iswindows = "win32" in _plat or "win64" in _plat
-isosx = "darwin" in _plat
-isnewosx = isosx and getattr(sys, "new_app_bundle", False)
-isfreebsd = "freebsd" in _plat
-isnetbsd = "netbsd" in _plat
-isdragonflybsd = "dragonfly" in _plat
-isbsd = isfreebsd or isnetbsd or isdragonflybsd
-islinux = not (iswindows or isosx or isbsd)
-isfrozen = hasattr(sys, "frozen")
-isunix = isosx or islinux
-isportable = os.environ.get("CALIBRE_PORTABLE_BUILD", None) is not None
-ispy3 = sys.version_info.major > 2
-# Deals with the fact that sys.getwindowsversion is not defined on all systems
-try:
-    isxp = iswindows and sys.getwindowsversion().major < 6
-except AttributeError:
-    isxp = False
-is64bit = sys.maxsize > (1 << 32)
 
 
 # TODO: Make sure that everything is re-encoded to utf-8 if the file system is not encoded that way
@@ -433,14 +415,22 @@ def get_version():
 
 
 # Todo: Add fall backs in case LX is running on a system without these installed
-win32event = importlib.import_module("win32event") if iswindows else None
+try:
+    win32event = importlib.import_module("win32event") if iswindows else None
+except ImportError:
+    win32event = None
+
 try:
     winerror = importlib.import_module("winerror") if iswindows else None
 except ImportError:
     # From http://bugs.python.org/file7326/winerror.py
     # Seems to just be a simple mapping of errors codes - should work
-    import utils.lx_libraries.liuxin_winerror as winerror
-win32api = importlib.import_module("win32api") if iswindows else None
+    import LiuXin_alpha.utils.libraries.liuxin_winerror as winerror
+try:
+    win32api = importlib.import_module("win32api") if iswindows else None
+except ImportError:
+    win32api = None
+
 fcntl = None if iswindows else importlib.import_module("fcntl")
 
 

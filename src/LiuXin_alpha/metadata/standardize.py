@@ -44,11 +44,11 @@ from LiuXin_alpha.preferences import preferences as tweaks
 
 try:
     _author_pat = re.compile(tweaks["authors_split_regex"])
-except (TypeError, re.error):
+except (TypeError, re.error, KeyError) as e:
     LiuXin_warning_print(
         "Author split regexp:",
-        tweaks["authors_split_regex"],
-        "is invalid, using default",
+        "is invalid or not present, using default",
+        str(e)
     )
     _author_pat = re.compile(r"(?i),?\s+(and|with)\s+")
 

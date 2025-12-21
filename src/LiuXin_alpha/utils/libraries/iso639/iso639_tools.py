@@ -4,7 +4,7 @@ Tools to process and understand languages codes.
 
 from copy import deepcopy
 
-from past.builtins import unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
 from typing import Optional
 

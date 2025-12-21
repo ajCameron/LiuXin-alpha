@@ -137,12 +137,14 @@ class Preferences(object):
     def load(self):
         """
         Load the file contained at the current config_file_path.
+
         All variables currently stored will be dropped and reloaded.
         :return:
         """
         self.config = ConfigParser.RawConfigParser()
+
         with open(self.config_file_path, "r") as cfgfile:
-            self.config.readfp(cfgfile)
+            self.config.read(cfgfile)
 
         self._active_variables = dict()
         self._variable_type = dict()
