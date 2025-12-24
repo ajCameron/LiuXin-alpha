@@ -32,6 +32,8 @@ import uuid
 from copy import deepcopy
 from functools import partial
 
+from typing import Optional
+
 from LiuXin_alpha.constants.paths import LiuXin_prefs_folder
 
 from LiuXin_alpha.utils.libraries.liuxin_json import LiuXinJSON
@@ -47,9 +49,10 @@ class ParseError(Exception):
     pass
 
 
-class Preferences(object):
+class Preferences:
     """
     Stores preferences and tweaks for LiuXin.
+
     Provides methods to load and retrieve preferences - in the form of certain, limited data structures.
     Stores the preferences in memory for fast access.
     Unlike the standard ConfigParser does not permit adding options with duplicate names - even if they are in
@@ -75,10 +78,11 @@ class Preferences(object):
         "tuple_64",
     }
 
-    def __init__(self, backup_folder=False, cont_backup=True):
+    def __init__(self, backup_folder: Optional[str] = None, cont_backup: Optional[bool] = True) -> None:
         """
         Detects an existing preferences file. Tries to load it.
         If it can't load the file then falls back on the defaults.
+
         :param backup_folder: If provided then the preferences file will be placed here.
                               If an existing preferences file is found during startup then the file will be moved here
                               before being opened.
@@ -115,10 +119,12 @@ class Preferences(object):
                 self.config_file_exists = False
 
         # Using the backup_folder status either create the preferences file or copy it.
-        if backup_folder:
+        if backup_folder is not None:
             new_config_file = os.path.join(backup_folder, Preferences.config_file_name)
+
             if self.config_file_exists:
                 shutil.copy2(self.config_file_path, new_config_file)
+
             self.config_file_path = new_config_file
 
         # Stores the config which underlies all stored preferences - allows for easy dumping

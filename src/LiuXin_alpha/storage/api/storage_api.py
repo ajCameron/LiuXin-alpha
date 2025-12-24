@@ -9,9 +9,9 @@ from __future__ import annotations
 import abc
 import dataclasses
 import pprint
-from typing import Optional, Iterator
+from typing import Optional, Iterator, Any
 
-from LiuXin_alpha.storage.api.file_api import SingleFileAPI
+# from LiuXin_alpha.storage.api.file_api import SingleFileAPI
 from LiuXin_alpha.utils.logging.api import EventLogAPI
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
 
@@ -206,6 +206,7 @@ class StorageBackendAPI(abc.ABC):
         """
         return pprint.pformat(self.status())
 
+    @abc.abstractmethod
     def file_exists(self, file_url: str) -> bool:
         """
         Does a given file actually exist in the store?
@@ -214,13 +215,25 @@ class StorageBackendAPI(abc.ABC):
         :return:
         """
 
-    def true_files(self) -> Iterator[SingleFileAPI]:
+    @abc.abstractmethod
+    def get_file(self, file_url: str) -> "SingleFileAPI":
+        """
+        Return a single file from the store.
+
+        :return:
+        """
+
+
+
+    def true_files(self) -> Iterator["SingleFileAPI"]:
         """
         Represents files ACTUALLY in the store.
 
         It's often useful to have an accounting for the files ACTUALLY present - provide it.
         :return:
         """
+
+
 
 
 class StorageAPI(abc.ABC):
@@ -260,7 +273,7 @@ class StorageAPI(abc.ABC):
     @abc.abstractmethod
     def retrieve_file(self,
                       file_url: Optional[str],
-                      metadata: Optional[MetadataContainerAPI]) -> SingleFileAPI:
+                      metadata: Optional[MetadataContainerAPI]) -> "SingleFileAPI":
         """
         Retrieve and return a file in the form of a container providing the SingleFileAPI.
 
@@ -273,7 +286,7 @@ class StorageAPI(abc.ABC):
     def delete_file(self,
                     file_url: Optional[str] = None,
                     metadata: Optional[MetadataContainerAPI] = None,
-                    file_container: Optional[SingleFileAPI] = None) -> bool:
+                    file_container: Optional["SingleFileAPI"] = None) -> bool:
         """
         Delete a file in a store.
 
@@ -284,7 +297,7 @@ class StorageAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def iter(self) -> Iterator[SingleFileAPI]:
+    def iter(self) -> Iterator["SingleFileAPI"]:
         """
         Iterate over all files in storage.
 

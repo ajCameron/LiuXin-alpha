@@ -4,11 +4,11 @@ Represents a single file in an unmanaged on disk folder store.
 """
 
 
-from LiuXin_alpha.storage.api import SingleFileAPI
+from LiuXin_alpha.storage.api.file_api import SingleFileAPI
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 
 
-class SingleOnDiskUnmanagedSingleFile(SingleFileAPI):
+class OnDiskUnmanagedSingleFile(SingleFileAPI):
     """
     Represents a single file on disk.
 

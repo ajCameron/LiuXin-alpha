@@ -8,7 +8,7 @@ from typing import Literal, overload, Optional, BinaryIO, IO, Any, TypeVar
 
 from LiuXin_alpha.storage.api.modes_api import OpenTextMode, OpenBinaryModeUpdating, OpenBinaryModeWriting, \
     OpenBinaryModeReading, OpenBinaryMode, _Opener
-from LiuXin_alpha.storage.api.path_api import FileDescriptorOrPath
+from LiuXin_alpha.storage.api.location_api import FileDescriptorOrPath
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 
 T = TypeVar("T")
@@ -226,6 +226,8 @@ class FileStatus:
 
     copies: str         # - Number of copies the system has access to?
     protected: bool     # - Does the system consider the file to be protected?
+
+
 
 
 

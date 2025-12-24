@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Optional
+
+import time
 
 
 class SingleFileStatus:
@@ -18,12 +20,68 @@ class SingleFileStatus:
     _hash: str      # - Hash of the file itself
     _url: str       # - Some form of resource ULR to get at the file
 
-    last_checked: str   # - When did we last KNOW we had the file?
+    last_checked: Optional[float]   # - When did we last KNOW we had the file?
 
     # These are all STORAGE BACKEND functions which are bound into this class to permit object checks
     _check_exists_function: Callable[[str], bool]
     _check_size_function: Callable[[str], int]
     _check_hash_function: Callable[[str], str]
+
+    def __init__(self,
+                 url: str,
+                 exists: Optional[bool] = None,
+                 size: Optional[int] = None,
+                 file_hash: Optional[str] = None,
+                 uuid: Optional[str] = None,
+                 last_checked: Optional[float] = None,
+                 check_exists_function: Optional[Callable[[str], bool]] = None,
+                 check_size_function: Optional[Callable[[str], int]] = None,
+                 check_hash_function: Optional[Callable[[str], str]] = None,
+                 ) -> None:
+        """
+        Load the file with the tools required to actually know and check it's own status.
+
+        :param url:
+        :param exists:
+        :param size:
+        :param uuid:
+        :param last_checked:
+        :param check_exists_function:
+        :param check_size_function:
+        :param check_hash_function:
+        """
+        assert check_exists_function is not None, "check_exists_function is not defined"
+        assert check_size_function is not None, "check_size_function is not defined"
+        assert check_hash_function is not None, "check_hash_function is not defined"
+
+        self._url = url
+
+        if exists is not None:
+            self._exists = exists
+        else:
+            self._exists = check_exists_function(url)
+
+        if size is not None:
+            self._size = size
+        else:
+            self._size = check_size_function(url)
+
+        if file_hash is not None:
+            self._hash = file_hash
+        else:
+            self._hash = check_hash_function(url)
+
+        self._uuid = uuid
+
+        self._check_exists_function = check_exists_function
+        self._check_size_function = check_size_function
+        self._check_hash_function = check_hash_function
+
+        if last_checked is not None:
+            self.last_checked = last_checked
+        else:
+            self.last_checked = float(time.time())
+
 
     @property
     def uuid(self) -> str:

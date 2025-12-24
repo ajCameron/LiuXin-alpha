@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional, Union
 
-
+from LiuXin_alpha.storage.api.file_api import SingleFileAPI
 from LiuXin_alpha.storage.api.storage_api import StorageBackendAPI, StorageBackendStatus
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 from LiuXin_alpha.utils.storage.local.local_store_smoke_test import StorageIOSmokeTest
@@ -16,6 +16,9 @@ from LiuXin_alpha.utils.storage.local.local_store_properties import get_free_byt
 
 from LiuXin_alpha.utils.logging.event_logs import DefaultEventLog
 from LiuXin_alpha.storage.api.storage_api import StorageBackendCheckStatus
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_unmanaged_drive.on_disk_unmanaged_single_file import OnDiskUnmanagedSingleFile, SingleFileStatus
+
+
 
 
 class OnDiskUnmanagedStorageBackend(StorageBackendAPI):
@@ -87,6 +90,42 @@ class OnDiskUnmanagedStorageBackend(StorageBackendAPI):
         :return:
         """
         return self.self_test()
+
+    def file_exists(self, file_url: str) -> bool:
+        """
+        Does the file actually exist in the store?
+
+        :param file_url:
+        :return:
+        """
+        return os.path.exists(file_url)
+
+    def file_size(self, file_url: str) -> Optional[int]:
+        """
+        Return the size of the file in the store.
+
+        :param file_url:
+        :return:
+        """
+        return os.path.getsize(file_url)
+
+    def get_file_status(self, file_url: str) -> SingleFileStatus:
+        """
+        Return the status of the file actually exist in the store.
+
+        :param file_url:
+        :return:
+        """
+
+
+    def get_file(self, file_url: str) -> SingleFileAPI:
+        """
+        Return a single file from the store.
+
+        :param file_url:
+        :return:
+        """
+        return OnDiskUnmanagedSingleFile(file_url)
 
 
 
