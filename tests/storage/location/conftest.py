@@ -16,6 +16,17 @@ from LiuXin_alpha.storage.store_backend_plugins.on_disk_unmanaged_drive.on_disk_
 )
 
 
+@pytest.fixture(params=[OnDiskUnmanagedStoreLocation, None], name="loc_cls")
+def _loc_cls(request):
+    """Parametrized Location class under test.
+
+    We include both the sync-native and the async-native (sync façade) Location.
+    """
+    if request.param is None:
+        return AsyncOnDiskLocation
+    return request.param
+
+
 @pytest.fixture()
 def store(tmp_path: pathlib.Path) -> OnDiskUnmanagedStorageBackend:
     """A real on-disk store rooted in a unique temp directory."""
@@ -25,16 +36,12 @@ def store(tmp_path: pathlib.Path) -> OnDiskUnmanagedStorageBackend:
 
 @pytest.fixture()
 def root_loc(store: OnDiskUnmanagedStorageBackend) -> OnDiskUnmanagedStoreLocation:
-    """
-    Root Location for the temp store.
-    """
+    """Root Location for the temp store."""
     return OnDiskUnmanagedStoreLocation(store=store)
 
 
 def fs_path(store: OnDiskUnmanagedStorageBackend, *tokens: str) -> pathlib.Path:
-    """
-    Absolute filesystem path for a tokenized Location within the store.
-    """
+    """Absolute filesystem path for a tokenized Location within the store."""
     return pathlib.Path(store.url).joinpath(*tokens)
 
 
@@ -102,7 +109,26 @@ class AsyncOnDiskLocation(AsyncNativePretendSyncLocation):
 
     def __init__(self, *args: str, store: Any) -> None:
         super().__init__(*args, store=store)
-        self._loc_path = pathlib.Path(self.store.url).joinpath(*args)
+
+        store_root = pathlib.Path(self.store.url).resolve()
+        candidate = store_root.joinpath(*self._tokens)
+
+        # Validate that any existing prefix stays inside the store (symlink-safe).
+        probe = store_root
+        for seg in self._tokens:
+            nxt = probe / seg
+            if nxt.exists() or nxt.is_symlink():
+                try:
+                    probe = nxt.resolve(strict=True)
+                except FileNotFoundError:
+                    probe = nxt
+            else:
+                probe = nxt
+
+        if not probe.is_relative_to(store_root):
+            raise ValueError("Location escapes store root (refusing '..' / traversal).")
+
+        self._loc_path = candidate
 
     def as_store_key(self) -> str:
         return str(self._loc_path)
@@ -120,55 +146,66 @@ class AsyncOnDiskLocation(AsyncNativePretendSyncLocation):
         return await asyncio.to_thread(self._loc_path.stat)
 
     async def amkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
-        await asyncio.to_thread(self._loc_path.mkdir, mode, parents, exist_ok)
+        await asyncio.to_thread(self._loc_path.mkdir, mode=mode, parents=parents, exist_ok=exist_ok)
 
     async def aunlink(self, missing_ok: bool = False) -> None:
-        await asyncio.to_thread(self._loc_path.unlink, missing_ok)
+        await asyncio.to_thread(self._loc_path.unlink, missing_ok=missing_ok)
 
     async def armdir(self) -> None:
         await asyncio.to_thread(self._loc_path.rmdir)
 
     async def arename(self, target: str | os.PathLike[str]) -> Self:
-        store_root = pathlib.Path(self.store.url)
+        store_root = pathlib.Path(self.store.url).resolve()
         target_p = pathlib.Path(target)
+
         if not target_p.is_absolute() and len(target_p.parts) == 1:
             target_p = self._loc_path.with_name(target_p.name)
+        elif not target_p.is_absolute():
+            target_p = store_root.joinpath(target_p)
+
+        # convenience: create parent directories when doing store-relative moves
+        target_p.parent.mkdir(parents=True, exist_ok=True)
+
         new_path = await asyncio.to_thread(self._loc_path.rename, target_p)
         rel = new_path.relative_to(store_root)
         return self.__class__(*rel.parts, store=self._store)
 
     async def areplace(self, target: str | os.PathLike[str]) -> Self:
-        store_root = pathlib.Path(self.store.url)
+        store_root = pathlib.Path(self.store.url).resolve()
         target_p = pathlib.Path(target)
+
         if not target_p.is_absolute() and len(target_p.parts) == 1:
             target_p = self._loc_path.with_name(target_p.name)
         elif not target_p.is_absolute():
             target_p = store_root.joinpath(target_p)
+
+        target_p.parent.mkdir(parents=True, exist_ok=True)
+
         new_path = await asyncio.to_thread(self._loc_path.replace, target_p)
         rel = new_path.relative_to(store_root)
         return self.__class__(*rel.parts, store=self._store)
 
     async def atouch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
-        await asyncio.to_thread(self._loc_path.touch, mode, exist_ok)
+        await asyncio.to_thread(self._loc_path.touch, mode=mode, exist_ok=exist_ok)
 
     async def aiterdir(self) -> AsyncIterator[Self]:
-        store_root = pathlib.Path(self.store.url)
-        children = await asyncio.to_thread(lambda: list(self._loc_path.iterdir()))
-        for path in children:
+        store_root = pathlib.Path(self.store.url).resolve()
+        paths = await asyncio.to_thread(lambda: list(self._loc_path.iterdir()))
+        for path in paths:
             rel = path.relative_to(store_root)
             yield self.__class__(*rel.parts, store=self._store)
 
     async def aglob(self, pattern: str) -> AsyncIterator[Self]:
-        store_root = pathlib.Path(self.store.url)
-        matches = await asyncio.to_thread(lambda: list(self._loc_path.glob(pattern)))
-        for path in matches:
+        store_root = pathlib.Path(self.store.url).resolve()
+        paths = await asyncio.to_thread(lambda: list(self._loc_path.glob(pattern)))
+        for path in paths:
             rel = path.relative_to(store_root)
             yield self.__class__(*rel.parts, store=self._store)
 
     async def arglob(self, pattern: str) -> AsyncIterator[Self]:
-        store_root = pathlib.Path(self.store.url)
-        matches = await asyncio.to_thread(lambda: list(self._loc_path.rglob(pattern)))
-        for path in matches:
+        store_root = pathlib.Path(self.store.url).resolve()
+        paths = await asyncio.to_thread(lambda: list(self._loc_path.rglob(pattern)))
+        for path in paths:
             rel = path.relative_to(store_root)
             yield self.__class__(*rel.parts, store=self._store)
 
@@ -180,6 +217,7 @@ class AsyncOnDiskLocation(AsyncNativePretendSyncLocation):
         errors: str | None = None,
         newline: str | None = None,
     ) -> Any:
+        # aopen must return an *async* context manager for AsyncNativePretendSyncLocation.open()
         return _AsyncOpen(
             self._loc_path,
             mode=mode,
@@ -188,7 +226,6 @@ class AsyncOnDiskLocation(AsyncNativePretendSyncLocation):
             errors=errors,
             newline=newline,
         )
-
 
 @pytest.fixture()
 def async_root_loc(store: OnDiskUnmanagedStorageBackend) -> AsyncOnDiskLocation:

@@ -1,9 +1,3 @@
-
-"""
-We are testing our Sync bridge to an Async native library.
-"""
-
-
 from __future__ import annotations
 
 import threading
@@ -12,16 +6,7 @@ from .conftest import AsyncOnDiskLocation, fs_path
 
 
 class TestAsyncNativePretendSyncBridge:
-    """
-    Tests that the dummy sync methods wrapped around a async lib work.
-    """
     def test_sync_facade_exists_and_open_work(self, store) -> None:
-        """
-        Tests that the sync facade exists and open works through it.
-
-        :param store:
-        :return:
-        """
         loc = AsyncOnDiskLocation("bridges", store=store)
         fs_path(store, "bridges").mkdir(parents=True, exist_ok=True)
 
@@ -36,12 +21,6 @@ class TestAsyncNativePretendSyncBridge:
             assert handle.read() == "hello\n"
 
     def test_sync_facade_from_multiple_threads(self, store) -> None:
-        """
-        Attempt to access the sync facade through multiple threads.
-
-        :param store:
-        :return:
-        """
         fs_path(store, "t").mkdir(parents=True, exist_ok=True)
         loc = AsyncOnDiskLocation("t", store=store)
 

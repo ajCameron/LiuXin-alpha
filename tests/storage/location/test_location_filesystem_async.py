@@ -35,12 +35,6 @@ class TestLocationFilesystemAsync:
         asyncio.run(go())
 
     def test_async_open_roundtrip_text(self, store) -> None:
-        """
-        Roundtrip some text using the async version of writing.
-
-        :param store:
-        :return:
-        """
         f = OnDiskUnmanagedStoreLocation("async.txt", store=store)
 
         async def go() -> None:
@@ -55,12 +49,6 @@ class TestLocationFilesystemAsync:
         asyncio.run(go())
 
     def test_async_convenience_helpers(self, store) -> None:
-        """
-        Tests convenience helpers for just writing text out directly.
-
-        :param store:
-        :return:
-        """
         f = OnDiskUnmanagedStoreLocation("helpers.txt", store=store)
 
         async def go() -> None:
@@ -71,12 +59,6 @@ class TestLocationFilesystemAsync:
         asyncio.run(go())
 
     def test_async_iterdir_streams_results(self, store) -> None:
-        """
-        Async iterdir and stream the results out.
-
-        :param store:
-        :return:
-        """
         fs_path(store, "dir").mkdir(parents=True, exist_ok=True)
         fs_path(store, "dir", "a.txt").write_text("a", encoding="utf-8")
         fs_path(store, "dir", "b.txt").write_text("b", encoding="utf-8")

@@ -1,22 +1,44 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, Tuple, Union
+from typing import Tuple, Union
 
 Pathish = Union[str, Path]
+
+__all__ = ["relative_path_tokens"]
+
+
+def _is_anchored_path(p: Path) -> bool:
+    """Return True if *p* has a drive and/or root.
+
+    This treats Windows rooted paths like ``\\foo\\bar`` as "anchored" even though
+    ``Path("\\foo\\bar").is_absolute()`` is False (because it lacks a drive).
+
+    For relativization, the key distinction is:
+      - anchored (drive/root present) vs
+      - purely relative (no drive/root)
+    """
+    return bool(p.drive) or bool(p.root)
+
 
 def relative_path_tokens(
     base: Pathish,
     target: Pathish,
-    *,
     base_is_file: bool = False,
 ) -> Tuple[Path, Tuple[str, ...]]:
-    """
-    Return (relative_path, tokens) where tokens are the path parts.
-    If base_is_file=True, base.parent is used as the starting directory.
+    """Return (relative_path, tokens) from *base* to *target*.
 
-    Raises ValueError if the paths are on different anchors (e.g., different drives on Windows)
-    or one is absolute and the other is relative.
+    - If base_is_file=True, *base.parent* is used as the starting directory.
+    - tokens are the result of ``relative_path.parts``.
+      Note: in pathlib, ``Path(".").parts`` is ``()`` (empty tuple).
+
+    Raises ValueError if:
+      - one path is anchored (drive/root) and the other is purely relative, OR
+      - both are anchored but have different anchors (e.g., different drives/UNC shares).
+
+    Windows note:
+      ``Path("/a/b")`` becomes a rooted path like ``\\a\\b`` (rooted) but has no drive,
+      so ``is_absolute()`` returns False. We still treat it as anchored via ``root``.
     """
     base_p = Path(base)
     target_p = Path(target)
@@ -24,21 +46,25 @@ def relative_path_tokens(
     if base_is_file:
         base_p = base_p.parent
 
-    # Normalize to "pure" comparison space (no filesystem access required)
-    base_abs = base_p.is_absolute()
-    target_abs = target_p.is_absolute()
-    if base_abs != target_abs:
-        raise ValueError(f"Cannot relativize: base is_absolute={base_abs}, target is_absolute={target_abs}")
+    base_anchored = _is_anchored_path(base_p)
+    target_anchored = _is_anchored_path(target_p)
 
-    # If absolute, anchors must match (e.g., same drive on Windows, same root style)
-    if base_abs and base_p.anchor != target_p.anchor:
-        raise ValueError(f"Cannot relativize across different anchors: {base_p.anchor!r} vs {target_p.anchor!r}")
+    if base_anchored != target_anchored:
+        raise ValueError(
+            "Cannot relativize: one path is anchored (drive/root) and the other is purely relative: "
+            f"base={base_p!s}, target={target_p!s}"
+        )
 
-    # Compare without the anchor token ("/" or "C:\\") so common-prefix logic works cleanly
-    base_parts = base_p.parts[1:] if base_abs else base_p.parts
-    target_parts = target_p.parts[1:] if target_abs else target_p.parts
+    if base_anchored and base_p.anchor != target_p.anchor:
+        raise ValueError(
+            f"Cannot relativize across different anchors: {base_p.anchor!r} vs {target_p.anchor!r}"
+        )
 
-    # Find common prefix length
+    # Drop the anchor token ("/", "C:\\", "\\\\server\\share\\", etc.) before prefix matching.
+    base_parts = base_p.parts[1:] if base_anchored else base_p.parts
+    target_parts = target_p.parts[1:] if target_anchored else target_p.parts
+
+    # Find common prefix length.
     i = 0
     for bp, tp in zip(base_parts, target_parts):
         if bp != tp:

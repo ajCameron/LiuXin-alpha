@@ -1,9 +1,3 @@
-
-"""
-Tests an async facade around a sync function.
-"""
-
-
 from __future__ import annotations
 
 import asyncio
@@ -16,16 +10,7 @@ from .conftest import fs_path
 
 
 class TestSyncNativePretendAsyncBridge:
-    """
-    We're testing a async facade around a sync facade.
-    """
     def test_async_rename_and_replace(self, store) -> None:
-        """
-        Tests an async rename and replace wrapped around a sync rename and replace.
-
-        :param store:
-        :return:
-        """
         src = OnDiskUnmanagedStoreLocation("ar", "src.txt", store=store)
         fs_path(store, "ar").mkdir(parents=True, exist_ok=True)
         src.write_text("hello", encoding="utf-8")
@@ -45,12 +30,6 @@ class TestSyncNativePretendAsyncBridge:
         asyncio.run(go())
 
     def test_async_mkdir_unlink_rmdir(self, store) -> None:
-        """
-        Tests making, unlink, then removing a dir.
-
-        :param store:
-        :return:
-        """
         d = OnDiskUnmanagedStoreLocation("adir", store=store)
         f = OnDiskUnmanagedStoreLocation("adir", "f.txt", store=store)
 
