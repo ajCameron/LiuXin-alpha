@@ -1,0 +1,9 @@
+Beause the means of extracting rar files is os dependant LiuXin has it's own systems here. It handles them as follows
+
+1) Windows system
+ - Uses Rarfile directly if avalible
+ - if not avalible, attempts to fix (prompting the user to provide the file path to unrar.exe)
+ - falls back on basic systems (taken from Calibre) if that fails
+
+2) Linux systems
+ - god alone knows

@@ -12,17 +12,11 @@ from urllib.parse import urlparse
 from LiuXin_alpha.errors import InputIntegrityError
 
 from LiuXin_alpha.utils.localization import trans as _
-
 from LiuXin_alpha.utils.text import remove_bracketed_text
-
 from LiuXin_alpha.utils.paths import relpath
-
 from LiuXin_alpha.utils.mine_types import guess_type
-
 from LiuXin_alpha.utils.logging import prints
-
-from LiuXin.preferences import preferences as tweaks
-
+from LiuXin_alpha.preferences import preferences as tweaks
 from LiuXin_alpha.utils.logging import default_log
 
 __license__ = "GPL v3"
@@ -34,18 +28,19 @@ __docformat__ = "restructuredtext en"
 try:
     _author_pat = re.compile(tweaks["authors_split_regex"])
 except KeyError as e:
-    err_str = "authors_split_regex not found in tweaks - falling back to default"
-    default_log.log_exception(err_str, e, "INFO")
+    err_str = "authors_split_regex not found in tweaks - falling back to default - %s"
+    default_log.exception(err_str, e)
     _author_pat = re.compile(r"(?i),?\s+(and|with)\s+")
 except Exception as e:
-    err_str = "Unknown exception when trying to compile 'authors_split_regex' - bad regex? - Falling back to default"
-    err_str = default_log.log_exception(err_str, e, "INFO", ("tweaks", tweaks))
+    err_str = "Unknown exception when trying to compile 'authors_split_regex' - bad regex? - Falling back to default - %s"
+    err_str = default_log.exception(err_str, e)
     _author_pat = re.compile(r"(?i),?\s+(and|with)\s+")
 
 
 def soft_float_to_int(num):
     """
     If a float is an integer then convert it to such - otherwise leave it as a float
+
     :param num:
     :return:
     """

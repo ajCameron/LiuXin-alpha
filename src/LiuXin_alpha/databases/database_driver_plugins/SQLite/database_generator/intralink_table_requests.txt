@@ -1,0 +1,13 @@
+-- ENTER REQUESTED INTRALINK TABLE IN THE FORM TABLENAME
+
+    creators
+    covers
+    files
+    folder_stores
+    identifiers
+    tags
+    titles
+    publishers
+
+-- INTRALINKS FOR USER CREATED TABLES TO BE STORED HERE
+

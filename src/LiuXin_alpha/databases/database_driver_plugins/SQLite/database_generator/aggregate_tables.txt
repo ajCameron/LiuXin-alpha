@@ -1,0 +1,445 @@
+-- BREAK
+
+CREATE TRIGGER IF NOT EXISTS update_callback_on_titles AFTER INSERT ON 'titles'
+BEGIN
+
+    SELECT DIRTY_RECORD('titles', NEW.title_id);
+
+END;
+
+-- BREAK
+-- BREAK -- META VIEW AGGREGATES ALL THE METADATA FOR A TITLE IN ONE PLACE - METAINFORMATION BELOW
+
+CREATE VIEW meta AS
+    SELECT book_id AS id,
+
+          (SELECT title_last_modified as last_modified
+           FROM titles
+           WHERE titles.title_id = books.book_id) last_modified,
+
+
+          (SELECT title AS book_title
+           FROM titles
+           WHERE titles.title_id = books.book_id) title,
+
+          (SELECT title_sort AS book_sort
+           FROM titles
+           WHERE titles.title_id = books.book_id) sort,
+
+          (SELECT title_wikipedia AS book_wikipedia
+           FROM titles
+           WHERE titles.title_id = books.book_id) wikipedia,
+
+          (SELECT title_type AS book_type
+           FROM titles
+           WHERE titles.title_id = books.book_id) type,
+
+
+
+          (SELECT GROUP_CONCAT(creator_id) AS creator_ids_string
+           FROM (SELECT creator_id
+                 FROM creators
+                 INNER JOIN creator_title_links
+                 ON creators.creator_id = creator_title_links.creator_title_link_creator_id
+                 WHERE creator_title_links.creator_title_link_title_id = books.book_id
+                 AND creator_title_links.creator_title_link_type = 'authors'
+                 ORDER BY creator_title_links.creator_title_link_priority DESC)
+                 ) author_ids,
+
+          (SELECT GROUP_CONCAT(creator) AS book_creator_string
+           FROM (SELECT creator
+                 FROM creators
+                 INNER JOIN creator_title_links
+                 ON creators.creator_id = creator_title_links.creator_title_link_creator_id
+                 WHERE creator_title_links.creator_title_link_title_id = books.book_id
+                 AND creator_title_links.creator_title_link_type = 'authors'
+                 ORDER BY creator_title_links.creator_title_link_priority DESC)
+                 ) authors,
+
+          (SELECT title_creator_sort
+           FROM titles
+           WHERE titles.title_id = books.book_id) author_sort,
+
+
+
+          (SELECT note_id AS title_note_id
+           FROM notes
+           INNER JOIN note_title_links
+           ON notes.note_id = note_title_links.note_title_link_note_id
+           WHERE note_title_links.note_title_link_title_id = books.book_id
+           ORDER BY note_title_links.note_title_link_priority DESC) note_id,
+
+          (SELECT note AS title_note_text
+           FROM notes
+           INNER JOIN note_title_links
+           ON notes.note_id = note_title_links.note_title_link_note_id
+           WHERE note_title_links.note_title_link_title_id = books.book_id
+           ORDER BY note_title_links.note_title_link_priority DESC) note,
+
+
+
+          (SELECT publisher_id AS book_publisher_id
+           FROM publishers
+           INNER JOIN publisher_title_links
+           ON publishers.publisher_id = publisher_title_links.publisher_title_link_publisher_id
+           WHERE publisher_title_links.publisher_title_link_title_id = books.book_id
+           ORDER BY publisher_title_links.publisher_title_link_priority DESC) publisher_id,
+
+          (SELECT publisher AS book_publisher
+           FROM publishers
+           INNER JOIN publisher_title_links
+           ON publishers.publisher_id = publisher_title_links.publisher_title_link_publisher_id
+           WHERE publisher_title_links.publisher_title_link_title_id = books.book_id
+           ORDER BY publisher_title_links.publisher_title_link_priority DESC) publisher,
+
+          (SELECT GROUP_CONCAT(publisher) AS book_publishers
+           FROM (SELECT publisher
+                 FROM publishers
+                 INNER JOIN publisher_title_links
+                 ON publishers.publisher_id = publisher_title_links.publisher_title_link_publisher_id
+                 WHERE publisher_title_links.publisher_title_link_title_id = books.book_id
+                 ORDER BY publisher_title_links.publisher_title_link_priority DESC)
+                 ) publishers,
+
+
+
+          (SELECT rating AS user_rating
+           FROM ratings
+           INNER JOIN rating_title_links
+           ON ratings.rating_id = rating_title_links.rating_title_link_rating_id
+           WHERE rating_title_links.rating_title_link_title_id = books.book_id
+           AND rating_title_links.rating_title_link_type = 'user') rating,
+
+          (SELECT MAX(rating) AS max_rating
+           FROM ratings
+           INNER JOIN rating_title_links
+           ON ratings.rating_id = rating_title_links.rating_title_link_rating_id
+           WHERE rating_title_links.rating_title_link_title_id = books.book_id
+           GROUP BY rating_title_links.rating_title_link_title_id) max_rating,
+
+          (SELECT MIN(rating) AS min_rating
+           FROM ratings
+           INNER JOIN rating_title_links
+           ON ratings.rating_id = rating_title_links.rating_title_link_rating_id
+           WHERE rating_title_links.rating_title_link_title_id = books.book_id
+           GROUP BY rating_title_links.rating_title_link_title_id) min_rating,
+
+
+
+           book_datestamp AS timestamp,
+
+
+
+          (SELECT language as language_str
+           FROM languages
+           INNER JOIN language_title_links
+           ON languages.language_id = language_title_links.language_title_link_language_id
+           WHERE language_title_links.language_title_link_title_id = books.book_id
+           ORDER BY language_title_links.language_title_link_priority DESC) language,
+
+
+
+          (SELECT synopsis_id AS synopsis_id
+           FROM synopses
+           INNER JOIN synopsis_title_links
+           ON synopses.synopsis_id = synopsis_title_links.synopsis_title_link_synopsis_id
+           WHERE synopsis_title_links.synopsis_title_link_title_id = books.book_id
+           ORDER BY synopsis_title_links.synopsis_title_link_priority DESC) synopsis_id,
+
+          (SELECT synopsis AS synopsis
+           FROM synopses
+           INNER JOIN synopsis_title_links
+           ON synopses.synopsis_id = synopsis_title_links.synopsis_title_link_synopsis_id
+           WHERE synopsis_title_links.synopsis_title_link_title_id = books.book_id
+           ORDER BY synopsis_title_links.synopsis_title_link_priority DESC) synopsis,
+
+
+
+          (SELECT comment_id AS comment_id
+           FROM comments
+           INNER JOIN comment_title_links
+           ON comments.comment_id = comment_title_links.comment_title_link_comment_id
+           WHERE comment_title_links.comment_title_link_title_id = books.book_id
+           ORDER BY comment_title_links.comment_title_link_priority DESC) comment_id,
+
+          (SELECT comment AS comment
+           FROM comments
+           INNER JOIN comment_title_links
+           ON comments.comment_id = comment_title_links.comment_title_link_comment_id
+           WHERE comment_title_links.comment_title_link_title_id = books.book_id
+           ORDER BY comment_title_links.comment_title_link_priority DESC) comments,
+
+
+
+          (SELECT series AS series_name
+           FROM series
+           INNER JOIN series_title_links
+           ON series.series_id = series_title_links.series_title_link_series_id
+           WHERE series_title_links.series_title_link_title_id = books.book_id
+           ORDER BY series_title_links.series_title_link_priority DESC) series,
+
+          (SELECT series_id AS series_id
+           FROM series
+           INNER JOIN series_title_links
+           ON series.series_id = series_title_links.series_title_link_series_id
+           WHERE series_title_links.series_title_link_title_id = books.book_id
+           ORDER BY series_title_links.series_title_link_priority DESC) series_id,
+
+          (SELECT series_title_link_index AS series_index
+           FROM series
+           INNER JOIN series_title_links
+           ON series.series_id = series_title_links.series_title_link_series_id
+           WHERE series_title_links.series_title_link_title_id = books.book_id
+           ORDER BY series_title_links.series_title_link_priority DESC) series_index,
+
+
+
+          (SELECT GROUP_CONCAT(file_extension) AS file_formats
+           FROM files
+           INNER JOIN file_folder_links
+           ON files.file_id = file_folder_links.file_folder_link_file_id
+           INNER JOIN book_folder_links
+           ON file_folder_links.file_folder_link_folder_id = book_folder_links.book_folder_link_folder_id
+           WHERE book_folder_links.book_folder_link_book_id = books.book_id
+           GROUP BY book_folder_links.book_folder_link_book_id) formats,
+
+
+
+          (SELECT identifier AS book_isbn
+           FROM identifiers
+           INNER JOIN identifier_title_links
+           ON identifiers.identifier_id = identifier_title_links.identifier_title_link_identifier_id
+           WHERE identifier_title_links.identifier_title_link_title_id = books.book_id
+           AND identifier_title_links.identifier_title_link_type = 'isbn'
+           ORDER BY identifier_title_links.identifier_title_link_priority DESC) isbn,
+
+           book_uuid as uuid,
+
+          (SELECT identifier AS book_lccn
+           FROM identifiers
+           INNER JOIN identifier_title_links
+           ON identifiers.identifier_id = identifier_title_links.identifier_title_link_identifier_id
+           WHERE identifier_title_links.identifier_title_link_title_id = books.book_id
+           AND identifier_title_links.identifier_title_link_type = 'lccn'
+           ORDER BY identifier_title_links.identifier_title_link_priority DESC) lccn,
+
+
+
+          (SELECT genre_id AS genre_id
+           FROM genres
+           INNER JOIN genre_title_links
+           ON genres.genre_id = genre_title_links.genre_title_link_genre_id
+           WHERE genre_title_links.genre_title_link_title_id = books.book_id
+           ORDER BY genre_title_links.genre_title_link_priority DESC) genre_id,
+
+          (SELECT genre AS genre
+           FROM genres
+           INNER JOIN genre_title_links
+           ON genres.genre_id = genre_title_links.genre_title_link_genre_id
+           WHERE genre_title_links.genre_title_link_title_id = books.book_id
+           ORDER BY genre_title_links.genre_title_link_priority DESC) genre,
+
+
+
+           book_pubdate as pubdate,
+
+
+
+           book_flags as flags,
+
+
+
+          (SELECT GROUP_CONCAT(t)
+           FROM (SELECT tag AS t FROM tags
+                 INNER JOIN tag_title_links
+                 ON tags.tag_id = tag_title_links.tag_title_link_tag_id
+                 WHERE tag_title_links.tag_title_link_title_id = books.book_id
+
+                 UNION
+
+                 SELECT tag AS t FROM tags
+                 INNER JOIN creator_tag_links
+                 ON creator_tag_links.creator_tag_link_tag_id = tags.tag_id
+                 INNER JOIN creator_title_links
+                 ON creator_title_links.creator_title_link_creator_id = creator_tag_links.creator_tag_link_creator_id
+                 WHERE creator_title_links.creator_title_link_title_id = books.book_id
+
+                 UNION
+
+                 SELECT tag AS t FROM tags
+                 INNER JOIN series_tag_links
+                 ON tags.tag_id = series_tag_links.series_tag_link_tag_id
+                 INNER JOIN series_title_links
+                 ON series_tag_links.series_tag_link_series_id = series_title_links.series_title_link_series_id
+                 WHERE series_title_links.series_title_link_title_id = books.book_id)
+                 ) main_tags,
+
+
+
+          (SELECT GROUP_CONCAT(tag) AS title_tags
+           FROM tags
+           INNER JOIN tag_title_links
+           ON tags.tag_id = tag_title_links.tag_title_link_tag_id
+           WHERE tag_title_links.tag_title_link_title_id = books.book_id
+           GROUP BY tag_title_links.tag_title_link_title_id) tags,
+
+          (SELECT GROUP_CONCAT(tag) AS title_tags
+           FROM tags
+           INNER JOIN tag_title_links
+           ON tags.tag_id = tag_title_links.tag_title_link_tag_id
+           WHERE tag_title_links.tag_title_link_title_id = books.book_id
+           GROUP BY tag_title_links.tag_title_link_title_id) title_tags,
+
+          (SELECT GROUP_CONCAT(tag) AS creator_tags
+           FROM tags
+           INNER JOIN creator_tag_links
+           ON tags.tag_id = creator_tag_links.creator_tag_link_tag_id
+           INNER JOIN creator_title_links
+           ON creator_tag_links.creator_tag_link_creator_id = creator_title_links.creator_title_link_creator_id
+           WHERE creator_title_links.creator_title_link_title_id = books.book_id
+           GROUP BY creator_title_links.creator_title_link_title_id) creator_tags,
+
+          (SELECT GROUP_CONCAT(tag) AS series_tags
+           FROM tags
+           INNER JOIN series_tag_links
+           ON tags.tag_id = series_tag_links.series_tag_link_tag_id
+           INNER JOIN series_title_links
+           ON series_tag_links.series_tag_link_series_id = series_title_links.series_title_link_series_id
+           WHERE series_title_links.series_title_link_title_id = books.book_id
+           GROUP BY series_title_links.series_title_link_title_id) series_tags,
+
+
+
+          (SELECT SUM(file_size) AS uncompressed_size
+           FROM files
+           INNER JOIN book_file_links
+           ON files.file_id = book_file_links.book_file_link_file_id
+           WHERE book_file_links.book_file_link_book_id = books.book_id
+           GROUP BY book_file_links.book_file_link_book_id) size,
+
+          (SELECT MAX(file_size) AS uncompressed_size
+           FROM files
+           INNER JOIN book_file_links
+           ON files.file_id = book_file_links.book_file_link_file_id
+           WHERE book_file_links.book_file_link_book_id = books.book_id
+           GROUP BY book_file_links.book_file_link_book_id) max_size,
+
+          (SELECT GROUP_CONCAT(folder_path) AS paths
+          FROM folders
+          INNER JOIN book_folder_links
+          ON folders.folder_id = book_folder_links.book_folder_link_folder_id
+          WHERE book_folder_links.book_folder_link_book_id = books.book_id
+          GROUP BY book_folder_links.book_folder_link_folder_id) path,
+
+
+
+          (SELECT COUNT(cover_id) AS has_cover
+          FROM covers
+          INNER JOIN book_cover_links
+          ON covers.cover_id = book_cover_links.book_cover_link_cover_id
+          WHERE book_cover_links.book_cover_link_cover_id = covers.cover_id
+          GROUP BY book_cover_links.book_cover_link_cover_id) has_cover
+
+
+
+    FROM books;
+
+-- BREAK
+-- BREAK -- INFORMATION ABOUT BOOK FILES BELOW
+
+CREATE VIEW meta_file AS
+    SELECT book_id AS id,
+
+          (SELECT SUM(file_size) AS uncompressed_size
+           FROM files
+           INNER JOIN book_file_links
+           ON files.file_id = book_file_links.book_file_link_file_id
+           WHERE book_file_links.book_file_link_book_id = books.book_id
+           GROUP BY book_file_links.book_file_link_book_id) size,
+
+
+
+          (SELECT GROUP_CONCAT(file_id) AS file_ids
+           FROM (SELECT file_id
+                 FROM files
+                 INNER JOIN book_file_links
+                 ON files.file_id = book_file_links.book_file_link_file_id
+                 WHERE book_file_links.book_file_link_book_id = books.book_id
+                 ORDER BY book_file_links.book_file_link_priority DESC)
+                 ) file_ids
+
+    FROM books;
+
+-- BREAK
+-- BREAK -- INFORMATION ABOUT BOOK COVERS BELOW
+
+CREATE VIEW meta_book_cover AS
+    SELECT book_id AS book_id,
+
+   (SELECT cover_id AS book_cover_id
+           FROM covers
+           INNER JOIN book_cover_links
+           ON covers.cover_id = book_cover_links.book_cover_link_cover_id
+           WHERE book_cover_links.book_cover_link_book_id = books.book_id
+           ORDER BY book_cover_links.book_cover_link_priority DESC) book_cover_id,
+
+  (SELECT GROUP_CONCAT(cover_id) AS book_cover_ids
+   FROM (SELECT cover_id
+         FROM covers
+         INNER JOIN book_cover_links
+         ON covers.cover_id = book_cover_links.book_cover_link_cover_id
+         WHERE book_cover_links.book_cover_link_book_id = books.book_id
+         ORDER BY book_cover_links.book_cover_link_priority DESC)
+         ) book_cover_ids
+
+   FROM books;
+
+-- BREAK
+-- BREAK -- INFORMATION ABOUT CREATOR COVERS BELOW
+
+CREATE VIEW meta_creator_cover AS
+    SELECT creator_id AS creator_id,
+
+   (SELECT cover_id AS creator_cover_id
+           FROM covers
+           INNER JOIN cover_creator_links
+           ON covers.cover_id = cover_creator_links.cover_creator_link_cover_id
+           WHERE cover_creator_links.cover_creator_link_creator_id = creators.creator_id
+           ORDER BY cover_creator_links.cover_creator_link_priority DESC) creator_cover_id,
+
+  (SELECT GROUP_CONCAT(cover_id) AS creator_cover_ids
+   FROM (SELECT cover_id
+         FROM covers
+         INNER JOIN cover_creator_links
+         ON covers.cover_id = cover_creator_links.cover_creator_link_cover_id
+         WHERE cover_creator_links.cover_creator_link_creator_id = creators.creator_id
+         ORDER BY cover_creator_links.cover_creator_link_priority DESC)
+         ) creator_cover_ids
+
+   FROM creators;
+
+-- BREAK
+-- BREAK -- INFORMATION ABOUT SERIES COVERS BELOW
+
+CREATE VIEW meta_series_cover AS
+    SELECT series_id AS series_id,
+
+   (SELECT cover_id AS series_cover_id
+           FROM covers
+           INNER JOIN cover_series_links
+           ON covers.cover_id = cover_series_links.cover_series_link_cover_id
+           WHERE cover_series_links.cover_series_link_series_id = series.series_id
+           ORDER BY cover_series_links.cover_series_link_priority DESC) series_cover_id,
+
+  (SELECT GROUP_CONCAT(cover_id) AS series_cover_ids
+   FROM (SELECT cover_id
+         FROM covers
+         INNER JOIN cover_series_links
+         ON covers.cover_id = cover_series_links.cover_series_link_cover_id
+         WHERE cover_series_links.cover_series_link_series_id = series.series_id
+         ORDER BY cover_series_links.cover_series_link_priority DESC)
+         ) series_cover_ids
+
+   FROM series;
+
+-- BREAK

@@ -1,0 +1,61 @@
+-- ENTER THE REQUESTED LINK TABLE IN THE FORM table1-table2_links LIKE BELOW
+
+-- ORIGINAL LINK TABLES
+
+    book-cover_links
+    book-file_links
+    book-folder_links
+
+    comment-creator_links
+    comment-series_links
+    comment-title_links
+
+    cover-creator_links
+	cover-series_links
+
+	creator-folder_links
+	creator-language_links
+    creator-note_links
+	creator-series_links
+	creator-synopsis_links
+	creator-tag_links
+	creator-title_links
+
+    device-file_links
+	device-note_links
+
+	file-folder_links
+	file-identifier_links
+	file-language_links
+	file-publisher_links
+
+    folder-series_links
+
+	folder_store-note_links
+
+	genre-series_links
+	genre-title_links
+
+	identifier-title_links
+
+	language-title_links
+
+	note-publisher_links
+	note-series_links
+	note-title_links
+
+	publisher-title_links
+
+	rating-title_links
+
+	series-synopsis_links
+	series-tag_links
+	series-title_links
+
+    subject-title_links
+
+	tag-title_links
+
+	title-synopsis_links
+
+-- USER CREATED LINK TABLES

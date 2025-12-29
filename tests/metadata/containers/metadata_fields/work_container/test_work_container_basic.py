@@ -5,7 +5,7 @@ Preform basic tests on the WorkContainer class.
 
 import pytest
 
-from LiuXin_alpha.metadata.containers.metadata_fields.work_container import WorkContainer
+from LiuXin_alpha.metadata.containers.metadata_containers.work_container import WorkContainer
 
 
 class TestWorkContainer:

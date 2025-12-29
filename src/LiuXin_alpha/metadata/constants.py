@@ -3,13 +3,11 @@
 Constants used for metadata standardization e.t.c.
 """
 
-
 import re
 
 from collections import OrderedDict
 
 from LiuXin_alpha.utils.logging import default_log
-
 from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
 
