@@ -375,7 +375,8 @@ def file_size(file_in):
 
 def get_file_extension(file_in):
     """
-    Returns the extension of a file
+    Returns the extension of a file.
+
     :param file_in:
     :return:
     """
@@ -385,22 +386,26 @@ def get_file_extension(file_in):
 
 
 def is_file_extension_rar(
-    extension,
-):  # Analyses file extension to see if its part of a multi-part rar file
+    extension: str,
+) -> bool:
+    """
+    Analyses file extension to see if its part of a multi-part rar file
 
-    try:
-        if extension.lower() == ".rar":
-            return True
-    except:
-        pass
+    :param extension:
+    :return:
+    """
+
+
+    if extension.lower() == ".rar":
+        return True
 
     try:
         test = int(extension[2:])
-        if extension[:2] == ".r" and 0 <= test < 99:
+        if extension[:2] == ".r" and 0 <= test:
             return True
-    except:
+    except ValueError:
         return False
-
+    return False
 
 def is_name_rar_part(file_name):
     """

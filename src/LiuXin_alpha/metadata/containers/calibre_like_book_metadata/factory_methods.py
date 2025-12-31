@@ -42,7 +42,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata.help_methods import BookMetadataHelpMixin
 
 
-from LiuXin_alpha.errors import InputIntegrityError
+from LiuXin_alpha.errors import InputIntegrityError, DatabaseIntegrityError, LogicalError
 
 
 class FactoryMethodsMixin:
@@ -52,6 +52,7 @@ class FactoryMethodsMixin:
     def from_title_row(self, title_row):
         """
         Takes a title row from the databases. Uses it to populate all the metadata associated with that row.
+
         All data is deleted before the new data is copied in.
         Some fields are not populated.
         All comments are just stored in notes.
@@ -61,7 +62,9 @@ class FactoryMethodsMixin:
         :return:
         """
         _data = object.__getattribute__(self, "_data")
+
         db = title_row.db
+
         title_row_collection = RowCollection(title_row)
 
         # Loading the title sections
@@ -90,8 +93,19 @@ class FactoryMethodsMixin:
             standard_display_column = db.get_display_column(table)
             for standard_link in standard_rows:
                 dis_value = standard_link[standard_display_column]
-                if dis_value not in _data[table]:
-                    _data[table][dis_value] = standard_link
+
+                if table not in _data:
+                    _data[table] = OrderedDict()
+
+                try:
+                    if dis_value not in _data[table]:
+                        _data[table][dis_value] = standard_link
+                except KeyError as e:
+                    if table == "genres":
+                        if dis_value not in _data["genres"]:
+                            _data["genres"][dis_value] = standard_link
+                    else:
+                        raise KeyError(f"Error on table {table}") from e
 
         creator_rows = title_row_collection["creators"]
         for creator_link in creator_rows:
@@ -112,7 +126,10 @@ class FactoryMethodsMixin:
                 _data[creator_type][creator_name] = creator_link
             else:
                 raise LogicalError
-        main_tables.remove("creators")
+        try:
+            main_tables.remove("creators")
+        except ValueError:
+            pass
 
         identifier_rows = title_row_collection["identifiers"]
         for id_link in identifier_rows:
@@ -162,6 +179,13 @@ class FactoryMethodsMixin:
         for pub_link in pub_rows:
             pub_name = pub_link["publisher"]
             pub_parent = pub_link["publisher_parent"]
+
+            if "imprints" not in _data:
+                _data["imprints"] = OrderedDict()
+
+            if "publishers" not in _data:
+                _data["publishers"] = OrderedDict()
+
             if pub_parent is None or pub_parent.lower() == "none":
                 _data["imprints"][pub_name] = pub_link
             else:

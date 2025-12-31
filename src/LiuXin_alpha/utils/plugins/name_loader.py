@@ -8,8 +8,13 @@ from copy import deepcopy
 from LiuXin_alpha.constants.paths import LiuXin_data_folder
 from LiuXin_alpha.utils.logging import default_log
 
+
+# Todo: to constants
 # Calculating some of the file locations at runtime
 LIUXIN_NAMES_LIST_FOLDERS = os.path.join(LiuXin_data_folder, "names_lists")
+
+NAME_DATA_DIR = LIUXIN_NAMES_LIST_FOLDERS
+
 FIRST_NAMES_PATH = os.path.join(LIUXIN_NAMES_LIST_FOLDERS, "First_Names.csv")
 LAST_NAMES_PATH = os.path.join(LIUXIN_NAMES_LIST_FOLDERS, "Last_Names.csv")
 

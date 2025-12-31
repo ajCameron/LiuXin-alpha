@@ -37,6 +37,7 @@ class Abort(Exception):
 class MetadataBackup(Thread):
     """
     Continuously backup changed metadata into OPF files in the book directory.
+
     This class runs in its own thread.
     """
 
@@ -51,8 +52,9 @@ class MetadataBackup(Thread):
     @property
     def db(self):
         """
-        Holds a weakref to the database - shuts the thread down if it's ever detected that the database has been
-        deleted.
+        Holds a weakref to the database
+
+        Shuts the thread down if it's ever detected that the database has been deleted.
         :return:
         """
         ans = self._db()

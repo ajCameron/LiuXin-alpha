@@ -8,20 +8,63 @@ import time
 from datetime import datetime, time as dtime, timedelta, MINYEAR, MAXYEAR
 from functools import partial
 
-from LiuXin_alpha.utils.localization import trans as _
-
 from LiuXin_alpha.utils.libraries.liuxin_dateutil.tz import tzlocal, tzutc, EPOCHORDINAL
 
-from LiuXin.utils.calibre import strftime
+from LiuXin_alpha.utils.which_os import iswindows, isosx
+
+
 from LiuXin.utils.calibre.constants import iswindows, isosx, plugins
 from LiuXin.utils.localization import lcdata
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
+
+
+def strftime(fmt, t=None):
+    """
+    A version of strftime that returns unicode strings and tries to handle dates before 1900.
+
+    :param fmt:
+    :param t:
+    :return:
+    """
+    orig_year = 2025
+
+    if not fmt:
+        return ""
+
+    if t is None:
+        t = time.localtime()
+
+    if hasattr(t, "timetuple"):
+        t = t.timetuple()
+
+    early_year = t[0] < 1900
+    if early_year:
+        replacement = 1900 if t[0] % 4 == 0 else 1901
+        fmt = fmt.replace("%Y", "_early year hack##")
+        t = list(t)
+        orig_year = t[0]
+        t[0] = replacement
+    ans = None
+
+    if iswindows:
+        ans = time.strftime(fmt, t)
+
+        # if isinstance(fmt, str):
+        #     fmt = fmt.encode("mbcs")
+        # fmt = fmt.replace(b"%e", b"%#d")
+        # ans = plugins["winutil"][0].strftime(fmt, t)
+    else:
+        ans = time.strftime(fmt, t)
+
+    if early_year:
+        ans = ans.replace("_early year hack##", str(orig_year))
+
+    return ans
 
 
 class SafeLocalTimeZone(tzlocal):

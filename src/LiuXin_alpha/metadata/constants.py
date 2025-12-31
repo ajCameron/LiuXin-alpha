@@ -171,9 +171,9 @@ EXTERNAL_EBOOK_REKEY_SCHEME = {
         ]
     ): "uri",
 }
-EXTERNAL_EBOOK_ID_SCHEMA = frozenset(EXTERNAL_EBOOK_REKEY_SCHEME.values())
+EXTERNAL_EBOOK_ID_SCHEMA: frozenset[str] = frozenset(EXTERNAL_EBOOK_REKEY_SCHEME.values())
 
-INTERNAL_EBOOK_REKEY_SCHEME = {frozenset(["uuid", "calibre"]): "uuid"}
+INTERNAL_EBOOK_REKEY_SCHEME: dict[frozenset[str], str] = {frozenset(["uuid", "calibre"]): "uuid"}
 INTERNAL_EBOOK_ID_SCHEMA = frozenset(INTERNAL_EBOOK_REKEY_SCHEME.values())
 
 # Todo: Test that this is, at least, minimally true - contains the min values - in tests
@@ -192,6 +192,7 @@ METADATA_NULL_VALUES = {
     "comments": OrderedDict(),
     "cover_data": OrderedDict(),
     "creator_sort": "",
+    "creators": OrderedDict(),
     "custom_field_keys": [],
     "custom_fields": {},
     "device_collections": [],
@@ -201,6 +202,7 @@ METADATA_NULL_VALUES = {
     "filepath": [],
     "files": OrderedDict(),
     "imprint": OrderedDict(),
+    "internal_identifiers": OrderedDict(),
     "language": "und",
     "languages": [],
     "languages_available": OrderedDict(),

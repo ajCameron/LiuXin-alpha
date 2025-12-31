@@ -41,6 +41,8 @@ from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
+from LiuXin_alpha.metadata.standardize import standardize_identifier_value
+
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata.help_methods import BookMetadataHelpMixin
 
 from LiuXin_alpha.metadata.identifiers import clean_id_key, clean_id_value
@@ -146,37 +148,60 @@ class IdentifiersMethodsMixin:
         return self.set_identifiers(identifiers)
 
     # copied from calibre
-    def set_identifiers(self, identifiers):
+    def set_identifiers(
+            self,
+            identifiers: dict[str, Optional[Union[list[str], tuple[str, ...], set[str], str, dict[str, Optional[int]]]]],
+            update: bool = True) -> None:
         """
         Set all identifiers. Note that, if any of the identifiers mentioned in the :param identifiers: dict have already
         been set, this method will delete them.
+
         calibre compliant.
         :param identifiers: A dictionary of identifiers keyed by the types, valued with the identifiers - either as a
                             string, a set or an OrderedDict.
+        :param update: Whether to update the identifiers dict or not.:
         :return:
         """
         _data = object.__getattribute__(self, "_data")
 
         cleaned = {clean_id_key(k): v for k, v in iteritems(identifiers) if k and v}
         for typ in cleaned:
+
             typ_stand = standardize_id_name(typ)
 
             # If standardization has nullified the type, then it will have been logged and we can continue
             if typ_stand is None:
                 continue
-            if typ_stand not in _data:
-                _data[typ_stand] = OrderedDict
 
-            # If the type is recognized, add it to _data
+            # If the type is not, already, in data then we can add it.
+            if typ_stand not in _data:
+                _data[typ_stand] = dict()
+
             ids = cleaned[typ]
+
             if isinstance(ids, six_string_types):
                 ids = clean_id_value(ids)
                 _data[typ_stand][ids] = None
+
+            # In this case, we have a dict keyed with the id, and valued with its database id.
+            # Which is just an int.
             elif isinstance(ids, OrderedDict):
-                _data[typ_stand] = deepcopy(ids)
-            elif isinstance(ids, (list, tuple)):
+
+                # Clean up the vals before writing out
+                cleaned_vals_dict = OrderedDict()
+                for key, val in ids.items():
+                    cleaned_vals_dict[clean_id_value(key)] = val
+
+                # If not update, wipe it
+                if not update:
+                    _data[typ_stand] = deepcopy(ids)
+                else:
+                    _data[typ_stand].update(deepcopy(ids))
+
+            elif isinstance(ids, (list, tuple, set, frozenset)):
                 for id_val in ids:
-                    _data[typ_stand][id_val] = None
+                    _data[typ_stand][clean_id_value(id_val)] = None
+
             else:
                 err_str = "Unable to add identifiers - format not recognized"
                 err_str = default_log.log_variables(
@@ -190,27 +215,34 @@ class IdentifiersMethodsMixin:
                 raise NotImplementedError(err_str)
 
     # copied from calibre
-    def set_identifier(self, typ, val):
+    def set_identifier(self, typ: str, val: Optional[str, list[str], set[str]]) -> None:
         """
         Add an identifier - if the value is None, deletes all the identifiers of that type.
+
         calibre compliant
         :param typ:
         :param val:
         :return:
         """
+        _data = object.__getattribute__(self, "_data")
+
         typ, val = self._clean_identifier(typ, val)
         typ = standardize_id_name(typ)
-        _data = object.__getattribute__(self, "_data")
+
         if typ is not None and typ in _data:
+
             if val is None:
                 _data[typ] = OrderedDict()
             else:
                 _data[typ][val] = None
+
         elif typ is not None and typ not in _data:
             _data[typ] = OrderedDict()
             _data[typ][val] = None
+
         elif typ is None:
             return
+
         else:
             raise NotImplementedError("This position should never be reached.")
 
@@ -233,9 +265,10 @@ class IdentifiersMethodsMixin:
         return True if _data[typ_stand] else False
 
 
-    def add_identifiers(self, identifiers):
+    def add_identifiers(self, identifiers: dict[str, Union[str, list[str], set[str]]]) -> None:
         """
         Takes a dictionary of identifiers keyed by their type. Adds them in.
+
         If the value is a string then adds it in directly. If the value is a set or other iterable iterates over it
         and adds them all in.
         :param identifiers:
@@ -257,11 +290,11 @@ class IdentifiersMethodsMixin:
 
             # Checks to see if the identifier is a simple string - if it is then just store it
             if isinstance(value, six_string_types):
-                value = six_unicode(value)
+                value = standardize_identifier_value(value)
 
                 # Creating the set to store the value if required
                 if s_id_type not in _data:
-                    _data[s_id_type] = OrderedDict()
+                    _data[s_id_type] = dict()
                     _data[s_id_type][value] = None
                     return
 
@@ -271,12 +304,13 @@ class IdentifiersMethodsMixin:
 
             # If the identifiers object isn't a base string, itterate over it and add every value to the set
             if s_id_type not in _data:
-                _data[s_id_type] = OrderedDict()
+                _data[s_id_type] = dict()
 
             for id_val in value:
-                id_val = six_unicode(id_val)
+                id_val = standardize_identifier_value(id_val)
                 _data[s_id_type][id_val] = None
 
+    # Todo: These two classes are basic identical. DRY.
     def add_internal_identifiers(self, identifiers):
         """
         Takes a dictionary of identifiers keyed by their type - adds them.
@@ -286,6 +320,7 @@ class IdentifiersMethodsMixin:
         :return:
         """
         _data = object.__getattribute__(self, "_data")
+
         identifiers = deepcopy(identifiers)
 
         for id_type in identifiers:
@@ -297,27 +332,27 @@ class IdentifiersMethodsMixin:
             if s_id_type is None:
                 raise InputIntegrityError(None)
 
-            # Checks to see if the identifier is a simple string - if it is
+            # Checks to see if the identifier is a simple string - if it is, just store it
             if isinstance(value, six_string_types):
-                value = six_unicode(value)
+                value = standardize_identifier_value(value)
 
-                # Creating the set to store the value if required
+                # Creating the dict to store the value if required
                 if s_id_type not in _data:
-                    _data[s_id_type] = set()
-                    _data[s_id_type].add(value)
-                    return
+                    _data[s_id_type] = dict()
+                    _data[s_id_type][value] = None
+                    continue
 
                 # If the id type already exists store the value in it and proceed
-                _data[s_id_type].add(value)
-                return
+                _data[s_id_type][value] = None
+                continue
 
             # If the identifiers object isn't a base string, itterate over it and add every value to the set
             if s_id_type not in _data:
-                _data[s_id_type] = set()
+                _data[s_id_type] = dict()
 
             for id_val in value:
-                id_val = six_unicode(id_val)
-                _data[s_id_type].add(id_val)
+                id_val = standardize_identifier_value(id_val)
+                _data[s_id_type][id_val] = None
 
     def _set_identifier_from_normed_key(self, identifiers_key: str, value: str) -> None:
         """

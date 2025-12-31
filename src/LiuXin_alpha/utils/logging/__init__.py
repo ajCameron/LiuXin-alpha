@@ -6,6 +6,9 @@ This is intended to be embedded in a lot of classes - and provide a common inter
 (probably out to the databases, but the advantage of common interface is it doesn't need to be decided now).
 """
 
+from __future__ import annotations
+
+
 import logging
 import sys
 import os
@@ -15,7 +18,6 @@ from LiuXin_alpha.utils.which_os import iswindows
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
 
-default_log = logging.getLogger("LiuXin_alpha-default-log")
 
 
 def multi_string_print(*args: str) -> None:
@@ -123,3 +125,258 @@ def prints(*args, **kwargs):
 
     file.write(bytes(end, "utf-8").decode("utf-8"))
 
+
+
+
+import logging
+from dataclasses import dataclass
+from itertools import islice
+from typing import Any, Iterable, Mapping, MutableMapping, Sequence, Tuple, Union, Optional
+
+LevelLike = Union[int, str]
+
+
+def _coerce_level(level: LevelLike) -> int:
+    """
+    Accepts logging level ints, or common strings like:
+    'DEBUG', 'INFO', 'WARNING'/'WARN', 'ERROR', 'CRITICAL'/'FATAL'.
+    """
+    if isinstance(level, int):
+        return level
+
+    s = str(level).strip().upper()
+    if s == "WARN":
+        s = "WARNING"
+    if s == "FATAL":
+        s = "CRITICAL"
+
+    lvl = logging.getLevelName(s)
+    # logging.getLevelName("INFO") returns 20 (int) in recent Python,
+    # but can return a string if unknown.
+    if isinstance(lvl, int):
+        return lvl
+
+    # Fallback: try standard mapping
+    mapping = {
+        "NOTSET": logging.NOTSET,
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+    }
+    return mapping.get(s, logging.INFO)
+
+
+def _safe_repr(obj: Any, *, max_len: int = 400, max_items: int = 25) -> str:
+    """
+    Best-effort repr with truncation + container sampling to avoid huge logs.
+    """
+    try:
+        if isinstance(obj, Mapping):
+            items = list(islice(obj.items(), max_items))
+            body = ", ".join(f"{_safe_repr(k, max_len=max_len, max_items=max_items)}: "
+                             f"{_safe_repr(v, max_len=max_len, max_items=max_items)}"
+                             for k, v in items)
+            suffix = ", …" if len(obj) > max_items else ""
+            s = "{" + body + suffix + "}"
+        elif isinstance(obj, (list, tuple, set, frozenset)):
+            seq = list(islice(obj, max_items))
+            body = ", ".join(_safe_repr(v, max_len=max_len, max_items=max_items) for v in seq)
+            more = ", …" if _maybe_has_more(obj, max_items) else ""
+            if isinstance(obj, tuple):
+                # Keep tuple syntax for 1-element tuples
+                if len(seq) == 1 and not more:
+                    body = body + ","
+                s = "(" + body + more + ")"
+            elif isinstance(obj, (set, frozenset)):
+                s = "{" + body + more + "}"
+            else:
+                s = "[" + body + more + "]"
+        else:
+            s = repr(obj)
+    except Exception as e:  # pragma: no cover (rare, but defensive)
+        s = f"<unreprable {type(obj).__name__}: {e!r}>"
+
+    if len(s) > max_len:
+        s = s[: max(0, max_len - 3)] + "..."
+    return s
+
+
+def _maybe_has_more(container: Any, max_items: int) -> bool:
+    try:
+        # len() might be expensive or unsupported; best-effort
+        return len(container) > max_items  # type: ignore[arg-type]
+    except Exception:
+        return False
+
+
+def _coerce_pairs(*pairs: Any) -> dict[str, Any]:
+    """
+    Accepts:
+      - ("k", v) tuples
+      - mappings (merged)
+    """
+    out: dict[str, Any] = {}
+    for p in pairs:
+        if p is None:
+            continue
+        if isinstance(p, Mapping):
+            for k, v in p.items():
+                out[str(k)] = v
+            continue
+        if isinstance(p, tuple) and len(p) == 2:
+            k, v = p
+            out[str(k)] = v
+            continue
+        raise TypeError(
+            "log_variables() expects ('key', value) tuples and/or mapping objects; "
+            f"got {type(p).__name__}: {p!r}"
+        )
+    return out
+
+
+@dataclass(frozen=True)
+class LogVariablesFormat:
+    """
+    Formatting knobs so you can tweak output without changing callsites.
+    """
+    sep: str = "\n"
+    kv_sep: str = " = "
+    prefix: str = ""               # e.g. "  " to indent kv lines
+    include_empty_base: bool = False
+    sort_keys: bool = True
+    max_repr_len: int = 400
+    max_repr_items: int = 25
+
+
+class CompatLogger(logging.Logger):
+    """
+    Backwards-compatible logger with log_variables() that:
+      - takes an existing string (or None) and appends key/value context,
+      - logs at the requested level,
+      - returns the enriched string.
+    """
+
+    def __init__(self, name: str, level: int = logging.NOTSET) -> None:
+        super().__init__(name, level)
+        self._logvars_format = LogVariablesFormat()
+
+    # Optional: let you override formatting at runtime if you like.
+    def set_logvars_format(self, fmt: LogVariablesFormat) -> None:
+        self._logvars_format = fmt
+
+    def log_variables(
+        self,
+        base: Optional[str],
+        level: LevelLike,
+        *pairs: Any,
+        emit: bool = True,
+        fmt: Optional[LogVariablesFormat] = None,
+    ) -> str:
+        """
+        Backwards-compatible call pattern:
+
+            err_str = default_log.log_variables(
+                err_str,
+                "ERROR",
+                ("target_table", target_table),
+                ("cand_cc_link_table", cand_cc_link_table),
+            )
+
+        - base: prior message string (or None)
+        - level: int or string level
+        - pairs: ('k', v) tuples and/or mapping(s)
+        - emit: whether to actually call logger.log()
+        - fmt: optional per-call formatting override
+        """
+        level_int = _coerce_level(level)
+        data = _coerce_pairs(*pairs)
+        f = fmt or self._logvars_format
+
+        lines: list[str] = []
+        if base is None:
+            if f.include_empty_base:
+                lines.append("")
+        else:
+            s = str(base)
+            if s or f.include_empty_base:
+                lines.append(s)
+
+        keys = sorted(data.keys()) if f.sort_keys else list(data.keys())
+        for k in keys:
+            v = data[k]
+            v_str = _safe_repr(v, max_len=f.max_repr_len, max_items=f.max_repr_items)
+            lines.append(f"{f.prefix}{k}{f.kv_sep}{v_str}")
+
+        out = f.sep.join(lines)
+
+        if emit:
+            # include structured context in `extra` for formatters/filters if desired
+            self.log(level_int, out, extra={"vars": data})
+
+        return out
+
+    # Handy single-variable wrapper (optional convenience)
+    def log_variable(
+        self,
+        base: Optional[str],
+        level: LevelLike,
+        key: str,
+        value: Any,
+        *,
+        emit: bool = True,
+        fmt: Optional[LogVariablesFormat] = None,
+    ) -> str:
+        return self.log_variables(base, level, (key, value), emit=emit, fmt=fmt)
+
+
+def install_compat_logger_class() -> None:
+    """
+    Call this once, early in program startup, before any getLogger() calls.
+    """
+    logging.setLoggerClass(CompatLogger)
+
+
+def get_compat_logger(name: str) -> CompatLogger:
+    """
+    Convenience getter when you've installed the logger class.
+    """
+    logger = logging.getLogger(name)
+    if not isinstance(logger, CompatLogger):
+        # If someone grabbed a logger before install_compat_logger_class(),
+        # you can still wrap by recreating the logger (rare).
+        raise TypeError(
+            f"Logger for {name!r} is {type(logger).__name__}, not CompatLogger. "
+            "Call install_compat_logger_class() before any getLogger()."
+        )
+    return logger
+
+
+install_compat_logger_class()
+
+default_log = logging.getLogger("LiuXin_alpha-default-log")
+
+
+# --- Example wiring ---
+if __name__ == "__main__":
+    install_compat_logger_class()
+
+    default_log = get_compat_logger(__name__)
+    default_log.setLevel(logging.DEBUG)
+
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        fmt="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
+    handler.setFormatter(formatter)
+    default_log.addHandler(handler)
+
+    err_str: Optional[str] = "Something went wrong"
+    err_str = default_log.log_variables(
+        err_str,
+        "ERROR",
+        ("target_table", "books"),
+        ("cand_cc_link_table", {"a": 1, "b": 2, "c": 3}),
+    )
+    # err_str now contains the enriched multi-line message.

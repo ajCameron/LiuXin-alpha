@@ -14,7 +14,6 @@ if six_string_types is None:
     six_string_types = string_types
 
 
-
 try:
     import lzma as six_lzma
 except ImportError:
@@ -25,7 +24,7 @@ except ImportError:
         six_lzma = NotImplementedError
 
 try:
-    import __builtin__ as __builtins__
+    import builtin as __builtins__
 except ImportError:
     # Think this is just a typo. But I can't run tests to confirm atm
     try:

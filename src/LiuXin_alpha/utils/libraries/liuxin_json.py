@@ -8,7 +8,6 @@ from __future__ import print_function
 # merged with preferences
 
 import base64
-import importlib
 import re
 import sys
 
@@ -34,8 +33,8 @@ class ParseError(Exception):
 class LiuXinJSON(object):
     def __init__(self):
 
-        m = importlib.import_module("json")
-        sys.modules["modded_json"] = m
+        import LiuXin_alpha.utils.libraries.json_local_clone as m
+
         modded_json = m
 
         modded_json.encoder.encode_basestring_ascii = self.to_base64_str
@@ -333,7 +332,8 @@ def py_make_scanner(context):
         try:
             nextchar = string[idx]
         except IndexError:
-            raise StopIteration
+            # important: provide the position
+            raise StopIteration(idx) from None
 
         if nextchar == '"':
             return parse_string(string, idx + 1, encoding, strict)

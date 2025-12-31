@@ -14,7 +14,7 @@ import os
 import importlib
 import string
 
-from LiuXin_alpha.constants.file_extensions import IMAGE_EXTENSIONS, COMPRESSED_FILE_EXTENSIONS
+from LiuXin_alpha.constants.file_extensions import IMAGE_EXTENSIONS, COMPRESSED_FILE_EXTENSIONS, IMAGE_EXTENSIONS_DOTTED
 from LiuXin_alpha.constants.paths import LiuXin_calibre_caches, LiuXin_calibre_config_folder, config_dir, CONFIG_DIR_MODE
 
 from LiuXin_alpha.utils.logging import LiuXin_print
@@ -231,7 +231,7 @@ def check_image_tuple(image_tuple):
             if len(extension) == 0:
                 return False, "Path not valid"
             else:
-                if extension not in VALID_IMAGE_EXTENSIONS:
+                if extension not in IMAGE_EXTENSIONS_DOTTED:
                     return False, "Not an image type"
                 else:
                     return True, "The file opens and everything"
@@ -239,7 +239,7 @@ def check_image_tuple(image_tuple):
         else:
             return False, "File not found"
 
-    elif (type in VALID_IMAGE_EXTENSIONS) and data is not None:
+    elif (type in IMAGE_EXTENSIONS_DOTTED) and data is not None:
         # Todo: Get a collection of images and make this actually work - not just be a placeholder
         return (
             True,

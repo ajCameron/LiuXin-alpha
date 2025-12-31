@@ -49,6 +49,8 @@ class RatingsMethodsMixin:
 
     def _set_ratings_from_value(self, value):
 
+        _data = object.__getattribute__(self, "_data")
+
         if isinstance(value, (tuple, list)):
             if len(value) == 2:
                 o_value = value[0]

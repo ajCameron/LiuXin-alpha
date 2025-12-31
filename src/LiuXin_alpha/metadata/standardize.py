@@ -77,6 +77,7 @@ def string_to_authors(raw: str) -> list[str]:
 def standardize_creator_category(creator_type, logging=False):
     """
     Takes a string. Tries to standardize it. Checks to see if it is one of the recognized creator types.
+
     If it is, returns it. If not, returns None.
     :param creator_type:
     :return standardized_creator_type/None:
@@ -185,6 +186,16 @@ def standardize_rating_type(rating_name: str) -> str:
     :return:
     """
     return rating_name.lower()
+
+
+def standardize_identifier(identifier: str) -> str:
+    """
+    Attempts to normalize a identifier.
+
+    :param identifier:
+    :return:
+    """
+    return str(identifier).strip()
 
 
 def standardize_tag(tag_str: str) -> str:
@@ -535,7 +546,7 @@ def make_tag_search_term(tag_string):
 
 
 # Todo: Extend this to as many forms of identifier as can be found
-def standardize_identifier(identifier_string):
+def standardize_identifier_value(identifier_string):
     """
     Does it's best to bring any given identifier into a standard form.
     :param identifier_string:

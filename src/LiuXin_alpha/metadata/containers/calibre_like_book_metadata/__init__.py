@@ -26,6 +26,7 @@ Similarly, for identifiers and internal identifiers.
 
 from __future__ import division, absolute_import, print_function, annotations
 
+import copy
 from typing import Optional, Union
 
 import os
@@ -46,7 +47,7 @@ from LiuXin_alpha.constants import check_image_tuple
 #
 # from LiuXin.file_formats.chardet import force_encoding
 #
-# from LiuXin.metadata import check_isbn
+from LiuXin_alpha.metadata.utils import check_isbn
 # from LiuXin.metadata import string_to_authors
 # from LiuXin.metadata import authors_to_sort_string
 # from LiuXin.metadata.book.base import calibreMetadata
@@ -230,7 +231,7 @@ class CalibreLikeLiuXinBookMetaData(
             _data["doc_type"] = value
             return
 
-        if key.lower() == "genre":
+        if key.lower() == "genre" or key.lower() == "genres":
             _data["genre"][value] = None
             return
 
@@ -517,6 +518,9 @@ class CalibreLikeLiuXinBookMetaData(
         if item in ["titlesort", "title_sort"]:
             return deepcopy(_data["title_sort"])
 
+        if item in ["genre", "genres"]:
+            return deepcopy(_data["genre"])
+
         if item in _data.keys():
             current_val = _data[item]
             return deepcopy(current_val)
@@ -537,8 +541,8 @@ class CalibreLikeLiuXinBookMetaData(
         try:
             _data = object.__getattribute__(self, "_data")
             return _data[item]
-        except KeyError:
-            raise AttributeError("MetaData object has no attribute name: " + repr(item))
+        except KeyError as e:
+            raise KeyError("MetaData object has no attribute name: " + repr(item)) from e
 
     def nullify(self, field: str) -> None:
         """
@@ -628,7 +632,7 @@ class CalibreLikeLiuXinBookMetaData(
     #
     # ----------------------------------------------------------------------------------------------------------------------
 
-    def __unicode__(self):
+    def __unicode__(self) -> str:
         """
         Uses pretty print to provide a unicode representation of this class.
         :return:
@@ -636,14 +640,14 @@ class CalibreLikeLiuXinBookMetaData(
         _data = object.__getattribute__(self, "_data")
         return pprint.pformat(_data)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Calls unicode, and then safely encodes the result.
         :return:
         """
-        return self.__unicode__().encode("utf-8")
+        return self.__unicode__()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Returns a safe representation of this object.
         :return:
@@ -651,9 +655,10 @@ class CalibreLikeLiuXinBookMetaData(
         _data = object.__getattribute__(self, "_data")
         return pprint.saferepr(_data)
 
-    def to_html(self):
+    def to_html(self) -> str:
         """
         Produces an html representation of this Metadata.
+
         :return html_string:
         """
         _data = object.__getattribute__(self, "_data")
@@ -692,7 +697,7 @@ class CalibreLikeLiuXinBookMetaData(
 
             # After considering specific cases, trying to match to general cases.
             elif isinstance(_data[field], OrderedDict):
-                field_values = deepcopy(_data[field].keys())
+                field_values = deepcopy([ky for ky in iterkeys(_data[field])])
                 field_values = [six_unicode(value) for value in field_values]
                 if _data[field].keys() is not None:
                     ans_str = " , ".join(field_values)
@@ -783,9 +788,9 @@ class CalibreLikeLiuXinBookMetaData(
         _data = object.__getattribute__(self, "_data")
 
         top_level_keys = frozenset(iterkeys(_data))
-        external_identifier_keys = frozenset(iterkeys(_data["identifiers"]))
-        internal_identifier_keys = frozenset(iterkeys(_data["internal_identifiers"]))
-        creator_keys = frozenset(iterkeys(_data["creators"]))
+        external_identifier_keys = copy.deepcopy(EXTERNAL_EBOOK_ID_SCHEMA)
+        internal_identifier_keys = copy.deepcopy(INTERNAL_EBOOK_ID_SCHEMA)
+        creator_keys = frozenset(CREATOR_CATEGORIES)
 
         return_set = top_level_keys.union(external_identifier_keys)
         return_set = return_set.union(internal_identifier_keys)
@@ -880,16 +885,22 @@ class CalibreLikeLiuXinBookMetaData(
         Provides an unlinked copy of the current MetaData object.
         :return:
         """
-        m = CalibreLikeLiuXinBookMetaData(None, None, None)
+        m = type(self)(None, None, None)
         object.__setattr__(m, "_data", deepcopy(object.__getattribute__(self, "_data")))
         return m
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo):
         """
-        Provides a handle for the deepcopy function from copy.
-        :return:
+        Hook for copy.deepcopy; stdlib calls this as __deepcopy__(memo).
         """
-        return self.deepcopy_metadata()
+        existing = memo.get(id(self))
+        if existing is not None:
+            return existing
+
+        m = type(self)(None, None, None)
+        memo[id(self)] = m
+        object.__setattr__(m, "_data", deepcopy(object.__getattribute__(self, "_data"), memo))
+        return m
 
     def smart_update(self, other, replace_metadata=False):
         """
@@ -905,9 +916,9 @@ class CalibreLikeLiuXinBookMetaData(
 
         # Get the _data from another MetaData object. Filter for null values.
         _data = object.__getattribute__(self, "_data")
-        default_data_keys = deepcopy(METADATA_NULL_VALUES.keys())
+        default_data_keys = deepcopy([ky for ky in METADATA_NULL_VALUES.keys()])
         new_data = other.get_all_attr(copy=True)
-        new_data_fields = deepcopy(new_data.keys())
+        new_data_fields = deepcopy([ky for ky in new_data.keys()])
 
         # Copying over and removing the fields which aren't present in this objects _data
         for field in new_data_fields:
@@ -916,7 +927,7 @@ class CalibreLikeLiuXinBookMetaData(
                 new_data.pop(field, None)
 
         # Copying over and replacing the fields which cannot be added to
-        new_data_fields = deepcopy(new_data.keys())
+        new_data_fields = deepcopy([ky for ky in new_data.keys()])
         while len(new_data_fields) > 0:
 
             field = new_data_fields.pop()
@@ -986,7 +997,7 @@ class CalibreLikeLiuXinBookMetaData(
         Make sure that the title, creator and tags are in title case.
         :return:
         """
-        from LiuXin.utils.libraries.titlecase import titlecase
+        from LiuXin_alpha.utils.libraries.titlecase import titlecase
 
         def title_case_rekey(target_dict):
             """
@@ -995,7 +1006,7 @@ class CalibreLikeLiuXinBookMetaData(
             :return:
             """
             new_dict = OrderedDict()
-            for k, v in target_dict:
+            for k, v in iteritems(target_dict):
                 new_dict[titlecase(k)] = v
             return new_dict
 
@@ -1006,7 +1017,7 @@ class CalibreLikeLiuXinBookMetaData(
             :return:
             """
             new_dict = OrderedDict()
-            for k, v in target_dict:
+            for k, v in iteritems(target_dict):
                 new_dict[check_isbn(k)] = v
             return new_dict
 
@@ -1104,7 +1115,7 @@ class CalibreLikeLiuXinBookMetaData(
         # Todo: Drop unknowns in any language
         # Todo: Standardize language to lang code
         for creator_role in CREATOR_CATEGORIES:
-            for key in _data[creator_role].iterkeys():
+            for key in iterkeys(_data[creator_role]):
                 if key.lower() == "unknown":
                     del _data[creator_role][key]
 

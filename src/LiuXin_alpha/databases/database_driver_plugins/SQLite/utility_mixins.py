@@ -1,40 +1,65 @@
+
+"""
+Mixins for other classes to add functionality.
+"""
+
+
 # Moving some of the code here so it can be imported and used for common operations
 
-import six
 import sqlite3
 
 from copy import deepcopy
 
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
+from typing import Optional, Iterable, Union, LiteralString
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
-from past.builtins import basestring
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import string_types as basestring
 
 
-class ColumnNameMixin(object):
+class ColumnNameMixin:
     """
     Contains the methods used to generate the column and table names.
     """
 
     @staticmethod
-    def get_allowed_types_table_name(for_table):
+    def get_allowed_types_table_name(for_table: str) -> str:
+        """
+        Returns the allowed types table name for a given table.
+
+        :param for_table:
+        :return:
+        """
         return "allowed_types__{}".format(for_table)
 
-    def get_allowed_types_table_name_intralinks(self, for_table):
+    def get_allowed_types_table_name_intralinks(self, for_table: str) -> str:
+        """
+        Sometimes, intralink tables need types as well.
+
+        :param for_table:
+        :return:
+        """
         return self.get_allowed_types_table_name("{}_{}_intralinks".format(for_table, for_table))
 
     @staticmethod
-    def direct_get_column_base(table_name):
+    def direct_get_column_base(table_name: str) -> str:
+        """
+        Returning the prefix for the column names for each column.
+
+        :param table_name:
+        :return:
+        """
         return plural_singular_mapper(table_name)
 
     @staticmethod
-    def _get_link_table_name_col_name(primary_table, secondary_table):
+    def _get_link_table_name_col_name(primary_table: str, secondary_table: str) -> tuple[str, str]:
         """
         Return the standardized name for a link table between the given primary and secondary tables.
+
         :param primary_table:
         :param secondary_table:
-        :return:
+        :return table_name, col_name:
         """
         original_tables = [primary_table, secondary_table]
         tables = deepcopy(original_tables)
@@ -54,12 +79,14 @@ class ColumnNameMixin(object):
 
         return table_name, column_name
 
-    def get_interlink_table_name(self, table1, table2):
+    @staticmethod
+    def get_interlink_table_name(table1: str, table2: str) -> tuple[str, str]:
         """
         Return the name for an interlink table, from the two tables it should join.
+
         :param table1:
         :param table2:
-        :return:
+        :return table_name, col_name:
         """
         tables = [table1, table2]
         tables.sort()
@@ -84,12 +111,12 @@ class ColumnNameMixin(object):
 
 class SQLiteTableLinkingMixin(ColumnNameMixin):
     """
-    Ideally both the database generator and the database driver should use the same code to link tables - so that there
-    can be uniformity in things like type restriction table names, and things like that.
-    So moving the link main tables logic here.
+    Class for generating link tables.
+
+    Centralising the link table logic - to ensure consistency.
     """
 
-    allowed_link_types = frozenset(
+    allowed_link_types: frozenset[str] = frozenset(
         [
             "many_many",
             "many_many_non_exclusive",
@@ -126,21 +153,11 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         try:
             self.executescript("\n".join(link_sql_list))
         except sqlite3.OperationalError as e:
-            err_msg = [
-                "Operational error when trying to link tables",
-            ]
-            #  primary_table, secondary_table, link_type="many_many", requested_cols="all",
-            #                                 index_both=True
-            err_msg.append("primary_table: {}".format(primary_table))
-            err_msg.append("secondary_table: {}".format(secondary_table))
-            err_msg.append("link_type: {}".format(link_type))
-            err_msg.append("requested_cols: {}".format(requested_cols))
-            err_msg.append("index_both: {}".format(index_both))
-            err_msg.append("\n" + "\n--------\n".join(link_sql_list) + "\n")
-
-            err_msg.append("e: {}".format(e))
-
-            err_msg.append("e.message : {}".format(e.message))
+            err_msg = ["Operational error when trying to link tables", "primary_table: {}".format(primary_table),
+                       "secondary_table: {}".format(secondary_table), "link_type: {}".format(link_type),
+                       "requested_cols: {}".format(requested_cols), "index_both: {}".format(index_both),
+                       "\n" + "\n--------\n".join(link_sql_list) + "\n", "e: {}".format(e),
+                       "e.message : {}".format(e.message)]
 
             print("\n".join(err_msg))
 
@@ -154,15 +171,15 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
     def _get_direct_link_main_tables_sqlite(
         self,
-        primary_table,
-        secondary_table,
-        link_type="many_many",
-        requested_cols="all",
-        index_both=True,
-        allowed_types=None,
-        one_link_with_one_type=True,
-        override_restriction_sql=None,
-    ):
+        primary_table: str,
+        secondary_table: str,
+        link_type: str = "many_many",
+        requested_cols: str = "all",
+        index_both: bool = True,
+        allowed_types: Optional[Iterable[str]] = None,
+        one_link_with_one_type: bool = True,
+        override_restriction_sql: Optional[str] = None,
+    ) -> tuple[list[str], Union[str, LiteralString]]:
         """
         Link the given main tables. The primary and secondary table designations indicate which table should be linked
         to the other with the given relationship.
@@ -201,6 +218,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         E.g. language_title_links. You are allowed to link lang_1 and title_1 more than once provided the type is either
         null or different.
 
+        # Todo: This should probably go away.
         :param override_restriction_sql: If provided, then this SQL will be used instead of the automatically generated
                                          one for the restrictions
 
@@ -566,9 +584,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         return full_script, table_name
 
-    def _bad_link_type_error(self, link_type):
+    def _bad_link_type_error(self, link_type: str) -> str:
         """
         Error message for when the requested link type between two tables is nonsense
+
         :param self:
         :param link_type:
         :return:
@@ -580,8 +599,20 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         ]
         return "\n".join(err_msg)
 
-    # Todo: This method - and the SQLite behind it - should be in the driver as a mixin to dry out the code base
-    def build_interlink_table_sqlite(self, table1, table2, requested_cols=None):
+    def build_interlink_table_sqlite(
+            self,
+            table1: str,
+            table2: str,
+            requested_cols: Optional[Union[str, Iterable[str]]] = None
+    ) -> list[str]:
+        """
+        Build and return sqlite for the interlink table.
+
+        :param table1:
+        :param table2:
+        :param requested_cols:
+        :return:
+        """
 
         table_name, _ = self.get_interlink_table_name(table1, table2)
 
@@ -593,7 +624,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         allowed_link_types = None
         if requested_cols == "all" or "type" in requested_cols:
 
-            # A type column has been declared - if there is TYPE column, then there should also be a allowed_type
+            # A type column has been declared - if there is TYPE column, then there should also be an allowed_type
             # table
             assert (
                 table_name in self.ALLOWED_INTERLINK_TYPE_VAL_DICT.keys()
@@ -638,16 +669,18 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         return full_script
 
+    # Todo: How is this different from the above?
     def _build_interlink_table_sqlite(
         self,
-        table1,
-        table2,
-        requested_cols=None,
-        allowed_types=None,
-        override_restriction_sql=None,
-    ):
+        table1: str,
+        table2: str,
+        requested_cols: Optional[Union[str, list[str]]] = None,
+        allowed_types: Optional[Iterable[str]] = None,
+        override_restriction_sql: Optional[str] = None,
+    ) -> list[str]:
         """
         Takes the names of two tables. Builds the SQLite code and returns it.
+
         :param table1: The name of the first table (order doesn't matter - they will be alphabetized)
         :param table2: The name of the second table
         :param requested_cols: The cols which should be included in the
@@ -714,12 +747,15 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             if "priority" in decremented_requested_cols:
                 link_rows_header += "\n      `{0}_priority` INT DEFAULT 0,"
                 decremented_requested_cols.remove("priority")
+
             if "primary" in decremented_requested_cols:
                 link_rows_header += "\n      `{0}_primary` INT NULL DEFAULT 0,"
                 decremented_requested_cols.remove("primary")
+
             if "type" in decremented_requested_cols:
                 link_rows_header += "\n      `{0}_type` TEXT NULL,"
                 decremented_requested_cols.remove("type")
+
             if "index" in decremented_requested_cols:
                 link_rows_header += "\n      `{0}_index` TEXT NULL,"
                 decremented_requested_cols.remove("index")
@@ -785,10 +821,16 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 sqlite,
             ]
 
-    def build_allowed_types_table_interlink(self, for_table, allowed_types=None):
+    def build_allowed_types_table_interlink(
+            self,
+            for_table: str,
+            allowed_types: Optional[Iterable[str]] = None
+    ) -> list[str]:
         """
         Construct an allowed types table - populated with the values from the allowed_type_val_dict.
+
         :param for_table:
+        :param allowed_types:
         :return att_sql: A list of SQLite statements which both creates and populates the table
         """
         if allowed_types is None:
