@@ -1,6 +1,13 @@
+
+"""
+Contains the actual live database module for LiuXin.
+
+Currently the database speaks to a single backend (probably SQLite).
+It is NOT thread safe - you need to do your own locking elsewhere.
+"""
+
 from __future__ import unicode_literals
 
-import json
 import re
 import pprint
 import queue as Queue
@@ -8,21 +15,23 @@ import uuid
 from copy import deepcopy
 from numbers import Number
 
-from LiuXin.paths import LiuXin_default_database
+from LiuXin_alpha.databases.api import DatabaseAPI
 
-from LiuXin.databases.drivers import loadDatabaseDriver
-from LiuXin.databases.row import Row
-from LiuXin.databases.maintenance_bot import Maintainer
-from LiuXin.databases.custom_columns import CustomColumnDatabaseMixin
-from LiuXin.databases.custom_columns import CustomColumnsDriverWrapperMixin
+from LiuXin_alpha.constants.paths import LiuXin_default_database
 
-from LiuXin.exceptions import InputIntegrityError
-from LiuXin.exceptions import DatabaseIntegrityError
-from LiuXin.exceptions import LogicalError
+from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.databases.maintenance_bot import Maintainer
+from LiuXin_alpha.databases.custom_columns import CustomColumnDatabaseMixin
+from LiuXin_alpha.databases.custom_columns import CustomColumnsDriverWrapperMixin
 
-from LiuXin.preferences import preferences
+from LiuXin_alpha.errors import InputIntegrityError
+from LiuXin_alpha.errors import DatabaseIntegrityError
+from LiuXin_alpha.errors import LogicalError
 
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
+from LiuXin_alpha.preferences import preferences
+
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 from LiuXin.utils.general_ops.python_tools import get_unique_id
 from LiuXin.utils.general_ops.python_tools import smart_dictionary_merge
 from LiuXin.utils.logger import default_log
@@ -30,11 +39,11 @@ from LiuXin.utils.localization import trans as _
 from LiuXin.utils.general_ops.json_ops import to_json_str
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 # Todo: Embed this version number in the database - so that we can check the version of the code used to produce each
 #       test database
-__object_version__ = (0, 2, 17)
+__object_version__ = (1, 0, 0)
 
 # Todo: Point uuid requests to the library_id instead
 

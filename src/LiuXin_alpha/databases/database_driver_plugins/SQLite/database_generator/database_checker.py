@@ -2,12 +2,18 @@
 
 from copy import deepcopy
 
+from typing import Optional
+
 
 # Todo: Implement as a check before the driver is allowed to create a new main table
 # Todo: Will currently fail, due to custom columns having bad column names
-def check_for_duplicate_column_names(tables_and_columns, additional_column_names=None):
+def check_for_duplicate_column_names(
+        tables_and_columns: dict[str, dict[str, list[str]]],
+        additional_column_names: Optional[list[str]] = None) -> bool:
     """
-    Takes an iterable of additional columns names (or a string). Checks through the database to make sure that none of
+    Takes an iterable of additional columns names (or a string).
+
+    Checks through the database to make sure that none of
     the given names conflict with any names currently present in the database.
     :param tables_and_columns: A map keyed with the name of the table and valued with all the names of the columns in
                                that table.

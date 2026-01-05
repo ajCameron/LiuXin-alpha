@@ -1,10 +1,11 @@
-__author__ = "Cameron"
 
 # Front end for the database_generator
-from LiuXin.databases.drivers.SQLite.database_generator.database_generator import (
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.database_generator.database_generator import (
     create_new_database,
 )
 
+__author__ = "Cameron"
 
-class DatabaseIntegrityError(Exception):
-    pass
+__all__ = ["create_new_database", ]
+
+

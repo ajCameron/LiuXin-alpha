@@ -1,22 +1,38 @@
+
+"""
+Container for a
+"""
+
+import datetime
 import pprint
 from copy import deepcopy
 
-from LiuXin.exceptions import DatabaseDriverError
-from LiuXin.exceptions import RowReadOnlyError
+from typing import Optional, Union, Iterator, Any
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.errors import DatabaseDriverError, RowReadOnlyError
+
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.logging import default_log
+
+from LiuXin_alpha.databases.api import DatabaseAPI, RowAPI
 
 
-class Row(object):
-    def __init__(self, database, row_dict=None, read_only=False):
+class Row(RowAPI):
+    """
+    Contains a row off the database.
+    """
+
+    def __init__(self, database: DatabaseAPI, row_dict: Optional[dict[str, str]] = None, read_only: bool = False) -> None:
         """
         Represents a single row from the LiuXin database.
+
         :param database: A LiuXin database object
         :param row_dict: Keyed with the column names and valued with their values.
         :param read_only: If True then the row is loaded in read only mode
         :return:
         """
+        super().__init__(database=database, row_dict=row_dict, read_only=read_only)
+
         self.read_only = read_only
 
         # Preform checking on the inputs
@@ -48,14 +64,16 @@ class Row(object):
     def make_read_only(self):
         """
         Makes the row read only.
+
         :return:
         """
         self.read_only = True
         self.sync = self.no_sync
 
-    def refresh_db_properties(self):
+    def refresh_db_properties(self) -> None:
         """
         Read the properties for the row off the database.
+
         :return:
         """
         row_dict = object.__getattribute__(self, "int_row_dict")
@@ -139,9 +157,10 @@ class Row(object):
     #
     # ----------------------------------------------------------------------------------------------------------------------
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Union[str, int, float, datetime.datetime]) -> None:
         """
         Allows a dictionary like interface to the row.
+
         :param key:
         :param value:
         :return:
@@ -176,9 +195,10 @@ class Row(object):
         row_dict[key] = value
         return None
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str) -> Union[str, int, float, datetime.datetime]:
         """
         Allows a dictionary like interface to the row.
+
         :param item:
         :return:
         """
@@ -201,22 +221,22 @@ class Row(object):
         )
         raise KeyError(err_str)
 
-    # ----------------------------------------------------------------------------------------------------------------------
+    # ---------------------------
     #
     # - UPDATE METHODS START HERE
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
 
-    def update_and_check(self):
+    def update_and_check(self) -> None:
         """
         Updates the metadata stored about the row in the class.
+
         :return:
         """
         self.refresh_db_properties()
 
-    def load_row_from_id(self, row_id=None, table=None):
+    def load_row_from_id(self, row_id: int = None, table: str = None) -> None:
         """
         If an id is present, load or reload the row_dict from it.
+
         :param row_id: The id of the row to load - if None, tries to use the id already present
         :param table: The name of the table to load the row from
         :return:
@@ -238,9 +258,10 @@ class Row(object):
 
         self.refresh_db_properties()
 
-    def load_blank_row(self, table=None):
+    def load_blank_row(self, table: Optional[str] = None) -> None:
         """
         Load a blank row off the given database - will block if the table or row_dict fields are already full.
+
         :param table:
         :return:
         """
@@ -252,9 +273,10 @@ class Row(object):
 
         self.refresh_db_properties()
 
-    def ensure_row_has_id(self):
+    def ensure_row_has_id(self) -> None:
         """
         Makes sure that the row_dict has an id in it.
+
         :return:
         """
         new_row_dict = self.db.driver_wrapper.ensure_row_has_id(object.__getattribute__(self, "row_dict"))
@@ -263,9 +285,10 @@ class Row(object):
         object.__setattr__(self, "row_dict", new_row_dict)
         object.__setattr__(self, "row_id", new_id)
 
-    def sync(self):
+    def sync(self) -> None:
         """
         Sync the current contents of the row to the database.
+
         :return:
         """
         if self.row_id is None:
@@ -275,20 +298,19 @@ class Row(object):
         if row_dict:
             self.db.driver_wrapper.update_row(row_dict)
 
-    def no_sync(self):
+    def no_sync(self) -> None:
         """
         Method to replace sync if we're in read only mode.
+
         :return:
         """
-        raise RowReadOnlyError
+        raise RowReadOnlyError("You cannot sync this row - we're in read only mode.")
 
-    # ----------------------------------------------------------------------------------------------------------------------
-    #
+    # ---------------------------
+    # -------------------------------
     # - COMPARISON METHODS START HERE
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """
         A hash for the row based on the table, id and database - will fail unless all three of these are filled.
         :return:
@@ -298,9 +320,10 @@ class Row(object):
         table = object.__getattribute__(self, "table")
         return hash((uuid, row_id, table))
 
-    def __eq__(self, other):
+    def __eq__(self, other: RowAPI) -> bool:
         """
-        Uses the hash function.
+        Uses the hash function to test equality.
+
         :param other:
         :return:
         """
@@ -311,23 +334,24 @@ class Row(object):
         else:
             return False
 
-    # ----------------------------------------------------------------------------------------------------------------------
+    # -------------------------------
+    # -----------------------------------------------
     #
     # - DICTIONARY EMULATION MAGIC METHODS START HERE
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
 
-    def keys(self):
+    def keys(self) -> None:
         """
-        Returns the the keys from the row_dict dictionary.
+        Returns the keys from the row_dict dictionary.
+
         :return:
         """
         row_dict = object.__getattribute__(self, "int_row_dict")
         return row_dict.keys()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         """
         Allows use of the in statement in content of a for loop.
+
         Iterates over all the column headings in the row.
         If the row has been loaded from the database then all column headings will be set - including if the row is
         black. If the row is being constructed rom the invididual keys, only the keys that have been set will be
@@ -339,9 +363,10 @@ class Row(object):
         for key in keys_list:
             yield key
 
-    def __contains__(self, item):
+    def __contains__(self, item: str) -> bool:
         """
         Allows use of the in statement - returns true if the item is in the row_dict - false otherwise.
+
         :param item:
         :return:
         """
@@ -351,16 +376,23 @@ class Row(object):
         else:
             return False
 
-    # ----------------------------------------------------------------------------------------------------------------------
+    # -----------------------------------------------
+    # ------------------------
     #
     # - COPY MAGIC STARTS HERE
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: dict[Any, Any]) -> RowAPI:
+        """
+        Allows for deep copying.
+
+        :param memo:
+        :return:
+        """
         # if memo:
         #     info_str = "Row __deepcopy__ passed a non-trivial memo"
         #     default_log.log_variables(info_str, "INFO", ("memo", memo))
         row_dict = object.__getattribute__(self, "int_row_dict")
         new_row_dict = deepcopy(row_dict)
         return Row(database=self.db, row_dict=new_row_dict)
+
+    # ------------------------

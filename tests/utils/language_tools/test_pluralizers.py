@@ -28,3 +28,11 @@ def test_pluralizers_do_not_mutate_input() -> None:
     w2 = "dogs"
     _ = plural_singular_mapper(w2)
     assert w2 == "dogs"
+
+
+def test_inflector_pluralize_does_not_raise() -> None:
+    from LiuXin_alpha.utils.libraries.inflector import Inflector
+
+    inf = Inflector()
+    assert inf.pluralize("table") == "tables"
+    assert inf.pluralize("ox") in ("oxen", "Oxen")  # depending on your casing behavior

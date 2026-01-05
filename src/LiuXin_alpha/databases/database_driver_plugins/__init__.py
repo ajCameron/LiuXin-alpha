@@ -5,7 +5,7 @@ import os
 
 from LiuXin_alpha.errors import DatabaseDriverError
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 # used to locate this folder on disk so that plugins can be automatically imported
 # Todo: Lock the database interface down and add these tests - in the tests folder - not here

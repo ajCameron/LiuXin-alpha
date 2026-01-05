@@ -211,7 +211,6 @@ class Plugins:
     def _load(self, name: str) -> _Loaded:
         base_pkg = __name__  # "LiuXin_alpha.utils.plugins"
         plat_pkg = f"{base_pkg}.{_platform_pkg()}.{name}"
-        fallback_pkg = f"{base_pkg}.fallbacks.{name}"
 
         # 1) Prefer platform-specific compiled module via normal import
         try:
@@ -231,10 +230,16 @@ class Plugins:
         else:
             ext_tb = ""
 
-        # 3) Fallback pure-python module
+        # 3) Layered fallbacks (cached choice -> alpha -> beta -> legacy)
         try:
-            mod = importlib.import_module(fallback_pkg)
-            return _Loaded(mod, f"Loaded fallback {fallback_pkg}", True)
+            from .resolver import resolve_plugin
+            r = resolve_plugin(name, import_module=importlib.import_module)
+            if r.module is not None:
+                msg = None
+                if r.source and ".fallbacks." in r.source:
+                    msg = f"Loaded fallback {r.source}"
+                return _Loaded(r.module, msg, True)
+            fb_tb = r.err or "No fallback candidates succeeded"
         except Exception:
             fb_tb = traceback.format_exc()
 
@@ -243,9 +248,10 @@ class Plugins:
             f"Failed to load plugin {name!r}\n\n"
             f"[platform import]\n{plat_tb}\n"
             f"[extension scan]\n{ext_tb}\n"
-            f"[fallback import]\n{fb_tb}\n"
+            f"[fallback resolution]\n{fb_tb}\n"
         )
         return _Loaded(None, err, False)
+
 
     def _load_extension_from_dirs(self, name: str) -> Optional[object]:
         # Find candidate file: name + any valid extension suffix

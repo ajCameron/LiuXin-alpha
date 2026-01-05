@@ -3,7 +3,7 @@
 # Takes the default list of interlink tables. Generates the basic SQL syntax for them.
 # Does the same for the intralink tables
 # Adds any additional columns which have been created by the user
-
+import sqlite3
 # When viewing the database certain information needs to be all present and correct in one place. There are two options
 # for this
 # 1) Views - the sane, professional and reasonable solution. Views execute queries to generate the data requested on the
@@ -20,22 +20,25 @@ import os
 import pprint
 from copy import deepcopy
 
-from LiuXin.metadata.constants import CREATOR_CATEGORIES
-from LiuXin.metadata.constants import RATING_TYPES
-from LiuXin.metadata.constants import EXTERNAL_EBOOK_ID_SCHEMA
-from LiuXin.metadata.constants import INTERNAL_EBOOK_ID_SCHEMA
+from typing import Optional
 
-from LiuXin.utils.general_ops.io_ops import LiuXin_print
-from LiuXin.utils.general_ops.io_ops import LiuXin_warning_print
-from LiuXin.utils.general_ops.language_tools import singular_plural_mapper
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
+from LiuXin_alpha.metadata.constants import CREATOR_CATEGORIES
+from LiuXin_alpha.metadata.constants import RATING_TYPES
+from LiuXin_alpha.metadata.constants import EXTERNAL_EBOOK_ID_SCHEMA
+from LiuXin_alpha.metadata.constants import INTERNAL_EBOOK_ID_SCHEMA
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
-from LiuXin.databases.drivers.SQLite.utility_mixins import SQLiteTableLinkingMixin
+from LiuXin_alpha.utils.logging import LiuXin_print
+from LiuXin_alpha.utils.logging import LiuXin_warning_print
+from LiuXin_alpha.utils.language_tools import singular_plural_mapper, plural_singular_mapper
 
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.utility_mixins import SQLiteTableLinkingMixin
 
-from LiuXin.constants import VERBOSE_DEBUG
+from LiuXin_alpha.constants.paths import LiuXin_database_folder as __database_folder__
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.databases.api import DatabaseBuilderAPI
+
+from LiuXin_alpha.constants import VERBOSE_DEBUG
 
 
 # Constraints on the interlink tables - DO NOT IMPORT - dynamically modified at run time
@@ -243,7 +246,6 @@ __INTERLINK_TABLE_CONSTRAINTS__ = {
 }
 
 # http://stackoverflow.com/questions/4060221/how-to-reliably-open-a-file-in-the-same-directory-as-a-python-script
-from LiuXin.paths import LiuXin_database_folder as __database_folder__
 
 __folder__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 __database_file_path__ = os.path.join(__database_folder__, "LiuXin_main_database.db")
@@ -394,10 +396,12 @@ __ALLOWED_INTRALINK_TYPE_VAL_DICT__ = {
 }
 
 
-def create_new_database(connection):
+def create_new_database(connection: sqlite3.Connection) -> None:
     """
     Creates a new blank database using the resources in the database generator folder.
+
     If the file path is None, then the database generates in LiuXin_data with the default name (LiuXin_main_database).
+    :param connection: sqlite3.Connection:
     """
     conn = connection
 
@@ -405,7 +409,7 @@ def create_new_database(connection):
     builder.run()
 
 
-class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
+class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
     """
     Method to support the construction of a database.
     """
@@ -414,9 +418,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
 
     INTERLINK_TABLE_CONSTRAINTS = __INTERLINK_TABLE_CONSTRAINTS__
 
-    def __init__(self, conn):
+    def __init__(self, conn: sqlite3.Connection) -> None:
         """
         A conn object pointing to an empty database.
+
         :param conn:
         """
         self.conn = conn
@@ -428,9 +433,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
 
         self.intralink_tables = set()
 
-    def run(self):
+    def run(self) -> None:
         """
         Actually preforms the build on the database.
+
         :return:
         """
         # 0) Check what we're being commanded to do is, in fact, sane
@@ -472,9 +478,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
         self.set_database_version()
 
     @staticmethod
-    def sanity_check_interlink_inputs():
+    def sanity_check_interlink_inputs() -> None:
         """
         Checks that the inputs being provided in this file are, in fact, sane.
+
         :return:
         """
         # Check that, if there's a type column, then we also know what values are permitted to be in it
@@ -498,9 +505,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
                     "type" in __INTERLINK_REQUESTED_COLS__[link_table]
                 ), "You have specified type values for table {} which does not have a table for them to go in."
 
-    def sanity_check_intralink_inputs(self):
+    def sanity_check_intralink_inputs(self) -> None:
         """
         Check that the inputs for the intralink tables make sense.
+
         :return:
         """
         for intralink_table in self.intralink_tables:
@@ -509,9 +517,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
                 "".format(intralink_table)
             )
 
-    def create_main_tables(self):
+    def create_main_tables(self) -> None:
         """
         Generates and executes the SQL needed to build the main tables.
+
         :return:
         """
         conn = self.conn
@@ -549,9 +558,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
             c.execute(statement)
             conn.commit()
 
-    def get_requested_interlink_tables(self):
+    def get_requested_interlink_tables(self) -> set[str]:
         """
         Parses a link table file for a list of requested tables.
+
         :return link_tables: A set of tuples of two table names between which a link should be created
         """
         # parses a file for a list of requested link tables
@@ -593,9 +603,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
 
         return link_tables
 
-    def extract_main_tables(self, interlink_request):
+    def extract_main_tables(self, interlink_request: str) -> Optional[list[str]]:
         """
         Extract the main tables we're being instructed to link from the main table.
+
         :param interlink_request:
         :return:
         """
@@ -612,17 +623,19 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
 
         return sorted([c_table1, c_table2])
 
-    def validate_interlink_table_constraints(self):
+    def validate_interlink_table_constraints(self) -> None:
         """
         Check that we're not trying to constrain tables that don't exist.
+
         :return:
         """
         for link_table in __INTERLINK_TABLE_CONSTRAINTS__.keys():
             assert link_table in self.interlink_tables, self.__constraint_not_found_error(link_table)
 
-    def validate_allowed_type_val_dict(self):
+    def validate_allowed_type_val_dict(self) -> None:
         """
         Check that the allowed_type_val_dict is keyed with valid link tables which have a type columns requested.
+
         :return:
         """
         for link_table in __ALLOWED_INTERLINK_TYPE_VAL_DICT__.keys():
@@ -634,9 +647,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
 
             assert "type" in __INTERLINK_REQUESTED_COLS__[link_table]
 
-    def validate_interlink_table_column_requests(self):
+    def validate_interlink_table_column_requests(self) -> None:
         """
         Check that we're instructing the database generator to limit the column count of tables that actually exist.
+
         :return:
         """
         for table_constraint in __INTERLINK_REQUESTED_COLS__.keys():
@@ -651,7 +665,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
             for cr in column_requests:
                 assert cr in {"priority", "type", "index"}, "cr {} not valid".format(cr)
 
-    def __constraint_not_found_error(self, link_table):
+    def __constraint_not_found_error(self, link_table: str) -> str:
         err_msg = [
             "{} not found in the known interlink tables".format(link_table),
             "\n{}\n".format(pprint.pformat(self.interlink_tables)),
@@ -659,29 +673,32 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
         return "\n".join(err_msg)
 
     @staticmethod
-    def get_interlink_name(link_pair):
+    def get_interlink_name(link_pair: list[str]) -> str:
         """
         Take the pair of tables to be linked and return the name of their interlink table.
+
         :param link_pair:
         :return:
         """
         link_pair = sorted(link_pair)
         return "{}_{}_links".format(plural_singular_mapper(link_pair[0]), plural_singular_mapper(link_pair[1]))
 
-    def get_interlink_constraint(self, link_pair):
+    def get_interlink_constraint(self, link_pair: list[str]) -> dict[str, str]:
         """
         Takes a pair of tables and returns a link table for it - if it exists.
+
         :param link_pair:
         :return:
         """
         link_table_name = self.get_interlink_name(link_pair)
         return __INTERLINK_TABLE_CONSTRAINTS__[link_table_name]
 
-    def match_to_table_name(self, candidate_name):
+    def match_to_table_name(self, candidate_name: str) -> Optional[str]:
         """
-        Takes a table name that the user has requested.
+        Attempt to fuzzy match the cand name to a known table.
+
         Tries to match the given string with one that is definitely the name of a table.
-        Returns the name of the table - or False if no match can be found.
+        Returns the name of the table - or None if no match can be found.
         :param candidate_name:
         :return:
         """
@@ -699,11 +716,12 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
         if candidate_name in self.main_tables:
             return candidate_name
         else:
-            return False
+            return None
 
-    def create_interlink_table(self, table1, table2, connection):
+    def create_interlink_table(self, table1: str, table2: str, connection: sqlite3.Connection) -> None:
         """
         Takes the names of two tables - creates an interlink table between them.
+
         :param table1:
         :param table2:
         :param connection: The global connection uses throughout this extended method
@@ -742,9 +760,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
     # this section deals with adding the intralink tables
     # examples might be authors and their pseudonames.
     # The format is always primary is type of secondary
-    def create_intralink_table(self, table_name, connection):
+    def create_intralink_table(self, table_name: str, connection: sqlite3.Connection) -> None:
         """
         Takes the name of a table. Creates an interlink table for that table - tables that link tables to themselves
+
         :param table_name:
         :param connection:
         :return:
@@ -760,9 +779,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
             c.execute(intralink_statement)
             connection.commit()
 
-    def build_intralink_table_sqlite(self, name):
+    def build_intralink_table_sqlite(self, name: str) -> list[str]:
         """
         Takes a table name. Builds the sqlite for a table refering back to the main table.
+
         :param name:
         :return:
         """
@@ -833,9 +853,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
         )
         return allowed_type_table_sqlite
 
-    def build_allowed_types_table_intralink(self, for_table):
+    def build_allowed_types_table_intralink(self, for_table: str) -> list[str]:
         """
         Construct an allowed types table - populated with the values from the allowed_type_val_dict.
+
         :param for_table:
         :return att_sql: A list of SQLite statements which both creates and populates the table
         """
@@ -874,9 +895,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
             att_table_sqlite,
         ] + att_add_sqlite
 
-    def get_requested_intralink_tables(self):
+    def get_requested_intralink_tables(self) -> set[str]:
         """
         Parses the intralink_table_requests file and gets the names of the table that need to be intralinked
+
         :return:
         """
         current_tables = self.main_tables
@@ -911,9 +933,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
 
         return intralink_tables
 
-    def create_aggregate_tables(self):
+    def create_aggregate_tables(self) -> None:
         """
         Takes a connection to the database. Executes all the SQL it can find in the aggregate_tables file.
+
         This should include the code to generate the tables themselves, and the code for the triggers to run them.
         :return:
         """
@@ -951,12 +974,13 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin):
             c.execute(statement)
             self.conn.commit()
 
-    def set_database_version(self):
+    def set_database_version(self) -> None:
         """
-        Import the driver version and the database version and
+        Import the driver version and the database version and set it.
+
         :return:
         """
-        from LiuXin.databases.drivers.SQLite import get_SQLite_driver_master_version
+        from LiuXin_alpha.databases.database_driver_plugins.SQLite import get_SQLite_driver_master_version
 
         version_str = get_SQLite_driver_master_version()
 

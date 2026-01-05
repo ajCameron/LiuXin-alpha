@@ -33,6 +33,7 @@ def multi_string_print(*args: str) -> None:
 
 
 LiuXin_print = multi_string_print
+LiuXin_debug_print = multi_string_print
 LiuXin_warning_print = multi_string_print
 
 

@@ -12,9 +12,9 @@ from LiuXin_alpha.utils.libraries.liuxin_dateutil.tz import tzlocal, tzutc, EPOC
 
 from LiuXin_alpha.utils.which_os import iswindows, isosx
 
+from LiuXin_alpha.utils.plugins import plugins
 
-from LiuXin.utils.calibre.constants import iswindows, isosx, plugins
-from LiuXin.utils.localization import lcdata
+from LiuXin_alpha.utils.localization import lcdata
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 

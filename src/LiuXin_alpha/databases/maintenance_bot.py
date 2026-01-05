@@ -28,20 +28,24 @@ import weakref
 from collections import defaultdict
 from copy import deepcopy
 
-from LiuXin.constants import VERBOSE_DEBUG
+from typing import Iterable, Optional
+
+from LiuXin_alpha.constants import VERBOSE_DEBUG
+from LiuXin_alpha.databases.database import Database
 
 # from LiuXin.databases.database import DatabasePing
 # from LiuXin.databases.row import Row
 
-from LiuXin.exceptions import InputIntegrityError
+from LiuXin_alpha.errors import InputIntegrityError
 
-from LiuXin.folder_stores.file_manager.LX_name_manip import author_to_author_sort
+from LiuXin_alpha.utils.language_tools.lx_name_manip import author_to_author_sort
 
-from LiuXin.utils.general_ops.io_ops import LiuXin_debug_print
-from LiuXin.utils.localization import _
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logging import LiuXin_debug_print, default_log
+from LiuXin_alpha.utils.localization import trans as _
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseMaintainerAPI, MaintenanceBotAPI
+
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __author__ = "Cameron"
 
@@ -50,12 +54,20 @@ __author__ = "Cameron"
 DATABASE_CHECKED = False
 
 
-# Interface between the database and the maintenance bot
-class Maintainer(object):
-    def __init__(self, db):
+class Maintainer(DatabaseMaintainerAPI):
+    """
+    Interface between the database and the maintenance bot.
+    """
+    db: DatabaseAPI
 
-        # Weakref to make sure the class doesn't block shutdown of the database
-        self.db = db
+    def __init__(self, db: DatabaseAPI) -> None:
+        """
+        Attach the database to the maintainer which will work on it.
+
+        :param db:
+        """
+        super().__init__(db=db)
+
         self.main_table_dirtied_queue = Queue.Queue()
         self.interlink_dirtied_queue = Queue.Queue()
 
@@ -66,7 +78,7 @@ class Maintainer(object):
         )
         self.maintainer.start()
 
-    def dirty_record(self, table, row_id):
+    def dirty_record(self, table: str, row_id: int) -> None:
         """
         Notify the maintenance bot that a change has occurred to the table (put it in the maintain queue).
 
@@ -76,13 +88,23 @@ class Maintainer(object):
         """
         self.main_table_dirtied_queue.put((table, row_id), block=False)
 
-    def new_dirty_record(self, table, row_id):
+    def new_dirty_record(self, table: str, row_id: int) -> None:
+        """
+        Replacement for the dirty record method for testing.
+
+        :param table:
+        :param row_id:
+        :return:
+        """
         print("NEW TABLE", table, "NEW ID", row_id)
 
-    def dirty_interlink_record(self, update_type, table1, table2, table1_id, table2_id):
+    def dirty_interlink_record(
+            self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int
+    ) -> None:
         """
-        Notify the maintence bot that an interlink record has been changed - used for updating the books_aggregate
-        table when stuff happens to the
+        Notify the maintenance bot that an interlink record has been changed.
+
+        Used for updating the books_aggregate table when stuff happens to the relevant other tables.
         :param update_type:
         :param table1:
         :param table2:
@@ -92,18 +114,20 @@ class Maintainer(object):
         """
         self.interlink_dirtied_queue.put((update_type, table1, table2, table1_id, table2_id))
 
-    def clean(self, table, item_ids):
+    def clean(self, table: str, item_ids: Iterable[int]) -> None:
         """
         Clean the relevant table of the relevant item_ids
+
         :param table:
         :param item_ids:
         :return:
         """
         pass
 
-    def merge(self, table, item_1_id, item_2_id):
+    def merge(self, table: str, item_1_id: int, item_2_id: int) -> None:
         """
         Consider merging two items on the database.
+
         :param table:
         :param item_1_id:
         :param item_2_id: All the item 2 ids will be repointed to item_1_id - then it'll be deleted
@@ -131,9 +155,12 @@ class Maintainer(object):
         item_2_row = self.db.get_row_from_id(table, row_id=item_2_id)
         self.db.delete(item_2_row)
 
-    def _do_merge_one_table(self, src_table, dst_table, link_table, item_1_id, item_2_id):
+    def _do_merge_one_table(
+            self, src_table: str, dst_table: str, link_table: str, item_1_id: int, item_2_id: int
+    ) -> None:
         """
         Merge two tags linked to the given table.
+
         :param src_table:
         :param dst_table:
         :param link_table:
@@ -173,20 +200,31 @@ class Maintainer(object):
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-class MaintenanceBot(threading.Thread):
+class MaintenanceBot(threading.Thread, MaintenanceBotAPI):
     """
     Continuously checks the database and generates some of the computationally expensive derived quantities.
-    As an alternative to using triggers.
+
+    As an alternative to using triggers - for things which can be done later.
     """
 
     def __init__(
         self,
-        db,
+        db: Database,
         dirtied_main_queue,
         dirtied_interlink_queue,
-        interval=2,
-        scheduling_interval=0.5,
-    ):
+        interval: int = 2,
+        scheduling_interval: float = 0.5,
+    ) -> None:
+        """
+        The Maintenance bot exist to do maintenance work to the database.
+
+        :param db:
+        :param dirtied_main_queue:
+        :param dirtied_interlink_queue:
+        :param interval:
+        :param scheduling_interval:
+        """
+
         threading.Thread.__init__(self)
         self.daemon = True
         try:
@@ -204,12 +242,24 @@ class MaintenanceBot(threading.Thread):
         self.interval = interval
         self.scheduling_interval = scheduling_interval
 
-    def stop(self):
+    def stop(self) -> None:
+        """
+        Preform thread shutdown.
+
+        :return:
+        """
         self.keep_running = False
 
-    def rename_item(self, item_id, table, value, now=True, db=None):
+    def rename_item(
+            self,
+            item_id: int,
+            table: str,
+            value: bool,
+            now: bool = True,
+            db: Optional[DatabaseAPI] = None) -> None:
         """
-        Preform a rename of an item
+        Register a rename action has occurred on an item.
+
         :param item_id:
         :param table:
         :param value: The item value will be renamed to this
@@ -253,6 +303,7 @@ class MaintenanceBot(threading.Thread):
 def run_ta_updates(ta_row_id_list, database_driver):
     """
     Launches the ta_trigger thread.
+
     :param ta_row_id_list:
     :param database:
     :return:
@@ -625,6 +676,7 @@ def populate_ta_publishers_aggregate(ta_row_id_list, database):
 def ensure_creators_sort(creator_rows):
     """
     Make sure some sort of creator sort field is set for every row in the given creator_rows itterable.
+
     :param creator_rows:
     :return:
     """
@@ -637,8 +689,10 @@ def ensure_creators_sort(creator_rows):
 
 def clean(db, table, item_ids=None):
     """
-    Remove any unused entries from the database. If item_ids are provided only removes items which are in that set
-    and unused.
+    Remove any unused entries from the database.
+
+    If item_ids are provided only removes items which are in that set and unused.
+
     :param db: The database to preform the clean in
     :param table: The table to attempt to clean of unused ids
     :param item_ids: If provided restricts the clean to these ids
