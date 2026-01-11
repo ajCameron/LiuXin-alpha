@@ -1,5 +1,10 @@
-# Methods to cope with fingerprint assets (files and folders).
-# Bit of a mess, frankly.
+
+"""
+Methods to generated hashes and gists from the database.
+
+Used to detected if metadata sets for an object has changed.
+(Conceptually a good idea - not sure how practical).
+"""
 
 from copy import deepcopy
 
@@ -7,6 +12,7 @@ from copy import deepcopy
 def generate_book_fingerprint(db, book_row):
     """
     The union of all the things the book is linked to - with all the things the title is linked to.
+
     :param db:
     :param book_row:
     :return:
@@ -32,6 +38,7 @@ def generate_book_fingerprint(db, book_row):
 def generate_title_fingerprint(db, title_row):
     """
     Generates a fingerprint for the given title_row.
+
     :param db: The database in which to work
     :param title_row: The books title in the titles table
     :return:
@@ -55,6 +62,7 @@ def generate_title_fingerprint(db, title_row):
 def generate_one_title_fingerprint(db, title_row):
     """
     Generates a fingerprint based off a single title.
+
     :param db:
     :param title_row:
     :return:

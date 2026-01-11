@@ -8,16 +8,20 @@ import pprint
 import re
 import sys
 import uuid
+import json
+
 from datetime import datetime
 
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
-from typing import Union, Container, Iterable
+from typing import Union, Container, Iterable, Any
 
 
 from LiuXin_alpha.utils.logging import LiuXin_print
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+
 
 __author__ = "Cameron"
 
@@ -667,3 +671,51 @@ def _add_dict_tree_value(dict_tree, pos_list, new_value):
             next_level[position] = dict()
         next_level = next_level[position]
     next_level[pos_list[-1]] = new_value
+
+
+def to_json_str(json_obj: Any) -> str:
+    """
+    Return a json string.
+    :param json_obj:
+    :return:
+    """
+    return json.dumps(obj=json_obj, check_circular=True)
+
+
+def from_json_str(json_str):
+    """
+    Take a json string and serialize it.
+    :param json_str:
+    :return:
+    """
+    return json.loads(s=json_str)
+
+
+# Todo: Really an adapter - find somewhere centralized to put them all and move them there
+def smart_bool(cand_bool):
+    """
+    Takes an object and renders it into a bool with a little more intelligence than the standard bool inbuilt.
+    - If the object is a bool then just return it
+    - If the object is an int the call bool with it and return the result
+    - If the object is a string try and render it an int - then apply bool to it and return
+    - If the object cannot be rendered an int check to see if the string just says true or false
+    - ValueError
+    :param cand_bool: The candidate object to render into a bool
+    :return:
+    """
+    if isinstance(cand_bool, bool):
+        return cand_bool
+
+    if isinstance(cand_bool, int):
+        return bool(cand_bool)
+
+    if isinstance(cand_bool, str):
+        try:
+            return bool(int(cand_bool))
+        except ValueError:
+            if cand_bool.lower() == "true":
+                return True
+            if cand_bool.lower() == "false":
+                return False
+
+    raise ValueError("Unexpected object type - this method only value for bool, int and strings with some content")

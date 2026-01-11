@@ -1,7 +1,27 @@
 
 """
 API for the database and related classes.
+
+The structure of a functional database goes like this, from top to bottom
+
+DatabaseAPI
+    You talk to this from outside this module. Only this.
+DatabaseDriverWrapperAPI
+    Wraps the driver to add some additional functionality.
+    Call here for a RowAPI respecting class.
+DatabaseDriverAPI
+    Responsible for actually talking to the database - per database type.
+    Call here for the row as a dictionary.
+
+MacrosAPI
+    Macros inherit from a base macros class which implements functions on the database.
+    The macros class for a particular type of
+
+
+
 """
+
+from __future__ import annotations
 
 import abc
 import datetime
@@ -38,6 +58,23 @@ class RowAPI(abc.ABC):
         """
 
     @abc.abstractmethod
+    def sync(self) -> None:
+        """
+        Synchronize the row with the database.
+
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def table(self) -> str:
+        """
+        Return the name of the table this row is in.
+
+        :return:
+        """
+
+    @abc.abstractmethod
     def make_read_only(self) -> None:
         """
         Convert this object to a read only row.
@@ -54,6 +91,7 @@ class RowAPI(abc.ABC):
         """
 
     @property
+    @abc.abstractmethod
     def row_dict(self) -> Optional[dict[str, str]]:
         """
         Return the row dict stored in this row.
@@ -63,6 +101,7 @@ class RowAPI(abc.ABC):
         raise NotImplementedError("You need to define this property.")
 
     @row_dict.setter
+    @abc.abstractmethod
     def row_dict(self, val: Optional[dict[str, str]]) -> None:
         """
         Set the row dict stored in this row.
@@ -101,7 +140,7 @@ class RowAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def load_row_from_id(self, row_id: int = None, table: str = None) -> None:
+    def load_row_from_id(self, row_id: Optional[int] = None, table: Optional[str] = None) -> None:
         """
         If an id is present, load or reload the row_dict from it.
 
@@ -168,7 +207,7 @@ class RowAPI(abc.ABC):
     #
     # - DICTIONARY EMULATION MAGIC METHODS START HERE
     @abc.abstractmethod
-    def keys(self) -> None:
+    def keys(self) -> Iterable[str]:
         """
         Returns the keys from the row_dict dictionary.
 
@@ -195,6 +234,8 @@ class RowAPI(abc.ABC):
         :param item:
         :return:
         """
+
+
     # -----------------------------------------------
     # ------------------------
     #
@@ -216,6 +257,162 @@ class DatabaseDriverAPI(abc.ABC):
     """
     Every database drive must descend from this class.
     """
+    def direct_executescript(self, script: str) -> None:
+        """
+        Execute a script on the database - should be phased out.
+
+        :param script:
+        :return:
+        """
+
+    def direct_execute(self, script: str) -> None:
+        """
+        Execute a script on the database - should be phased out.
+
+        :param script:
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def macros(self) -> MacrosAPI:
+        """
+        Return the macros for the given driver.
+        
+        :return:
+        """
+
+class DatabaseDriverWrapperAPI(abc.ABC):
+    """
+    We wrap the driver in a driver wrapper, which offers additional functionality.
+
+    As a rule, if you want rows in the form of dicts, call this.
+    If you want rows, call the database.
+    # Todo: This is not transparent. Something like db.as_dicts and the wrapper seperate
+
+    (So the driver doesn't have to implement every method and we can keep drivers minimal).
+    """
+
+    @abc.abstractmethod
+    def get_all_rows(self, table: str) -> Iterable[dict[str, str]]:
+        """
+        Return all the rows for the given table.
+
+        :param table:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_link_table_name(self, table1: str, table2: str) -> str:
+        """
+        Retrurn the link table name.
+
+        :param table1:
+        :param table2:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_link_column(self, table1: str, table2: str, column_type: str="datestamp") -> str:
+        """
+        Return the interlink column name of the given type.
+
+        :param table1:
+        :param table2:
+        :param column_type:
+        :return:
+        """
+
+
+    @abc.abstractmethod
+    def get_intralink_column(self, table: str, column_type: str) -> str:
+        """
+        Return the intralink column name for the given column in the given table.
+
+        :param table:
+        :param column_type:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def check_for_intralink_table(self, table: str) -> bool:
+        """
+        Check to see if the table has a intralink table.
+
+        :param table:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_interlinked_tables(self, table: str) -> frozenset[str]:
+        """
+        Return the tables interlinked to this table.
+
+        :param table:
+        :return:
+        """
+
+    # ---------------------
+    # - COLUMN NAME METHODS
+
+    @abc.abstractmethod
+    def get_id_column(self, table: str) -> str:
+        """
+        Get the id column for the given table.
+
+        :param table:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_parent_column(self, table: str) -> str:
+        """
+        Return the parent column name for the given table.
+
+        :param table:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_datestamp_column(self, table: str) -> str:
+        """
+        Get the id column for the given table.
+
+        :param table:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def update_row(self, matched_row: dict[str, str]) -> None:
+        """
+        Preform an update on the given row.
+
+        :param matched_row:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def search(self, table: str, column: str, search_term: str) -> Iterable[dict[str, str]]:
+        """
+        Preform a search on the given table.
+
+        :param table:
+        :param column:
+        :param search_term:
+        :return:
+        """
+
+    #
+    # ---------------------
+
+    @property
+    @abc.abstractmethod
+    def macros(self) -> MacrosAPI:
+        """
+        Macros API for the driver.
+
+        :return:
+        """
 
 
 
@@ -223,6 +420,99 @@ class DatabaseAPI(abc.ABC):
     """
     API for the Database itself.
     """
+
+    @abc.abstractmethod
+    def set_driver(self, new_driver: DatabaseDriverAPI) -> None:
+        """
+        Set the database driver.
+
+        :param new_driver:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def set_driver_wrapper(self, new_driver_wrapper: DatabaseDriverWrapperAPI) -> None:
+        """
+        Set the database driver wrapper.
+
+        :param new_driver_wrapper:
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def driver(self) -> DatabaseDriverAPI:
+        """
+        Get the driver instance.
+
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_all_rows(self, table: str) -> Iterable[RowAPI]:
+        """
+        Return all the rows for the given table.
+
+        :param table:
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def main_tables(self) -> frozenset[str]:
+        """
+        Return the main tables defined in this database.
+
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def interlink_tables(self) -> frozenset[str]:
+        """
+        Return the interlink tables defined by the database.
+
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def driver_wrapper(self) -> DatabaseDriverWrapperAPI:
+        """
+        Return the driver wrapper.
+
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_row_from_id(self, table: str, row_id: int) -> RowAPI:
+        """
+        Get the given row from the database.
+
+        :param table:
+        :param row_id:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def delete(self, row: RowAPI) -> None:
+        """
+        Delete a row from the database.
+
+        :param row:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_intralink_rows(self, row: RowAPI, primary: bool = True, secondary: bool = False) -> list[RowAPI]:
+        """
+        Return the intralink rows linked to the given row.
+
+        :param row:
+        :param primary:
+        :param secondary:
+        :return:
+        """
 
 
 
@@ -334,3 +624,9 @@ class MaintenanceBotAPI(abc.ABC):
         :param db:
         :return:
         """
+
+
+class MacrosAPI(abc.ABC):
+    """
+    Macros are chained statements, even as a single piece of code or a function.
+    """

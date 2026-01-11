@@ -11,6 +11,8 @@ from builtins import zip as izip
 from clint.textui import puts
 from clint.textui import colored as clint_colored
 
+from typing import Optional, Iterable, Tuple
+
 from LiuXin_alpha.utils.which_os import iswindows
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
@@ -477,3 +479,100 @@ def safe_terminal_info_print(info_strs):
         ]
     )
     puts(clint_colored.green("\n".join(info_strs)))
+
+
+# -----------------------------------------------------------------------------
+# -- Methods to get input from the user start here
+# -----------------------------------------------------------------------------
+
+
+def print_or_prompt(output: str, user_input: bool = False) -> Optional[str]:
+    """
+    Has the same signature as the Python3 print function - will be useful when directing the print output around.
+
+    :param output: The thing to be printed
+    :param user_input True/False:
+    """
+    if not user_input:
+        print(output)
+        return None
+    else:
+        new_user_input = input(output)
+        new_user_input = str(new_user_input)
+        return new_user_input
+
+
+
+def y_n_input(message: str) -> bool:
+    """
+    Takes a message. Prints it. Attempts to parse what the user types back to obtain a y/n input.
+
+    This input is converted to True/False and returned.
+    :param message:
+    :return:
+    """
+
+    print_or_prompt(message)
+
+    user_response = print_or_prompt("Please enter y/n\n", True)
+    user_response = user_response[:1].lower()
+
+    while user_response not in ["y", "n"]:
+
+        if len(user_response) == 0:
+            new_message = "Please enter something. y/n ideally."
+            user_response = print_or_prompt(new_message, True)
+        else:
+            user_response = user_response[1:].lower()
+            if user_response not in ["y", "n"]:
+                new_message = "Please enter y or n"
+                user_response = print_or_prompt(new_message, True)
+
+    if user_response == "y":
+        return True
+
+    elif user_response == "n":
+        return False
+
+    else:
+        err_str = "Error - y_n_input has reached a point it shouldn't"
+        raise NotImplementedError(err_str)
+
+
+def select_from_options(options: Iterable[str]) -> str:
+    """
+    Takes a list of options - asks the user to choose.
+
+    Presents them to the user with a numeric switch - allowing them to choose one of the options.
+    :param options:
+    :return:
+    """
+    options = list(options)
+
+    header = "Please choose one of the following options.\n"
+    print_or_prompt(header)
+    valid_input = False
+    valid_input_range = range(1, len(options) + 1)
+
+    user_input = ""
+    for i in range(len(options)):
+        user_input += str(i + 1) + " : " + str(options[i]) + "\n"
+    print_or_prompt(user_input)
+    usr_rtn = input("Choice?\n")
+
+    while not valid_input:
+
+        try:
+            usr_rtn_int = int(usr_rtn)
+            if usr_rtn_int in valid_input_range:
+                return options[usr_rtn_int - 1]
+            else:
+                output_str = "Please enter an integer in the range.\n"
+                usr_rtn = input(output_str)
+
+        except ValueError:
+            output_str = "Unable to parse return as an integer.\n"
+            output_str += "Please enter an integer in the range.\n"
+            usr_rtn = input(output_str)
+
+    raise NotImplementedError("Please enter an integer in the range.")

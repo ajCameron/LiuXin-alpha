@@ -132,7 +132,8 @@ class DatabaseSearch(object):
             for value in index_location:
                 python_stmt += six_unicode("[" + six_unicode(value) + "]")
             python_stmt += " = transformed_index"
-            exec(python_stmt)
+            # exec(python_stmt)
+            raise NotImplementedError(python_stmt)
 
         # Todo: Really need to review and removpe most of the exec statements
 

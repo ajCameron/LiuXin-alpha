@@ -15,7 +15,9 @@ import uuid
 from copy import deepcopy
 from numbers import Number
 
-from LiuXin_alpha.databases.api import DatabaseAPI
+from typing import Optional
+
+from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseDriverWrapperAPI, DatabaseDriverAPI
 
 from LiuXin_alpha.constants.paths import LiuXin_default_database
 
@@ -32,11 +34,11 @@ from LiuXin_alpha.errors import LogicalError
 from LiuXin_alpha.preferences import preferences
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
-from LiuXin.utils.general_ops.python_tools import get_unique_id
-from LiuXin.utils.general_ops.python_tools import smart_dictionary_merge
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.general_ops.json_ops import to_json_str
+from LiuXin_alpha.utils.python_tools import get_unique_id
+from LiuXin_alpha.utils.python_tools import smart_dictionary_merge
+from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.python_tools import to_json_str
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -48,7 +50,7 @@ __object_version__ = (1, 0, 0)
 # Todo: Point uuid requests to the library_id instead
 
 
-class Database(CustomColumnDatabaseMixin):
+class Database(CustomColumnDatabaseMixin, DatabaseAPI):
     """
     Represents a database which LiuXin could be connected to. Access to the database should always be through this class
     The default database is simply the database located in LiuXin_data.
@@ -56,17 +58,21 @@ class Database(CustomColumnDatabaseMixin):
     To get a Row return - call database.method. To get a row_dict - call database.backend.method
     """
 
+    _driver: DatabaseDriverAPI
+    _driver_wrapper: DatabaseDriverWrapperAPI
+
     # Todo: Split some of these out into factory methods and slim this down
     def __init__(
         self,
         metadata=None,
-        db_type="SQLite",
-        create=False,
-        backup=True,
-        existing_driver=None,
-    ):
+        db_type: str = "SQLite",
+        create: bool = False,
+        backup: bool = True,
+        existing_driver: Optional[DatabaseDriverAPI] = None,
+    ) -> None:
         """
         If the database type is not set defaults to SQLite.
+
         :param metadata: The metadata dictionary for the table
         :param db_type: The type of the database to be loaded
         :param create: Should a new database be created?
@@ -80,8 +86,6 @@ class Database(CustomColumnDatabaseMixin):
         self.type = None
 
         # Helper attributes
-        self.driver = None
-        self.driver_wrapper = None
         self.macros = None
 
         # Fundamental constants for this database
@@ -105,18 +109,36 @@ class Database(CustomColumnDatabaseMixin):
         self.driver.dirty_records_queue = self.dirty_records_queue
         self.driver_wrapper.dirty_records_queue = self.dirty_records_queue
 
-    def existing_driver_init(self, existing_driver):
+    @property
+    def driver(self) -> DatabaseDriverAPI:
+        """
+        Return the live database driver.
+
+        :return:
+        """
+        return self._driver
+
+    @property
+    def driver_wrapper(self) -> DatabaseDriverWrapperAPI:
+        """
+        Return the live database driver wrapper.
+
+        :return:
+        """
+        return self._driver_wrapper
+
+    def existing_driver_init(self, existing_driver: DatabaseDriverAPI) -> None:
         """
         Startup method called when the drivber already exists. Useful for testing.
+
         :param existing_driver:
         :return:
         """
         # Load the driver constructor - use this to make the driver instance for this database
-        self.driver = existing_driver
+        self.set_driver(existing_driver)
         self.macros = self.driver.macros
 
         # Load the backend with the driver.
-        self.driver_wrapper = DriverWrapper(self.driver)
         self.lock = self.driver_wrapper.lock
 
         # Check to see if the database currently exists
@@ -140,11 +162,11 @@ class Database(CustomColumnDatabaseMixin):
         # helper_tables - data is stored in the database - for convenience - but isn't book or asset metadata
         self.all_tables = None
 
-        self.main_tables = None
+        self._main_tables = None
 
         self.custom_tables = None
 
-        self.interlink_tables = None
+        self._interlink_tables = None
         self.intralink_tables = None
 
         self.dirtiable_tables = None
@@ -196,6 +218,7 @@ class Database(CustomColumnDatabaseMixin):
     def standard_init(self, metadata=None, db_type="SQLite", create=False, backup=True):
         """
         Standard constructor - for when the driver doesn't already exist.
+
         :param metadata:
         :param db_type:
         :param create:
@@ -237,9 +260,9 @@ class Database(CustomColumnDatabaseMixin):
             #                  - are made to them
             # helper_tables - data is stored in the database - for convenience - but isn't book or asset metadata
             self.all_tables = None
-            self.main_tables = None
+            self._main_tables = None
             self.custom_tables = None
-            self.interlink_tables = None
+            self._interlink_tables = None
             self.intralink_tables = None
 
             self.dirtiable_tables = None
@@ -305,6 +328,25 @@ class Database(CustomColumnDatabaseMixin):
         self._uuid = value
         self.driver_wrapper.set_uuid(value)
 
+    def set_driver(self, new_driver: DatabaseDriverAPI) -> None:
+        """
+        Set the database driver.
+
+        :param new_driver:
+        :return:
+        """
+        self._driver = new_driver
+        self._driver_wrapper = DriverWrapper(self.driver)
+
+    def set_driver_wrapper(self, new_driver_wrapper: DatabaseDriverWrapperAPI) -> None:
+        """
+        Set the database driver wrapper.
+
+        :param new_driver_wrapper:
+        :return:
+        """
+        self._driver_wrapper = new_driver_wrapper
+
     def __del__(self):
         """
         Preform shutdown.
@@ -317,10 +359,11 @@ class Database(CustomColumnDatabaseMixin):
     def break_cycles(self):
         """
         Explicitly zero all stored objects in the right order.
+
         :return:
         """
-        self.driver_wrapper = None
-        self.driver = None
+        self._driver_wrapper = None
+        self._driver = None
         self.maintenance = None
 
     # Todo: THis might also want to be an internal method
@@ -389,6 +432,24 @@ class Database(CustomColumnDatabaseMixin):
             self.driver_wrapper.update_row(pub_0_row)
 
     @property
+    def main_tables(self) -> frozenset[str]:
+        """
+        Return the defined main tables.
+
+        :return:
+        """
+        return frozenset(self._main_tables)
+
+    @property
+    def interlink_tables(self) -> frozenset[str]:
+        """
+        Return the defined interlink tables.
+
+        :return:
+        """
+        return frozenset(self._interlink_tables)
+
+    @property
     def library_id(self):
         """
         The UUID for this library. As long as the user only operates on libraries with LiuXin, it will be unique.
@@ -454,9 +515,9 @@ class Database(CustomColumnDatabaseMixin):
         :return:
         """
         self.all_tables = set([t for t in self.get_tables()])
-        self.main_tables = set()
+        self._main_tables = set()
         self.custom_tables = set()
-        self.interlink_tables = set()
+        self._interlink_tables = set()
         self.intralink_tables = set()
         self.allowed_type_tables = set()
 
@@ -476,20 +537,26 @@ class Database(CustomColumnDatabaseMixin):
         # Populate the individual categories
         for table in self.all_tables:
             table_cat = self.categorize_table(table)
+
             if table_cat == "main":
-                self.main_tables.add(table)
+                self._main_tables.add(table)
                 continue
+
             if table_cat == "interlink":
-                self.interlink_tables.add(table)
+                self._interlink_tables.add(table)
                 continue
+
             if table_cat == "intralink":
                 self.intralink_tables.add(table)
                 continue
+
             if table_cat == "helper":
                 continue
+
             if table_cat == "custom":
                 self.custom_tables.add(table)
                 continue
+
             if table_cat == "allowed_types":
                 self.allowed_type_tables.add(table)
                 continue

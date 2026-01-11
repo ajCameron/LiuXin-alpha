@@ -19,37 +19,32 @@ from contextlib import closing
 from copy import deepcopy
 from functools import partial
 
-from six import iterkeys
-from six import iteritems
+from six import iterkeys, iteritems
 
-from LiuXin.utils.general_ops.io_ops import LiuXin_print
-from LiuXin.utils.general_ops.io_ops import LiuXin_debug_print
-from LiuXin.utils.general_ops.io_ops import LiuXin_warning_print
-from LiuXin.utils.general_ops.io_ops import y_n_input
+from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_debug_print, LiuXin_warning_print
+from LiuXin_alpha.utils.terminal import y_n_input
 
-from LiuXin.constants import VERBOSE_DEBUG
+from LiuXin_alpha.constants import VERBOSE_DEBUG
 
-from LiuXin.databases.drivers.SQLite.database_generator.database_generator import (
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.database_generator.database_generator import (
     create_new_database,
 )
-from LiuXin.databases.drivers.SQLite.macros import SQLiteDatabaseMacros
-from LiuXin.databases.drivers.SQLite.custom_columns import (
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.macros import SQLiteDatabaseMacros
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.custom_columns import (
     SQLiteCustomColumnsDriverMixin,
 )
 
-from LiuXin.exceptions import LogicalError
-from LiuXin.exceptions import DatabaseDriverError
-from LiuXin.exceptions import RowIntegrityError
-from LiuXin.exceptions import InputIntegrityError
-from LiuXin.exceptions import DatabaseIntegrityError
+from LiuXin_alpha.errors import LogicalError, DatabaseDriverError, RowIntegrityError, InputIntegrityError, DatabaseIntegrityError
 
-from LiuXin.folder_stores.file_manager.LX_name_manip import authors_str_to_sort_str
-from LiuXin.folder_stores.file_manager import path_ok
+from LiuXin_alpha.utils.language_tools.lx_name_manip import authors_str_to_sort_str
+from LiuXin_alpha.utils.paths import path_ok
 
-from LiuXin.databases.maintenance_bot import run_ta_updates
-from LiuXin.databases.backup import backup_local_file
+from LiuXin_alpha.databases.maintenance_bot import run_ta_updates
+from LiuXin_alpha.databases.backup import backup_local_file
 
-from LiuXin.preferences import preferences
+from LiuXin_alpha.preferences import preferences
+
+from LiuXin_alpha.utils.text import isbytestring
 
 from LiuXin.utils.calibre import isbytestring, force_unicode
 from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
@@ -2440,7 +2435,8 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
                 stmt += force_unicode("[" + force_unicode(value) + "]")
             stmt += " = transformed_index"
             print(stmt)
-            exec(stmt)
+            # exec(stmt)
+            raise NotImplementedError(stmt)
         print(parsed_query)
 
     @staticmethod
@@ -3307,27 +3303,30 @@ def py_list_adapter(py_list):
     return py_list_str
 
 
-def py_dict_converter(py_dict_string):
+def py_dict_converter(py_dict_string: str) -> dict[str, str]:
     """
     Converter intended to be used to store dictionaries on the database.
+
     Takes a string from the database and returns it as a dictionary
     :param py_dict_string:
     :return:
     """
-    rtn_dict = dict()
-    py_dict_string = deepcopy(py_dict_string)
-    working_str = "rtn_dict = " + py_dict_string
-    exec(working_str)
-    return rtn_dict
+    import json
+
+    return json.loads(py_dict_string)
 
 
-def py_dict_adapter(py_dict):
+def py_dict_adapter(py_dict: dict[str, str]) -> str:
     """
     Takes a dictionary and turns it into a string suitable for storing on the database.
+
     :param py_dict:
     :return:
     """
-    return force_unicode(py_dict)
+    import json
+
+    return json.dumps(py_dict)
+
 
 
 class PyListAggregate:

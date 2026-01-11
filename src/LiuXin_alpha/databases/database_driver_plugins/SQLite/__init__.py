@@ -3,7 +3,7 @@ __driver_version__ = (0, 4, 4)
 
 
 # Todo: Include the constants now used to determine allowable values against this as well
-def get_SQLite_driver_master_version():
+def get_SQLite_driver_master_version() -> str:
     """
     Generate a version string from all the sub-object versions which go into the database.
 

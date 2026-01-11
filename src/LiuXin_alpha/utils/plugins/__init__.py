@@ -1,98 +1,7 @@
 
-#
-# import importlib
-# import sys
-# import os
-#
-#
-# utils_path = os.path.split(__file__)[0]
-#
-#
-# class Plugins:
-#     def __init__(self):
-#         self._plugins = {}
-#         plugins = [
-#             "magick",
-#             "cPalmdoc",
-#         ]
-#
-#         # Original version preserved for reference purposes
-#         # plugins = [
-#         #         'pictureflow',
-#         #         'lzx',
-#         #         'msdes',
-#         #         'magick',
-#         #         'podofo',
-#         #         'cPalmdoc',
-#         #         'progress_indicator',
-#         #         'chmlib',
-#         #         'chm_extra',
-#         #         'icu',
-#         #         'speedup',
-#         #         'html',
-#         #         'freetype',
-#         #         'woff',
-#         #         'unrar',
-#         #         'qt_hack',
-#         #         '_regex',
-#         #         'hunspell',
-#         #         '_patiencediff_c',
-#         #         'bzzdec',
-#         #         'matcher',
-#         #         'tokenizer',
-#         #     ]
-#         # if iswindows:
-#         #     plugins.extend(['winutil', 'wpd', 'winfonts'])
-#         # if isosx:
-#         #     plugins.append('usbobserver')
-#         # if islinux or isosx:
-#         #     plugins.append('libusb')
-#         #     plugins.append('libmtp')
-#
-#         self.plugins = frozenset(plugins)
-#
-#     def load_plugin(self, name):
-#
-#         if name in self._plugins:
-#             return
-#
-#         sys.path.insert(1, utils_path)
-#         # sys.path.insert(0, sys.extensions_location)
-#         try:
-#             del sys.modules[name]
-#         except KeyError:
-#             pass
-#
-#         try:
-#             p, err = importlib.import_module(name), ""
-#         except Exception as err:
-#             p = None
-#             err = str(err)
-#         self._plugins[name] = (p, err)
-#         # sys.path.remove(sys.extensions_location)
-#         sys.path.remove(utils_path)
-#
-#     def __iter__(self):
-#         return iter(self.plugins)
-#
-#     def __len__(self):
-#         return len(self.plugins)
-#
-#     def __contains__(self, name):
-#         return name in self.plugins
-#
-#     def __getitem__(self, name):
-#         if name not in self.plugins:
-#             raise KeyError("No plugin named %r" % name)
-#         self.load_plugin(name)
-#         return self._plugins[name]
-#
-#
-# # Forces reload of the plugins
-# plugins = None
-# if plugins is None:
-#     plugins = Plugins()
-
+"""
+Loads the plugins
+"""
 
 # LiuXin_alpha/utils/plugins/__init__.py
 from __future__ import annotations
@@ -174,9 +83,14 @@ class Plugins:
     def __init__(
         self,
         plugin_names: Iterable[str] = _COMPILED_PLUGINS,
-        *,
         extra_search_dirs: Optional[Iterable[os.PathLike[str] | str]] = None,
     ) -> None:
+        """
+        Startup the plguins access class.
+
+        :param plugin_names:
+        :param extra_search_dirs:
+        """
         self._names: Tuple[str, ...] = tuple(plugin_names)
         self._loaded: Dict[str, _Loaded] = {}
         self._extra_dirs: List[Path] = [Path(p) for p in (extra_search_dirs or [])]
@@ -186,6 +100,11 @@ class Plugins:
         self._extra_dirs.append(self._pkg_dir / _platform_pkg())
 
     def __iter__(self) -> Iterator[str]:
+        """
+        Iter over all plugins.
+
+        :return:
+        """
         return iter(self._names)
 
     def __len__(self) -> int:
@@ -195,6 +114,12 @@ class Plugins:
         return name in self._names
 
     def __getitem__(self, name: str) -> Tuple[Optional[object], Optional[str]]:
+        """
+        Return the plugin - if loaded - and a status string.
+
+        :param name:
+        :return:
+        """
         if name not in self._names:
             raise KeyError(f"No plugin named {name!r}")
         loaded = self._loaded.get(name)
@@ -204,11 +129,23 @@ class Plugins:
         return loaded.module, loaded.err
 
     def plugin_okay(self, name: str) -> bool:
+        """
+        Has load succeeded for the given plugin?
+
+        :param name:
+        :return:
+        """
         return self[name][0] is not None
 
     # ---------------- internals ----------------
 
     def _load(self, name: str) -> _Loaded:
+        """
+        Preform a load on the plugin with all fallbacks.
+
+        :param name:
+        :return:
+        """
         base_pkg = __name__  # "LiuXin_alpha.utils.plugins"
         plat_pkg = f"{base_pkg}.{_platform_pkg()}.{name}"
 
@@ -254,6 +191,12 @@ class Plugins:
 
 
     def _load_extension_from_dirs(self, name: str) -> Optional[object]:
+        """
+        Attempt to load extensions from all the dirs.
+
+        :param name:
+        :return:
+        """
         # Find candidate file: name + any valid extension suffix
         candidates: List[Path] = []
         for d in self._extra_dirs:

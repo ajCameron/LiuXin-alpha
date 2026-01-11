@@ -1,40 +1,55 @@
-import json
-import re
 
-from LiuXin.databases.utils import CUSTOM_DATA_TYPES
+"""
+Custom columns allow users to add custom data to the database.
 
-from LiuXin.utils.general_ops.json_ops import to_json_str
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.localization import trans as _
+This might, on balance, be more trouble that it's worth. But it's also an expected feature.
+(might be worth being able to toggle it on and off)
+"""
 
 import datetime
 import json
-import pprint
 import re
 from functools import partial
 
-from LiuXin.constants import preferred_encoding
 
-from LiuXin.databases import _get_next_series_num_for_list
-from LiuXin.databases import _get_series_values
-from LiuXin.databases.utils import cleanup_tags
+from LiuXin_alpha.databases.utils import CUSTOM_DATA_TYPES
 
-from LiuXin.exceptions import InvalidUpdate
-from LiuXin.exceptions import InputIntegrityError
+from LiuXin_alpha.utils.python_tools import to_json_str
+from LiuXin_alpha.utils.localization import trans as _
 
-from LiuXin.library.field_metadata import FieldMetadata
+from LiuXin_alpha.constants import preferred_encoding
 
-from LiuXin.preferences import preferences
+from LiuXin_alpha.databases.constants import _get_next_series_num_for_list
+from LiuXin_alpha.databases.constants import _get_series_values
+from LiuXin_alpha.databases.utils import cleanup_tags
 
-from LiuXin import prints
-from LiuXin.utils.date import parse_date
-from LiuXin.utils.localization import _
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.errors import InvalidUpdate, InputIntegrityError
 
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
+from LiuXin_alpha.databases.field_metadata import FieldMetadata
+
+from LiuXin_alpha.preferences import preferences
+
+from LiuXin_alpha.utils.logging import prints, default_log
+from LiuXin_alpha.utils.date import parse_date
+from LiuXin_alpha.utils.localization import _
+
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 
-class CustomColumnDatabaseMixin(object):
+class CustomColumnDatabaseMixin:
+    """
+    Custom columns allow users to add custom data to the database.
+
+    They are named/labelled with three different properties.
+     - num
+     - name
+     - label
+
+     Num is their current display priority (can change)
+     Name is the name that has been assigned to them on the database
+     Label is the user visibile display string for the column.
+
+    """
 
     # Todo: Attempt sql injection whenever you can feed into a table
     # Todo: A method to get all the custom columns in a given table
@@ -45,6 +60,7 @@ class CustomColumnDatabaseMixin(object):
     def get_interlinked_rows_cc(self, target_row, custom_column, link_table=True):
         """
         Takes a row and a custom column - returns the custom column rows for the given custom column
+
         :param target_row: A row in a table with a custom column
         :param custom_column: The name of the custom column to retrieve the rows for
                               E.g. "custom_column_2"
@@ -565,23 +581,28 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         def adapt_datetime(x, d):
             """
             Adapt a string into a datetime object
+
             :param x:
             :param d:
             :return:
             """
-            if isinstance(x, (str, unicode, bytes)):
+            if isinstance(x, (str, bytes)):
                 try:
                     x = parse_date(x, assume_utc=False, as_utc=False)
                 except:
                     raise InvalidUpdate("Unexpected case passed to adapt_datetime - x: {} - d: {}".format(x, d))
+
             elif x is True or x is False:
                 raise InvalidUpdate("Unexpected case passed to adapt_datetime - bool - x: {} - d: {}".format(x, d))
+
             elif isinstance(x, (int, float)):
                 raise InvalidUpdate(
                     "Unexpected case passed to adapt_datetime - int or float - x: {} - d: {}" "".format(x, d)
                 )
+
             return x
 
+        # Todo: There are several methods to do this in the code base - consolidate
         def adapt_bool(x, d):
             """
             Attempts to adapt a string into a bool.
@@ -814,6 +835,7 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
     def get_custom_extra(self, idx, label=None, num=None, index_is_id=False):
         """
         Reads the extra column from the link table for the particular book and returns it.
+
         Currently the only type of custom column which has a extra column is the link table to a custom column with
         datatype series - if the datatype is not series there is no attempt to retrieve the result - just returns None.
         In a series type custom column extra stores the "series position".
@@ -965,9 +987,11 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         # Actually update the database
         self.conn.commit()
 
+    # Todo: Test the right item is being set
     def rename_custom_item_in_data(self, book_ids, column_num, new_value):
         """
         Replace all the elements in data with the new value.
+
         :param book_ids: The books ids to update the value for
         :param column_num: THe CUSTOM COLUMN number
         :param new_value: The new value to write out into the cache
@@ -981,16 +1005,17 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
                 row_is_id=True,
             )
 
-    def delete_custom_item_using_id(self, id, label=None, num=None):
+    def delete_custom_item_using_id(self, idx, label=None, num=None):
         """
-        Delete the custom item using it's id
-        :param id: The id of the resource to delete
+        Delete the custom item using its id
+
+        :param idx: The id of the resource to delete
         :param label: The label of the custom column (either this, or the num must be not None, to tell the method which
                       custom column to delete from).
         :param num:
         :return:
         """
-        if id:
+        if idx:
             if label is not None:
                 data = self.custom_column_label_map[label]
             elif num is not None:
@@ -1001,10 +1026,10 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
             table, lt = self.custom_table_names(data["num"])
 
             # Note the change with books_referencing - which allows the books to be updated with the new information
-            book_ids = self.custom_dirty_books_referencing("#" + data["label"], id, commit=False)
+            book_ids = self.custom_dirty_books_referencing("#" + data["label"], idx, commit=False)
 
             # Delete from the link table and the actual table
-            self.db.macros.delete_cc_item(table, lt, id)
+            self.db.macros.delete_cc_item(table, lt, idx)
 
             self.rename_custom_item_in_data(book_ids=book_ids, column_num=data["num"], new_value=None)
 
@@ -1022,6 +1047,7 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
     def delete_item_from_multiple(self, item, label=None, num=None):
         """
         Delete an item which is reference by multiple books.
+
         :param item: The item to delete
         :param label: One of label or num must be not None - to indicate which of the custom columns is being
                       referred to
@@ -1133,6 +1159,7 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
     ):
         """
         Change the metadata for a custom column - identified with the num
+
         Update the metadata for a custom column - changes the entry in the custom_columns table.
         For all parameters (apart from num) if None, no change will be made.
         :param num: The number of the custom column (the custom column can usually be identified from the num or the

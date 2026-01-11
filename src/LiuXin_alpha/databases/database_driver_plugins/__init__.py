@@ -35,18 +35,29 @@ __valid_db_drivers__ = dict()
 __valid_db_builders__ = dict()
 
 
-def loadDatabaseDriver(db_type):
+def loadDatabaseDriver(db_type: str):
     """
     Loads the databasedriver module from within the database driver - which should contain a DatabaseDriver class.
+
     Returns a handle to the DatabaseDriver class from within that module.
     :param db_type:
     :return:
     """
-    driver_path = get_driver_location(db_type)
-    module_path = os.path.join(driver_path, "databasedriver.py")
-    module_name = db_type + "_databasedriver"
-    databasedriver_module = imp.load_source(module_name, module_path)
-    return databasedriver_module.DatabaseDriver
+    # Todo: Implement and use a registry
+    # driver_path = get_driver_location(db_type)
+    # module_path = os.path.join(driver_path, "databasedriver.py")
+    # module_name = db_type + "_databasedriver"
+    # databasedriver_module = imp.load_source(module_name, module_path)
+    # return databasedriver_module.DatabaseDriver
+
+    if db_type.lower() == "sqlite":
+        from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import DatabaseDriver as _DatabaseDriver
+        return _DatabaseDriver
+
+    raise NotImplementedError("Need a recognized database driver.")
+
+
+
 
 
 def get_direct_access_module(db_driver_name):

@@ -1,3 +1,9 @@
+
+"""
+Macros are pre-defined operation on the database - intended for speedup.
+"""
+
+
 # Macros which provide pre-defined operations on the database.
 # This allows you the option of replacing the generic macros which will use the methods provided by the database with
 # more efficient macros tailored to the underlying database
@@ -7,35 +13,52 @@
 # Todo: In line with this, move the create custom columns logic down into the driver
 
 import json
-import cPickle
+import pickle
+import sqlite3
 import sqlite3 as sqlite
 import types
+import datetime
+
+from six import iteritems
+
+from typing import Optional, Union
 
 from collections import defaultdict
 
-from LiuXin.databases.drivers.macros_base import BaseMacros
+from LiuXin_alpha.errors import DatabaseDriverError, DatabaseIntegrityError
 
-from LiuXin.exceptions import DatabaseDriverError
-from LiuXin.exceptions import DatabaseIntegrityError
-
-from LiuXin.utils.lx_libraries.liuxin_six import iteritems
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 # Todo: This needs to be replaced with a column name factory
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
+from LiuXin_alpha.databases.database_driver_plugins.macros_base import MacrosBase
 
 
-class SQLiteDatabaseCustomColumnMacros(object):
-    def _get_cc_id_val(self, custom_column):
+# Todo: Probably should have it's own API
+class SQLiteDatabaseCustomColumnMacros:
+    """
+    Macros affecting only custom columns.
+
+    """
+    @staticmethod
+    def _get_cc_id_val(custom_column: str) -> tuple[str, str]:
         """
         Return the id and val columns for a given custom column
+
         :param custom_column: Returns the id col and the val col for the given custom  column
         :return:
         """
         cc_col = plural_singular_mapper(custom_column)
         return "{}_id".format(cc_col), "{}_value".format(cc_col)
 
-    def _cc_table_col_mapper(self, table):
+    @staticmethod
+    def _cc_table_col_mapper(self, table: str) -> str:
+        """
+        Returns the basic column name from the table name.
+
+        :param table:
+        :return:
+        """
         return plural_singular_mapper(table)
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -52,9 +75,13 @@ class SQLiteDatabaseCustomColumnMacros(object):
         dirtied_cache = {x: i for i, (x,) in enumerate(self.db.driver_wrapper.execute(stmt))}
         return dirtied_cache
 
-    def get_cc_id_and_value_from_id(self, custom_column, target_id, conn=None):
+    def get_cc_id_and_value_from_id(
+            self, custom_column: str,
+            target_id: int,
+            conn: Optional[sqlite3.Connection] = None) -> tuple[int, str]:
         """
-        Return the id and values for a given target_id
+        Return the id and values for a given target_id.
+
         :param custom_column:
         :param target_id:
         :param conn:
@@ -74,9 +101,12 @@ class SQLiteDatabaseCustomColumnMacros(object):
             )[0]
 
     # Todo: Basically the same as the above method - merge
-    def get_cc_id_value_from_cc_id(self, table, old_id):
+    def get_cc_id_value_from_cc_id(
+            self, table: str, old_id: int
+    ) -> tuple[int, str]:
         """
         Return the old id and the old value from a table id.
+
         :param table:
         :param old_id:
         :return:
@@ -89,9 +119,16 @@ class SQLiteDatabaseCustomColumnMacros(object):
             (old_id,),
         )[0]
 
-    def get_cc_id_from_value(self, target_table, cc_value, all=False, conn=None):
+    def get_cc_id_from_value(
+            self,
+            target_table: str,
+            cc_value: Union[str, int, datetime.datetime],
+            all: bool = False,
+            conn: Optional[sqlite3.Connection] = None
+    ):
         """
         Return the id of a custom column belonging to the particular given value.
+
         :param target_table:
         :param cc_value:
         :param all:
@@ -117,10 +154,20 @@ class SQLiteDatabaseCustomColumnMacros(object):
             )
 
     # Todo: Needs a new name in line with the extensions of custom columns to all table
-    def get_cc_lt_books_from_lt_value(self, lt, value, conn=None):
+    def get_cc_lt_books_from_lt_value(
+            self,
+            lt: str,
+            value: Union[str, int, datetime.datetime],
+            conn: Optional[sqlite3.Connection] = None
+    ):
         """
         Takes a value and returns the books corresponding to it from the cc link table.
-        Note - values should be ids - values of the table being linked to
+
+        Note - values should be ids - values of the table being linked to it.
+        :param lt: Link table
+        :param value: The value to search for
+        :param conn: Connection to use for
+        :return:
         """
         lt_col = plural_singular_mapper(lt)
 
@@ -136,9 +183,15 @@ class SQLiteDatabaseCustomColumnMacros(object):
                 (value,),
             )
 
-    def get_all_cc_custom_values(self, cc_table, distinct=False, conn=None):
+    def get_all_cc_custom_values(
+            self,
+            cc_table: str,
+            distinct: bool = False,
+            conn: Optional[sqlite3.Connection] = None
+    ):
         """
         Return all the values for a custom column - should work both on link tables and on the maijn tables
+
         :param cc_table:
         :param distinct:
         :param conn:
@@ -165,10 +218,13 @@ class SQLiteDatabaseCustomColumnMacros(object):
             else:
                 return conn.get("SELECT DISTINCT {cc_col}_value FROM {table}" "".format(table=cc_table, cc_col=cc_col))
 
-    def get_cc_series_index_indices(self, cc_series_link_table, series_id, conn=None):
+    def get_cc_series_index_indices(
+            self, cc_series_link_table: str, series_id: int, conn: Optional[sqlite3.Connection] = None
+    ) -> tuple[Union[float, int], ...]:
         """
-        Returns all the indices for a given series - used to offer completion by providing the next index in the
-        sequence.
+        Returns all the indices for a given series
+
+        Used to offer completion by providing the next index in the sequence.
         :param cc_series_link_table:
         :param series_id:
         :param conn:
@@ -197,9 +253,15 @@ class SQLiteDatabaseCustomColumnMacros(object):
 
     # Todo: Will sometimes yield unexpected reuslts - so checking to make sure it's being used as expected would be appropriate
     # Todo: This doesn't work on non-normalized tables - might want to update?
-    def check_for_cc_link(self, link_table, book_id, value_id, conn=None):
+    def check_for_cc_link(
+            self,
+            link_table: str,
+            book_id: int,
+            value_id: int,
+            conn: Optional[sqlite3.Connection] = None):
         """
         Check to see if there is a link between a given book_id and a value_id
+
         :param link_table:
         :param book_id:
         :param value_id:
@@ -223,9 +285,10 @@ class SQLiteDatabaseCustomColumnMacros(object):
                 all=False,
             )
 
-    def read_cc_value_from_meta_2(self, num, book_id, conn=None):
+    def read_cc_value_from_meta_2(self, num: int, book_id: int, conn: Optional[sqlite3.Connection] = None):
         """
-        Read and return the value for a
+        Read and return the custom column value from the meta_2 table.
+
         :param num:
         :param book_id:
         :param conn:
@@ -643,7 +706,7 @@ class SQLiteDatabaseCustomColumnMacros(object):
         lt_col = self._cc_table_col_mapper(lt)
         stmt = "DELETE FROM {lt} WHERE {lt_col}_book=?".format(lt=lt, lt_col=lt_col)
 
-        if isinstance(book_id, (basestring, int)):
+        if isinstance(book_id, (str, int)):
             if conn is None:
                 self.db.driver.conn.execute(stmt, (book_id,))
 
@@ -1217,7 +1280,7 @@ class SQLiteDatabaseCustomColumnMacros(object):
     # ------------------------------------------------------------------------------------------------------------------
 
 
-class SQLiteDatabaseMacros(BaseMacros, SQLiteDatabaseCustomColumnMacros):
+class SQLiteDatabaseMacros(MacrosBase, SQLiteDatabaseCustomColumnMacros):
     """
     Provides pre-defined operations on an SQLite database.
     """

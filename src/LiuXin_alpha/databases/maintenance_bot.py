@@ -28,10 +28,9 @@ import weakref
 from collections import defaultdict
 from copy import deepcopy
 
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Any
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
-from LiuXin_alpha.databases.database import Database
 
 # from LiuXin.databases.database import DatabasePing
 # from LiuXin.databases.row import Row
@@ -43,7 +42,7 @@ from LiuXin_alpha.utils.language_tools.lx_name_manip import author_to_author_sor
 from LiuXin_alpha.utils.logging import LiuXin_debug_print, default_log
 from LiuXin_alpha.utils.localization import trans as _
 
-from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseMaintainerAPI, MaintenanceBotAPI
+from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseMaintainerAPI, MaintenanceBotAPI, RowAPI
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
@@ -209,7 +208,7 @@ class MaintenanceBot(threading.Thread, MaintenanceBotAPI):
 
     def __init__(
         self,
-        db: Database,
+        db: DatabaseAPI,
         dirtied_main_queue,
         dirtied_interlink_queue,
         interval: int = 2,
@@ -300,7 +299,7 @@ class MaintenanceBot(threading.Thread, MaintenanceBotAPI):
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def run_ta_updates(ta_row_id_list, database_driver):
+def run_ta_updates(ta_row_id_list, database):
     """
     Launches the ta_trigger thread.
 
@@ -309,7 +308,6 @@ def run_ta_updates(ta_row_id_list, database_driver):
     :return:
     """
     ta_row_id_list = deepcopy(ta_row_id_list)
-    database = Database()
     ta_trigger_thread = threading.Thread(name="ta_update_thread", target=ta_trigger, args=(ta_row_id_list, database))
     ta_trigger_thread.setDaemon(True)
     LiuXin_debug_print("run_ta_update starting")
@@ -346,9 +344,7 @@ def populate_ta_creators_tags(ta_row_id_list, database):
     :param ta_row_id_list: A list of title/ta ids
     :return None: All changes are made internally to the database.
     """
-    # If the database is None, using the default database
-    if database is None:
-        database = Database()
+
     ta_row_id_list = deepcopy(ta_row_id_list)
 
     # This should be the id of a title in the titles table.
@@ -398,8 +394,7 @@ def populate_ta_title_tags(ta_row_id_list, database):
     :param database:
     :return:
     """
-    if database is None:
-        database = Database()
+
     ta_row_id_list = deepcopy(ta_row_id_list)
 
     # Should be a list of ids of a title in the titles table
@@ -434,8 +429,7 @@ def populate_ta_series_tags(ta_row_id_list, database):
     :param database:
     :return:
     """
-    if database is None:
-        database = Database()
+
     ta_row_id_list = deepcopy(ta_row_id_list)
 
     # Should be a list of ids to the titles table
@@ -494,8 +488,6 @@ def populate_ta_series_aggregate(ta_row_id_list, database):
     :param database:
     :return None: Changes are made purely internally to the database
     """
-    if database is None:
-        database = Database()
     ta_row_id_list = deepcopy(ta_row_id_list)
 
     # Should be a list of ids in the title table
@@ -534,15 +526,13 @@ def populate_ta_series_aggregate(ta_row_id_list, database):
             database.update_row_dict(ta_update_dict)
 
 
-def populate_ta_genre_aggregate(ta_row_id_list, database):
+def populate_ta_genre_aggregate(ta_row_id_list, database: DatabaseAPI):
     """
     Builds a genre aggregate - the genre table has a tree like structure with genres and sub genres. Additionally
     :param ta_row_id_list:
     :param database:
     :return:
     """
-    if database is None:
-        database = Database()
     ta_row_id_list = deepcopy(ta_row_id_list)
     # Should be a list of the ides in the title table
     # - Produces a string representation of every genre tree that the title is linked to (ordered by priority)
@@ -562,7 +552,7 @@ def populate_ta_genre_aggregate(ta_row_id_list, database):
 
         genre_reps = []
         for genre_id in genre_ids:
-            genre_row_dict = database.get_row_from_id(table="genres", row_id=genre_id, row_dict_return=True)
+            genre_row_dict = database.get_row_from_id(table="genres", row_id=genre_id)
             genre_linear_column_list = database.get_linear_index_of_columns(
                 start_row=genre_row_dict, display_column="genre"
             )
@@ -586,8 +576,6 @@ def populate_ta_identifiers_aggregate(ta_row_id_list, database):
     :param database:
     :return:
     """
-    if database is None:
-        database = Database()
     ta_row_id_list = deepcopy(ta_row_id_list)
 
     # - Searchs the identifier_title link table for any instance of the given title_id
@@ -607,7 +595,7 @@ def populate_ta_identifiers_aggregate(ta_row_id_list, database):
         title_ids_dict = dict()
         for identifier_id in identifier_ids:
             identifier_row_dict = database.get_row_from_id(
-                table="identifiers", row_id=identifier_id, row_dict_return=True
+                table="identifiers", row_id=identifier_id
             )
             identifier_type = deepcopy(identifier_row_dict["identifier_type"])
             identifier_type = identifier_type.upper().strip()
@@ -632,10 +620,9 @@ def populate_ta_publishers_aggregate(ta_row_id_list, database):
     :param database:
     :return:
     """
-    if database is None:
-        database = Database()
     ta_row_id_list = deepcopy(ta_row_id_list)
-    # Should be a list of the ides in the title table
+
+    # Should be a list of the ids in the title table
     # - Produces a string representation of every publisher tree that the title is linked to (ordered by priority)
     # - Then updates the given title_ids in the title aggregate table with that information
     for title_row_id in ta_row_id_list:
@@ -656,7 +643,7 @@ def populate_ta_publishers_aggregate(ta_row_id_list, database):
 
         publisher_reps = []
         for publisher_id in publisher_ids:
-            publisher_row_dict = database.get_row_from_id(table="publishers", row_id=publisher_id, row_dict_return=True)
+            publisher_row_dict = database.get_row_from_id(table="publishers", row_id=publisher_id)
             publisher_linear_column_list = database.get_linear_index_of_columns(
                 start_row=publisher_row_dict, display_column="publisher"
             )
@@ -673,7 +660,7 @@ def populate_ta_publishers_aggregate(ta_row_id_list, database):
             database.update_row_dict(ta_update_dict)
 
 
-def ensure_creators_sort(creator_rows):
+def ensure_creators_sort(creator_rows: Iterable[RowAPI]) -> Iterable[RowAPI]:
     """
     Make sure some sort of creator sort field is set for every row in the given creator_rows itterable.
 
@@ -687,7 +674,7 @@ def ensure_creators_sort(creator_rows):
     return creator_rows
 
 
-def clean(db, table, item_ids=None):
+def clean(db: DatabaseAPI, table: str, item_ids: Iterable[str] = None) -> None:
     """
     Remove any unused entries from the database.
 
@@ -704,7 +691,7 @@ def clean(db, table, item_ids=None):
     # If the table is a book or title then it isn't suitable for cleaning
     if table in ["books", "titles"]:
         return
-    main_tables = deepcopy(db.main_tables)
+    main_tables = deepcopy(set(db.main_tables))
     try:
         main_tables.remove(table)
     except KeyError:
@@ -720,9 +707,11 @@ def clean(db, table, item_ids=None):
     raise NotImplementedError
 
 
-def direct_merge(self, table, main_id, target_ids):
+def direct_merge(db: DatabaseAPI, table: str, main_id: int, target_ids: Iterable[str]) -> None:
     """
     Merge all the given target_ids into the main_id
+
+    :param db:
     :param table:
     :param main_id:
     :param target_ids:
@@ -732,9 +721,10 @@ def direct_merge(self, table, main_id, target_ids):
 
 
 # Todo: Come back and code to deal with large database
-def fix_duplicates(db, table, column, comparison="nocase"):
+def fix_duplicates(db: DatabaseAPI, table: str, column: str, comparison: str = "nocase") -> bool:
     """
     Remove all the entries which differ only according to the comparison.
+
     :param db: The database to fix
     :param table: The table in the database to fix
     :param column: The column in the table in the database to fix
@@ -841,9 +831,15 @@ def fix_duplicates(db, table, column, comparison="nocase"):
     return True
 
 
-def repoint_intralink_row(db, table, intralink_row, old_id, new_id):
+def repoint_intralink_row(
+        db: DatabaseAPI,
+        table: str,
+        intralink_row: dict[str, Any],
+        old_id: int,
+        new_id: int) -> None:
     """
     Repoint an intralink row to reference a new_id instead of an old_id.
+
     :param db: The database we're working in
     :param intralink_row: The interlink row to update
     :param old_id: Any mentions of this id will be changed to the nw_id
@@ -887,10 +883,12 @@ def repoint_intralink_row(db, table, intralink_row, old_id, new_id):
 #    - Those that are linked to both - should be filtered into those with a differing kind of link and those with the
 #      same kind of link. The differing kind should just be rediretced - after all two titles can be related to each
 #      other in two different ways. The non-differing kind should be merged into each other.
-def _do_intralink_merge(db, table, primary_intralink_row, secondary_intralink_row):
+def _do_intralink_merge(db: DatabaseAPI, table: str, primary_intralink_row: RowAPI, secondary_intralink_row: RowAPI) -> RowAPI:
     """
     Two intralink rows will be merged - it is assumed that the two intralink rows both link to the same row in the table
-    in the same way. Fpr example they could both be links indicating that the two title rows being merged are different
+    in the same way.
+
+    For example they could both be links indicating that the two title rows being merged are different
     from a third row.
     primary and secondary will remain unchanged from the primary_intralink_row.
     :param db: The database to work with
@@ -943,12 +941,13 @@ def _do_intralink_merge(db, table, primary_intralink_row, secondary_intralink_ro
     return primary_intralink_row
 
 
-def _smart_merge_rows(db, primary_row, secondary_row):
+def _smart_merge_rows(db: DatabaseAPI, primary_row: RowAPI, secondary_row: RowAPI) -> RowAPI:
     """
     Smart merge two rows using the following algorith,
+
     1) If the entry in the primary row is None, and the entry in the secondary is not, then use the entry in the
        secondary
-    2) If both are non trivial then use the newest one, as determined by the datestamp
+    2) If both are non-trivial then use the newest one, as determined by the datestamp
     :param db:
     :param primary_row:
     :param secondary_row:
@@ -1040,9 +1039,13 @@ def _do_one_table_link_update(db, src_table, dst_table, src_table_id_1, src_tabl
         _smart_merge_link_rows(db, src_table, dst_table, primary_row, secondary_row)
 
 
-def _smart_merge_link_rows(db, src_table, dst_table, primary_row, secondary_row):
+def _smart_merge_link_rows(
+        db: DatabaseAPI, src_table: str, dst_table: str, primary_row, secondary_row
+) -> None:
     """
-    Smart merge two link rows using the following algorithm,
+    Smart merge two link rows
+
+    Using the following algorithm,
     1) If the entry in the primary row is None, and the entry in the secondary is not, then use the entry in the
        secondary
     2) If both are non trivial then use the newest one, as determined by the datestamp
@@ -1110,9 +1113,10 @@ def _smart_merge_link_rows(db, src_table, dst_table, primary_row, secondary_row)
     return primary_row
 
 
-def find_duplicates(db, table, column, comparison="nocase"):
+def find_duplicates(db: DatabaseAPI, table: str, column: str, comparison="nocase"):
     """
     Find duplicates in a given column in a given table in the given database using the given comparison method.
+
     If comparison is "nocase" defaults to icu_lower.
     :param db: The database to search in
     :param table: The table in the database to search
@@ -1125,7 +1129,7 @@ def find_duplicates(db, table, column, comparison="nocase"):
     dupe_dict = defaultdict(set)
 
     if comparison == "nocase" or not comparison:
-        from LiuXin.utils.icu import lower as icu_lower
+        from LiuXin_alpha.utils.language_tools import lower as icu_lower
 
         comparison_func = icu_lower
     else:
@@ -1149,6 +1153,7 @@ def find_duplicates(db, table, column, comparison="nocase"):
 def do_pre_view_startup_tasks(db, custom_columns=None):
     """
     Takes a database - preforms the startup tasks on it.
+
     These are all the tasks that have to be completed before creating the meta2 view
     :param db: Currently assumes it's SQL compatible
     :param custom_columns: A LiuXin.library.custom_columns object which represents the custom columns on this database
@@ -1173,9 +1178,11 @@ def do_view_startup_tasks(db, view_metadata):
     pass
 
 
-def create_creator_insert_update_trigger(db):
+def create_creator_insert_update_trigger(db: DatabaseAPI) -> None:
     """
-    Creates an author insert trigger on the database - this ensures that the creator_sort field in the creator table is
+    Creates an author insert trigger on the database.
+
+    This ensures that the creator_sort field in the creator table is
     set to be something after an insert on the creator's table (if a value is already set, then the trigger should
     ignore it).
     Likewise after an update checks to see if the sort field has been nullified - if it has replaces it with the auto
@@ -1209,9 +1216,10 @@ def create_creator_insert_update_trigger(db):
     db.driver.direct_executescript(sql)
 
 
-def direct_ensure_creators_sort(db):
+def direct_ensure_creators_sort(db: DatabaseAPI) -> None:
     """
     Makes sure that every row in the creators table has some sort of creator_sort set.
+
     :param db:
     :return:
     """
@@ -1222,6 +1230,7 @@ def direct_ensure_creators_sort(db):
 def direct_set_original_one_row_creator_sort(db, creator_row_id):
     """
     Update the creator sort of a particular creator row to set it to the raw value generator from author_to_author_sort.
+
     :param db:
     :param creator_row_id:
     :return:
@@ -1230,9 +1239,10 @@ def direct_set_original_one_row_creator_sort(db, creator_row_id):
     db.driver.direct_execute(sql, creator_row_id)
 
 
-def direct_create_tag_browser_news(db):
+def direct_create_tag_browser_news(db: DatabaseAPI) -> None:
     """
     Creates the tag_browser_news view - which is used for viewing books which have been tagged as news.
+
     :param db:
     :return:
     """
@@ -1255,9 +1265,10 @@ def direct_create_tag_browser_news(db):
 
 # Todo: This should be a macro
 # Todo: Add the concept of a file path to the folder store logic
-def direct_create_meta_2_view(db, custom_columns=None, update_field_metadata=False):
+def direct_create_meta_2_view(db: DatabaseAPI, custom_columns=None, update_field_metadata=False):
     """
     Creates the meta_2 view - which is used to drive the primary books table from calibre.
+
     :param db:
     :param custom_columns: A LiuXin.library.custom_columns object to represent the custom columns on the database.
     :param update_field_metadata: Should the field_metadata object in the custom columns be updated as well?

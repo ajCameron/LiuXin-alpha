@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Lazy provides proxy method for the database which only do work when they're needed.
+"""
+
 from __future__ import division, absolute_import, print_function
 
 import weakref
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 from LiuXin.metadata.book.base import (
     calibreMetadata,
@@ -135,6 +139,7 @@ def simple_getter(field, default_value=None):
 def pp_getter(field, postprocess, default_value=None):
     """
     A getter with the option to postprocess the result of the get.
+
     :param field:
     :param postprocess:
     :param default_value:

@@ -186,6 +186,7 @@ def authors_to_sort_string(authors):
 _title_pats = {}
 
 
+# Todo: We have multiple functions with the same name
 def get_title_sort_pat(lang=None):
     ans = _title_pats.get(lang, None)
     if ans is not None:

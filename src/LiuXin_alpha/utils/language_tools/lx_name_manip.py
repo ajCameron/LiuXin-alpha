@@ -22,7 +22,7 @@ from LiuXin_alpha.constants import VERBOSE_DEBUG
 #
 # from LiuXin.utils.calibre.tweaks import tweaks
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+six_unicode = str
 
 # Todo: This all needs to be re-written - can't be arsed right now
 
@@ -470,10 +470,11 @@ def make_book_folder_name(book_row, folder_id, title_string=None, series_positio
     return sanitize_object_names(book_name), book_tag
 
 
-# Todeo: Review all uses of exec. This is madness!
+# Todo: Review all uses of exec. This is madness!
 def authors_str_to_sort_str(authors_str):
     """
     Takes a string of authors. Makes an author sort string out of them.
+
     :param authors_str:
     :return:
     """
@@ -483,9 +484,7 @@ def authors_str_to_sort_str(authors_str):
     if isinstance(authors_str, list):
         return author_list_to_sort_str(authors_str)
 
-    authors_code = "author_list = [" + deepcopy(authors_str) + "]"
-    exec(authors_code)
-    return author_list_to_sort_str(author_list)
+    raise NotImplementedError("authors_str_to_sort_str not implemented")
 
 
 def author_list_to_sort_str(author_list):

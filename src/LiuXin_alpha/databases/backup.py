@@ -23,7 +23,7 @@ from LiuXin.utils.file_ops.file_properties import get_file_hash
 from LiuXin.utils.logger import default_log
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -149,11 +149,12 @@ class MetadataBackup(Thread):
 def backup_local_file(file_path, override_path=None):
     """
     Hash backed backup for a local file.
+
     :param file_path: Path to the file to be backed up
     :param override_path: An override path to back the file up to instead of the automatically generated one
     :return False/new_file_path: False if backup failes, new_file_path if it goes through
     """
-    file_path = six_unicode(deepcopy(file_path))
+    file_path = deepcopy(file_path)
     default_log.info("Backup of file : {}".format(file_path))
     if not path_ok(file_path):
         err_str = "Path failed initial checks.\n"
@@ -203,9 +204,10 @@ def backup_local_file(file_path, override_path=None):
     return new_file_path
 
 
-def make_backup_path(filepath):
+def make_backup_path(filepath: str) -> str:
     """
     Name will have the form of [original_file_name] - [datestring]_[version].
+
     Version starts at 0, and is not printed. Followed by 1 e.t.c.
     :param filepath:
     :return:
@@ -214,15 +216,15 @@ def make_backup_path(filepath):
     file_root = os.path.split(filepath)[0]
     backup_date = file_date()
     used_filenames = [os.path.join(file_root, p) for p in os.listdir(file_root)]
-    cand_filepath = file_name + " - " + six_unicode(backup_date) + file_ext
+    cand_filepath = file_name + " - " + str(backup_date) + file_ext
     if cand_filepath not in used_filenames:
         return cand_filepath
     for i in range(1, 100):
-        cand_filepath = six_unicode(file_name + " - " + six_unicode(backup_date) + "_{}" + file_ext).format(unicode(i))
+        cand_filepath = str(file_name + " - " + str(backup_date) + "_{}" + file_ext).format(str(i))
         if cand_filepath not in used_filenames:
             return cand_filepath
 
-    err_str = "filepath: " + six_unicode(filepath) + "\n"
+    err_str = "filepath: " + str(filepath) + "\n"
     err_str += "appears to have been backed up over a hundred times. Today.\n"
     default_log.error(err_str)
     raise LogicalError(err_str)
