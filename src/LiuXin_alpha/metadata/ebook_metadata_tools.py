@@ -20,6 +20,8 @@ from LiuXin_alpha.constants import name_suffixes
 
 from LiuXin_alpha.utils.text.icu import lower as icu_lower
 
+from LiuXin_alpha.metadata.utils import string_to_authors
+
 
 
 

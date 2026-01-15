@@ -9,11 +9,9 @@ from copy import deepcopy
 import six
 from six import string_types
 
-from LiuXin.metadata.constants import CREATOR_TYPES
-from LiuXin.metadata.constants import EXTERNAL_EBOOK_ID_SCHEMA
-from LiuXin.metadata.constants import INTERNAL_EBOOK_ID_SCHEMA
+from LiuXin_alpha.metadata.constants import CREATOR_TYPES, EXTERNAL_EBOOK_ID_SCHEMA, INTERNAL_EBOOK_ID_SCHEMA
 
-from LiuXin.databases.row import Row
+from LiuXin_alpha.databases.row import Row
 from LiuXin.databases.fingerprints import generate_title_fingerprint
 
 from LiuXin.exceptions import InputIntegrityError

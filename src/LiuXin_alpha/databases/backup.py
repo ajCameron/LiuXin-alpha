@@ -10,17 +10,16 @@ import weakref
 from copy import deepcopy
 from threading import Thread, Event
 
-from LiuXin.exceptions import LogicalError
-from LiuXin.exceptions import InputIntegrityError
+from LiuXin_alpha.errors import LogicalError, InputIntegrityError
 
-from LiuXin.file_formats.opf.opf2 import metadata_to_opf
+from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf
 
-from LiuXin.folder_stores.file_manager import path_ok
+from LiuXin_alpha.utils.paths import path_ok
 
-from LiuXin import prints
-from LiuXin.utils.date import file_date
-from LiuXin.utils.file_ops.file_properties import get_file_hash
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logging import prints
+from LiuXin_alpha.utils.date import file_date
+from LiuXin_alpha.utils.storage.local.file_properties import get_file_hash
+from LiuXin_alpha.utils.logging import default_log
 
 # Py2/Py3 compatibility layer
 

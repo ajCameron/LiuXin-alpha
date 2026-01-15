@@ -19,6 +19,8 @@ def url_slash_cleaner(url):
     return re.sub(r"(?<!:)/{2,}", "/", url)
 
 
+
+
 def human_readable(size, sep=" "):
     """Convert a size in bytes into a human-readable form."""
     divisor, suffix = 1, "B"

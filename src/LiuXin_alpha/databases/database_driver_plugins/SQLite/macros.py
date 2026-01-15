@@ -3112,7 +3112,9 @@ class SQLiteDatabaseMacros(MacrosBase, SQLiteDatabaseCustomColumnMacros):
 
     def hash_table(self, target_table, columns):
         """
-        Construct a hash of the given table using the given columns
+        Construct a hash of the given table using the given columns.
+
+        Used to tag snapshots of the current state of the db.
         :param target_table:
         :param columns:
         :return:

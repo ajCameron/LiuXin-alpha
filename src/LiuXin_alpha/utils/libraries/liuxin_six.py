@@ -76,6 +76,9 @@ try:
 except:
     six_unicode = str
 
+
+force_unicode = six_unicode
+
 # Todo: Test that this actually preforms as it should
 try:
     six_unichar = unichr

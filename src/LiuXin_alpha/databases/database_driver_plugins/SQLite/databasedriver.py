@@ -46,27 +46,24 @@ from LiuXin_alpha.preferences import preferences
 
 from LiuXin_alpha.utils.text import isbytestring
 
-from LiuXin.utils.calibre import isbytestring, force_unicode
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
-from LiuXin.utils.icu import sort_key
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.ptempfiles import get_scratch_folder
-from LiuXin.utils.date import utcfromtimestamp
-from LiuXin.utils.apsw_shell import Shell
-from LiuXin.utils.ptempfiles import TemporaryFile
-from LiuXin.utils.localization import _
-from LiuXin.utils.lx_libraries.liuxin_six import force_cmp
-from LiuXin.utils.lx_libraries.liuxin_six import user_input
-from LiuXin.utils.filenames import atomic_rename
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
+from LiuXin_alpha.utils.language_tools.icu import sort_key
+from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin.metadata import author_to_author_sort, title_sort
+from LiuXin_alpha.utils.ptempfiles import get_scratch_folder
+from LiuXin_alpha.utils.date import utcfromtimestamp
+from LiuXin_alpha.utils.databases.apsw_shell import Shell
+from LiuXin_alpha.utils.ptempfiles import TemporaryFile
+from LiuXin_alpha.utils.localization import _
+from LiuXin_alpha.utils.libraries.liuxin_six import force_cmp, user_input, force_unicode
+from LiuXin_alpha.utils.storage.local.filenames import atomic_rename
 
-from LiuXin.databases.drivers.SQLite.utility_mixins import SQLiteTableLinkingMixin
+from LiuXin_alpha.metadata.utils import author_to_author_sort, title_sort
+
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.utility_mixins import SQLiteTableLinkingMixin
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-
-from past.builtins import basestring
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 class Connection(apsw.Connection):

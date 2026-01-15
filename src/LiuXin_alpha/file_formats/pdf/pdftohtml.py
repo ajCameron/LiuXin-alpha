@@ -1,0 +1,163 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import print_function
+
+import errno
+import os
+import re
+import shutil
+import subprocess
+import sys
+from functools import partial
+
+from LiuXin.constants import isosx, iswindows, islinux, isbsd, filesystem_encoding
+
+from LiuXin.file_formats import ConversionError, DRMError
+
+from LiuXin.utils.calibre import CurrentDir
+from LiuXin.utils.localization import trans as _
+from LiuXin.utils.ptempfiles import PersistentTemporaryFile
+
+__license__ = "GPL 3"
+__copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>, " "2009, John Schember <john@nachtimwald.com>"
+__docformat__ = "restructuredtext en"
+
+
+# Todo: Sort/modify - install pdftohtml - make finding it more robust
+PDFTOHTML = "pdftohtml"
+popen = subprocess.Popen
+if isosx and hasattr(sys, "frameworks_dir"):
+    PDFTOHTML = os.path.join(getattr(sys, "frameworks_dir"), PDFTOHTML)
+
+if iswindows and hasattr(sys, "frozen"):
+    PDFTOHTML = os.path.join(os.path.dirname(sys.executable), "pdftohtml.exe")
+    popen = partial(subprocess.Popen, creationflags=0x08)  # CREATE_NO_WINDOW=0x08 so that no ugly console is popped up
+
+if (islinux or isbsd) and getattr(sys, "frozen", False):
+    PDFTOHTML = os.path.join(sys.executables_location, "bin", "pdftohtml")
+
+
+def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
+    """
+    Convert the pdf into html using the pdftohtml app.
+    This will write the html as index.html into output_dir.
+    It will also write all extracted images to the output_dir
+    :param output_dir:
+    :param pdf_path:
+    :param no_images:
+    :param as_xml:
+    :return:
+    """
+
+    pdfsrc = os.path.join(output_dir, "src.pdf")
+    index = os.path.join(output_dir, "index." + ("xml" if as_xml else "html"))
+
+    with open(pdf_path, "rb") as src, open(pdfsrc, "wb") as dest:
+        shutil.copyfileobj(src, dest)
+
+    with CurrentDir(output_dir):
+        # This is necessary as pdftohtml doesn't always (linux) respect absolute paths. Also, it allows us to safely
+        # pass only bytestring arguments to subprocess on widows
+
+        # subprocess in python 2 cannot handle unicode arguments on windows that cannot be encoded with mbcs.
+        # Ensure all args are bytestrings.
+        def a(x):
+            return os.path.basename(x).encode("ascii")
+
+        exe = PDFTOHTML.encode(filesystem_encoding) if isinstance(PDFTOHTML, unicode) else PDFTOHTML
+
+        cmd = [
+            exe,
+            b"-enc",
+            b"UTF-8",
+            b"-noframes",
+            b"-p",
+            b"-nomerge",
+            b"-nodrm",
+            b"-q",
+            a(pdfsrc),
+            a(index),
+        ]
+
+        if isbsd:
+            cmd.remove(b"-nodrm")
+        if no_images:
+            cmd.append(b"-i")
+        if as_xml:
+            cmd.append("-xml")
+
+        logf = PersistentTemporaryFile("pdftohtml_log")
+        try:
+            p = popen(cmd, stderr=logf._fd, stdout=logf._fd, stdin=subprocess.PIPE)
+        except OSError as err:
+            if err.errno == errno.ENOENT:
+                raise ConversionError(_("Could not find pdftohtml, check it is in your PATH"))
+            else:
+                raise
+
+        ret = "Internal Python error"
+        while True:
+            try:
+                ret = p.wait()
+                break
+            except OSError as e:
+                if e.errno == errno.EINTR:
+                    continue
+                else:
+                    raise
+        logf.flush()
+        logf.close()
+        with open(logf.name, "rb") as log_temp_file:
+            out = log_temp_file.read().strip()
+        try:
+            os.remove(pdfsrc)
+        except:
+            pass
+        if ret != 0:
+            raise ConversionError(b"return code: %d\n%s" % (ret, out))
+        if out:
+            print("pdftohtml log:")
+            print(out)
+        if not os.path.exists(index) or os.stat(index).st_size < 100:
+            raise DRMError()
+
+        if not as_xml:
+            with open(index, "r+b") as i:
+                raw = i.read()
+                raw = flip_images(raw)
+                raw = "<!-- created by calibre's pdftohtml -->\n" + raw
+                i.seek(0)
+                i.truncate()
+                # versions of pdftohtml >= 0.20 output self closing <br> tags, this breaks the pdf heuristics regexps,
+                # so replace them
+                i.write(raw.replace(b"<br/>", b"<br>"))
+
+
+def flip_image(img, flip):
+    from LiuXin.utils.calibre.utils.magick import Image
+
+    im = Image()
+    im.open(img)
+    if b"x" in flip:
+        im.flip(True)
+    if b"y" in flip:
+        im.flip()
+    im.save(img)
+
+
+def flip_images(raw):
+    for match in re.finditer(b"<IMG[^>]+/?>", raw, flags=re.I):
+        img = match.group()
+        m = re.search(rb'class="(x|y|xy)flip"', img)
+        if m is None:
+            continue
+        flip = m.group(1)
+        src = re.search(rb'src="([^"]+)"', img)
+        if src is None:
+            continue
+        img = src.group(1)
+        if not os.path.exists(img):
+            continue
+        flip_image(img, flip)
+    raw = re.sub(rb"<STYLE.+?</STYLE>\s*", b"", raw, flags=re.I | re.DOTALL)
+    return raw

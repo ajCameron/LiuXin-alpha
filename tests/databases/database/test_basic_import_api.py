@@ -23,3 +23,5 @@ class TestBasicTopLevelSurfaceImports:
         """
         from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import DatabaseDriver
 
+        assert DatabaseDriver is not None
+

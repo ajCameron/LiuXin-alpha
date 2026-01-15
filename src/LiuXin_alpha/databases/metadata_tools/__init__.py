@@ -6,4 +6,5 @@
 # Only deals with the metadata size of the database - adding physical assets - like covers - involves the folder stores
 # and so is handled over in the library module
 
-__md_tools_version__ = (0, 1, 2)
+__md_tools_version__ = (1, 0, 0)
+

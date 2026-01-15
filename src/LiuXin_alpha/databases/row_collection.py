@@ -30,16 +30,15 @@ import pprint
 
 # A RowCollection is intended to be a a store of Row objects. Errors will be thrown if you attempt to add something
 # which is not a row object or try and store one improperly
-from LiuXin.databases.row import Row
+from LiuXin_alpha.databases.row import Row
 
-from LiuXin.utils.general_ops.io_ops import LiuXin_debug_print
+from LiuXin_alpha.utils.logging import LiuXin_debug_print
 
-from LiuXin.constants import VERBOSE_DEBUG
+from LiuXin_alpha.constants import VERBOSE_DEBUG
 
-from LiuXin.exceptions import InputIntegrityError
-from LiuXin.exceptions import LogicalError
+from LiuXin_alpha.errors import InputIntegrityError, LogicalError
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 class RowCollection(object):

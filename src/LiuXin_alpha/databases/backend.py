@@ -16,14 +16,11 @@ from copy import deepcopy
 import six
 from six import iteritems
 
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
-default_log.info("LiuXin.databases.backend - beginning import")
-from LiuXin.constants import iswindows
+from LiuXin_alpha.utils.which_os import iswindows
 
 from LiuXin.databases.caches.calibre.cache import CalibreCache
-
-default_log.info("CalibreCache - imported")
 
 from LiuXin.databases.dbprefs import DBPrefs
 from LiuXin.databases.metadata_tools.add import Add
@@ -33,10 +30,8 @@ from LiuXin.databases.metadata_tools.intralinker import Intralinker
 
 from LiuXin.databases.database import Database
 
-default_log.info("DatabasePing import completed")
 from LiuXin.databases.field_metadata import FieldMetadata
 
-default_log.info("FieldMetadata import completed")
 from LiuXin.databases.custom_columns import CustomColumns
 
 

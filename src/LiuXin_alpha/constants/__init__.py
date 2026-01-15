@@ -126,6 +126,29 @@ except:
     preferred_encoding = "utf-8"
 
 
+
+# Todo: Only here because I fear recursive imports
+def isbytestring(obj):
+    return isinstance(obj, (str, bytes))
+
+
+def force_unicode(obj, enc=preferred_encoding):
+    if isbytestring(obj):
+        try:
+            obj = obj.decode(enc)
+        except:
+            try:
+                obj = obj.decode(filesystem_encoding if enc == preferred_encoding else preferred_encoding)
+            except:
+                try:
+                    obj = obj.decode("utf-8")
+                except:
+                    obj = repr(obj)
+                    if isbytestring(obj):
+                        obj = obj.decode("utf-8")
+    return obj
+
+
 # setting the file system encoding
 filesystem_encoding = sys.getfilesystemencoding()
 if filesystem_encoding is None:

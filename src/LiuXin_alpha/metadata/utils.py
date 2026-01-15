@@ -4,10 +4,17 @@
 Utils for metadata processing.
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import re
 from urllib.parse import urlparse
+from collections import namedtuple
+
+from lxml import etree
+
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union, Literal, Iterator, TypeVar, Type
 
 from LiuXin_alpha.errors import InputIntegrityError
 
@@ -24,6 +31,12 @@ __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
 __docformat__ = "restructuredtext en"
 
 
+
+PARSER = etree.XMLParser(recover=True, no_network=True)
+
+OPFVersion = namedtuple("OPFVersion", "major minor patch")
+
+
 # Todo: Consolidate ebook metadata tools
 try:
     _author_pat = re.compile(tweaks["authors_split_regex"])
@@ -37,9 +50,9 @@ except Exception as e:
     _author_pat = re.compile(r"(?i),?\s+(and|with)\s+")
 
 
-def soft_float_to_int(num):
+def soft_float_to_int(num: Union[float, int]) -> Union[int, float]:
     """
-    If a float is an integer then convert it to such - otherwise leave it as a float
+    If a float is an integer then convert it to such - otherwise leave it as a float.
 
     :param num:
     :return:
@@ -53,9 +66,10 @@ def soft_float_to_int(num):
         return num
 
 
-def string_to_authors(raw):
+def string_to_authors(raw: str) -> List[str]:
     """
     Split down a string containing multiple authors names and return them as a list of strings,
+
     :param raw: An encoded string of authors
     :return:
     """
@@ -85,9 +99,10 @@ def string_to_authors(raw):
     return [a for a in authors if a]
 
 
-def authors_to_string(authors, xml_safe=False):
+def authors_to_string(authors: Iterable[str], xml_safe: bool = False) -> str:
     """
     Take an iterable of authors and return them as a string.
+
     :param authors:
     :param xml_safe: If True, then uses double commands instead of ampersands
     :return:
@@ -104,9 +119,12 @@ def authors_to_string(authors, xml_safe=False):
 
 
 # Todo: This is not actually working
-def author_to_author_sort(author, method="comma"):
+def author_to_author_sort(
+        author: str, method: Literal["copy", "comma", "nocomma"] = "comma"
+) -> str:
     """
     Takes an author name and produces a sort string from it.
+
     :param author: The name of the author to transform
     :param method: 'copy' - Just make a straight copy of the author name
                    'comma' - Try and put the first name after the last name, separated by a comma
@@ -187,12 +205,19 @@ _title_pats = {}
 
 
 # Todo: We have multiple functions with the same name
-def get_title_sort_pat(lang=None):
+def get_title_sort_pat(lang: Optional[str] = None) -> Optional[re.Pattern[str]]:
+    """
+    Return the title sort pattern for the given language.
+
+    :param lang:
+    :return:
+    """
+    from LiuXin_alpha.utils.localization import canonicalize_lang, get_lang
+
     ans = _title_pats.get(lang, None)
     if ans is not None:
         return ans
     q = lang
-    from LiuXin.utils.localization import canonicalize_lang, get_lang
 
     if lang is None:
         q = tweaks["default_language_for_title_sort"]
@@ -221,10 +246,18 @@ def get_title_sort_pat(lang=None):
     return ans
 
 
-_ignore_starts = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + [chr(0x2032), chr(0x2033)])
+_ignore_starts: str = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + [chr(0x2032), chr(0x2033)])
 
 
-def title_sort(title, order=None, lang=None):
+def title_sort(title: str, order: Optional[str] = None, lang: Optional[str] = None) -> str:
+    """
+    Return the title sort pattern for the given language.
+
+    :param title:
+    :param order:
+    :param lang:
+    :return:
+    """
     if order is None:
         order = tweaks["title_series_sorting"]
     title = title.strip()
@@ -251,7 +284,13 @@ coding = zip(
 )
 
 
-def roman(num):
+def roman(num: int) -> str:
+    """
+    Return the roman numeral of the given number.
+
+    :param num:
+    :return:
+    """
     if num <= 0 or num >= 4000 or int(num) != num:
         return str(num)
     result = []
@@ -262,9 +301,10 @@ def roman(num):
     return "".join(result)
 
 
-def fmt_sidx(i, fmt="%.2f", use_roman=False):
+def fmt_sidx(i: Optional[str, int, float], fmt: str = "%.2f", use_roman: bool = False) -> str:
     """
-    Format series index
+    Format series index.
+
     :param i:
     :param fmt:
     :param use_roman:
@@ -281,7 +321,7 @@ def fmt_sidx(i, fmt="%.2f", use_roman=False):
     return fmt % i
 
 
-class Resource(object):
+class Resource:
     """
     Represents a resource (usually a file on the filesystem or a URL pointing to the web.
 
@@ -295,7 +335,18 @@ class Resource(object):
 
     """
 
-    def __init__(self, href_or_path, basedir=os.getcwd(), is_path=True):
+    def __init__(
+            self,
+            href_or_path: str,
+            basedir: Union[str, bytes] = os.getcwd(),
+            is_path: bool = True) -> None:
+        """
+        Startup a resource in the OPF.
+
+        :param href_or_path:
+        :param basedir:
+        :param is_path:
+        """
         from urllib import unquote
 
         self._href = None
@@ -312,7 +363,7 @@ class Resource(object):
             path = href_or_path
             if not os.path.isabs(path):
                 path = os.path.abspath(os.path.join(basedir, path))
-            if isinstance(path, str):
+            if isinstance(path, bytes):
                 path = path.decode(sys.getfilesystemencoding())
             self.path = path
         else:
@@ -321,16 +372,15 @@ class Resource(object):
                 self._href = href_or_path
             else:
                 pc = url[2]
-                if isinstance(pc, unicode):
+                if isinstance(pc, str):
                     pc = pc.encode("utf-8")
                 pc = unquote(pc).decode("utf-8")
                 self.path = os.path.abspath(os.path.join(basedir, pc.replace("/", os.sep)))
                 self.fragment = unquote(url[-1])
 
-    def href(self, basedir=None):
+    def href(self, basedir: Optional[str] = None) -> str:
         """
-        Return a URL pointing to this resource. If it is a file on the filesystem
-        the URL is relative to `basedir`.
+        Return a URL pointing to this resource. If it is a file on the filesystem the URL is relative to `basedir`.
 
         `basedir`: If None, the basedir of this resource is used (see :method:`set_basedir`).
         If this resource has no basedir, then the current working directory is used as the basedir.
@@ -367,15 +417,33 @@ class Resource(object):
         return "Resource(%s, %s)" % (repr(self.path), repr(self.href()))
 
 
-class ResourceCollection(object):
-    def __init__(self):
+class ResourceCollection:
+    """
+    A collection of resources.
+    """
+    _resources: list[Resource]
+
+    def __init__(self) -> None:
+        """
+        Initialize a collection of resources.
+        """
         self._resources = []
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Resource]:
+        """
+        Itterate over the collection.
+
+        :return:
+        """
         for r in self._resources:
             yield r
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Return the number of resources in the collection.
+
+        :return:
+        """
         return len(self._resources)
 
     def __getitem__(self, index):
@@ -396,14 +464,35 @@ class ResourceCollection(object):
             raise ValueError("Can only append objects of type Resource")
         self._resources.append(resource)
 
-    def remove(self, resource):
+    def remove(self, resource: Resource) -> None:
+        """
+        Remove a resource from the collection.
+
+        :param resource:
+        :return:
+        """
         self._resources.remove(resource)
 
-    def replace(self, start, end, items):
-        "Same as list[start:end] = items"
+    def replace(self, start: int, end: int, items: list[Resource]) -> None:
+        """
+        Same as list[start:end] = items.
+
+        :param start:
+        :param end:
+        :param items:
+        :return:
+        """
         self._resources[start:end] = items
 
-    def from_directory_contents(top, topdown=True):
+    @staticmethod
+    def from_directory_contents(top: str, topdown: bool = True) -> "ResourceCollection":
+        """
+        Initialize a collection of resources from a directory.
+
+        :param top:
+        :param topdown:
+        :return:
+        """
         collection = ResourceCollection()
         for spec in os.walk(top, topdown=topdown):
             path = os.path.abspath(os.path.join(spec[0], spec[1]))
@@ -417,9 +506,10 @@ class ResourceCollection(object):
             res.set_basedir(path)
 
 
-def validate_identifier(typ, val):
+def validate_identifier(typ: str, val: str) -> None:
     """
     Preform validation checks on the given identifier - raises InputIntegrityError if the id is not valid.
+
     :param typ:
     :param val:
     :return:
@@ -438,14 +528,15 @@ def validate_identifier(typ, val):
         raise InputIntegrityError("Identifier did not pass validation")
 
 
-def check_isbn10(isbn):
+def check_isbn10(isbn: str) -> Optional[str]:
     """
     Checks to see if the first ten digits of a string is a valid ISBN-10 string.
+
     :param isbn:
     :return:
     """
     try:
-        digits = map(int, isbn[:9])
+        digits = [_ for _ in map(int, isbn[:9])]
         products = [(i + 1) * digits[i] for i in range(9)]
         check = sum(products) % 11
         if (check == 10 and isbn[9] == "X") or check == int(isbn[9]):
@@ -456,15 +547,16 @@ def check_isbn10(isbn):
     return None
 
 
-def check_isbn13(isbn):
+def check_isbn13(isbn: str) -> Optional[str]:
     """
     Checks to see if the first thirteen digits of a string is a valid ISBN-13 string.
+
     By the point this function is called filtering is assumed to have been done to remove any illegal characters.
     :param isbn:
     :return:
     """
     try:
-        digits = map(int, isbn[:12])
+        digits = [_ for _ in map(int, isbn[:12])]
         products = [(1 if i % 2 == 0 else 3) * digits[i] for i in range(12)]
         check = 10 - (sum(products) % 10)
         if check == 10:
@@ -477,9 +569,10 @@ def check_isbn13(isbn):
     return None
 
 
-def check_isbn(isbn):
+def check_isbn(isbn: str) -> Optional[str]:
     """
     Ids the type of ISBN we're dealing with - checks to see if it's valid.
+
     :param isbn:
     :return:
     """
@@ -497,9 +590,10 @@ def check_isbn(isbn):
 
 
 # Todo: Was an actual bug in calibre
-def check_issn(issn):
+def check_issn(issn: str) -> Optional[str]:
     """
-    Checks to make sure that the given issn string is valid - returns None if it isn;t.
+    Checks to make sure that the given issn string is valid - returns None if it isn't.
+
     :param issn: The issn string to check
     :return:
     """
@@ -518,9 +612,10 @@ def check_issn(issn):
     return None
 
 
-def format_isbn(isbn):
+def format_isbn(isbn: str) -> str:
     """
     Render an isbn into a more easily readable format.
+
     :param isbn:
     :return:
     """
@@ -533,9 +628,10 @@ def format_isbn(isbn):
     return "-".join((i[:3], i[3:5], i[5:9], i[9:12], i[12]))
 
 
-def check_doi(doi):
+def check_doi(doi: str) -> Optional[str]:
     """
     Check if something that looks like a DOI (Digital Object Identifier) is present anywhere in the string.
+
     :param doi:
     :return:
     """
@@ -555,6 +651,7 @@ def check_doi(doi):
 def calibreMetaInformation(title, authors=(_("Unknown"),)):
     """
     Convenient encapsulation of book metadata, needed for compatibility
+
     :param title: title or ``_('Unknown')`` or a MetaInformation object (or something with a similar interface that
                   can be read from)
     :param authors: List of strings or []
@@ -569,6 +666,117 @@ def calibreMetaInformation(title, authors=(_("Unknown"),)):
         authors = mi.authors
     return calibreMetadata(title, authors, other=mi)
 
-
 #
 # ----------------------------------------------------------------------------------------------------------------------
+
+
+def parse_opf_version(raw: str) -> OPFVersion:
+    """
+    Returns the opf version from an opf string.
+
+    :param raw:
+    :return:
+    """
+    parts = (raw or "").split(".")
+    try:
+        major = int(parts[0])
+    except Exception:
+        return OPFVersion(2, 0, 0)
+    try:
+        v = list(map(int, raw.split(".")))
+    except Exception:
+        v = [major, 0, 0]
+    while len(v) < 3:
+        v.append(0)
+    v = v[:3]
+    return OPFVersion(*v)
+
+
+def parse_opf(stream_or_path):
+    """
+    Take an opf file as a stream, string or path. Tries to guess which is which and then parses the
+
+    :param stream_or_path:
+    :return:
+    """
+    stream = stream_or_path
+    if not hasattr(stream, "read"):
+        if len(stream) < 4096 and os.path.exists(stream):
+            with open(stream, "rb") as opf_stream:
+                raw = opf_stream.read()
+        else:
+            raw = stream
+    else:
+        raw = stream.read()
+    if not raw:
+        raise ValueError("Empty file: " + getattr(stream, "name", "stream"))
+    raw, encoding = xml_to_unicode(raw, strip_encoding_pats=True, resolve_entities=True, assume_utf8=True)
+    raw = raw[raw.find("<") :]
+    root = etree.fromstring(raw, PARSER)
+    if root is None:
+        raise ValueError("Not an OPF file")
+    return root
+
+
+def normalize_languages(opf_languages, mi_languages):
+    """
+    Preserve original country codes and use 2-letter lang codes where possible
+    :param opf_languages:
+    :param mi_languages:
+    :return:
+    """
+
+    def parse(x):
+        try:
+            return parse_lang_code(x)
+        except ValueError:
+            return None
+
+    opf_languages = filter(None, map(parse, opf_languages))
+    cc_map = {c.langcode: c.countrycode for c in opf_languages}
+    mi_languages = filter(None, map(parse, mi_languages))
+
+    def norm(x):
+        lc = x.langcode
+        cc = x.countrycode or cc_map.get(lc, None)
+        lc = lang_as_iso639_1(lc) or lc
+        if cc:
+            lc += "-" + cc
+        return lc
+
+    return list(map(norm, mi_languages))
+
+
+def ensure_unique(template, existing):
+    b, e = template.rpartition(".")[::2]
+    if b and e:
+        e = "." + e
+    else:
+        b, e = template, ""
+    q = template
+    c = 0
+    while q in existing:
+        c += 1
+        q = "%s-%d%s" % (b, c, e)
+    return q
+
+
+def create_manifest_item(root, href_template, id_template, media_type=None):
+    all_ids = frozenset(root.xpath("//*/@id"))
+    all_hrefs = frozenset(root.xpath("//*/@href"))
+    href = ensure_unique(href_template, all_hrefs)
+    item_id = ensure_unique(id_template, all_ids)
+    manifest = root.find(OPF("manifest"))
+    if manifest is not None:
+        i = manifest.makeelement(OPF("item"))
+        i.set("href", href), i.set("id", item_id)
+        i.set("media-type", media_type or guess_type(href_template))
+        manifest.append(i)
+        return i
+
+
+def pretty_print_opf(root):
+    from LiuXin.file_formats.oeb.polish.pretty import pretty_opf, pretty_xml_tree
+
+    pretty_opf(root)
+    pretty_xml_tree(root)
