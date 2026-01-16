@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 from __future__ import print_function
@@ -62,19 +62,67 @@ class LiuXinJSON(object):
         self.local_decoder.scan_once = py_make_scanner(local_decoder)
 
     @staticmethod
-    def to_base64_str(s: str) -> str:
-        s_encoded = base64.b64encode(s.encode("utf-8"))
-        return '"' + s_encoded.decode("utf-8") + '"'
+    def _bytes_to_text(b):
+        """Decode bytes into text in a round-trippable way.
+
+        We use UTF-8 with surrogateescape so arbitrary bytes survive a
+        encode/decode cycle without raising.
+        """
+        if b is None:
+            return b
+        if isinstance(b, bytes):
+            return b.decode("utf-8", "surrogateescape")
+        return b
+
+    @staticmethod
+    def _text_to_bytes(s):
+        """Encode text to bytes in a round-trippable way."""
+        if s is None:
+            return s
+        if isinstance(s, bytes):
+            return s
+        return six_unicode(s).encode("utf-8", "surrogateescape")
+
+    @classmethod
+    def _json_sanitize(cls, obj):
+        """Recursively convert bytes->str and dict keys->str for JSON."""
+        if isinstance(obj, bytes):
+            return cls._bytes_to_text(obj)
+        if isinstance(obj, (list, tuple)):
+            return [cls._json_sanitize(x) for x in obj]
+        if isinstance(obj, dict):
+            out = {}
+            for k, v in obj.items():
+                # JSON requires text keys.
+                if isinstance(k, bytes):
+                    k2 = cls._bytes_to_text(k)
+                else:
+                    k2 = k
+                out[k2] = cls._json_sanitize(v)
+            return out
+        return obj
+
+    @classmethod
+    def to_base64_str(cls, s) -> str:
+        """Encode a JSON string value as base64 of UTF-8 bytes."""
+        s_bytes = cls._text_to_bytes(s)
+        s_encoded = base64.b64encode(s_bytes)
+        return '"' + s_encoded.decode("ascii") + '"'
 
     @staticmethod
     def from_base64_str(s):
-        return base64.b64decode(s)
+        """Decode a base64 JSON string back to text."""
+        if isinstance(s, str):
+            s = s.encode("ascii")
+        return base64.b64decode(s).decode("utf-8", "surrogateescape")
 
     def dumps(self, s):
-        return self.modded_json.dumps(s)
+        # Ensure bytes never reach the JSON encoder (Python 3 forbids them,
+        # and dict keys must be text).
+        return self.modded_json.dumps(self._json_sanitize(s))
 
     def loads(self, s):
-        return self.local_decoder.decode(s)
+        return self._json_sanitize(self.local_decoder.decode(s))
 
 
 NUMBER_RE = re.compile(
@@ -207,7 +255,12 @@ def JSONObject(
     for key, val in pairs:
         # Values should be taken care of elsewhere
         if isinstance(key, basestring):
-            new_pairs.append((base64.b64decode(key), val))
+            # Keys are base64-encoded text; decode to a real text key.
+            if isinstance(key, str):
+                key_b = key.encode("ascii")
+            else:
+                key_b = key
+            new_pairs.append((base64.b64decode(key_b).decode("utf-8", "surrogateescape"), val))
         else:
             new_pairs.append((key, val))
 
@@ -282,7 +335,13 @@ def py_scanstring(s, end, encoding=None, strict=True, _b=BACKSLASH, _m=STRINGCHU
             char = unichr(uni)
         # Append the unescaped character
         _append(char)
-    return base64.b64decode("".join(chunks)), end
+    # Join the base64 payload, decode to bytes, then decode to text.
+    payload = "".join(chunks)
+    if isinstance(payload, str):
+        payload_b = payload.encode("ascii")
+    else:
+        payload_b = payload
+    return base64.b64decode(payload_b).decode("utf-8", "surrogateescape"), end
 
 
 # Used to construct the scanner after all the other objects have been updated

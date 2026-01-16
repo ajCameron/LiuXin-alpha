@@ -11,20 +11,22 @@ from functools import partial
 from collections import defaultdict
 from copy import deepcopy
 
-from LiuXin.paths import config_dir, CONFIG_DIR_MODE
+from LiuXin_alpha.constants.paths import config_dir, CONFIG_DIR_MODE
 
-from LiuXin.utils.general_ops.io_ops import LiuXin_warning_print
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.lock import LockError, ExclusiveFile
-from LiuXin.utils.resources import P
+from LiuXin_alpha.utils.logging import LiuXin_warning_print
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.lock import LockError, ExclusiveFile
+from LiuXin_alpha.utils.resources import P
 
 # Plugins are stored here in calibre in form of zip files.
 # plugin_dir = os.path.join(config_dir, 'plugins')
-from LiuXin.utils.plugins import LiuXin_calibre_plugins_store
+from LiuXin_alpha.constants.paths import LiuXin_calibre_plugins_store
+
+from LiuXin_alpha.utils.libraries.liuxin_six import basestring, unicode, long
+
+
 
 plugin_dir = LiuXin_calibre_plugins_store
-
-from past.builtins import basestring, unicode, long
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -205,7 +207,7 @@ class OptionSet(object):
                 opt.help = t(opt.help)
 
     def option_parser(self, user_defaults=None, usage="", gui_mode=False):
-        from LiuXin.utils.config import OptionParser
+        from LiuXin_alpha.utils.config import OptionParser
 
         parser = OptionParser(usage, gui_mode=gui_mode)
         groups = defaultdict(lambda: parser)
@@ -623,7 +625,7 @@ def write_tweaks(raw):
 try:
     tweaks = read_tweaks()
 except Exception as e:
-    from LiuXin.utils.calibre.calibre_emulation import tweaks as calibre_tweaks
+    from LiuXin_alpha.preferences import tweaks as calibre_tweaks
 
     wrn_str = "Unable to read tweaks from file.\n"
     wrn_str += "Falling back to default calibre tweaks.\n"

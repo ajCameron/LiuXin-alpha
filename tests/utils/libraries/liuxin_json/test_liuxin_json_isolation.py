@@ -193,8 +193,8 @@ def test_liuxin_json_uses_clone_module_and_does_not_patch_stdlib_encoder() -> No
     assert json.encoder.encode_basestring_ascii is std_encode_ascii
 
 
-def test_liuxin_json_round_trip_bytes_keys_and_values() -> None:
-    """LiuXinJSON decodes strings (and keys) into bytes; stdlib keeps them as str."""
+def test_liuxin_json_round_trip_not_bytes_keys_and_values() -> None:
+    """LiuXinJSON not does not decodes strings (and keys) into bytes; like stdlib it keeps them as str."""
     import json
 
     from LiuXin_alpha.utils.libraries.liuxin_json import LiuXinJSON
@@ -209,7 +209,7 @@ def test_liuxin_json_round_trip_bytes_keys_and_values() -> None:
 
     # LiuXin should decode to bytes
     loaded = lx.loads(dumped)
-    assert loaded == {b"a": b"hello"}
+    assert loaded == {"a": "hello"}
 
 
 def test_stdlib_json_module_origin_is_stdlib_when_available() -> None:

@@ -15,8 +15,8 @@ from urllib.parse import unquote
 
 from lxml import etree, html
 
-from LiuXin.file_formats.conversion.preprocess import CSSPreProcessor
-from LiuXin.file_formats.oeb.parse_utils import (
+from LiuXin_alpha.file_formats.conversion.preprocess import CSSPreProcessor
+from LiuXin_alpha.file_formats.oeb.parse_utils import (
     barename,
     XHTML_NS,
     RECOVER_PARSER,

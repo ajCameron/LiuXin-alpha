@@ -115,3 +115,17 @@ if not os.path.exists(LiuXin_calibre_config_folder):
 
 
 # Todo: THESE ARE ALL ACTUALLY PREFERENCES - NOT CONSTANTS
+
+
+# Sundry path constants
+LiuXin_utils_folder = os.path.join(LiuXin_base_folder, "utils")
+LiuXin_plugins_folder = os.path.join(LiuXin_base_folder, "LiuXin_plugins")
+LiuXin_calibre_portable = os.path.join(LiuXin_plugins_folder, "Calibre Portable")
+LiuXin_calibre_plugins_folder = os.path.join(LiuXin_calibre_portable, "Calibre")
+
+# Paths for the various plugins available to calibre portable
+# An install of calibre portable should have come bundled with LiuXin
+LiuXin_pdftohtml_path = os.path.join(LiuXin_calibre_plugins_folder, "pdftohtml.exe")
+LiuXin_ebook_meta_path = os.path.join(LiuXin_calibre_plugins_folder, "ebook-meta.exe")
+# Todo: Rename to be less confusing
+LiuXin_calibre_plugins_store = os.path.join(LiuXin_plugins_folder, "plugins from calibre")

@@ -636,7 +636,7 @@ class PluralRatingField(PluralMetadataField):
 
     def __init__(self, name, is_dc=True, none_is=None, renderer=lambda x: six_unicode(x)):
         PluralMetadataField.__init__(self, name, is_dc, none_is, renderer)
-        from LiuXin.file_formats.oeb.base import OPF as OPF_name
+        from LiuXin_alpha.file_formats.oeb.base import OPF as OPF_name
 
         self.opf_name = OPF_name
 

@@ -165,6 +165,17 @@ else:
         filesystem_encoding = "utf-8"
 
 
+def as_unicode(obj, enc: Optional[None] = preferred_encoding):
+    if not isbytestring(obj):
+        try:
+            obj = str(obj)
+        except Exception:
+            try:
+                obj = native_string_type(obj)
+            except Exception:
+                obj = repr(obj)
+    return force_unicode(obj, enc=enc)
+
 def is_ext_compressed(extension):
     """Takes the extension of a potentially compressed file. Works out if it's compressed."""
     ext_local = str(extension)

@@ -5,10 +5,10 @@ import functools
 import re
 import json
 
-from LiuXin.utils.calibre import entity_to_unicode, as_unicode
+from LiuXin_alpha.utils.text import entity_to_unicode, as_unicode
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

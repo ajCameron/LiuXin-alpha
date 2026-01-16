@@ -126,55 +126,124 @@ class Preferences:
                 shutil.copy2(self.config_file_path, new_config_file)
 
             self.config_file_path = new_config_file
-
         # Stores the config which underlies all stored preferences - allows for easy dumping
         self.config = ConfigParser.RawConfigParser()
 
-        # If the config file doesn't exist reload from defaults and save to the new config file
-        if not self.config_file_exists:
-            self.load_default_config()
-            self.save()
-        else:
-            self.load()
+        # Load defaults, overlay any on-disk values, and upgrade the file if it is missing fields
+        self.load(upgrade_on_load=True)
 
         # Derive and store some additional information about the comnfig which will enable a more elegant interface
         self.keys_dict = self.load_keys_dict(self.config)
 
-    def load(self):
-        """
-        Load the file contained at the current config_file_path.
+    def _open_text(self, path, mode):
+        """Open a text file compatibly across old/new Python runtimes."""
+        try:
+            return open(path, mode, encoding="utf-8")
+        except TypeError:
+            return open(path, mode)
 
-        All variables currently stored will be dropped and reloaded.
-        :return:
+    def _read_config_from_path(self, path):
+        """Read an ini file into a RawConfigParser."""
+        cfg = ConfigParser.RawConfigParser()
+        with self._open_text(path, "r") as f:
+            # ConfigParser.read() expects a filename list; for file objects use read_file/readfp
+            if hasattr(cfg, "read_file"):
+                cfg.read_file(f)
+            else:
+                cfg.readfp(f)
+        return cfg
+
+    def load(self, upgrade_on_load=True):
         """
+        Load preferences from disk.
+
+        Behavior:
+        - Always start from inbuilt defaults.
+        - Overlay any values found on disk.
+        - If the on-disk file is missing fields, automatically upgrade it by writing out the merged ini.
+        """
+        # 1) Start from defaults so missing on-disk keys fall back automatically.
         self.config = ConfigParser.RawConfigParser()
-
-        with open(self.config_file_path, "r") as cfgfile:
-            self.config.read(cfgfile)
 
         self._active_variables = dict()
         self._variable_type = dict()
 
-        seen_options = set()
-        # Read every config from all the sections - validate to make sure that the config file is valid for us (has no
-        # degenerate file names)
+        self.load_default_config()
+
+        default_section_for = {}
         for section in self.config.sections():
-            for option in self.config.options(section):
-                assert option not in seen_options, "config file is not valid - duplicate options"
+            for opt in self.config.options(section):
+                default_section_for[opt] = section
+        default_options = set(default_section_for.keys())
 
-                val_type, value = self.str_to_val(self.config.get(section, option))
-                self._variable_type[option] = val_type
-                self._active_variables[option] = value
+        needs_save = not self.config_file_exists
+        disk_options = set()
 
-        # Replace the keys dict with the keys dict from the new config file
+        disk_cfg = None
+        if self.config_file_exists:
+            try:
+                disk_cfg = self._read_config_from_path(self.config_file_path)
+            except Exception:
+                # Backup broken file, then regenerate from defaults
+                try:
+                    shutil.copy2(self.config_file_path, self.config_file_path + ".broken")
+                except Exception:
+                    pass
+                disk_cfg = None
+                needs_save = True
+
+        if disk_cfg is not None:
+            seen_options = set()
+            for section in disk_cfg.sections():
+                # Preserve unknown sections so plugin settings are not lost
+                if not self.config.has_section(section):
+                    self.config.add_section(section)
+                    needs_save = True
+
+                for option in disk_cfg.options(section):
+                    if option in seen_options:
+                        raise AssertionError("config file is not valid - duplicate options")
+                    seen_options.add(option)
+                    disk_options.add(option)
+
+                    raw = disk_cfg.get(section, option)
+                    try:
+                        val_type, value = self.str_to_val(raw)
+                    except Exception:
+                        # Keep default if present; drop unreadable key otherwise
+                        needs_save = True
+                        continue
+
+                    target_section = default_section_for.get(option, section)
+                    if target_section != section:
+                        needs_save = True
+                    if not self.config.has_section(target_section):
+                        self.config.add_section(target_section)
+                        needs_save = True
+
+                    # Write into config + active caches
+                    self.type_set(target_section, option, value, val_type=val_type)
+
+            # If defaults are missing on disk, upgrade file
+            if default_options - disk_options:
+                needs_save = True
+
         self.keys_dict = self.load_keys_dict(self.config)
 
+        if upgrade_on_load and needs_save:
+            self.save()
     def save(self):
         """
         Saves the current config to the given config dictionary.
         :return:
         """
-        with open(self.config_file_path, "w") as cfgfile:
+        folder = os.path.dirname(self.config_file_path)
+        if folder and not os.path.isdir(folder):
+            try:
+                os.makedirs(folder)
+            except OSError:
+                pass
+        with self._open_text(self.config_file_path, "w") as cfgfile:
             self.config.write(cfgfile)
 
     @staticmethod
@@ -1562,13 +1631,38 @@ class Preferences:
         err.append("val_str: {}".format(val_str))
         return "\n".join(err)
 
+
+    @staticmethod
+    def _json_bytes_to_str(obj):
+        """Recursively convert bytes (including dict keys) to str.
+
+        This is needed because legacy LiuXin JSON/base64 helpers can yield bytes
+        on Python 3, and the stdlib JSON encoder rejects bytes dict keys.
+        """
+        if isinstance(obj, (bytes, bytearray, memoryview)):
+            b = bytes(obj)
+            try:
+                return b.decode('utf-8', errors='surrogateescape')
+            except Exception:
+                # Fallback: latin-1 is a reversible 1:1 mapping for 0-255
+                return b.decode('latin-1', errors='strict')
+        if isinstance(obj, dict):
+            return {Preferences._json_bytes_to_str(k): Preferences._json_bytes_to_str(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [Preferences._json_bytes_to_str(v) for v in obj]
+        if isinstance(obj, tuple):
+            return tuple(Preferences._json_bytes_to_str(v) for v in obj)
+        if isinstance(obj, set):
+            return {Preferences._json_bytes_to_str(v) for v in obj}
+        return obj
+
     def liuxin_to_json(self, val):
         """
         Use the LiuXin json encode to dump a file.
         :param val:
         :return:
         """
-        return self.liuxin_json.dumps(val)
+        return self.liuxin_json.dumps(self._json_bytes_to_str(val))
 
     def liuxin_from_json(self, val):
         """
@@ -1576,7 +1670,7 @@ class Preferences:
         :param val:
         :return:
         """
-        return self.liuxin_json.loads(val)
+        return self._json_bytes_to_str(self.liuxin_json.loads(val))
 
     @staticmethod
     def to_json(val, **kwargs):
@@ -1586,7 +1680,7 @@ class Preferences:
         :return:
         """
         # Split off as a function to provide for easy customization of sotrage later
-        return json.dumps(val, ensure_ascii=False, **kwargs)
+        return json.dumps(Preferences._json_bytes_to_str(val), ensure_ascii=False, **kwargs)
 
     @staticmethod
     def from_json(val):

@@ -3,13 +3,16 @@ __author__ = "Big Brother Iron"
 from copy import deepcopy
 import optparse
 
-from LiuXin.utils.localization import _
-from LiuXin.constants import __appname__, get_version
+from LiuXin_alpha.utils.localization import _
+from LiuXin_alpha.constants import __appname__, get_version
 
 
 class CustomHelpFormatter(optparse.IndentedHelpFormatter):
+    """
+    Custom help formatter.
+    """
     def format_usage(self, usage):
-        from LiuXin.utils.calibre.utils.terminal import colored
+        from LiuXin_alpha.utils.terminal import colored
 
         parts = usage.split(" ")
         if parts:
@@ -18,7 +21,7 @@ class CustomHelpFormatter(optparse.IndentedHelpFormatter):
         return colored(_("Usage"), fg="blue", bold=True) + ": " + usage
 
     def format_heading(self, heading):
-        from LiuXin.utils.calibre.utils.terminal import colored
+        from LiuXin_alpha.utils.terminal import colored
 
         return "%*s%s:\n" % (
             self.current_indent,
@@ -28,7 +31,7 @@ class CustomHelpFormatter(optparse.IndentedHelpFormatter):
 
     def format_option(self, option):
         import textwrap
-        from LiuXin.utils.calibre.utils.terminal import colored
+        from LiuXin_alpha.utils.terminal import colored
 
         result = []
         opts = self.option_strings[option]
@@ -69,7 +72,7 @@ class OptionParser(optparse.OptionParser):
         **kwds
     ):
         import textwrap
-        from LiuXin.utils.calibre.utils.terminal import colored
+        from LiuXin_alpha.utils.terminal import colored
 
         usage = textwrap.dedent(usage)
         if epilog is None:
@@ -101,19 +104,19 @@ class OptionParser(optparse.OptionParser):
             _("show program's version number and exit")
 
     def print_usage(self, file=None):
-        from LiuXin.utils.calibre.utils.terminal import ANSIStream
+        from LiuXin_alpha.utils.terminal import ANSIStream
 
         s = ANSIStream(file)
         optparse.OptionParser.print_usage(self, file=s)
 
     def print_help(self, file=None):
-        from LiuXin.utils.calibre.utils.terminal import ANSIStream
+        from LiuXin_alpha.utils.terminal import ANSIStream
 
         s = ANSIStream(file)
         optparse.OptionParser.print_help(self, file=s)
 
     def print_version(self, file=None):
-        from LiuXin.utils.calibre.utils.terminal import ANSIStream
+        from LiuXin_alpha.utils.terminal import ANSIStream
 
         s = ANSIStream(file)
         optparse.OptionParser.print_version(self, file=s)

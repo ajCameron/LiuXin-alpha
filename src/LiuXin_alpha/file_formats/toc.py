@@ -22,6 +22,8 @@ from collections import Counter
 from lxml import etree
 from lxml.builder import ElementMaker
 
+from typing import Union, Optional
+
 from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
 
 from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
@@ -47,17 +49,33 @@ C = ElementMaker(namespace=CALIBRE_NS, nsmap=NSMAP)
 class TOC(list):
     def __init__(
         self,
-        href=None,
-        fragment=None,
-        text=None,
-        parent=None,
-        play_order=0,
-        base_path=os.getcwd(),
+        href: Optional[str] = None,
+        fragment: Optional[str] = None,
+        text: Optional[str] = None,
+        parent: Optional[str] = None,
+        play_order: int = 0,
+        base_path: str = os.getcwd(),
         type="unknown",
         author=None,
         description=None,
         toc_thumbnail=None,
     ):
+        """
+        Startup an empty table of contents.
+
+        :param href:
+        :param fragment:
+        :param text:
+        :param parent:
+        :param play_order:
+        :param base_path:
+        :param type:
+        :param author:
+        :param description:
+        :param toc_thumbnail:
+        """
+        super().__init__()
+
         self.href = href
         self.fragment = fragment
         if not self.fragment:
