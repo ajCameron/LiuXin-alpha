@@ -9,14 +9,16 @@ import optparse
 import pickle as cPickle
 from copy import deepcopy
 
-from LiuXin.constants import __author__
-from LiuXin.constants import get_version
+from LiuXin_alpha.constants import __author__
+from LiuXin_alpha.constants import get_version
 
-from LiuXin.utils.calibre.constants import config_dir, CONFIG_DIR_MODE, __appname__
-from LiuXin.utils.config.config_base import prefs
-from LiuXin.utils.config.config_base import make_config_dir
-from LiuXin.utils.lock import ExclusiveFile
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.constants import __appname__
+from LiuXin_alpha.constants.paths import config_dir, CONFIG_DIR_MODE
+
+from LiuXin_alpha.utils.config.config_base import prefs
+from LiuXin_alpha.utils.config.config_base import make_config_dir
+from LiuXin_alpha.utils.lock import ExclusiveFile
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -44,7 +46,7 @@ def to_json(obj):
             "__value__": base64.standard_b64encode(bytes(obj)),
         }
     if isinstance(obj, datetime.datetime):
-        from LiuXin.utils.date import isoformat
+        from LiuXin_alpha.utils.date import isoformat
 
         return {
             "__class__": "datetime.datetime",
@@ -64,7 +66,7 @@ def from_json(obj):
         if obj["__class__"] == "bytearray":
             return bytearray(base64.standard_b64decode(obj["__value__"]))
         if obj["__class__"] == "datetime.datetime":
-            from LiuXin.utils.date import parse_date
+            from LiuXin_alpha.utils.date import parse_date
 
             return parse_date(obj["__value__"], assume_utc=True)
     return obj
@@ -72,7 +74,7 @@ def from_json(obj):
 
 class CustomHelpFormatter(optparse.IndentedHelpFormatter):
     def format_usage(self, usage):
-        from LiuXin.utils.terminal import colored
+        from LiuXin_alpha.utils.terminal import colored
 
         parts = usage.split(" ")
         if parts:
@@ -81,7 +83,7 @@ class CustomHelpFormatter(optparse.IndentedHelpFormatter):
         return colored(_("Usage"), fg="blue", bold=True) + ": " + usage
 
     def format_heading(self, heading):
-        from LiuXin.utils.terminal import colored
+        from LiuXin_alpha.utils.terminal import colored
 
         return "%*s%s:\n" % (
             self.current_indent,
@@ -91,7 +93,7 @@ class CustomHelpFormatter(optparse.IndentedHelpFormatter):
 
     def format_option(self, option):
         import textwrap
-        from LiuXin.utils.terminal import colored
+        from LiuXin_alpha.utils.terminal import colored
 
         result = []
         opts = self.option_strings[option]
@@ -132,7 +134,7 @@ class OptionParser(optparse.OptionParser):
         **kwds
     ):
         import textwrap
-        from LiuXin.utils.terminal import colored
+        from LiuXin_alpha.utils.terminal import colored
 
         usage = textwrap.dedent(usage)
         if epilog is None:
@@ -164,19 +166,19 @@ class OptionParser(optparse.OptionParser):
             _("show program's version number and exit")
 
     def print_usage(self, file=None):
-        from LiuXin.utils.terminal import ANSIStream
+        from LiuXin_alpha.utils.terminal import ANSIStream
 
         s = ANSIStream(file)
         optparse.OptionParser.print_usage(self, file=s)
 
     def print_help(self, file=None):
-        from LiuXin.utils.terminal import ANSIStream
+        from LiuXin_alpha.utils.terminal import ANSIStream
 
         s = ANSIStream(file)
         optparse.OptionParser.print_help(self, file=s)
 
     def print_version(self, file=None):
-        from LiuXin.utils.terminal import ANSIStream
+        from LiuXin_alpha.utils.terminal import ANSIStream
 
         s = ANSIStream(file)
         optparse.OptionParser.print_version(self, file=s)

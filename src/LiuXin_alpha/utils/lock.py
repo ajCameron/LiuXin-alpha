@@ -17,33 +17,31 @@ import stat
 import errno
 
 from LiuXin_alpha.utils.which_os import iswindows
-from LiuXin_alpha.constants import __appname__, winerror, fcntl
+from LiuXin_alpha.constants import __appname__, fcntl
+from LiuXin_alpha.utils.libraries.liuxin_six import unicode
 
 
 if iswindows:
     try:
         from LiuXin_alpha.constants import win32api
-    except:
-        print("LiuXin cannot start - win32api not found")
-        raise
+    except Exception as e:
+        raise RuntimeError("LiuXin cannot start - win32api not found") from e
 else:
     win32api = None
 
 if iswindows:
     try:
         from LiuXin_alpha.constants import win32event
-    except:
-        print("LiuXin cannot start - win32event not found")
-        raise
+    except Exception as e:
+        raise RuntimeError("LiuXin cannot start - win32event not found") from e
 else:
     win32event = None
 
 if iswindows:
     try:
-        from LiuXin.constants import winerror
-    except:
-        print("LiuXin cannot start - winerror not found")
-        raise
+        from LiuXin_alpha.constants import winerror
+    except Exception as e:
+        raise RuntimeError("LiuXin cannot start - winerror not found") from e
 else:
     winerror = None
 
@@ -164,7 +162,7 @@ def unix_open(path):
     # files with O_APPEND set. We also use O_CLOEXEC when it is available,
     # to ensure there are no races.
     flags = os.O_RDWR | os.O_CREAT
-    from LiuXin.utils.plugins import plugins
+    from LiuXin_alpha.utils.plugins import plugins
 
     speedup = plugins["speedup"][0]
     has_cloexec = False

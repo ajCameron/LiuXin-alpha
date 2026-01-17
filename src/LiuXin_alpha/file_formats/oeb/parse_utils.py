@@ -7,12 +7,17 @@ import re
 
 from lxml import etree, html
 
-from LiuXin.file_formats.chardet import xml_to_unicode, strip_encoding_declarations
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode, strip_encoding_declarations
+
+from LiuXin_alpha.constants import filesystem_encoding
+
+from LiuXin_alpha.constants import force_unicode
+
 
 from LiuXin.utils.calibre import xml_replace_entities, force_unicode
-from LiuXin.utils.calibre.constants import filesystem_encoding
-from LiuXin.utils.lx_libraries.liuxin_html5lib.constants import namespaces as html5_namespaces
-from LiuXin.utils.localization import trans as _
+
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import namespaces as html5_namespaces
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
 from LiuXin.utils.lx_libraries.liuxin_six import six_string_types

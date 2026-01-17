@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import os
 import re
+import pathlib
 import pickle as cPickle
 import traceback
 from functools import partial
@@ -316,14 +317,30 @@ class ConfigInterface(object):
         self.option_set.smart_update(opts1, opts2)
 
 
+# Todo: This seems LUDICROUSLY dangerous
 class Config(ConfigInterface):
     """
     A file based configuration.
+
+    This allows you to store raw python objects directly in a .py file.
+    This seems to be LUDICROUSLY dangerous, from an arbitrary code execution standpoint.
+    It will be made harder to access - or removed entirely.
     """
 
-    def __init__(self, basename, description=""):
+    def __init__(self, basename: str, description: str = "") -> None:
+        """
+        Startup the configuration object - creating it if required.
+
+        :param basename:
+        :param description:
+        """
         ConfigInterface.__init__(self, description)
         self.config_file_path = os.path.join(config_dir, basename + ".py")
+
+        # Touch the config file. To prevent later errors.
+        if not os.path.exists(self.config_file_path):
+            pathlib.Path(self.config_file_path).parent.mkdir(parents=True, exist_ok=True)
+            pathlib.Path(self.config_file_path).touch(exist_ok=True)
 
     def parse(self):
         src = ""
@@ -354,17 +371,28 @@ class Config(ConfigInterface):
         try:
             if not os.path.exists(config_dir):
                 make_config_dir()
+
+            if not os.path.exists(self.config_file_path):
+                with open(self.config_file_path, "w") as f:
+                    f.write("\n")
+
             with ExclusiveFile(self.config_file_path) as f:
                 src = f.read()
+                if isinstance(src, bytes):
+                    src = src.decode("utf-8")
+
                 opts = self.option_set.parse_string(src)
                 setattr(opts, name, val)
                 footer = self.option_set.get_override_section(src)
                 src = self.option_set.serialize(opts) + "\n\n" + footer + "\n"
+
                 f.seek(0)
                 f.truncate()
+
                 if isinstance(src, unicode):
                     src = src.encode("utf-8")
                 f.write(src)
+
         except LockError:
             raise IOError("Could not lock config file: %s" % self.config_file_path)
 
@@ -625,7 +653,7 @@ def write_tweaks(raw):
 try:
     tweaks = read_tweaks()
 except Exception as e:
-    from LiuXin_alpha.preferences import tweaks as calibre_tweaks
+    from LiuXin_alpha.preferences import preferences as calibre_tweaks
 
     wrn_str = "Unable to read tweaks from file.\n"
     wrn_str += "Falling back to default calibre tweaks.\n"
