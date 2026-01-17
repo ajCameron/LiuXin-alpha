@@ -1,42 +1,269 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import print_function
+"""Configuration primitives.
 
+Inspired by calibre's modern config stack.
+
+Key design choice for LiuXin_alpha:
+- **No legacy executable .py config files.** Configuration is JSON only.
+- Writes are **atomic** (temp file + replace) to minimize corruption.
+
+Public classes mirror calibre/LiuXin names (Config, ConfigProxy, OptionSet, ...)
+so callers can remain mostly unchanged.
+"""
+
+from __future__ import annotations
+
+import datetime
+import json
+import numbers
 import os
 import re
-import pathlib
-import pickle as cPickle
+import sys
 import traceback
-from functools import partial
 from collections import defaultdict
+from contextlib import suppress
 from copy import deepcopy
+from functools import partial
 
-from LiuXin_alpha.constants.paths import config_dir, CONFIG_DIR_MODE
-
-from LiuXin_alpha.utils.logging import LiuXin_warning_print
-from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.lock import LockError, ExclusiveFile
-from LiuXin_alpha.utils.resources import P
-
-# Plugins are stored here in calibre in form of zip files.
-# plugin_dir = os.path.join(config_dir, 'plugins')
+from LiuXin_alpha.constants.paths import CONFIG_DIR_MODE, config_dir
 from LiuXin_alpha.constants.paths import LiuXin_calibre_plugins_store
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.resources import P
+from LiuXin_alpha.utils.logging import LiuXin_warning_print
 
-from LiuXin_alpha.utils.libraries.liuxin_six import basestring, unicode, long
-
-
-
-plugin_dir = LiuXin_calibre_plugins_store
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def make_config_dir():
-    if not os.path.exists(plugin_dir):
-        os.makedirs(plugin_dir, mode=CONFIG_DIR_MODE)
+# Plugins are stored here in calibre in form of zip files.
+plugin_dir = LiuXin_calibre_plugins_store
+
+
+class LegacyConfigError(ValueError):
+    """Raised when encountering a legacy (executable) config representation."""
+
+
+def iswindows() -> bool:
+    return os.name == "nt"
+
+
+_umask_cache: int | None = None
+
+
+def get_umask() -> int:
+    global _umask_cache
+    if _umask_cache is None:
+        old = os.umask(0)
+        os.umask(old)
+        _umask_cache = old
+    return _umask_cache
+
+
+def make_config_dir() -> None:
+    # In calibre, plugin_dir lives under config_dir. In LiuXin it may not, so
+    # ensure *both* exist.
+    os.makedirs(config_dir, exist_ok=True, mode=CONFIG_DIR_MODE)
+    os.makedirs(plugin_dir, exist_ok=True, mode=CONFIG_DIR_MODE)
+
+
+def to_json(obj):
+    """Serialize additional non-JSON-native types.
+
+    Matches calibre's conventions closely.
+    """
+    if isinstance(obj, bytearray):
+        from base64 import standard_b64encode
+
+        return {
+            "__class__": "bytearray",
+            "__value__": standard_b64encode(bytes(obj)).decode("ascii"),
+        }
+
+    if isinstance(obj, datetime.datetime):
+        # Prefer the project's existing ISO formatter if present.
+        try:
+            from LiuXin_alpha.utils.date import isoformat
+
+            val = isoformat(obj, as_utc=True)
+        except Exception:
+            if obj.tzinfo is None:
+                obj = obj.replace(tzinfo=datetime.timezone.utc)
+            val = obj.astimezone(datetime.timezone.utc).isoformat()
+        return {"__class__": "datetime.datetime", "__value__": val}
+
+    if isinstance(obj, (set, frozenset)):
+        return {"__class__": "set", "__value__": tuple(obj)}
+
+    if isinstance(obj, bytes):
+        # Most stored bytes are UTF-8 (paths, identifiers). Decode to text.
+        try:
+            return obj.decode("utf-8")
+        except Exception:
+            from base64 import standard_b64encode
+
+            return {
+                "__class__": "bytes",
+                "__value__": standard_b64encode(obj).decode("ascii"),
+            }
+
+    # QByteArray compatibility (if any Qt object leaks into preferences)
+    if hasattr(obj, "toBase64"):
+        return {
+            "__class__": "bytearray",
+            "__value__": bytes(obj.toBase64()).decode("ascii"),
+        }
+
+    v = getattr(obj, "value", None)
+    if isinstance(v, int):
+        return v
+
+    raise TypeError(repr(obj) + " is not JSON serializable")
+
+
+def safe_to_json(obj):
+    try:
+        return to_json(obj)
+    except Exception:
+        return None
+
+
+def _parse_iso8601(s: str, assume_utc: bool = True) -> datetime.datetime:
+    # datetime.fromisoformat does not handle trailing 'Z' until fairly recently
+    # and is stricter than dateutil. Our encoder uses isoformat() with an offset.
+    raw = s.strip()
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    dt = datetime.datetime.fromisoformat(raw)
+    if dt.tzinfo is None and assume_utc:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt
+
+
+def from_json(obj):
+    custom = obj.get("__class__")
+    if custom is not None:
+        if custom == "bytearray":
+            from base64 import standard_b64decode
+
+            return bytearray(standard_b64decode(obj["__value__"].encode("ascii")))
+        if custom == "bytes":
+            from base64 import standard_b64decode
+
+            return standard_b64decode(obj["__value__"].encode("ascii"))
+        if custom == "datetime.datetime":
+            return _parse_iso8601(obj["__value__"], assume_utc=True)
+        if custom == "set":
+            return set(obj["__value__"])
+    return obj
+
+
+def force_unicode(x: bytes) -> str:
+    # Best-effort conversion of bytes to text.
+    encs = []
+    if iswindows():
+        encs.append("mbcs")
+    encs.extend([sys.getfilesystemencoding(), "utf-8"])
+    for enc in encs:
+        try:
+            return x.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return x.decode("utf-8", "replace")
+
+
+def force_unicode_recursive(obj):
+    if isinstance(obj, bytes):
+        return force_unicode(obj)
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(map(force_unicode_recursive, obj))
+    if isinstance(obj, dict):
+        return {
+            force_unicode_recursive(k): force_unicode_recursive(v)
+            for k, v in obj.items()
+        }
+    return obj
+
+
+def json_dumps(obj, ignore_unserializable: bool = False) -> bytes:
+    try:
+        ans = json.dumps(
+            obj,
+            indent=2,
+            default=safe_to_json if ignore_unserializable else to_json,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+    except UnicodeDecodeError:
+        ans = json.dumps(
+            force_unicode_recursive(obj),
+            indent=2,
+            default=safe_to_json if ignore_unserializable else to_json,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+    if not isinstance(ans, bytes):
+        ans = ans.encode("utf-8")
+    return ans
+
+
+def json_loads(raw):
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8")
+    return json.loads(raw, object_hook=from_json)
+
+
+def retry_on_fail(func, *args, count: int = 10, sleep_time: float = 0.2):
+    import time
+
+    ERROR_SHARING_VIOLATION = 32
+    ACCESS_DENIED = 5
+    for i in range(count):
+        try:
+            return func(*args)
+        except FileNotFoundError:
+            raise
+        except OSError as e:
+            if not iswindows() or i > count - 2 or getattr(e, "winerror", None) not in (
+                ERROR_SHARING_VIOLATION,
+                ACCESS_DENIED,
+            ):
+                raise
+            time.sleep(sleep_time)
+
+
+def read_data(file_path: str) -> bytes:
+    def r():
+        with open(file_path, "rb") as f:
+            return f.read()
+
+    return retry_on_fail(r)
+
+
+def commit_data(file_path: str, data: bytes, permissions: int = 0o666) -> None:
+    import tempfile
+
+    bdir = os.path.dirname(file_path)
+    os.makedirs(bdir, exist_ok=True, mode=CONFIG_DIR_MODE)
+
+    f = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=bdir,
+            prefix=os.path.basename(file_path).split(".")[0] + "-atomic-",
+            delete=False,
+        ) as tf:
+            f = tf
+            if hasattr(os, "fchmod"):
+                os.fchmod(tf.fileno(), permissions & ~get_umask())
+            tf.write(data)
+        retry_on_fail(os.replace, f.name, file_path)
+    finally:
+        with suppress(FileNotFoundError, AttributeError, NameError):
+            os.remove(f.name)  # type: ignore[union-attr]
 
 
 class Option(object):
@@ -63,7 +290,7 @@ class Option(object):
         if self.type is None and action is None and choices is None:
             if isinstance(default, float):
                 self.type = "float"
-            elif isinstance(default, int) and not isinstance(default, bool):
+            elif isinstance(default, numbers.Integral) and not isinstance(default, bool):
                 self.type = "int"
 
         self.choices = choices
@@ -90,6 +317,7 @@ class OptionValues(object):
 
 class OptionSet(object):
 
+    # Keep the pattern for historical reasons, but JSON configs do not embed override sections.
     OVERRIDE_PAT = re.compile(
         r"#{3,100} Override Options #{15}(.*?)#{3,100} End Override #{3,100}",
         re.DOTALL | re.IGNORECASE,
@@ -137,12 +365,7 @@ class OptionSet(object):
             self.preferences.append(pref)
 
     def smart_update(self, opts1, opts2):
-        """
-        Updates the preference values in opts1 using only the non-default preference values in opts2.
-        :param opts1:
-        :param opts2:
-        :return:
-        """
+        """Update opts1 using only non-default values from opts2."""
         for pref in self.preferences:
             new = getattr(opts2, pref.name, pref.default)
             if new != pref.default:
@@ -164,25 +387,6 @@ class OptionSet(object):
         action=None,
         metavar=None,
     ):
-        """
-        Add an option to this section.
-
-        :param name:       The name of this option. Must be a valid Python identifier.
-                           Must also be unique in this OptionSet and all its subsets.
-        :param switches:   List of command line switches for this option
-                           (as supplied to :module:`optparse`). If empty, this
-                           option will not be added to the command line parser.
-        :param help:       Help text.
-        :param type:       Type checking of option values. Supported types are:
-                           `None, 'choice', 'complex', 'float', 'int', 'string'`.
-        :param choices:    List of strings or `None`.
-        :param group:      Group this option belongs to. You must previously
-                           have created this group with a call to :method:`add_group`.
-        :param default:    The default value for this option.
-        :param action:     The action to pass to optparse. Supported values are:
-                           `None, 'count'`. For choices and boolean options,
-                           action is automatically set correctly.
-        """
         pref = Option(
             name,
             switches=switches,
@@ -238,63 +442,56 @@ class OptionSet(object):
         return parser
 
     def get_override_section(self, src):
+        # JSON configs do not embed override blocks, but keep the hook for API compatibility.
+        if not src:
+            return ""
+        try:
+            if isinstance(src, bytes):
+                src = src.decode("utf-8", "replace")
+        except Exception:
+            return ""
         match = self.OVERRIDE_PAT.search(src)
         if match:
             return match.group()
         return ""
 
     def parse_string(self, src):
-        options = {"cPickle": cPickle}
-        if src is not None:
+        options = {}
+        if src:
+            # Refuse legacy executable configs.
+            if (isinstance(src, bytes) and src.startswith(b"#")) or (
+                isinstance(src, str) and src.startswith("#")
+            ):
+                raise LegacyConfigError(
+                    "Legacy executable .py config content detected; only JSON configs are supported."
+                )
             try:
-                if not isinstance(src, unicode):
-                    src = src.decode("utf-8")
-                src = src.replace("PyQt%d.QtCore" % 4, "PyQt5.QtCore")
-                exec(src, options)
-            except:
-                print("Failed to parse options string:")
-                print(repr(src))
-                traceback.print_exc()
+                options = json_loads(src)
+                if not isinstance(options, dict):
+                    raise ValueError("options is not a dict")
+            except LegacyConfigError:
+                raise
+            except Exception as err:
+                try:
+                    print(f"Failed to parse JSON options string with error: {err}")
+                except Exception:
+                    pass
+                options = {}
+
         opts = OptionValues()
         for pref in self.preferences:
             val = options.get(pref.name, pref.default)
-            formatter = __builtins__.get(pref.type, None)
+            builtins_map = __builtins__ if isinstance(__builtins__, dict) else getattr(__builtins__, '__dict__', {})
+            formatter = builtins_map.get(pref.type, None)
             if callable(formatter):
                 val = formatter(val)
             setattr(opts, pref.name, val)
 
         return opts
 
-    def render_group(self, name, desc, opts):
-        prefs = [pref for pref in self.preferences if pref.group == name]
-        lines = ["### Begin group: %s" % (name if name else "DEFAULT")]
-        if desc:
-            lines += map(lambda x: "# " + x, desc.split("\n"))
-        lines.append(" ")
-        for pref in prefs:
-            lines.append("# " + pref.name.replace("_", " "))
-            if pref.help:
-                lines += map(lambda x: "# " + x, pref.help.split("\n"))
-            lines.append(
-                "%s = %s"
-                % (
-                    pref.name,
-                    self.serialize_opt(getattr(opts, pref.name, pref.default)),
-                )
-            )
-            lines.append(" ")
-        return "\n".join(lines)
-
-    def serialize_opt(self, val):
-        if val is val is True or val is False or val is None or isinstance(val, (int, float, long, basestring)):
-            return repr(val)
-        pickle = cPickle.dumps(val, -1)
-        return "cPickle.loads(%s)" % repr(pickle)
-
-    def serialize(self, opts):
-        src = "# %s\n\n" % (self.description.replace("\n", "\n# "))
-        groups = [self.render_group(name, self.groups.get(name, ""), opts) for name in [None] + self.group_list]
-        return src + "\n\n".join(groups)
+    def serialize(self, opts, ignore_unserializable: bool = False) -> bytes:
+        data = {pref.name: getattr(opts, pref.name, pref.default) for pref in self.preferences}
+        return json_dumps(data, ignore_unserializable=ignore_unserializable)
 
 
 class ConfigInterface(object):
@@ -317,94 +514,67 @@ class ConfigInterface(object):
         self.option_set.smart_update(opts1, opts2)
 
 
-# Todo: This seems LUDICROUSLY dangerous
 class Config(ConfigInterface):
-    """
-    A file based configuration.
+    """A file-backed JSON configuration.
 
-    This allows you to store raw python objects directly in a .py file.
-    This seems to be LUDICROUSLY dangerous, from an arbitrary code execution standpoint.
-    It will be made harder to access - or removed entirely.
+    The on-disk filename is ``<basename>.py.json`` to mirror calibre.
+
+    This class intentionally *does not* read legacy ``<basename>.py`` configs.
     """
 
     def __init__(self, basename: str, description: str = "") -> None:
-        """
-        Startup the configuration object - creating it if required.
-
-        :param basename:
-        :param description:
-        """
         ConfigInterface.__init__(self, description)
-        self.config_file_path = os.path.join(config_dir, basename + ".py")
+        self.filename_base = basename
 
-        # Touch the config file. To prevent later errors.
-        if not os.path.exists(self.config_file_path):
-            pathlib.Path(self.config_file_path).parent.mkdir(parents=True, exist_ok=True)
-            pathlib.Path(self.config_file_path).touch(exist_ok=True)
+    @property
+    def config_file_path(self) -> str:
+        return os.path.join(config_dir, self.filename_base + ".py.json")
 
     def parse(self):
-        src = ""
-        if os.path.exists(self.config_file_path):
-            try:
-                with ExclusiveFile(self.config_file_path) as f:
-                    try:
-                        src = f.read()  # .decode("utf-8") - this should probably be read as binary and decoded
-                    except ValueError:
-                        print("Failed to parse", self.config_file_path)
-                        traceback.print_exc()
-            except LockError:
-                raise IOError("Could not lock config file: %s" % self.config_file_path)
-        return self.option_set.parse_string(src)
-
-    def as_string(self):
-        if not os.path.exists(self.config_file_path):
-            return ""
+        src: bytes | str = b""
+        with suppress(FileNotFoundError):
+            src = read_data(self.config_file_path)
         try:
-            with ExclusiveFile(self.config_file_path) as f:
-                return f.read().decode("utf-8")
-        except LockError:
-            raise IOError("Could not lock config file: %s" % self.config_file_path)
+            return self.option_set.parse_string(src)
+        except LegacyConfigError as e:
+            raise LegacyConfigError(f"{e} (file: {self.config_file_path})")
+
+    def as_string(self) -> str:
+        try:
+            raw = read_data(self.config_file_path)
+        except FileNotFoundError:
+            return ""
+        if isinstance(raw, bytes):
+            return raw.decode("utf-8", "replace")
+        return str(raw)
 
     def set(self, name, val):
         if not self.option_set.has_option(name):
             raise ValueError("The option %s is not defined." % name)
-        try:
-            if not os.path.exists(config_dir):
-                make_config_dir()
+        if not os.path.exists(config_dir):
+            make_config_dir()
 
-            if not os.path.exists(self.config_file_path):
-                with open(self.config_file_path, "w") as f:
-                    f.write("\n")
+        src: bytes | str = b""
+        with suppress(FileNotFoundError):
+            src = read_data(self.config_file_path)
 
-            with ExclusiveFile(self.config_file_path) as f:
-                src = f.read()
-                if isinstance(src, bytes):
-                    src = src.decode("utf-8")
-
-                opts = self.option_set.parse_string(src)
-                setattr(opts, name, val)
-                footer = self.option_set.get_override_section(src)
-                src = self.option_set.serialize(opts) + "\n\n" + footer + "\n"
-
-                f.seek(0)
-                f.truncate()
-
-                if isinstance(src, unicode):
-                    src = src.encode("utf-8")
-                f.write(src)
-
-        except LockError:
-            raise IOError("Could not lock config file: %s" % self.config_file_path)
+        opts = self.option_set.parse_string(src)
+        setattr(opts, name, val)
+        new_src = self.option_set.serialize(opts)
+        commit_data(self.config_file_path, new_src)
 
 
 class StringConfig(ConfigInterface):
-    """
-    A string based configuration
-    """
+    """A string-backed config, mostly for tests."""
 
     def __init__(self, src, description=""):
         ConfigInterface.__init__(self, description)
+        self.set_src(src)
+
+    def set_src(self, src):
         self.src = src
+        if isinstance(self.src, bytes):
+            self.src = self.src.decode("utf-8", "replace")
 
     def parse(self):
         return self.option_set.parse_string(self.src)
@@ -414,15 +584,11 @@ class StringConfig(ConfigInterface):
             raise ValueError("The option %s is not defined." % name)
         opts = self.option_set.parse_string(self.src)
         setattr(opts, name, val)
-        footer = self.option_set.get_override_section(self.src)
-        self.src = self.option_set.serialize(opts) + "\n\n" + footer + "\n"
+        self.set_src(self.option_set.serialize(opts))
 
 
 class ConfigProxy(object):
-    """
-    A Proxy to minimize file reads for widely used config settings.
-    Stores the config info in memory to cut down on the number of needed reads.
-    """
+    """Proxy to cache parsed configuration in memory."""
 
     def __init__(self, config):
         self.__config = config
@@ -444,7 +610,7 @@ class ConfigProxy(object):
         return self.set(key, val)
 
     def __delitem__(self, key):
-        self.set(key, self.defaults[key])
+        self.set(key, self.defaults()[key])
 
     def get(self, key):
         if self.__opts is None:
@@ -459,7 +625,6 @@ class ConfigProxy(object):
 
     def help(self, key):
         return self.__config.get_option(key).help
-
 
 def _prefs():
     c = Config("global", "calibre wide preferences")

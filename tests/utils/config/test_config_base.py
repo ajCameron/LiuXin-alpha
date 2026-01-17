@@ -108,13 +108,12 @@ def test_optionset_has_get_update_and_smart_update(cb) -> None:
     assert os1.get_option("b").default == 200
 
     opts1 = os1.parse_string("")
-    opts2 = os1.parse_string("b = 999\n")
+    opts2 = os1.parse_string('{"b": 999}')
     os1.smart_update(opts1, opts2)
     assert opts1.b == 999
     assert opts1.c == 3
 
 
-@pytest.mark.xfail(reason="OptionParser.add_option_group wrapper passes invalid args to stdlib optparse")
 def test_option_parser_parses_grouped_switches(cb) -> None:
     s = cb.OptionSet(description="parser")
     addg = s.add_group("group", "A group")
@@ -135,29 +134,28 @@ def test_option_parser_parses_simple_switches(cb) -> None:
     assert opts.value == 7
 
 
-def test_config_set_parse_and_preserves_override_footer(cb, tmp_path: Path) -> None:
+def test_config_set_parse_and_parse(cb) -> None:
     c = cb.Config("unit_test_config", description="unit test config")
     c.add_opt("answer", default=42)
 
-    # Seed file with an override section that should survive a `set()`.
-    footer = (
-        "### Override Options ###############\n"
-        "# this should be preserved\n"
-        "custom_line = 'hello'\n"
-        "### End Override ###\n"
-    )
-    Path(c.config_file_path).write_text(footer, encoding="utf-8")
-
     c.set("answer", 7)
 
-    text = Path(c.config_file_path).read_text(encoding="utf-8")
-    assert "answer" in text
+    p = Path(c.config_file_path)
+    assert p.name.endswith(".py.json")
+    text = p.read_text(encoding="utf-8")
+    assert '"answer"' in text
     assert "7" in text
-    assert "Override Options" in text
-    assert "custom_line" in text
 
     parsed = c.parse()
     assert parsed.answer == 7
+
+
+def test_config_refuses_legacy_py_content(cb) -> None:
+    c = cb.Config("legacy", description="legacy")
+    c.add_opt("x", default=1)
+    Path(c.config_file_path).write_text("# legacy\nx = 99\n", encoding="utf-8")
+    with pytest.raises(cb.LegacyConfigError):
+        _ = c.parse()
 
 
 def test_config_proxy_caches_until_refresh(cb) -> None:
@@ -168,7 +166,7 @@ def test_config_proxy_caches_until_refresh(cb) -> None:
     assert p.get("x") == 1
 
     # Update the file out-of-band; proxy should not see until refresh.
-    Path(c.config_file_path).write_text("x = 99\n", encoding="utf-8")
+    Path(c.config_file_path).write_text('{"x": 99}', encoding="utf-8")
     assert p.get("x") == 1
 
     p.refresh()
@@ -182,7 +180,7 @@ def test_global_prefs_installation_uuid_written(cb) -> None:
     assert len(uuid) >= 8
 
     # And it should be persisted to the config file.
-    global_cfg = Path(cb.config_dir) / "global.py"
+    global_cfg = Path(cb.config_dir) / "global.py.json"
     assert global_cfg.exists()
     assert "installation_uuid" in global_cfg.read_text(encoding="utf-8")
 

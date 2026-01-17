@@ -105,7 +105,6 @@ def test_to_json_datetime_roundtrip(ct) -> None:
     assert obj["dt"].replace(tzinfo=timezone.utc) == dt
 
 
-@pytest.mark.xfail(reason="to_json() encodes bytearray as bytes; json cannot serialize bytes")
 def test_to_json_bytearray_roundtrip(ct) -> None:
     b = bytearray(b"abc")
     raw = json.dumps({"b": b}, default=ct.to_json)
@@ -138,16 +137,6 @@ def test_dynamic_config_roundtrip(ct) -> None:
     d2 = ct.DynamicConfig(name="unit_dynamic")
     assert d2["x"] == 12
 
-
-@pytest.mark.xfail(reason="XMLConfig uses removed plistlib.readPlistFromString/writePlistToString on Py3.11")
-def test_xml_config_legacy_plist_api_breaks_on_modern_python(ct) -> None:
-    x = ct.XMLConfig("unit_xml")
-    x.defaults["a"] = 1
-    x["a"] = 2
-    assert x["a"] == 2
-
-
-@pytest.mark.xfail(reason="JSONConfig writes str to ExclusiveFile opened in binary mode on POSIX")
 def test_json_config_roundtrip(ct) -> None:
     j = ct.JSONConfig("unit_json")
     j.defaults["a"] = 1
@@ -158,3 +147,14 @@ def test_json_config_roundtrip(ct) -> None:
     j2 = ct.JSONConfig("unit_json")
     j2.defaults["a"] = 1
     assert j2["a"] == 2
+
+
+def test_xml_config_roundtrip(ct) -> None:
+    x = ct.XMLConfig("unit_xml")
+    x.defaults["a"] = 1
+    x["a"] = 2
+    assert x["a"] == 2
+
+    x2 = ct.XMLConfig("unit_xml")
+    x2.defaults["a"] = 1
+    assert x2["a"] == 2

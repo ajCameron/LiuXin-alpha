@@ -9,20 +9,17 @@ from lxml import etree, html
 
 from LiuXin_alpha.file_formats.chardet import xml_to_unicode, strip_encoding_declarations
 
-from LiuXin_alpha.constants import filesystem_encoding
+from LiuXin_alpha.constants import filesystem_encoding, force_unicode
 
 from LiuXin_alpha.constants import force_unicode
 
-
-from LiuXin.utils.calibre import xml_replace_entities, force_unicode
+from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
 
 from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import namespaces as html5_namespaces
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types, dict_iteritems as iteritems, dict_itervalues as itervalues
 
 
 __license__ = "GPL v3"

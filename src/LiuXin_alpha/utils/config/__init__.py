@@ -4,6 +4,9 @@ from copy import deepcopy
 import optparse
 
 from LiuXin_alpha.utils.localization import _
+
+# optparse uses gettext.gettext rather than the builtins _, so patch it
+optparse._ = _
 from LiuXin_alpha.constants import __appname__, get_version
 
 
@@ -185,6 +188,8 @@ class OptionParser(optparse.OptionParser):
                 upper.__dict__[dest] = lower.__dict__[dest]
 
     def add_option_group(self, *args, **kwargs):
-        if isinstance(args[0], type("")):
-            args = [optparse.OptionGroup(self, *args, **kwargs)] + list(args[1:])
+        # stdlib optparse expects the group title to be a str
+        if args and isinstance(args[0], (str, bytes)):
+            args = list(args)
+            args[0] = str(args[0])
         return optparse.OptionParser.add_option_group(self, *args, **kwargs)

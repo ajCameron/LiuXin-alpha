@@ -3,13 +3,13 @@ from __future__ import absolute_import, division, unicode_literals
 import types
 from collections import OrderedDict
 
-from past.builtins import unicode
-
 from LiuXin_alpha.utils.libraries.liuxin_html5lib import inputstream
 from LiuXin_alpha.utils.libraries.liuxin_html5lib import tokenizer
 
 from LiuXin_alpha.utils.libraries.liuxin_html5lib import treebuilders
 from LiuXin_alpha.utils.libraries.liuxin_html5lib.treebuilders._base import Marker
+
+from LiuXin_alpha.utils.libraries.liuxin_six import unicode
 
 from LiuXin_alpha.utils.libraries.liuxin_html5lib import utils
 from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
