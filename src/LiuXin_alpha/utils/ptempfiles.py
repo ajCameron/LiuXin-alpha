@@ -1,3 +1,7 @@
+
+
+
+
 # LiuXin style persistent temporary files. By default all create in the scratch folder.
 # Some sorta locking database will have to be implemented
 
@@ -23,14 +27,14 @@ from LiuXin_alpha.constants import get_unicode_windows_env_var, get_windows_temp
 
 from LiuXin_alpha.errors import InputIntegrityError
 
-from LiuXin.startup_scripts.prefs_folder_manager import create_scratch_folder
+from LiuXin_alpha.startup_scripts.prefs_folder_manager import create_scratch_folder
 
-from LiuXin.utils.file_ops.file_ops import file_hasher
-from LiuXin.constants import filesystem_encoding
-from LiuXin.constants import __appname__, __version__
-from LiuXin.utils.general_ops.python_tools import get_unique_id
+from LiuXin_alpha.utils.storage.local.file_ops import file_hasher
+from LiuXin_alpha.constants import filesystem_encoding
+from LiuXin_alpha.constants import __appname__, __version__
+from LiuXin_alpha.utils.python_tools import get_unique_id
 
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 __author__ = "Cameron"
 

@@ -115,12 +115,15 @@ config_dir = LiuXin_calibre_config_folder
 LiuXin_scratch_folder = str(Path(LiuXin_base_folder) / "LiuXin_scratch")
 LiuXin_debug_folder = str(Path(LiuXin_base_folder) / "LiuXin_debug")
 
-# Data folders
-LiuXin_data_folder = str(Path(LiuXin_base_folder) / "LiuXin_data")
+# Resources folder
+LiuXin_resources_folder = str(Path(LiuXin_base_folder) / "LiuXin_resources")
 
 # Path to the calibre resources folder (both names retained for compatibility)
-LiuXin_calibre_resources_folder = str(Path(LiuXin_data_folder) / "calibre_resources")
+LiuXin_calibre_resources_folder = str(Path(LiuXin_resources_folder) / "calibre_resources")
 LiuXin_calibre_resources = LiuXin_calibre_resources_folder
+
+# Data folders
+LiuXin_data_folder = str(Path(LiuXin_base_folder) / "LiuXin_data")
 
 LiuXin_database_folder = str(Path(LiuXin_data_folder) / "databases")
 LiuXin_default_database = str(Path(LiuXin_database_folder) / "LX_default_database.db")

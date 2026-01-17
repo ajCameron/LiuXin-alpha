@@ -232,19 +232,20 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
 
         # Load the driver constructor - use this to make the driver instance for this database
         self.type = db_type
-        self.driver = loadDatabaseDriver(db_type)(self.metadata, self)
+        self.set_driver(loadDatabaseDriver(db_type)(self.metadata, self))
         self.macros = self.driver.macros
 
         # Load the backend with the driver.
-        self.driver_wrapper = DriverWrapper(self.driver)
+        self.set_driver_wrapper(DriverWrapper(self.driver))
         self.lock = self.driver_wrapper.lock
 
         # If the create keyword is set to True, then create the database anew.
         if create:
             self.create_new_database(backup=backup)
             # Reload the database driver to take the update into account
-            self.driver = loadDatabaseDriver(db_type)(self.metadata, self)
-            self.driver_wrapper = DriverWrapper(self.driver)
+            self.set_driver(loadDatabaseDriver(db_type)(self.metadata, self))
+
+            self.set_driver_wrapper(DriverWrapper(self.driver))
             self.lock = self.driver_wrapper.lock
 
         # Check to see if the database currently exists
@@ -353,7 +354,8 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         :return:
         """
         self.break_cycles()
-        self.lock.close()
+        if hasattr(self, "lock"):
+            self.lock.close()
 
     # Todo: Might actually want to delete these objects - and this might be an internal method
     def break_cycles(self):
@@ -593,9 +595,10 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         """
         self.driver.make_scratch()
 
-    def create_new_database(self, blank=True, backup=True):
+    def create_new_database(self, blank: bool = True, backup: bool = True) -> None:
         """
         Creates a database if it doesn't exist, and loads it with the requested tables and columns).
+
         :param blank: Delete the database that already exists first.
         :param backup: Back the database up before trying to create the new one.
         :return:

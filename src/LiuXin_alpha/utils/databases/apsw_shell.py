@@ -13,7 +13,7 @@ import time
 import codecs
 import base64
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 if sys.platform == "win32":
     _win_colour = False

@@ -491,7 +491,7 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
         conn.create_aggregate("sortconcat_amper", 2, partial(SqliteSortedConcatenate, sep="&"))
 
         # Register the custom collators (ported from calibre, for compatibility)
-        encoding = conn.execute("PRAGMA ENCODING").next()[0]
+        encoding = next(conn.execute("PRAGMA encoding"))[0]
         conn.create_collation("PYNOCASE", partial(pynocase, encoding=encoding))
 
         return conn

@@ -7,10 +7,7 @@ LiuXin/calibre uses a number of resources - this is a unified way to access them
 
 from __future__ import with_statement, print_function
 
-import sys
 import os
-
-import builtins as __builtin__
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -26,7 +23,7 @@ def resource_to_path(target_path: str) -> str:
     :param target_path:
     :return:
     """
-    raise NotImplementedError
+    return str(P(target_path))
 
 
 def resource_to_resource(target_path: str) -> bytes:
@@ -165,5 +162,4 @@ def compiled_coffeescript(name, dynamic=False):
 
 P = get_path
 I = get_image_path
-__builtin__.__dict__["P"] = get_path
-__builtin__.__dict__["I"] = get_image_path
+

@@ -26,23 +26,27 @@ from LiuXin_alpha.file_formats.oeb.parse_utils import (
     NotHTML,
 )
 
-from LiuXin.utils.calibre.constants import filesystem_encoding, __version__
-from LiuXin.utils.calibre import isbytestring, as_unicode, get_types_map
-from LiuXin.utils.calibre_utils.calibre_chardet import xml_to_unicode
-from LiuXin.utils.localization import translate
-from LiuXin.utils.libraries.cleantext import clean_xml_chars
-from LiuXin.utils.icu import title_case as icu_title
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.constants import filesystem_encoding, __version__
+
+from LiuXin_alpha.utils.text import isbytestring, as_unicode
+from LiuXin_alpha.utils.mine_types import get_types_map
+
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
+from LiuXin_alpha.utils.localization import translate, trans as _
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
+from LiuXin_alpha.utils.text.icu import title_case as icu_title
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_cmp
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlunparse as urlunparse
-from LiuXin.utils.lx_libraries.liuxin_six import six_urljoin as urljoin
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    memory_range,
+    six_cmp,
+    six_string_types,
+    six_unicode,
+    six_unicode as unicode,
+    six_urldefrag as urldefrag,
+    six_urlparse as urlparse,
+    six_urlunparse as urlunparse,
+    six_urljoin as urljoin)
 
 
 __license__ = "GPL v3"
