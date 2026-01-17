@@ -7,7 +7,7 @@ import traceback
 import os
 import re
 
-from typing import Optional
+from typing import Optional, Union, LiteralString
 
 from LiuXin_alpha.utils.storage.local import CurrentDir
 from LiuXin_alpha.utils.logging import prints
@@ -60,7 +60,13 @@ class HTMLRenderer:
             self.loop.exit(0)
 
 
-def return_raster_image(path: str) -> Optional[bytes]:
+def return_raster_image(path: Union[str, LiteralString, bytes]) -> Optional[bytes]:
+    """
+    Return a rasterized image - or return None if the given path doesn't point to one.
+
+    :param path:
+    :return:
+    """
     from LiuXin_alpha.utils.image_tools.imghdr import what
 
     if os.access(path, os.R_OK):
@@ -70,9 +76,9 @@ def return_raster_image(path: str) -> Optional[bytes]:
             return raw
 
 
-def extract_cover_from_embedded_svg(html, base, log):
+def extract_cover_from_embedded_svg(html, base, log) -> Optional[bytes]:
     from lxml import etree
-    from LiuXin.file_formats.oeb.base import XPath, SVG, XLINK
+    from LiuXin_alpha.file_formats.oeb.base import XPath, SVG, XLINK
 
     root = etree.fromstring(html)
 
@@ -85,15 +91,16 @@ def extract_cover_from_embedded_svg(html, base, log):
             return return_raster_image(path)
 
 
-def extract_calibre_cover(raw, base, log):
+def extract_calibre_cover(raw, base, log) -> Optional[bytes]:
     """
     Extract a cover from a html tree.
+
     :param raw:
     :param base:
     :param log:
     :return:
     """
-    from LiuXin.file_formats.BeautifulSoup import BeautifulSoup
+    from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
 
     soup = BeautifulSoup(raw)
     matches = soup.find(name=["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "font", "br"])
@@ -121,6 +128,7 @@ def extract_calibre_cover(raw, base, log):
 def render_html_svg_workaround(path_to_html, log, width=590, height=750):
     """
     Render html data (which might or might not include an svg file) as a image.
+
     This is what's used to generate a cover for a book when an actual image can't be extracted - the first page of the
     book is rendered and that#s returned.
     :param path_to_html: The path to the html to preform the render wity
@@ -129,7 +137,7 @@ def render_html_svg_workaround(path_to_html, log, width=590, height=750):
     :param height: The height of the output
     :return:
     """
-    from LiuXin.file_formats.oeb.base import SVG_NS
+    from LiuXin_alpha.file_formats.oeb.base import SVG_NS
 
     raw = open(path_to_html, "rb").read()
     data = None

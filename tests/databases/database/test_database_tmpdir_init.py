@@ -22,6 +22,6 @@ class TestDatabaseTmpDirInit:
             metadata = dict()
             metadata["database_path"] = test_db_path
 
-            test_db = Database(metadata=metadata)
+            with Database(metadata=metadata) as test_db:
 
-            assert test_db is not None
+                assert test_db is not None

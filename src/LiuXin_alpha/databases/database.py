@@ -371,11 +371,104 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
     def __del__(self):
         """
         Preform shutdown.
+
+        Note: This is best-effort cleanup. For deterministic shutdown (especially on Windows, where open SQLite handles
+        keep database files locked), call close() or use the database as a context manager.
+
         :return:
         """
-        self.break_cycles()
-        if hasattr(self, "lock"):
-            self.lock.close()
+        try:
+            self.close()
+        except Exception:
+            # Never raise from __del__
+            pass
+
+    def close(self) -> None:
+        """        Close any open resources associated with this database.
+
+        In particular, ensure all SQLite connections are closed so temporary database files can be deleted on Windows.
+
+        :return:
+        """
+        # Capture references early so break_cycles() can't erase them before we close.
+        driver = getattr(self, "_driver", None)
+        wrapper = getattr(self, "_driver_wrapper", None)
+        maintenance = getattr(self, "maintenance", None)
+
+        # Stop the background maintenance thread (if it exists)
+        try:
+            maint_thread = getattr(maintenance, "maintainer", None)
+            if maint_thread is not None and hasattr(maint_thread, "stop"):
+                maint_thread.stop()
+                # The thread is daemon=True, but joining briefly helps tests release resources promptly.
+                try:
+                    maint_thread.join(timeout=1)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Close the wrapper's lock connection
+        try:
+            if wrapper is not None and hasattr(wrapper, "close"):
+                wrapper.close()
+            else:
+                lock = getattr(self, "lock", None)
+                if lock is not None:
+                    try:
+                        lock.commit()
+                    except Exception:
+                        pass
+                    try:
+                        lock.close()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # Close the driver's primary connection
+        try:
+            if driver is not None:
+                conn = getattr(driver, "conn", None)
+                if conn is not None:
+                    try:
+                        conn.commit()
+                    except Exception:
+                        # If commit fails, try rollback then close
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                try:
+                    driver.conn = None
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Remove convenience aliases that can keep connections alive
+        for attr in ("get", "conn", "lock"):
+            try:
+                setattr(self, attr, None)
+            except Exception:
+                pass
+
+        # Break reference cycles last
+        try:
+            self.break_cycles()
+        except Exception:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
 
     # Todo: Might actually want to delete these objects - and this might be an internal method
     def break_cycles(self):
@@ -384,9 +477,20 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
 
         :return:
         """
-        self._driver_wrapper = None
-        self._driver = None
-        self.maintenance = None
+        # These may not exist if __init__ failed partway through.
+        for attr in (
+            "_driver_wrapper",
+            "_driver",
+            "_macros",
+            "maintenance",
+            "maintainer",
+            "dirty_records_queue",
+            "_link_has_priority",
+        ):
+            try:
+                setattr(self, attr, None)
+            except Exception:
+                pass
 
     # Todo: THis might also want to be an internal method
     def check_rating_table(self):
@@ -2123,6 +2227,29 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin):
         super(DriverWrapper, self).__init__(db=None, macros=None)
 
     def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def close(self) -> None:
+        """
+        Close any open resources.
+
+        In particular, close the SQLite connection created for locking.
+
+        :return:
+        """
+        lock = getattr(self, "lock", None)
+        if lock is not None:
+            try:
+                lock.commit()
+            except Exception:
+                pass
+            try:
+                lock.close()
+            except Exception:
+                pass
         self.break_cycles()
 
     def break_cycles(self):
@@ -2130,8 +2257,14 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin):
         Preform shutdown in a sensible order - deleting each of the objects in the right order.
         :return:
         """
-        del self.lock
-        del self.driver
+        try:
+            self.lock = None
+        except Exception:
+            pass
+        try:
+            self.driver = None
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO GET COLUMNS NAMES FROM TABLES AND VISA VERSA START HERE
