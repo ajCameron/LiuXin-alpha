@@ -1,4 +1,8 @@
-# Todo: Not actually used - kept around for inspiration - either use or remove
+
+"""
+Generic tools common for all cache objects.
+"""
+
 
 # one_many_single_link_table_cache is used to store one to many information about objects on the database
 # Each of the elements can be linked to multiple of the other elements

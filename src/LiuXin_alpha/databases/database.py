@@ -253,7 +253,6 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         self.metadata = metadata
         self.type = db_type
         self.set_driver(loadDatabaseDriver(db_type)(self.metadata, self))
-        self.set_driver_wrapper(DriverWrapper(self.driver))
 
         if create or (not path_existed and db_path not in (None, ":memory:")):
             if path_existed:
@@ -263,8 +262,6 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
 
             # reload driver after schema creation
             self.set_driver(loadDatabaseDriver(db_type)(self.metadata, self))
-            self.set_driver_wrapper(DriverWrapper(self.driver))
-            self.set_macros(self.driver.macros)
             self.lock = self.driver_wrapper.lock
 
         # Check to see if the database currently exists
@@ -352,12 +349,55 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         """
         Set the database driver.
 
+        This method is also responsible for tearing down any previous driver/wrapper resources.
+        Without this, SQLite connections can be leaked during driver reloads (e.g. schema creation),
+        which keeps database files locked on Windows.
+
         :param new_driver:
         :return:
         """
+        # Close any existing wrapper (it holds its own SQLite connection for locking)
+        old_wrapper = getattr(self, "_driver_wrapper", None)
+        if old_wrapper is not None:
+            try:
+                old_wrapper.close()
+            except Exception:
+                pass
+
+        # Close any existing driver connection
+        old_driver = getattr(self, "_driver", None)
+        if old_driver is not None and old_driver is not new_driver:
+            try:
+                conn = getattr(old_driver, "conn", None)
+                if conn is not None:
+                    try:
+                        conn.commit()
+                    except Exception:
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            try:
+                old_driver.conn = None
+            except Exception:
+                pass
+
         self._driver = new_driver
-        self._driver_wrapper = DriverWrapper(self.driver)
+        # The wrapper is coupled to the driver and provides a locking connection.
+        self._driver_wrapper = DriverWrapper(self._driver)
         self.set_macros(self._driver.macros)
+
+        # Convenience lock handle
+        try:
+            self.lock = self._driver_wrapper.lock
+        except Exception:
+            pass
 
     def set_driver_wrapper(self, new_driver_wrapper: DatabaseDriverWrapperAPI) -> None:
         """
@@ -495,7 +535,8 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
     # Todo: THis might also want to be an internal method
     def check_rating_table(self):
         """
-        Checks that the ratings table is as it should be.
+        Checks that there is a valid ratings table.
+
         It should have 11 entries - each should be an integer from 0-10. Check that these exist. Do nothing if they do,
         error should if they do, but not in the expected form and insert them if they do not.
         :return:
@@ -504,13 +545,16 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
             rating = six_unicode(i - 1)
             rating_id = six_unicode(i)
             rating_row = self.get_row_from_id("ratings", rating_id)
+
             if rating_row is None:
                 new_row_dict = {
                     "rating_id": rating_id,
                     "rating": six_unicode(float(rating) / 2.0),
                 }
                 self.driver_wrapper.add_row(new_row_dict)
+
             else:
+
                 if float(rating_row["rating"]) != float(rating) / 2.0:
                     err_str = "Rating row malformed - correcting"
                     default_log.log_variables(
@@ -1019,7 +1063,8 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
 
     def get_row_from_id(self, table, row_id):
         """
-        Gets a row from it's particular id.
+        Gets a row from its particular id.
+
         :param table: The table to search in
         :param row_id: The id of the row to search for
         :return row: A row with the relevant id - or None if the row can't be found

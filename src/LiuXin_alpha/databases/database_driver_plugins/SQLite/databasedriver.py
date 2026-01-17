@@ -288,24 +288,51 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
 
     def close(self):
         """
-        Shutdown the connection to the database - but leave the drive class in existence so it can be re-opened.
+        Shutdown the connection to the database - but leave the driver class in existence so it can be re-opened.
+
+        On Windows, failing to close SQLite connections will keep the database file locked.
+
         :return:
         """
-        self.conn.close()
+        conn = getattr(self, 'conn', None)
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self.conn = None
 
     def refresh(self):
         """
         Refreshes the database - zeros all cached objects and connects again.
+
+        Important: close any existing connection before replacing it to avoid leaking file handles.
+
         :return:
         """
+        old = getattr(self, 'conn', None)
+        if old is not None:
+            try:
+                old.close()
+            except Exception:
+                pass
         self.conn = self.get_connection()
         self._zero_prop_cache()
 
     def reopen(self):
         """
-        Re-opes the connection to the database.
+        Re-opens the connection to the database.
+
+        Important: close any existing connection before replacing it to avoid leaking file handles.
+
         :return:
         """
+        old = getattr(self, 'conn', None)
+        if old is not None:
+            try:
+                old.close()
+            except Exception:
+                pass
         self.conn = self.get_connection()
 
     def direct_backup(self, path=None):
@@ -665,6 +692,12 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
         """
         if force_refresh:
             self.tables = None
+            old = getattr(self, 'conn', None)
+            if old is not None:
+                try:
+                    old.close()
+                except Exception:
+                    pass
             self.conn = self.get_connection()
 
         if self.tables is None:
@@ -1808,8 +1841,8 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
         values_placeholders += ")"
 
         # These are the column headings values will be inserted into, with corresponding values
-        column_headings = row_dict.keys()
-        values = row_dict.values()
+        column_headings = [_ for _ in row_dict.keys()]
+        values = [_ for _ in row_dict.values()]
 
         # building the list of value
         column_list = ""
@@ -1834,6 +1867,7 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
             c.execute(stmt, values)
             conn.commit()
             conn.close()
+
         except sqlite3.InterfaceError as e:
             err_str = "Unable to update - InterfaceError.\n"
             err_str = default_log.log_exception(
@@ -1846,6 +1880,7 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
             )
             conn.close()
             raise DatabaseDriverError(err_str)
+
         except sqlite3.OperationalError as e:
             err_str = "Unable to update - OperationalError.\n"
             err_str = default_log.log_exception(
@@ -1858,6 +1893,7 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
             )
             conn.close()
             raise DatabaseDriverError(err_str)
+
         except sqlite3.IntegrityError as e:
             conn.commit()
             conn.close()

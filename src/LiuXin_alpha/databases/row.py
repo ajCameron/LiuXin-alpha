@@ -49,7 +49,7 @@ class Row(RowAPI):
         self.int_row_dict = local_row_dict
 
         # Properties that will be read off the database/derived from the row
-        self.table = None
+        self._table = None
         self.allowed_tables = None
         self.row_id = None
         self.self_linkable = False
@@ -60,6 +60,15 @@ class Row(RowAPI):
 
         if self.read_only:
             self.sync = self.no_sync
+
+    @property
+    def table(self) -> str:
+        """
+        Return the table for the row.
+
+        :return:
+        """
+        return self._table
 
     def make_read_only(self):
         """
@@ -83,7 +92,7 @@ class Row(RowAPI):
             return None
 
         table = self.db.driver_wrapper.identify_table_from_row_dict(row_dict)
-        object.__setattr__(self, "table", table)
+        object.__setattr__(self, "_table", table)
 
         allowed_tables = set([t for t in self.db.get_tables_and_columns().keys()])
         object.__setattr__(self, "allowed_tables", allowed_tables)
