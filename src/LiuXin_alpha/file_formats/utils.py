@@ -7,6 +7,8 @@ import traceback
 import os
 import re
 
+from typing import Optional
+
 from LiuXin_alpha.utils.storage.local import CurrentDir
 from LiuXin_alpha.utils.logging import prints
 from LiuXin_alpha.utils.resources import P
@@ -58,8 +60,8 @@ class HTMLRenderer:
             self.loop.exit(0)
 
 
-def return_raster_image(path):
-    from LiuXin.utils.imghdr import what
+def return_raster_image(path: str) -> Optional[bytes]:
+    from LiuXin_alpha.utils.image_tools.imghdr import what
 
     if os.access(path, os.R_OK):
         with open(path, "rb") as f:

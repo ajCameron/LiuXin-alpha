@@ -205,7 +205,7 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
         self.database_path = db_metadata["database_path"]
         self.db = db
 
-        self.macros = SQLiteDatabaseMacros(db=self.db)
+        self._macros = SQLiteDatabaseMacros(db=self.db)
 
         # These attributes will be used as caches for computationally expensive information off the database
         self.tables = None
@@ -242,6 +242,15 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
 
         # This will be usefully set when the database starts up
         self.dirty_records_queue = dirty_records_queue
+
+    @property
+    def macros(self):
+        """
+        Returns the macros helper class.
+
+        :return:
+        """
+        return self._macros
 
     def exists(self):
         """
@@ -882,7 +891,7 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
         values_placeholders = values_placeholders[:-1]
 
         # These are the column headings values will be inserted into
-        column_headings = row_dict.keys()
+        column_headings = list(row_dict.keys())
         column_placeholders = ""
         for i in range(len(row_dict)):
             column_placeholders += force_unicode(column_headings[i]) + ","
@@ -3004,10 +3013,11 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
     def _get_table_col_base(table_name):
         """
         Returns the base name for a column in the given table. e.g. "title" for "titles"
+
         :param table_name: Return the base column for this table
         :return:
         """
-        from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
+        from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
         return plural_singular_mapper(table_name)
 
@@ -3020,6 +3030,7 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
     def dirty_record(self, table, table_id, reason):
         """
         Add a record to the dirtied dictionary.
+
         :param table:
         :param table_id:
         :param reason:

@@ -9,6 +9,7 @@ It is NOT thread safe - you need to do your own locking elsewhere.
 from __future__ import unicode_literals
 
 import re
+import os
 import pprint
 import queue as Queue
 import uuid
@@ -85,8 +86,7 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         self.metadata = None
         self.type = None
 
-        # Helper attributes
-        self.macros = None
+        self._macros = None
 
         # Fundamental constants for this database
         if existing_driver is None:
@@ -127,6 +127,25 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         """
         return self._driver_wrapper
 
+    @property
+    def macros(self):
+        """
+        Return the macros object for the database.
+
+        :return:
+        """
+        return self._macros
+
+    def set_macros(self, new_macros) -> None:
+        """
+        Set the macros class for the database.
+
+        :param new_macros:
+        :return:
+        """
+        assert new_macros is not None, "Need to set macros to something that exists"
+        self._macros = new_macros
+
     def existing_driver_init(self, existing_driver: DatabaseDriverAPI) -> None:
         """
         Startup method called when the drivber already exists. Useful for testing.
@@ -136,7 +155,7 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         """
         # Load the driver constructor - use this to make the driver instance for this database
         self.set_driver(existing_driver)
-        self.macros = self.driver.macros
+        self.set_macros(existing_driver.macros)
 
         # Load the backend with the driver.
         self.lock = self.driver_wrapper.lock
@@ -226,26 +245,26 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         :return:
         """
         if metadata is None:
-            metadata = dict()
-            metadata["database_path"] = LiuXin_default_database
-        self.metadata = metadata
+            metadata = {"database_path": LiuXin_default_database}
 
-        # Load the driver constructor - use this to make the driver instance for this database
+        db_path = metadata.get("database_path")
+        path_existed = bool(db_path) and db_path != ":memory:" and os.path.exists(db_path)
+
+        self.metadata = metadata
         self.type = db_type
         self.set_driver(loadDatabaseDriver(db_type)(self.metadata, self))
-        self.macros = self.driver.macros
-
-        # Load the backend with the driver.
         self.set_driver_wrapper(DriverWrapper(self.driver))
-        self.lock = self.driver_wrapper.lock
 
-        # If the create keyword is set to True, then create the database anew.
-        if create:
-            self.create_new_database(backup=backup)
-            # Reload the database driver to take the update into account
+        if create or (not path_existed and db_path not in (None, ":memory:")):
+            if path_existed:
+                self.create_new_database(blank=True, backup=backup)
+            else:
+                self.create_new_database(blank=False, backup=False)
+
+            # reload driver after schema creation
             self.set_driver(loadDatabaseDriver(db_type)(self.metadata, self))
-
             self.set_driver_wrapper(DriverWrapper(self.driver))
+            self.set_macros(self.driver.macros)
             self.lock = self.driver_wrapper.lock
 
         # Check to see if the database currently exists
@@ -338,6 +357,7 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         """
         self._driver = new_driver
         self._driver_wrapper = DriverWrapper(self.driver)
+        self.set_macros(self._driver.macros)
 
     def set_driver_wrapper(self, new_driver_wrapper: DatabaseDriverWrapperAPI) -> None:
         """
@@ -575,7 +595,7 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
             self.driver_wrapper.set_uuid()
 
         # Remove SQLite sequence from the main tables - if present - this is for internal use only
-        self.main_tables.discard("sqlite_sequence")
+        self._main_tables.discard("sqlite_sequence")
 
     # Todo: Backup is somewhat useless if there is no way to restore
     def backup(self):
