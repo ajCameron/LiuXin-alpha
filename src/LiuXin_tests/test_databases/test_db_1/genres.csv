@@ -1,0 +1,3 @@
+genre_id,genre,genre_parent,genre_position,genre_full,genre_datestamp,genre_scratch
+1,Science Fiction,None,None,None,2016-06-11 01:35:41,ba12d6e1-741e-4b3a-829a-1f406a4e77612.373496
+2,Military Science Fiction,1,1,None,2016-06-11 01:35:41,b9742a58-2729-4f4d-aacc-769f02f37d5a2.39523

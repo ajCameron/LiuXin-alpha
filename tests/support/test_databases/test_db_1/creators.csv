@@ -1,0 +1,32 @@
+creator_id,creator,creator_type,creator_sort,creator_short_name,creator_last_name,creator_birth_date,creator_death_date,creator_wikipedia,creator_imdb,creator_seminal_work,creator_legal_name,creator_one_person,creator_phash,creator_link,creator_datestamp,creator_scratch
+1,Neal Stephenson,None,Stephenson### Neal,N. Stephenson,Stephenson,None,None,None,None,Cryptonomicon,Neal Stephenson,TRUE,None,None,2016-06-11 01:35:40,None
+2,Terry Pratchett,None,Pratchett### Terry,T. Pratchett,Pratchett,None,None,None,None,The Colour of Magic,Terry Pratchett,TRUE,None,None,2016-06-11 01:35:40,None
+3,Stephen Baxter,None,Baxter### Stephen,S. Baxter,Baxter,None,None,None,None,The Xeelee Sequence,Stephen Baxter,TRUE,None,None,2016-06-11 01:35:40,None
+4,Andy Weir,None,Weir### Andy,A. Weir,Weir,None,None,None,None,The Martian,Andrew Weir,TRUE,None,None,2016-06-11 01:35:40,None
+5,Scott Lynch,None,Lynch### Scott,S. Lynch,Lynch,None,None,None,None,The Lies of Locke Lamorra,Scott Lynch,TRUE,None,None,2016-06-11 01:35:40,None
+6,Randall Munroe,None,Munroe### Randall,R. Munroe,Munroe,None,None,None,None,XKCD,Randall Munroe,TRUE,None,None,2016-06-11 01:35:40,None
+7,Mr. Zoat,None,Zoat,Zoat,Zoat,None,None,None,None,With this ring [Young Justice SI],Unkown,TRUE,None,None,2016-06-11 01:35:40,None
+8,Peter F. Hamilton,None,Hamilton### Peter F.,P. Hamilton,Hamilton,None,None,None,None,The Commonwealth Saga,Peter F. Hamilton,TRUE,None,None,2016-06-11 01:35:40,None
+9,Jules Verne,None,Verne### Jules,J. Verne,Verne,None,None,None,None,Around the World in 80 days,Jules Verne,TRUE,None,None,2016-06-11 01:35:40,None
+10,Jasper Fforde,None,Fforder### Jasper,J. Fforde,Fforde,None,None,None,None,Thursday Next,Jasper Fforde,TRUE,None,None,2016-06-11 01:35:40,None
+11,Ben Aaronovitch,None,Aaronovitch###Ben,B. Aaronovitch,Aaronovitch,None,None,None,None,Rivers of London,Ben Aaronovitch,TRUE,None,None,2016-06-11 01:35:40,None
+12,Howard Zinn,None,Zinn### Howard,H. Zinn,Zinn,None,None,None,None,None,Howard Zinn,TRUE,None,None,2016-06-11 01:35:40,None
+13,Mark Russinovich,None,Russinovich### Mark,M. Russinovich,Russinovich,None,None,None,None,Trojan Horse,Mark Russinovich,TRUE,None,None,2016-06-11 01:35:40,None
+14,Rudyard Kippling,None,Kippling### Rudyard,R. Kippling,Kippling,None,None,None,None,None,Rudyard Kippling,TRUE,None,None,2016-06-11 01:35:40,None
+15,Dan Simmons,None,Simmons### Dan,D. Simmons,Simmons,None,None,None,None,Olympos,Daniel Simmons,TRUE,None,None,2016-06-11 01:35:40,None
+16,Bruce Schneier,None,Schneier### Bruce,B. Schneier,Schneier,None,None,None,None,Liars and Outliers,Bruce Schneier,TRUE,None,None,2016-06-11 01:35:40,None
+17,Ray Kurzwell,None,Kurzwell### Ray,R. Kurzwell,Kurzwell,None,None,None,None,How to create a mind,Ray Kurzwell,TRUE,None,None,2016-06-11 01:35:40,None
+18,George McDonnald Phraser,None,Phraser### George,G. Phraser,Phraser,None,None,None,None,The Flashman Papers,George McDonnald Phraser,TRUE,None,None,2016-06-11 01:35:40,None
+19,Lewis Carroll,None,Carroll### Lewis,L. Carroll,Carroll,None,None,None,None,Alice in Wonderland,Lewis Carroll,TRUE,None,None,2016-06-11 01:35:40,None
+20,J. R. R. Tolkein,None,Tolkein### J. R. R.,J. Tolkein,Tolkein,None,None,None,None,The Lord of the Rings,J. R. R. Tolkein,TRUE,None,None,2016-06-11 01:35:40,None
+21,Alan Moore,None,Moore### Alan,A. Moore,Moore,None,None,None,None,Watchmen,Alan Moore,TRUE,None,None,2016-06-11 01:35:40,None
+22,Dave Gibons,None,Gibons### Dave,D. Gibons,Gibons,None,None,None,None,Watchmen,Dave Gibons,TRUE,None,None,2016-06-11 01:35:40,None
+23,John Higgins,None,Higgins### John,J. Higgins,Higgins,None,None,None,None,Watchmen,John Higgins,TRUE,None,None,2016-06-11 01:35:40,None
+24,David McCullough,None,McCullough### David,D. McCullough,McCullough,None,None,None,None,None,David McCullough,TRUE,None,None,2016-06-11 01:35:40,None
+25,Alastair Reynolds,None,Reynolds### Alastair,A. Reynolds,Reynolds,None,None,None,None,Revelation Space,Alastair Reynolds,TRUE,None,None,2016-06-11 01:35:40,None
+26,Ann Leckie,None,Leckie### Ann,A. Leckie,Leckie,None,None,None,None,Ancillary Justice,Ann Leckie,TRUE,None,None,2016-06-11 01:35:40,None
+27,Marie Brennan,None,Brennan### Marie,M. Brennan,Brennan,None,None,None,None,None,Marie Brennan,TRUE,None,None,2016-06-11 01:35:40,None
+28,David Mitchell,None,Mitchell### David,D. Mitchell,Mitchell,None,None,None,None,None,David Mitchell,TRUE,None,None,2016-06-11 01:35:40,None
+29,Alfred Bester,None,Bester### Alfred,A. Bester,Bester,None,None,None,None,None,Alfred Bester,TRUE,None,None,2016-06-11 01:35:40,None
+30,James Herriot,author,Herriot### James,J Herriott,Herriot,1916-10-03,1995-02-23,https://en.wikipedia.org/wiki/James_Herriot,http://www.imdb.com/name/nm0380713/,All Creatures Great and Small,"James Alfred ""Alf"" Wight",0,jamesherriot,None,2016-06-11 01:35:41,44eb8549-86a0-4842-8e8b-8bc8a0ba44032.336625
+31,Gene Roddenberry,author,Roddenberry### Gene,Gene Roddenberry,Roddenberry,None,None,None,None,None,Gene Roddenberry,0,generoddenberry,None,2016-06-11 01:35:42,413bdc0f-d3eb-49a5-9175-83b616b7e61d2.497365
