@@ -67,7 +67,8 @@ def find_declared_encoding(raw, limit=50 * 1024):
 
 
 def substitute_entites(raw):
-    from calibre import xml_entity_to_unicode
+    from LiuXin_alpha.utils.text.xml_utils import xml_entity_to_unicode
+
 
     return ENTITY_PATTERN.sub(xml_entity_to_unicode, raw)
 
@@ -82,7 +83,7 @@ def detect(*args, **kwargs):
 
 
 def force_encoding(raw, verbose, assume_utf8=False):
-    from calibre.constants import preferred_encoding
+    from LiuXin_alpha.constants import preferred_encoding
 
     try:
         chardet = detect(raw[: 1024 * 50])
@@ -103,12 +104,14 @@ def force_encoding(raw, verbose, assume_utf8=False):
 
 
 def detect_xml_encoding(raw, verbose=False, assume_utf8=False):
-    if not raw or isinstance(raw, unicode):
+    if not raw or isinstance(raw, str):
         return raw, None
+
     for x in ("utf8", "utf-16-le", "utf-16-be"):
         bom = getattr(codecs, "BOM_" + x.upper().replace("-16", "16").replace("-", "_"))
         if raw.startswith(bom):
             return raw[len(bom) :], x
+
     encoding = None
     for pat in ENCODING_PATS:
         match = pat.search(raw)
@@ -157,7 +160,7 @@ def xml_to_unicode(
     if not raw:
         return "", None
     raw, encoding = detect_xml_encoding(raw, verbose=verbose, assume_utf8=assume_utf8)
-    if not isinstance(raw, unicode):
+    if not isinstance(raw, str):
         raw = raw.decode(encoding, "replace")
 
     if strip_encoding_pats:

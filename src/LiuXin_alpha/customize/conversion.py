@@ -10,15 +10,14 @@ import re
 import os
 import shutil
 
-from LiuXin.customize import Plugin
+from LiuXin_alpha.customize import Plugin
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.calibre_utils.calibre_resources import I
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.storage.local import CurrentDir
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.resources import calibreI as I
+from LiuXin_alpha.utils.localization import trans as _
 
-from past.builtins import unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, six_unicode as unicode
 
 
 class ConversionOption:

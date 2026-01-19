@@ -11,7 +11,7 @@ from __future__ import print_function, unicode_literals
 import shutil
 import zipfile
 
-from LiuXin.customize import Archive
+from LiuXin_alpha.customize import Archive
 
 
 # Todo: Implement password support
@@ -186,6 +186,7 @@ class ZipfileArchive(Archive):
     def testarc(self):
         """
         Calls the ZipFile.testzip() method.
+
         Read all the files in the archive and check their CRC’s and file headers. Return the name of the first bad file,
         or else return None. Calling testzip() on a closed ZipFile will raise a RuntimeError.
         :return:

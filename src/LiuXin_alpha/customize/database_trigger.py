@@ -8,7 +8,7 @@ They slow everything down significantly.
 
 from copy import deepcopy
 
-from LiuXin.databases.database import Database
+from LiuXin_alpha.databases.database import Database
 
 
 class Trigger:
@@ -84,6 +84,7 @@ class Trigger:
     def pull(self, target_id, target_table):
         """
         Applies the trigger to the target_id in the target_table.
+
         :param target_id: The id of the row in the table
         :param target_table: The table the id is in.
         :return:

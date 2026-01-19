@@ -163,3 +163,6 @@ def compiled_coffeescript(name, dynamic=False):
 P = get_path
 I = get_image_path
 
+calibreP = P
+calibreI = I
+
