@@ -63,6 +63,8 @@ from past.builtins import basestring
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
+from LiuXin_alpha.databases.caches.utils import run_plugins_on_import
+
 builtin_names = frozenset([p.name for p in builtin_plugins])
 
 
@@ -1377,6 +1379,29 @@ def main(args=sys.argv) -> int:
             print()
 
     return 0
+
+
+def run_import_plugins(path_or_stream, fmt):
+    """
+    Run all import plugins on a stream
+
+    :param path_or_stream:
+    :param fmt:
+    :return:
+    """
+    from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
+
+    fmt = fmt.lower()
+    if hasattr(path_or_stream, "seek"):
+        path_or_stream.seek(0)
+        pt = PersistentTemporaryFile("_import_plugin." + fmt)
+        shutil.copyfileobj(path_or_stream, pt, 1024**2)
+        pt.close()
+        path = pt.name
+    else:
+        path = path_or_stream
+    return run_plugins_on_import(path)
+
 
 
 if __name__ == "__main__":

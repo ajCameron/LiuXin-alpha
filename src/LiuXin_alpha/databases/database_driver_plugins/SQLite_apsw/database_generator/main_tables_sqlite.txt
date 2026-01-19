@@ -1,0 +1,782 @@
+-- BREAK - FOR EXPLANATIONS SEE LIUXIN.DOCS.TABLE_EXPLANATIONS.TXT
+
+-- -----------------------------------------------------
+-- Table `books`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `books` (
+  `book_id` INTEGER PRIMARY KEY,
+
+  `book_sort` TEXT NULL,
+  `book_flags` TEXT NULL,
+
+  `book_pubdate` TEXT NULL,
+  `book_copyright_date` TEXT NULL,
+
+  `book_uuid` TEXT NULL,
+
+  `book_has_cover` INT DEFAULT 0,
+  `book_has_local_cover` INT DEFAULT 0,
+  `book_last_modified` TEXT NULL,
+
+  `book_fingerprint` TEXT NULL,
+
+  `book_paths` PYSET NULL,
+  `book_size` INT DEFAULT 0,
+
+  `book_rating` INT UNSIGNED NULL,
+
+  `book_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+  `book_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+  `book_scratch` TEXT NULL,
+
+  CONSTRAINT `book_id_is_title_id`
+   FOREIGN KEY (`book_id`)
+   REFERENCES `titles` (`title_id`)
+   ON DELETE CASCADE
+   ON UPDATE CASCADE)
+;
+
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `comments`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `comments` (
+  `comment_id` INTEGER PRIMARY KEY,
+
+  `comment` TEXT NULL,
+
+  `comment_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `comment_scratch` TEXT NULL);
+
+-- BREAK
+-- BREAK
+
+
+-- -----------------------------------------------------
+-- Table `covers`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `covers` (
+  `cover_id` INTEGER PRIMARY KEY,
+
+  `cover_name` TEXT NULL,
+  `cover_extension` TEXT NULL,
+  `cover_path` TEXT NULL,
+  `cover_use_auto_name` TINYINT(1) DEFAULT 1,
+
+  `cover_hash` TEXT NULL,
+  `cover_new_hash` TEXT NULL,
+  `cover_corrupt` TINYINT(1) DEFAULT 0,
+
+  `cover_original_path` TEXT NULL,
+
+  `cover_local` TINYINT(1) NULL,
+
+  `cover_base_folder` INT UNSIGNED NULL,
+  `cover_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `cover_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+
+  `cover_scratch` TEXT NULL,
+
+  CONSTRAINT `cover_folder_link`
+    FOREIGN KEY (`cover_base_folder`)
+    REFERENCES `folders` (`folder_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+;
+
+
+
+-- BREAK
+-- BREAK -- SEE THE library.create_creator DOC STRING FOR AN EXPLANATION OF THE COLUMNS
+
+
+-- -----------------------------------------------------
+-- Table `creators`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `creators` (
+  `creator_id` INTEGER PRIMARY KEY,
+
+  `creator` TEXT NULL,
+  `creator_sort` TEXT NULL,
+  `creator_short_name` TEXT NULL,
+  `creator_last_name` TEXT NULL,
+  `creator_phash` TEXT NULL,
+  `creator_legal_name` TEXT NULL,
+
+  `creator_birth_date` DATE NULL,
+  `creator_death_date` DATE NULL,
+
+  `creator_type` TEXT NULL,
+  `creator_seminal_work` TEXT NULL,
+  `creator_one_person` TINYINT(1) NULL DEFAULT 0,
+
+  `creator_wikipedia` TEXT NULL,
+  `creator_imdb` TEXT NULL,
+  `creator_link` TEXT NULL,
+
+  `creator_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `creator_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+
+  `creator_scratch` TEXT NULL,
+  CONSTRAINT `creator_unique` UNIQUE (`creator`)
+)
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `devices`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `devices` (
+  `device_id` INTEGER PRIMARY KEY,
+
+  `device_type` TEXT NULL,
+
+  `device_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `device_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+
+  `device_scratch` TEXT NULL );
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `genres`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `genres` (
+  `genre_id` INTEGER PRIMARY KEY,
+
+  `genre` TEXT NULL,
+  `genre_sort` TEXT NULL,
+  `genre_phash` TEXT NULL,
+
+  `genre_parent` INT UNSIGNED NULL,
+  `genre_position` INT UNSIGNED NULL,
+  `genre_tree_id` INT UNSIGNED NULL,
+  `genre_full` TEXT NULL,
+
+  `genre_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `genre_scratch` TEXT NULL,
+
+  CONSTRAINT `genre_parent`
+    FOREIGN KEY (`genre_parent`)
+    REFERENCES `genres` (`genre_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX `genre_parent_index` ON `genres` (`genre_parent` ASC);
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `files`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `files` (
+  `file_id` INTEGER PRIMARY KEY,
+
+  `file_name` TEXT NULL,
+  `file_base_name` TEXT NULL,
+  `file_tag` TEXT NULL,
+  `file_extension` TEXT NULL,
+  `file_path` TEXT NULL,
+  `file_auto_name` TEXT NULL,
+  `file_use_auto_name` INT DEFAULT 1,
+
+  `file_size` INT UNSIGNED NULL,
+  `file_hash` TEXT NULL,
+  `file_new_hash` TEXT NULL,
+  `file_corrupt` INT UNSIGNED NULL,
+
+  `file_base_folder` INT UNSIGNED NULL,
+  `file_acquired_timestamp` TEXT NULL,
+
+  `file_source` TEXT NULL,
+  `file_original_name` TEXT NULL,
+  `file_original_path` TEXT NULL,
+  `file_phash` TEXT NULL,
+  `file_anthology` TINYINT(1) NULL,
+  `file_critical` TINYINT(1) NULL DEFAULT 1,
+  `file_parent` TEXT NULL,
+  `file_conversion_settings` TEXT NULL,
+  `file_processed` TINYINT(1) NULL DEFAULT 0,
+
+  `file_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `file_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+
+  `file_scratch` TEXT NULL,
+
+  CONSTRAINT `file_base_folder`
+    FOREIGN KEY (`file_base_folder`)
+    REFERENCES `folders` (`folder_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+;
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX `file_base_folder_index` ON `files` (`file_base_folder` ASC);
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `folder_stores`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `folder_stores` (
+
+  `folder_store_id` INTEGER PRIMARY KEY,
+
+  `folder_store` TEXT NULL,
+  `folder_store_identifier` TEXT NULL,
+  `folder_store_path` TEXT NULL,
+  `folder_store_path_os_type` TEXT NULL,
+  `folder_store_created` INTEGER DEFAULT 0,
+  `folder_store_media_types` TEXT NULL,
+  `folder_store_forbidden_print` TEXT NULL,
+  `folder_store_preferred_print` TEXT NULL,
+  `folder_store_cache` INTEGER DEFAULT 0,
+  `folder_store_storage` INT DEFAULT 1,
+  `folder_store_cf_expansion` INTEGER DEFAULT 0,
+  `folder_store_cache_priority` INT DEFAULT 0,
+
+  `folder_store_max_path_length` INT DEFAULT 4000,
+  `folder_store_user_name` TEXT NULL,
+  `folder_store_password` TEXT NULL,
+  `folder_store_type` TEXT NULL,
+  `folder_store_marker_name` TEXT NULL,
+  `folder_store_marker_text` TEXT NULL,
+  `folder_store_marker_path`TEXT NULL,
+  `folder_store_marker_path_os_type` TEXT NULL,
+  `folder_store_dedicated_drive` INTEGER DEFAULT 1,
+  `folder_store_max_size` INT NULL DEFAULT 0,
+
+  `folder_store_found` INTEGER DEFAULT 1,
+  `folder_store_readable` INTEGER DEFAULT 1,
+  `folder_store_writeable` INTEGER DEFAULT 1,
+  `folder_store_size` INT DEFAULT 0,
+  `folder_store_free_size` INTEGER DEFAULT 0,
+
+  `folder_store_creation_date` TEXT NULL,
+  `folder_store_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `folder_store_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+
+  `folder_store_scratch` TEXT NULL)
+;
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `folders`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `folders` (
+  `folder_id` INTEGER PRIMARY KEY,
+
+  `folder_name` TEXT NULL,
+  `folder_tag` TEXT NULL,
+  `folder_original_name` TEXT NULL,
+  `folder_auto_name` TEXT NULL,
+  `folder_use_auto_name` INT DEFAULT 1,
+  `folder_path` TEXT NULL,
+  `folder_auto_position` INT DEFAULT 1,
+
+  `folder_found` INT DEFAULT 1,
+  `folder_folder_store_id` INT UNSIGNED NULL,
+  `folder_parent` INT NULL,
+  `folder_depth` INT NULL,
+  `folder_size` INT NULL,
+  `folder_hash` TEXT NULL,
+  `folder_types` TEXT NULL,
+
+  `folder_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `folder_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+
+  `folder_scratch` TEXT NULL,
+
+  -- INDEX (not working in sqlite) `file_store_idx` (`file_store` ASC),
+  CONSTRAINT `folder_in_a_folder_store`
+    FOREIGN KEY (`folder_folder_store_id`)
+    REFERENCES `folder_stores` (`folder_store_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT `folder_parent_exists`
+    FOREIGN KEY (`folder_parent`)
+    REFERENCES `folders` (`folder_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+	)
+;
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX `folder_folder_store_exists` ON `folders` (`folder_folder_store_id` ASC);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX `folder_parent_exists` ON `folders` (`folder_parent` ASC);
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `identifiers`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `identifiers` (
+  `identifier_id` INTEGER PRIMARY KEY,
+
+  `identifier` TEXT NULL ,
+  `identifier_type` TEXT NULL,
+
+  `identifier_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `identifier_scratch` TEXT NULL,
+  CONSTRAINT `identifier_unique` UNIQUE (`identifier`));
+
+-- BREAK
+-- BREAK
+
+
+
+-- -----------------------------------------------------
+-- Table `languages`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `languages` (
+  `language_id` INTEGER PRIMARY KEY ,
+
+  `language` TEXT NULL,
+  `language_code` TEXT NULL,
+
+  `language_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `language_scratch` TEXT NULL
+)
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `notes`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `notes` (
+  `note_id` INTEGER PRIMARY KEY,
+
+  `note` TEXT NULL,
+
+  `note_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `note_scratch` TEXT NULL );
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `publishers`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `publishers` (
+  `publisher_id` INTEGER PRIMARY KEY,
+
+  `publisher` TEXT NULL,
+  `publisher_sort` TEXT NULL,
+  `publisher_phash` TEXT NULL,
+
+  `publisher_wikipedia` TEXT NULL,
+  `publisher_website` TEXT NULL,
+
+  `publisher_parent` TEXT NULL,
+  `publisher_position` TEXT NULL,
+  `publisher_tree_id` INT NULL,
+  `publisher_full` TEXT NULL,
+
+  `publisher_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `publisher_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+
+  `publisher_scratch` TEXT NULL)
+;
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `ratings`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `ratings` (
+  `rating_id` INTEGER PRIMARY KEY,
+
+  `rating` INT NULL,
+  `rating_source` TEXT NULL,
+
+  `rating_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `rating_scratch` TEXT NULL );
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `series`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `series` (
+  `series_id` INTEGER PRIMARY KEY ,
+
+  `series` INT UNSIGNED NULL,
+  `series_sort` TEXT NULL,
+  `series_phash` TEST NULL,
+
+  `series_over_author` INT DEFAULT 0,
+
+  `series_parent` INT UNSIGNED NULL,
+  `series_parent_position` INT UNSIGNED NULL,
+  `series_tree_id` TEXT NULL,
+  `series_full` TEXT NULL,
+
+  `series_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `series_scratch` TEXT NULL,
+  CONSTRAINT `series_unique` UNIQUE (`series`),
+  CONSTRAINT `series_parent`
+    FOREIGN KEY (`series_parent`)
+    REFERENCES `series` (`series_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX `series_parent_index` ON `series` (`series_parent` ASC);
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `subjects`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `subjects` (
+  `subject_id` INTEGER PRIMARY KEY,
+
+  `subject` TEXT NULL,
+  `subject_phash` TEXT NULL,
+  `subject_sort` TEXT NULL,
+
+  `subject_parent` INT UNSIGNED NULL,
+  `subject_parent_position` INT UNSIGNED NULL,
+  `subject_tree_id` TEXT NULL,
+  `subject_full` TEXT NULL,
+
+  `subject_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `subject_scratch` TEXT NULL,
+  CONSTRAINT `subject_parent`
+    FOREIGN KEY (`subject_parent`)
+    REFERENCES `subjects` (`subject_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX `subject_parent_index` ON `subjects` (`subject_parent` ASC);
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `synopses`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `synopses` (
+  `synopsis_id` INTEGER PRIMARY KEY,
+
+  `synopsis` TEXT NULL,
+
+  `synopsis_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `synopsis_scratch` TEXT NULL );
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `tags`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `tags` (
+  `tag_id` INTEGER PRIMARY KEY,
+
+  `tag` TEXT NULL,
+  `tag_phash` TEXT NULL,
+
+  `tag_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `tag_scratch` TEXT NULL,
+   CONSTRAINT `tag_unique` UNIQUE (`tag`));
+
+-- BREAK
+-- BREAK
+
+
+-- -----------------------------------------------------
+-- Table `titles`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `titles` (
+  `title_id` INTEGER PRIMARY KEY,
+
+  `title` TEXT NULL,
+  `title_sort` TEXT NULL,
+  `title_phash` TEXT NULL,
+
+  `title_creator_sort` TEXT NULL,
+
+  `title_pub_date` TEXT NULL,
+  `title_copyright_date` TEXT NULL,
+  `title_wikipedia` TEXT NULL,
+  `title_fiction_length_category` INT UNSIGNED NULL,
+  `title_type` INT UNSIGNED NULL,
+  `title_wordcount` TEXT NULL,
+
+  `title_source` TEXT NULL,
+  `title_source_path` TEXT NULL,
+  `title_source_name` TEXT NULL,
+
+  `title_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `title_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+  `title_last_modified` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  `title_scratch` TEXT NULL)
+;
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `new_books`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `new_books` (
+  `new_book_id` INTEGER PRIMARY KEY,
+  `new_book_name` TEXT,
+  `new_book_extension` INT NULL DEFAULT 0,
+  `new_book_path` INT UNSIGNED NULL,
+  `new_book_hash_1` TEXT NULL,
+  `new_book_hash_2` INTEGER,
+  `new_book_size` INTEGER,
+  `new_book_group_id` INTEGER,
+  `new_book_cached` INT NULL DEFAULT 0,
+  `new_book_cache_attempted` INT NULL DEFAULT 0,
+  `new_book_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `new_book_scratch` TEXT NULL)
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `compressed_files`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `compressed_files` (
+  `compressed_file_id` INTEGER PRIMARY KEY,
+  `compressed_file_name` TEXT,
+  `compressed_file_extension` INT NULL DEFAULT 0,
+  `compressed_file_path` INT UNSIGNED NULL,
+  `compressed_file_hash_1` TEXT NULL,
+  `compressed_file_hash_2` INTEGER,
+  `compressed_file_size` INTEGER,
+  `compressed_file_group_id` INTEGER,
+  `compressed_file_folder` INTEGER,
+  `compressed_file_cached` INT NULL DEFAULT 0,
+  `compressed_file_cache_attempted` INT NULL DEFAULT 0,
+  `compressed_file_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `compressed_file_scratch` TEXT NULL)
+;
+
+
+-- BREAK
+-- BREAK - FOR CALIBRE EMULATION
+
+-- -----------------------------------------------------
+-- Table `books_plugin_data`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `books_plugin_data` (
+  `book_plugin_data_id` INTEGER PRIMARY KEY ,
+  `book_plugin_data_book` INT UNSIGNED NULL,
+  `book_plugin_data_name` TEXT NULL,
+  `book_plugin_data_val` TEXT NULL,
+  `book_plugin_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `book_plugin_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+  `book_plugin_scratch` TEXT NULL)
+;
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `custom_columns`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `custom_columns` (
+  `custom_column_id` INTEGER PRIMARY KEY,
+  `custom_column_mark_for_delete` INT NULL DEFAULT 0,
+  `custom_column_in_table` TEXT NULL,
+  `custom_column_label` TEXT NULL,
+  `custom_column_name` TEXT NULL,
+  `custom_column_datatype` TEXT NULL,
+  `custom_column_db_datatype` TEXT NULL,
+  `custom_column_editable` TEXT NULL,
+  `custom_column_display` TEXT NULL,
+  `custom_column_normalized` TEXT NULL,
+  `custom_column_is_multiple` TEXT NULL,
+  `custom_column_ordered` INT NULL DEFAULT 0,
+  `custom_column_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `custom_column_scratch` TEXT NULL,
+  CONSTRAINT `custom_column_name_unique` UNIQUE (`custom_column_name`),
+  CONSTRAINT `custom_column_label_unique` UNIQUE (`custom_column_label`)
+  )
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `database_metadata`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `database_metadata` (
+  `database_metadata_id` INTEGER PRIMARY KEY,
+  `database_metadata_unique_id` TEXT NULL,
+  `database_metadata_parent_LiuXin_instance` TEXT NULL,
+  `database_metadata_db_name` TEXT NULL,
+  `database_metadata_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `database_metadata_scratch` TEXT NULL)
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `preferences`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `preferences` (
+  `preference_id` INTEGER PRIMARY KEY,
+  `preference_key` TEXT NULL,
+  `preference_value` TEXT NULL,
+  `preference_value_type` TEXT NULL,
+  `preference_parent_LiuXin_instance` TEXT NULL,
+  `preference_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `preference_scratch` TEXT NULL)
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `metadata_dirtied_books`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `metadata_dirtied_books` (
+  `metadata_dirtied_book_id` TEXT PRIMARY KEY,
+  `metadata_dirtied_book` TEXT NULL)
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `hashes`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `hashes` (
+  `hash_id` TEXT PRIMARY KEY,
+  `hash` TEXT NULL)
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `library_id`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `library_id` (
+  `library_id` TEXT PRIMARY KEY,
+  `library_id_uuid` TEXT NULL,
+  `library_id_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP)
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `database_version`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `database_version` (
+  `database_version_id` TEXT PRIMARY KEY,
+  `database_version_version` TEXT NULL,
+  `database_version_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP)
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `conversion_options`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `conversion_options` (
+  `conversion_option_id` INTEGER PRIMARY KEY,
+  `conversion_option_format` TEXT NOT NULL COLLATE NOCASE,
+  `conversion_option_book` INTEGER,
+  `conversion_option_data` BLOB NOT NULL,
+  `conversion_option_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(conversion_option_format,conversion_option_book))
+;
+
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `feeds`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `feeds` (
+  `feed_id` INTEGER PRIMARY KEY,
+  `feed_title` TEXT NULL,
+  `feed_script` TEXT NULL,
+  `feed_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `feed_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+  `feed_scratch` TEXT NULL);
+
+-- BREAK
+-- BREAK
+
+CREATE TABLE IF NOT EXISTS `last_read_positions` (
+  `id` INTEGER PRIMARY KEY,
+  `book` INTEGER NOT NULL,
+  `format` TEXT NOT NULL COLLATE NOCASE,
+  `user` TEXT NOT NULL,
+  `device` TEXT NOT NULL,
+  `cfi` TEXT NOT NULL,
+  `epoch` REAL NOT NULL,
+  `pos_frac` REAL NOT NULL DEFAULT 0,
+  UNIQUE(user, device, book, format)
+);
+
+
+-- BREAK
+-- BREAK
+  -- USER CREATED MAIN TABLES GO BELOW HERE
+-- BREAK

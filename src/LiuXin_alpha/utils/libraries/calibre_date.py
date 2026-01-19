@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import with_statement
+from __future__ import with_statement, division, absolute_import, print_function, unicode_literals
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -9,6 +9,10 @@ __docformat__ = "restructuredtext en"
 import re, time
 from datetime import datetime, time as dtime, timedelta, MINYEAR, MAXYEAR
 from functools import partial
+
+from LiuXin_alpha.databases.caches import _c_speedup
+from LiuXin_alpha.utils.date import utc_tz, UNDEFINED_DATE, parse_date
+from LiuXin_alpha.utils.logging import default_log
 
 from liuxin_dateutil.tz import tzlocal, tzutc, EPOCHORDINAL
 
@@ -527,3 +531,44 @@ def replace_months(datestr, clang):
         if tmp != datestr:
             break
     return tmp
+
+
+def c_parse(val):
+    """
+    Parse a value into a datetime object.
+
+    :param val:
+    :return:
+    """
+    from datetime import datetime, timedelta
+
+    # The value may be coming off the database this way
+    if isinstance(val, datetime):
+        return datetime
+
+    try:
+        year, month, day, hour, minutes, seconds, tzsecs = _c_speedup(val)
+
+    except (AttributeError, TypeError):
+        # If a value like 2001 is stored in the column, apsw will return it as an int
+        if isinstance(val, (int, float)):
+            return datetime(int(val), 1, 3, tzinfo=utc_tz)
+        if val is None:
+            return UNDEFINED_DATE
+
+    except Exception as e:
+        err_str = "Failed to parse datetime string"
+        default_log.log_exception(err_str, e, "INFO")
+
+    else:
+        try:
+            ans = datetime(year, month, day, hour, minutes, seconds, tzinfo=utc_tz)
+            if tzsecs is not 0:
+                ans -= timedelta(seconds=tzsecs)
+        except OverflowError:
+            ans = UNDEFINED_DATE
+        return ans
+    try:
+        return parse_date(val, as_utc=True, assume_utc=True)
+    except (ValueError, TypeError):
+        return UNDEFINED_DATE

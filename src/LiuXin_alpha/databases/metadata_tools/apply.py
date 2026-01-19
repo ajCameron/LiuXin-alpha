@@ -14,7 +14,7 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types as string_types
 
 
-class Apply(object):
+class Apply:
     """
     Class to associate resources on the database together by applying one to the other.
     Use methods for this class if you want to link elements from the library together - use the get methods if you want

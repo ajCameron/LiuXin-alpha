@@ -1,6 +1,15 @@
-class BackendGetter(object):
+
+"""
+Get methods provide convenient methods to query the database - returning porperties of other rows.
+
+Answers questions like "what series are a title in?"
+"""
+
+
+class BackendGetter:
     """
     Provides convenience methods to get objects and information from the database.
+
     e.g. Can take a title row and return the synopsis for that title.
     Centralizes retrieval methods here so that if the storage methadology changes it's easier to re-write to
     accommodate that.

@@ -158,7 +158,7 @@ class _DriverBundle:
 def sqlite_driver_bundle(provision_test_database):
     """Provision a schema-only DB and return a ready-to-use DatabaseDriver."""
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import DatabaseDriver
+    from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver import DatabaseDriver
 
     provisioned = provision_test_database("test_db_13")
 

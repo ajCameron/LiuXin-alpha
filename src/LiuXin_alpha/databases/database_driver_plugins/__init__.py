@@ -51,7 +51,7 @@ def loadDatabaseDriver(db_type: str):
     # return databasedriver_module.DatabaseDriver
 
     if db_type.lower() == "sqlite":
-        from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import DatabaseDriver as _DatabaseDriver
+        from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver import DatabaseDriver as _DatabaseDriver
         return _DatabaseDriver
 
     raise NotImplementedError("Need a recognized database driver.")

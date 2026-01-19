@@ -13,6 +13,7 @@ class Intralinker(object):
     def creator_creator(self, primary, secondary, link_type=None):
         """
         Intralink two creators - returns the intralink row.
+
         :param primary:
         :param secondary:
         :param priority:

@@ -21,7 +21,7 @@ class TestBasicTopLevelSurfaceImports:
 
         :return:
         """
-        from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import DatabaseDriver
+        from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver import DatabaseDriver
 
         assert DatabaseDriver is not None
 

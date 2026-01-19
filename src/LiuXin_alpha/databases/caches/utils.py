@@ -7,37 +7,53 @@ Generic tools common for all cache objects.
 # one_many_single_link_table_cache is used to store one to many information about objects on the database
 # Each of the elements can be linked to multiple of the other elements
 
-import shutil
 from collections import defaultdict
 
+
+
+from LiuXin.metadata.book.base import calibreMetadata as Metadata
+
+
+from LiuXin_alpha.utils.logging import default_log
+
 try:
-    from LiuXin.customize.ui import run_plugins_on_import
+    from LiuXin_alpha.customize.ui import run_plugins_on_import
 except ImportError:
+
+    default_log.exception('LiuXin_alpha.customize.ui - cannot import run_plugins_on_import')
 
     def run_plugins_on_import(file):
         return file
 
 
-from LiuXin.metadata.book.base import calibreMetadata as Metadata
+try:
+    from LiuXin_alpha.customize.ui import run_plugins_on_postimport
+except ImportError:
 
-# Todo: This should be over in preferences
-from LiuXin.utils.config.config_base import prefs
-from LiuXin.utils.ptempfiles import (
-    PersistentTemporaryFile,
-)
+    default_log.exception('LiuXin_alpha.customize.ui - cannot import run_plugins_on_postimport')
+
+    def run_plugins_on_postimport(file):
+        return file
 
 
-def run_import_plugins(path_or_stream, fmt):
-    fmt = fmt.lower()
-    if hasattr(path_or_stream, "seek"):
-        path_or_stream.seek(0)
-        pt = PersistentTemporaryFile("_import_plugin." + fmt)
-        shutil.copyfileobj(path_or_stream, pt, 1024**2)
-        pt.close()
-        path = pt.name
-    else:
-        path = path_or_stream
-    return run_plugins_on_import(path)
+try:
+    from LiuXin_alpha.customize.ui import run_plugins_on_postadd
+except ImportError:
+
+    default_log.exception('LiuXin_alpha.customize.ui - cannot import run_plugins_on_postadd')
+
+    def run_plugins_on_postadd(file, *args, **kwargs):
+        return file
+
+
+try:
+    from LiuXin_alpha.customize.ui import run_import_plugins
+except ImportError:
+
+    default_log.exception('LiuXin_alpha.customize.ui - cannot import run_import_plugins')
+
+    def run_plugins_on_postadd(file, *args, **kwargs):
+        return file
 
 
 def _add_newbook_tag(mi):
@@ -46,6 +62,8 @@ def _add_newbook_tag(mi):
     :param mi:
     :return:
     """
+    from LiuXin_alpha.preferences import preferences as prefs
+
     tags = prefs["new_book_tags"]
     if tags:
         if isinstance(mi, Metadata):
@@ -184,3 +202,8 @@ class LazySortMap(object):
             except KeyError:
                 val = self.cache[item_id] = self.default_sort_key
             return val
+
+
+
+__all__ = ['run_plugins_on_import', 'run_plugins_on_postimport', 'run_plugins_on_postadd', 'run_import_plugins']
+
