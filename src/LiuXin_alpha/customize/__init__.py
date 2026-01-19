@@ -24,21 +24,19 @@ import zipfile
 import importlib
 from copy import deepcopy
 
-# Todo: These are calling the calbire versions a lot - should actually be calling the liuxin versions
-from LiuXin.utils.localization import _
-from LiuXin.constants import calibre_numeric_version as numeric_version, iswindows, isosx
+from LiuXin_alpha.utils.localization import _
+from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
+from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as calibre_numeric_version
+from LiuXin_alpha.utils.which_os import iswindows, isosx
 
-from LiuXin.utils.calibre.constants import numeric_version as calibre_numeric_version
+from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile as LiuXinZipFile
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory, PersistentTemporaryFile
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile as LiuXinZipFile
-from LiuXin.utils.ptempfiles import TemporaryDirectory, PersistentTemporaryFile
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.errors import PluginNotFound, InvalidPlugin
 
-from LiuXin.exceptions import PluginNotFound
-from LiuXin.exceptions import InvalidPlugin
-
-from LiuXin.preferences import preferences
+from LiuXin_alpha.preferences import preferences
 
 platform = "linux"
 if iswindows:
@@ -600,9 +598,9 @@ class CatalogPlugin(Plugin):  # {{{
         Tab will be dynamically generated and added to the Catalog Options dialog in
         calibre.gui2.dialogs.catalog.py:Catalog
         """
-        from LiuXin.customize.builtins import plugins as builtin_plugins
-        from LiuXin.customize.ui import config
-        from LiuXin.utils.calibre.ptempfile import PersistentTemporaryDirectory
+        from LiuXin_alpha.customize.builtins import plugins as builtin_plugins
+        from LiuXin_alpha.customize.ui import config
+        from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 
         if not type(self) in builtin_plugins and self.name not in config["disabled_plugins"]:
             files_to_copy = ["%s.%s" % (self.name.lower(), ext) for ext in ["ui", "py"]]

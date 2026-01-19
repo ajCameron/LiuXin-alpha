@@ -298,37 +298,46 @@ def make_simpler_search_term(search_string):
 # reasonably could be an abbreviation into the right form.
 
 # Todo: Put the Regexes used here somewhere they can be more easily gotten to
-GENRE_SHORTENED_MAPPING = {
-    "Science Fiction": (r"science ?fiction", r"sci ?fi", "s ?f"),
-    "Fantasy": (r"fant?a?s?y?",),
-    "High Fantasy": (r"h. ?fan", r"high ?fantasy"),
-    "Military Science Fiction": (
-        r"military science fiction",
-        r"mil.? ?s ? f",
-        r"military ?sf",
-    ),
-    "Realistic Fiction": (r"rf", r"realistic ?fiction"),
-    "Urban Fantasy": (r"urban ?fantasy", r"uf"),
-}
+#
+# NOTE:
+#   Historically this module carried a tiny GENRE_SHORTENED_MAPPING and a
+#   match()-based standardize_genre(). We now delegate to
+#   LiuXin_alpha.metadata.standardize_genre which:
+#     - normalizes unicode (accent-insensitive)
+#     - compiles regexes once
+#     - contains a substantially larger mapping
+from LiuXin_alpha.metadata import standardize_genre as _genre_std
+
+
+# Public alias retained for backwards compatibility
+GENRE_SHORTENED_MAPPING = _genre_std.GENRE_SHORTENED_MAPPING
+_COMPILED_GENRE_SHORTENED_MAPPING = _genre_std.compile_genre_mapping(GENRE_SHORTENED_MAPPING)
 
 
 def standardize_genre(genre_string):
-    """
-    Takes the name of a genre as a string - tries to return one of the standard replacements. If it fails brings the
-    genre into title case and returns it.
-    :param genre_string:
-    :return normalized_genre_string:
-    """
-    genre_string = deepcopy(genre_string)
+    """Normalize a genre-ish string into a canonical shelf label.
 
-    for genre in GENRE_SHORTENED_MAPPING:
-        regex_tuple = GENRE_SHORTENED_MAPPING[genre]
-        for regex in regex_tuple:
-            if re.compile(regex, re.I).match(genre_string) is not None:
-                return genre
+    Backwards compatible wrapper around :func:`LiuXin_alpha.metadata.standardize_genre.standardize_genre`.
+    """
+    if genre_string is None:
+        return ""
+    default = titlecase(deepcopy(genre_string))
+    out = _genre_std.standardize_genre(genre_string, _COMPILED_GENRE_SHORTENED_MAPPING, default=default)
+    return out if out is not None else default
 
-    # If not matches are found, fall back on title casing the given genre string and returning that
-    return titlecase(genre_string)
+
+def classify_fiction_genre(genre_string, *, multi_leaf=False, default_branch=None, default_leaf=None):
+    """Classify a genre-ish string into (branch, leaf) for fiction.
+
+    Returns a FictionGenreClassification (dataclass) from
+    :func:`LiuXin_alpha.metadata.standardize_genre.classify_fiction_genre`.
+    """
+    return _genre_std.classify_fiction_genre(
+        genre_string,
+        multi_leaf=multi_leaf,
+        default_branch=default_branch,
+        default_leaf=default_leaf,
+    )
 
 
 def standardize_language(language_string):
