@@ -6,7 +6,6 @@
 
 from __future__ import print_function
 
-import apsw
 import codecs
 import os
 import pprint
@@ -26,11 +25,11 @@ from LiuXin_alpha.utils.terminal import y_n_input
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 
-from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.database_generator.database_generator import (
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.database_generator.database_generator import (
     create_new_database,
 )
-from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.macros import SQLiteDatabaseMacros
-from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.custom_columns import (
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.macros import SQLiteDatabaseMacros
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.custom_columns import (
     SQLiteCustomColumnsDriverMixin,
 )
 
@@ -52,7 +51,6 @@ from LiuXin_alpha.utils.logging import default_log
 
 from LiuXin_alpha.utils.ptempfiles import get_scratch_folder
 from LiuXin_alpha.utils.date import utcfromtimestamp
-from LiuXin_alpha.utils.databases.apsw_shell import Shell
 from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.utils.libraries.liuxin_six import force_cmp, user_input, force_unicode
@@ -60,62 +58,10 @@ from LiuXin_alpha.utils.storage.local.filenames import atomic_rename
 
 from LiuXin_alpha.metadata.utils import author_to_author_sort, title_sort
 
-from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.utility_mixins import SQLiteTableLinkingMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.utility_mixins import SQLiteTableLinkingMixin
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
-
-
-class Connection(apsw.Connection):
-
-    BUSY_TIMEOUT = 10000  # milliseconds
-
-    def __init__(self, path):
-        apsw.Connection.__init__(self, path)
-
-        self.setbusytimeout(self.BUSY_TIMEOUT)
-        self.execute("pragma cache_size=5000")
-        self.execute("pragma temp_store=2")
-
-        encoding = self.execute("pragma encoding").next()[0]
-        self.createcollation("PYNOCASE", partial(pynocase, encoding=encoding))
-
-        self.createscalarfunction("title_sort", title_sort, 1)
-        self.createscalarfunction("author_to_author_sort", _author_to_author_sort, 1)
-        self.createscalarfunction("uuid4", lambda: str(uuid.uuid4()), 0)
-
-        # Dummy functions for dynamically created filters
-        self.createscalarfunction("books_list_filter", lambda x: 1, 1)
-        self.createcollation("icucollate", icu_collator)
-
-        # Legacy aggregators (never used) but present for backwards compat
-        self.createaggregatefunction("sortconcat", SortedConcatenate, 2)
-        self.createaggregatefunction("sortconcat_bar", partial(SortedConcatenate, sep="|"), 2)
-        self.createaggregatefunction("sortconcat_amper", partial(SortedConcatenate, sep="&"), 2)
-        self.createaggregatefunction("identifiers_concat", SqliteIdentifiersConcat, 2)
-        self.createaggregatefunction("concat", Concatenate, 1)
-        self.createaggregatefunction("aum_sortconcat", AumSortedConcatenate, 4)
-
-    def create_dynamic_filter(self, name):
-        f = DynamicFilter(name)
-        self.createscalarfunction(name, f, 1)
-
-    def get(self, *args, **kw):
-        ans = self.cursor().execute(*args)
-        if kw.get("all", True):
-            return ans.fetchall()
-        try:
-            return ans.next()[0]
-        except (StopIteration, IndexError):
-            return None
-
-    def execute(self, sql, bindings=None):
-        cursor = self.cursor()
-        return cursor.execute(sql, bindings)
-
-    def executemany(self, sql, sequence_of_bindings):
-        with self:  # Disable autocommit mode, for performance
-            return self.cursor().executemany(sql, sequence_of_bindings)
 
 
 class DummyMaintenanceBot(object):
@@ -617,11 +563,12 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
 
     def dump_and_restore(self, callback=lambda x: x, sql=None):
         """
-        Dump the database - and all the information in it - to a series of
-        :param callback: Report the progress of the dump.
-        :param sql: These statements will be written into the start of the file before the data is saved to it - so they
-                    will be executed before the rest as the database is restored.
-        :return:
+        Dump the database to SQL, restore it into a fresh temp db, then atomically replace.
+
+        This is a pure-sqlite3 implementation (no APSW dependency).
+
+        :param callback: Report progress.
+        :param sql: Optional SQL bytes/str to prepend to the dump before restoration.
         """
         if callback is None:
 
@@ -632,28 +579,74 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
 
         with TemporaryFile(suffix=".sql") as fname:
 
+            # --------------------
+            # Write dump
+            # --------------------
             if sql is None:
                 callback(_("Dumping database to SQL") + "...")
-                with codecs.open(fname, "wb", encoding="utf-8") as buf:
-                    aspw_conn = Connection(path=self.database_path)
-                    shell = Shell(db=aspw_conn, stdout=buf)
-                    shell.process_command(".dump")
+                dump_conn = self.get_connection()
+                try:
+                    with codecs.open(fname, "w", encoding="utf-8") as buf:
+                        for line in dump_conn.iterdump():
+                            buf.write(line)
+                            if not line.endswith("\n"):
+                                buf.write("\n")
+                finally:
+                    try:
+                        dump_conn.close()
+                    except Exception:
+                        pass
             else:
                 with open(fname, "wb") as buf:
                     buf.write(sql if isinstance(sql, bytes) else sql.encode("utf-8"))
 
+            # --------------------
+            # Restore into temp db
+            # --------------------
             with TemporaryFile(suffix="_tmpdb.db", dir=os.path.dirname(self.database_path)) as tmpdb:
                 callback(_("Restoring database from SQL") + "...")
-                with closing(Connection(tmpdb)) as conn:
-                    shell = Shell(db=conn, encoding="utf-8")
-                    shell.process_command(".read " + fname.replace(os.sep, "/"))
-                    conn.execute("PRAGMA user_version=%d;" % uv)
+
+                restore_conn = SQLite_Connection(tmpdb, detect_types=sqlite3.PARSE_DECLTYPES)
+                try:
+                    # Ensure compat collations/functions exist during schema creation.
+                    restore_conn.execute("PRAGMA foreign_keys=ON")
+                    restore_conn.create_function("title_sort", 1, title_sort)
+                    restore_conn.create_function("author_to_author_sort", 1, _author_to_author_sort)
+                    restore_conn.create_function("uuid4", 0, lambda: str(uuid.uuid4()))
+                    restore_conn.create_function("books_list_filter", 1, lambda x: 1)
+                    restore_conn.create_collation("icucollate", icu_collator)
+
+                    # Register the custom collator (ported from calibre)
+                    encoding = next(restore_conn.execute("PRAGMA encoding"))[0]
+                    restore_conn.create_collation("PYNOCASE", partial(pynocase, encoding=encoding))
+
+                    # Stream the SQL file to avoid loading huge dumps into memory
+                    statement = ""
+                    with codecs.open(fname, "r", encoding="utf-8") as f:
+                        for line in f:
+                            statement += line
+                            if sqlite3.complete_statement(statement):
+                                st = statement.strip()
+                                if st:
+                                    restore_conn.execute(st)
+                                statement = ""
+                        if statement.strip():
+                            restore_conn.execute(statement)
+
+                    restore_conn.execute("PRAGMA user_version=%d;" % uv)
+                    restore_conn.commit()
+                finally:
+                    try:
+                        restore_conn.close()
+                    except Exception:
+                        pass
 
                 self.close()
                 try:
                     atomic_rename(tmpdb, self.database_path)
                 finally:
                     self.reopen()
+
 
     @property
     def user_version(self):

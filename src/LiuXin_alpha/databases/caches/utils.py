@@ -4,15 +4,10 @@ Generic tools common for all cache objects.
 """
 
 
-# one_many_single_link_table_cache is used to store one to many information about objects on the database
+# one_many_single_link_table_cache is used to store one-to-many information about objects on the database
 # Each of the elements can be linked to multiple of the other elements
 
 from collections import defaultdict
-
-
-
-from LiuXin.metadata.book.base import calibreMetadata as Metadata
-
 
 from LiuXin_alpha.utils.logging import default_log
 
@@ -59,9 +54,12 @@ except ImportError:
 def _add_newbook_tag(mi):
     """
     Apply the new book tags (if any) to the given metadata.
+
     :param mi:
     :return:
     """
+    from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
+
     from LiuXin_alpha.preferences import preferences as prefs
 
     tags = prefs["new_book_tags"]
@@ -105,6 +103,7 @@ class OneManyExclusiveLinkTableCache(object):
     def __init__(self, table_name, column_name=None, default_val=None):
         """
         Initialize a cache from a table.
+
         Loading data from the table is optional - you can just start the cache without any table data.
         :param table_name: The name of a table on the database - pass None if the cache doesn't represent any table on
                            the database.
@@ -172,6 +171,7 @@ class OneOneTableCache(object):
     def __init__(self, table_name, column_name=None, default_val=None):
         """
         Initialize a cache from a table.
+
         Loading data from the table is optional - you can just start the cache without any table data.
         :param table_name:
         :param column_name:
