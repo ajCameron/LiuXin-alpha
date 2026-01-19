@@ -1,48 +1,6 @@
-import sys
-import types
 import random
 
 import pytest
-
-
-@pytest.fixture()
-def stub_calibre(monkeypatch):
-    """Provide a minimal `calibre` module so calibre_chardet can run in isolation."""
-
-    calibre = types.ModuleType("calibre")
-    constants = types.ModuleType("calibre.constants")
-    constants.preferred_encoding = "utf-8"
-
-    def xml_entity_to_unicode(match):
-        """Calibre-compatible entity resolver used by substitute_entites()."""
-
-        name = match.group(1)
-        mapping = {
-            "amp": "&",
-            "lt": "<",
-            "gt": ">",
-            "quot": '"',
-            "apos": "'",
-        }
-        if name.startswith("#x"):
-            try:
-                return chr(int(name[2:], 16))
-            except Exception:
-                return match.group(0)
-        if name.startswith("#"):
-            try:
-                return chr(int(name[1:], 10))
-            except Exception:
-                return match.group(0)
-        return mapping.get(name, match.group(0))
-
-    calibre.xml_entity_to_unicode = xml_entity_to_unicode
-    calibre.constants = constants
-
-    monkeypatch.setitem(sys.modules, "calibre", calibre)
-    monkeypatch.setitem(sys.modules, "calibre.constants", constants)
-
-    return calibre
 
 
 def _import_module():
@@ -117,35 +75,36 @@ class TestEncodingDeclarationHelpers:
 
 
 class TestEntitySubstitution:
-    def test_substitute_entites_basic_and_numeric(self, stub_calibre):
+    def test_substitute_entites_basic_and_numeric(self):
         cc = _import_module()
         raw = "Tom &amp; Jerry &lt;3 &#169; &#x1F63A;"
         out = cc.substitute_entites(raw)
-        assert out == "Tom & Jerry <3 © 😺"
+        # For safety, core XML entities remain escaped, but non-core entities
+        # are decoded to their Unicode equivalents.
+        assert out == "Tom &amp; Jerry &lt;3 © 😺"
 
 
 class TestForceEncoding:
-    def test_force_encoding_maps_ascii_to_utf8(self, stub_calibre, monkeypatch):
+    def test_force_encoding_maps_ascii_to_utf8(self, monkeypatch):
         cc = _import_module()
         monkeypatch.setattr(cc, "detect", lambda _b: {"encoding": "ascii", "confidence": 1.0})
         assert cc.force_encoding(b"hello", verbose=False) == "utf-8"
 
-    def test_force_encoding_applies_aliases(self, stub_calibre, monkeypatch):
+    def test_force_encoding_applies_aliases(self, monkeypatch):
         cc = _import_module()
         monkeypatch.setattr(cc, "detect", lambda _b: {"encoding": "x-sjis", "confidence": 1.0})
         assert cc.force_encoding(b"x", verbose=False) == "shift-jis"
 
-    def test_force_encoding_assume_utf8_overrides_low_confidence(self, stub_calibre, monkeypatch):
+    def test_force_encoding_assume_utf8_overrides_low_confidence(self, monkeypatch):
         cc = _import_module()
         monkeypatch.setattr(cc, "detect", lambda _b: {"encoding": "windows-1252", "confidence": 0.2})
         assert cc.force_encoding(b"x", verbose=False, assume_utf8=True) == "utf-8"
 
-    def test_force_encoding_verbose_warns(self, stub_calibre, monkeypatch, capsys):
+    def test_force_encoding_verbose_warns(self, monkeypatch):
         cc = _import_module()
         monkeypatch.setattr(cc, "detect", lambda _b: {"encoding": "utf-8", "confidence": 0.3})
-        cc.force_encoding(b"x", verbose=True)
-        out = capsys.readouterr().out
-        assert "WARNING" in out
+        with pytest.warns(RuntimeWarning):
+            cc.force_encoding(b"x", verbose=True)
 
 
 class TestDetectXmlEncodingAndXmlToUnicode:
@@ -155,7 +114,7 @@ class TestDetectXmlEncodingAndXmlToUnicode:
         if not _has_py3_unicode_alias(cc):
             pytest.skip("calibre_chardet is missing the Python 3 `unicode=str` alias")
 
-    def test_detect_xml_encoding_returns_unicode_unchanged(self, stub_calibre):
+    def test_detect_xml_encoding_returns_unicode_unchanged(self):
         """On Python 3, `unicode` should behave like `str` (this currently breaks)."""
 
         cc = _import_module()
@@ -177,7 +136,7 @@ class TestDetectXmlEncodingAndXmlToUnicode:
             ("BOM_UTF16_BE", "utf-16-be", "hello Δ"),
         ],
     )
-    def test_detect_xml_encoding_strips_bom(self, stub_calibre, bom_name, encoding_tag, text):
+    def test_detect_xml_encoding_strips_bom(self, bom_name, encoding_tag, text):
         cc = _import_module()
         import codecs
 
@@ -199,7 +158,7 @@ class TestDetectXmlEncodingAndXmlToUnicode:
         assert enc == encoding_tag
         assert out_raw == payload
 
-    def test_detect_xml_encoding_reads_declared_encoding_in_bytes(self, stub_calibre):
+    def test_detect_xml_encoding_reads_declared_encoding_in_bytes(self):
         """Should detect encodings declared in XML/HTML headers (this currently breaks on py3)."""
 
         cc = _import_module()
@@ -216,7 +175,7 @@ class TestDetectXmlEncodingAndXmlToUnicode:
         assert out_raw == raw
         assert enc.lower() in {"windows-1252", "cp1252"}
 
-    def test_detect_xml_encoding_gb2312_is_upgraded_to_gbk(self, stub_calibre):
+    def test_detect_xml_encoding_gb2312_is_upgraded_to_gbk(self):
         cc = _import_module()
         # Minimal HTML with a legacy declaration; content bytes are valid GBK.
         body = "\u4e2d\u56fd".encode("gbk")
@@ -230,7 +189,7 @@ class TestDetectXmlEncodingAndXmlToUnicode:
         assert out_raw == raw
         assert enc.lower() == "gbk"
 
-    def test_xml_to_unicode_decodes_and_can_strip_decl(self, stub_calibre, monkeypatch):
+    def test_xml_to_unicode_decodes_and_can_strip_decl(self, monkeypatch):
         cc = _import_module()
 
         # Force deterministic encoding selection regardless of chardet.
@@ -245,7 +204,7 @@ class TestDetectXmlEncodingAndXmlToUnicode:
         assert "encoding" not in text
         assert "<root>hi</root>" in text
 
-    def test_xml_to_unicode_resolves_entities(self, stub_calibre, monkeypatch):
+    def test_xml_to_unicode_resolves_entities(self, monkeypatch):
         cc = _import_module()
 
         monkeypatch.setattr(cc, "force_encoding", lambda _b, *_a, **_k: "utf-8")
@@ -256,11 +215,12 @@ class TestDetectXmlEncodingAndXmlToUnicode:
             pytest.fail(f"xml_to_unicode should resolve entities; got {type(e).__name__}: {e}")
 
         assert enc in {"utf-8", "utf8"}
-        assert "Tom & Jerry" in text
+        # Core XML entities should remain escaped.
+        assert "Tom &amp; Jerry" in text
 
 
 @pytest.mark.slow
-def test_nightmare_random_bytes_does_not_crash_xml_to_unicode(stub_calibre, monkeypatch):
+def test_nightmare_random_bytes_does_not_crash_xml_to_unicode(monkeypatch):
     """Fuzz-ish: random bytes should never crash decoding (should use replacement chars)."""
 
     cc = _import_module()

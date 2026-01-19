@@ -70,7 +70,17 @@ def character_name(unicode_char):
 
 
 def chr(character):
-    return None
+    """Fallback implementation of ``chr``.
+
+    The compiled ICU extension provides an implementation used throughout the
+    calibre/LiuXin codebase. When ICU is not available we still need a sensible
+    behavior: returning ``None`` causes silent data loss in entity decoding.
+    """
+
+    try:
+        return __builtins__["chr"](int(character))
+    except Exception:
+        return "?"
 
 
 def swap_case(target_string):
