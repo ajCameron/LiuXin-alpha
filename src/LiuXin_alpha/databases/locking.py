@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Additional lock methods and utility wrappers.
+"""
+
+
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import traceback
@@ -9,7 +14,7 @@ from functools import wraps
 from threading import Lock, Condition, current_thread
 from typing import ParamSpec, TypeVar, Callable
 
-from LiuXin.utils.calibre.calibre_emulation import tweaks
+from LiuXin_alpha.preferences import preferences as tweaks
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"

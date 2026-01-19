@@ -9,7 +9,7 @@ from collections import defaultdict
 
 from six import string_types
 
-from LiuXin.customize.cache.base_tables import ONE_MANY, MANY_ONE, MANY_MANY
+from LiuXin_alpha.customize.cache.base_tables import ONE_MANY, MANY_ONE, MANY_MANY
 from LiuXin.databases.adaptors import get_adapter
 from LiuXin.databases.adaptors import sqlite_datetime
 
