@@ -12,38 +12,35 @@ from six import string_types
 from LiuXin_alpha.metadata.constants import CREATOR_TYPES, EXTERNAL_EBOOK_ID_SCHEMA, INTERNAL_EBOOK_ID_SCHEMA
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin.databases.fingerprints import generate_title_fingerprint
+from LiuXin_alpha.databases.hashes import generate_title_fingerprint
 
-from LiuXin.exceptions import InputIntegrityError
-from LiuXin.exceptions import DatabaseIntegrityError
+from LiuXin_alpha.errors import InputIntegrityError, DatabaseIntegrityError
 
-from LiuXin.library.standardization import standardize_creator_name
-from LiuXin.library.standardization import make_creator_phash
-from LiuXin.library.standardization import gen_title_author_phash
-from LiuXin.library.standardization import standardize_genre
-from LiuXin.library.standardization import standardize_language
-from LiuXin.library.standardization import make_tag_search_term
-from LiuXin.library.standardization import standardize_tag
-from LiuXin.library.standardization import make_title_search_term
-from LiuXin.library.standardization import standardize_title
-from LiuXin.library.standardization import standardize_identifier
-from LiuXin.library.standardization import standardize_publisher
-from LiuXin.library.standardization import standardize_series
-from LiuXin.library.standardization import make_series_phash
+from LiuXin_alpha.metadata.standardization import standardize_creator_name, make_creator_phash, gen_title_author_phash
+from LiuXin_alpha.metadata.standardization import standardize_genre
+from LiuXin_alpha.metadata.standardization import standardize_language
+from LiuXin_alpha.metadata.standardization import make_tag_search_term
+from LiuXin_alpha.metadata.standardization import standardize_tag
+from LiuXin_alpha.metadata.standardization import make_title_search_term
+from LiuXin_alpha.metadata.standardization import standardize_title
+from LiuXin_alpha.metadata.standardization import standardize_identifier
+from LiuXin_alpha.metadata.standardization import standardize_publisher
+from LiuXin_alpha.metadata.standardization import standardize_series
+from LiuXin_alpha.metadata.standardization import make_series_phash
 
-from LiuXin.metadata import authors_to_sort_string
-from LiuXin.metadata import author_to_author_sort
-from LiuXin.metadata import title_sort as generate_title_sort
-from LiuXin.metadata import check_isbn
-from LiuXin.metadata import check_issn
-from LiuXin.metadata import check_doi
-from LiuXin.metadata.metadata_standardize import standardize_id_name
+from LiuXin_alpha.metadata.utils import authors_to_sort_string
+from LiuXin_alpha.metadata.utils import author_to_author_sort
+from LiuXin_alpha.metadata.utils import title_sort as generate_title_sort
+from LiuXin_alpha.metadata.utils import check_isbn
+from LiuXin_alpha.metadata.utils import check_issn
+from LiuXin_alpha.metadata.utils import check_doi
+from LiuXin_alpha.metadata.standardize import standardize_id_name
 
-from LiuXin.utils.date import isoformat_timestamp, utcnow
-from LiuXin.utils.general_ops.id_creation_tools import get_unique_group_id
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.date import isoformat_timestamp, utcnow
+from LiuXin_alpha.utils.identifiers import get_unique_group_id
+from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 # Todo: Make sure that all the tables with tree like structure have parent, depth, tree_id and full
 # Todo: Make sure that all tables have a phash and sort field

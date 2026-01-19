@@ -14,7 +14,7 @@ from LiuXin.constants import filesystem_encoding
 
 from LiuXin.library.comments import comments_to_html
 
-from LiuXin.metadata import fmt_sidx
+from LiuXin_alpha.metadata import fmt_sidx
 from LiuXin.metadata.web_sources.identify import urls_from_identifiers
 
 from LiuXin.utils.calibre import prepare_string_for_xml, force_unicode

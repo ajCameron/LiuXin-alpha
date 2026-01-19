@@ -22,9 +22,9 @@ from LiuXin_alpha.constants import check_image_tuple
 #
 # from LiuXin.file_formats.chardet import force_encoding
 #
-# from LiuXin.metadata import check_isbn
-# from LiuXin.metadata import string_to_authors
-# from LiuXin.metadata import authors_to_sort_string
+# from LiuXin_alpha.metadata import check_isbn
+# from LiuXin_alpha.metadata import string_to_authors
+# from LiuXin_alpha.metadata import authors_to_sort_string
 # from LiuXin.metadata.book.base import calibreMetadata
 from LiuXin_alpha.metadata.constants import CREATOR_DROP_REGEX_SET, CREATOR_CATEGORIES, CREATOR_TYPES, CREATOR_TYPE_CAT_DIR, EXTERNAL_EBOOK_ID_SCHEMA, EXTERNAL_EBOOK_REKEY_SCHEME
 from LiuXin_alpha.metadata.constants import INTERNAL_EBOOK_ID_SCHEMA

@@ -87,7 +87,7 @@ from LiuXin.exceptions import InvalidUpdate
 
 from LiuXin.folder_stores.location import Location
 
-from LiuXin.metadata import title_sort
+from LiuXin_alpha.metadata import title_sort
 
 from LiuXin.preferences import preferences as tweaks
 

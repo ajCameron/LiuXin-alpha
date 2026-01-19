@@ -10,7 +10,7 @@ from lxml.builder import ElementMaker
 
 from LiuXin.file_formats.docx.names import DOCXNamespace
 
-from LiuXin.metadata import authors_to_string
+from LiuXin_alpha.metadata import authors_to_string
 
 from LiuXin.utils.calibre import guess_type
 from LiuXin.utils.calibre.constants import numeric_version, __appname__

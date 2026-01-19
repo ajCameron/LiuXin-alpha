@@ -10,7 +10,7 @@ CHM document support.
 import codecs
 import re
 
-from LiuXin.metadata import calibreMetaInformation
+from LiuXin_alpha.metadata import calibreMetaInformation
 from LiuXin.metadata.ebook_metadata_tools import string_to_authors
 from LiuXin.metadata.metadata import MetaData as MetaInformation
 

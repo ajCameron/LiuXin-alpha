@@ -1,13 +1,17 @@
-from LiuXin.databases.row import Row
 
-from LiuXin.exceptions import DatabaseIntegrityError
-from LiuXin.exceptions import InputIntegrityError
+"""
+Apply objects to entries in the database.
+"""
 
-from LiuXin.metadata.ebook_metadata_tools import check_issn
-from LiuXin.metadata.ebook_metadata_tools import check_isbn
 
-from LiuXin.utils.logger import default_log
-from six import string_types
+from LiuXin_alpha.databases.row import Row
+
+from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
+
+from LiuXin_alpha.metadata.ebook_metadata_tools import check_issn, check_isbn
+
+from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types as string_types
 
 
 class Apply(object):

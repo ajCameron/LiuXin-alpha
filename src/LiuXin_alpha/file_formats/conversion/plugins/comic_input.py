@@ -227,7 +227,7 @@ class ComicInput(InputFormatPlugin):
         return self._images
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        from LiuXin.metadata import calibreMetaInformation as MetaInformation
+        from LiuXin_alpha.metadata import calibreMetaInformation as MetaInformation
         from LiuXin.file_formats.opf.opf2 import OPFCreator
         from LiuXin.metadata.toc import TOC
 

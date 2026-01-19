@@ -30,7 +30,7 @@ from LiuXin.exceptions import (
     DatabaseIntegrityError,
 )
 
-from LiuXin.metadata import author_to_author_sort
+from LiuXin_alpha.metadata import author_to_author_sort
 
 from LiuXin.preferences import preferences
 

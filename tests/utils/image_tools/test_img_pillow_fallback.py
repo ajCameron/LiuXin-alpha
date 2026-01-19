@@ -4,6 +4,8 @@ from io import BytesIO
 
 import pytest
 
+PIL = pytest.importorskip("PIL", reason="Pillow (PIL) not installed; skipping Pillow-specific image tests")
+
 
 def _make_rgba_png_bytes(size=(64, 48)) -> bytes:
     from PIL import Image

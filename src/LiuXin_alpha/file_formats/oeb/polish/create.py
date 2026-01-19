@@ -12,7 +12,7 @@ from LiuXin.utils.calibre import prepare_string_for_xml, CurrentDir
 
 from LiuXin.utils.ptempfiles import TemporaryDirectory
 
-from LiuXin.metadata import authors_to_string
+from LiuXin_alpha.metadata import authors_to_string
 
 from LiuXin.file_formats.oeb.base import serialize
 from LiuXin.file_formats.opf.opf2 import metadata_to_opf

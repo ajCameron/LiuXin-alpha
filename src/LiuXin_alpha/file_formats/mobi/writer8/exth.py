@@ -11,7 +11,7 @@ from LiuXin.constants import iswindows, isosx
 
 from LiuXin.file_formats.mobi.utils import utf8_text, to_base
 
-from LiuXin.metadata import authors_to_sort_string
+from LiuXin_alpha.metadata import authors_to_sort_string
 
 from LiuXin.utils.date import utcnow
 from LiuXin.utils.localization import lang_as_iso639_1

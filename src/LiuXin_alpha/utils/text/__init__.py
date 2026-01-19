@@ -4,6 +4,7 @@ Text manipulation tools.
 """
 
 from typing import Optional, Union
+from copy import deepcopy
 
 import re
 
@@ -146,3 +147,70 @@ def entity_to_unicode(match, exceptions=[], encoding="cp1252", result_exceptions
         return check(my_unichr(name2codepoint[ent]))
     except KeyError:
         return "&" + ent + ";"
+
+
+
+
+
+BRACKETS = ("<>", "{}", "()", "[]")
+
+
+def drop_bracketed_text(target_string, parenthesis_types=None):
+    """
+    Drops any text surrounded by parenthesis of the given types. If None is supplied defaults to
+    (u'<>', u'{}', u'()', u'[]').
+    Takes a parenthesis list of the form (u'[first_parenthesis_1][second_parenthesis_1]', ... ).
+    This will also normalize whitespace to single spaces.
+    :param target_string:
+    :return stripped_string:
+    """
+
+    from LiuXin_alpha.constants import VERBOSE_DEBUG
+    from LiuXin_alpha.errors import InputIntegrityError
+
+    target_string = deepcopy(target_string)
+    if parenthesis_types is None:
+        parenthesis_types = BRACKETS
+
+    # Builds an index of the left and right parenthesis - to try and ensure a clean drop in the case of overlapping
+    # parenthesis (e.g. the case of (something has [ clearly gone ) very wrong]
+    try:
+        l_index = [pair[0] for pair in parenthesis_types]
+        r_index = [pair[1] for pair in parenthesis_types]
+        sep_index = zip(l_index, r_index)
+    except IndexError:
+        if VERBOSE_DEBUG:
+            err_str = "Custom parenthesis_types passed into drop_bracketed_text are supposed to be of the form\n"
+            err_str += "(u'[first_parenthesis_1][second_parenthesis_1]', ... )\n"
+            err_str += "target_string: " + repr(target_string) + "\n"
+            err_str += "parenthesis_types: " + repr(parenthesis_types) + "\n"
+            raise InputIntegrityError(err_str)
+        else:
+            raise InputIntegrityError
+
+    # Scans through the string, looking for a left separator. Then continues searching for the corresponding right
+    # separator. Adds the position of these to the drop_index regex and zeros them.
+    drop_index = []
+    parenthesis_regex = r"(.*)\{}([^\{}]*)\{}(.*)"
+    for seps in sep_index:
+        l_sep = seps[0]
+        r_sep = seps[1]
+        current_par_regex = parenthesis_regex.format(l_sep, r_sep, r_sep)
+        current_par_pat = re.compile(current_par_regex)
+        while current_par_pat.match(target_string) is not None:
+            match = current_par_pat.match(target_string)
+            target_string = match.group(1) + " " + match.group(2) + " " + match.group(3)
+            drop_index.append((len(match.group(1)), len(target_string) - len(match.group(3))))
+
+    for index in drop_index:
+        if index[0] >= index[1]:
+            pass
+        else:
+            l_position = index[0]
+            r_position = index[1]
+            target_string = (
+                target_string[:l_position] + " " * (r_position - l_position + 1) + target_string[r_position + 1 :]
+            )
+
+    target_string = re.sub(r"\s+", " ", target_string)
+    return target_string

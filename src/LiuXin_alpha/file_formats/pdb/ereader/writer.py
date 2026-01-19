@@ -184,7 +184,7 @@ class Writer(FormatWriter):
             if len(metadata.title) >= 1:
                 title = metadata.title[0].value
             if len(metadata.creator) >= 1:
-                from LiuXin.metadata import authors_to_string
+                from LiuXin_alpha.metadata import authors_to_string
 
                 author = authors_to_string([x.value for x in metadata.creator])
             if len(metadata.rights) >= 1:

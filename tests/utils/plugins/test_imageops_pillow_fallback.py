@@ -4,6 +4,8 @@ from io import BytesIO
 
 import pytest
 
+PIL = pytest.importorskip("PIL", reason="Pillow (PIL) not installed; skipping Pillow-specific image tests")
+
 
 def _png_bytes(size=(48, 32)) -> bytes:
     from PIL import Image

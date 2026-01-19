@@ -19,7 +19,7 @@ from LiuXin.file_formats.oeb.base import XPath, XHTML_NS, XHTML, xml2text, urlde
 
 from LiuXin.library.comments import comments_to_html
 
-from LiuXin.metadata import fmt_sidx
+from LiuXin_alpha.metadata import fmt_sidx
 
 from LiuXin.utils.calibre import guess_type, strftime
 from LiuXin.utils.date import is_date_undefined

@@ -83,7 +83,7 @@ from LiuXin.exceptions import NoSuchFormat
 from LiuXin.file_formats import check_ebook_format
 from LiuXin.file_formats.opf.opf2 import metadata_to_opf
 
-from LiuXin.metadata import string_to_authors, author_to_author_sort
+from LiuXin_alpha.metadata import string_to_authors, author_to_author_sort
 from LiuXin.metadata.book.base import calibreMetadata as Metadata
 from LiuXin.metadata.metadata import MetaData as LiuXinMetadata
 

@@ -8,7 +8,7 @@ from functools import partial
 from operator import attrgetter
 from builtins import map
 
-from LiuXin.metadata import author_to_author_sort
+from LiuXin_alpha.metadata import author_to_author_sort
 
 from LiuXin.library.field_metadata import TagsIcons
 

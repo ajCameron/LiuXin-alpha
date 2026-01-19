@@ -149,7 +149,7 @@ class HTMLInput(InputFormatPlugin):
             meta_info_to_oeb_metadata,
         )
 
-        from LiuXin.metadata import string_to_authors
+        from LiuXin_alpha.metadata import string_to_authors
 
         from LiuXin.utils.calibre import guess_type
         from LiuXin.utils.localization import canonicalize_lang

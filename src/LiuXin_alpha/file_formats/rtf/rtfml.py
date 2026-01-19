@@ -10,7 +10,7 @@ from lxml import etree
 
 from past.builtins import unicode
 
-from LiuXin.metadata import authors_to_string
+from LiuXin_alpha.metadata import authors_to_string
 
 from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
 from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO

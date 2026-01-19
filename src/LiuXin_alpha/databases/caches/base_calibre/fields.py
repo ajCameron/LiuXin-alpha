@@ -43,7 +43,7 @@ from LiuXin.databases.db_types import (
 
 from LiuXin.exceptions import NotInCache
 
-from LiuXin.metadata import author_to_author_sort
+from LiuXin_alpha.metadata import author_to_author_sort
 
 from LiuXin.preferences import preferences as tweaks
 

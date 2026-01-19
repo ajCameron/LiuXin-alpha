@@ -12,7 +12,7 @@ from lxml.html.builder import OL, UL, SPAN
 from LiuXin.file_formats.docx.block_styles import ParagraphStyle
 from LiuXin.file_formats.docx.char_styles import RunStyle, inherit
 
-from LiuXin.metadata import roman
+from LiuXin_alpha.metadata import roman
 
 # Py2/Py3 compatability layer
 from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems

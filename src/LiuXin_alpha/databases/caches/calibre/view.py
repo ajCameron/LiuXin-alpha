@@ -14,7 +14,7 @@ from six import itervalues
 
 from LiuXin.databases.write import uniq
 
-from LiuXin.metadata import title_sort
+from LiuXin_alpha.metadata import title_sort
 
 from LiuXin.utils.config.config_base import tweaks, prefs
 from LiuXin.utils.lx_libraries.liuxin_six import memory_range

@@ -20,7 +20,7 @@ except ImportError:
 
 from lxml import html, etree
 
-from LiuXin.metadata import calibreMetaInformation as MetaInformation
+from LiuXin_alpha.metadata import calibreMetaInformation as MetaInformation
 from LiuXin.metadata.toc import TOC
 
 from LiuXin.file_formats import DRMError, unit_convert

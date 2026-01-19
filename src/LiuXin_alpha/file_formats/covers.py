@@ -30,7 +30,7 @@ from PyQt5.Qt import (
     QRectF,
 )
 
-from LiuXin.metadata import fmt_sidx
+from LiuXin_alpha.metadata import fmt_sidx
 from LiuXin.metadata.book.base import calibreMetadata as Metadata
 from LiuXin.metadata.book.formatter import SafeFormat
 

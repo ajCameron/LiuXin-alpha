@@ -1,31 +1,34 @@
+
+"""
+Ensure that there's an entry with certain properties on the database.
+"""
+
+
 import queue as Queue
 from copy import deepcopy
 
-from LiuXin.databases.metadata_tools.add import Add
-from LiuXin.databases.row import Row
+from LiuXin_alpha.databases.metadata_tools.add import Add
+from LiuXin_alpha.databases.row import Row
 
-from LiuXin.exceptions import DatabaseIntegrityError
-from LiuXin.exceptions import InputIntegrityError
+from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
-from LiuXin.library.standardization import make_creator_phash
-from LiuXin.library.standardization import make_series_phash
-from LiuXin.library.standardization import make_tag_search_term
-from LiuXin.library.standardization import standardize_creator_name
-from LiuXin.library.standardization import standardize_genre
-from LiuXin.library.standardization import standardize_language
-from LiuXin.library.standardization import standardize_publisher
-from LiuXin.library.standardization import standardize_series
+from LiuXin_alpha.metadata.standardization import make_creator_phash
+from LiuXin_alpha.metadata.standardization import make_series_phash
+from LiuXin_alpha.metadata.standardization import make_tag_search_term
+from LiuXin_alpha.metadata.standardization import standardize_creator_name
+from LiuXin_alpha.metadata.standardization import standardize_genre
+from LiuXin_alpha.metadata.standardization import standardize_language
+from LiuXin_alpha.metadata.standardization import standardize_publisher
+from LiuXin_alpha.metadata.standardization import standardize_series
+from LiuXin_alpha.metadata.standardize import standardize_id_name
 
-from LiuXin.metadata import check_doi
-from LiuXin.metadata import check_isbn
-from LiuXin.metadata import check_issn
-from LiuXin.metadata.constants import EXTERNAL_EBOOK_ID_SCHEMA
-from LiuXin.metadata.constants import INTERNAL_EBOOK_ID_SCHEMA
-from LiuXin.metadata.metadata_standardize import standardize_id_name
 
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.metadata.utils import check_doi, check_isbn, check_issn
+from LiuXin_alpha.metadata.constants import EXTERNAL_EBOOK_ID_SCHEMA, INTERNAL_EBOOK_ID_SCHEMA
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.logging import default_log
+
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 class Ensure(object):

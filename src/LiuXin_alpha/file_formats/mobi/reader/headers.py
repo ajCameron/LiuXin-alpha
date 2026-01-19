@@ -10,7 +10,7 @@ import struct
 from LiuXin.file_formats.mobi import MobiError
 from LiuXin.file_formats.mobi.langcodes import main_language, sub_language, mobi2iana
 
-from LiuXin.metadata import calibreMetaInformation
+from LiuXin_alpha.metadata import calibreMetaInformation
 from LiuXin.metadata.ebook_metadata_tools import check_isbn
 
 from LiuXin.utils.calibre import replace_entities

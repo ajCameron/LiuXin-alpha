@@ -20,9 +20,9 @@ from shutil import copyfileobj
 
 import xml.dom.minidom as dom
 
-from LiuXin.metadata import authors_to_string
-from LiuXin.metadata import calibreMetaInformation
-from LiuXin.metadata import string_to_authors
+from LiuXin_alpha.metadata import authors_to_string
+from LiuXin_alpha.metadata import calibreMetaInformation
+from LiuXin_alpha.metadata import string_to_authors
 from LiuXin.metadata.metadata import MetaData
 
 from LiuXin.utils.localization import trans as _

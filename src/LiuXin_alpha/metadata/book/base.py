@@ -699,7 +699,7 @@ class calibreMetadata(object):
         :param val:
         :return:
         """
-        from LiuXin.metadata import fmt_sidx
+        from LiuXin_alpha.metadata import fmt_sidx
 
         v = self.series_index if val is None else val
         try:
@@ -714,7 +714,7 @@ class calibreMetadata(object):
         :param raw:
         :return:
         """
-        from LiuXin.metadata import string_to_authors
+        from LiuXin_alpha.metadata import string_to_authors
 
         self.authors = string_to_authors(raw)
 
@@ -723,7 +723,7 @@ class calibreMetadata(object):
         Returns the authors as a string.
         :return:
         """
-        from LiuXin.metadata import authors_to_string
+        from LiuXin_alpha.metadata import authors_to_string
 
         return authors_to_string(self.authors)
 
@@ -764,7 +764,7 @@ class calibreMetadata(object):
         :param series_with_index:
         :return:
         """
-        from LiuXin.metadata import authors_to_string
+        from LiuXin_alpha.metadata import authors_to_string
         from LiuXin.utils.date import format_date
 
         # Handle custom series index
@@ -857,7 +857,7 @@ class calibreMetadata(object):
         """
         A string representation of this object, suitable for printing to console
         """
-        from LiuXin.metadata import authors_to_string
+        from LiuXin_alpha.metadata import authors_to_string
         from LiuXin.utils.date import isoformat
 
         ans = []
@@ -911,7 +911,7 @@ class calibreMetadata(object):
         """
         A HTML representation of this object.
         """
-        from LiuXin.metadata import authors_to_string
+        from LiuXin_alpha.metadata import authors_to_string
         from LiuXin.utils.date import isoformat
 
         ans = [(_("Title"), six_unicode(self.title))]

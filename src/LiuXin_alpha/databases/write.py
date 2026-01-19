@@ -18,7 +18,7 @@ from LiuXin.exceptions import InputIntegrityError
 from LiuXin.exceptions import InvalidUpdate
 from LiuXin.exceptions import NotInCache
 
-from LiuXin.metadata import author_to_author_sort, title_sort
+from LiuXin_alpha.metadata import author_to_author_sort, title_sort
 
 from LiuXin.utils.calibre import isbytestring
 from LiuXin.utils.icu import strcmp

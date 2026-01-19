@@ -42,11 +42,11 @@ def _reload_liuxin_preferences(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
 
     Only used if LiuXin is importable in the current environment.
     """
-    import LiuXin.paths as paths
+    import LiuXin_alpha.constants.paths as paths
 
     monkeypatch.setattr(paths, "LiuXin_prefs_folder", str(tmp_path), raising=False)
 
-    import LiuXin.preferences as prefs_mod
+    import LiuXin_alpha.preferences as prefs_mod
 
     return importlib.reload(prefs_mod)
 

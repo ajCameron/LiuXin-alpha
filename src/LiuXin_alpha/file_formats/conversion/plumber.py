@@ -1104,7 +1104,7 @@ class Plumber(object):
                 rec.level = level
 
     def opts_to_mi(self, mi):
-        from LiuXin.metadata import string_to_authors
+        from LiuXin_alpha.metadata import string_to_authors
 
         for x in self.metadata_option_names:
             val = getattr(self.opts, x, None)
@@ -1157,7 +1157,7 @@ class Plumber(object):
         Read all metadata specified by the user. Command line options override
         metadata from a specified OPF file.
         """
-        from LiuXin.metadata import calibreMetaInformation as MetaInformation
+        from LiuXin_alpha.metadata import calibreMetaInformation as MetaInformation
         from LiuXin.file_formats.opf.opf2 import OPF
 
         mi = MetaInformation(None, [])

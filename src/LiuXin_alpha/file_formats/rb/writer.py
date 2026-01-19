@@ -150,7 +150,7 @@ class RBWriter(object):
             if len(metadata.title) >= 1:
                 text += "TITLE=%s\n" % metadata.title[0].value
             if len(metadata.creator) >= 1:
-                from LiuXin.metadata import authors_to_string
+                from LiuXin_alpha.metadata import authors_to_string
 
                 text += "AUTHOR=%s\n" % authors_to_string([x.value for x in metadata.creator])
         text += "GENERATOR=%s - %s\n" % (__appname__, __version__)
