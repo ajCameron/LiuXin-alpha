@@ -12,7 +12,175 @@ This module exists mainly to:
 
 It is intentionally conservative and aims to behave sensibly for both ``str``
 and bytes-like inputs.
+
+Calibre-style charset detection and XML/HTML byte decoding helpers.
+
+This module exists to turn “unknown bytes from the real world” into usable
+Python text with minimal crashes and minimal mojibake. In practice, many inputs
+(XML/HTML fragments, OPF metadata, email-like blobs, legacy text files) arrive
+as raw `bytes` with missing or incorrect encoding labels. The helpers here:
+
+- Prefer *declared encodings* (XML declarations / HTML `<meta charset=...>`)
+  when present.
+- Fall back to *statistical detection* (via `charset_normalizer` if available,
+  otherwise `chardet`).
+- Decode robustly (typically with replacement for invalid sequences).
+- Optionally remove or rewrite encoding declarations after decoding.
+- Optionally resolve *non-core* entities to Unicode while keeping core XML
+  entities escaped so the result remains parseable.
+
+Important: encoding detection is probabilistic unless there is a strong signal
+(e.g. BOM). Treat low confidence as “best guess”, not a guarantee.
+
+---------------------------------------------------------------------------
+How encoding detection works (high level)
+---------------------------------------------------------------------------
+
+There are three categories of signals:
+
+1) Strong signals (deterministic or near-deterministic)
+   - BOM (Byte Order Mark): UTF-8 / UTF-16 / UTF-32 markers.
+   - UTF-16/32 plausibility: patterns of NUL bytes.
+   - Explicit encoding declarations in the document header (XML/HTML).
+
+2) Soft signals (heuristics)
+   - Character distribution / n-gram models to distinguish among candidates,
+     especially for single-byte legacy encodings.
+
+3) Post-processing
+   - Normalize aliases (e.g. "macintosh" → "mac-roman", "x-sjis" → "shift-jis").
+   - Prefer UTF-8 for ASCII-only content.
+   - Handle known “common lies” (e.g. Word HTML declaring gb2312 when gbk is
+     more correct).
+
+This module implements those steps with a bias toward safety and compatibility.
+
+---------------------------------------------------------------------------
+Key functions (what to use, and when)
+---------------------------------------------------------------------------
+
+Detect / choose an encoding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- `detect(sample: bytes, ...) -> dict`
+    Wrapper that prefers `charset_normalizer` when installed, otherwise uses
+    `chardet.detect`. Returns a mapping like:
+        {"encoding": "utf-8", "confidence": 0.99}
+
+    Use this when you just want a raw guess for an arbitrary byte string.
+
+- `force_encoding(raw: bytes, verbose: bool, assume_utf8: bool=False) -> str`
+    Chooses a usable codec name from detection results, applying:
+      * alias normalization (`_CHARSET_ALIASES`)
+      * ASCII → UTF-8 promotion
+      * optional assumption of UTF-8 when confidence is low
+      * optional warnings via `warnings.warn()` when verbose
+
+    Use this when you want “a codec I can actually decode with”, not merely a
+    detector’s raw output.
+
+XML/HTML header-aware detection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- `find_declared_encoding(raw, limit=50*1024) -> Optional[str]`
+    Searches the first `limit` characters/bytes for an XML encoding declaration
+    or HTML meta charset. Returns the declared encoding string if found.
+
+- `detect_xml_encoding(raw, verbose=False, assume_utf8=False) -> (raw, encoding)`
+    For bytes-like inputs, this:
+      1) Strips a known BOM (utf8 / utf-16-le / utf-16-be) if present and returns
+         the corresponding encoding.
+      2) Otherwise searches the header for declared encodings.
+      3) Otherwise falls back to `force_encoding()`.
+
+    Returns `(raw_without_bom, encoding)`.
+
+Decode to text (the “main” entry point)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- `xml_to_unicode(raw, verbose=False, strip_encoding_pats=False,
+                  resolve_entities=False, assume_utf8=False) -> (text, encoding)`
+    Converts bytes (or XML-ish text) into Python `str`.
+
+    Steps:
+      1) Calls `detect_xml_encoding()` to choose an encoding (bytes only).
+      2) Decodes with `errors="replace"` to avoid exceptions and preserve
+         maximum content.
+      3) If `strip_encoding_pats=True`, calls `strip_encoding_declarations()`
+         to remove header encoding declarations from the decoded text.
+      4) If `resolve_entities=True`, calls `substitute_entites()` to resolve
+         non-core entities while leaving core XML entities escaped.
+
+    Returns `(decoded_text, encoding_used)`.
+
+Rewrite or remove header declarations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- `strip_encoding_declarations(raw, limit=50*1024)`
+    Removes encoding declarations from the header portion of `raw`.
+    Works for both `str` and bytes-like inputs. For bytes-like values it uses
+    a latin-1 “byte-preserving” decode/encode to safely apply regexes.
+
+- `replace_encoding_declarations(raw, enc="utf-8", limit=50*1024)
+    -> (new_raw, changed)`
+    Rewrites declared encodings in the header to `enc`. Returns a tuple with
+    the modified content and a boolean indicating whether anything changed.
+
+Entity resolution
+~~~~~~~~~~~~~~~~~
+
+- `substitute_entites(raw)` / `substitute_entities(raw)`
+    Resolves entities using `LiuXin_alpha.utils.text.xml_utils.xml_entity_to_unicode`
+    if available. The resolver is expected to keep core XML entities such as
+    `&amp;`, `&lt;`, `&gt;`, `&quot;`, `&apos;` escaped (so output remains parseable),
+    while resolving other named or numeric entities as appropriate.
+
+    The `substitute_entities` name is provided for backwards compatibility.
+
+Legacy convenience
+~~~~~~~~~~~~~~~~~~
+
+- `recode_to_utf8(raw: bytes, decode_errors="ignore", encode_errors="ignore") -> bytes`
+    Convenience helper:
+      * detect/choose an encoding via `force_encoding()`
+      * decode with `decode_errors`
+      * re-encode as UTF-8 with `encode_errors`
+
+    Use this when a call-site strictly needs UTF-8 bytes.
+
+---------------------------------------------------------------------------
+Practical usage patterns
+---------------------------------------------------------------------------
+
+1) Robustly decode unknown XML/HTML-ish bytes:
+
+    text, enc = xml_to_unicode(raw_bytes, verbose=True,
+                              strip_encoding_pats=True,
+                              resolve_entities=False)
+
+2) Just guess an encoding for a file snippet:
+
+    info = detect(raw_bytes[:50_000])
+    # info["encoding"], info["confidence"]
+
+3) Rewrite a document’s declared encoding after recoding:
+
+    new_bytes = recode_to_utf8(old_bytes)
+    new_bytes, changed = replace_encoding_declarations(new_bytes, enc="utf-8")
+
+---------------------------------------------------------------------------
+Notes and limitations
+---------------------------------------------------------------------------
+
+- Statistical detection is a best-effort guess; short samples and mixed encodings
+  remain hard problems.
+- `windows-1252` vs `iso-8859-1` is a common ambiguity; both can “decode” many
+  byte sequences without errors.
+- This module intentionally uses latin-1 decoding for header regex work on bytes
+  because it provides a stable 1:1 mapping of bytes to code points, preserving
+  offsets and avoiding decode failures before an encoding is known.
 """
+
 
 from __future__ import annotations
 
