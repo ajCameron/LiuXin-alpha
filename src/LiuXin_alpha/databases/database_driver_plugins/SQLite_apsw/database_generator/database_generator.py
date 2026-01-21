@@ -752,7 +752,8 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         # created
         att_table_sqlite_list = self.build_interlink_table_sqlite(table1_l, table2_l, requested_cols=requested_cols)
         for att_table_build_stmt in att_table_sqlite_list:
-            LiuXin_print(att_table_build_stmt)
+            if VERBOSE_DEBUG:
+                LiuXin_print(att_table_build_stmt)
             c.execute(att_table_build_stmt)
 
         conn.commit()

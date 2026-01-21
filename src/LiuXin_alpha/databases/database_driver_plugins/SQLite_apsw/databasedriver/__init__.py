@@ -8,6 +8,8 @@ from __future__ import print_function
 
 import apsw
 import codecs
+import gc
+import time
 import os
 import pprint
 import random
@@ -252,6 +254,10 @@ class DatabaseDriver(
         # monitored
         self.event_count = 0
 
+        # Track every connection created by this driver so we can reliably release file handles
+        # (particularly important on Windows, where open SQLite files cannot be deleted).
+        self._open_connections = []
+
         # Some tables shouldn't be touched - these are the helper tables
         self.helper_tables = [
             "conversion_options",
@@ -320,6 +326,49 @@ class DatabaseDriver(
             self.db.refresh_db_metadata()
         except:
             pass
+    def _register_open_connection(self, conn):
+        """
+        Register a newly created connection so we can close all open handles later.
+
+        We intentionally keep this simple (a plain list) so it works with both sqlite3 and APSW-backed
+        connection objects.
+        """
+        try:
+            self._open_connections.append(conn)
+        except Exception:
+            # If tracking fails for any reason, do not break core DB functionality.
+            pass
+        return conn
+
+    def _close_all_open_connections(self):
+        """
+        Best-effort close of every connection opened by this driver instance.
+
+        On Windows, an open SQLite connection keeps the database file locked, preventing deletion.
+        """
+        conns = []
+        try:
+            conns.extend(list(getattr(self, "_open_connections", []) or []))
+        except Exception:
+            pass
+
+        primary = getattr(self, "conn", None)
+        if primary is not None:
+            conns.append(primary)
+
+        for c in conns:
+            try:
+                c.close()
+            except Exception:
+                pass
+
+        try:
+            self._open_connections = []
+        except Exception:
+            pass
+        self.conn = None
+
+
 
     def close(self):
         """
@@ -329,13 +378,11 @@ class DatabaseDriver(
 
         :return:
         """
-        conn = getattr(self, 'conn', None)
-        if conn is not None:
-            try:
-                conn.close()
-            except Exception:
-                pass
-        self.conn = None
+        self._close_all_open_connections()
+
+
+
+
 
     def refresh(self):
         """
@@ -401,32 +448,103 @@ class DatabaseDriver(
                 raise DatabaseDriverError(wrn_str)
 
     def direct_self_delete(self):
+
         """
+
         Delete the on_disc database file.
 
-        :return:
+
+        On Windows, SQLite keeps database files locked while any connection is open.
+
+        This method therefore closes all connections created by this driver instance
+
+        before attempting to delete the underlying file.
+
         """
-        # Lock the database. Delete the SQLite file.
-        conn = self.get_connection()
-        with conn:
 
-            # Check that the file can be accessed and the process has the privilages to run the delete
-            if not path_ok(self.database_path):
-                err_str = "DatabasePing file cannot be accessed for delete.\n"
-                err_str += "database_file_path: {}\n".format(self.database_path)
-                default_log.error(err_str)
-                raise DatabaseDriverError(err_str)
+        # Ensure we release all file handles held by this driver (especially important on Windows).
 
-            # Remove the database file
-            os.remove(self.database_path)
+        self._close_all_open_connections()
 
-            # Check that the delete has gone through i.e. the path no longer exists.
-            if os.path.exists(self.database_path):
-                err_str = "DatabasePing cannot be deleted - process failed silently.\n"
-                err_str += "database_path: {}\n".format(self.database_path)
-                raise DatabaseDriverError(err_str)
+
+        # Check that the file can be accessed and the process has the privileges to run the delete
+
+        if not path_ok(self.database_path):
+
+            err_str = 'DatabasePing file cannot be accessed for delete.\n'
+
+            err_str += 'database_file_path: {}\n'.format(self.database_path)
+
+            default_log.error(err_str)
+
+            raise DatabaseDriverError(err_str)
+
+
+        # Remove the database file (retry a couple of times on Windows to allow handle release).
+
+        attempts = 6 if os.name == 'nt' else 1
+
+        last_err = None
+
+        for i in range(attempts):
+
+            try:
+
+                os.remove(self.database_path)
+
+                last_err = None
+
+                break
+
+            except FileNotFoundError:
+
+                last_err = None
+
+                break
+
+            except PermissionError as e:
+
+                last_err = e
+
+                if os.name == 'nt' and i < attempts - 1:
+
+                    gc.collect()
+
+                    time.sleep(0.05 * (i + 1))
+
+                    continue
+
+            except OSError as e:
+
+                last_err = e
+
+                break
+
+
+        if last_err is not None:
+
+            err_str = 'DatabasePing cannot be deleted.\n'
+
+            err_str += 'database_path: {}\n'.format(self.database_path)
+
+            err_str += 'error: {}\n'.format(last_err)
+
+            raise DatabaseDriverError(err_str)
+
+
+        # Check that the delete has gone through i.e. the path no longer exists.
+
+        if os.path.exists(self.database_path):
+
+            err_str = 'DatabasePing cannot be deleted - process failed silently.\n'
+
+            err_str += 'database_path: {}\n'.format(self.database_path)
+
+            raise DatabaseDriverError(err_str)
+
 
         # With the database gone the caches should also be emptied
+
         self._zero_prop_cache()
 
     def identify_table_from_row(self, row_dict):
@@ -627,7 +745,7 @@ class DatabaseDriver(
         encoding = next(conn.execute("PRAGMA encoding"))[0]
         conn.create_collation("PYNOCASE", partial(pynocase, encoding=encoding))
 
-        return conn
+        return self._register_open_connection(conn)
 
     def last_modified(self):
         """
