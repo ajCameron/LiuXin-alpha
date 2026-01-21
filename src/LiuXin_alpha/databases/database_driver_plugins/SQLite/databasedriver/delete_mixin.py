@@ -247,3 +247,25 @@ class DeleteMixin:
             return True
         else:
             return False
+
+    def direct_unlink_main_tables(self, primary_table, secondary_table):
+        """
+        Break an existing link between two main tables. The link will be broken regardless of type.
+
+        :param primary_table:
+        :param secondary_table:
+        :return:
+        """
+        table_name, column_name = self._get_link_table_name_col_name(primary_table, secondary_table)
+
+        unlink_sqlite = """
+        DROP TABLE {};
+        """.format(
+            table_name
+        )
+
+        self.execute_sql(unlink_sqlite)
+
+    #
+    # ----------------------------------------------------------------------------------------------------------------------
+

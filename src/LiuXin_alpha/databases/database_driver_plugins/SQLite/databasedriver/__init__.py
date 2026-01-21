@@ -25,7 +25,6 @@ from six import iterkeys, iteritems, string_types
 from LiuXin_alpha.utils.date import utcfromtimestamp
 
 from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_debug_print, LiuXin_warning_print
-from LiuXin_alpha.utils.terminal import y_n_input
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 
@@ -52,7 +51,6 @@ from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin_alpha.utils.ptempfiles import get_scratch_folder
 
 from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 from LiuXin_alpha.utils.localization import _
@@ -65,6 +63,8 @@ from LiuXin_alpha.databases.database_driver_plugins.SQLite.utility_mixins import
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, six_unicode as unicode
+
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import SQLBaseDriver
 
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.utils import *
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.utils import _author_to_author_sort
@@ -83,6 +83,8 @@ from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.book_g
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.delete_mixin import DeleteMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.add_mixin import AddingMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.update_mixin import UpdateMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.view_mixin import ViewMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.table_creation_mixin import TableCreationMixin
 
 
 
@@ -156,6 +158,7 @@ class SQLite_Connection(sqlite3.Connection):
 # NOTE - Using the variable substitution features in SQLite3 provides much better results than anything home baked for
 # preventing SQL injection attacks and escaping strings properly. Use this instead.
 class DatabaseDriver(
+    SQLBaseDriver,
     SQLiteCustomColumnsDriverMixin,
     SQLiteTableLinkingMixin,
     ValueCastingMixin,
@@ -163,7 +166,18 @@ class DatabaseDriver(
     SQLExecutionMixin,
     MathFunctionsMixin,
     DirtyRecordsMixin,
-    TableNamesMixin, TreeMethodsMixin, MetadataMethodMixin, SearchMixin, TriggersMixin, BookGroupMixin, DeleteMixin, AddingMixin, UpdateMixin):
+    TableNamesMixin,
+    TreeMethodsMixin,
+    MetadataMethodMixin,
+    SearchMixin,
+    TriggersMixin,
+    BookGroupMixin,
+    DeleteMixin,
+    AddingMixin,
+    UpdateMixin,
+    ViewMixin,
+    TableCreationMixin
+):
     """
     Represents a collection of all the methods needed to interface with an actual database.
     """
@@ -181,6 +195,8 @@ class DatabaseDriver(
         :param set_conn: Set the globally used connection for the class
         :return:
         """
+        self._create_new_database = create_new_database
+
         self.db_metadata = db_metadata
         self.database_path = db_metadata["database_path"]
         self.db = db
@@ -227,282 +243,13 @@ class DatabaseDriver(
         # This will be usefully set when the database starts up
         self.dirty_records_queue = dirty_records_queue
 
-    @property
-    def macros(self):
-        """
-        Returns the macros helper class.
 
-        :return:
-        """
-        return self._macros
 
-    def exists(self):
-        """
-        Checks to see if the database file exists - returns True if it does, false if it doesn't.
-        :return:
-        """
-        return os.path.exists(self.database_path)
 
-    def make_scratch(self):
-        """
-        Makes a scratch copy of the database - shifts over to using that instead of the main one.
-        :return:
-        """
-        scratch_folder = get_scratch_folder()
-        scratch_db_path = os.path.join(scratch_folder, "scratch.db")
-        shutil.copyfile(src=self.database_path, dst=scratch_db_path)
-        self.database_path = scratch_db_path
 
-    def zero_prop_cache(self) -> None:
-        self._zero_prop_cache()
 
-    def _zero_prop_cache(self):
-        """
-        Zero any cached properties - used when significant changes have.may have been made to the database.
-        :return:
-        """
-        self.tables = None
-        self.tables_and_columns = None
-        self.categorized_tables = None
-        self.all_column_names = set()
 
-        self.locations = None
 
-        try:
-            self.db.refresh_db_metadata()
-        except:
-            pass
-    def _register_open_connection(self, conn):
-        """
-        Register a newly created connection so we can close all open handles later.
-
-        We intentionally keep this simple (a plain list) so it works with both sqlite3 and APSW-backed
-        connection objects.
-        """
-        try:
-            self._open_connections.append(conn)
-        except Exception:
-            # If tracking fails for any reason, do not break core DB functionality.
-            pass
-        return conn
-
-    def _close_all_open_connections(self):
-        """
-        Best-effort close of every connection opened by this driver instance.
-
-        On Windows, an open SQLite connection keeps the database file locked, preventing deletion.
-        """
-        conns = []
-        try:
-            conns.extend(list(getattr(self, "_open_connections", []) or []))
-        except Exception:
-            pass
-
-        primary = getattr(self, "conn", None)
-        if primary is not None:
-            conns.append(primary)
-
-        for c in conns:
-            try:
-                c.close()
-            except Exception:
-                pass
-
-        try:
-            self._open_connections = []
-        except Exception:
-            pass
-        self.conn = None
-
-
-
-    def close(self):
-        """
-        Shutdown the connection to the database - but leave the driver class in existence so it can be re-opened.
-
-        On Windows, failing to close SQLite connections will keep the database file locked.
-
-        :return:
-        """
-        self._close_all_open_connections()
-
-
-
-
-
-    def refresh(self):
-        """
-        Refreshes the database - zeros all cached objects and connects again.
-
-        Important: close any existing connection before replacing it to avoid leaking file handles.
-
-        :return:
-        """
-        old = getattr(self, 'conn', None)
-        if old is not None:
-            try:
-                old.close()
-            except Exception:
-                pass
-        self.conn = self.get_connection()
-        self._zero_prop_cache()
-
-    def reopen(self):
-        """
-        Re-opens the connection to the database.
-
-        Important: close any existing connection before replacing it to avoid leaking file handles.
-
-        :return:
-        """
-        old = getattr(self, 'conn', None)
-        if old is not None:
-            try:
-                old.close()
-            except Exception:
-                pass
-        self.conn = self.get_connection()
-
-    def direct_backup(self, path=None):
-        """
-        Backup the DatabasePing.
-        :param path: The path to backup the database to - if none is provided, autogenerated
-        :return:
-        """
-        # Acquire a conn object - use it to lock the DatabasePing
-        conn = self.get_connection()
-        with conn:
-
-            # Preform the backup
-            backup_status = backup_local_file(self.database_path, override_path=path)
-            if backup_status:
-                info_str = "DatabasePing backup successfully complete.\n"
-                default_log.log_variables(
-                    info_str,
-                    "INFO",
-                    ("database_path", self.database_path),
-                    ("database_backup_path", backup_status),
-                )
-            else:
-                wrn_str = "DatabasePing backup failed.\n"
-                default_log.log_variables(
-                    wrn_str,
-                    "WARN",
-                    ("database_path", self.database_path),
-                    ("database_backup_path", backup_status),
-                )
-                raise DatabaseDriverError(wrn_str)
-
-    def direct_self_delete(self):
-
-        """
-
-        Delete the on_disc database file.
-
-
-        On Windows, SQLite keeps database files locked while any connection is open.
-
-        This method therefore closes all connections created by this driver instance
-
-        before attempting to delete the underlying file.
-
-        """
-
-        # Ensure we release all file handles held by this driver (especially important on Windows).
-
-        self._close_all_open_connections()
-
-
-        # Check that the file can be accessed and the process has the privileges to run the delete
-
-        if not path_ok(self.database_path):
-
-            err_str = 'DatabasePing file cannot be accessed for delete.\n'
-
-            err_str += 'database_file_path: {}\n'.format(self.database_path)
-
-            default_log.error(err_str)
-
-            raise DatabaseDriverError(err_str)
-
-
-        # Remove the database file (retry a couple of times on Windows to allow handle release).
-
-        attempts = 6 if os.name == 'nt' else 1
-
-        last_err = None
-
-        for i in range(attempts):
-
-            try:
-
-                os.remove(self.database_path)
-
-                last_err = None
-
-                break
-
-            except FileNotFoundError:
-
-                last_err = None
-
-                break
-
-            except PermissionError as e:
-
-                last_err = e
-
-                if os.name == 'nt' and i < attempts - 1:
-
-                    gc.collect()
-
-                    time.sleep(0.05 * (i + 1))
-
-                    continue
-
-            except OSError as e:
-
-                last_err = e
-
-                break
-
-
-        if last_err is not None:
-
-            err_str = 'DatabasePing cannot be deleted.\n'
-
-            err_str += 'database_path: {}\n'.format(self.database_path)
-
-            err_str += 'error: {}\n'.format(last_err)
-
-            raise DatabaseDriverError(err_str)
-
-
-        # Check that the delete has gone through i.e. the path no longer exists.
-
-        if os.path.exists(self.database_path):
-
-            err_str = 'DatabasePing cannot be deleted - process failed silently.\n'
-
-            err_str += 'database_path: {}\n'.format(self.database_path)
-
-            raise DatabaseDriverError(err_str)
-
-
-        # With the database gone the caches should also be emptied
-
-        self._zero_prop_cache()
-
-    def simple_print_progress_handler(self):
-        """
-        The most basic progress handler - prints the number of events every hundred million events.
-        :return:
-        """
-        if self.event_count % 100000000 == 0:
-            LiuXin_print(self.event_count)
-            self.event_count += 1
-        else:
-            self.event_count += 1
 
     def direct_run_ta_update(self, ta_row_id):
         """
@@ -713,25 +460,36 @@ class DatabaseDriver(
         with TemporaryFile(suffix=".sql") as fname:
 
             # --------------------
-            # Write dump
+            # Write dump (optionally prefixed with extra SQL)
             # --------------------
-            if sql is None:
-                callback(_("Dumping database to SQL") + "...")
-                dump_conn = self.get_connection()
+            callback(_("Dumping database to SQL") + "...")
+
+            prefix_sql = ""
+            if sql is not None:
+                # Historically, callers pass extra SQL to be executed *before* the dump is restored.
+                # Treat this as a prefix rather than a complete override of the dump.
+                if isinstance(sql, bytes):
+                    prefix_sql = sql.decode("utf-8")
+                else:
+                    prefix_sql = str(sql)
+
+            dump_conn = self.get_connection()
+            try:
+                with open(fname, "w", encoding="utf-8", newline="\n") as buf:
+                    if prefix_sql:
+                        buf.write(prefix_sql)
+                        if not prefix_sql.endswith("\n"):
+                            buf.write("\n")
+
+                    for line in dump_conn.iterdump():
+                        buf.write(line)
+                        if not line.endswith("\n"):
+                            buf.write("\n")
+            finally:
                 try:
-                    with codecs.open(fname, "w", encoding="utf-8") as buf:
-                        for line in dump_conn.iterdump():
-                            buf.write(line)
-                            if not line.endswith("\n"):
-                                buf.write("\n")
-                finally:
-                    try:
-                        dump_conn.close()
-                    except Exception:
-                        pass
-            else:
-                with open(fname, "wb") as buf:
-                    buf.write(sql if isinstance(sql, bytes) else sql.encode("utf-8"))
+                    dump_conn.close()
+                except Exception:
+                    pass
 
             # --------------------
             # Restore into temp db
@@ -797,357 +555,6 @@ class DatabaseDriver(
         create_new_database(conn)
         conn.commit()
         conn.close()
-
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------------------------------
-    #
-    # - TABLE CREATION METHODS
-    # Todo: Need a way to change the data type of the default column - also the data type of any additional columns created
-    # Todo: Pull the "new" out of the name - that's implcit
-    # Todo: Need a way to designate this new table "custom"
-    def direct_create_new_main_table(
-        self,
-        table_name,
-        column_headings=None,
-        index_on="all",
-        default_datatype="TEXT",
-        default_unique=False,
-    ):
-        """
-        Create a new main table on the database.
-
-        :param table_name: Name for the new main table (please obey the naming scheme). Trying to create a table with a
-                           name the same as that of another in the database)
-
-        :param column_headings: Columns names (in the final table the name of the table _ column name.
-                                The final table with have additional datestamp and scratch columns.
-                                Columns headings should be provided in the form of a dictionary (optionally ordered)
-                                Keyed with the name of the column and valued with the datatype for that column.
-
-        :param index_on: The columns to also create indexes for - defaults to 'all' - which will generate an index for
-                         all the requested custom columns
-
-        :param default_datatype: The default datatype what will be used if no other is provided. Defaults to txt.
-
-
-
-        :return:
-        """
-        table_col = plural_singular_mapper(table_name)
-
-        indices = []
-
-        # TABLE PREAMBLE
-
-        table_comment = """
--- -----------------------------------------------------
--- Table `{0}`
--- -----------------------------------------------------
-""".format(
-            table_name
-        )
-
-        table_head = """
-        CREATE TABLE IF NOT EXISTS `{0}` (
-    `{1}_id` INTEGER PRIMARY KEY,
-
-        """.format(
-            table_name, table_col
-        )
-
-        # COLUMN CONTENT
-        if column_headings is None:
-
-            # - In the case where the column headings are None, then generate the default column headings
-            table_columns = """
-        `{table_col}` {datatype} NULL,
-            """.format(
-                table_name=table_name, table_col=table_col, datatype=default_datatype
-            )
-
-            if index_on == "all":
-
-                default_col_index = "CREATE INDEX {0}_default_col_index ON {0} ({1});".format(table_name, table_col)
-                indices.append(default_col_index)
-
-            else:
-
-                raise NotImplementedError
-
-        else:
-
-            # - Process the columns headings object to produce the requested headings
-            col_template = """
-        `{0}_{1}` {2} NULL,            
-            """.format(
-                table_col, "{0}", "{1}"
-            )
-
-            additional_columns = []
-            for col in column_headings:
-
-                try:
-                    additional_columns.append(col_template.format(col, column_headings[col]["datatype"]))
-                except KeyError:
-                    # If no datatype is present in the specifications dict, use the default
-                    additional_columns.append(col_template.format(col, default_datatype))
-
-            table_columns = "\n".join(additional_columns)
-
-        # TABLE FINISHING
-        table_tail = """
-
-    `{1}_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-    `{1}_scratch` TEXT NULL);
-        """.format(
-            table_name, table_col
-        )
-
-        table_sqlite = table_comment + table_head + table_columns + table_tail
-
-        full_script = [
-            table_sqlite,
-        ]
-        full_script.extend(indices)
-
-        # # Index for the custom columns
-        # assert index_on == "all", "Cannot but index on all custom columns"
-        # default_col_index = "CREATE INDEX {0}_default_col_index ON {0} ({1});".format(table_name, table_col)
-        # full_script.append(default_col_index)
-
-        self.executescript("\n".join(full_script))
-
-        self._zero_prop_cache()
-
-
-    def direct_unlink_main_tables(self, primary_table, secondary_table):
-        """
-        Break an existing link between two main tables. The link will be broken regardless of type.
-
-        :param primary_table:
-        :param secondary_table:
-        :return:
-        """
-        table_name, column_name = self._get_link_table_name_col_name(primary_table, secondary_table)
-
-        unlink_sqlite = """
-        DROP TABLE {};
-        """.format(
-            table_name
-        )
-
-        self.execute_sql(unlink_sqlite)
-
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------------------------------
-    #
-    # -
-
-    # ----------------------------------------------------------------------------------------------------------------------
-    #
-    # - METHODS TO DELETE ROWS FROM THE DATABASE START HERE
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
-
-
-    # ----------------------------------------------------------------------------------------------------------------------
-    #
-    # - METHODS TO GET INFORMATION ABOUT TABLES ON THE DATABASE START HERE
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
-
-
-
-
-
-    # ----------------------------------------------------------------------------------------------------------------------
-    #
-    # - METHODS TO SEARCH THE DATABASE START HERE
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
-
-
-
-    def direct_get_view_row_dict_from_id(self, view, row_id):
-        """
-        Retrieve a row from a view and return it as a dictionary, keyed with the column headings of the row and valued
-        with the values of that column.
-        :param view:
-        :param row_id:
-        :return:
-        """
-        view = force_unicode(view)
-        row_id = force_unicode(row_id)
-
-        conn = self.get_connection()
-        c = conn.cursor()
-
-        headings = self.direct_get_view_column_headings(view)
-        table_id_name = "id"
-
-        stmt = "SELECT * FROM {} WHERE {} = ?".format(view, table_id_name)
-
-        rows = []
-        result = dict()
-        for row in c.execute(stmt, (row_id,)):
-            result = self._row_to_dict(table=view, headings=headings, row=row)
-            rows.append(result)
-
-        if len(rows) > 1:
-            err_str = "Error - search yielded multiple rows. Aborting.\n"
-            err_str += repr(rows)
-            default_log.error(err_str)
-            conn.close()
-            raise DatabaseIntegrityError(err_str)
-        elif len(rows) == 0:
-            info_str = "Warning - search yielded no results. Consider sources of logical error."
-            default_log.log_variables(info_str, "INFO", ("table", view), ("row_id", row_id))
-            conn.close()
-            return False
-        else:
-            conn.close()
-            return result
-
-    def direct_get_view_column_headings(self, view):
-        """
-        Returns the column headings for the given view.
-        :param view:
-        :return:
-        """
-        # Todo: Add checking against injection attacks
-        stmt = "PRAGMA TABLE_INFO({})".format(view)
-
-        conn = self.get_connection()
-        c = conn.cursor()
-
-        view_columns = []
-        for i in c.execute(stmt):
-            view_columns.append(i[1])
-
-        return view_columns
-
-
-
-
-
-    # A copy of a function a level up, at database level - implemented here as well to make recursion loops less likely
-    def identify_table_from_row(self, row_dict):
-        """
-        Takes a row. Attempts to identify which row it came from.
-        :param row_dict: The row (dict) to be parsed
-        :return table_name: The table name (string)
-        """
-        if "table" in row_dict.keys():
-            del row_dict["table"]
-
-        tables_and_columns = self.direct_get_tables_and_columns()
-        table = tables_and_columns.keys()
-        row_columns_set = set(key for key in row_dict.keys())
-
-        if VERBOSE_DEBUG:
-            err_str = "Calling identify_table_from_row.\n"
-            err_str += "Table_and_columns: " + repr(tables_and_columns) + "\n"
-            err_str += "Tables: " + repr(table) + "\n"
-            LiuXin_debug_print(err_str)
-
-        # if this method is called with a null row it will complain. If warn is true
-        if len(row_dict) == 0:
-            info_str = "Warning - identify_table_from_row called with empty row."
-            default_log.info(info_str)
-            return False
-
-        for table in tables_and_columns.keys():
-
-            column_heading_set = set(heading for heading in tables_and_columns[table])
-            if row_columns_set.issubset(column_heading_set):
-                return table
-
-        # If this point in the algorithm has been reached then something has gone wrong.
-        # Searching for partial matches - tables with some, but not all of the column names
-        partial_match_tables = set()
-        unmatched_columns = set()
-
-        for column_heading in row_dict.keys():
-            try:
-                column_table = self.identify_table_from_column(column_heading, print_error=False)
-                partial_match_tables.add(column_table)
-            except InputIntegrityError:
-                unmatched_columns.add(column_heading)
-
-        err_str = "SQLite:databasedriver:identify_table_from_row unable to find matching table.\n"
-        if len(partial_match_tables) > 0:
-            err_str += "partial matches found for some column_headings.\n"
-            err_str += "partial_match_tables: " + pprint.pformat(partial_match_tables) + "\n"
-        if len(unmatched_columns) > 0:
-            err_str += "some column_headings could not be matched.\n"
-            err_str += "unmatched_columns: " + pprint.pformat(unmatched_columns) + "\n"
-        err_str += "row_dict: " + pprint.pformat(row_dict) + "\n"
-        if preferences.parse(
-            "include_full_rep_if_row_cant_be_identified",
-            rtn_value_type="bool",
-            default=False,
-        ):
-            err_str += "tables_and_columns: " + pprint.pformat(tables_and_columns) + "\n"
-        default_log.error(err_str)
-        raise DatabaseIntegrityError(err_str)
-
-
-
-    # ----------------------------------------------------------------------------------------------------------------------
-    #
-    # METHODS SPECIFIC TO DEALING WITH NEW BOOKS START HERE
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
-
-
-
-
-    # ----------------------------------------------------------------------------------------------------------------------
-    # - SPECIALIZED METHODS TO READ AND SET THE DATABASE METADATA START HERE
-    # ----------------------------------------------------------------------------------------------------------------------
-
-
-
-    # ----------------------------------------------------------------------------------------------------------------------
-    #
-    # - SEARCH METHODS START HERE
-    #
-    # ----------------------------------------------------------------------------------------------------------------------
-
-
-
-
-    def get_id_from_row_dict(self, row_dict):
-        """
-        Takes a row. Extracts an id from it if possible. If not returns False
-        :param row_dict:
-        """
-        row_table = self.identify_table_from_row(row_dict)
-        row_id_column = self._get_id_column(row_table)
-
-        if row_id_column not in row_dict.keys():
-            return False
-        else:
-            return row_dict[row_id_column]
-
-
-    # ----------------------------------------------------------------------------------------------------------------------
-    #
-    # - CUSTOM COLUMN CREATION METHODS
-
-    # Todo: Merge with zero_prop_cache - they do the same thing
-    def call_after_table_changes(self):
-        """
-        Call after any operations which might change the table content of the database.
-
-        :return:
-        """
-        self._zero_prop_cache()
-        self.tables_and_columns = None
-
 
     #
     # ----------------------------------------------------------------------------------------------------------------------

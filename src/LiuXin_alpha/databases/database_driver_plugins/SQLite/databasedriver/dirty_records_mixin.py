@@ -25,4 +25,4 @@ class DirtyRecordsMixin:
                 ("table_id", table_id),
                 ("reason", reason),
             )
-        dirtied_records.put((table, table_id, reason))
+        self.dirtied_records_queue.put((table, table_id, reason))
