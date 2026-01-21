@@ -33,6 +33,7 @@ def _create_contract_table(driver) -> None:
         );
         """
     )
+    driver.zero_prop_cache()
 
 
 def _insert(driver, value: str) -> int:

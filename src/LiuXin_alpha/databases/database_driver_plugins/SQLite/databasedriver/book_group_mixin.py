@@ -31,7 +31,8 @@ class BookGroupMixin:
             min_group_id = row[0]
 
         stmt2 = "SELECT * FROM `new_books` WHERE new_book_group_id = ?"
-        headings = self.direct_get_column_headings("`new_books`")
+        # Internally we cache table names without quoting. Use the canonical name here.
+        headings = self.direct_get_column_headings("new_books")
         for row in c.execute(stmt2, (min_group_id,)):
             this_row = dict()
             for i in range(len(row)):
@@ -66,7 +67,8 @@ class BookGroupMixin:
         stmt = "DELETE FROM new_books WHERE new_book_group_id = ?"
 
         try:
-            c.execute(stmt, group_id)
+            # DB-API expects a sequence/mapping of parameters; for a single parameter use a 1-tuple.
+            c.execute(stmt, (group_id,))
         except sqlite3.ProgrammingError as e:
             raise ValueError(f"Could not delete book group {group_id}: {e}") from e
 

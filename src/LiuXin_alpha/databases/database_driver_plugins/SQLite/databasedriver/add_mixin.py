@@ -122,7 +122,7 @@ class AddingMixin:
         # building the list of values
         column_list_string = ""
 
-        column_headings = reference_row_dict.keys()
+        column_headings = [_ for _ in reference_row_dict.keys()]
 
         for i in range(len(reference_row_dict)):
             if column_headings[i] != "table":
@@ -135,7 +135,7 @@ class AddingMixin:
         values = []
 
         for statement in row_dict_list:
-            values.append(statement.values())
+            values.append(tuple([_ for _ in statement.values()]))
 
         conn = self.get_connection()
         c = conn.cursor()

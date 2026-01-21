@@ -21,6 +21,67 @@ class MetadataMethodMixin:
 
 
 
+    def _get_schema_version(self):
+        """Return the current SQLite ``schema_version`` as an ``int``.
+
+        SQLite increments ``schema_version`` whenever the schema changes. We use this
+        to detect when our cached table/column metadata has become stale — including
+        when another connection modifies the schema (e.g. during concurrency tests).
+        """
+        conn = getattr(self, "conn", None)
+        close_after = False
+        if conn is None:
+            conn = self.get_connection()
+            close_after = True
+
+        try:
+            for row in conn.execute("pragma schema_version;"):
+                try:
+                    return int(row[0])
+                except Exception:
+                    return row[0]
+        except Exception:
+            # If the existing connection is closed/broken, fall back to a fresh one.
+            try:
+                if not close_after and conn is not None:
+                    conn.close()
+            except Exception:
+                pass
+
+            conn2 = self.get_connection()
+            try:
+                for row in conn2.execute("pragma schema_version;"):
+                    try:
+                        return int(row[0])
+                    except Exception:
+                        return row[0]
+            finally:
+                try:
+                    conn2.close()
+                except Exception:
+                    pass
+        finally:
+            if close_after:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+        # Should never happen, but keep callers safe.
+        return None
+
+
+    def _invalidate_schema_caches(self):
+        """Invalidate schema-related caches (tables, tables_and_columns)."""
+        self.tables = None
+        self.tables_and_columns = None
+        try:
+            delattr(self, "_schema_version_cached")
+        except Exception:
+            pass
+
+
+
     # Either uses the data from self.tables_and_columns, or gets the data while populating it
     def direct_get_tables(self, force_refresh=False):
         """
@@ -29,7 +90,7 @@ class MetadataMethodMixin:
         :return:
         """
         if force_refresh:
-            self.tables = None
+            self._invalidate_schema_caches()
             old = getattr(self, 'conn', None)
             if old is not None:
                 try:
@@ -38,6 +99,17 @@ class MetadataMethodMixin:
                     pass
             self.conn = self.get_connection()
 
+        # Ensure we have a live connection for introspection.
+        if getattr(self, 'conn', None) is None:
+            self.conn = self.get_connection()
+
+        # If we have cached data, verify it against schema_version.
+        if self.tables is not None and not force_refresh:
+            current = self._get_schema_version()
+            cached = getattr(self, "_schema_version_cached", None)
+            if cached is not None and current is not None and cached != current:
+                self._invalidate_schema_caches()
+
         if self.tables is None:
             stmt = "SELECT name FROM sqlite_master WHERE type = 'table';"
             processed_return = []
@@ -45,18 +117,23 @@ class MetadataMethodMixin:
                 processed_return.append(row[0])
 
             self.tables = processed_return
+            # Record the schema_version the cache was built against.
+            self._schema_version_cached = self._get_schema_version()
             return processed_return
         else:
             return self.tables
 
-
-    def direct_get_column_headings(self, table):
+    def direct_get_column_headings(self, table, normalize: bool = False):
         """
         Gets an index of column headings for the given table. Tries to use the cached version - falls back on direct
         access if that fails.
         :param table:
         :return column_headings:
         """
+        # Todo: Only try and normalize if first try has failed
+        # Normalise the input table identifier to the unquoted cache key.
+        table = self._canonicalise_table_name_for_cache(table)
+
         if self.tables_and_columns is None:
             tables_and_columns = self.direct_get_tables_and_columns()
             try:
@@ -71,17 +148,61 @@ class MetadataMethodMixin:
                 raise InputIntegrityError("table {} not found".format(table))
 
 
-    def direct_get_tables_and_columns(self):
+    def _canonicalise_table_name_for_cache(self, table):
+        """Return the unquoted table name used as the key in ``tables_and_columns``.
+
+        Various call sites (especially legacy code) may pass table identifiers that include
+        harmless wrapper characters (e.g. backticks) that SQLite accepts in SQL. Our internal
+        caches, however, use *unquoted* names as keys.
+
+        This function keeps behaviour conservative: it only strips a single matching wrapper
+        pair at the ends, and does not attempt to parse/transform arbitrary SQL.
+        """
+        try:
+            t = force_unicode(table)
+        except Exception:
+            # If coercion fails, let the caller raise the usual integrity error.
+            return table
+        t = t.strip()
+
+        # If a schema prefix is present, keep only the last identifier.
+        if "." in t:
+            t = t.split(".")[-1].strip()
+
+        wrappers = ["`", '"', "[", "]", "\\", "%", "_"]
+        # Bracket form: [name]
+        if t.startswith("[") and t.endswith("]") and len(t) >= 2:
+            return t[1:-1]
+
+        # Single-char symmetric wrappers.
+        if len(t) >= 2 and t[0] == t[-1] and t[0] in {"`", '"', "\\", "%", "_"}:
+            return t[1:-1]
+
+        return t
+
+
+    def direct_get_tables_and_columns(self, force_refresh: bool = False):
         """
         Returns a dictionary keyed by the table name with the column headings as the values.
         :return table_and_columns:
         """
-        # If the information is already cached, returning it. If not generating it, then returning it
-        if self.tables_and_columns is not None:
-            return self.tables_and_columns
+        # If the information is already cached, return it unless it is stale.
+        if self.tables_and_columns is not None and not force_refresh:
+            current = self._get_schema_version()
+            cached = getattr(self, "_schema_version_cached", None)
+            if cached is None or current is None or cached == current:
+                return self.tables_and_columns
+
+        if force_refresh:
+            self._invalidate_schema_caches()
+
+        # Ensure we are introspecting a fresh list of tables if required.
+        # Note: direct_get_tables may invalidate schema caches if it detects a
+        # schema_version change, so do not initialise self.tables_and_columns
+        # until *after* we have obtained the final table list.
+        tables = self.direct_get_tables(force_refresh=force_refresh)
 
         self.tables_and_columns = dict()
-        tables = self.direct_get_tables()
         conn = self.get_connection()
         c = conn.cursor()
         for table in tables:
@@ -91,6 +212,9 @@ class MetadataMethodMixin:
                 headings.append(row[1])
             self.tables_and_columns[table] = headings
         conn.close()
+
+        # Record the schema_version the cache was built against.
+        self._schema_version_cached = self._get_schema_version()
 
         return self.tables_and_columns
 

@@ -25,6 +25,8 @@ class TableNamesMixin:
         """
         return plural_singular_mapper(table_name)
 
+    def direct_validate_existing_table_name(self, test_name):
+        return self.validate_existing_table_name(test_name)
 
     def validate_existing_table_name(self, test_name):
         """

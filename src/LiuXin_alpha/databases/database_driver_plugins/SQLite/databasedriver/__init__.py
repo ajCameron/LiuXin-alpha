@@ -247,6 +247,9 @@ class DatabaseDriver(
         shutil.copyfile(src=self.database_path, dst=scratch_db_path)
         self.database_path = scratch_db_path
 
+    def zero_prop_cache(self) -> None:
+        self._zero_prop_cache()
+
     def _zero_prop_cache(self):
         """
         Zero any cached properties - used when significant changes have.may have been made to the database.
