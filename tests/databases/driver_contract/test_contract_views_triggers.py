@@ -3,7 +3,7 @@
 This module exercises the driver's view and trigger helpers.
 
 We create a contract table with highly distinctive column names so that
-__identify_table_from_row() cannot accidentally resolve to some other table.
+identify_table_from_row() cannot accidentally resolve to some other table.
 A contract view is then created with an explicit `id` column so the view helper
 (which assumes an `id` column) can round-trip data.
 

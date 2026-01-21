@@ -77,6 +77,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.table_
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.tree_mixjn import TreeMethodsMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.metadata_mixin import MetadataMethodMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.search_mixin import SearchMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.value_casting_mixin import ValueCastingMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.book_group_mixin import BookGroupMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.delete_mixin import DeleteMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.add_mixin import AddingMixin
@@ -212,6 +213,7 @@ class SQLite_Connection(sqlite3.Connection):
 class DatabaseDriver(
     SQLiteCustomColumnsDriverMixin,
     SQLiteTableLinkingMixin,
+    ValueCastingMixin,
     CalibreEmulationMixin,
     SQLExecutionMixin,
     MathFunctionsMixin,
@@ -422,6 +424,67 @@ class DatabaseDriver(
 
         # With the database gone the caches should also be emptied
         self._zero_prop_cache()
+
+    def identify_table_from_row(self, row_dict):
+        """
+        Takes a row. Attempts to identify which row it came from.
+        :param row_dict: The row (dict) to be parsed
+        :return table_name: The table name (string)
+        """
+        if "table" in row_dict.keys():
+            del row_dict["table"]
+
+        tables_and_columns = self.direct_get_tables_and_columns()
+        table = tables_and_columns.keys()
+        row_columns_set = set(key for key in row_dict.keys())
+
+        if VERBOSE_DEBUG:
+            err_str = "Calling identify_table_from_row.\n"
+            err_str += "Table_and_columns: " + repr(tables_and_columns) + "\n"
+            err_str += "Tables: " + repr(table) + "\n"
+            LiuXin_debug_print(err_str)
+
+        # if this method is called with a null row it will complain. If warn is true
+        if len(row_dict) == 0:
+            info_str = "Warning - identify_table_from_row called with empty row."
+            default_log.info(info_str)
+            return False
+
+        for table in tables_and_columns.keys():
+
+            column_heading_set = set(heading for heading in tables_and_columns[table])
+            if row_columns_set.issubset(column_heading_set):
+                return table
+
+        # If this point in the algorithm has been reached then something has gone wrong.
+        # Searching for partial matches - tables with some, but not all of the column names
+        partial_match_tables = set()
+        unmatched_columns = set()
+
+        for column_heading in row_dict.keys():
+            try:
+                column_table = self.identify_table_from_column(column_heading, print_error=False)
+                partial_match_tables.add(column_table)
+            except InputIntegrityError:
+                unmatched_columns.add(column_heading)
+
+        err_str = "SQLite:databasedriver:identify_table_from_row unable to find matching table.\n"
+        if len(partial_match_tables) > 0:
+            err_str += "partial matches found for some column_headings.\n"
+            err_str += "partial_match_tables: " + pprint.pformat(partial_match_tables) + "\n"
+        if len(unmatched_columns) > 0:
+            err_str += "some column_headings could not be matched.\n"
+            err_str += "unmatched_columns: " + pprint.pformat(unmatched_columns) + "\n"
+        err_str += "row_dict: " + pprint.pformat(row_dict) + "\n"
+        if preferences.parse(
+            "include_full_rep_if_row_cant_be_identified",
+            rtn_value_type="bool",
+            default=False,
+        ):
+            err_str += "tables_and_columns: " + pprint.pformat(tables_and_columns) + "\n"
+        default_log.error(err_str)
+        raise DatabaseIntegrityError(err_str)
+
 
     def simple_print_progress_handler(self):
         """
@@ -923,7 +986,7 @@ class DatabaseDriver(
 
 
     # A copy of a function a level up, at database level - implemented here as well to make recursion loops less likely
-    def __identify_table_from_row(self, row_dict):
+    def identify_table_from_row(self, row_dict):
         """
         Takes a row. Attempts to identify which row it came from.
         :param row_dict: The row (dict) to be parsed
@@ -961,12 +1024,12 @@ class DatabaseDriver(
 
         for column_heading in row_dict.keys():
             try:
-                column_table = self.__identify_table_from_column(column_heading, print_error=False)
+                column_table = self.identify_table_from_column(column_heading, print_error=False)
                 partial_match_tables.add(column_table)
             except InputIntegrityError:
                 unmatched_columns.add(column_heading)
 
-        err_str = "SQLite:databasedriver:__identify_table_from_row unable to find matching table.\n"
+        err_str = "SQLite:databasedriver:identify_table_from_row unable to find matching table.\n"
         if len(partial_match_tables) > 0:
             err_str += "partial matches found for some column_headings.\n"
             err_str += "partial_match_tables: " + pprint.pformat(partial_match_tables) + "\n"
@@ -1013,7 +1076,7 @@ class DatabaseDriver(
         Takes a row. Extracts an id from it if possible. If not returns False
         :param row_dict:
         """
-        row_table = self.__identify_table_from_row(row_dict)
+        row_table = self.identify_table_from_row(row_dict)
         row_id_column = self._get_id_column(row_table)
 
         if row_id_column not in row_dict.keys():

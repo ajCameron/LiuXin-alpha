@@ -1,5 +1,7 @@
 
 
+import sqlite3
+
 
 class BookGroupMixin:
     """
@@ -62,6 +64,11 @@ class BookGroupMixin:
         c = conn.cursor()
 
         stmt = "DELETE FROM new_books WHERE new_book_group_id = ?"
-        c.execute(stmt, group_id)
+
+        try:
+            c.execute(stmt, group_id)
+        except sqlite3.ProgrammingError as e:
+            raise ValueError(f"Could not delete book group {group_id}: {e}") from e
+
         conn.commit()
         conn.close()

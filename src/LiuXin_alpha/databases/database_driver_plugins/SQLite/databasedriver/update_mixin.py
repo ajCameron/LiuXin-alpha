@@ -89,7 +89,7 @@ class UpdateMixin:
         :param row_dict:
         :return:
         """
-        target_table = self.__identify_table_from_row(row_dict)
+        target_table = self.identify_table_from_row(row_dict)
         row_dict = deepcopy(row_dict)
 
         # Trying to write a u'None' to a column with a foreign key constraint causes problems. Replacing all of these

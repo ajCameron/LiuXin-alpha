@@ -53,12 +53,7 @@ class SearchMixin:
             headings = self.direct_get_column_headings(target_table)
             stmt = "SELECT * FROM {} ORDER BY RANDOM() LIMIT 1".format(target_table)
             for row in c.execute(stmt):
-                this_row = dict()
-                for i in range(len(headings)):
-                    if not isinstance(row[i], set):
-                        this_row[headings[i]] = force_unicode(row[i])
-                    else:
-                        this_row[headings[i]] = row[i]
+                this_row = self._row_to_dict(table=target_table, headings=headings, row=row)
                 conn.close()
                 return this_row
 
@@ -112,12 +107,7 @@ class SearchMixin:
 
         results = []
         for row in c.execute(stmt):
-            this_row = dict()
-            for i in range(len(headings)):
-                if not isinstance(row[i], set):
-                    this_row[headings[i]] = force_unicode(row[i])
-                else:
-                    this_row[headings[i]] = row[i]
+            this_row = self._row_to_dict(table=table, headings=headings, row=row)
             results.append(this_row)
 
         conn.close()
@@ -169,12 +159,7 @@ class SearchMixin:
                     conn.close()
                     break
                 for row in current_rows:
-                    this_row = dict()
-                    for i in range(len(headings)):
-                        if not isinstance(row[i], set):
-                            this_row[headings[i]] = force_unicode(row[i])
-                        else:
-                            this_row[headings[i]] = row[i]
+                    this_row = self._row_to_dict(table=table, headings=headings, row=row)
                     yield this_row
                     start_id_value = this_row[table_id_column]
 
@@ -244,11 +229,7 @@ class SearchMixin:
         result = dict()
         try:
             for row in c.execute(stmt, (row_id,)):
-                for i in range(len(headings)):
-                    if not isinstance(headings[i], set):
-                        result[headings[i]] = force_unicode(row[i])
-                    else:
-                        result[headings[i]] = row[i]
+                result = self._row_to_dict(table=table, headings=headings, row=row)
                 rows.append(result)
         except sqlite3.InterfaceError as e:
             err_str = "Interface error while trying to find a row\n"
@@ -310,26 +291,26 @@ class SearchMixin:
             current_values.add(row[0])
         return current_values
 
-    def iterator_return(self, stmt, headings):
-        """
-        Python version <3.3 does not allow 'return' with argument inside generators. Thus hiving it off to a separate
-        method.
-        :param stmt: stmt to be executed on the table.
-        :param headings: Headings for the results of the statement
-        :return:
+    def iterator_return(self, stmt, headings, table=None):
+        """Yield row dicts for a pre-built SQL statement.
+
+        When `table` is provided, values are coerced using declared column types
+        (see :class:`~LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.value_casting_mixin.ValueCastingMixin`).
         """
         conn = self.get_connection()
         c = conn.cursor()
-        for row in c.execute(stmt):
-            this_row = dict()
-            for i in range(len(headings)):
-                this_row[headings[i]] = force_unicode(row[i])
+        try:
+            for row in c.execute(stmt):
+                if table is None:
+                    this_row = dict()
+                    for i in range(len(headings)):
+                        this_row[headings[i]] = force_unicode(row[i])
+                else:
+                    this_row = self._row_to_dict(table=table, headings=headings, row=row)
                 yield this_row
-            else:
-                # Finally, when the generator is exhausted, terminating the connection properly
-                # Todo: Test this happens
-                default_log.info("Connection has closed!")
-                conn.close()
+        finally:
+            default_log.info("Connection has closed!")
+            conn.close()
 
 
     def direct_search_table(self, table=None, column=None, search_term=None):
@@ -384,12 +365,7 @@ class SearchMixin:
         try:
 
             for row in c.execute(stmt, (search_term,)):
-                this_row = dict()
-                for i in range(len(headings)):
-                    if not isinstance(headings[i], set):
-                        this_row[headings[i]] = force_unicode(row[i])
-                    else:
-                        this_row[headings[i]] = row[i]
+                this_row = self._row_to_dict(table=table, headings=headings, row=row)
                 results.append(this_row)
 
         except sqlite3.OperationalError as e:
@@ -464,14 +440,12 @@ class SearchMixin:
         if not iterator_return:
             all_results = []
             for row in c.execute(final_stmt):
-                this_row = dict()
-                for i in range(len(headings)):
-                    this_row[headings[i]] = force_unicode(row[i])
+                this_row = self._row_to_dict(table=target_table, headings=headings, row=row)
                 all_results.append(this_row)
-                conn.close()
+            conn.close()
             return all_results
         else:
-            return self.iterator_return(final_stmt, headings)
+            return self.iterator_return(final_stmt, headings, target_table)
 
 
     # Algorithm is as follows.

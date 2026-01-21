@@ -166,7 +166,7 @@ class TableNamesMixin:
         """
         return self.direct_get_id_column(table=table, tables_and_columns=tables_and_columns)
 
-    def __identify_table_from_column(self, column_heading, headings_and_columns=None, print_error=True):
+    def identify_table_from_column(self, column_heading, headings_and_columns=None, print_error=True):
         """
         Takes a column heading (and optionally a headings and columns dict). Works out the table it falls into.
         :param column_heading: Each column heading should be unique in the database
@@ -268,7 +268,7 @@ class TableNamesMixin:
 
     # We assume that the row has an element ending with "_parent". This (it is hoped) is a pointer backwards up the tree
     # to the row above it.
-    def __get_parent_column_name(self, table_name):
+    def get_parent_column_name(self, table_name):
         """
         Takes a table name. Works out if the table has an element ending in "_parent" and returns the parent column name
         if it exists.

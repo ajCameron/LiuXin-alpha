@@ -100,7 +100,7 @@ class TreeMethodsMixin:
         :param start_row:
         :return root_row:
         """
-        return self.__get_linear_row_index(start_row)[0]
+        return self.get_linear_row_index(start_row)[0]
 
     def get_all_tree_rows(self, start_row):
         """
@@ -109,8 +109,8 @@ class TreeMethodsMixin:
         :param start_row:
         :return:
         """
-        row_table = self.__identify_table_from_row(start_row)
-        row_parent_column = self.__get_parent_column_name(row_table)
+        row_table = self.identify_table_from_row(start_row)
+        row_parent_column = self.get_parent_column_name(row_table)
         root_series = self.get_root_series(start_row)
 
         row_pool = [root_series]
@@ -178,7 +178,7 @@ class TreeMethodsMixin:
             err_str += "start_row: " + repr(start_row) + "\n"
             err_str += "display_column: " + repr(display_column) + "\n"
             raise InputIntegrityError(err_str)
-        row_index = self.__get_linear_row_index(start_row)
+        row_index = self.get_linear_row_index(start_row)
         row_column_index = []
 
         for row in row_index:
@@ -196,7 +196,7 @@ class TreeMethodsMixin:
 
 
 
-    def __get_linear_row_index(self, start_row):
+    def get_linear_row_index(self, start_row):
         """
         Takes a starting row. Iterates up the tree building an index of all the rows_dicts as it goes.
 
@@ -205,8 +205,8 @@ class TreeMethodsMixin:
         .......... -> grandparent_series -> parent_series -> series
         """
         start_row_dict = start_row
-        row_table = self.__identify_table_from_row(start_row_dict)
-        row_parent_column = self.__get_parent_column_name(row_table)
+        row_table = self.identify_table_from_row(start_row_dict)
+        row_parent_column = self.get_parent_column_name(row_table)
         linear_index = []
         current_row = start_row_dict
         try:

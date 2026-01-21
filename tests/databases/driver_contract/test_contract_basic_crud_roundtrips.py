@@ -39,7 +39,7 @@ def crud_table(driver) -> str:
 
     table = _CONTRACT_TABLE
 
-    # Use very distinctive column names so __identify_table_from_row() cannot
+    # Use very distinctive column names so identify_table_from_row() cannot
     # accidentally match some other table.
     sql = f"""
     DROP TABLE IF EXISTS `{table}`;

@@ -76,6 +76,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.tree_m
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.metadata_mixin import MetadataMethodMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.triggers_mixin import TriggersMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.search_mixin import SearchMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.value_casting_mixin import ValueCastingMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.book_group_mixin import BookGroupMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.delete_mixin import DeleteMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.add_mixin import AddingMixin
@@ -155,11 +156,12 @@ class SQLite_Connection(sqlite3.Connection):
 class DatabaseDriver(
     SQLiteCustomColumnsDriverMixin,
     SQLiteTableLinkingMixin,
+    ValueCastingMixin,
     CalibreEmulationMixin,
     SQLExecutionMixin,
     MathFunctionsMixin,
     DirtyRecordsMixin,
-    TableNamesMixin, TreeMethodsMixin, MetadataMethodMixin, TriggersMixin, BookGroupMixin, DeleteMixin, AddingMixin, UpdateMixin):
+    TableNamesMixin, TreeMethodsMixin, MetadataMethodMixin, SearchMixin, TriggersMixin, BookGroupMixin, DeleteMixin, AddingMixin, UpdateMixin):
     """
     Represents a collection of all the methods needed to interface with an actual database.
     """
@@ -867,11 +869,7 @@ class DatabaseDriver(
         rows = []
         result = dict()
         for row in c.execute(stmt, (row_id,)):
-            for i in range(len(headings)):
-                if not isinstance(headings[i], set):
-                    result[headings[i]] = force_unicode(row[i])
-                else:
-                    result[headings[i]] = row[i]
+            result = self._row_to_dict(table=view, headings=headings, row=row)
             rows.append(result)
 
         if len(rows) > 1:
@@ -912,7 +910,7 @@ class DatabaseDriver(
 
 
     # A copy of a function a level up, at database level - implemented here as well to make recursion loops less likely
-    def __identify_table_from_row(self, row_dict):
+    def identify_table_from_row(self, row_dict):
         """
         Takes a row. Attempts to identify which row it came from.
         :param row_dict: The row (dict) to be parsed
@@ -950,12 +948,12 @@ class DatabaseDriver(
 
         for column_heading in row_dict.keys():
             try:
-                column_table = self.__identify_table_from_column(column_heading, print_error=False)
+                column_table = self.identify_table_from_column(column_heading, print_error=False)
                 partial_match_tables.add(column_table)
             except InputIntegrityError:
                 unmatched_columns.add(column_heading)
 
-        err_str = "SQLite:databasedriver:__identify_table_from_row unable to find matching table.\n"
+        err_str = "SQLite:databasedriver:identify_table_from_row unable to find matching table.\n"
         if len(partial_match_tables) > 0:
             err_str += "partial matches found for some column_headings.\n"
             err_str += "partial_match_tables: " + pprint.pformat(partial_match_tables) + "\n"
@@ -1003,7 +1001,7 @@ class DatabaseDriver(
         Takes a row. Extracts an id from it if possible. If not returns False
         :param row_dict:
         """
-        row_table = self.__identify_table_from_row(row_dict)
+        row_table = self.identify_table_from_row(row_dict)
         row_id_column = self._get_id_column(row_table)
 
         if row_id_column not in row_dict.keys():

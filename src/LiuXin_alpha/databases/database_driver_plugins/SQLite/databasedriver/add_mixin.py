@@ -22,7 +22,7 @@ class AddingMixin:
         :param row_dict:
         :return :
         """
-        target_table = self.__identify_table_from_row(row_dict)
+        target_table = self.identify_table_from_row(row_dict)
 
         # Assembling a list of placeholders of the form ?,?,?
         values_placeholders = ""
@@ -88,11 +88,11 @@ class AddingMixin:
 
         # Gets a reference element. Errors will be thrown if every row doesn;t match this one.
         reference_row_dict = row_dict_list[0]
-        target_table = self.__identify_table_from_row(reference_row_dict)
+        target_table = self.identify_table_from_row(reference_row_dict)
 
         # TODO: re-write add_multiple_simple_rows to handle multiple different types of row
         for row in row_dict_list:
-            if target_table != self.__identify_table_from_row(row):
+            if target_table != self.identify_table_from_row(row):
                 raise InputIntegrityError("Rows from different tables.")
 
         # TODO: extend the method to deal with this
