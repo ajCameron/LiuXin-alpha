@@ -403,6 +403,7 @@ class DatabaseDriver(
     def direct_self_delete(self):
         """
         Delete the on_disc database file.
+
         :return:
         """
         # Lock the database. Delete the SQLite file.

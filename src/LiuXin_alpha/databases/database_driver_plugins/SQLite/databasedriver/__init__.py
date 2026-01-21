@@ -409,6 +409,8 @@ class DatabaseDriver(
     #
     # ----------------------------------------------------------------------------------------------------------------------
 
+    # Todo: We need a registyr to make sure we have singleton connections to each db
+    # Todo: We need a registyr to make sure we have singleton connections to each db
     # Internal, implementation dependant method. Should not be exposed to the outside
     def get_connection(self):
         """

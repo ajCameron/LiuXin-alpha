@@ -50,9 +50,15 @@ class SQLiteCustomColumnsDriverMixin(object):
                 datatype=data_type,
             )
         else:
+            # Historically, callers used ``multi=True`` to mean "default" multiple
+            # relation type. Treat this as many_many for backwards compatibility.
+            if multi is True:
+                multi = "many_many"
             if multi == "many_many":
                 # Need to create a many_many relation between the book and the values for it in the custom column
-                self.direct_create_many_many_custom_column(target_table=in_table, custom_column_name=column_name)
+                return self.direct_create_many_many_custom_column(
+                    target_table=in_table, custom_column_name=column_name
+                )
             elif multi == "one_many":
                 # Need to create a one_many relation between the book and it's items
                 return self.direct_create_one_to_many_custom_column(
