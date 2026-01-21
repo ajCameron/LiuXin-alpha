@@ -1,0 +1,573 @@
+
+
+import sqlite3
+import random
+from copy import deepcopy
+
+from LiuXin_alpha.errors import LogicalError, InputIntegrityError, DatabaseIntegrityError, DatabaseDriverError
+
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode, force_unicode
+
+from LiuXin_alpha.utils.logging import LiuXin_debug_print, default_log
+
+from LiuXin_alpha.constants import VERBOSE_DEBUG
+
+
+class SearchMixin:
+    """
+    Mixin for the search system.
+    """
+
+
+    def direct_get_random_row_dict(self, target_table, direct=False):
+        """
+        Returns a random row_dict from the specified table.
+        :param target_table:
+        :param direct:
+        :return:
+        """
+        conn = self.get_connection()
+        c = conn.cursor()
+        target_table = force_unicode(deepcopy(target_table))
+
+        # checks that you're requesting data from an existing table
+        if not self.validate_existing_table_name(target_table):
+            err_str = "table name passed into direct_get_random_row_dict failed validation.\n"
+            err_str = default_log.log_variables(err_str, "ERROR", ("target_table", target_table))
+            raise InputIntegrityError(err_str)
+
+        highest_id = self.direct_get_highest_id(target_table)
+        try:
+            highest_id = int(highest_id)
+        except TypeError:
+            wrn_str = (
+                "Unable to coerce highest_id to integer. "
+                "Assuming this means that the table is empty. "
+                "Could also mean that non-integer ids are being used - in which case this method cannot be used"
+            )
+            wrn_str = default_log.log_variables(wrn_str, "WARN", ("highest_id", highest_id))
+            conn.close()
+            return None
+
+        if direct:
+            headings = self.direct_get_column_headings(target_table)
+            stmt = "SELECT * FROM {} ORDER BY RANDOM() LIMIT 1".format(target_table)
+            for row in c.execute(stmt):
+                this_row = dict()
+                for i in range(len(headings)):
+                    if not isinstance(row[i], set):
+                        this_row[headings[i]] = force_unicode(row[i])
+                    else:
+                        this_row[headings[i]] = row[i]
+                conn.close()
+                return this_row
+
+        elif not direct:
+            random.seed()
+            conn.close()
+
+            while True:
+                new_row_id = random.randint(1, highest_id)
+                candidate_row = self.direct_get_row_dict_from_id(table=target_table, row_id=new_row_id)
+                if candidate_row:
+                    return candidate_row
+
+        # In the case where there are no rows in the table, returns None
+        return None
+
+
+    def direct_get_all_rows(self, table, sort_column=None, reverse=False):
+        """
+        Returns all rows from a given table in the database in the form of an index of row_dicts.
+        Should only be used with small tables. Otherwise the memory cost is prohibitive.
+        :param table: Yield the rows from this table
+        :param sort_column: Sort the rows by the values in this column
+        :param reverse: Should the order of the rows be reversed?
+        :return:
+        """
+        conn = self.get_connection()
+        c = conn.cursor()
+        table = force_unicode(table)
+        headings = self.direct_get_column_headings(table)
+
+        # checks that you're requesting data from an existing table
+        if not self.validate_existing_table_name(table):
+            err_str = "table name passed into direct_get_all_rows failed validation.\n"
+            err_str = default_log.log_variables(err_str, "ERROR", ("table", table))
+            raise InputIntegrityError(err_str)
+
+        # Check that the sort_column is in the requested table
+        if sort_column not in headings and sort_column is not None:
+            err_str = "table and sort_column are not consistent.\n"
+            err_str = default_log.log_variables(err_str, "ERROR", ("table", table), ("sort_column", sort_column))
+            raise InputIntegrityError(err_str)
+
+        if sort_column is None:
+            stmt = "SELECT * FROM {};".format(table)
+        else:
+            if not reverse:
+                stmt = "SELECT * FROM {} ORDER BY {} ASC;".format(table, sort_column)
+            else:
+                stmt = "SELECT * FROM {} ORDER BY {} DESC".format(table, sort_column)
+
+        results = []
+        for row in c.execute(stmt):
+            this_row = dict()
+            for i in range(len(headings)):
+                if not isinstance(row[i], set):
+                    this_row[headings[i]] = force_unicode(row[i])
+                else:
+                    this_row[headings[i]] = row[i]
+            results.append(this_row)
+
+        conn.close()
+        return results
+
+
+    def direct_get_row_dict_iterator(self, table, sort_column=None, reverse=False):
+        """
+        Provides an iterator which returns all the rows in a specified table in the form of row_dicts. Ordered by id
+        :param table: Get an iterator for all the rows in this table.
+        :param sort_column: The column the table should be sorted by
+        :param reverse: Should the order of the rows be reversed?
+        :return:
+        """
+        table = force_unicode(table)
+        table_id_column = self._get_id_column(table)
+        headings = self.direct_get_column_headings(table)
+
+        # checks that you're requesting data from an existing table
+        if not self.validate_existing_table_name(table):
+            err_str = "table name passed into direct_get_all_rows failed validation."
+            err_str = default_log.log_variables(err_str, "ERROR", ("table", table))
+            raise InputIntegrityError(err_str)
+
+        # Check that the sort_column comes from the table
+        if sort_column is not None:
+            if sort_column not in headings:
+                err_str = "requested sort_column is not in the requested table.\n"
+                err_str = default_log.log_variables(err_str, "ERROR", ("table", table), ("sort_column", sort_column))
+                raise InputIntegrityError(err_str)
+
+        start_id_value = 0
+        if sort_column is None:
+
+            # reads data from the database in 10 row chunks - then closing the connection. Should leave the database
+            # unlocked for most of the time
+            while True:
+
+                conn = self.get_connection()
+                c = conn.cursor()
+                this_stmt = "SELECT * FROM {} WHERE {} > {} ORDER BY {} LIMIT 10;".format(
+                    table, table_id_column, start_id_value, table_id_column
+                )
+                c.execute(this_stmt)
+                current_rows = deepcopy(c.fetchall())
+                conn.close()
+
+                if not current_rows:
+                    conn.close()
+                    break
+                for row in current_rows:
+                    this_row = dict()
+                    for i in range(len(headings)):
+                        if not isinstance(row[i], set):
+                            this_row[headings[i]] = force_unicode(row[i])
+                        else:
+                            this_row[headings[i]] = row[i]
+                    yield this_row
+                    start_id_value = this_row[table_id_column]
+
+        else:
+
+            # Sort the table by the sort_column and then by the id? Don't have a good solution for this yet (due to
+            # concern that the sort order will change while the update is running
+            # Do something with timestamps
+            raise NotImplementedError("Cannot currently cope with this combination")
+
+
+    def direct_get_unique_values_set(self, target_column):
+        """
+        Returns a set of the unique values in a column.
+        :param target_column:
+        :return values_set: A set of all the unique values in that column
+        """
+        target_table = self.__identify_table_from_column(column_heading=target_column)
+        stmt = "SELECT DISTINCT {} FROM {};".format(target_column, target_table)
+        values_set = set()
+        conn = self.get_connection()
+        c = conn.cursor()
+
+        for value in c.execute(stmt):
+            values_set.add(value[0])
+        conn.close()
+        return values_set
+
+
+    def direct_get_unique_values_iterator(self, target_column):
+        """
+        Iterates over the unique values in a column.
+        Helps to keep memory usage down when dealing with very large tables.
+        :param target_column:
+        :return:
+        """
+        # Needs to sort the table after every retrieval - so will be very slow for large databases
+        # Todo: Come back and optimize/make this work
+        # target_table = self.__identify_table_from_column(column_heading=target_column)
+        # stmt = 'SELECT DISTINCT {} FROM {} WHERE {} > {} LIMIT 1;'
+        # stmt = stmt.format(target_column, target_table)
+        values_set = self.direct_get_unique_values_set(target_column)
+        for value in values_set:
+            yield value
+
+
+    def direct_get_row_dict_from_id(self, table, row_id):
+        """
+        Attempts to get a specific row from the table give. Returns the result as a dictionary kweyed with the column
+        name and valued with the values from that row.
+        :param table: The table to search in
+        :param row_id: The id this function will be looking for
+        :return row/False: The requested Row. False if nothing is found.
+        """
+        table = force_unicode(table)
+        row_id = force_unicode(row_id)
+
+        conn = self.get_connection()
+        c = conn.cursor()
+
+        headings = self.direct_get_column_headings(table)
+        table_id_name = self._get_id_column(table)
+
+        stmt = "SELECT * FROM {} WHERE {} = ?".format(table, table_id_name)
+
+        rows = []
+        result = dict()
+        try:
+            for row in c.execute(stmt, (row_id,)):
+                for i in range(len(headings)):
+                    if not isinstance(headings[i], set):
+                        result[headings[i]] = force_unicode(row[i])
+                    else:
+                        result[headings[i]] = row[i]
+                rows.append(result)
+        except sqlite3.InterfaceError as e:
+            err_str = "Interface error while trying to find a row\n"
+            err_str = default_log.log_exception(err_str, e, "ERROR", ("row_id", row_id))
+            raise DatabaseDriverError(err_str)
+
+        if len(rows) > 1:
+            err_str = "Error - search yielded multiple rows. Aborting.\n"
+            err_str += repr(rows)
+            default_log.error(err_str)
+            conn.close()
+            raise DatabaseIntegrityError(err_str)
+        elif len(rows) == 0:
+            info_str = "Warning - search yielded no results. Consider sources of logical error."
+            default_log.log_variables(info_str, "INFO", ("table", table), ("row_id", row_id))
+            conn.close()
+            return False
+        else:
+            conn.close()
+            return result
+
+
+    def direct_get_all_hashes(self):
+        """
+        Returns a set of all hashes in the database.
+        :return:
+        """
+        file_hashes = self.direct_get_all_values(table="files", column="file_hash")
+        cf_hashes_1 = self.direct_get_all_values(table="compressed_files", column="compressed_file_hash_1")
+        cf_hashes_2 = self.direct_get_all_values(table="compressed_files", column="compressed_file_hash_2")
+        nb_hashes_1 = self.direct_get_all_values(table="new_books", column="new_book_hash_1")
+        nb_hashes_2 = self.direct_get_all_values(table="new_books", column="new_book_hash_2")
+        other_hashes = self.direct_get_all_values(table="hashes", column="hash")
+        return (
+            file_hashes.union(cf_hashes_1).union(cf_hashes_2).union(nb_hashes_1).union(nb_hashes_2).union(other_hashes)
+        )
+
+    # Todo - Merge with direct_get_unique_values - after an upgrade to allow specify a table
+    def direct_get_all_values(self, table, column):
+        """
+        Returns a set of all values in the given column in the given table.
+
+        :param table: The table to be searched
+        :param column: The column in that table
+        :return:
+        """
+        if table is not None:
+            table = deepcopy(force_unicode(table))
+        else:
+            table = self.__identify_table_from_column(column)
+        column = deepcopy(force_unicode(column))
+
+        current_values = set()
+        conn = self.get_connection()
+        c = conn.cursor()
+
+        stmt = "SELECT {} FROM {}".format(column, table)
+        for row in c.execute(stmt):
+            current_values.add(row[0])
+        return current_values
+
+    def iterator_return(self, stmt, headings):
+        """
+        Python version <3.3 does not allow 'return' with argument inside generators. Thus hiving it off to a separate
+        method.
+        :param stmt: stmt to be executed on the table.
+        :param headings: Headings for the results of the statement
+        :return:
+        """
+        conn = self.get_connection()
+        c = conn.cursor()
+        for row in c.execute(stmt):
+            this_row = dict()
+            for i in range(len(headings)):
+                this_row[headings[i]] = force_unicode(row[i])
+                yield this_row
+            else:
+                # Finally, when the generator is exhausted, terminating the connection properly
+                # Todo: Test this happens
+                default_log.info("Connection has closed!")
+                conn.close()
+
+
+    def direct_search_table(self, table=None, column=None, search_term=None):
+        """
+        Searches a specified column in a table by the given search term.
+        Returns an empty index if no results are found.
+        :param table: The table to search (can be unspecified - but don't want to break backwards compatibility
+        :param column: The column to search in
+        :param search_term: The string to search with
+        :return results: An index of row_dicts
+        """
+        if (table is not None) and (column is not None) and (search_term is not None):
+            try:
+                table = force_unicode(table)
+                column = force_unicode(column)
+                search_term = force_unicode(search_term)
+            except UnicodeDecodeError:
+                err_str = "search_table was passed something it couldn't coerce to unicode?\n"
+                err_str += "table: " + repr(table) + "\n"
+                err_str += "column: " + repr(column) + "\n"
+                err_str += "search_term: " + repr(search_term) + "\n"
+                default_log.error(err_str)
+                raise InputIntegrityError(err_str)
+
+        elif (table is None) and (column is not None) and (search_term is not None):
+            try:
+                column = force_unicode(column)
+                search_term = force_unicode(search_term)
+            except UnicodeDecodeError:
+                err_str = "search_table was passed something it couldn't coerce to unicode?\n"
+                err_str += "table: " + repr(table) + "\n"
+                err_str += "column: " + repr(column) + "\n"
+                err_str += "search_term: " + repr(search_term) + "\n"
+                default_log.error(err_str)
+                raise InputIntegrityError(err_str)
+
+        else:
+            err_str = "Request to search table was not properly formatted.\n"
+            err_str += "table: " + repr(table) + "\n"
+            err_str += "column: " + repr(column) + "\n"
+            err_str += "search_term: " + repr(search_term) + "\n"
+            default_log.error(err_str)
+            raise InputIntegrityError(err_str)
+
+        conn = self.get_connection()
+        c = conn.cursor()
+
+        stmt = "SELECT * FROM {} WHERE {} = ?;".format(table, column)
+
+        results = []
+        headings = self.direct_get_column_headings(table)
+        try:
+
+            for row in c.execute(stmt, (search_term,)):
+                this_row = dict()
+                for i in range(len(headings)):
+                    if not isinstance(headings[i], set):
+                        this_row[headings[i]] = force_unicode(row[i])
+                    else:
+                        this_row[headings[i]] = row[i]
+                results.append(this_row)
+
+        except sqlite3.OperationalError as e:
+            err_str = "Unable to update - OperationalError - search term might be malformed\n"
+            err_str = default_log.log_exception(err_str, e, "ERROR", ("stmt", stmt), ("search_term", search_term))
+            conn.close()
+            raise InputIntegrityError(err_str)
+
+        conn.close()
+        return results
+
+
+    # Todo: Paused while adding a method to import metadata from a csv file - so I can test something fancy with a join
+    def direct_multi_column_search(self, search_index, iterator_return=False):
+        """
+        Takes an index of tuples (or indexes - the method is not fussy provided it contains the required terms). Which
+        can then be used to search the database.
+        Tuples should take the form (column_name, binary_comparison_operator, target_value).
+        Binary comparison operators can include the LIKE operator.
+        Every tuple is joined together by an AND statement.
+        Will currently fail unless every row is in the same table.
+        Thus [(u'creator', u'=', u'David Weber'),(u'series',u'=',u'Honor Harrington')] becomes
+        SELECT * FROM `creators` * WHERE creator = 'David Weber' AND series = 'Honor Harrington';
+        :param search_index:
+        :param iterator_return: Should an iterator leading to the database be returned? Default: False - in which case
+        result is returned as an index
+        :return found_rows:
+        """
+        if len(search_index) == 0:
+            if VERBOSE_DEBUG:
+                debug_str = "multi-column search has been passed an empty index.\n"
+                LiuXin_debug_print(debug_str)
+            else:
+                return None
+
+        # Builds a set of the requested tables - to check that every column comes from the same table
+        columns_set = set()
+        table_set = set()
+        for term in search_index:
+            columns_set.add(term[0])
+        for column in columns_set:
+            table_set.add(self.__identify_table_from_column(column))
+        if len(table_set) == 0:
+            err_str = "Attempt to parse the search_index has failed.\n"
+            err_str += "table_set is empty.\n"
+            err_str += "search_index: " + repr(search_index) + "\n"
+            raise InputIntegrityError(err_str)
+        elif len(table_set) > 1:
+            err_str = "Columns seem to come from multiple tables.\n"
+            err_str += "columns_set: " + repr(columns_set) + "\n"
+            err_str += "table_set: " + repr(table_set) + "\n"
+            err_str += "search_index: " + repr(search_index) + "\n"
+            raise InputIntegrityError(err_str)
+        else:
+            target_table = table_set.pop()
+
+        stmt = "SELECT * FROM {} WHERE ".format(target_table)
+        final_search_terms = []
+
+        for this_term in search_index:
+            this_condition = ""
+            search_term = this_term[2]
+            this_condition += "{} {} {}".format(this_term[0], this_term[1], search_term)
+
+            final_search_terms.append(this_condition)
+
+        final_stmt = stmt + " AND ".join(final_search_terms)
+
+        conn = self.get_connection()
+        c = conn.cursor()
+        headings = self.direct_get_column_headings(target_table)
+        if not iterator_return:
+            all_results = []
+            for row in c.execute(final_stmt):
+                this_row = dict()
+                for i in range(len(headings)):
+                    this_row[headings[i]] = force_unicode(row[i])
+                all_results.append(this_row)
+                conn.close()
+            return all_results
+        else:
+            return self.iterator_return(final_stmt, headings)
+
+
+    # Algorithm is as follows.
+    # The output of the search qiuery parser looks something like ['or', ['and', ['or', ['token', u'titles', u'thing'],
+    # ['token', u'creators', u'david']], ['token', 'all', u'simon']], ['or', ['token', u'genres', u'thing'],
+    # ['token', u'genres', u'thing']]]
+    # which was u'((titles:thing or creators:david) and simon) or genres:thing or genres:thing'
+    # 1) Scans down looking for an index which is of the form ['string','string','string']
+    # 2) Converts it, in place, into a string.
+    # 3) Continues, until the entire tree has been converted
+    # 4) Should end up with something which is semantically identical to the initial query, before it was parsed
+    def locational_search(self, parsed_query):
+        """
+        Takes an index parsed from a search query - builds an appropriate search query from that parsed query and
+        executes it on the database.
+        :param parsed_query: A query parsed by the SearchQueryParser.
+        :return:
+        """
+        parsed_query = deepcopy(parsed_query)
+        locations = self.locations
+        if self.locations is None:
+            wrn_str = "DatabaseDriver doesn't have locations loaded.\n"
+            LiuXin_debug_print(wrn_str)
+
+        # The tables which will be needed to include in the inner join can be calculated from the required locations
+        required_locations = set()
+
+        # Scans down looking for an instance of an index of the form ['string', 'string', 'string'] to transform them
+        while not isinstance(parsed_query, unicode):
+            # index_location - used to specify a position within the parsed query tree structure
+            index_location = []
+            current_level = parsed_query
+            while not self.can_index_be_transformed(current_level):
+                for i in range(len(current_level)):
+                    token = current_level[i]
+                    if hasattr(token, "__iter__"):
+                        current_level = token
+                        index_location.append(i)
+                        break
+                else:
+                    err_str = "Attempt to parse query has failed.\n"
+                    err_str += "parsed_query: " + repr(parsed_query) + "\n"
+                    raise LogicalError(err_str)
+
+            # Including the location in the list of required locations
+            if current_level[0] == "token":
+                required_locations.add(current_level[1])
+
+            # Using the index_location as a guide to build some code to actually change the value (because the number of
+            # indices is variable and this seems to be the best way to access it)
+            transformed_index = self.transform_index(current_level)
+            stmt = "parsed_query"
+            for value in index_location:
+                stmt += force_unicode("[" + force_unicode(value) + "]")
+            stmt += " = transformed_index"
+            print(stmt)
+            # exec(stmt)
+            raise NotImplementedError(stmt)
+        print(parsed_query)
+
+
+    @staticmethod
+    def can_index_be_transformed(target_index):
+        """
+        Tests to see if an index can be transformed into pure string form.
+        :param target_index:
+        :return:
+        """
+        if not hasattr(target_index, "__iter__"):
+            return False
+
+        if len(target_index) != 3:
+            err_str = "can_index_be_transformed in locational_search has been passed a poorly formed index.\n"
+            err_str += "target_index: " + repr(target_index) + "\n"
+            raise InputIntegrityError(err_str)
+        if hasattr(target_index[1], "__iter__") or hasattr(target_index[2], "__iter__"):
+            return False
+        else:
+            return True
+
+
+    @staticmethod
+    def transform_index(target_index):
+        """
+        Takes an index - transforms it into intermediate form.
+        :param target_index:
+        :return:
+        """
+
+        if target_index[0] == "token":
+            return target_index[1] + ':"' + target_index[2] + '"'
+        elif target_index[0] == "or":
+            return "( " + target_index[1] + " OR " + target_index[2] + " )"
+        elif target_index[0] == "and":
+            return "( " + target_index[1] + " AND " + target_index[2] + " )"
+        else:
+            err_str = "transform_index in locational_search has failed while trying to parse a query.\n"
+            err_str += "target_index: " + repr(target_index) + "\n"
+            raise LogicalError(err_str)
