@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import sys
 import os
+import traceback
 
 from LiuXin_alpha.utils.which_os import iswindows
 
@@ -331,6 +332,94 @@ class CompatLogger(logging.Logger):
     ) -> str:
         return self.log_variables(base, level, (key, value), emit=emit, fmt=fmt)
 
+
+
+    def log_exception(
+        self,
+        base: Optional[str],
+        exc: BaseException,
+        level: LevelLike,
+        *pairs: Any,
+        emit: bool = True,
+        fmt: Optional[LogVariablesFormat] = None,
+        include_traceback: bool = True,
+    ) -> str:
+        """
+        Log an exception with structured context, returning an enriched message string.
+
+        Compatible with call sites like::
+
+            err_str = default_log.log_exception(
+                "sqlite3.OperationalError.",
+                e,
+                "ERROR",
+                ("stmt", stmt),
+                ("values", values),
+            )
+
+        The returned string is suitable for raising/wrapping errors.
+        By default, the log emission includes ``exc_info`` (so tracebacks
+        appear in logs) while the returned string stays compact.
+
+        :param base: Base message string to enrich (or None)
+        :param exc: The exception instance
+        :param level: Logging level (int or common string)
+        :param pairs: Optional (key, value) context tuples
+        :param emit: If True, emit to the logger; always returns the enriched string
+        :param fmt: Optional per-call formatting overrides
+        :param include_traceback: If True, log with exc_info (traceback). The returned
+                                  string still includes only a concise exception summary.
+        """
+        level_int = _coerce_level(level)
+
+        exc_type = type(exc).__name__
+        exc_msg = str(exc)
+        summary = f"{exc_type}: {exc_msg}" if exc_msg else exc_type
+
+        # Add a concise exception summary as a structured variable, then append caller context.
+        out = self.log_variables(
+            base,
+            level_int,
+            ("exception", summary),
+            *pairs,
+            emit=False,
+            fmt=fmt,
+        )
+
+        if emit:
+            extra: dict[str, Any] = {"vars": _coerce_pairs(*pairs), "exception_type": exc_type}
+            if include_traceback:
+                self.log(
+                    level_int,
+                    out,
+                    exc_info=(type(exc), exc, exc.__traceback__),
+                    extra=extra,
+                )
+            else:
+                self.log(level_int, out, extra=extra)
+
+        return out
+
+    # Compatibility alias: some codebases prefer plural naming
+    def log_exceptions(
+        self,
+        base: Optional[str],
+        exc: BaseException,
+        level: LevelLike,
+        *pairs: Any,
+        emit: bool = True,
+        fmt: Optional[LogVariablesFormat] = None,
+        include_traceback: bool = True,
+    ) -> str:
+        return self.log_exception(
+            base,
+            exc,
+            level,
+            *pairs,
+            emit=emit,
+            fmt=fmt,
+            include_traceback=include_traceback,
+        )
 
 def install_compat_logger_class() -> None:
     """
