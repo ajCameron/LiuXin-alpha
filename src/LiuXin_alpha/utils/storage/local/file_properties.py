@@ -72,7 +72,7 @@ def get_file_name_and_ext(
     return file_path_local[position:]
 
 
-def get_file_hash(file_path: str, blocksize: int = 64) -> str:
+def get_file_hash(file_path: str, blocksize: int = 64 * 1024) -> str:
     """
     Receives a file path. Returns a hash for that file.
 
@@ -81,21 +81,22 @@ def get_file_hash(file_path: str, blocksize: int = 64) -> str:
     :param blocksize:
     :return:
     """
-    hasher = hashlib.sha512()  # Declaring this as a default causes hash return to be non-deterministic.
+    # Declaring this as a default causes hash return to be non-deterministic.
+    hasher = hashlib.sha512()
 
+    # NOTE: This must be binary mode.
+    # On Windows, opening a SQLite DB (or any binary file) in text mode will try to decode
+    # bytes using the active codepage (e.g. cp1252) and can explode with UnicodeDecodeError.
     size = get_file_size(file_path)
-    file_in_pointer = open(file_path, "r")
+    with open(file_path, "rb") as file_in_pointer:
+        while True:
+            buf = file_in_pointer.read(blocksize)
+            if not buf:
+                break
+            hasher.update(buf)
 
-    buf = file_in_pointer.read(blocksize)
-    while len(buf) > 0:
-        hasher.update(buf)
-        buf = file_in_pointer.read(blocksize)
-
-    file_in_pointer.close()
-
-    return hasher.hexdigest() + six_unicode(
-        size
-    )  # Honestly can't believe this is needed - but I've seen a hash collision, and so it is
+    # Honestly can't believe this is needed - but I've seen a hash collision? I think?
+    return hasher.hexdigest() + six_unicode(size)
     # Still don't actually believe it
 
 

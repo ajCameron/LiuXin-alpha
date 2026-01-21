@@ -88,7 +88,15 @@ def test_sql_dump_contains_contract_table_and_sentinels(driver, dump_table: str)
 
 
 def test_dump_and_restore_roundtrip_preserves_data_and_applies_pre_sql(driver, dump_table: str, assert_integrity, pick_payload):
-    """dump_and_restore() should preserve existing data and can prepend extra SQL."""
+    """
+    dump_and_restore() should preserve existing data and can prepend extra SQL.
+
+    :param driver:
+    :param dump_table:
+    :param assert_integrity:
+    :param pick_payload:
+    :return:
+    """
     before_count = driver.direct_get_record_count(dump_table)
     assert before_count == 3
 

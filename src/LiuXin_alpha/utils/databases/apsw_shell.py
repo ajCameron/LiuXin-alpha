@@ -1752,11 +1752,11 @@ Enter SQL statements terminated with a ";"
 
         # Ensure all values are utf8 not unicode
         for k, v in dialect.items():
-            if isinstance(v, unicode):
+            if isinstance(v, str):
                 dialect[k] = v.encode("utf8")
         for line in csv.reader(thefile, **dialect):
             # back to unicode again
-            yield [x.decode("utf8") for x in line]
+            yield [x.encode("utf8") for x in line]
         thefile.close()
 
     def command_autoimport(self, cmd):
@@ -2230,7 +2230,7 @@ Enter SQL statements terminated with a ";"
                 # compile step is needed to associate name with code
                 exec(compile(open(cmd[0]).read(), cmd[0], "exec"), g, g)
         else:
-            f = codecs.open(cmd[0], "rU", self.encoding[0])
+            f = codecs.open(cmd[0], "r", self.encoding[0])
             try:
                 try:
                     self.push_input()
