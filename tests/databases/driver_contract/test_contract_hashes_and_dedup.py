@@ -1,0 +1,208 @@
+"""
+Driver contract: hashes and dedup.
+
+This module targets the driver helper:
+
+    * direct_get_all_hashes()
+
+which is expected to return a set containing all known hashes across:
+  - files.file_hash
+  - compressed_files.compressed_file_hash_1 / compressed_file_hash_2
+  - new_books.new_book_hash_1 / new_book_hash_2
+  - hashes.hash
+
+These tests are strict ("fail" mode): if a backend diverges or if the
+helper accidentally includes NULLs, misses values, or double-counts, we
+want loud failures.
+
+NOTE: We temporarily disable foreign-key enforcement to allow minimal-row
+inserts focused on the hash columns (this test is about the hash collector,
+not referential integrity).
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Iterable, List, Sequence, Tuple
+
+import pytest
+
+
+def _fetchall(cursor) -> list:
+    try:
+        return cursor.fetchall()
+    except Exception:
+        return list(cursor)
+
+
+def _pragma_table_info(driver, table: str) -> list[tuple]:
+    conn = driver.get_connection()
+    # sqlite3: cursor has fetchall; apsw: cursor is iterable
+    cur = conn.execute(f"PRAGMA table_info(`{table}`)")
+    return _fetchall(cur)
+
+
+def _required_columns(driver, table: str) -> list[tuple[str, str]]:
+    """
+    Return a list of (name, declared_type) for NOT NULL columns without defaults
+    that are not part of the primary key.
+    """
+    info = _pragma_table_info(driver, table)
+    required: list[tuple[str, str]] = []
+    for row in info:
+        # (cid, name, type, notnull, dflt_value, pk)
+        name = row[1]
+        declared_type = (row[2] or "").upper()
+        notnull = int(row[3] or 0)
+        dflt = row[4]
+        pk = int(row[5] or 0)
+        if pk:
+            continue
+        if notnull and dflt is None:
+            required.append((name, declared_type))
+    return required
+
+
+def _dummy_for_type(col_name: str, declared_type: str) -> Any:
+    t = (declared_type or "").upper()
+    # Heuristics: keep things small + deterministic.
+    if "INT" in t or "BOOL" in t:
+        return 1
+    if "REAL" in t or "FLOA" in t or "DOUB" in t:
+        return 1.0
+    if "BLOB" in t:
+        return b"\x00"
+    # Default: TEXT-ish.
+    # Prefer something innocuous (not injection-shaped), because this is only
+    # to satisfy NOT NULL columns.
+    return f"contract_{col_name}"
+
+
+def _insert_minimal_row(driver, table: str, values: dict) -> None:
+    """
+    Insert a row into `table` by supplying `values` plus any additional required
+    columns (NOT NULL with no default). Uses driver.direct_add_simple_row_dict
+    so that we exercise the driver's insert path.
+    """
+    row: dict = dict(values)
+    for col_name, declared_type in _required_columns(driver, table):
+        if col_name in row:
+            continue
+        row[col_name] = _dummy_for_type(col_name, declared_type)
+
+    # Ensure table can be identified; do not pass a 'table' key.
+    if "table" in row:
+        row.pop("table", None)
+
+    driver.direct_add_simple_row_dict(row)
+
+
+def _disable_foreign_keys(driver) -> None:
+    try:
+        driver.direct_execute("PRAGMA foreign_keys=OFF")
+    except Exception:
+        # Some backends may require this through raw connection.
+        conn = driver.get_connection()
+        conn.execute("PRAGMA foreign_keys=OFF")
+
+
+def _enable_foreign_keys(driver) -> None:
+    try:
+        driver.direct_execute("PRAGMA foreign_keys=ON")
+    except Exception:
+        conn = driver.get_connection()
+        conn.execute("PRAGMA foreign_keys=ON")
+
+
+def _clear_hash_tables(driver) -> None:
+    for t in ("files", "compressed_files", "new_books", "hashes"):
+        driver.direct_clear_table(t)
+
+
+def test_direct_get_all_hashes_union_and_dedup(driver, pick_payload, assert_integrity):
+    _disable_foreign_keys(driver)
+    _clear_hash_tables(driver)
+
+    # Build deterministic test hashes. We intentionally include duplicates
+    # across tables to ensure deduping is handled by the set semantics.
+    h_shared_1 = pick_payload(100)
+    h_shared_2 = pick_payload(101)
+    h_file_only = pick_payload(102)
+    h_cf_only = pick_payload(103)
+    h_nb_only = pick_payload(104)
+    h_other_only = pick_payload(105)
+
+    # files.file_hash
+    _insert_minimal_row(driver, "files", {"file_hash": h_shared_1})
+    _insert_minimal_row(driver, "files", {"file_hash": h_file_only})
+
+    # compressed_files.compressed_file_hash_1 / _2
+    _insert_minimal_row(
+        driver,
+        "compressed_files",
+        {
+            "compressed_file_hash_1": h_shared_1,
+            "compressed_file_hash_2": h_cf_only,
+        },
+    )
+    _insert_minimal_row(
+        driver,
+        "compressed_files",
+        {
+            "compressed_file_hash_1": h_shared_2,
+            "compressed_file_hash_2": h_shared_1,  # duplicate on purpose
+        },
+    )
+
+    # new_books.new_book_hash_1 / _2
+    _insert_minimal_row(
+        driver,
+        "new_books",
+        {
+            "new_book_hash_1": h_nb_only,
+            "new_book_hash_2": h_shared_2,
+        },
+    )
+
+    # hashes.hash
+    _insert_minimal_row(driver, "hashes", {"hash": h_other_only})
+    _insert_minimal_row(driver, "hashes", {"hash": h_shared_1})  # duplicate across tables
+
+    expected = {h_shared_1, h_shared_2, h_file_only, h_cf_only, h_nb_only, h_other_only}
+
+    got = driver.direct_get_all_hashes()
+    assert isinstance(got, set), f"Expected set, got {type(got)}"
+    assert got == expected
+
+    # No NULLs should leak into the returned set in this controlled scenario.
+    assert None not in got
+    assert all(isinstance(x, str) for x in got)
+
+    assert_integrity(driver)
+    _enable_foreign_keys(driver)
+
+
+def test_direct_get_all_hashes_is_stable_and_updates(driver, pick_payload):
+    _disable_foreign_keys(driver)
+    _clear_hash_tables(driver)
+
+    # Seed once.
+    h1 = pick_payload(200)
+    h2 = pick_payload(201)
+    _insert_minimal_row(driver, "files", {"file_hash": h1})
+    _insert_minimal_row(driver, "hashes", {"hash": h2})
+
+    got1 = driver.direct_get_all_hashes()
+    got2 = driver.direct_get_all_hashes()
+    assert got1 == got2 == {h1, h2}
+
+    # Add a new hash into a different table; result should grow.
+    h3 = pick_payload(202)
+    _insert_minimal_row(
+        driver,
+        "new_books",
+        {"new_book_hash_1": h3, "new_book_hash_2": h1},  # h1 duplicate
+    )
+    got3 = driver.direct_get_all_hashes()
+    assert got3 == {h1, h2, h3}
+
+    _enable_foreign_keys(driver)

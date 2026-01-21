@@ -453,7 +453,7 @@ def _build_test_db_0_minimal(db_path: Path) -> None:
 
     import sqlite3
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.database_generator.database_generator import (
+    from LiuXin_alpha.databases.database_driver_plugins.SQLite.database_generator.database_generator import (
         create_new_database,
     )
 
@@ -481,7 +481,7 @@ def _build_test_db_13_blank(db_path: Path) -> None:
 
     import sqlite3
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.database_generator.database_generator import (
+    from LiuXin_alpha.databases.database_driver_plugins.SQLite.database_generator.database_generator import (
         create_new_database,
     )
 

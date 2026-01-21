@@ -17,17 +17,17 @@ import re
 import shutil
 import operator
 from io import BytesIO
-from collections import defaultdict
 from functools import partial
 from time import time
 
-from past.builtins import unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
-from LiuXin.exceptions import NotInCache
+from LiuXin_alpha.errors import NotInCache
 
-from LiuXin.utils.calibre import isbytestring, as_unicode
+from LiuXin_alpha.utils.text import isbytestring, as_unicode
 
-from LiuXin.constants import iswindows, preferred_encoding
+from LiuXin_alpha.utils.which_os import iswindows
+from LiuXin_alpha.constants import preferred_encoding
 
 try:
     from LiuXin.customize.ui import run_plugins_on_import
@@ -46,7 +46,7 @@ except ImportError:
 
 
 try:
-    from LiuXin.customize.ui import run_plugins_on_postadd
+    from LiuXin_alpha.customize.ui import run_plugins_on_postadd
 except ImportError:
 
     def run_plugins_on_postadd(file, *args, **kwargs):
@@ -292,6 +292,7 @@ class CalibreCache(BaseCalibreCache):
     def init(self) -> None:
         """
         Initialize this cache with data from the backend.
+
         :return:
         """
         # Read information describing the database into internal caches

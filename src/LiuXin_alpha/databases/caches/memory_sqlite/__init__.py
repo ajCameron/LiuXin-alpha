@@ -1,4 +1,10 @@
-# Class to support loading and storing an SQLite database in memory
+
+"""
+One valid form of cache is pulling the SQLite database entirely into memory.
+
+This method provides support methods for that.
+"""
+
 
 import re
 import sqlite3
@@ -6,42 +12,42 @@ import uuid
 from copy import deepcopy
 from functools import partial
 
-from LiuXin.databases.drivers.SQLite.databasedriver import SQLite_Connection
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import SQLite_Connection
 
-from LiuXin.databases.drivers.SQLite.databasedriver import DatabaseDriver
-from LiuXin.databases.drivers.SQLite.databasedriver import (
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import DatabaseDriver
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import (
     py_set_adapter,
     py_set_converter,
 )
-from LiuXin.databases.drivers.SQLite.databasedriver import (
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import (
     py_list_adapter,
     py_list_converter,
 )
-from LiuXin.databases.drivers.SQLite.databasedriver import (
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import (
     py_dict_adapter,
     py_dict_converter,
 )
-from LiuXin.databases.drivers.SQLite.databasedriver import py_date_converter
-from LiuXin.databases.drivers.SQLite.databasedriver import (
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import py_date_converter
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import (
     PySetAggregate,
     SortAggregate,
     PyListAggregate,
 )
 
 # Todo: These should be over in metadata
-from LiuXin.databases.drivers.SQLite.databasedriver import authors_str_to_sort_str
-from LiuXin.databases.drivers.SQLite.databasedriver import title_sort
-from LiuXin.databases.drivers.SQLite.databasedriver import _author_to_author_sort
-from LiuXin.databases.drivers.SQLite.databasedriver import icu_collator
-from LiuXin.databases.drivers.SQLite.databasedriver import SqliteAumSortedConcatenate
-from LiuXin.databases.drivers.SQLite.databasedriver import Concatenate
-from LiuXin.databases.drivers.SQLite.databasedriver import IdentifiersConcat
-from LiuXin.databases.drivers.SQLite.databasedriver import SqliteSortedConcatenate
-from LiuXin.databases.drivers.SQLite.databasedriver import pynocase
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import authors_str_to_sort_str
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import title_sort
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import _author_to_author_sort
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import icu_collator
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import SqliteAumSortedConcatenate
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import Concatenate
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import IdentifiersConcat
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import SqliteSortedConcatenate
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import pynocase
 
-from LiuXin.exceptions import DatabaseDriverError
+from LiuXin_alpha.errors import DatabaseDriverError
 
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 
 # Todo: This is only needed due to bad structural choices in the original SQLite driver
@@ -194,7 +200,7 @@ def in_memory_db_factory(db):
     :param db:
     :return:
     """
-    from LiuXin.databases.database import Database
+    from LiuXin_alpha.databases.database import Database
 
     in_memory_driver = MemoryDatabaseDriver(db_metadata={"database_path": ":memory:"}, db=None)
     in_memory_driver.load_from_db(target_db=db)

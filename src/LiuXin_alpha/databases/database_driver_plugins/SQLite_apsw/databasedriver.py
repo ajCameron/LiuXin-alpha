@@ -19,10 +19,9 @@ from contextlib import closing
 from copy import deepcopy
 from functools import partial
 
-from six import iterkeys, iteritems
+from six import iterkeys, iteritems, string_types
 
 from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_debug_print, LiuXin_warning_print
-from LiuXin_alpha.utils.terminal import y_n_input
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 
@@ -63,7 +62,7 @@ from LiuXin_alpha.metadata.utils import author_to_author_sort, title_sort
 from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.utility_mixins import SQLiteTableLinkingMixin
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, six_unicode as unicode
 
 
 class Connection(apsw.Connection):
@@ -77,7 +76,7 @@ class Connection(apsw.Connection):
         self.execute("pragma cache_size=5000")
         self.execute("pragma temp_store=2")
 
-        encoding = self.execute("pragma encoding").next()[0]
+        encoding = next(self.execute("pragma encoding"))[0]
         self.createcollation("PYNOCASE", partial(pynocase, encoding=encoding))
 
         self.createscalarfunction("title_sort", title_sort, 1)
@@ -137,9 +136,13 @@ class DummyMaintenanceBot(object):
 
 
 class SQLite_Connection(sqlite3.Connection):
+    """
+    Add some helper methods around the SQLite connection.
+    """
     def get(self, *args, **kw):
         """
         Helper method for retrieving results from a database.
+
         :param args:
         :param kw:
         :return:
@@ -162,6 +165,7 @@ class SQLite_Connection(sqlite3.Connection):
     def get_row(self, *args, **kw):
         """
         Helper method designed to retrieve entire rows from the database.
+
         :param args:
         :return:
         """

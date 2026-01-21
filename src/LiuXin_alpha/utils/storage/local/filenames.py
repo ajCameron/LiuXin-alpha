@@ -582,6 +582,9 @@ class WindowsAtomicFolderMove:
 
                 self.close_handles()
                 if getattr(e, "winerror", 0) == winerror.ERROR_SHARING_VIOLATION:
+
+                    from LiuXin_alpha.utils.localization import trans as _
+
                     err = IOError(errno.EACCES, _("File is open in another process"))
                     err.filename = f
                     raise err
@@ -594,10 +597,21 @@ class WindowsAtomicFolderMove:
             self.handle_map[f] = h
 
     def copy_path_to(self, path, dest):
+        """
+        Copy a path to the specific destination.
+
+        :param path:
+        :param dest:
+        :return:
+        """
+
+        from LiuXin_alpha.utils.storage.local.file_ops import local_open as lopen
+        from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
+
         import win32file
 
         handle = None
-        for p, h in self.handle_map.iteritems():
+        for p, h in iteritems(self.handle_map):
             if samefile_windows(path, p):
                 handle = h
                 break
@@ -668,8 +682,9 @@ def nlinks_file(path):
 
 def atomic_rename(oldpath, newpath):
     """
-    Replace the file newpath with the file oldpath. Can fail if the files are on different volumes. If succeeds,
-    guaranteed to be atomic. newpath may or may not exist. If it exists, it is replaced.
+    Replace the file newpath with the file oldpath. Can fail if the files are on different volumes.
+
+     If succeeds, guaranteed to be atomic. newpath may or may not exist. If it exists, it is replaced.
     :param oldpath:
     :param newpath:
     :return:
@@ -677,7 +692,7 @@ def atomic_rename(oldpath, newpath):
     if iswindows:
         import win32file
 
-        for i in xrange(10):
+        for i in range(10):
             try:
                 win32file.MoveFileEx(
                     oldpath,
@@ -685,9 +700,10 @@ def atomic_rename(oldpath, newpath):
                     win32file.MOVEFILE_REPLACE_EXISTING | win32file.MOVEFILE_WRITE_THROUGH,
                 )
                 break
-            except:
+            except Exception as e:
                 if i > 8:
-                    raise
+                    raise IOError("Atomic rename has failed after 10 attempts") from e
+
                 # Try the rename repeatedly in case something like a virus
                 # scanner has opened one of the files (I love windows)
                 time.sleep(1)

@@ -8,15 +8,12 @@ from threading import Lock
 
 from six import iteritems
 
-from LiuXin.databases.caches.base.tables import (
-    ONE_ONE,
-    MANY_ONE,
-    MANY_MANY,
-    ONE_MANY,
-    null,
-)
+from LiuXin_alpha.customize.cache.base_tables import ONE_ONE, ONE_MANY, MANY_ONE, MANY_MANY, null
+from LiuXin_alpha.customize.cache.base_field import BaseField
 
-from LiuXin.utils.localization import _
+
+
+from LiuXin_alpha.utils.localization import trans as _
 
 
 from LiuXin.databases.caches.base.fields import BaseField

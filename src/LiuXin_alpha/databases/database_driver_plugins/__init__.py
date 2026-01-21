@@ -50,8 +50,12 @@ def loadDatabaseDriver(db_type: str):
     # databasedriver_module = imp.load_source(module_name, module_path)
     # return databasedriver_module.DatabaseDriver
 
-    if db_type.lower() == "sqlite":
+    if db_type.lower() == "sqlite_apsw":
         from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver import DatabaseDriver as _DatabaseDriver
+        return _DatabaseDriver
+
+    if db_type.lower() == "sqlite":
+        from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import DatabaseDriver as _DatabaseDriver
         return _DatabaseDriver
 
     raise NotImplementedError("Need a recognized database driver.")
@@ -94,6 +98,7 @@ def get_direct_access_module(db_driver_name):
 def create_new_database(db_type, target_location):
     """
     Creates a new database of the request type at the requested location.
+
     :param db_type: The type of database the user wants
     :param target_location: Where the user wants the database
     :return create_new_database:
@@ -112,16 +117,19 @@ def create_new_database(db_type, target_location):
     return db_gen_module
 
 
-# Case insensitive means of getting the folder corresponding to a particular db_type
-def get_driver_location(db_type):
+# Case-insensitive means of getting the folder corresponding to a particular db_type
+def get_driver_location(db_type: str) -> str:
     """
     Takes a db_type. Loads the location of that driver folder.
+
     :param db_type:
     :return db_path:
     """
+    # Try direct search
     if db_type in __possible_db_driver_paths__:
         return __possible_db_driver_paths__[db_type]
 
+    # Try a lower case search
     db_type_lower = db_type.lower()
     objects_list = os.listdir(__folder__)
     folders_list = [object for object in objects_list if os.path.isdir(os.path.join(__folder__, object))]

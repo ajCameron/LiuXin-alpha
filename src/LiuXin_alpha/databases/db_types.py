@@ -7,7 +7,10 @@ May be superseded by a global typing module in utils later.
 from enum import Enum
 
 from typing import Optional, Any, Literal
-from typing_extensions import TypedDict, NotRequired
+try:
+    from typing_extensions import TypedDict, NotRequired
+except ImportError:
+    from typing import TypedDict, NotRequired
 
 TriStateBool = Optional[bool]
 

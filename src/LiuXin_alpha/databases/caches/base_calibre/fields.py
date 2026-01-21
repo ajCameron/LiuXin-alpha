@@ -1,5 +1,12 @@
 """
-Fields are one step of abstraction up from tables - collections of data in a form that people might actually want.
+Defining terms (inherited from calibre)
+
+Naming motivation from calibre seems
+
+ - a column is a simple column in a table
+ - a table is a collection of columns
+ - a field is a collection of data in a form people might actually want - which may be from many tables
+ - a view is a collection of fields and other data - a "view" into the database.
 
 Originally, in calibre, intended to be fields viewed in the GUI, they have been generalised.
 LiuXin allows you - with the right interface - to browse any of the base tables.
@@ -11,10 +18,8 @@ Thus, there are a few pieces of information important to any field.
  - which other table the field is "viewing"
 
 Depending on how you implement the cache, "fields" might be an abstraction.
-However, to keep the cache interface the same, you will probably have to impelment something which _looks_ vaguely like
-a field.
+However, to keep the cache interface the same, you will have to implement something which offers the same API.
 """
-
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
@@ -25,13 +30,12 @@ from functools import partial
 
 from typing import Optional, Callable, Any, TypeVar, Union, Iterable, Generic, Iterator, Mapping
 
-from LiuXin.customize.cache.base_field import BaseField
+from LiuXin_alpha.customize.cache.base_field import BaseField
 
-from LiuXin.databases.tag_classes import BaseTagClass
-from LiuXin.databases.utils import force_to_bool
-from LiuXin.databases.write import get_writer
-from LiuXin.databases.write import DummyWriter
-from LiuXin.databases.db_types import (
+from LiuXin_alpha.databases.tag_classes import BaseTagClass
+from LiuXin_alpha.databases.utils import force_to_bool
+from LiuXin_alpha.databases.write import get_writer, DummyWriter
+from LiuXin_alpha.databases.db_types import (
     LangMap,
     SrcTableID,
     DstTableID,
@@ -41,16 +45,15 @@ from LiuXin.databases.db_types import (
     CoverID,
 )
 
-from LiuXin.exceptions import NotInCache
+from LiuXin_alpha.errors import NotInCache
 
-from LiuXin_alpha.metadata import author_to_author_sort
+from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort
 
-from LiuXin.preferences import preferences as tweaks
+from LiuXin_alpha.preferences import preferences as tweaks
 
-from LiuXin.utils.date import UNDEFINED_DATE, clean_date_for_sort, parse_date
-from LiuXin.utils.icu import sort_key
-from LiuXin.utils.localization import calibre_langcode_to_name
-from LiuXin.utils.localization import _
+from LiuXin_alpha.utils.date import UNDEFINED_DATE, clean_date_for_sort, parse_date
+from LiuXin_alpha.utils.text.icu import sort_key
+from LiuXin_alpha.utils.localization import calibre_langcode_to_name, trans as _
 
 T = TypeVar("T")
 D = TypeVar("D")
@@ -100,6 +103,7 @@ class InvalidLinkTable(Exception):
 class CalibreBaseField(BaseField[T]):
     """
     Basis for a representation of a field on the database.
+    Usually organized via the book.
 
     Cached information from the database is stored in the table object.
     The field provides convenient access methods to it.
@@ -108,14 +112,15 @@ class CalibreBaseField(BaseField[T]):
     def __init__(
         self,
         name: str,
-        table,
+        table: str,
         bools_are_tristate: bool,
         # generic_val: D = "",  # Todo: This seems to be a good way to get typing info into the system
-        link_attributes=None,
+        link_attributes = None,
         main_table: Optional[str] = None,
         auxiliary_table: Optional[str] = None,
     ) -> None:
         """
+        Startup the field.
 
         :param name: Name of the field
         :param table: The table the field is in
@@ -229,7 +234,7 @@ class CalibreBaseField(BaseField[T]):
         self.link_attr_fields = dict()
         self.startup_link_attr_fields()
 
-    # ------------------------------------------------------------------------------------------------------------------
+    # --------------
     #
     # - READ METHODS
     # The read logic is confined to the individual tables - however the separate attribute fields contain tables
@@ -245,7 +250,7 @@ class CalibreBaseField(BaseField[T]):
             self.link_attr_fields[attr_field_name].table.read(db)
 
     #
-    # ------------------------------------------------------------------------------------------------------------------
+    # --------------
 
 
 class CalibreBaseOneToOneField(CalibreBaseField[T]):
@@ -257,7 +262,7 @@ class CalibreBaseOneToOneField(CalibreBaseField[T]):
     E.g. "tags" to "tag" (the tags table value).
     """
 
-    def ids_for_book(self, book_id: SrcTableID) -> tuple[DstTableID]:
+    def ids_for_book(self, book_id: SrcTableID) -> tuple[DstTableID, ...]:
         """
         In the case of a 1-1 table the item id is the same as the book - as it's stored in the same row of the db.
 
@@ -1051,7 +1056,7 @@ class BaseFormatsField(CalibreBaseManyToManyField[T]):
         ],
         candidates: Iterable[SrcTableID],
         default_value: None = None,
-    ) -> Iterator[GenericFormat, set[SrcTableID]]:
+    ) -> Iterator[tuple[GenericFormat, set[SrcTableID]]]:
         """
         Searchable values should be the available formats for each of the given books.
 

@@ -18,7 +18,7 @@ from contextlib import closing
 from copy import deepcopy
 from functools import partial
 
-from six import iterkeys, iteritems
+from six import iterkeys, iteritems, string_types
 
 from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_debug_print, LiuXin_warning_print
 from LiuXin_alpha.utils.terminal import y_n_input
@@ -61,7 +61,7 @@ from LiuXin_alpha.metadata.utils import author_to_author_sort, title_sort
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.utility_mixins import SQLiteTableLinkingMixin
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, six_unicode as unicode
 
 
 class DummyMaintenanceBot(object):
@@ -139,9 +139,12 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
 
     def __init__(self, db_metadata, db=None, set_conn=True, dirty_records_queue=None):
         """
-        Initializing the class with db_metadata. Which is an object assumed to have a dictionary like interface which
+        Initializing the class with db_metadata.
+
+        Which is an object assumed to have a dictionary like interface which
         provides all the necessary fields to connect to a database of the given type.
         This DatabaseDriver (SQLite) requires the database_path. That's about it.
+        Others may need a username and password or similar.
         :param db_metadata:
         :param db: The database this process is driving. Hopefully infinite recursion will not result.
         :param set_conn: Set the globally used connection for the class
@@ -3082,7 +3085,7 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
     #
     # ----------------------------------------------------------------------------------------------------------------------
 
-    def direct_get_max(self, column):
+    def direct_get_max(self, column: str):
         """
         Get the maximum value from a column and return it.
         """
@@ -3090,10 +3093,10 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
         stmt = "SELECT MAX({}) FROM {};".format(column, col_table)
 
         conn = self.get_connection()
-        max_val = conn.execute(stmt).next()[0]
+        max_val = next(conn.execute(stmt))
         return max_val
 
-    def direct_get_min(self, column):
+    def direct_get_min(self, column: str):
         """
         Get the maximum value from a column and return it.
         """
@@ -3101,7 +3104,7 @@ class DatabaseDriver(SQLiteCustomColumnsDriverMixin, SQLiteTableLinkingMixin):
         stmt = "SELECT MIN({}) FROM {};".format(column, col_table)
 
         conn = self.get_connection()
-        min_val = conn.execute(stmt).next()[0]
+        min_val = next(conn.execute(stmt))
         return min_val
 
     # Todo: Add zero methods for all the data caches after any of these are used

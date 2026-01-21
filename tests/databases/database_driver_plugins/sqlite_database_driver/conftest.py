@@ -1,11 +1,17 @@
-"""Local test configuration for the legacy SQLite driver.
+"""Local test configuration for the SQLite driver tests.
 
-The SQLite driver module currently imports a few optional/legacy dependencies
-(notably `apsw` and `clint`) that are not required for most core driver
-functionality.
+The project ships two SQLite driver plugins:
 
-To keep the test suite runnable in lightweight environments (CI, contributor
-machines), we provide tiny stubs for those dependencies when they are missing.
+* ``SQLite``: pure-python implementation backed by the stdlib ``sqlite3``.
+* ``SQLite_apsw``: legacy/optional APSW-backed variant.
+
+These tests are intended to validate the **pure** driver so the project remains
+widely deployable even when APSW is unavailable.
+
+The SQLite driver still imports a couple of optional/legacy UI helpers
+(notably ``clint``). To keep the test suite runnable in lightweight
+environments (CI, contributor machines), we provide a tiny stub for that
+dependency when it is missing.
 
 This file is intentionally scoped to the SQLite driver tests only.
 """
@@ -37,28 +43,6 @@ def _install_legacy_module_aliases() -> None:
         # If prefs can't import, leave the alias in place and let the
         # underlying failure surface where it matters.
         pass
-
-
-def _install_apsw_stub() -> None:
-    """Install a minimal `apsw` stub sufficient for importing the driver."""
-
-    if "apsw" in sys.modules:
-        return
-
-    try:
-        import apsw  # noqa: F401
-
-        return
-    except Exception:
-        pass
-
-    apsw = types.ModuleType("apsw")
-
-    # The driver defines `class Connection(apsw.Connection)`, so `apsw.Connection`
-    # must be a *type*, not an instance.
-    apsw.Connection = type("Connection", (), {})  # type: ignore[attr-defined]
-    apsw.__version__ = "stub"
-    sys.modules["apsw"] = apsw
 
 
 def _install_clint_stub() -> None:
@@ -111,6 +95,5 @@ def _install_clint_stub() -> None:
 
 
 def pytest_configure(config) -> None:
-    _install_apsw_stub()
     _install_clint_stub()
     _install_legacy_module_aliases()

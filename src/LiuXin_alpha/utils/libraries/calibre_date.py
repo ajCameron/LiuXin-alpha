@@ -10,17 +10,22 @@ import re, time
 from datetime import datetime, time as dtime, timedelta, MINYEAR, MAXYEAR
 from functools import partial
 
-from LiuXin_alpha.databases.caches import _c_speedup
 from LiuXin_alpha.utils.date import utc_tz, UNDEFINED_DATE, parse_date
 from LiuXin_alpha.utils.logging import default_log
 
 from liuxin_dateutil.tz import tzlocal, tzutc, EPOCHORDINAL
 
-from calibre import strftime
-from calibre.constants import iswindows, isosx, plugins
-from calibre.utils.localization import lcdata
+from LiuXin_alpha.utils.plugins import plugins
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+_c_speedup = plugins["speedup"][0].parse_date
+
+
+from LiuXin_alpha.utils.date import strftime
+from LiuXin_alpha.utils.which_os import iswindows, isosx
+
+from LiuXin_alpha.utils.localization import lcdata
+
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 class SafeLocalTimeZone(tzlocal):

@@ -14,7 +14,7 @@ from threading import Lock
 from six import iterkeys
 
 # Todo: These should be stored in base.tables
-from LiuXin.customize.cache.base_tables import (
+from LiuXin_alpha.customize.cache.base_tables import (
     ONE_ONE,
     MANY_ONE,
     MANY_MANY,
@@ -22,83 +22,77 @@ from LiuXin.customize.cache.base_tables import (
     null,
 )
 
-from LiuXin.databases.caches.base_calibre.fields import (
+from LiuXin_alpha.databases.caches.base_calibre.fields import (
     InvalidLinkTable,
     IDENTITY,
 )
-from LiuXin.databases.caches.base_calibre.fields import BaseField
-from LiuXin.databases.caches.base_calibre.fields import BaseOneToOneField
-from LiuXin.databases.caches.base_calibre.fields import BaseOneToManyField
-from LiuXin.databases.caches.base_calibre.fields import BaseCompositeField
-from LiuXin.databases.caches.base_calibre.fields import BaseOnDeviceField
-from LiuXin.databases.caches.base_calibre.fields import BaseManyToOneField
-from LiuXin.databases.caches.base_calibre.fields import BaseManyToManyField
-from LiuXin.databases.caches.base_calibre.fields import BaseIdentifiersField
-from LiuXin.databases.caches.base_calibre.fields import BaseAuthorsField
-from LiuXin.databases.caches.base_calibre.fields import BaseFormatsField
-from LiuXin.databases.caches.base_calibre.fields import BaseCoverField
-from LiuXin.databases.caches.base_calibre.fields import BaseSeriesField
-from LiuXin.databases.caches.base_calibre.fields import BaseTagsField
-from LiuXin.databases.caches.base_calibre.fields import BaseLinkAttributeField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseOneToOneField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseOneToManyField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseCompositeField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseOnDeviceField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseManyToOneField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseManyToManyField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseIdentifiersField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseAuthorsField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseFormatsField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseCoverField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseSeriesField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseTagsField
+from LiuXin_alpha.databases.caches.base_calibre.fields import BaseLinkAttributeField
 
-from LiuXin.databases.caches.calibre.tables.one_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_many_tables import (
     CalibrePriorityTypedOneToManyTable,
 )
-from LiuXin.databases.caches.calibre.tables.one_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_many_tables import (
     CalibrePriorityOneToManyTable,
 )
-from LiuXin.databases.caches.calibre.tables.one_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_many_tables import (
     CalibreTypedOneToManyTable,
 )
-from LiuXin.databases.caches.calibre.tables.one_many_tables import CalibreOneToManyTable
+from LiuXin_alpha.databases.caches.calibre.tables.one_many_tables import CalibreOneToManyTable
 
-from LiuXin.databases.caches.calibre.tables.many_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables import (
     CalibrePriorityManyToOneTable,
 )
-from LiuXin.databases.caches.calibre.tables.many_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables import (
     CalibrePriorityTypedManyToOneTable,
 )
-from LiuXin.databases.caches.calibre.tables.many_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables import (
     CalibreTypedManyToOneTable,
 )
 
-from LiuXin.databases.caches.calibre.tables.many_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_many_tables import (
     CalibrePriorityManyToManyTable,
 )
-from LiuXin.databases.caches.calibre.tables.many_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_many_tables import (
     CalibrePriorityTypedManyToManyTable,
 )
-from LiuXin.databases.caches.calibre.tables.many_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_many_tables import (
     CalibreTypedManyToManyTable,
 )
 
-from LiuXin.databases.caches.calibre.tables.link_attribute_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.link_attribute_tables import (
     create_link_attribute_table,
 )
 
-from LiuXin.databases.caches.utils import LazySortMap
+from LiuXin_alpha.databases.caches.utils import LazySortMap
 
-from LiuXin.exceptions import NoSuchBook
-from LiuXin.exceptions import NoSuchFormatInCache
-from LiuXin.exceptions import NotInCache
-from LiuXin.exceptions import InvalidDBUpdate
-from LiuXin.exceptions import InvalidCacheUpdate
-from LiuXin.exceptions import InvalidUpdate
+from LiuXin_alpha.errors import NoSuchBook, NoSuchFormatInCache, NotInCache, InvalidDBUpdate, InvalidCacheUpdate, InvalidUpdate
 
-from LiuXin.folder_stores.location import Location
+from LiuXin_alpha.storage.location import Location
 
-from LiuXin_alpha.metadata import title_sort
+from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort
 
-from LiuXin.preferences import preferences as tweaks
+from LiuXin_alpha.preferences import preferences as tweaks
 
-from LiuXin.utils.icu import sort_key
-from LiuXin.utils.localization import _
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.text.icu import sort_key
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import default_log
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, basestring
 
-from past.builtins import basestring
 
 
 __license__ = "GPL v3"
@@ -111,8 +105,27 @@ class CalibreField(BaseField):
     Represents a field on the books table - here for calibre emulation.
     """
 
-    # Todo: Shouldn't be able to change this manually
-    complex_update = False
+    _complex_update = False
+
+    @property
+    def complex_update(self) -> bool:
+        """
+        Get the complex_update status of the field.
+
+        :param val:
+        :return:
+        """
+        return self._complex_update
+
+    @complex_update.setter
+    def complex_update(self, val: bool) -> None:
+        """
+        Refuse to set the complex_update of the field.
+
+        :param val:
+        :return:
+        """
+        raise AttributeError("complex_update cannot be dynamically set.")
 
     # Used to update the write in the table when changes are made to the writer here
     @property
@@ -128,6 +141,7 @@ class CalibreField(BaseField):
         """
         Startup the link attribute fields - which additionally characterizes the link between the main and auxiliary
         table.
+
         :return:
         """
         # In the null case where no attributes need to be loaded.
@@ -309,6 +323,7 @@ class CalibreField(BaseField):
     def update_db(self, book_id_to_val_map, db, allow_case_change=False):
         """
         Preforms a update to the database.
+
         :param book_id_to_val_map:
         :param db:
         :param allow_case_change:
@@ -322,6 +337,7 @@ class CalibreField(BaseField):
     def update_cache(self, book_id_val_map, id_map=None):
         """
         Preforms an update of the cache.
+
         THIS CLASS HAS AN INTERNAL_UPDATE_CACHE METHOD CALLED AS PART OF THE UPDATE PROCESS. ARE YOU SURE YOU WANT TO
         USE THIS METHOD?
         :param book_id_val_map:
@@ -332,8 +348,9 @@ class CalibreField(BaseField):
 
     def internal_update_cache(self, book_id_item_id_map, id_map_update):
         """
-        Update cache with some additional information provided - used in write when it needs to know some info about the
-        cache before writing out to the database.
+        Update cache with some additional information provided
+
+        Used in write when it needs to know some info about the cache before writing out to the database.
         :param book_id_item_id_map:
         :param id_map_update: Dictionary used to directly update the id_map
         :return:
@@ -1504,6 +1521,7 @@ class CalibreManyToManyField(BaseManyToManyField, CalibreField):
     def iter_searchable_values(self, get_metadata, candidates, default_value=None):
         """
         Used to preform a search on this field - iterates through and yields matches with the ids of the search items.
+
         :param get_metadata:
         :param candidates:
         :param default_value:

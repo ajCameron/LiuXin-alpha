@@ -1,12 +1,12 @@
 # Increment this if ANY submodule is changed
-__driver_version__ = (0, 4, 4)
+
+__driver_version__ = (0, 0, 1)
 
 
 # Todo: Include the constants now used to determine allowable values against this as well
 def get_SQLite_driver_master_version() -> str:
     """
     Generate a version string from all the sub-object versions which go into the database.
-
 
     :return:
     """

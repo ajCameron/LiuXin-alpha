@@ -1,7 +1,10 @@
-# Classes to cache data from the database for active manipulation
+
+"""
+Classes to cache tables in numpy for (hopefully substantial) performance benefits.
+"""
 
 
-from LiuXin.databases.caches import BaseTable
+from LiuXin_alpha.customize.cache.base_tables import BaseTable
 
 
 class NumpyTable(BaseTable):

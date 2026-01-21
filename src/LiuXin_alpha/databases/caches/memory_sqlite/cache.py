@@ -1,6 +1,12 @@
-from LiuXin.databases.caches.base.cache import BaseCache
-from LiuXin.databases.caches.utils import api, read_api, write_api
-from LiuXin.databases.caches.memory_sqlite import in_memory_db_factory
+
+"""
+Actual cache layer, backed by an in-memory SQLite database.
+"""
+
+from LiuXin_alpha.customize.cache import BaseCache
+
+from LiuXin_alpha.databases.caches.utils import api, read_api, write_api
+from LiuXin_alpha.databases.caches.memory_sqlite import in_memory_db_factory
 
 
 class SQLiteCache(BaseCache):
@@ -30,6 +36,7 @@ class SQLiteCache(BaseCache):
     def init(self):
         """
         Preform initialization tasks needed to read data and startup the cache.
+
         :return:
         """
         self._backend_read_data()

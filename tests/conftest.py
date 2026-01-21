@@ -31,6 +31,65 @@ def _ensure_src_on_path() -> None:
 _ensure_src_on_path()
 
 
+def _install_clint_stub() -> None:
+    """Install a minimal `clint.textui` stub.
+
+    Some legacy modules (including a few test-support helpers) import clint for
+    pretty terminal output. Clint is optional for LiuXin_alpha, so the test
+    suite should remain runnable when it isn't installed.
+    """
+
+    if "clint" in sys.modules and "clint.textui" in sys.modules:
+        return
+
+    try:
+        import clint.textui  # noqa: F401
+
+        return
+    except Exception:
+        pass
+
+    import types
+
+    clint = types.ModuleType("clint")
+    textui = types.ModuleType("clint.textui")
+
+    def puts(*_args, **_kwargs):  # pragma: no cover
+        return None
+
+    class _Colored:  # pragma: no cover
+        def green(self, s):
+            return s
+
+        def red(self, s):
+            return s
+
+        def yellow(self, s):
+            return s
+
+        def blue(self, s):
+            return s
+
+        def magenta(self, s):
+            return s
+
+        def cyan(self, s):
+            return s
+
+        def white(self, s):
+            return s
+
+    textui.puts = puts  # type: ignore[attr-defined]
+    textui.colored = _Colored()  # type: ignore[attr-defined]
+
+    clint.textui = textui  # type: ignore[attr-defined]
+    sys.modules["clint"] = clint
+    sys.modules["clint.textui"] = textui
+
+
+_install_clint_stub()
+
+
 @pytest.fixture(scope="session")
 def test_resources_manager(tmp_path_factory: pytest.TempPathFactory):
     """Session-scoped resource manager with a persistent template cache."""

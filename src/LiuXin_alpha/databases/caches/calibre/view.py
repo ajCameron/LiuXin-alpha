@@ -12,16 +12,14 @@ from six import iteritems
 from six import iterkeys
 from six import itervalues
 
-from LiuXin.databases.write import uniq
+from LiuXin_alpha.utils.python_tools import uniq
 
-from LiuXin_alpha.metadata import title_sort
+from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort
 
-from LiuXin.utils.config.config_base import tweaks, prefs
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.config.config_base import tweaks, prefs
+from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_zip as izip
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range, six_unicode, six_zip as izip
 
 
 __license__ = "GPL v3"
@@ -130,12 +128,14 @@ class CalibreView(object):
     """
     A table view of the database, with rows and columns (some of which are made of formatted selections from others rows
     and columns).
+
     Used to actually display contents of the books/titles combined tables.
     """
 
     def __init__(self, cache):
         """
         Needs to be able to thread safely read/write the database - so runs off a cache.
+
         :param cache:
         :return:
         """

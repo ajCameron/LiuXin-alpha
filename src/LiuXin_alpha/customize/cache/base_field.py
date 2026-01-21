@@ -18,6 +18,17 @@ from typing import Optional, Callable, TypeVar, Union, Generic, Iterable, Iterat
 
 from LiuXin_alpha.utils.text.icu import sort_key
 
+from LiuXin_alpha.databases.db_types import (
+    LangMap,
+    SrcTableID,
+    DstTableID,
+    CreatorDataDict,
+    SpecificFormat,
+    GenericFormat,
+    CoverID,
+)
+
+
 T = TypeVar("T")
 D = TypeVar("D")
 
@@ -277,5 +288,29 @@ class BaseField(Generic[T]):
         :param db:
         :param allow_case_change:
         :return status: Did the database update successfully?
+        """
+        raise NotImplementedError
+
+
+class BaseOneToManyField(BaseField[T]):
+    """
+    For a Many-to-Many or One-to-Many table that has to pretend to be a 1-1 table.
+    """
+
+    def ids_for_book(self, book_id: SrcTableID) -> set[DstTableID]:
+        """
+        The table is pretending to be 1-1 - so this method does not make sense.
+
+        :param book_id:
+        :return:
+        """
+        raise NotImplementedError
+
+    def books_for(self, item_id: DstTableID) -> set[SrcTableID]:
+        """
+        The table is pretending to be 1-1 - so this method does not make sense.
+
+        :param item_id:
+        :return:
         """
         raise NotImplementedError

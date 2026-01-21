@@ -1,3 +1,13 @@
+
+"""
+The original cache out of calibre.
+
+Not very good.
+Kept as a reference.
+"""
+
+
+
 # tables - represent the data stored in a given table on the database.
 #          If there are multiple fields for multiple columns in this table then each of them should have their own
 #          table instance - pointed to the desired column

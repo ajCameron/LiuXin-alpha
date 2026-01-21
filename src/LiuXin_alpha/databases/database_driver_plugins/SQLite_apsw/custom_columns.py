@@ -1,4 +1,10 @@
-class SQLiteCustomColumnsDriverMixin(object):
+
+"""
+Provide custom columns functionality to the database driver.
+"""
+
+
+class SQLiteCustomColumnsDriverMixin:
     """
     Mixin which contains all the logic for the custom columns in one place.
     """
@@ -14,6 +20,7 @@ class SQLiteCustomColumnsDriverMixin(object):
     def direct_create_custom_column(self, in_table, column_name, data_type="TEXT", multi=False):
         """
         Direct create a custom column in a given table.
+
         This column can have one or many values and will be included in the row return under the custom_fields
         attribute.
         Custom columns are stored in tables linked to the main table. You can tell the tables store custom columns
