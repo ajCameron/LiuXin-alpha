@@ -9,6 +9,8 @@ returned a numeric type. Otherwise keep malformed values visible as text.
 
 from __future__ import annotations
 
+import re
+
 from typing import Any, Dict, Sequence
 
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
@@ -77,13 +79,34 @@ class ValueCastingMixin:
         affinity = self._sqlite_affinity(declared_type)
 
         if affinity == "INTEGER":
-            # Only coerce if it already looks numeric
+            # Coerce common string/bytes representations of integers.
             if isinstance(value, bool):
                 return int(value)
             if isinstance(value, int):
                 return int(value)
             if isinstance(value, float) and value.is_integer():
                 return int(value)
+
+            if isinstance(value, (bytes, bytearray, memoryview)):
+                s = force_unicode(value)
+                if isinstance(s, str):
+                    s2 = s.strip()
+                    if re.fullmatch(r"[+-]?\d+", s2):
+                        try:
+                            return int(s2)
+                        except Exception:
+                            pass
+                return s
+
+            if isinstance(value, str):
+                s2 = value.strip()
+                if re.fullmatch(r"[+-]?\d+", s2):
+                    try:
+                        return int(s2)
+                    except Exception:
+                        pass
+                return value
+
             return force_unicode(value)
 
         if affinity == "REAL":
@@ -91,6 +114,27 @@ class ValueCastingMixin:
                 return float(int(value))
             if isinstance(value, (int, float)):
                 return float(value)
+
+            if isinstance(value, (bytes, bytearray, memoryview)):
+                s = force_unicode(value)
+                if isinstance(s, str):
+                    s2 = s.strip()
+                    if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2):
+                        try:
+                            return float(s2)
+                        except Exception:
+                            pass
+                return s
+
+            if isinstance(value, str):
+                s2 = value.strip()
+                if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2):
+                    try:
+                        return float(s2)
+                    except Exception:
+                        pass
+                return value
+
             return force_unicode(value)
 
         if affinity == "BLOB":
@@ -108,6 +152,37 @@ class ValueCastingMixin:
                 return int(value)
             if isinstance(value, float):
                 return float(value)
+
+            if isinstance(value, (bytes, bytearray, memoryview)):
+                s = force_unicode(value)
+                if isinstance(s, str):
+                    s2 = s.strip()
+                    if re.fullmatch(r"[+-]?\d+", s2):
+                        try:
+                            return int(s2)
+                        except Exception:
+                            pass
+                    if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2):
+                        try:
+                            return float(s2)
+                        except Exception:
+                            pass
+                return s
+
+            if isinstance(value, str):
+                s2 = value.strip()
+                if re.fullmatch(r"[+-]?\d+", s2):
+                    try:
+                        return int(s2)
+                    except Exception:
+                        pass
+                if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2):
+                    try:
+                        return float(s2)
+                    except Exception:
+                        pass
+                return value
+
             return force_unicode(value)
 
         # TEXT

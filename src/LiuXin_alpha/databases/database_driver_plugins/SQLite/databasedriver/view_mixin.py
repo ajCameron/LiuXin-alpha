@@ -29,17 +29,12 @@ class ViewMixin:
         table_id_name = "id"
 
         stmt = "SELECT * FROM {} WHERE {} = ?".format(view, table_id_name)
-
         rows = []
         result = dict()
         for row in c.execute(stmt, (row_id,)):
-            for i in range(len(headings)):
-                if not isinstance(headings[i], set):
-                    result[headings[i]] = force_unicode(row[i])
-                else:
-                    result[headings[i]] = row[i]
+            # Use the same typed coercion as table-row helpers (INTEGER stays int, etc.)
+            result = self._row_to_dict(table=view, headings=headings, row=row)
             rows.append(result)
-
         if len(rows) > 1:
             err_str = "Error - search yielded multiple rows. Aborting.\n"
             err_str += repr(rows)
