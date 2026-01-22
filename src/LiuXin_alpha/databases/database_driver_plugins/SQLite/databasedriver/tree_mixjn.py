@@ -77,18 +77,38 @@ class TreeMethodsMixin:
         stmt = "UPDATE {} SET {} = ? WHERE {} = ?".format(table, table_tree_id_column, table_id_column)
         final_stmt = stmt
 
+        # NOTE:
+        # direct_get_row_dict_iterator() intentionally skips id=0 rows (it uses `WHERE id > 0`).
+        # Some calibre-compatible tables (notably `series`) require a deterministic "null row" at id=0,
+        # and driver-contract tests expect it to receive a stable tree id too.
         for row in self.direct_get_row_dict_iterator(table):
 
             row_id = row[table_id_column]
 
             root_series = self.get_root_series(row)
-            root_phash = "{}_{}".format(root_series[table_id_column], root_series[table_display_column])
+            root_display = root_series.get(table_display_column)
+            root_phash = "{}_{}".format(root_series[table_id_column], root_display)
             conn.execute(final_stmt, (root_phash, row_id))
             conn.commit()
 
-        else:
+        # Also update the required null row (id=0) if present.
+        # This keeps behaviour deterministic across drivers/tables that reserve a sentinel row.
+        try:
+            null_row = self.direct_get_row_dict_from_id(table=table, row_id=0)
+        except Exception:
+            null_row = None
 
-            return True
+        if null_row is not None:
+            root_series = self.get_root_series(null_row)
+            # Prefer .get() to avoid KeyError if a legacy table is missing the display column.
+            root_display = root_series.get(table_display_column)
+            root_id = root_series.get(table_id_column, 0)
+            root_phash = "{}_{}".format(root_id, root_display)
+            conn.execute(final_stmt, (root_phash, 0))
+            conn.commit()
+
+        # If the code reaches this point, all updates have succeeded.
+        return True
 
     # Todo: Should be called direct_get_root_series
     def direct_get_root_series(self, start_row):
