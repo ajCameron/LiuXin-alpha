@@ -117,6 +117,13 @@ class SearchMixin:
     def direct_get_row_dict_iterator(self, table, sort_column=None, reverse=False):
         """
         Provides an iterator which returns all the rows in a specified table in the form of row_dicts. Ordered by id
+
+        Note:
+            This iterator intentionally skips any required sentinel/null row (commonly id=0) used
+            by some calibre-compatible tables. The chunked SELECT uses `WHERE <id_col> > start_id_value`
+            and starts at start_id_value=0, so the first chunk is `> 0`.
+            If you need the sentinel row, fetch it explicitly (e.g. `direct_get_row_dict_from_id(table, 0)`).
+
         :param table: Get an iterator for all the rows in this table.
         :param sort_column: The column the table should be sorted by
         :param reverse: Should the order of the rows be reversed?
