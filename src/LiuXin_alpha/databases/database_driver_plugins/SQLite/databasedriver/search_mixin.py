@@ -291,7 +291,7 @@ class SearchMixin:
             current_values.add(row[0])
         return current_values
 
-    def iterator_return(self, stmt, headings, table=None):
+    def iterator_return(self, stmt, headings, table=None, bindings=None):
         """Yield row dicts for a pre-built SQL statement.
 
         When `table` is provided, values are coerced using declared column types
@@ -300,7 +300,12 @@ class SearchMixin:
         conn = self.get_connection()
         c = conn.cursor()
         try:
-            for row in c.execute(stmt):
+            if bindings is None:
+                row_iter = c.execute(stmt)
+            else:
+                row_iter = c.execute(stmt, bindings)
+
+            for row in row_iter:
                 if table is None:
                     this_row = dict()
                     for i in range(len(headings)):
@@ -425,15 +430,74 @@ class SearchMixin:
         else:
             target_table = table_set.pop()
 
+        # Build a parameterised query.
+        #
+        # Historically this code interpolated raw values into SQL, which breaks for
+        # strings (they must be quoted) and is also a SQL injection footgun.
         stmt = "SELECT * FROM {} WHERE ".format(target_table)
         final_search_terms = []
+        bindings = []
 
         for this_term in search_index:
-            this_condition = ""
-            search_term = this_term[2]
-            this_condition += "{} {} {}".format(this_term[0], this_term[1], search_term)
+            # Expected: (column_name, binary_operator, target_value)
+            try:
+                column_name, operator, search_term = this_term[0], this_term[1], this_term[2]
+            except Exception as e:
+                raise InputIntegrityError(
+                    "Malformed search term (expected a 3-tuple): {}".format(repr(this_term))
+                ) from e
 
-            final_search_terms.append(this_condition)
+            op = force_unicode(operator).strip()
+            op_upper = op.upper()
+            col = force_unicode(column_name).strip()
+
+            # Contract: proactively reject values that *look* like multi-statement SQL.
+            # Even though we use bound parameters (so these payloads are not executable),
+            # treating them as invalid input keeps the public API conservative.
+            if isinstance(search_term, (bytes, str)):
+                try:
+                    st = search_term.decode("utf-8", errors="replace") if isinstance(search_term, bytes) else str(search_term)
+                except Exception:
+                    st = None
+                if st is not None and (
+                    ";" in st
+                    or "--" in st
+                    or "/*" in st
+                    or "*/" in st
+                    or "\x00" in st
+                ):
+                    raise InputIntegrityError("Unsafe-looking search value rejected")
+
+            # Normalise some common NULL behaviours so callers can use `=` semantics.
+            if search_term is None:
+                if op_upper in ("=", "==", "IS"):
+                    final_search_terms.append("{} IS NULL".format(col))
+                    continue
+                if op_upper in ("!=", "<>", "IS NOT"):
+                    final_search_terms.append("{} IS NOT NULL".format(col))
+                    continue
+
+            # Support `IN` for convenience.
+            if op_upper == "IN":
+                if search_term is None:
+                    # IN (NULL) is not meaningful; treat as no matches.
+                    final_search_terms.append("1=0")
+                    continue
+                if isinstance(search_term, (bytes, str)) or not hasattr(search_term, "__iter__"):
+                    raise InputIntegrityError("IN operator requires a non-string iterable")
+                values = list(search_term)
+                if not values:
+                    # Empty IN list should match nothing.
+                    final_search_terms.append("1=0")
+                    continue
+                placeholders = ",".join(["?"] * len(values))
+                final_search_terms.append("{} IN ({})".format(col, placeholders))
+                bindings.extend(values)
+                continue
+
+            # Default: binary operator with a single bound value.
+            final_search_terms.append("{} {} ?".format(col, op))
+            bindings.append(search_term)
 
         final_stmt = stmt + " AND ".join(final_search_terms)
 
@@ -443,7 +507,7 @@ class SearchMixin:
         if not iterator_return:
             all_results = []
             try:
-                for row in c.execute(final_stmt):
+                for row in c.execute(final_stmt, bindings):
                     this_row = self._row_to_dict(table=target_table, headings=headings, row=row)
                     all_results.append(this_row)
             except (sqlite3.OperationalError, sqlite3.InterfaceError) as e:
@@ -451,7 +515,7 @@ class SearchMixin:
             conn.close()
             return all_results
         else:
-            return self.iterator_return(final_stmt, headings, target_table)
+            return self.iterator_return(final_stmt, headings, target_table, bindings=bindings)
 
 
     # Algorithm is as follows.

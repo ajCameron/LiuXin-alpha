@@ -688,6 +688,8 @@ CREATE TABLE IF NOT EXISTS `preferences` (
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `metadata_dirtied_books` (
   `metadata_dirtied_book_id` TEXT PRIMARY KEY,
+  `metadata_dirtied_book_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `metadata_dirtied_book_scratch` TEXT NULL,
   `metadata_dirtied_book` TEXT NULL)
 ;
 
@@ -700,9 +702,10 @@ CREATE TABLE IF NOT EXISTS `metadata_dirtied_books` (
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `hashes` (
   `hash_id` TEXT PRIMARY KEY,
+  `hash_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `hash_scratch` TEXT NULL,
   `hash` TEXT NULL)
 ;
-
 
 -- BREAK
 -- BREAK
@@ -772,6 +775,7 @@ CREATE TABLE IF NOT EXISTS `last_read_positions` (
   `cfi` TEXT NOT NULL,
   `epoch` REAL NOT NULL,
   `pos_frac` REAL NOT NULL DEFAULT 0,
+  `datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user, device, book, format)
 );
 

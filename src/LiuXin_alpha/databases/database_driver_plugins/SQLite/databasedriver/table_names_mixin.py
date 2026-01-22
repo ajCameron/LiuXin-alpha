@@ -147,7 +147,7 @@ class TableNamesMixin:
             candidate_ids = sorted(candidate_ids, key=len)
             return candidate_ids[0]
         elif len(candidate_ids) == 0:
-            err_str = "Error - get_id_column failed - no column with a name ending in id found"
+            err_str = "Error - direct_get_datestamp_column failed - no column with a name ending in datestamp found"
             err_str = default_log.log_variables(err_str, "ERROR", ("headings", headings))
             raise InputIntegrityError(err_str)
         else:
@@ -160,8 +160,11 @@ class TableNamesMixin:
     def _get_id_column(self, table, tables_and_columns=None):
         """
         Every table in the database should have an id column.
-        Currently assumes that there is a column with a name ending in id and that if this is true for multiple rows that
-        the shortest string ending in id is the id string. Should be tested every time a new column is added
+
+        Currently, assumes that
+         - there is a column with a name ending in "id"
+          - if this is true for multiple rows the shortest string ending in "id" is the id column.
+        Should be tested every time a new column/table is added
         :param table:
         :param tables_and_columns:
         :return:

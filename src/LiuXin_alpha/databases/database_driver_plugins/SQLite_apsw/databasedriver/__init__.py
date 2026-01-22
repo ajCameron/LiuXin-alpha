@@ -79,6 +79,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.dirty_
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.table_names_mixin import TableNamesMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.tree_mixjn import TreeMethodsMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.metadata_mixin import MetadataMethodMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.triggers_mixin import TriggersMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.search_mixin import SearchMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.value_casting_mixin import ValueCastingMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.book_group_mixin import BookGroupMixin
@@ -224,7 +225,7 @@ class DatabaseDriver(
     SQLExecutionMixin,
     MathFunctionsMixin,
     DirtyRecordsMixin,
-    TableNamesMixin, TreeMethodsMixin, MetadataMethodMixin, SearchMixin, BookGroupMixin, DeleteMixin, AddingMixin, UpdateMixin, ViewMixin, TableCreationMixin):
+    TableNamesMixin, TreeMethodsMixin, MetadataMethodMixin, TriggersMixin, SearchMixin, BookGroupMixin, DeleteMixin, AddingMixin, UpdateMixin, ViewMixin, TableCreationMixin):
     """
     Represents a collection of all the methods needed to interface with an actual database.
     """
