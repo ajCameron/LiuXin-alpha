@@ -1420,7 +1420,7 @@ class BaseManyToManyField(BaseField[T]):
         """
         raise NotImplementedError
 
-    def iter_counts(self, candidates: Iterable[SrcTableID]) -> Iterator[int, set[SrcTableID]]:
+    def iter_counts(self, candidates: Iterable[SrcTableID]) -> Iterator[tuple[int, set[SrcTableID]]]:
         """
         Iter through usage counts for all the tags.
 

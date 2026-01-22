@@ -8,38 +8,39 @@ from copy import deepcopy
 from typing import TypeVar, Optional, Type, Iterable, Any
 from typing_extensions import Self
 
-from LiuXin.customize.cache.base_tables import (
+from LiuXin_alpha.customize.cache.base_tables import (
     BaseManyToManyTable,
     MANY_MANY,
 )
-from LiuXin.databases.caches.calibre.tables.base import null
-from LiuXin.databases.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable
-from LiuXin.databases.db_types import (
+from LiuXin_alpha.databases.caches.calibre.tables.base import null
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable
+from LiuXin_alpha.databases.db_types import (
     TableTypes,
     MetadataDict,
     InterLinkTableName,
     SrcTableID,
     DstTableID,
 )
-from LiuXin.databases.write import uniq
+from LiuXin_alpha.utils.python_tools import uniq
 
-from LiuXin.exceptions import (
+from LiuXin_alpha.errors import (
     DatabaseIntegrityError,
     InputIntegrityError,
     InvalidCacheUpdate,
+    InvalidUpdate
 )
-from LiuXin.exceptions import InvalidUpdate
+
 
 from LiuXin.utils.icu import lower as icu_lower
-from LiuXin.utils.lx_libraries.liuxin_six import (
+from LiuXin_alpha.utils.libraries.liuxin_six import (
     dict_iteritems as iteritems,
-    dict_itervalues as itervalues,
+    dict_itervalues as itervalues, basestring
 )
 from LiuXin.utils.logger import default_log
 from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
 
 # Py2/Py3 compatibility layer
-from past.builtins import basestring
+from past.builtins import
 
 T = TypeVar("T")
 
