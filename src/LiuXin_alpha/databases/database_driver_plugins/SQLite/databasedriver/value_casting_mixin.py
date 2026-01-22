@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from typing import Any, Dict, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 
@@ -188,9 +188,50 @@ class ValueCastingMixin:
         # TEXT
         return force_unicode(value)
 
-    def _row_to_dict(self, *, table: str, headings: Sequence[Any], row: Sequence[Any]) -> Dict[Any, Any]:
-        """Convert a DB row tuple into a dict, using declared types for casting."""
-        declared_types = self._get_declared_types_for_table(table)
+    def _coerce_untyped_value(self, value: Any) -> Any:
+        """Best-effort coercion when no declared type information is available.
+
+        This is intentionally conservative:
+        - Preserve ints/floats/bools as-is.
+        - Decode bytes-like to text for visibility.
+        - Convert memoryview to bytes.
+        - Otherwise fall back to :func:`force_unicode`.
+
+        Unlike :meth:`_coerce_db_value`, we do **not** parse numeric strings into
+        numbers, because we have no declared affinity to justify doing so.
+        """
+        if value is None:
+            return None
+
+        if isinstance(value, bool):
+            # bool is a subtype of int; preserve intent
+            return bool(value)
+        if isinstance(value, int):
+            return int(value)
+        if isinstance(value, float):
+            return float(value)
+
+        if isinstance(value, memoryview):
+            return bytes(value)
+        if isinstance(value, (bytes, bytearray)):
+            return force_unicode(bytes(value))
+
+        return force_unicode(value)
+
+    def _row_to_dict(
+        self,
+        *,
+        table: Optional[str] = None,
+        headings: Sequence[Any],
+        row: Sequence[Any],
+    ) -> Dict[Any, Any]:
+        """Convert a DB row tuple into a dict.
+
+        If ``table`` is provided, declared types are used for conservative
+        casting (INTEGER stays int, etc.). If ``table`` is ``None``, a conservative
+        best-effort conversion is applied that preserves numeric types.
+        """
+        declared_types = self._get_declared_types_for_table(table) if table else {}
         result: Dict[Any, Any] = {}
         for i, head in enumerate(headings):
             val = row[i]
@@ -202,6 +243,9 @@ class ValueCastingMixin:
             if isinstance(head, set):
                 result[head] = val
                 continue
-            result[head] = self._coerce_db_value(val, declared_types.get(head, ""))
+            if table:
+                result[head] = self._coerce_db_value(val, declared_types.get(head, ""))
+            else:
+                result[head] = self._coerce_untyped_value(val)
         return result
 

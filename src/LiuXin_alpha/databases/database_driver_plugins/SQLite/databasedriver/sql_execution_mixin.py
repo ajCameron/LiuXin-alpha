@@ -48,9 +48,9 @@ class SQLExecutionMixin:
         if conn is None:
             conn = self.get_connection()
 
-        # Todo: Can we replace this name with a placeholder ? ?
-        stmt = "SELECT SQL FROM sqlite_master WHERE TYPE = 'table' AND NAME = '{}';".format(table)
-        for row in conn.execute(stmt):
+        # Parameterize table name to avoid quoting issues and accidental injection.
+        stmt = "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?;"
+        for row in conn.execute(stmt, (table,)):
             return row[0]
         else:
             raise InputIntegrityError("Table name was probably not found")

@@ -34,9 +34,7 @@ class BookGroupMixin:
         # Internally we cache table names without quoting. Use the canonical name here.
         headings = self.direct_get_column_headings("new_books")
         for row in c.execute(stmt2, (min_group_id,)):
-            this_row = dict()
-            for i in range(len(row)):
-                this_row[headings[i]] = row[i]
+            this_row = self._row_to_dict(table="new_books", headings=headings, row=row)
             book_grouping.append(this_row)
 
         conn.close()

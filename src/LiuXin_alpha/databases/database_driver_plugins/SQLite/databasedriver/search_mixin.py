@@ -155,10 +155,13 @@ class SearchMixin:
 
                 conn = self.get_connection()
                 c = conn.cursor()
-                this_stmt = "SELECT * FROM {} WHERE {} > {} ORDER BY {} LIMIT 10;".format(
-                    table, table_id_column, start_id_value, table_id_column
+
+                # Parameterize the moving boundary value to avoid accidental SQL injection
+                # and to keep statement parsing consistent across drivers.
+                this_stmt = "SELECT * FROM {} WHERE {} > ? ORDER BY {} LIMIT 10;".format(
+                    table, table_id_column, table_id_column
                 )
-                c.execute(this_stmt)
+                c.execute(this_stmt, (start_id_value,))
                 current_rows = deepcopy(c.fetchall())
                 conn.close()
 
@@ -259,6 +262,64 @@ class SearchMixin:
             return result
 
 
+    # ------------------------------------------------------------------
+    # Sentinel / null-row helpers
+    # ------------------------------------------------------------------
+
+    def direct_has_null_row(self, table) -> bool:
+        """Return True if the table contains a sentinel/null row at id=0.
+
+        Some calibre-compatible tables reserve an explicit row with primary-key
+        value 0 (often with most fields NULL) to represent a missing/unknown
+        reference. Contract tests treat this row as *categorically different*
+        from "real" rows.
+        """
+        table = force_unicode(table)
+        if not self.validate_existing_table_name(table):
+            raise InputIntegrityError(f"Unknown table: {table!r}")
+
+        id_col = self._get_id_column(table)
+        stmt = f"SELECT 1 FROM `{table}` WHERE `{id_col}` = 0 LIMIT 1;"
+        conn = self.get_connection()
+        try:
+            c = conn.cursor()
+            row = c.execute(stmt).fetchone()
+            return row is not None
+        finally:
+            conn.close()
+
+    def direct_get_null_row(self, table):
+        """Fetch the sentinel/null row at id=0, or False if none exists."""
+        table = force_unicode(table)
+        if not self.direct_has_null_row(table):
+            return False
+        return self.direct_get_row_dict_from_id(table, 0)
+
+    def direct_update_null_row(self, table, updates=None, **fields) -> bool:
+        """Update the sentinel/null row (id=0) with the provided fields.
+
+        :param table: Target table.
+        :param updates: Optional mapping of column -> value.
+        :param fields: Convenience keyword arguments (merged over ``updates``).
+        :raises InputIntegrityError: if the table has no null row.
+        """
+        table = force_unicode(table)
+        if updates is None:
+            updates = {}
+        if not isinstance(updates, dict):
+            updates = dict(updates)
+        updates.update(fields)
+
+        if not self.direct_has_null_row(table):
+            raise InputIntegrityError(f"Table {table!r} has no sentinel/null row at id=0")
+
+        id_col = self._get_id_column(table)
+        row_dict = {id_col: 0}
+        row_dict.update(updates)
+        self.direct_update_row_dict(row_dict)
+        return True
+
+
     def direct_get_all_hashes(self):
         """
         Returns a set of all hashes in the database.
@@ -313,12 +374,8 @@ class SearchMixin:
                 row_iter = c.execute(stmt, bindings)
 
             for row in row_iter:
-                if table is None:
-                    this_row = dict()
-                    for i in range(len(headings)):
-                        this_row[headings[i]] = force_unicode(row[i])
-                else:
-                    this_row = self._row_to_dict(table=table, headings=headings, row=row)
+                # Centralize row->dict conversion: typed when table provided, best-effort otherwise.
+                this_row = self._row_to_dict(table=table, headings=headings, row=row)
                 yield this_row
         finally:
             default_log.info("Connection has closed!")
