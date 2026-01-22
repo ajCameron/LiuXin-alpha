@@ -498,6 +498,9 @@ class DatabaseDriver(
                 callback(_("Restoring database from SQL") + "...")
 
                 restore_conn = SQLite_Connection(tmpdb, detect_types=sqlite3.PARSE_DECLTYPES)
+                # Allow iterdump()'s explicit BEGIN/COMMIT statements to run without
+                # sqlite3 implicitly starting its own transaction (fixes 'cannot start a transaction within a transaction').
+                restore_conn.isolation_level = None
                 try:
                     # Ensure compat collations/functions exist during schema creation.
                     restore_conn.execute("PRAGMA foreign_keys=ON")

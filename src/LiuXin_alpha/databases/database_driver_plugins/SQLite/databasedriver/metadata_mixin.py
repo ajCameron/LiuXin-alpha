@@ -434,7 +434,7 @@ class MetadataMethodMixin:
         md_rows = self.direct_get_all_rows("database_metadata")
         md_row = md_rows[0]
         candidate_value = md_row[n_md_field_name]
-        if candidate_value.lower() == "none":
+        if candidate_value is None or str(candidate_value).lower() == "none":
             return None
         else:
             return deepcopy(candidate_value)

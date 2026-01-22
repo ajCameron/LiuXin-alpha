@@ -170,14 +170,14 @@ class SearchMixin:
             # Do something with timestamps
             raise NotImplementedError("Cannot currently cope with this combination")
 
-
     def direct_get_unique_values_set(self, target_column):
         """
         Returns a set of the unique values in a column.
+
         :param target_column:
         :return values_set: A set of all the unique values in that column
         """
-        target_table = self.__identify_table_from_column(column_heading=target_column)
+        target_table = self.identify_table_from_column(column_heading=target_column)
         stmt = "SELECT DISTINCT {} FROM {};".format(target_column, target_table)
         values_set = set()
         conn = self.get_connection()
@@ -188,10 +188,10 @@ class SearchMixin:
         conn.close()
         return values_set
 
-
     def direct_get_unique_values_iterator(self, target_column):
         """
         Iterates over the unique values in a column.
+
         Helps to keep memory usage down when dealing with very large tables.
         :param target_column:
         :return:
@@ -407,18 +407,21 @@ class SearchMixin:
         for term in search_index:
             columns_set.add(term[0])
         for column in columns_set:
-            table_set.add(self.__identify_table_from_column(column))
+            table_set.add(self.identify_table_from_column(column))
+
         if len(table_set) == 0:
             err_str = "Attempt to parse the search_index has failed.\n"
             err_str += "table_set is empty.\n"
             err_str += "search_index: " + repr(search_index) + "\n"
             raise InputIntegrityError(err_str)
+
         elif len(table_set) > 1:
             err_str = "Columns seem to come from multiple tables.\n"
             err_str += "columns_set: " + repr(columns_set) + "\n"
             err_str += "table_set: " + repr(table_set) + "\n"
             err_str += "search_index: " + repr(search_index) + "\n"
             raise InputIntegrityError(err_str)
+
         else:
             target_table = table_set.pop()
 
@@ -439,9 +442,12 @@ class SearchMixin:
         headings = self.direct_get_column_headings(target_table)
         if not iterator_return:
             all_results = []
-            for row in c.execute(final_stmt):
-                this_row = self._row_to_dict(table=target_table, headings=headings, row=row)
-                all_results.append(this_row)
+            try:
+                for row in c.execute(final_stmt):
+                    this_row = self._row_to_dict(table=target_table, headings=headings, row=row)
+                    all_results.append(this_row)
+            except (sqlite3.OperationalError, sqlite3.InterfaceError) as e:
+                raise InputIntegrityError(f"Final statement malformed {final_stmt}. Error: {e}") from e
             conn.close()
             return all_results
         else:

@@ -12,7 +12,8 @@ Covered
 Contract expectations
 ---------------------
 - Field names may be provided with or without the ``database_metadata_`` prefix.
-- Unset metadata fields should read back as ``None``.
+- Unset optional metadata fields should read back as ``None``.
+- ``unique_id`` is expected to be present in provisioned databases.
 - Unicode and SQL-injection-shaped payloads must be treated as inert data.
 - Invalid field names must raise ``ValueError``.
 
@@ -24,6 +25,7 @@ from __future__ import annotations
 from typing import Sequence
 
 import pytest
+import uuid
 
 
 def _safe_read(driver, field: str):
@@ -40,7 +42,6 @@ def _safe_read(driver, field: str):
 @pytest.mark.parametrize(
     "field",
     [
-        "unique_id",
         "parent_LiuXin_instance",
         "db_name",
         "scratch",
@@ -49,6 +50,18 @@ def _safe_read(driver, field: str):
 def test_metadata_unset_fields_read_as_none(driver, field: str):
     # A freshly provisioned contract DB should treat unset fields as None.
     assert _safe_read(driver, field) is None
+
+
+def test_metadata_unique_id_is_present_and_uuid4(driver):
+    """
+    A provisioned contract DB should have a stable unique_id.
+    This should be a non-empty UUID4 string, and should match direct_get_db_unique_id().
+    """
+    val = _safe_read(driver, "unique_id")
+    assert isinstance(val, str) and val, f"Expected non-empty unique_id string; got: {val!r}"
+    assert val == driver.direct_get_db_unique_id()
+    parsed = uuid.UUID(val)
+    assert parsed.version == 4
 
 
 @pytest.mark.parametrize(

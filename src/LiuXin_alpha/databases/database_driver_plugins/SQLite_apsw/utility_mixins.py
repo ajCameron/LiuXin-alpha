@@ -225,7 +225,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         :return:
         """
         # Todo: Checking that primary and secondary are in main tables
-        assert link_type in self.allowed_link_types, self._bad_link_type_error(link_type)
+        if link_type not in self.allowed_link_types:
+            raise NotImplementedError(self._bad_link_type_error(link_type))
 
         # Generate the SQLite to link the two given tables with the given link type
 

@@ -16,20 +16,20 @@ class MathFunctionsMixin:
         """
         Get the maximum value from a column and return it.
         """
-        col_table = self.__identify_table_from_column(column)
+        col_table = self.identify_table_from_column(column)
         stmt = "SELECT MAX({}) FROM {};".format(column, col_table)
 
         conn = self.get_connection()
-        max_val = next(conn.execute(stmt))
+        max_val = next(conn.execute(stmt))[0]
         return max_val
 
     def direct_get_min(self, column: str):
         """
         Get the maximum value from a column and return it.
         """
-        col_table = self.__identify_table_from_column(column)
+        col_table = self.identify_table_from_column(column)
         stmt = "SELECT MIN({}) FROM {};".format(column, col_table)
 
         conn = self.get_connection()
-        min_val = next(conn.execute(stmt))
+        min_val = next(conn.execute(stmt))[0]
         return min_val
