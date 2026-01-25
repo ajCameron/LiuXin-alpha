@@ -167,7 +167,7 @@ def test_update_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pi
     assert after.get(crud_cols["text2"]) != original_text
 
 
-def test_delete_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pick_payload):
+def test_delete_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pick_payload) -> None:
     """Deleting by id should remove the row and not disturb other rows."""
 
     # Insert three rows.
@@ -192,7 +192,7 @@ def test_delete_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pi
         assert driver.direct_get_row_dict_from_id(crud_table, sid) is not False
 
 
-def test_id_and_datestamp_helpers_work_on_contract_table(driver, crud_table: str):
+def test_id_and_datestamp_helpers_work_on_contract_table(driver, crud_table: str) -> None:
     """direct_get_id_column/direct_get_datestamp_column should handle new tables."""
 
     assert driver.direct_get_id_column(crud_table).endswith("_id")

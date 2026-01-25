@@ -35,6 +35,8 @@ from LiuXin_alpha.utils.localization import _
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
+from LiuXin_alpha.utils.libraries.liuxin_six import unicode, cmp, basestring
+
 
 class CustomColumnDatabaseMixin:
     """
@@ -118,15 +120,32 @@ class CustomColumnDatabaseMixin:
 # Todo: Round these up and move them to the custom columns mixin - as with everything else
 # Todo: Or, perhaps preferably, move them down into the driver and integrate properly
 class CustomColumnsDriverWrapperMixin(object):
+
+
     def __init__(self, db, macros):
 
-        # Worker objects
-        self.db = db
-        self.macros = macros
 
-        # Todo: Might want to rename this to custom_column_tables
-        # Stores properties of the database
-        self.custom_tables = set()
+            # Worker objects
+            self.db = db
+
+            # Don't assign to self.macros directly: subclasses (e.g. DriverWrapper) may expose
+            # macros as a read-only @property (no setter). Also avoid clobbering an already-set
+            # macros when macros is None.
+            if macros is not None:
+                macros_setter = getattr(self, "set_macros", None)
+
+                if callable(macros_setter):
+                    macros_setter(macros)
+                else:
+                    try:
+                        self.macros = macros
+                    except AttributeError:
+                        # Last resort: common convention used by wrappers
+                        setattr(self, "_macros", macros)
+
+            # Todo: Might want to rename this to custom_column_tables
+            # Stores properties of the database
+            self.custom_tables = set()
 
     # ----------------------------------------------------------------------------------------------------------------------
     #
