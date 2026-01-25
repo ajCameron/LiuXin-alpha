@@ -9,13 +9,13 @@ from collections import defaultdict
 from typing import TypeVar, Optional
 from typing_extensions import Self
 
-from LiuXin.databases.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable
-from LiuXin.databases.db_types import MetadataDict, InterLinkTableName, SrcTableID, DstTableID
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable
+from LiuXin_alpha.databases.db_types import MetadataDict, InterLinkTableName, SrcTableID, DstTableID
 
-from LiuXin.exceptions import InvalidCacheUpdate
+from LiuXin_alpha.errors import InvalidCacheUpdate
 
-from LiuXin.utils.lx_libraries.liuxin_six import iteritems
-from LiuXin.utils.general_ops.python_tools import element_to_front
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
+from LiuXin_alpha.utils.python_tools import element_to_front
 
 T = TypeVar("T")
 

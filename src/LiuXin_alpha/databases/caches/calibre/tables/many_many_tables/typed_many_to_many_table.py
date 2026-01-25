@@ -10,27 +10,25 @@ from copy import deepcopy
 
 from typing import TypeVar, Optional, Iterable, Union, Any
 
-from LiuXin.databases.caches.calibre.tables.many_many_tables.many_to_many_table import CalibreManyToManyTable
-from LiuXin.databases.db_types import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_many_tables.many_to_many_table import CalibreManyToManyTable
+from LiuXin_alpha.databases.db_types import (
     MetadataDict,
     InterLinkTableName,
     SrcTableID,
     DstTableID,
 )
-from LiuXin.databases.write import uniq
+from LiuXin_alpha.utils.python_tools import uniq
 
-from LiuXin.exceptions import (
+from LiuXin_alpha.errors import (
     InvalidCacheUpdate,
 )
 
-from LiuXin.utils.icu import lower as icu_lower
-from LiuXin.utils.lx_libraries.liuxin_six import (
+from LiuXin_alpha.utils.text.icu import lower as icu_lower
+from LiuXin_alpha.utils.libraries.liuxin_six import (
     dict_iteritems as iteritems,
-    dict_itervalues as itervalues,
+    dict_itervalues as itervalues, basestring
 )
 
-# Py2/Py3 compatibility layer
-from past.builtins import basestring
 
 T = TypeVar("T")
 

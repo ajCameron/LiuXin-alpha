@@ -407,6 +407,8 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         :return:
         """
         self._driver_wrapper = new_driver_wrapper
+        assert self._driver_wrapper.macros is not None
+        self._driver_wrapper.macros = self.macros
 
     def __del__(self):
         """
@@ -783,12 +785,12 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
     #
     # - METHODS TO GET BASIC INFORMATION ABOUT THE DATABASE START HERE
 
-    def get_tables(self):
+    def get_tables(self, force_refresh: bool = False):
         """
         Directly get the tables for the currently loaded database
         :return:
         """
-        return self.driver_wrapper.get_tables()
+        return self.driver_wrapper.get_tables(force_refresh=force_refresh)
 
     # Methods to get basic information about the database start here
     def get_column_headings(self, table):
@@ -2326,12 +2328,13 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin):
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO GET BASIC INFORMATION ABOUT THE DATABASE START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def get_tables(self):
+    def get_tables(self, force_refresh: bool = False):
         """
         Directly get the tables for the currently loaded database
+
         :return:
         """
-        return self.driver.direct_get_tables(force_refresh=True)
+        return self.driver.direct_get_tables(force_refresh=force_refresh)
 
     def get_column_headings(self, table):
         """
@@ -3287,6 +3290,7 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin):
     def link_main_tables(self, primary_table, secondary_table, link_type, link_properties=None):
         """
         Create a link between two existing main tables.
+
         This method functions by creating an interlink table joining the two objects.
         :param primary_table: This table will be linked to ...
         :param secondary_table: ... that table.

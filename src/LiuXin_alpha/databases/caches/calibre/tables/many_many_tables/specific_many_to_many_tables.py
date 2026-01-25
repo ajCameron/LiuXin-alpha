@@ -9,15 +9,15 @@ from collections import defaultdict, OrderedDict
 
 from typing import TypeVar, Optional, Union, Iterable, Literal
 
-from LiuXin.customize.cache.base_tables import (
+from LiuXin_alpha.customize.cache.base_tables import (
     BaseCreatorsTable,
     BaseFormatsTable,
 )
-from LiuXin.databases.caches.calibre.tables.many_many_tables.many_to_many_table import CalibreManyToManyTable
-from LiuXin.databases.caches.calibre.tables.many_many_tables.priority_many_to_many_table import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_many_tables.many_to_many_table import CalibreManyToManyTable
+from LiuXin_alpha.databases.caches.calibre.tables.many_many_tables.priority_many_to_many_table import (
     CalibrePriorityManyToManyTable,
 )
-from LiuXin.databases.db_types import (
+from LiuXin_alpha.databases.db_types import (
     MetadataDict,
     InterLinkTableName,
     SrcTableID,
@@ -26,21 +26,20 @@ from LiuXin.databases.db_types import (
     GenericFormat,
 )
 
-from LiuXin.exceptions import (
+from LiuXin_alpha.errors import (
     DatabaseIntegrityError,
 )
 
-from LiuXin_alpha.metadata import author_to_author_sort
+from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort
 
-from LiuXin.preferences import preferences
+from LiuXin_alpha.preferences import preferences
 
-from LiuXin.utils.lx_libraries.liuxin_six import (
+from LiuXin_alpha.utils.libraries.liuxin_six import (
     dict_iteritems as iteritems,
-    dict_itervalues as itervalues,
+    dict_itervalues as itervalues, basestring
 )
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
-from past.builtins import basestring
 
 T = TypeVar("T")
 

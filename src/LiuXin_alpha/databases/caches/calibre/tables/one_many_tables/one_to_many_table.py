@@ -9,16 +9,14 @@ from copy import deepcopy
 
 from typing import TypeVar, Optional, Any, Union
 
-from LiuXin.customize.cache.base_tables import ONE_MANY
+from LiuXin_alpha.customize.cache.base_tables import ONE_MANY
 
-from LiuXin.databases.caches.calibre.tables.base import CalibreBaseTable, MultiTableMixin
-from LiuXin.databases.db_types import TableTypes, MetadataDict, SrcTableID, DstTableID, InterLinkTableName
+from LiuXin_alpha.databases.caches.calibre.tables.base import CalibreBaseTable, MultiTableMixin
+from LiuXin_alpha.databases.db_types import TableTypes, MetadataDict, SrcTableID, DstTableID, InterLinkTableName
 
-from LiuXin.exceptions import InvalidCacheUpdate
+from LiuXin_alpha.errors import InvalidCacheUpdate
 
-from LiuXin.utils.lx_libraries.liuxin_six import iteritems
-
-from past.builtins import basestring
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, basestring, dict_iteritems as iteritems
 
 
 T = TypeVar("T")
@@ -30,7 +28,7 @@ T = TypeVar("T")
 
 
 # Todo: Need to be able to deal with being fed a custom column
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+
 
 
 class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):

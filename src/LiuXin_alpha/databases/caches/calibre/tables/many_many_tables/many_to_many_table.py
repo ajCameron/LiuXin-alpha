@@ -31,16 +31,16 @@ from LiuXin_alpha.errors import (
 )
 
 
-from LiuXin.utils.icu import lower as icu_lower
+from LiuXin_alpha.utils.text.icu import lower as icu_lower
 from LiuXin_alpha.utils.libraries.liuxin_six import (
     dict_iteritems as iteritems,
     dict_itervalues as itervalues, basestring
 )
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
+from LiuXin_alpha.utils.logging import default_log
+# Todo: Column naming duties should, and must, be centralized - smoke is whereever this function appears
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
-# Py2/Py3 compatibility layer
-from past.builtins import
+
 
 T = TypeVar("T")
 

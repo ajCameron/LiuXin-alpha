@@ -13,16 +13,13 @@ from copy import deepcopy
 
 from typing import TypeVar, Optional, Union, Any
 
-from LiuXin.databases.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable
-from LiuXin.databases.db_types import MetadataDict, InterLinkTableName, SrcTableID, DstTableID
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable
+from LiuXin_alpha.databases.db_types import MetadataDict, InterLinkTableName, SrcTableID, DstTableID
 
-from LiuXin.exceptions import InvalidCacheUpdate
+from LiuXin_alpha.errors import InvalidCacheUpdate
 
-from LiuXin.utils.lx_libraries.liuxin_six import iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, iterkeys, itervalues, basestring
 
-from past.builtins import basestring
 
 T = TypeVar("T")
 

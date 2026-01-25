@@ -4,7 +4,7 @@ ManyToOne tables specialized for various purposes.
 
 from collections import defaultdict
 
-from typing import Any, Union, TypeVar, Optional
+from typing import TypeVar, Optional
 
 from LiuXin.databases.caches.calibre.tables.many_one_tables.typed_many_to_one_table import CalibreTypedManyToOneTable
 from LiuXin.databases.caches.calibre.tables.many_one_tables.typed_many_to_one_table import CalibreManyToOneTable

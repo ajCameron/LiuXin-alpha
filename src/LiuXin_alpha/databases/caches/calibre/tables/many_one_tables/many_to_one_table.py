@@ -11,12 +11,12 @@ from collections import defaultdict
 
 from typing import Any, Union, TypeVar, Optional, Iterable
 
-from LiuXin.exceptions import InvalidCacheUpdate
+from LiuXin_alpha.errors import InvalidCacheUpdate
 
-from LiuXin.customize.cache.base_tables import BaseManyToOneTable, MANY_ONE
+from LiuXin_alpha.customize.cache.base_tables import BaseManyToOneTable, MANY_ONE
 
-from LiuXin.databases.caches.calibre.tables.base import null, MultiTableMixin
-from LiuXin.databases.db_types import (
+from LiuXin_alpha.databases.caches.calibre.tables.base import null, MultiTableMixin
+from LiuXin_alpha.databases.db_types import (
     SrcTableID,
     DstTableID,
     MainTableName,
@@ -25,18 +25,15 @@ from LiuXin.databases.db_types import (
     TableTypes,
 )
 
-from LiuXin.library.standardization import (
+from LiuXin_alpha.metadata.standardization import (
     standardize_publisher,
     standardize_series,
     standardize_tag,
 )
 
-from LiuXin.utils.icu import lower as icu_lower
-from LiuXin.utils.lx_libraries.liuxin_six import iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
-
-from past.builtins import basestring
+from LiuXin_alpha.utils.text.icu import lower as icu_lower
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, six_unicode, basestring
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 T = TypeVar("T")
 
