@@ -10,8 +10,8 @@ from __future__ import unicode_literals
 
 from typing import Optional, TypeVar, Mapping, Union, Iterable
 
-from LiuXin.customize.cache.base_tables import BaseTable, BaseVirtualTable
-from LiuXin.databases.db_types import (
+from LiuXin_alpha.customize.cache.base_tables import BaseTable, BaseVirtualTable
+from LiuXin_alpha.databases.db_types import (
     MetadataDict,
     MainTableName,
     InterLinkTableName,
@@ -19,9 +19,9 @@ from LiuXin.databases.db_types import (
     DstTableID,
     TableColumnName,
 )
-from LiuXin.databases.field_metadata import calibre_name_to_liuxin_name
+from LiuXin_alpha.databases.field_metadata import calibre_name_to_liuxin_name
 
-from LiuXin.exceptions import DatabaseIntegrityError
+from LiuXin_alpha.errors import DatabaseIntegrityError
 
 null = object()
 

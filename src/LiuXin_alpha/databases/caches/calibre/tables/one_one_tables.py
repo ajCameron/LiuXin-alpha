@@ -1,7 +1,11 @@
-# For tables with a One to One relation with a book - e.g. it's title
+
+"""
+For tables with a One-to-One relation with a book - e.g. it's title
+"""
+
 from collections import defaultdict, OrderedDict
 
-from LiuXin.customize.cache.base_tables import (
+from LiuXin_alpha.customize.cache.base_tables import (
     BaseOneToOneTable,
     BasePathTable,
     BaseSizeTable,
@@ -9,15 +13,15 @@ from LiuXin.customize.cache.base_tables import (
     BaseCompositeTable,
 )
 
-from LiuXin.exceptions import InvalidCacheUpdate
+from LiuXin_alpha.errors import InvalidCacheUpdate
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin.customize.cache.base_tables import ONE_ONE, null
-from LiuXin.customize.cache.base_tables import BaseCoversTable
+from LiuXin_alpha.customize.cache.base_tables import ONE_ONE, null
+from LiuXin_alpha.customize.cache.base_tables import BaseCoversTable
 
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 
 class CalibreOneToOneTable(BaseOneToOneTable):

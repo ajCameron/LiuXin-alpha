@@ -10,15 +10,15 @@ from collections import OrderedDict
 
 from typing import TypeVar, Optional, Union, Iterable
 
-from LiuXin.databases.caches.calibre.tables.one_many_tables.priority_typed_one_to_many_table import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_many_tables.priority_typed_one_to_many_table import (
     CalibrePriorityTypedOneToManyTable,
 )
-from LiuXin.databases.db_types import SrcTableID, DstTableID, MetadataDict, InterLinkTableName, IdentifiersStr
+from LiuXin_alpha.databases.db_types import SrcTableID, DstTableID, MetadataDict, InterLinkTableName, IdentifiersStr
 
 
-from LiuXin.exceptions import InvalidCacheUpdate
+from LiuXin_alpha.errors import InvalidCacheUpdate
 
-from LiuXin.utils.lx_libraries.liuxin_six import iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, dict_iteritems as iteritems
 
 
 T = TypeVar("T")
@@ -30,8 +30,8 @@ T = TypeVar("T")
 
 
 # Todo: Need to be able to deal with being fed a custom column
-from LiuXin.customize.cache.base_tables import BaseIdentifiersTable
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.customize.cache.base_tables import BaseIdentifiersTable
+
 
 
 class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentifiersTable):

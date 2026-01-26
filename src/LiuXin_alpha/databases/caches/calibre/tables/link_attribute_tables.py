@@ -4,23 +4,23 @@ from six import iteritems
 
 from typing import Union, Optional, Any, TypeVar, Literal
 
-from LiuXin.customize.cache.base_tables import BaseLinkAttributeTable
-from LiuXin.databases.caches.calibre.tables.base import CalibreBaseTable
+from LiuXin_alpha.customize.cache.base_tables import BaseLinkAttributeTable
+from LiuXin_alpha.databases.caches.calibre.tables.base import CalibreBaseTable
 
-from LiuXin.databases.caches.calibre.tables.one_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_many_tables import (
     CalibrePriorityOneToManyTable,
 )
 
-from LiuXin.databases.caches.calibre.tables.many_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables import (
     CalibrePriorityManyToOneTable,
 )
 
-from LiuXin.databases.caches.calibre.tables.many_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_many_tables import (
     CalibrePriorityManyToManyTable,
 )
-from LiuXin.databases.caches.calibre.fields import BaseField
+from LiuXin_alpha.databases.caches.calibre.fields import BaseField
 
-from LiuXin.databases.db_types import MainTableName, InterLinkTableName, TableColumnName, SrcTableID, DstTableID
+from LiuXin_alpha.databases.db_types import MainTableName, InterLinkTableName, TableColumnName, SrcTableID, DstTableID
 
 T = TypeVar("T")
 

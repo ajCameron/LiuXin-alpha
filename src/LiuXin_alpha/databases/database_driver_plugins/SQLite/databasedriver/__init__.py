@@ -59,7 +59,7 @@ from LiuXin_alpha.utils.storage.local.filenames import atomic_rename
 
 from LiuXin_alpha.metadata.utils import author_to_author_sort, title_sort
 
-from LiuXin_alpha.databases.database_driver_plugins.SQLite.utility_mixins import SQLiteTableLinkingMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQLiteTableLinkingMixin
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, six_unicode as unicode

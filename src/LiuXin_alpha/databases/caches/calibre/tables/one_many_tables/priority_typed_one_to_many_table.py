@@ -1,3 +1,9 @@
+
+"""
+Priority types one to many tables have type and priority infomation on a one to many link.
+"""
+
+
 import pprint
 
 from collections import defaultdict
@@ -5,14 +11,13 @@ from copy import deepcopy
 
 from typing import TypeVar, Optional, Union, Any, Iterable, Mapping
 
-from LiuXin.databases.caches.calibre.tables.one_many_tables.one_to_many_table import CalibreOneToManyTable
-from LiuXin.databases.db_types import SrcTableID, DstTableID, MetadataDict, InterLinkTableName
+from LiuXin_alpha.databases.caches.calibre.tables.one_many_tables.one_to_many_table import CalibreOneToManyTable
+from LiuXin_alpha.databases.db_types import SrcTableID, DstTableID, MetadataDict, InterLinkTableName
 
-from LiuXin.exceptions import InvalidCacheUpdate
+from LiuXin_alpha.errors import InvalidCacheUpdate
 
-from LiuXin.utils.lx_libraries.liuxin_six import iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, basestring, dict_iteritems as iteritems
 
-from past.builtins import basestring
 
 
 T = TypeVar("T")
@@ -24,7 +29,6 @@ T = TypeVar("T")
 
 
 # Todo: Need to be able to deal with being fed a custom column
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 
 class CalibrePriorityTypedOneToManyTable(CalibreOneToManyTable[T]):

@@ -35,7 +35,7 @@ from LiuXin_alpha.utils.localization import _
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
-from LiuXin_alpha.utils.libraries.liuxin_six import unicode, cmp, basestring
+from LiuXin_alpha.utils.libraries.liuxin_six import unicode, cmp, basestring, iterkeys
 
 
 class CustomColumnDatabaseMixin:
@@ -172,7 +172,9 @@ class CustomColumnsDriverWrapperMixin(object):
         Replaces the custom_tables property.
         :return:
         """
-        return self.db.macros.direct_get_custom_tables(conn=self.db.conn)
+        # Always use the driver's live connection to avoid stale db.conn aliases pointing
+        # at a closed connection after driver/connection churn.
+        return self.db.macros.direct_get_custom_tables(conn=self.db.driver.conn)
 
     def direct_get_custom_extra(self, link_table, index):
         """
@@ -355,12 +357,6 @@ class CustomColumnsDriverWrapperMixin(object):
             in_table=in_table,
             ordered=ordered,
         )
-
-        # Refresh the conn - to ensure that it's not stale
-        # Todo: Add a refresh method to the driver to do this stuff for us
-        self.conn = self.db.driver.get_connection()
-        self.db.driver.conn = self.db.driver.get_connection()
-
         # Todo: Need to notify the database that the custom columns have been updated
 
         # Update the tables name cache in the database to reflect the fact that new tables have just been created
@@ -706,7 +702,7 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         }
 
         # Create Tag Browser categories for custom columns
-        for k in sorted(self.custom_column_label_map.iterkeys()):
+        for k in sorted(iterkeys(self.custom_column_label_map)):
             v = self.custom_column_label_map[k]
             if v["normalized"]:
                 is_category = True
@@ -847,7 +843,7 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         if data["is_multiple"] and data["datatype"] == "text":
             ans = ans.split(data["multiple_seps"]["cache_to_list"]) if ans else []
             if data["display"].get("sort_alpha", False):
-                ans.sort(cmp=lambda x, y: cmp(x.lower(), y.lower()))
+                ans.sort(cmp = lambda x, y: cmp(x.lower(), y.lower()))
 
         return ans
 

@@ -14,52 +14,52 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 from typing import Union
 
-from LiuXin.databases.caches.calibre.tables.many_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_many_tables import (
     CalibreManyToManyTable,
     CalibreTypedManyToManyTable,
     CalibreAuthorsTable,
     CalibreFormatsTable,
     CalibrePriorityManyToManyTable,
 )
-from LiuXin.databases.caches.calibre.tables.one_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_many_tables import (
     CalibreIdentifiersTable,
 )
-from LiuXin.databases.caches.calibre.tables.one_one_tables import CalibreCoversTable
-from LiuXin.databases.caches.calibre.tables.many_one_tables import CalibreRatingTable
-from LiuXin.databases.caches.calibre.tables.many_one_tables import CalibreManyToOneTable
-from LiuXin.databases.caches.calibre.tables.many_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_one_tables import CalibreCoversTable
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables import CalibreRatingTable
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables import CalibreManyToOneTable
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables import (
     CalibrePriorityManyToOneTable,
 )
-from LiuXin.databases.caches.calibre.tables.one_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_one_tables import (
     CalibrePathTable,
     CalibreSizeTable,
     CalibreUUIDTable,
     CalibreCompositeTable,
 )
-from LiuXin.databases.caches.calibre.tables.one_one_tables import CalibreOneToOneTable
-from LiuXin.databases.caches.calibre.tables.one_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_one_tables import CalibreOneToOneTable
+from LiuXin_alpha.databases.caches.calibre.tables.one_many_tables import (
     CalibreOneToManyTable,
     CalibrePriorityOneToManyTable,
 )
-from LiuXin.databases.caches.calibre.tables.many_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables import (
     CalibreCustomColumnsManyOneTable,
 )
 
-from LiuXin.databases.caches.calibre.tables.one_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_one_tables import (
     CalibreCustomColumnsOneToOneTable,
 )
 
-from LiuXin.databases.caches.calibre.tables.one_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_one_tables import (
     CalibreCustomColumnsOneToOneTableFloatInt,
 )
-from LiuXin.databases.caches.calibre.tables.one_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_one_tables import (
     CalibreCustomColumnsOneToOneTableDatetime,
 )
-from LiuXin.databases.caches.calibre.tables.one_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.one_one_tables import (
     CalibreCustomColumnsOneToOneTableBool,
 )
 
-from LiuXin.databases.db_types import MetadataDict
+from LiuXin_alpha.databases.db_types import MetadataDict
 
 
 # Types of table

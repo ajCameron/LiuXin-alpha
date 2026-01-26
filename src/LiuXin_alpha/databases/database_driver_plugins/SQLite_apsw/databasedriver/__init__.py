@@ -7,27 +7,14 @@
 from __future__ import print_function
 
 import apsw
-import codecs
-import gc
-import time
 import os
-import pprint
-import random
 import re
-import shutil
 import sqlite3
 import uuid
 from contextlib import closing
-from copy import deepcopy
 from functools import partial
 
-from six import iterkeys, iteritems, string_types
-
-from LiuXin_alpha.utils.date import utcfromtimestamp
-
-from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_debug_print, LiuXin_warning_print
-
-from LiuXin_alpha.constants import VERBOSE_DEBUG
+from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_warning_print
 
 from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.database_generator.database_generator import (
     create_new_database,
@@ -37,35 +24,28 @@ from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.custom_columns i
     SQLiteCustomColumnsDriverMixin,
 )
 
-from LiuXin_alpha.errors import LogicalError, DatabaseDriverError, RowIntegrityError, InputIntegrityError, DatabaseIntegrityError
+from LiuXin_alpha.errors import DatabaseDriverError
 
 from LiuXin_alpha.utils.language_tools.lx_name_manip import authors_str_to_sort_str
 
 from LiuXin_alpha.databases.maintenance_bot import run_ta_updates
-from LiuXin_alpha.databases.backup import backup_local_file
 
 from LiuXin_alpha.preferences import preferences
 
-from LiuXin_alpha.utils.text import isbytestring
-
-from LiuXin_alpha.utils.language_tools import plural_singular_mapper
-from LiuXin_alpha.utils.language_tools.icu import sort_key
 from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin_alpha.utils.ptempfiles import get_scratch_folder
 from LiuXin_alpha.utils.date import utcfromtimestamp
 from LiuXin_alpha.utils.databases.apsw_shell import Shell
 from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 from LiuXin_alpha.utils.localization import _
-from LiuXin_alpha.utils.libraries.liuxin_six import force_cmp, user_input, force_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import user_input
 from LiuXin_alpha.utils.storage.local.filenames import atomic_rename
 
-from LiuXin_alpha.metadata.utils import author_to_author_sort, title_sort
+from LiuXin_alpha.metadata.utils import title_sort
 
-from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.utility_mixins import SQLiteTableLinkingMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQLiteTableLinkingMixin
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, six_unicode as unicode
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import SQLBaseDriver
 

@@ -3,7 +3,6 @@
 Mixins for other classes to add functionality.
 """
 
-
 # Moving some of the code here so it can be imported and used for common operations
 
 import sqlite3

@@ -32,7 +32,7 @@ from LiuXin_alpha.utils.logging import LiuXin_print
 from LiuXin_alpha.utils.logging import LiuXin_warning_print
 from LiuXin_alpha.utils.language_tools import singular_plural_mapper, plural_singular_mapper
 
-from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.utility_mixins import SQLiteTableLinkingMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQLiteTableLinkingMixin
 
 from LiuXin_alpha.constants.paths import LiuXin_database_folder as __database_folder__
 

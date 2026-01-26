@@ -53,35 +53,36 @@ except ImportError:
         return file
 
 
-from LiuXin.databases.caches.calibre.tables.many_many_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_many_tables import (
     CalibreManyToManyTable,
 )
-from LiuXin.databases.caches.calibre.tables.many_one_tables import CalibreManyToOneTable
-from LiuXin.databases.caches.calibre.tables.one_one_tables import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables import CalibreManyToOneTable
+from LiuXin_alpha.databases.caches.calibre.tables.one_one_tables import (
     CalibreCompositeTable,
 )
-from LiuXin.databases.caches.calibre.tables.one_one_tables import CalibreOneToOneTable
+from LiuXin_alpha.databases.caches.calibre.tables.one_one_tables import CalibreOneToOneTable
 
-from LiuXin.databases.caches.utils import api, read_api, write_api
+from LiuXin_alpha.databases.caches.utils import api, read_api, write_api
 
-from LiuXin.databases.caches.calibre.tables import calibre_create_table
+from LiuXin_alpha.databases.caches.calibre.tables import calibre_create_table
 
-from LiuXin.databases import SPOOL_SIZE, _get_next_series_num_for_list
-from LiuXin.databases.adaptors import get_series_values
-from LiuXin.databases.caches.calibre.fields import (
+from LiuXin_alpha.databases.constants import SPOOL_SIZE, _get_next_series_num_for_list
+
+from LiuXin_alpha.databases.adaptors import get_series_values
+from LiuXin_alpha.databases.caches.calibre.fields import (
     calibre_create_field,
     IDENTITY,
     InvalidLinkTable,
 )
-from LiuXin.databases.caches.calibre.tables.base import CalibreVirtualTable
-from LiuXin.databases.categories import get_categories
-from LiuXin.databases.lazy import FormatMetadata, FormatsList, ProxyMetadata
-from LiuXin.utils.general_ops.python_tools import uniq
+from LiuXin_alpha.databases.caches.calibre.tables.base import CalibreVirtualTable
+from LiuXin_alpha.databases.categories import get_categories
+from LiuXin_alpha.databases.lazy import FormatMetadata, FormatsList, ProxyMetadata
+from LiuXin_alpha.utils.python_tools import uniq
 
-from LiuXin.exceptions import NoSuchFormat
+from LiuXin_alpha.errors import NoSuchFormat
 
-from LiuXin.file_formats import check_ebook_format
-from LiuXin.file_formats.opf.opf2 import metadata_to_opf
+from LiuXin_alpha.file_formats import check_ebook_format
+from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf
 
 from LiuXin_alpha.metadata import string_to_authors, author_to_author_sort
 from LiuXin.metadata.book.base import calibreMetadata as Metadata

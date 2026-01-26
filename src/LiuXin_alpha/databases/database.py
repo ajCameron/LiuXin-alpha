@@ -88,11 +88,6 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         else:
             assert metadata is None, "driver is provided - it's assumed that the db metadata is contained within"
             self.existing_driver_init(existing_driver)
-
-        # Todo: This is stupid and should be replaced with something less ... intellectually challenged
-        self.get = self.driver.conn.get
-        self.conn = self.driver.conn
-
         # Used as a lookup cache for if the link table in question has a priority column
         # Keyed with the table, value with True or False
         self._link_has_priority = dict()
@@ -487,7 +482,7 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
             pass
 
         # Remove convenience aliases that can keep connections alive
-        for attr in ("get", "conn", "lock"):
+        for attr in ("lock",):
             try:
                 setattr(self, attr, None)
             except Exception:

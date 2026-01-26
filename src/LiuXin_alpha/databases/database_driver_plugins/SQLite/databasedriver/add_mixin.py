@@ -16,6 +16,22 @@ class AddingMixin:
     """
 
 
+    @staticmethod
+    def _reject_embedded_nul_text(*, target_table: str, row_dict: dict) -> None:
+        """Reject embedded NUL ("\x00") in str payloads.
+
+        SQLite can store NULs inside TEXT values, but a lot of tooling (and some
+        driver paths) treat NUL as a string terminator or otherwise mis-handle it.
+        Calibre-style DB layers typically reject such payloads at the API boundary.
+
+        We raise ValueError to make this a clear caller-input issue.
+        """
+
+        for col, val in row_dict.items():
+            if isinstance(val, str) and "\x00" in val:
+                raise ValueError(f"Embedded NUL byte rejected for {target_table}.{col}")
+
+
     def direct_add_simple_row_dict(self, row_dict):
         """
         Takes a single row in the form of a dictionary and adds the values to the database.
@@ -23,6 +39,9 @@ class AddingMixin:
         :return :
         """
         target_table = self.identify_table_from_row(row_dict)
+
+        # Contract: reject embedded NUL bytes in TEXT payloads.
+        self._reject_embedded_nul_text(target_table=target_table, row_dict=row_dict)
 
         # Assembling a list of placeholders of the form ?,?,?
         values_placeholders = ""
@@ -109,6 +128,10 @@ class AddingMixin:
         for i in range(len(row_dict_list)):
             if "table" in row_dict_list[i].keys():
                 del row_dict_list[i]["table"]
+
+        # Contract: reject embedded NUL bytes in TEXT payloads.
+        for rd in row_dict_list:
+            self._reject_embedded_nul_text(target_table=target_table, row_dict=rd)
 
         # With all those checks run we should have a nice, consistent set of dictionaries to insert into target_table
         reference_row_dict = row_dict_list[0]
