@@ -13,21 +13,21 @@ from copy import deepcopy
 
 from LiuXin_alpha.utils.localization import trans as _
 
-from LiuXin.metadata.book.base import (
+from LiuXin_alpha.metadata.book.base import (
     calibreMetadata,
     SIMPLE_GET,
-    TOP_LEVEL_IDENTIFIERS,
     NULL_VALUES,
-    ALL_METADATA_FIELDS,
-)
-from LiuXin.metadata.book.formatter import SafeFormat
 
-from LiuXin.utils.date import utcnow
-from LiuXin.utils.logger import default_log
+)
+from LiuXin_alpha.metadata.book import TOP_LEVEL_IDENTIFIERS, ALL_METADATA_FIELDS
+
+from LiuXin_alpha.metadata.book.formatter import SafeFormat
+
+from LiuXin_alpha.utils.date import utcnow
+from LiuXin_alpha.utils.logging import default_log
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, dict_iterkeys as iterkeys
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

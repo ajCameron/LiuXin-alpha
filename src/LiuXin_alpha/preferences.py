@@ -2,13 +2,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 """
-Preferences/tweaks folder which
+Preferences/tweaks front end.
 
-
-"""
-
-
-# Uses the config parser module as a basis for the LIuXin preferences
+# Uses the config parser module as a basis for the LiuXin preferences
 # This module was developed to replace the calibre tweaks and preferences modules - thus it needed the capability to
 # store and retrieve a wider range of data structures
 # calibre:tweaks stored python objects which where no easily renderable into JSON form
@@ -18,6 +14,8 @@ Preferences/tweaks folder which
 # json was used instead of Pickle - due to the potential for pickle to be exploited for arbitrary code execution
 # Needs to be kept as simple as possible to avoid import loops
 # Thus the logger is not used - logging is implemented via strings.
+"""
+
 
 try:
     import ConfigParser
@@ -32,7 +30,7 @@ import uuid
 from copy import deepcopy
 from functools import partial
 
-from typing import Optional
+from typing import Optional, Any, Callable
 
 from LiuXin_alpha.constants.paths import LiuXin_prefs_folder
 
@@ -153,7 +151,7 @@ class Preferences:
                 cfg.readfp(f)
         return cfg
 
-    def load(self, upgrade_on_load=True):
+    def load(self, upgrade_on_load: bool = True) -> None:
         """
         Load preferences from disk.
 
@@ -232,9 +230,11 @@ class Preferences:
 
         if upgrade_on_load and needs_save:
             self.save()
-    def save(self):
+
+    def save(self) -> None:
         """
         Saves the current config to the given config dictionary.
+
         :return:
         """
         folder = os.path.dirname(self.config_file_path)
@@ -247,17 +247,19 @@ class Preferences:
             self.config.write(cfgfile)
 
     @staticmethod
-    def is_64(type_str):
+    def is_64(type_str: str) -> bool:
         """
         Is the given type_str of 64 type?
+
         :param type_str:
         :return:
         """
         return type_str.endswith("64")
 
-    def has_64_version(self, type_str):
+    def has_64_version(self, type_str: str) -> bool:
         """
         Returns True if the variable has a 64 version - False otherwise.
+
         E.g. int with return False and tuple will return True
         :param type_str:
         :return:
@@ -265,9 +267,10 @@ class Preferences:
         new_type_str = type_str + "_64"
         return new_type_str in self.known_types
 
-    def is_json_okay(self, val):
+    def is_json_okay(self, val: Any) -> bool:
         """
         Try and serialize the object using the standard json function
+
         :param val:
         :return:
         """
@@ -277,9 +280,10 @@ class Preferences:
             return False
         return True
 
-    def is_liuxin_json_okay(self, val):
+    def is_liuxin_json_okay(self, val: Any) -> bool:
         """
-        Try and serialize the object using the the upgraded Liuxin_JSON class.
+        Try and serialize the object using the upgraded Liuxin_JSON class.
+
         :param val:
         :return:
         """
@@ -289,10 +293,11 @@ class Preferences:
             return False
         return True
 
-    def build_val_to_str_plugins(self):
+    def build_val_to_str_plugins(self) -> dict[str, Callable[[Any], str]]:
         """
-        Returns the val_to_str_plugins dict - keyed with the variable type and valued with the serializer used to render
-        it into string format for saving.
+        Returns the val_to_str_plugins dict - methods to turn objects into strings.
+
+        Keyed with the variable type and valued with the serializer used to render it into string format for saving.
         :return:
         """
         return {
@@ -312,10 +317,12 @@ class Preferences:
             "tuple_64": self.liuxin_to_json,
         }
 
-    def build_str_to_val_plugins(self):
+    def build_str_to_val_plugins(self) -> dict[str, Callable[[str], Any]]:
         """
-        Returns the str_to_val_plugins dict - keyed with the variable type and valued with the converter needed to
-        make it back into a variable.
+        Returns the str_to_val_plugins dict - converters needed to turn strings back to values.
+
+        keyed with the variable type and valued with the converter needed to make it back into a variable.
+
         Done here as the behavior of JSON might be set during the class construction.
         :return:
         """
@@ -340,9 +347,10 @@ class Preferences:
 
     # Todo: Does config support multiple options called the same thing in different sections? Deal with this.
     @staticmethod
-    def load_keys_dict(config):
+    def load_keys_dict(config) -> dict[str, frozenset[str]]:
         """
         Load the keys dictionary.
+
         Keyed with a frozen set containing all the options in that section of the config and valued with the name of
         that section.
         It's used to find the section containing a given option so that option can be retrieved and updated.
@@ -371,6 +379,7 @@ class Preferences:
     def __getitem__(self, item):
         """
         Returns a copy of the active object corresponding to the given name.
+
         Changes to an active object ARE NOT reflected in the underlying preferences - you need to use __setitem__ to
         update the item with it's changed value to see changes to the underlying data store.
         :param item:
@@ -378,9 +387,10 @@ class Preferences:
         """
         return deepcopy(self._active_variables[item])
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value) -> None:
         """
         Set the value for the given key.
+
         If the key corresponds to a preference that already exists in the config then that preference will be updated.
         If there is no corresponding key then it will be added to the Other section of the preferences file.
         NOTE: Setting items has a significant performance hit, as the config file is dumped to disk after every change.
@@ -488,9 +498,10 @@ class Preferences:
         full_val_str = self.val_to_str(value, val_type)
         self.config.set(section, option, full_val_str)
 
-    def set(self, section, option, value=None):
+    def set(self, section: str, option: str, value: Optional[Any] = None) -> None:
         """
         Raw set - sets an option in the underlying configuration.
+
         Sets with the default type - strings.
         :param section:
         :param option:
@@ -498,6 +509,16 @@ class Preferences:
         :return:
         """
         self.type_set(section, option, value=value, val_type="str")
+
+    def get(self, option: str, default: Optional[Any] = None) -> Any:
+        """
+        Try and get from the internal cache.
+
+        :param option:
+        :param default:
+        :return:
+        """
+        return self._active_variables.get(option, default)
 
     # Todo: Remove this function from the codebase - here for legacy reasons
     def parse(self, key, rtn_value_type, default=None):

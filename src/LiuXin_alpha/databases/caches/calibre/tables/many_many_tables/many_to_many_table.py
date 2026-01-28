@@ -6,7 +6,10 @@ from collections import defaultdict
 from copy import deepcopy
 
 from typing import TypeVar, Optional, Type, Iterable, Any
-from typing_extensions import Self
+try:
+    from typing_extensions import Self
+except ImportError:
+    from typing import Self
 
 from LiuXin_alpha.customize.cache.base_tables import (
     BaseManyToManyTable,

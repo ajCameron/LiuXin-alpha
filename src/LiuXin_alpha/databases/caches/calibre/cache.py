@@ -20,9 +20,11 @@ from io import BytesIO
 from functools import partial
 from time import time
 
+from typing import Iterable, Any, Optional
+
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
-from LiuXin_alpha.errors import NotInCache
+from LiuXin_alpha.errors import NotInCache, CacheLoadError
 
 from LiuXin_alpha.utils.text import isbytestring, as_unicode
 
@@ -84,50 +86,42 @@ from LiuXin_alpha.errors import NoSuchFormat
 from LiuXin_alpha.file_formats import check_ebook_format
 from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf
 
-from LiuXin_alpha.metadata import string_to_authors, author_to_author_sort
-from LiuXin.metadata.book.base import calibreMetadata as Metadata
-from LiuXin.metadata.metadata import MetaData as LiuXinMetadata
+from LiuXin_alpha.metadata.utils import string_to_authors, author_to_author_sort
+from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
+from LiuXin_alpha.metadata.containers.book_metadata import BookMetadata as LiuXinMetadata
 
-from LiuXin.utils.config.config_base import tweaks
-from LiuXin.utils.date import now as nowf, utcnow, UNDEFINED_DATE
-from LiuXin.utils.date import parse_date
-from LiuXin.utils.icu import sort_key
-from LiuXin.utils.icu import lower as icu_lower
-from LiuXin.utils.general_ops.json_ops import smart_bool
-from LiuXin.utils.file_ops.file_ops import local_open as lopen
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.ptempfiles import (
+from LiuXin_alpha.utils.config.config_base import tweaks
+from LiuXin_alpha.utils.date import now as nowf, utcnow, UNDEFINED_DATE, parse_date
+from LiuXin_alpha.utils.text.icu import sort_key, lower as icu_lower
+from LiuXin_alpha.utils.python_tools import smart_bool
+from LiuXin_alpha.utils.storage.local.file_ops import local_open as lopen
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.ptempfiles import (
     base_dir,
     PersistentTemporaryFile,
     SpooledTemporaryFile,
 )
 
-from LiuXin.databases.caches.utils import run_import_plugins
-from LiuXin.databases.caches.utils import _add_newbook_tag
+from LiuXin_alpha.databases.caches.utils import run_import_plugins, _add_newbook_tag
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_cmp
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    six_cmp, dict_iterkeys as iterkeys,
+    dict_iteritems as iteritems, dict_itervalues as itervalues, six_string_types, itervalues)
 
 
 from collections import defaultdict
 
 from typing import Any, TypeVar, Optional
 
-from LiuXin.customize.cache import BaseCache
+from LiuXin_alpha.customize.cache import BaseCache
 
-from LiuXin.databases.caches.utils import read_api, write_api
-from LiuXin.databases.locking import SafeReadLock
-from LiuXin.databases.search import Search
+from LiuXin_alpha.databases.caches.utils import read_api, write_api
+from LiuXin_alpha.databases.locking import SafeReadLock
+from LiuXin_alpha.databases.search import Search
 
-from LiuXin.library.metadata import Metadata as LibraryMetadata
-
-# Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import itervalues
+from LiuXin_alpha.databases.library_metadata import Metadata as LibraryMetadata
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -722,10 +716,11 @@ class CalibreCache(BaseCalibreCache):
             "enumeration": adapt_enum,
         }
 
-    def read_tables(self):
+    def read_tables(self) -> None:
         """
         Read all data from the db into the python in-memory tables.
-        Data is read from the backend and stored in the in-memory cache
+
+        Data is read from the backend and stored in the in-memory cache.
         :return:
         """
         # Use a single transaction, to ensure nothing modifies the db while we are reading
@@ -734,16 +729,17 @@ class CalibreCache(BaseCalibreCache):
             for table in itervalues(self.tables):
                 try:
                     table.read(self.backend)
-                except:
+                except Exception as e:
                     print("Failed to read table:", table.name)
                     import pprint
 
                     pprint.pprint(table.metadata)
-                    raise
+                    raise CacheLoadError(f"Failed to read table: {table}") from e
 
-    def _initialize_dynamic_categories(self):
+    def _initialize_dynamic_categories(self) -> None:
         """
         Prepare the categories, including the user set categories.
+
         Reconstruct the user categories, putting them into field_metadata and add grouped search term user categories.
         :return:
         """
@@ -779,29 +775,43 @@ class CalibreCache(BaseCalibreCache):
         self.unlock.refresh_search_locations()
 
     @write_api
-    def initialize_template_cache(self):
+    def initialize_template_cache(self) -> None:
         """
         Setup the formatter template cache and start it as an empty set.
+
         :return:
         """
         self.formatter_template_cache = {}
 
     @write_api
-    def set_user_template_functions(self, user_template_functions):
+    def set_user_template_functions(self, user_template_functions) -> None:
+        """
+        Set the formatter function - which controls display functions.
+
+        :param user_template_functions:
+        :return:
+        """
         self.backend.set_user_template_functions(user_template_functions)
 
     @write_api
-    def clear_composite_caches(self, book_ids=None):
+    def clear_composite_caches(self, book_ids: Optional[Iterable[int]] = None) -> None:
         """
         Clear caches for the composite tables - tables whose values are composed of more than one field.
-        :param book_ids:
+
+        :param book_ids: If None, then delete all entries in the composite table.
         :return:
         """
         for field in itervalues(self.composites):
             field.clear_caches(book_ids=book_ids)
 
     @write_api
-    def clear_search_caches(self, book_ids=None):
+    def clear_search_caches(self, book_ids: Optional[Iterable[str]] = None) -> None:
+        """
+        Clear the search cache of all stored search results.
+
+        :param book_ids:
+        :return:
+        """
         self.clear_search_cache_count += 1
         self._search_api.update_or_clear(self, book_ids)
 
@@ -809,14 +819,19 @@ class CalibreCache(BaseCalibreCache):
     def last_modified(self):
         """
         When was the last change made to the database?
+
         :return:
         """
         return self.backend.last_modified()
 
     @write_api
-    def clear_caches(self, book_ids=None, template_cache=True, search_cache=True):
+    def clear_caches(self,
+                     book_ids: Optional[Iterable[str]] = None,
+                     template_cache: bool = True,
+                     search_cache: bool = True) -> None:
         """
         Clear all the sub caches for the cache.
+
         :param book_ids: Clear the format metadata cache for the given book ids.
         :param template_cache: Clear the template cache?
         :param search_cache: Clear the search_cache
@@ -839,9 +854,10 @@ class CalibreCache(BaseCalibreCache):
             self.unlock.clear_search_caches(book_ids)
 
     @write_api
-    def reload_from_db(self, clear_caches=True):
+    def reload_from_db(self, clear_caches: bool = True) -> None:
         """
-        Reload some internally stored cache data from the database.
+        Reload the internally stored cache data from the database.
+
         This is not enough to account for the presence of custom columns - you need to reload the LibraryDatabase
         (effectively doing a restart) before they will show up.
         :param clear_caches:
@@ -858,9 +874,10 @@ class CalibreCache(BaseCalibreCache):
                 if hasattr(field, "table"):
                     field.table.read(self.backend)  # Reread data from metadata.db
 
-    def _get_metadata(self, book_id, get_user_categories=True):  # {{{
+    def _get_metadata(self, book_id: int, get_user_categories: bool = True):  # {{{
         """
-        Return a calibre metadata object for the given book id
+        Return a calibre metadata object for the given book id.
+
         :param book_id:
         :param get_user_categories:
         :return:
@@ -958,16 +975,20 @@ class CalibreCache(BaseCalibreCache):
     # Cache Layer API {{{
 
     @read_api
-    def field_for(self, name, book_id, default_value=None):
+    def field_for(self, name: str, book_id: int, default_value = None):
         """
-        Return the value of the field ``name`` for the book identified by ``book_id``. If no such book exists or it has
-        no defined value for the field ``name`` or no such field exists, then ``default_value`` is returned.
-        ``default_value`` is not used for title, title_sort, authors, author_sort and series_index. This is because
-        these always have values in the db.
+        Return the value of the field ``name`` for the book identified by ``book_id``.
+
+        If no such book exists or it has no defined value for the field ``name`` or no such field exists,
+        then ``default_value`` is returned.
+        ``default_value`` is not used for title, title_sort, authors, author_sort and series_index.
+        This is because these always have values in the db.
         ``default_value`` is used for all custom columns.
         The returned value for is_multiple fields are always tuples, even when no values are found (in other words,
-        default_value is ignored). The exception is identifiers for which the returned value is always a dict.
+        default_value is ignored).
+        The exception is identifiers for which the returned value is always a dict.
         The returned tuples are always in link order, that is, the order in which they were created.
+
         Will KeyError if the name doesn't correspond to one of the known fields.
         :param name:
         :param book_id:
@@ -976,6 +997,7 @@ class CalibreCache(BaseCalibreCache):
         """
         if self.composites and name in self.composites:
             return self.composite_for(name, book_id, default_value=default_value)
+
         try:
             field = self.fields[name]
         except KeyError:
@@ -1002,9 +1024,10 @@ class CalibreCache(BaseCalibreCache):
             return default_value
 
     @read_api
-    def fast_field_for(self, field_obj, book_id, default_value=None):
+    def fast_field_for(self, field_obj, book_id: int, default_value: Optional[T] = None) -> T:
         """
         Same as field_for, except that it avoids the extra lookup to get the field object.
+
         You have to have the field object in hand before you can use this method - you can get it from the fields
         property.
         :param field_obj: The field object representing that database field
@@ -1022,9 +1045,10 @@ class CalibreCache(BaseCalibreCache):
             return default_value
 
     @read_api
-    def all_field_for(self, field, book_ids, default_value=None):
+    def all_field_for(self, field, book_ids: Iterable[str], default_value: Optional[T] = None) -> T:
         """
         Same as field_for, except that it operates on multiple books at once.
+
         :param field:
         :param book_ids:
         :param default_value: This value will be added to the map if there isn't another value to record.
@@ -1036,10 +1060,13 @@ class CalibreCache(BaseCalibreCache):
         }
 
     @read_api
-    def composite_for(self, name, book_id, mi=None, default_value=""):
+    def composite_for(
+            self, name: str, book_id: str, mi=None, default_value: Optional[T] = None
+    ) -> T:
         """
         Return the value for a composite field for the specified book id.
-        The function which does the work of
+
+        The function which does the work of creating a composite cache.
         :param name:
         :param book_id:
         :param mi:
@@ -1057,9 +1084,10 @@ class CalibreCache(BaseCalibreCache):
             return f._render_composite_with_cache(book_id, mi, mi.formatter, mi.template_cache)
 
     @read_api
-    def field_ids_for(self, name, book_id):
+    def field_ids_for(self, name: str, book_id: int) -> tuple[str, ...]:
         """
         Return the ids (as a tuple) for the values that the field ``name`` has on the book identified by ``book_id``.
+
         If there are no values, or no such book, or no such field, an empty tuple is returned.
         :param name: The name of the field to return for
         :param book_id: The id of the book to return the value for
@@ -1072,10 +1100,10 @@ class CalibreCache(BaseCalibreCache):
             return ()
 
     @read_api
-    def books_for_field(self, name, item_id):
+    def books_for_field(self, name: str, item_id: int) -> Iterable[str]:
         """
-        Return all the books associated with the item identified by ``item_id``, where the item belongs to the field
-        ``name``.
+        Return all the books associated with an itemw with ``item_id``, the items from the field ``name``.
+
         Returned value is a set of book ids, or the empty set if the item or the field does not exist.
         :param name:
         :param item_id:
@@ -1089,27 +1117,31 @@ class CalibreCache(BaseCalibreCache):
             return set()
 
     @read_api
-    def all_book_ids(self, type=frozenset):
+    def all_book_ids(self, type = frozenset):
         """
         Returns all the book_ids known to the database
+
         :param type: e.g. frozenset
         :return:
         """
         return type(self.fields["uuid"].table.book_col_map)
 
     @read_api
-    def all_field_ids(self, name):
+    def all_field_ids(self, name: str) -> frozenset[str]:
         """
         Frozen set of ids for all values in the field ``name``.
+
         :param name: The name of the field to return
         :return:
         """
         return frozenset(iter(self.fields[name]))
 
     @read_api
-    def all_field_names(self, field):
+    def all_field_names(self, field: str) -> frozenset[str]:
         """
-        Frozen set of all fields names (should only be used for many-one and many-many fields) - i.e. all the values of
+        Frozen set of all names of the fields.
+
+        (should only be used for many-one and many-many fields) - i.e. all the values of
         those fields.
         :param field:
         :return:
@@ -1124,10 +1156,11 @@ class CalibreCache(BaseCalibreCache):
 
     # Todo: This is broken for the majority of fields - fix it and move the logic somewhere more helpful
     @read_api
-    def get_usage_count_by_id(self, field):
+    def get_usage_count_by_id(self, field: str) -> dict[int, int]:
         """
-        Return a mapping of id to usage count for all values of the specified field, which must be a many-one or
-        many-many field.
+        Return a mapping of id to usage count for all values of the field
+
+        Must be a many-one or many-many field.
         :param field: The name of the field to return the count for
         :return field_val_usage_count_map: Keyed with the id of the resource and valued with how often it's been used.
         """
@@ -1137,9 +1170,10 @@ class CalibreCache(BaseCalibreCache):
             raise ValueError("%s is not a many-one or many-many field" % field)
 
     @read_api
-    def get_id_map(self, field):
+    def get_id_map(self, field: str) -> dict[int, Any]:
         """
         Return a mapping of ids to values for the specified field.
+
         The field must be a many-one or many-many field (or title), otherwise a ValueError is raised.
         :param field:
         :return item_id_to_val_map:
@@ -1152,9 +1186,11 @@ class CalibreCache(BaseCalibreCache):
             raise ValueError("%s is not a many-one or many-many field" % field)
 
     @read_api
-    def get_item_name(self, field, item_id):
+    def get_item_name(self, field: str, item_id: int):
         """
-        Return the item name for the item specified by item_id in the specified field. See also :meth:`get_id_map`.
+        Return the item name for the item with the item_id in the field.
+
+        See also :meth:`get_id_map`.
         The field must be a many-one or many-many field, otherwise a ValueError is raised.
         Note - in calibre, this would raise a AttributeError - this has been changed to Value to be consistent with
         the get_id_map function.
@@ -1170,9 +1206,10 @@ class CalibreCache(BaseCalibreCache):
     # Todo: Should be used in more places - in particualr when trying to match when preforming updates
     # Todo: Upgrade here with fuzzy matching - then use elsewhere
     @read_api
-    def get_item_id(self, field, item_name):
+    def get_item_id(self, field: str, item_name: str) -> Optional[int]:
         """
         Return the item id for item_name (case-insensitive).
+
         :param field:
         :param item_name:
         :return:
@@ -1181,7 +1218,7 @@ class CalibreCache(BaseCalibreCache):
         return rmap.get(icu_lower(item_name) if isinstance(item_name, unicode) else item_name, None)
 
     @read_api
-    def get_item_ids(self, field, item_names):
+    def get_item_ids(self, field: str, item_names: Iterable[str]) -> dict[str, Iterable[str]]:
         """
         Return the item ids for the item names.
         :param field: Search in this field
@@ -3321,14 +3358,15 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def find_identical_books(self, mi, search_restriction="", book_ids=None):
         """
-        Finds books that have a superset of the authors in mi and the same title (title is fuzzy matched). See also
-        :meth:`data_for_find_identical_books`.
+        Finds books that have a superset of the authors in mi and the same title (title is fuzzy matched).
+
+        See also :meth:`data_for_find_identical_books`.
         :param mi:
         :param search_restriction:
         :param book_ids:
         :return:
         """
-        from LiuXin.databases.utils import fuzzy_title
+        from LiuXin_alpha.databases.utils import fuzzy_title
 
         identical_book_ids = set()
         if mi.authors:
@@ -3373,8 +3411,9 @@ class CalibreCache(BaseCalibreCache):
     def move_db_to(self, newloc, progress=None, abort=None):
         """
         Move the database file that we're currently running off to a different location.
-        Moving the library as a whole also requires moving a bunch of the folder stores around - which needs to be done
-        individually.
+
+        Moving the library as a whole would also requires moving a bunch of the folder stores around.
+        Which needs to be done individually.
         :param newloc:
         :param progress:
         :param abort:
@@ -3441,7 +3480,11 @@ class CalibreCache(BaseCalibreCache):
 
     @write_api
     def close(self):
-        from LiuXin.customize.ui import available_library_closed_plugins
+        """
+
+        :return:
+        """
+        from LiuXin_alpha.customize.ui import available_library_closed_plugins
 
         for plugin in available_library_closed_plugins():
             try:

@@ -3,10 +3,10 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin.metadata.book import TOP_LEVEL_IDENTIFIERS, ALL_METADATA_FIELDS
+from LiuXin_alpha.metadata.book import TOP_LEVEL_IDENTIFIERS, ALL_METADATA_FIELDS
 
-from LiuXin.utils.formatter import TemplateFormatter
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre_compat.utils.formatter import TemplateFormatter
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -21,7 +21,7 @@ class SafeFormat(TemplateFormatter):
             return ""
         key = orig_key = orig_key.lower()
         if key != "title_sort" and key not in TOP_LEVEL_IDENTIFIERS and key not in ALL_METADATA_FIELDS:
-            from LiuXin.metadata.book.base import field_metadata
+            from LiuXin_alpha.metadata.book.base import field_metadata
 
             key = field_metadata.search_term_to_field_key(key)
             if key is None or (self.book and key not in self.book.all_field_keys()):

@@ -6,9 +6,9 @@ from collections import defaultdict
 
 from typing import TypeVar, Optional
 
-from LiuXin.databases.caches.calibre.tables.many_one_tables.typed_many_to_one_table import CalibreTypedManyToOneTable
-from LiuXin.databases.caches.calibre.tables.many_one_tables.typed_many_to_one_table import CalibreManyToOneTable
-from LiuXin.databases.db_types import (
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables.typed_many_to_one_table import CalibreTypedManyToOneTable
+from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables.typed_many_to_one_table import CalibreManyToOneTable
+from LiuXin_alpha.databases.db_types import (
     MetadataDict,
     InterLinkTableName,
     SrcTableID,
@@ -17,12 +17,11 @@ from LiuXin.databases.db_types import (
     RatingInt,
 )
 
-from LiuXin.exceptions import InvalidCacheUpdate
+from LiuXin_alpha.errors import InvalidCacheUpdate
 
-from LiuXin.utils.lx_libraries.liuxin_six import iteritems
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, basestring
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
-from past.builtins import basestring
 
 T = TypeVar("T")
 

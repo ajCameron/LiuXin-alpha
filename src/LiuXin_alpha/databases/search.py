@@ -9,19 +9,18 @@ from collections import deque
 from datetime import timedelta
 from functools import partial
 
-from LiuXin.constants import preferred_encoding
+from LiuXin_alpha.constants import preferred_encoding
 
-from LiuXin.databases.utils import force_to_bool
+from LiuXin_alpha.databases.utils import force_to_bool
 
-from LiuXin.utils.config.config_base import prefs
-from LiuXin.utils.date import parse_date, UNDEFINED_DATE, now, dt_as_local
-from LiuXin.utils.icu import lower as icu_lower
-from LiuXin.utils.icu import primary_contains, sort_key
-from LiuXin.utils.localization import _
-from LiuXin.utils.localization import lang_map, canonicalize_lang
-from LiuXin.utils.search_query_parser import SearchQueryParser, ParseException
+from LiuXin_alpha.utils.config.config_base import prefs
+from LiuXin_alpha.utils.date import parse_date, UNDEFINED_DATE, now, dt_as_local
+from LiuXin_alpha.utils.text.icu import lower as icu_lower, primary_contains, sort_key
+from LiuXin_alpha.utils.localization import _, lang_map, canonicalize_lang
+from LiuXin_alpha.utils.search_query_parser import SearchQueryParser, ParseException
 
-from past.builtins import basestring
+from LiuXin_alpha.utils.libraries.liuxin_six import basestring, iterkeys
+
 
 
 __license__ = "GPL v3"
@@ -550,7 +549,7 @@ class SavedSearchQueries(object):  # {{{
             db._set_pref(self.opt_name, smap)
 
     def names(self):
-        return sorted(self.queries.iterkeys(), key=sort_key)
+        return sorted(iterkeys(self.queries), key=sort_key)
 
 
 # }}}

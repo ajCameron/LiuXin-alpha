@@ -9,7 +9,10 @@ from collections import defaultdict
 from copy import deepcopy
 
 from typing import TypeVar, Optional, Type, Any
-from typing_extensions import Self
+try:
+    from typing_extensions import Self
+except ImportError:
+    from typing import Self
 
 from LiuXin_alpha.databases.db_types import (
     MetadataDict,

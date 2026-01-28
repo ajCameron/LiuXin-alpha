@@ -321,8 +321,21 @@ class NoSuchBook(Exception):
     pass
 
 
-class NotInCache(Exception):
+class CacheError(LiuXinException):
     pass
+
+
+class CacheLoadError(CacheError):
+    """
+    Attempting to load a cache off the database fails.
+    """
+
+
+class NotInCache(CacheError):
+    pass
+
+
+
 
 
 class NoSuchFormatInCache(NotInCache):

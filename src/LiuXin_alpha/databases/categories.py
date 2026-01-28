@@ -8,19 +8,15 @@ from functools import partial
 from operator import attrgetter
 from builtins import map
 
-from LiuXin_alpha.metadata import author_to_author_sort
+from LiuXin_alpha.metadata.utils import author_to_author_sort
 
-from LiuXin.library.field_metadata import TagsIcons
 
-from LiuXin.utils.config.config_base import tweaks
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.icu import sort_key, lower as icu_lower
+from LiuXin_alpha.utils.config.config_base import tweaks
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.text.icu import sort_key, lower as icu_lower
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, dict_iterkeys as iterkeys, six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -189,6 +185,8 @@ def get_categories(dbcache, sort="name", book_ids=None, icon_map=None, first_let
     :param first_letter_sort:
     :return:
     """
+    from LiuXin_alpha.databases.field_metadata import TagsIcons
+
     if icon_map is not None and type(icon_map) != TagsIcons:
         raise TypeError("icon_map passed to get_categories must be of type TagIcons")
     if sort not in CATEGORY_SORTS:

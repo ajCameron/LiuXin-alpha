@@ -4,9 +4,9 @@
 import copy
 import traceback
 
-from LiuXin.constants import VERBOSE_DEBUG as DEBUG
+from LiuXin_alpha.constants import VERBOSE_DEBUG as DEBUG
 
-from LiuXin.metadata.calibre_metadata_constants import (
+from LiuXin_alpha.utils.calibre_compat.metadata.calibre_metadata_constants import (
     SC_COPYABLE_FIELDS,
     SC_FIELDS_COPY_NOT_NULL,
     STANDARD_METADATA_FIELDS,
@@ -14,20 +14,16 @@ from LiuXin.metadata.calibre_metadata_constants import (
     ALL_METADATA_FIELDS,
 )
 
-from LiuXin.library.field_metadata import FieldMetadata
+from LiuXin_alpha.databases.field_metadata import FieldMetadata
 
-from LiuXin import prints
-from LiuXin.utils.icu import sort_key
-from LiuXin.utils.icu import lower as icu_lower
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import prints
+from LiuXin_alpha.utils.text.icu import sort_key, lower as icu_lower
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 comparability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-
-from past.builtins import basestring
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    dict_iteritems as iteritems, dict_iterkeys as iterkeys,
+    dict_itervalues as itervalues, six_unicode, basestring)
 
 
 # Special sets used to optimize the performance of getting and setting
@@ -140,7 +136,7 @@ class calibreMetadata(object):
                 self.author = list(authors) if authors else []  # Needed for backward compatibility
                 self.authors = list(authors) if authors else []
 
-        from LiuXin.metadata.book.formatter import SafeFormat
+        from LiuXin_alpha.metadata.book.formatter import SafeFormat
 
         self.formatter = SafeFormat() if formatter is None else formatter
         self.template_cache = template_cache
@@ -534,7 +530,7 @@ class calibreMetadata(object):
         """
         if not ops:
             return
-        from LiuXin.metadata.book.formatter import SafeFormat
+        from LiuXin_alpha.metadata.book.formatter import SafeFormat
 
         formatter = SafeFormat()
         for op in ops:
@@ -714,7 +710,7 @@ class calibreMetadata(object):
         :param raw:
         :return:
         """
-        from LiuXin_alpha.metadata import string_to_authors
+        from LiuXin_alpha.metadata.utils import string_to_authors
 
         self.authors = string_to_authors(raw)
 
@@ -723,7 +719,7 @@ class calibreMetadata(object):
         Returns the authors as a string.
         :return:
         """
-        from LiuXin_alpha.metadata import authors_to_string
+        from LiuXin_alpha.metadata.utils import authors_to_string
 
         return authors_to_string(self.authors)
 
@@ -764,8 +760,8 @@ class calibreMetadata(object):
         :param series_with_index:
         :return:
         """
-        from LiuXin_alpha.metadata import authors_to_string
-        from LiuXin.utils.date import format_date
+        from LiuXin_alpha.metadata.utils import authors_to_string
+        from LiuXin_alpha.utils.date import format_date
 
         # Handle custom series index
         if key.startswith("#") and key.endswith("_index"):
@@ -857,8 +853,8 @@ class calibreMetadata(object):
         """
         A string representation of this object, suitable for printing to console
         """
-        from LiuXin_alpha.metadata import authors_to_string
-        from LiuXin.utils.date import isoformat
+        from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
+        from LiuXin_alpha.utils.date import isoformat
 
         ans = []
 
@@ -911,8 +907,8 @@ class calibreMetadata(object):
         """
         A HTML representation of this object.
         """
-        from LiuXin_alpha.metadata import authors_to_string
-        from LiuXin.utils.date import isoformat
+        from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
+        from LiuXin_alpha.utils.date import isoformat
 
         ans = [(_("Title"), six_unicode(self.title))]
         ans += [
@@ -984,7 +980,7 @@ def field_from_string(field, raw, field_metadata):
     elif dt == "rating":
         val = float(raw) * 2
     elif dt == "datetime":
-        from LiuXin.utils.date import parse_only_date
+        from LiuXin_alpha.utils.date import parse_only_date
 
         val = parse_only_date(raw)
     elif dt == "bool":
@@ -1001,7 +997,7 @@ def field_from_string(field, raw, field_metadata):
             if field == "identifiers":
                 val = {x.partition(":")[0]: x.partition(":")[-1] for x in val}
             elif field == "languages":
-                from LiuXin.utils.localization import canonicalize_lang
+                from LiuXin_alpha.utils.localization import canonicalize_lang
 
                 val = [canonicalize_lang(x) for x in val]
                 val = [x for x in val if x]

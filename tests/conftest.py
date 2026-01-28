@@ -10,6 +10,9 @@ import os
 import sys
 from pathlib import Path
 
+from typing import Optional
+
+
 import pytest
 
 
@@ -107,7 +110,20 @@ def provision_test_database(tmp_path: Path, test_resources_manager):
     """Factory fixture: provision a named test database into this test's tmp_path."""
 
     def _provision(name: str = "test_db_0"):
-        return test_resources_manager.provision_test_database(name=name, dst_dir=tmp_path)
+        return test_resources_manager.provision_named_test_database(name=name, dst_dir=tmp_path)
+
+    return _provision
+
+
+@pytest.fixture
+def provision_named_test_database(tmp_path: Path, test_resources_manager):
+    """
+    Factory fixture: call provision_named_test_database("test_db_0", dst_dir=...)
+    """
+    def _provision(name: str, dst_dir: Path | None = None):
+        dst = dst_dir or tmp_path
+        # adapt this line to whatever your manager API is
+        return test_resources_manager.provision_named_test_database(name=name, dst_dir=dst)
 
     return _provision
 

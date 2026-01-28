@@ -1,4 +1,3 @@
-
 """
 API for the database and related classes.
 
@@ -47,7 +46,9 @@ class RowAPI(abc.ABC):
     """
     API for a row off the database.
     """
-    def __init__(self, database: DatabaseAPI, row_dict: Optional[dict[str, str]] = None, read_only: bool = False) -> None:
+
+    def __init__(self, database: DatabaseAPI, row_dict: Optional[dict[str, str]] = None,
+                 read_only: bool = False) -> None:
         """
         Represents a single row from the LiuXin database.
 
@@ -235,7 +236,6 @@ class RowAPI(abc.ABC):
         :return:
         """
 
-
     # -----------------------------------------------
     # ------------------------
     #
@@ -257,6 +257,7 @@ class DatabaseDriverAPI(abc.ABC):
     """
     Every database drive must descend from this class.
     """
+
     def direct_executescript(self, script: str) -> None:
         """
         Execute a script on the database - should be phased out.
@@ -278,9 +279,10 @@ class DatabaseDriverAPI(abc.ABC):
     def macros(self) -> MacrosAPI:
         """
         Return the macros for the given driver.
-        
+
         :return:
         """
+
 
 class DatabaseDriverWrapperAPI(abc.ABC):
     """
@@ -334,7 +336,6 @@ class DatabaseDriverWrapperAPI(abc.ABC):
         :param new_macros:
         :return:
         """
-
 
     # ------------------------------------------------------------------------------------------------------------------
     # - LIFECYCLE / CLEANUP
@@ -479,7 +480,8 @@ class DatabaseDriverWrapperAPI(abc.ABC):
         """Update a single column on a single row."""
 
     @abc.abstractmethod
-    def update_columns(self, values_map: dict[Any, Any], field: Optional[str] = None, table: Optional[str] = None) -> Any:
+    def update_columns(self, values_map: dict[Any, Any], field: Optional[str] = None,
+                       table: Optional[str] = None) -> Any:
         """Bulk update convenience wrapper around the driver."""
 
     @abc.abstractmethod
@@ -635,26 +637,24 @@ class DatabaseDriverWrapperAPI(abc.ABC):
     # ------------------------------------------------------------------------------------------------------------------
     @abc.abstractmethod
     def create_new_main_table(
-        self,
-        table_name: str,
-        column_headings: Optional[Iterable[str]] = None,
-        link_to: Optional[str] = None,
-        link_type: Optional[str] = None,
-        link_properties: Optional[Iterable[str]] = None,
+            self,
+            table_name: str,
+            column_headings: Optional[Iterable[str]] = None,
+            link_to: Optional[str] = None,
+            link_type: Optional[str] = None,
+            link_properties: Optional[Iterable[str]] = None,
     ) -> None:
         """Create a new main table and (optionally) link it to an existing main table."""
 
     @abc.abstractmethod
     def link_main_tables(
-        self,
-        primary_table: str,
-        secondary_table: str,
-        link_type: str,
-        link_properties: Optional[Iterable[str]] = None,
+            self,
+            primary_table: str,
+            secondary_table: str,
+            link_type: str,
+            link_properties: Optional[Iterable[str]] = None,
     ) -> None:
         """Create a link (interlink table) between two existing main tables."""
-
-
 
 
 class DatabaseAPI(abc.ABC):
@@ -756,18 +756,17 @@ class DatabaseAPI(abc.ABC):
         """
 
 
-
 class DatabaseCacheAPI(abc.ABC):
     """
     Every local cache containing data from the database must descend from this class.
     """
 
 
-
 class DatabaseMaintainerAPI(abc.ABC):
     """
     Maintenance bot which runs on the database.
     """
+
     def __init__(self, db: DatabaseAPI) -> None:
         """
         Attach the database to the maintainer which will work on it.
@@ -799,7 +798,7 @@ class DatabaseMaintainerAPI(abc.ABC):
 
     @abc.abstractmethod
     def dirty_interlink_record(
-        self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int
+            self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int
     ) -> None:
         """
         Notify the maintenance bot that an interlink record has been changed.
@@ -839,6 +838,7 @@ class MaintenanceBotAPI(abc.ABC):
     """
     API for the maintenance bot thread itself.
     """
+
     @abc.abstractmethod
     def stop(self) -> None:
         """

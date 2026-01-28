@@ -1341,8 +1341,9 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
 
     def get_interlink_values(self, target_row, secondary_column):
         """
-        Takes a row and a column - in a table linked to the row. Returns a set of every value of that column in a row
-        linked to the given target row - for example, searching with a title_row "creator" yields every creator linked
+        Takes a row and a column - in a table linked to the row.
+
+        Returns a set of every value of that column in a row linked to the given target row - for example, searching with a title_row "creator" yields every creator linked
         to that target row.
         :param target_row:
         :param secondary_column:

@@ -90,7 +90,7 @@ class English(Base):
 
         return word
 
-    def singularize(self, word):
+    def singularize(self, word: str) -> str:
         """Singularizes English nouns."""
 
         rules = [

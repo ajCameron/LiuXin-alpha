@@ -7,7 +7,10 @@ These are slightly rare in LiuXin - mostly it's ManyToMany.
 from collections import defaultdict
 
 from typing import TypeVar, Optional
-from typing_extensions import Self
+try:
+    from typing_extensions import Self
+except ImportError:
+    from typing import Self
 
 from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable
 from LiuXin_alpha.databases.db_types import MetadataDict, InterLinkTableName, SrcTableID, DstTableID

@@ -1034,7 +1034,7 @@ class DriverWrapper(DatabaseDriverWrapperAPI, CustomColumnsDriverWrapperMixin):
         if kw.get("all", True):
             return ans.fetchall()
         try:
-            return ans.next()[0]
+            return next(ans)
         except (StopIteration, IndexError):
             return None
 

@@ -47,7 +47,7 @@ except ImportError:
 
     default_log.exception('LiuXin_alpha.customize.ui - cannot import run_import_plugins')
 
-    def run_plugins_on_postadd(file, *args, **kwargs):
+    def run_import_plugins(file, *args, **kwargs):
         return file
 
 

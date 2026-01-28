@@ -10,29 +10,22 @@ from collections import defaultdict
 from six import string_types
 
 from LiuXin_alpha.customize.cache.base_tables import ONE_MANY, MANY_ONE, MANY_MANY
-from LiuXin.databases.adaptors import get_adapter
-from LiuXin.databases.adaptors import sqlite_datetime
+from LiuXin_alpha.databases.adaptors import get_adapter
+from LiuXin_alpha.databases.adaptors import sqlite_datetime
 
-from LiuXin.exceptions import DatabaseIntegrityError
-from LiuXin.exceptions import InputIntegrityError
-from LiuXin.exceptions import InvalidUpdate
-from LiuXin.exceptions import NotInCache
+from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError, InvalidUpdate, NotInCache
 
-from LiuXin_alpha.metadata import author_to_author_sort, title_sort
+from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort, title_sort
 
-from LiuXin.utils.calibre import isbytestring
-from LiuXin.utils.icu import strcmp
-from LiuXin.utils.icu import safe_lower
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.general_ops.python_tools import uniq
+from LiuXin_alpha.utils.text import isbytestring
+from LiuXin_alpha.utils.text.icu import strcmp, safe_lower
+from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.python_tools import uniq
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    dict_iterkeys as iterkeys, dict_iteritems as iteritems, dict_itervalues as itervalues, six_string_types, basestring)
 
-from past.builtins import basestring
 
 
 __license__ = "GPL v3"

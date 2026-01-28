@@ -383,7 +383,7 @@ class CalibrePriorityTypedOneToManyTable(CalibreOneToManyTable[T]):
         return super(CalibrePriorityTypedOneToManyTable, self).update_db(book_id_to_val_map, db, allow_case_change)
 
     def cache_update_precheck(
-        self, book_id_val_map: dict[SrcTableID, DstTableID], id_map: Optional[dict[DstTableID:T]] = None
+        self, book_id_val_map: dict[SrcTableID, DstTableID], id_map: Optional[dict[DstTableID, Optional[T]]] = None
     ) -> None:
         """
         Check the update for a cache before applying it to the stored data.

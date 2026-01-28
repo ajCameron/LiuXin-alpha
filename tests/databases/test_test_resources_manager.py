@@ -35,8 +35,8 @@ def test_provisioned_database_opens(provision_test_database) -> None:
 
 
 def test_provisioned_copies_are_independent(tmp_path, test_resources_manager) -> None:
-    db1 = test_resources_manager.provision_test_database(name="test_db_0", dst_dir=tmp_path / "a")
-    db2 = test_resources_manager.provision_test_database(name="test_db_0", dst_dir=tmp_path / "b")
+    db1 = test_resources_manager.provision_named_test_database(name="test_db_0", dst_dir=tmp_path / "a")
+    db2 = test_resources_manager.provision_named_test_database(name="test_db_0", dst_dir=tmp_path / "b")
 
     assert _count_titles(db1.db_path) == _count_titles(db2.db_path)
 

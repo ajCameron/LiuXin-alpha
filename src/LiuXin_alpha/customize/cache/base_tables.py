@@ -195,7 +195,12 @@ class BaseTable(Generic[T]):
             self.lx_table_name = table_name
 
         # Inference has failed - abort
-        if book_cand is None and title_cand is None:
+        # NOTE: driver_wrapper.get_link_table_name() returns False (not None) when missing
+        if not book_cand and not title_cand:
+            return
+
+        # Extra safety: don't proceed unless inference actually set a target
+        if not self.linked_to:
             return
 
         if set_priority:

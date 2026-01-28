@@ -94,6 +94,17 @@ class BaseField(Generic[T]):
         # Todo: datatype, table_type should be enums
         self.name: str = name
         self.table = table
+        # Store common field configuration so mixins (e.g. calibre-emulation
+        # fields) can rely on these attributes existing.
+        self.bools_are_tristate: bool = bools_are_tristate
+        self.link_attributes = link_attributes
+        self.main_table: Optional[str] = main_table
+        self.auxiliary_table: Optional[str] = auxiliary_table
+
+        # Link-attribute fields (e.g. series_index) are stored here when present.
+        # Most fields have none.
+        self.link_attr_fields: dict[str, Any] = {}
+
         dt: str = self.metadata["datatype"]
         self.has_text_data: bool = dt in {"text", "comments", "series", "enumeration"}
         self.table_type = self.table.table_type
@@ -125,6 +136,28 @@ class BaseField(Generic[T]):
         :return:
         """
         pass
+
+    def read_attribute_tables(self, db) -> None:
+        """
+        Read any *link-attribute* tables associated with this field.
+
+        In calibre-style schemas, some many-to-many links have extra columns
+        (for example, a series link might have a series index). Those extras
+        are represented as additional "attribute fields" stored in
+        ``self.link_attr_fields``.
+
+        Most fields have no attribute tables, so the default implementation is
+        a no-op.
+
+        :param db: Database backend / driver wrapper used by tables to read.
+        """
+        # Be defensive: link_attr_fields may be empty (normal) or contain
+        # objects that are either Field-like (with .table) or Table-like.
+        for _name, attr in getattr(self, "link_attr_fields", {}).items():
+            table = getattr(attr, "table", attr)
+            read = getattr(table, "read", None)
+            if callable(read):
+                read(db)
 
     # Allows for updating the writer stored in the table at the same time as the writer here is updated
     # Should be simplified

@@ -25,6 +25,8 @@ class AddingMixin:
         Calibre-style DB layers typically reject such payloads at the API boundary.
 
         We raise ValueError to make this a clear caller-input issue.
+
+        Not currently used - to many unicode issues.
         """
 
         for col, val in row_dict.items():
@@ -39,9 +41,6 @@ class AddingMixin:
         :return :
         """
         target_table = self.identify_table_from_row(row_dict)
-
-        # Contract: reject embedded NUL bytes in TEXT payloads.
-        self._reject_embedded_nul_text(target_table=target_table, row_dict=row_dict)
 
         # Assembling a list of placeholders of the form ?,?,?
         values_placeholders = ""
@@ -128,10 +127,6 @@ class AddingMixin:
         for i in range(len(row_dict_list)):
             if "table" in row_dict_list[i].keys():
                 del row_dict_list[i]["table"]
-
-        # Contract: reject embedded NUL bytes in TEXT payloads.
-        for rd in row_dict_list:
-            self._reject_embedded_nul_text(target_table=target_table, row_dict=rd)
 
         # With all those checks run we should have a nice, consistent set of dictionaries to insert into target_table
         reference_row_dict = row_dict_list[0]

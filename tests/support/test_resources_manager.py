@@ -115,7 +115,7 @@ class TestResourcesManager:
     # Provisioning
     # ------------------------------------------------------------------
 
-    def provision_test_database(self, *, name: str, dst_dir: Path) -> ProvisionedTestDatabase:
+    def provision_named_test_database(self, *, name: str, dst_dir: Path) -> ProvisionedTestDatabase:
         """Provision a fresh writable copy of *name* inside *dst_dir*."""
 
         dst_dir = Path(dst_dir)

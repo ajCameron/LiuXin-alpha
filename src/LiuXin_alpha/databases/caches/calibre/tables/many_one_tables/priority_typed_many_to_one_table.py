@@ -163,7 +163,9 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
         return "\n".join(err_msg)
 
     def update_cache(
-        self, book_id_val_map: dict[SrcTableID, Optional[DstTableID]], id_map: Optional[DstTableID, Optional[T]] = None
+        self,
+            book_id_val_map: dict[SrcTableID, Optional[DstTableID]],
+            id_map: Optional[dict[DstTableID, Optional[T]]] = None
     ) -> Any:
         """
         Actually preform an update of the cache.
@@ -180,7 +182,7 @@ class CalibrePriorityTypedManyToOneTable(CalibreManyToOneTable[T]):
     def update_precheck(
         self,
         book_id_item_id_map: dict[SrcTableID, Optional[DstTableID]],
-        id_map_update: Optional[DstTableID, Optional[T]],
+        id_map_update: Optional[dict[DstTableID, Optional[T]]],
     ) -> None:
         """
         Check that an update is of a valid form before writing it out to the cache and the database.
