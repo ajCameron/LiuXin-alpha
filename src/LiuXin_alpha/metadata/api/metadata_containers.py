@@ -1,8 +1,6 @@
 
 import abc
 
-from LiuXin_alpha.metadata.containers.metadata_containers.creator_container import CreatorContainer
-
 from LiuXin_alpha.databases.api import RowAPI, DatabaseAPI
 
 
@@ -62,13 +60,24 @@ class ManyToManyPriorityTypedMetadataContainer(abc.ABC):
         :return:
         """
 
+    # -------------------------------
+    # - ROW ACCESS METHODS START HERE
+
     @abc.abstractmethod
-    def get_rows(self) -> set[RowAPI]:
+    def get_rows(self) -> frozenset[RowAPI]:
         """
         Return a set of all linked rows.
 
         :return:
         """
+
+    def get_row_ids(self) -> frozenset[int]:
+        """
+        Return a set of all linked rows.
+
+        :return:
+        """
+        return frozenset([_.id for _ in self.get_rows()])
 
     @abc.abstractmethod
     def get_priority_rows(self) -> list[RowAPI]:
@@ -78,6 +87,14 @@ class ManyToManyPriorityTypedMetadataContainer(abc.ABC):
         :return:
         """
 
+    def get_priority_row_ids(self) -> list[int]:
+        """
+        Return a list of all the ids in the database linked to the primary row.
+
+        :return:
+        """
+        return [_.id for _ in self.get_priority_rows()]
+
     @abc.abstractmethod
     def get_typed_rows(self) -> dict[str, frozenset[RowAPI]]:
         """
@@ -86,12 +103,63 @@ class ManyToManyPriorityTypedMetadataContainer(abc.ABC):
         :return:
         """
 
+    def get_typed_row_ids(self) -> dict[str, frozenset[int]]:
+        """
+        Return a dictionary keyed with the row type and valued with a set of row ids.
+
+        :return:
+        """
+        row_ids_dict = dict()
+        rows_dict = self.get_typed_rows()
+
+        for rt in rows_dict:
+            row_ids_dict[rt] = frozenset([_.id for _ in rows_dict[rt]])
+
+        return row_ids_dict
+
     @abc.abstractmethod
     def get_priority_typed_rows(self) -> dict[str, list[RowAPI]]:
         """
-        Return a dictionary keyed with the row type and valued with a list of Rows.
+        Returns a dictionary keyed with the row type and valued with a list of Rows.
 
         Thus conveying both priority and type information.
         :return:
         """
+
+    def get_priority_typed_row_ids(self) -> dict[str, list[int]]:
+        """
+        Returns a dictionary keyed with the row type and valued with a list of row ids.
+
+        :return:
+        """
+        row_ids_dict = dict()
+        rows_dict = self.get_typed_rows()
+
+        for rt in rows_dict:
+            row_ids_dict[rt] = [_.id for _ in rows_dict[rt]]
+
+        return row_ids_dict
+
+    @abc.abstractmethod
+    def rows_for_type(self, target_type: str) -> list[RowAPI]:
+        """
+        Return all the rows for a given type.
+
+        :param target_type:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def row_ids_for_type(self, target_type: str) -> list[RowAPI]:
+        """
+        Return all the rows for a given type.
+
+        :param target_type:
+        :return:
+        """
+        return [_.id for _ in self.rows_for_type(target_type)]
+
+    #
+    # -------------------------------
+
 

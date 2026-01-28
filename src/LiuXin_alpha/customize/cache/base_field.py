@@ -17,6 +17,7 @@ from copy import deepcopy
 from typing import Optional, Callable, TypeVar, Union, Generic, Iterable, Iterator, Any
 
 from LiuXin_alpha.utils.text.icu import sort_key
+from LiuXin_alpha.databases.write import get_writer, DummyWriter
 
 from LiuXin_alpha.databases.db_types import (
     LangMap,
@@ -94,6 +95,7 @@ class BaseField(Generic[T]):
         # Todo: datatype, table_type should be enums
         self.name: str = name
         self.table = table
+
         # Store common field configuration so mixins (e.g. calibre-emulation
         # fields) can rely on these attributes existing.
         self.bools_are_tristate: bool = bools_are_tristate
@@ -107,8 +109,26 @@ class BaseField(Generic[T]):
 
         dt: str = self.metadata["datatype"]
         self.has_text_data: bool = dt in {"text", "comments", "series", "enumeration"}
+
+        # Some codepaths expect this to exist for writer selection.
         self.table_type = self.table.table_type
+
         self._sort_key = sort_key if dt in ("text", "series", "enumeration") else IDENTITY
+
+        # Ensure *all* fields have a writer early, so calibre-style field init
+        # can safely do `self.table.writer = self.writer` without exploding.
+        try:
+            self._writer = get_writer(self)
+        except Exception:
+            # Ultra-safe fallback: supports cache init even when writer selection
+            # can't be resolved yet (or a field is intentionally non-writable).
+            self._writer = DummyWriter(self)
+
+        try:
+            self.table.writer = self._writer
+        except AttributeError:
+            # Some ephemeral / test tables may not expose writer slots.
+            pass
 
     def get_link_attrs(self) -> Iterable[str]:
         """
