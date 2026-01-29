@@ -11,6 +11,15 @@ from collections import defaultdict
 
 from typing import Any, Union, TypeVar, Optional, Iterable
 
+from LiuXin_alpha.customize.cache.base_tables import (
+    ONE_ONE,
+    MANY_ONE,
+    MANY_MANY,
+    ONE_MANY,
+    null,
+)
+
+
 from LiuXin_alpha.errors import InvalidCacheUpdate
 
 from LiuXin_alpha.customize.cache.base_tables import BaseManyToOneTable, MANY_ONE
@@ -44,6 +53,8 @@ class CalibreManyToOneTable(BaseManyToOneTable[T], MultiTableMixin):
 
     Each book can be assumed to have only one value for data of this type - an unambiguous result is required.
     """
+
+    table_type = MANY_ONE
 
     _table_type: TableTypes = MANY_ONE
 

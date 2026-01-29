@@ -4,6 +4,8 @@ The driver wrapper provides some utility methods around the driver to improve co
 """
 from __future__ import unicode_literals
 
+from typing import Optional
+
 from copy import deepcopy
 
 from LiuXin_alpha.databases.custom_columns import CustomColumnsDriverWrapperMixin
@@ -22,9 +24,10 @@ class DriverWrapper(DatabaseDriverWrapperAPI, CustomColumnsDriverWrapperMixin):
 
     _macros: MacrosAPI
 
-    def __init__(self, driver):
+    def __init__(self, driver, db = None):
         """
         Initialize with the database driver - this will be used to access the
+
         :param driver:
         :return:
         """
@@ -44,7 +47,7 @@ class DriverWrapper(DatabaseDriverWrapperAPI, CustomColumnsDriverWrapperMixin):
         # Acquires a lock for the database that can be used in a with statement.
         self.lock = self.get_connection()
 
-        super(DriverWrapper, self).__init__(db=None, macros=None)
+        super(DriverWrapper, self).__init__(db=db, macros=None)
 
     def __del__(self) -> None:
         try:

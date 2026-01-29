@@ -14,6 +14,15 @@ try:
 except ImportError:
     from typing import Self
 
+from LiuXin_alpha.customize.cache.base_tables import (
+    ONE_ONE,
+    MANY_ONE,
+    MANY_MANY,
+    ONE_MANY,
+    null,
+)
+
+
 from LiuXin_alpha.databases.db_types import (
     MetadataDict,
     InterLinkTableName,
@@ -42,6 +51,8 @@ class CalibrePriorityManyToManyTable(CalibreManyToManyTable[T]):
     Many books can be linked to many items.
     E.g. In LiuXin, one book can be linked to many titles.
     """
+
+    table_type = MANY_MANY
 
     _priority: bool = True
     _typed: bool = False

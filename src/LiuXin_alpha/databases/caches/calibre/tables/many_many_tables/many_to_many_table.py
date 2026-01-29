@@ -15,6 +15,15 @@ from LiuXin_alpha.customize.cache.base_tables import (
     BaseManyToManyTable,
     MANY_MANY,
 )
+
+from LiuXin_alpha.customize.cache.base_tables import (
+    ONE_ONE,
+    MANY_ONE,
+    MANY_MANY,
+    ONE_MANY,
+    null,
+)
+
 from LiuXin_alpha.databases.caches.calibre.tables.base import null
 from LiuXin_alpha.databases.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable
 from LiuXin_alpha.databases.db_types import (

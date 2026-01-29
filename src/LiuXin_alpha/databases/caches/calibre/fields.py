@@ -40,6 +40,7 @@ from LiuXin_alpha.databases.caches.base_calibre.fields import BaseCoverField
 from LiuXin_alpha.databases.caches.base_calibre.fields import BaseSeriesField
 from LiuXin_alpha.databases.caches.base_calibre.fields import BaseTagsField
 from LiuXin_alpha.databases.caches.base_calibre.fields import BaseLinkAttributeField
+from LiuXin_alpha.databases.caches.calibre.tables.base import CalibreVirtualTable
 
 from LiuXin_alpha.databases.caches.calibre.tables.one_many_tables import (
     CalibrePriorityTypedOneToManyTable,
@@ -367,6 +368,8 @@ class CalibreOneToOneField(BaseOneToOneField, CalibreField):
     """
     A 1-1 mapping must exist between books and these fields. (E.g. The uuid of a book).
     """
+
+    table_type: int = ONE_ONE
 
     def __init__(self, name, table, bools_are_tristate):
         """
@@ -727,6 +730,8 @@ class CalibreOnDeviceField(BaseOnDeviceField, CalibreField):
 
         super(CalibreOnDeviceField, self).__init__(name, table, bools_are_tristate)
 
+        self.table = CalibreVirtualTable(name="ondevice", datatype="bool")
+
         self.cache = {}
         self._lock = Lock()
 
@@ -785,6 +790,8 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
     A 1-Many field is for the case where one book is linked to many targets - but no other books are linked to any of
     the items linked to (e.g. comments - one book is linked to many targets).
     """
+
+    table_type: int = ONE_MANY
 
     def __init__(self, name, table, bools_are_tristate=False):
 
@@ -1118,6 +1125,9 @@ class CalibreOneToManyField(BaseOneToManyField, CalibreField):
 
 # Todo: We need an index field which does something clever to keep the index data in line
 class CalibreManyToOneField(BaseManyToOneField, CalibreField):
+
+    table_type: int = MANY_ONE
+
     def __init__(self, name, table, bools_are_tristate=False):
         super(CalibreManyToOneField, self).__init__(name=name, table=table, bools_are_tristate=bools_are_tristate)
 
@@ -1282,6 +1292,9 @@ class CalibreRatingField(CalibreManyToOneField):
 
 
 class CalibreManyToManyField(BaseManyToManyField, CalibreField):
+
+    table_type: int = MANY_MANY
+
     def __init__(self, name, table, bools_are_tristate=False):
 
         super(CalibreManyToManyField, self).__init__(name=name, table=table, bools_are_tristate=bools_are_tristate)
@@ -2578,6 +2591,7 @@ class CalibreLinkAttributeField(BaseLinkAttributeField, CalibreField):
 
 def calibre_create_field(name, table, bools_are_tristate):
     """
+
     Takes a table field and the other properties needed to instantiate it - constructs the Table object and returns it.
     :param name:
     :param table:
@@ -2618,7 +2632,8 @@ def calibre_create_field(name, table, bools_are_tristate):
 
 def calibre_create_custom_column_field(name, table, bools_are_tristate):
     """
-    Takes a custom column table and returns a field wrapped arround it.
+    Takes a custom column table and returns a field wrapped around it.
+
     :param name:
     :param table:
     :param bools_are_tristate:

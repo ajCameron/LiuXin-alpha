@@ -127,6 +127,7 @@ class CustomColumnsDriverWrapperMixin(object):
 
             # Worker objects
             self.db = db
+            self.conn = None
 
             # Don't assign to self.macros directly: subclasses (e.g. DriverWrapper) may expose
             # macros as a read-only @property (no setter). Also avoid clobbering an already-set
@@ -146,6 +147,7 @@ class CustomColumnsDriverWrapperMixin(object):
             # Todo: Might want to rename this to custom_column_tables
             # Stores properties of the database
             self.custom_tables = set()
+
 
     # ----------------------------------------------------------------------------------------------------------------------
     #
@@ -492,6 +494,9 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         self.db = db
         if conn is None:
             self.conn = self.db.driver.conn
+        else:
+            self.conn = conn
+
         if field_metadata is None:
             self.field_metadata = FieldMetadata()
         else:

@@ -38,7 +38,7 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
 
     Priority information is also provided - so there is an order in which the elements are linked to the book.
     """
-
+    table_type = ONE_MANY
     _table_type = ONE_MANY
 
     _priority = True

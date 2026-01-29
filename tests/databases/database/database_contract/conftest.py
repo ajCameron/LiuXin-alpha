@@ -14,7 +14,7 @@ import pytest
 
 
 # Reuse driver_contract fixtures (driver_spec, torture corpora, etc.).
-pytest_plugins = ("tests.databases.driver_contract.conftest",)
+pytest_plugins = ("tests.databases.database_driver_plugins.database_driver_contract.conftest",)
 
 
 @pytest.fixture

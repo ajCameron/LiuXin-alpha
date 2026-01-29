@@ -4,26 +4,16 @@ import abc
 from LiuXin_alpha.databases.api import RowAPI, DatabaseAPI
 
 
-
-class ManyToManyPriorityTypedMetadataContainer(abc.ABC):
+class ManyToManyMetadataContainerAPI(abc.ABC):
     """
-    Contains metadata represented by a many-to-many link with priority and type info.
+    Container representing a many-to-many metadata link.
     """
-
     _db: DatabaseAPI
     _primary_table_row: RowAPI
     _secondary_table: str
 
-    def __init__(self, db: DatabaseAPI, primary_table_row: RowAPI, secondary_table: str) -> None:
-        """
-        Initialize the container and attach it to a database.
-
-        :param primary_table_row:
-        :param secondary_table:
-        """
-        self._db = db
-        self._primary_table_row = primary_table_row
-        self._secondary_table = secondary_table
+    # ---------------------------------
+    # - CONTAINER PROPERTIES START HERE
 
     @property
     def db(self) -> DatabaseAPI:
@@ -52,16 +42,11 @@ class ManyToManyPriorityTypedMetadataContainer(abc.ABC):
         """
         return self._secondary_table
 
-    @abc.abstractmethod
-    def get_link_types(self) -> frozenset[str]:
-        """
-        Return a frozenset of all possible link types.
-
-        :return:
-        """
-
+    #
+    # ---------------------------------
     # -------------------------------
     # - ROW ACCESS METHODS START HERE
+
 
     @abc.abstractmethod
     def get_rows(self) -> frozenset[RowAPI]:
@@ -78,6 +63,39 @@ class ManyToManyPriorityTypedMetadataContainer(abc.ABC):
         :return:
         """
         return frozenset([_.id for _ in self.get_rows()])
+
+    #
+    # -------------------------------
+
+
+
+
+class ManyToManyPriorityTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI):
+    """
+    Contains metadata represented by a many-to-many link with priority and type info.
+    """
+
+    def __init__(self, db: DatabaseAPI, primary_table_row: RowAPI, secondary_table: str) -> None:
+        """
+        Initialize the container and attach it to a database.
+
+        :param primary_table_row:
+        :param secondary_table:
+        """
+        self._db = db
+        self._primary_table_row = primary_table_row
+        self._secondary_table = secondary_table
+
+    @abc.abstractmethod
+    def get_link_types(self) -> frozenset[str]:
+        """
+        Return a frozenset of all possible link types.
+
+        :return:
+        """
+
+    # -------------------------------
+    # - ROW ACCESS METHODS START HERE
 
     @abc.abstractmethod
     def get_priority_rows(self) -> list[RowAPI]:
