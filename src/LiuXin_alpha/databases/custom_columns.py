@@ -158,14 +158,33 @@ class CustomColumnsDriverWrapperMixin(object):
         custom columns are read off the database.
         :return :
         """
-        num_table_lt_map = dict()
+        # Custom columns can be attached to any table (not just books). The link-table name
+        # depends on the attachment table, so we must include custom_column_in_table when
+        # computing table/link-table pairs.
+        num_table_lt_map: dict[int, tuple[str, str]] = {}
 
-        for record in self.db.macros.get_all_cc_ids_marked_for_delete(conn=self.conn):
+        # Prefer executing via the connection bound to this instance to avoid
+        # side-effects from driver_wrapper connection/lock aliasing.
+        try:
+            rows = self.conn.get_row(
+                "SELECT custom_column_id, custom_column_in_table FROM custom_columns "
+                "WHERE custom_column_mark_for_delete=1"
+            )
+        except Exception:
+            # Backwards-compat path for older DBs/schemas/macros (books-only).
+            rows = [(num, "books") for num in self.db.macros.get_all_cc_ids_marked_for_delete(conn=self.conn)]
+        for r in rows:
+            if isinstance(r, dict):
+                num = int(r.get("custom_column_id"))
+                in_table = r.get("custom_column_in_table") or "books"
+            else:
+                num = int(r[0])
+                in_table = (r[1] if len(r) > 1 else None) or "books"
 
-            num = record
-            num_table_lt_map[record] = self.custom_table_names(num)
+            num_table_lt_map[num] = self.custom_table_names(num, in_table=in_table)
 
-        self.db.macros.preform_cc_column_delete_from_map(num_table_lt_map, conn=self.conn)
+        if num_table_lt_map:
+            self.db.macros.preform_cc_column_delete_from_map(num_table_lt_map, conn=self.conn)
 
     @property
     def direct_custom_tables(self):
@@ -249,9 +268,9 @@ class CustomColumnsDriverWrapperMixin(object):
         label=None,
         editable=True,
         display=None,
-        make_category=None,
         in_table="books",
         table=None,
+        make_category=None,
     ):
         """
         Add a custom column to the books table.
@@ -286,10 +305,10 @@ class CustomColumnsDriverWrapperMixin(object):
         if display is None:
             display = {}
 
-        # Calibre compatibility: store make_category in the JSON 'display' blob.
-        # In upstream Calibre this primarily controls whether *composite* columns
-        # show up as Tag Browser categories.
-        if make_category is not None:
+        # calibre: composite columns can optionally be shown in the (misnamed) "Tag Browser".
+        # It is controlled by display['make_category'] rather than is_category.
+        if make_category is not None and datatype == "composite":
+            display = dict(display)
             display["make_category"] = bool(make_category)
 
         # Update the custom columns table with the new entry - once this has been done it will, at a minimum, be created
@@ -511,6 +530,17 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         else:
             self.conn = conn
 
+        # Connection aliasing/teardown can occur during fixture provisioning and
+        # certain driver wrapper operations. If the provided connection is closed,
+        # reopen a fresh one from the driver.
+        try:
+            self.conn.execute("SELECT 1")
+        except Exception:
+            try:
+                self.conn = self.db.driver.get_connection()
+            except Exception:
+                self.conn = self.db.driver.conn
+
         if field_metadata is None:
             self.field_metadata = FieldMetadata()
         else:
@@ -723,10 +753,13 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         # Create Tag Browser categories for custom columns
         for k in sorted(iterkeys(self.custom_column_label_map)):
             v = self.custom_column_label_map[k]
-            if v["normalized"]:
-                is_category = True
-            else:
-                is_category = False
+            # "Tag Browser" in calibre is a misnomer: it's a browser of *categories* (facets).
+            # Those categories are (currently) facets over the books table.
+            in_table = v.get("in_table") or "books"
+
+            # Calibre behaviour: non-composite normalized columns appear as categories.
+            # LiuXin rule: only those attached to books are categories in the calibre-style browser.
+            is_category = bool(v.get("normalized") and in_table == "books" and v.get("datatype") != "composite")
             is_m = v["multiple_seps"]
             tn = "custom_column_{0}".format(v["num"])
             self.field_metadata.add_custom_field(
@@ -741,6 +774,7 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
                 is_category=is_category,
                 is_editable=v["editable"],
                 is_csp=False,
+                in_table=in_table,
             )
 
         # This class was originally embedded into the Library2 class - it's been spun off to allow easier testing
@@ -811,7 +845,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
                 seps = {}
             data["multiple_seps"] = seps
 
-            table, lt = self.custom_table_names(data["num"])
+            in_table = data.get("in_table") or "books"
+            table, lt = self.custom_table_names(data["num"], in_table=in_table)
             # If a table is not normalized, we only need to check that it exists
             # If a table is normalized both it and it's link table need to be checked to exist
             if table not in custom_tables or (data["normalized"] and lt not in custom_tables):
@@ -890,7 +925,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         if data["datatype"] not in ["series"]:
             return None
 
-        ign, lt = self.custom_table_names(data["num"])
+        in_table = data.get("in_table") or "books"
+        ign, lt = self.custom_table_names(data["num"], in_table=in_table)
         idx = idx if index_is_id else self.id(idx)
 
         return self.direct_get_custom_extra(lt, idx)
@@ -925,7 +961,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         if data["datatype"] != "series":
             return ans, None
 
-        ign, lt = self.custom_table_names(data["num"])
+        in_table = data.get("in_table") or "books"
+        ign, lt = self.custom_table_names(data["num"], in_table=in_table)
         extra = self.direct_get_custom_extra(lt, idx)
         return ans, extra
 
@@ -949,7 +986,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         else:
             raise NotImplementedError("There is no information here to designate the custom column")
 
-        table, lt = self.custom_table_names(data["num"])
+        in_table = data.get("in_table") or "books"
+        table, lt = self.custom_table_names(data["num"], in_table=in_table)
         if not data["normalized"]:
             return []
         return self.direct_get_custom_id_val_pairs(table)
@@ -970,7 +1008,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         else:
             raise NotImplementedError("There is no information here to designate the custom column")
 
-        table, lt = self.custom_table_names(data["num"])
+        in_table = data.get("in_table") or "books"
+        table, lt = self.custom_table_names(data["num"], in_table=in_table)
 
         # Check to see if the item for rename is known to the database
         try:
@@ -1057,7 +1096,9 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
             else:
                 raise NotImplementedError("There is no information here to designate the custom column")
 
-            table, lt = self.custom_table_names(data["num"])
+            # Link table naming depends on the table the custom column is attached to.
+            in_table = data.get("in_table") or "books"
+            table, lt = self.custom_table_names(data["num"], in_table=in_table)
 
             # Note the change with books_referencing - which allows the books to be updated with the new information
             book_ids = self.custom_dirty_books_referencing("#" + data["label"], idx, commit=False)
@@ -1106,7 +1147,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
             idx = -1
         books_affected = []
         if idx > -1:
-            table, lt = self.custom_table_names(data["num"])
+            in_table = data.get("in_table") or "books"
+            table, lt = self.custom_table_names(data["num"], in_table=in_table)
             id_ = self.db.macros.get_cc_id_from_value(table, existing_tags[idx], all=False, conn=self.conn)
             if id_:
                 books = self.db.macros.get_cc_lt_books_from_lt_value(lt, value=id_, conn=self.conn)
@@ -1137,7 +1179,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
 
         if data["datatype"] != "series":
             return None
-        table, lt = self.custom_table_names(data["num"])
+        in_table = data.get("in_table") or "books"
+        table, lt = self.custom_table_names(data["num"], in_table=in_table)
         # get the id of the row containing the series string
         series_id = self.db.macros.get_cc_id_from_value(table, series, all=False, conn=self.conn)
 
@@ -1171,7 +1214,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         else:
             raise NotImplementedError("There is no information here to designate the custom column")
 
-        table, lt = self.custom_table_names(data["num"])
+        in_table = data.get("in_table") or "books"
+        table, lt = self.custom_table_names(data["num"], in_table=in_table)
         # If the data is already normalized it should already be distinct
         if data["normalized"]:
             ans = self.db.macros.get_all_cc_custom_values(cc_table=table, distinct=False, conn=self.conn)
@@ -1259,7 +1303,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         if not ids or (not add and not remove):
             return
         # get custom table names
-        custom_table, link_table = self.custom_table_names(data["num"])
+        in_table = data.get("in_table") or "books"
+        custom_table, link_table = self.custom_table_names(data["num"], in_table=in_table)
 
         # Add tags that do not already exist into the custom_table
         all_tags = self.all_custom(num=data["num"])
@@ -1417,7 +1462,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
             raise ValueError("Column %r is not editable" % data["label"])
 
         # Get the name of the link table and the custom column table to operate on
-        table, lt = self.custom_table_names(data["num"])
+        in_table = data.get("in_table") or "books"
+        table, lt = self.custom_table_names(data["num"], in_table=in_table)
 
         # This method will be used to retrieve the values for the given ids - which will be used as part of the updated
         # process
@@ -1604,7 +1650,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         # Todo: Possibly rename meta2 to something concerting books and titles view?
         for data in self.custom_column_label_map.values():
 
-            table, lt = self.custom_table_names(data["num"])
+            in_table = data.get("in_table") or "books"
+            table, lt = self.custom_table_names(data["num"], in_table=in_table)
             table_col = plural_singular_mapper(table)
             lt_col = plural_singular_mapper(lt)
 
@@ -1707,9 +1754,9 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         is_multiple,
         editable=True,
         display=None,
-        make_category=None,
         in_table="books",
         table=None,
+        make_category=None,
     ):
         """
         Add a custom column to the books table.
@@ -1736,8 +1783,8 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
             is_multiple=is_multiple,
             editable=editable,
             display=display,
-            make_category=make_category,
             in_table=in_table,
+            make_category=make_category,
         )
 
         try:

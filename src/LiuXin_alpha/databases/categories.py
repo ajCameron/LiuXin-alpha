@@ -102,9 +102,21 @@ class Tag(object):
 
 def find_categories(field_metadata):
     for category, cat in field_metadata.iteritems():
+        # Calibre calls the UI a "Tag Browser" but it is actually a *category* browser.
+        # In LiuXin we keep compatibility, but apply one important rule:
+        #   - categories are facets over *books* (for now), so fields attached to non-books tables
+        #     must not appear as tag-browser categories.
+        #
+        # Standard categories/fields (non user/search)
         if cat["is_category"] and cat["kind"] not in {"user", "search"}:
+            if cat.get("kind") == "field" and cat.get("in_table", "books") != "books":
+                continue
             yield (category, cat["is_multiple"].get("cache_to_list", None), False)
+
+        # Composite columns use display.make_category instead of is_category
         elif cat["datatype"] == "composite" and cat["display"].get("make_category", False):
+            if cat.get("in_table", "books") != "books":
+                continue
             yield (category, cat["is_multiple"].get("cache_to_list", None), True)
 
 

@@ -662,20 +662,40 @@ class CalibreCache(BaseCalibreCache):
 
         self._setup_custom_data_adaptors()
 
-        # # Create Tag Browser categories for custom columns
-        # for k in sorted(iterkeys(self.backend.custom_column_label_map)):
-        #     v = self.backend.custom_column_label_map[k]
-        #     if v['normalized']:
-        #         is_category = True
-        #     else:
-        #         is_category = False
-        #     is_m = v['multiple_seps']
-        #     tn = 'custom_column_{0}'.format(v['num'])
-        #     self.field_metadata.add_custom_field(label=v['label'], table=tn, column='value', datatype=v['datatype'],
-        #                                          colnum=v['num'], name=v['name'], display=v['display'],
-        #                                          is_multiple=is_m, is_category=is_category,
-        #                                          is_editable=v['editable'],
-        #                                          is_csp=False)
+        # Register custom fields into FieldMetadata.
+        # calibre historically did this during library init; LiuXin must ensure the metadata exists
+        # even if CustomColumns isn't explicitly instantiated by the caller.
+        for k in sorted(iterkeys(self.backend.custom_column_label_map)):
+            v = self.backend.custom_column_label_map[k]
+
+            # FieldMetadata stores custom fields keyed as "#<label>"
+            fm_key = self.field_metadata.custom_field_prefix + v["label"]
+            if fm_key in self.field_metadata:
+                continue
+
+            in_table = v.get("in_table") or "books"
+            is_m = v.get("multiple_seps") or {}
+            tn = "custom_column_{0}".format(v["num"])
+
+            # Tag-browser categories are facets over *books*.
+            # - For normalized non-composite custom fields: appear as categories.
+            # - For composite: calibre uses display.make_category instead (handled in categories.find_categories).
+            is_category = bool(v.get("normalized") and in_table == "books" and v.get("datatype") != "composite")
+
+            self.field_metadata.add_custom_field(
+                label=v["label"],
+                table=tn,
+                column="value",
+                datatype=v["datatype"],
+                colnum=v["num"],
+                name=v["name"],
+                display=v["display"],
+                is_multiple=is_m,
+                is_category=is_category,
+                is_editable=v["editable"],
+                is_csp=False,
+                in_table=in_table,
+            )
 
     def _setup_custom_data_adaptors(self) -> None:
         """
