@@ -249,6 +249,7 @@ class CustomColumnsDriverWrapperMixin(object):
         label=None,
         editable=True,
         display=None,
+        make_category=None,
         in_table="books",
         table=None,
     ):
@@ -284,6 +285,12 @@ class CustomColumnsDriverWrapperMixin(object):
 
         if display is None:
             display = {}
+
+        # Calibre compatibility: store make_category in the JSON 'display' blob.
+        # In upstream Calibre this primarily controls whether *composite* columns
+        # show up as Tag Browser categories.
+        if make_category is not None:
+            display["make_category"] = bool(make_category)
 
         # Update the custom columns table with the new entry - once this has been done it will, at a minimum, be created
         # at the next startup
@@ -1700,6 +1707,7 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         is_multiple,
         editable=True,
         display=None,
+        make_category=None,
         in_table="books",
         table=None,
     ):
@@ -1728,6 +1736,7 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
             is_multiple=is_multiple,
             editable=editable,
             display=display,
+            make_category=make_category,
             in_table=in_table,
         )
 
