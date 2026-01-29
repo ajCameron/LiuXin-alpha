@@ -239,7 +239,9 @@ class DB(Database):
         # assert hasattr(self, "maintainer"), "DB object has no attribute maintainer"
 
         # Setup the custom_columns plugin - trying to isolate everything in one place
-        self.custom_columns = CustomColumns(db=self.db, conn=None, field_metadata=self.field_metadata)
+        # CustomColumns resolves its live connection from the driver via a property; avoid passing a connection
+        # reference (which can become stale if the driver rotates/aliases connections).
+        self.custom_columns = CustomColumns(db=self.db, field_metadata=self.field_metadata)
 
         # Additional utility methods
         self.add = Add(database=self)

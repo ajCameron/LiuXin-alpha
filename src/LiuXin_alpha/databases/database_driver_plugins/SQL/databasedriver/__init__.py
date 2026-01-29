@@ -131,21 +131,39 @@ class SQLBaseDriver:
         """
         self._close_all_open_connections()
 
-    def refresh(self):
-        """
-        Refreshes the database - zeros all cached objects and connects again.
+    def refresh(self, reconnect: bool = False):
+        """Invalidate cached driver state.
 
-        Important: close any existing connection before replacing it to avoid leaking file handles.
+        Historically, refresh() would close and reopen the driver's primary connection. That behaviour makes
+        long-lived helper objects fragile (they can hold a reference to a connection that gets closed behind their
+        back) and it breaks SQLite TEMP objects (e.g. temp triggers) which are scoped to a single connection.
 
-        :return:
+        The driver already has a deterministic close()/reopen() path for tests and Windows file-lock concerns.
+        For day-to-day cache invalidation, we keep the primary connection alive unless it is missing/broken or
+        a reconnect is explicitly requested.
+
+        :param reconnect: If True, force closing and reopening the primary connection.
         """
-        old = getattr(self, 'conn', None)
-        if old is not None:
+        conn = getattr(self, "conn", None)
+
+        # Ensure we have a usable connection.
+        needs_reconnect = reconnect or conn is None
+        if not needs_reconnect and conn is not None:
             try:
-                old.close()
+                # Fast liveness probe; sqlite3 raises ProgrammingError on closed connections.
+                conn.execute("SELECT 1")
             except Exception:
-                pass
-        self.conn = self.get_connection()
+                needs_reconnect = True
+
+        if needs_reconnect:
+            old = getattr(self, "conn", None)
+            if old is not None:
+                try:
+                    old.close()
+                except Exception:
+                    pass
+            self.conn = self.get_connection()
+
         self._zero_prop_cache()
 
 

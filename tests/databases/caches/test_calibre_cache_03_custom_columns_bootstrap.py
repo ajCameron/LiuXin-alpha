@@ -170,7 +170,8 @@ def _refresh_backend_custom_columns(db: Database) -> None:
     """
     Ensure db.custom_columns exists and has populated FieldMetadata entries for custom fields.
     """
-    db.custom_columns = CustomColumns(db=db, conn=db.driver.conn, field_metadata=db.field_metadata)
+    # Do not pass a connection object; CustomColumns resolves a live one from db.driver.conn.
+    db.custom_columns = CustomColumns(db=db, field_metadata=db.field_metadata)
 
 
 def _create_custom_column(
@@ -187,7 +188,8 @@ def _create_custom_column(
     then refresh db metadata so CalibreCache.initialize_custom_columns can see those tables.
     """
     # Use a short-lived CustomColumns instance for creation; it doesn't auto-refresh FieldMetadata afterwards.
-    cc = CustomColumns(db=db, conn=db.driver.conn, field_metadata=db.field_metadata)
+    # Do not pass a connection object; CustomColumns resolves a live one from db.driver.conn.
+    cc = CustomColumns(db=db, field_metadata=db.field_metadata)
 
     num = cc.create_custom_column(
         label=label,

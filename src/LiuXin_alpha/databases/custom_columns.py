@@ -127,7 +127,7 @@ class CustomColumnsDriverWrapperMixin(object):
 
             # Worker objects
             self.db = db
-            self.conn = None
+            self._conn_override = None  # prefer using the live driver connection via @property conn
 
             # Don't assign to self.macros directly: subclasses (e.g. DriverWrapper) may expose
             # macros as a read-only @property (no setter). Also avoid clobbering an already-set
@@ -147,6 +147,54 @@ class CustomColumnsDriverWrapperMixin(object):
             # Todo: Might want to rename this to custom_column_tables
             # Stores properties of the database
             self.custom_tables = set()
+
+    @property
+    def conn(self):
+        """Return a live connection for this DB.
+
+        Connection objects in LiuXin can be rotated/aliased during driver refresh or fixture provisioning.
+        To avoid holding stale/closed connections, prefer resolving the connection from the owning driver.
+        An explicit override can be supplied via the setter, but will be validated lazily and discarded if unusable.
+        """
+        override = getattr(self, "_conn_override", None)
+        if override is not None:
+            # If the override is stale/closed, drop it and fall back to the live driver connection.
+            try:
+                exec_fn = getattr(override, "execute", None)
+                if callable(exec_fn):
+                    exec_fn("SELECT 1")
+                return override
+            except Exception:
+                try:
+                    self._conn_override = None
+                except Exception:
+                    pass
+
+        # Prefer db.driver.conn when available
+        db = getattr(self, "db", None)
+        if db is not None:
+            drv = getattr(db, "driver", None)
+            if drv is not None:
+                try:
+                    return drv.conn
+                except Exception:
+                    pass
+
+        # Fallback for DriverWrapper, which may not have db set yet
+        drv = getattr(self, "driver", None)
+        if drv is not None:
+            try:
+                return drv.conn
+            except Exception:
+                pass
+
+        return override
+
+    @conn.setter
+    def conn(self, value):
+        # Backwards-compat: allow code to assign self.conn = <connection>.
+        # Prefer leaving this unset so the property resolves a fresh connection from the driver.
+        self._conn_override = value
 
 
     # ----------------------------------------------------------------------------------------------------------------------
@@ -525,21 +573,12 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         self.embed = embed
 
         self.db = db
-        if conn is None:
-            self.conn = self.db.driver.conn
-        else:
-            self.conn = conn
 
-        # Connection aliasing/teardown can occur during fixture provisioning and
-        # certain driver wrapper operations. If the provided connection is closed,
-        # reopen a fresh one from the driver.
-        try:
-            self.conn.execute("SELECT 1")
-        except Exception:
-            try:
-                self.conn = self.db.driver.get_connection()
-            except Exception:
-                self.conn = self.db.driver.conn
+        # Prefer using the driver's live connection (see CustomColumnsDriverWrapperMixin.conn).
+        # Accepting an explicit `conn` is kept for compatibility, but we avoid retaining a stale
+        # reference when the driver rotates/aliases connections.
+        if conn is not None:
+            self.conn = conn
 
         if field_metadata is None:
             self.field_metadata = FieldMetadata()

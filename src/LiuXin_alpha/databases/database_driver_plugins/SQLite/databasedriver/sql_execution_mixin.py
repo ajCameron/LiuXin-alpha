@@ -58,8 +58,15 @@ class SQLExecutionMixin:
     # Todo: Add zero methods for all the data caches after any of these are used
     # Ideally these would never be used. They are here for testing,
     def direct_execute(self, sql, values=None):
-        """
-        Execute SQL directly on the database.
+        """Execute SQL directly on the database.
+
+        Historically this method opened a fresh connection for every call and then called driver.refresh(), which
+        (also historically) closed and replaced the driver's primary connection. That combination made it easy for
+        long-lived helper objects to hold stale/closed connection references.
+
+        We now prefer executing against the driver's primary connection. This avoids leaking connection handles,
+        preserves SQLite TEMP objects on that connection, and keeps helper classes (like CustomColumns/CalibreCache)
+        from being surprised by connection replacement.
 
         :param sql: SQL code to execute on the database
         :param values: The values to execute with the code.
@@ -67,17 +74,29 @@ class SQLExecutionMixin:
         if isinstance(values, int):
             values = (force_unicode(values),)
 
-        conn = self.get_connection()
+        # Ensure we have a usable primary connection.
+        conn = getattr(self, "conn", None)
+        if conn is None:
+            conn = self.get_connection()
+            self.conn = conn
+        else:
+            try:
+                conn.execute("SELECT 1")
+            except Exception:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                conn = self.get_connection()
+                self.conn = conn
+
         try:
-            with conn as c:
+            with conn:
                 if values is not None:
-                    query_results = c.execute(sql, values)
-                    c.commit()
-                    return query_results
+                    query_results = conn.execute(sql, values)
                 else:
-                    query_results = c.execute(sql)
-                    c.commit()
-                    return query_results
+                    query_results = conn.execute(sql)
+            return query_results
         except sqlite3.OperationalError as e:
             err_str = "Attempting to execute that SQL caused an operational error."
             err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
@@ -91,9 +110,11 @@ class SQLExecutionMixin:
             err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
             raise DatabaseDriverError(err_str)
         finally:
-            conn.commit()
-            self.conn.commit()
-            self.refresh()
+            # Invalidate any driver-side caches without forcibly replacing the primary connection.
+            try:
+                self.refresh()
+            except Exception:
+                pass
 
     def execute_sql(self, sql, values=None):
         """
@@ -127,28 +148,34 @@ class SQLExecutionMixin:
                     new_values.append(update_val)
             values = tuple(new_values)
 
-        # Todo: Theoretically possibly to fool the database into doing manifestly stupid shit here by feeding in the
-        conn = self.get_connection()
+        # Todo: Theoretically possible to fool the database into doing manifestly stupid stuff here by feeding in the
+        conn = getattr(self, "conn", None)
+        if conn is None:
+            conn = self.get_connection()
+            self.conn = conn
+
         try:
-            with conn as c:
+            with conn:
                 if values is not None:
                     try:
-                        c.executemany(sql, values)
+                        conn.executemany(sql, values)
                     except ValueError:
-
                         try:
-                            c.executemany(sql, tuple(values))
+                            conn.executemany(sql, tuple(values))
                         except ValueError:
                             values = tuple([(v,) for v in values])
-                            c.executemany(sql, values)
+                            conn.executemany(sql, values)
                 else:
-                    c.executemany(sql, ())
+                    conn.executemany(sql, ())
         except Exception as e:
             err_str = "direct_executemany has failed"
             err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
             raise DatabaseDriverError(err_str)
 
-        conn.commit()
+        try:
+            self.refresh()
+        except Exception:
+            pass
 
 
     def direct_executescript(self, sqlscript):
@@ -156,15 +183,20 @@ class SQLExecutionMixin:
         Execute a script on the database
         :param sqlscript: A series of statements to execute. Seperated by ;
         """
-        conn = self.get_connection()
+        conn = getattr(self, "conn", None)
+        if conn is None:
+            conn = self.get_connection()
+            self.conn = conn
+
         try:
-            with conn as c:
-                c.executescript(sqlscript)
-                c.commit()
+            with conn:
+                conn.executescript(sqlscript)
         except Exception as e:
             err_str = "Executing a script has failed"
             err_str = default_log.log_exception(err_str, e, "ERROR", ("sql_script", sqlscript))
             raise DatabaseDriverError(err_str)
         finally:
-            conn.commit()
-            self.refresh()
+            try:
+                self.refresh()
+            except Exception:
+                pass
