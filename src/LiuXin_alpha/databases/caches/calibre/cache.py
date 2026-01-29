@@ -30,6 +30,7 @@ from LiuXin_alpha.utils.text import isbytestring, as_unicode
 
 from LiuXin_alpha.utils.which_os import iswindows
 from LiuXin_alpha.constants import preferred_encoding
+from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
 try:
     from LiuXin.customize.ui import run_plugins_on_import
@@ -434,7 +435,7 @@ class CalibreCache(BaseCalibreCache):
             data = self.backend.custom_column_label_map[label_]
             label = self.field_metadata.custom_field_prefix + label_
             metadata = self.field_metadata[label].copy()
-            link_table = self.backend.custom_columns.custom_table_names(data["num"])[1]
+            link_table = self.backend.custom_columns.custom_table_names(data["num"], in_table=data.get("in_table", "books"))[1]
 
             # Assign the field the next free slot in the FIELD_MAP
             self.FIELD_MAP[data["num"]] = base = base + 1
@@ -503,10 +504,11 @@ class CalibreCache(BaseCalibreCache):
         # Delete custom columns previously marked for deletion
         with self.backend.conn:
             for record in self.backend.driver_wrapper.execute(
-                "SELECT custom_column_id " "FROM custom_columns " "WHERE custom_column_mark_for_delete=1;"
+                "SELECT custom_column_id, custom_column_in_table FROM custom_columns WHERE custom_column_mark_for_delete=1;"
             ):
                 num = record[0]
-                table, lt = self.backend.custom_table_names(num)
+                in_table = record[1] if len(record) > 1 and record[1] is not None else "books"
+                table, lt = self.backend.custom_table_names(num, in_table=in_table)
                 stmt = """\
                         DROP INDEX   IF EXISTS {table}_idx;
                         DROP INDEX   IF EXISTS {lt}_aidx;
@@ -534,7 +536,7 @@ class CalibreCache(BaseCalibreCache):
             {},
         )
         self.backend.custom_column_num_to_label_map = {}
-        triggers = []
+        triggers_by_table = {}
         remove = []
 
         # Todo: Not being able to guarentee that int results returned from the database are being converted properly is a real problem
@@ -551,6 +553,7 @@ class CalibreCache(BaseCalibreCache):
                     "name": record[cc + "name"],
                     "normalized": smart_bool(int(record[cc + "normalized"])),
                     "num": int(record[cc + "id"]),
+                    "in_table": record.get(cc + "in_table", "books") if hasattr(record, "get") else record[cc + "in_table"],
                 }
             except Exception as e:
                 err_str = "Parsing the record into a dict failed - deleting the record and continuing"
@@ -578,7 +581,7 @@ class CalibreCache(BaseCalibreCache):
                 seps = {}
             data["multiple_seps"] = seps
 
-            table, lt = self.backend.driver_wrapper.custom_table_names(data["num"])
+            table, lt = self.backend.driver_wrapper.custom_table_names(data["num"], in_table=data.get("in_table", "books"))
 
             # If the data is not normalized just look for the custom column table - if the data is normalized then look
             # for the table and the link table connecting it to the books table.
@@ -604,12 +607,22 @@ class CalibreCache(BaseCalibreCache):
             self.backend.custom_column_num_map[data["num"]] = self.backend.custom_column_label_map[data["label"]] = data
             self.backend.custom_column_num_to_label_map[data["num"]] = data["label"]
 
-            # Create Foreign Key triggers
+            # Create delete tidy-up triggers for the table this custom column is attached to
+            in_table = data.get("in_table", "books") or "books"
+            in_table_id_col = self.backend.driver_wrapper.get_id_column(in_table)
+
             if data["normalized"]:
-                trigger = "DELETE FROM %s WHERE book=OLD.id;" % lt
+                lt_col = plural_singular_mapper(lt)
+                trigger = "DELETE FROM {lt} WHERE {lt_col}_book=OLD.{id_col};".format(
+                    lt=lt, lt_col=lt_col, id_col=in_table_id_col
+                )
             else:
-                trigger = "DELETE FROM %s WHERE book=OLD.id;" % table
-            triggers.append(trigger)
+                table_col = plural_singular_mapper(table)
+                trigger = "DELETE FROM {table} WHERE {table_col}_book=OLD.{id_col};".format(
+                    table=table, table_col=table_col, id_col=in_table_id_col
+                )
+
+            triggers_by_table.setdefault(in_table, []).append(trigger)
 
         if remove:
             with self.backend.conn:
@@ -620,18 +633,32 @@ class CalibreCache(BaseCalibreCache):
                         (data["num"],),
                     )
 
-        if triggers:
+        if triggers_by_table:
             with self.backend.conn:
-                self.backend.driver_wrapper.execute(
-                    """\
-                    CREATE TEMP TRIGGER custom_books_delete_trg
-                        AFTER DELETE ON books
+                for in_table, triggers in triggers_by_table.items():
+                    # Preserve legacy trigger name for books
+                    safe_tbl = re.sub(r"\W+", "_", unicode(in_table))
+                    trg_name = "custom_books_delete_trg" if in_table == "books" else "custom_{0}_delete_trg".format(safe_tbl)
+
+                    # Avoid name collisions if init is called more than once on the same connection
+                    try:
+                        self.backend.driver_wrapper.execute("DROP TRIGGER IF EXISTS {0}".format(trg_name))
+                    except Exception:
+                        pass
+
+                    self.backend.driver_wrapper.execute(
+                        """\
+                    CREATE TEMP TRIGGER {trg_name}
+                        AFTER DELETE ON {in_table}
                         BEGIN
-                        %s
+                        {body}
                     END;
-                    """
-                    % (" \n".join(triggers))
-                )
+                    """.format(
+                            trg_name=trg_name,
+                            in_table=in_table,
+                            body=(" \n".join(triggers)),
+                        )
+                    )
 
         self._setup_custom_data_adaptors()
 

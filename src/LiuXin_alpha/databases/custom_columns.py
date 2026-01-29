@@ -250,6 +250,7 @@ class CustomColumnsDriverWrapperMixin(object):
         editable=True,
         display=None,
         in_table="books",
+        table=None,
     ):
         """
         Add a custom column to the books table.
@@ -265,6 +266,12 @@ class CustomColumnsDriverWrapperMixin(object):
         :return:
         """
         # Todo: Somewhere there are allowed cc datatypes - preform a check that we're being given one of them
+
+        # Support newer/clearer keyword alias: `table=` (same as `in_table=`)
+        if table is not None:
+            if in_table != "books" and in_table != table:
+                raise TypeError("Pass only one of table= or in_table= (or keep them identical).")
+            in_table = table
 
         assert in_table in self.db.main_tables.union(self.db.interlink_tables).union(
             self.db.intralink_tables
@@ -1694,6 +1701,7 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         editable=True,
         display=None,
         in_table="books",
+        table=None,
     ):
         """
         Add a custom column to the books table.
@@ -1707,6 +1715,12 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         :param in_table: Which table should the custom column be created in? (Defaults to books for historical reasons)
         :return:
         """
+        # Support newer/clearer keyword alias: `table=` (same as `in_table=`)
+        if table is not None:
+            if in_table != "books" and in_table != table:
+                raise TypeError("Pass only one of table= or in_table= (or keep them identical).")
+            in_table = table
+
         num = super(CustomColumns, self).create_custom_column(
             label=label,
             name=name,
