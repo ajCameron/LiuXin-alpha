@@ -44,3 +44,28 @@ will later be used for the operations relying on those triggers.
 
 If you *must* create TEMP objects, ensure you create them on `db.driver.conn` (or whatever connection you will later use
 to execute the dependent statements), and avoid “one-off” connections in the execution path.
+
+### TEMP triggers are *derived state* 
+
+When we use TEMP triggers (for example, the custom-column delete trigger used to clean up link tables), treat them as
+**derived state** that is regenerated from metadata.
+
+That has two important consequences:
+
+1. **Never make these triggers permanent** (do not create them in `sqlite_master`). Permanent triggers are hard to
+   reason about, are easy to forget to update during migrations, and can surprise external tools that open the DB.
+2. **Make TEMP trigger creation idempotent by drop/recreate**, not `IF NOT EXISTS`.
+
+Why not `CREATE TRIGGER IF NOT EXISTS`?
+
+Because the trigger body depends on the current set of custom columns (and their link-table names). When you add/remove
+custom columns you must regenerate the trigger definition; `IF NOT EXISTS` would silently keep the stale body and leak
+rows in newly created link tables.
+
+Recommended pattern:
+
+- `DROP TRIGGER IF EXISTS temp.custom_<table>_delete_trg;`
+- `CREATE TEMP TRIGGER custom_<table>_delete_trg AFTER DELETE ON <table> ...;`
+
+Also note that TEMP triggers will disappear if the connection is replaced. This is one more reason to treat
+`db.driver.conn` as the stable, owned connection for database helpers.

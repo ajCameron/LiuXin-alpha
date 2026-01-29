@@ -1006,11 +1006,20 @@ class DriverWrapper(DatabaseDriverWrapperAPI, CustomColumnsDriverWrapperMixin):
     def executemany(self, sql, values=None):
         """
         Run an executemany command direct on the database
+
+        IMPORTANT:
+        sqlite3/apsw execute()/executemany() only accept a single statement.
+        In older Calibre-derived code paths, executemany(sql) was sometimes used as
+        a "run this multi-statement DDL block" helper, with values left as None.
+        When values is None, route to executescript() instead.
         :param sql:
         :param values:
         :return:
         """
         try:
+            if values is None:
+                # Multi-statement scripts must go through executescript.
+                return self.driver.direct_executescript(sql)
             return self.driver.direct_executemany(sql, values)
         except ValueError as e:
             err_str = "ValueError while trying to executemany"

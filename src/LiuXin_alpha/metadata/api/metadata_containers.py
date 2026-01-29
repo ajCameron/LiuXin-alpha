@@ -68,6 +68,80 @@ class ManyToManyMetadataContainerAPI(abc.ABC):
     # -------------------------------
 
 
+class ManyToManyTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI):
+    """
+    Contains metadata represented by a many-to-many link with type info.
+    """
+
+    def __init__(self, db: DatabaseAPI, primary_table_row: RowAPI, secondary_table: str) -> None:
+        """
+        Initialize the container and attach it to a database.
+
+        :param primary_table_row:
+        :param secondary_table:
+        """
+        self._db = db
+        self._primary_table_row = primary_table_row
+        self._secondary_table = secondary_table
+
+    @abc.abstractmethod
+    def get_link_types(self) -> frozenset[str]:
+        """
+        Return a frozenset of all possible link types.
+
+        :return:
+        """
+
+    # -------------------------------
+    # - ROW ACCESS METHODS START HERE
+
+    @abc.abstractmethod
+    def get_typed_rows(self) -> dict[str, frozenset[RowAPI]]:
+        """
+        Return a dictionary keyed with the row type and valued with a set of Rows.
+
+        :return:
+        """
+
+    def get_typed_row_ids(self) -> dict[str, frozenset[int]]:
+        """
+        Return a dictionary keyed with the row type and valued with a set of row ids.
+
+        :return:
+        """
+        row_ids_dict = dict()
+        rows_dict = self.get_typed_rows()
+
+        for rt in rows_dict:
+            row_ids_dict[rt] = frozenset([_.id for _ in rows_dict[rt]])
+
+        return row_ids_dict
+
+    @abc.abstractmethod
+    def rows_for_type(self, target_type: str) -> list[RowAPI]:
+        """
+        Return all the rows for a given type.
+
+        :param target_type:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def row_ids_for_type(self, target_type: str) -> list[RowAPI]:
+        """
+        Return all the rows for a given type.
+
+        :param target_type:
+        :return:
+        """
+        return [_.id for _ in self.rows_for_type(target_type)]
+
+    #
+    # -------------------------------
+
+
+
+
 
 
 class ManyToManyPriorityTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI):

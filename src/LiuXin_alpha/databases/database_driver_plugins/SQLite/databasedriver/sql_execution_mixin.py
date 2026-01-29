@@ -22,6 +22,15 @@ class SQLExecutionMixin:
         :param script: This will be executed directly on the database.
         :return:
         """
+        # Defensive: legacy code sometimes used raw triple-quoted strings beginning with "\\\n"
+        # (intended to suppress the first newline). In raw strings that backslash becomes literal,
+        # and SQLite fails with "unrecognized token: \\".
+        if isinstance(script, str):
+            if script.startswith("\\\r\n"):
+                script = script[3:]
+            elif script.startswith("\\\n"):
+                script = script[2:]
+
         conn = self.get_connection()
         conn.executescript(script)
         conn.close()
@@ -33,6 +42,13 @@ class SQLExecutionMixin:
         :param parameters:
         :return:
         """
+        # Defensive: tolerate legacy raw triple-quoted strings beginning with "\\\n".
+        if isinstance(sql, str):
+            if sql.startswith("\\\r\n"):
+                sql = sql[3:]
+            elif sql.startswith("\\\n"):
+                sql = sql[2:]
+
         conn = self.get_connection()
         last_row_id = conn.execute(sql, parameters).lastrowid
         conn.commit()
@@ -73,6 +89,15 @@ class SQLExecutionMixin:
         """
         if isinstance(values, int):
             values = (force_unicode(values),)
+
+        # Defensive: some legacy code used raw triple-quoted strings beginning with "\\\n"
+        # (intended to suppress the first newline). In raw strings that backslash becomes literal,
+        # and SQLite fails with "unrecognized token: \\".
+        if isinstance(sql, str):
+            if sql.startswith("\\\r\n"):
+                sql = sql[3:]
+            elif sql.startswith("\\\n"):
+                sql = sql[2:]
 
         # Ensure we have a usable primary connection.
         conn = getattr(self, "conn", None)
@@ -138,6 +163,19 @@ class SQLExecutionMixin:
         :param values:
         :return:
         """
+        # Defensive normalization for the same leading "\\\n" raw-string trap as direct_execute().
+        if isinstance(sql, str):
+            if sql.startswith("\\\r\n"):
+                sql = sql[3:]
+            elif sql.startswith("\\\n"):
+                sql = sql[2:]
+
+        # sqlite3 can only run one statement per execute()/executemany() call.
+        # If no bindings are supplied, treat this as a multi-statement script.
+        # (Used by custom-column cleanup: DROP INDEX; DROP TABLE; ...).
+        if values is None:
+            return self.direct_executescript(sql)
+
         # Preflight the values to try and transform them into something that'll behave as expected
         if isinstance(values, tuple):
             new_values = list()
@@ -183,6 +221,13 @@ class SQLExecutionMixin:
         Execute a script on the database
         :param sqlscript: A series of statements to execute. Seperated by ;
         """
+        # Defensive normalization for the same leading "\\\n" raw-string trap as direct_execute().
+        if isinstance(sqlscript, str):
+            if sqlscript.startswith("\\\r\n"):
+                sqlscript = sqlscript[3:]
+            elif sqlscript.startswith("\\\n"):
+                sqlscript = sqlscript[2:]
+
         conn = getattr(self, "conn", None)
         if conn is None:
             conn = self.get_connection()

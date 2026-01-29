@@ -9,6 +9,7 @@ This might, on balance, be more trouble that it's worth. But it's also an expect
 import datetime
 import json
 import re
+import textwrap
 from functools import partial
 
 
@@ -573,6 +574,7 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         self.embed = embed
 
         self.db = db
+        self.table = table
 
         # Prefer using the driver's live connection (see CustomColumnsDriverWrapperMixin.conn).
         # Accepting an explicit `conn` is kept for compatibility, but we avoid retaining a stale
@@ -643,22 +645,25 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
                     self.db.macros.do_custom_column_delete_by_num(data["num"])
 
         if triggers:
-            # Todo: This will almost certainly not actually work as intended - as it's assuming that the custom columns
-            #       are only in books
+            # TEMP triggers are per-connection. When custom columns change (or when this class is reinstantiated),
+            # we must rebuild the trigger definition to include the latest link tables.
+            trigger_name = f"custom_{self.table}_delete_trg"
 
             with self.conn:
-                self.db.driver_wrapper.execute(
-                    """\
-                    CREATE TEMP TRIGGER custom_books_delete_trg
-                        AFTER DELETE ON books
-                        BEGIN
-                        %s
-                        END;
+                # Drop/recreate so updates are applied and repeated initialization is idempotent.
+                self.db.driver_wrapper.execute(f"DROP TRIGGER IF EXISTS {trigger_name}")
+                self.db.driver_wrapper.execute(textwrap.dedent(
                     """
-                    % (" \n".join(triggers))
+                    CREATE TEMP TRIGGER {trigger_name}
+                        AFTER DELETE ON {table}
+                        BEGIN
+                        {body}
+                        END;
+                    """.format(trigger_name=trigger_name, table=self.table, body=(" \n".join(triggers))))
                 )
 
-        # Setup data adapters
+        
+# Setup data adapters
         def adapt_text(x, d):
             if d["is_multiple"]:
                 if x is None:
@@ -901,14 +906,24 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
                 remove.append(data)
                 continue
 
+            # Only load custom columns for the table this instance represents.
+            # (Custom columns may exist on other tables, but this CustomColumns object is per-table.)
+            if in_table != self.table:
+                continue
+
             self.custom_column_label_map[data["label"]] = data["num"]
             self.custom_column_num_map[data["num"]] = self.custom_column_label_map[data["label"]] = data
 
-            # Create Foreign Key triggers
-            if data["normalized"]:
-                trigger = self.db.macros.get_foreign_key_replacement_trigger(target_table=lt)
-            else:
-                trigger = self.db.macros.get_foreign_key_replacement_trigger(target_table=table)
+            # Create Foreign Key replacement triggers (used to emulate ON DELETE CASCADE behaviour)
+            # for custom column tables that reference the parent table.
+            search_column = plural_singular_mapper(in_table)
+            target_id = self.db.driver_wrapper.get_id_column(in_table)
+            target_table = lt if data["normalized"] else table
+            trigger = self.db.macros.get_foreign_key_replacement_trigger(
+                target_table=target_table,
+                search_column=search_column,
+                target_id=target_id,
+            )
             triggers.append(trigger)
 
     # Begin Convenience methods for getting and setting custom data - {{{
