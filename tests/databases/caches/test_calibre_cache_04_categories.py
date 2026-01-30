@@ -196,23 +196,66 @@ def _create_custom_column(
     return int(num)
 
 
-def _insert_minimal_book(db: Database, *, title: str = "Ganymede") -> int:
+def _insert_minimal_book(db, title: str = "Ganymede") -> int:
     """
-    Create a books row (which also creates a matching titles row), then set titles.title.
-    Returns the book_id.
+    Insert a minimal book row suitable for CalibreCache initialization + composite templates.
+
+    LiuXin minimal schema:
+        books.book_id == titles.title_id (FK), and meta.title comes from titles.title
+
+    calibre-style schema:
+        books has a title column (books.title)
     """
+    # Create a book row (in LiuXin schema, this also creates the matching titles row).
     book_row = db.driver_wrapper.get_blank_row("books")
     book_id_col = db.driver_wrapper.get_id_column("books")
-    title_id_col = db.driver_wrapper.get_id_column("titles")
     book_id = int(book_row[book_id_col])
 
-    # books.book_id is FK -> titles.title_id, so we can update the titles row by id
-    db.driver_wrapper.execute(
-        "UPDATE titles SET title=? WHERE " + title_id_col + "=?",
-        (title, book_id),
-    )
+    # Introspect columns so we don't emit invalid SQL (avoids noisy log output).
+    driver = getattr(db, "driver", None) or getattr(getattr(db, "driver_wrapper", None), "driver", None)
+    tables_cols = {}
+    if driver is not None and hasattr(driver, "direct_get_tables_and_columns"):
+        tables_cols = driver.direct_get_tables_and_columns()
+
+    books_cols = set(tables_cols.get("books", []))
+    titles_cols = set(tables_cols.get("titles", []))
+
+    # Prefer titles.title when present (LiuXin schema; meta.title sources it).
+    if "title" in titles_cols:
+        title_id_col = db.driver_wrapper.get_id_column("titles")
+        db.driver_wrapper.execute(
+            f"UPDATE titles SET title=? WHERE {title_id_col}=?",
+            (title, book_id),
+        )
+        # Keep sort aligned if present.
+        if "title_sort" in titles_cols:
+            db.driver_wrapper.execute(
+                f"UPDATE titles SET title_sort=? WHERE {title_id_col}=?",
+                (title, book_id),
+            )
+
+    # calibre-style schema
+    elif "title" in books_cols:
+        db.driver_wrapper.execute(
+            f"UPDATE books SET title=? WHERE {book_id_col}=?",
+            (title, book_id),
+        )
 
     return book_id
+
+
+
+def _cat_name(x: Any) -> str:
+    """
+    Category items can be Tag-like objects (with .name) or plain strings.
+    Normalize to a comparable string.
+    """
+    if isinstance(x, str):
+        return x
+    n = getattr(x, "name", None)
+    if n is not None:
+        return str(n)
+    return str(x)
 
 
 # -------------------------------------------------------------------------------------------------
@@ -306,4 +349,4 @@ def test_composite_custom_column_respects_make_category_and_can_generate_categor
     # Composite category should yield at least one value (the title from the template).
     values = cats["#ut_comp_cat"]
     assert isinstance(values, list)
-    assert any(getattr(t, "name", None) == "Ganymede" for t in values)
+    assert any(_cat_name(t) == "Ganymede" for t in values)

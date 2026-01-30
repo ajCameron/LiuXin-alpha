@@ -160,7 +160,7 @@ class InTableMetadataLinkContainerAPI:
 
     @property
     @abc.abstractmethod
-    def link_column_nane(self) -> str:
+    def link_column_name(self) -> str:
         """
         Return the name of the link table between the two tables.
 
