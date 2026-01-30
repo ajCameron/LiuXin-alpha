@@ -628,7 +628,7 @@ class CalibreCompositeField(BaseCompositeField, CalibreField):
         :return:
         """
         ans = formatter.safe_format(
-            self.metadata()["display"]["composite_template"],
+            self.metadata.get("display", {}).get("composite_template", ""),
             mi,
             _("TEMPLATE ERROR"),
             mi,

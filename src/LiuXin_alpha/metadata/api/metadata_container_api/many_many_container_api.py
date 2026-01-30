@@ -1,8 +1,10 @@
 
 import abc
 
-from LiuXin_alpha.databases.api import RowAPI, DatabaseAPI
+from typing import Iterable, Optional, Union
 
+from LiuXin_alpha.databases.api import RowAPI, DatabaseAPI
+# Todo: I thing row_id should be a class. Likewise table.
 
 class ManyToManyMetadataContainerAPI(abc.ABC):
     """
@@ -11,6 +13,17 @@ class ManyToManyMetadataContainerAPI(abc.ABC):
     _db: DatabaseAPI
     _primary_table_row: RowAPI
     _secondary_table: str
+
+    def __init__(self, db: DatabaseAPI, primary_table_row: RowAPI, secondary_table: str) -> None:
+        """
+        Initialize the container and attach it to a database.
+
+        :param primary_table_row:
+        :param secondary_table:
+        """
+        self._db = db
+        self._primary_table_row = primary_table_row
+        self._secondary_table = secondary_table
 
     # ---------------------------------
     # - CONTAINER PROPERTIES START HERE
@@ -66,23 +79,32 @@ class ManyToManyMetadataContainerAPI(abc.ABC):
 
     #
     # -------------------------------
+    # -------------------------------
+    # - ROW UPDATE METHODS START HERE
+
+    @abc.abstractmethod
+    def break_links(self, target_ids: Optional[Iterable[str]], target_types: Optional[Iterable[str]]) -> None:
+        """
+        Break any links between the primary row and secondry table which satisfy certain conditions.
+
+        :param target_ids:
+        :param target_types:
+        :return:
+        """
+
+    def sync(self) -> None:
+        """
+        Sync the structure back to the database, creating rows as needed.
+
+        :return:
+        """
+
 
 
 class ManyToManyTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI):
     """
     Contains metadata represented by a many-to-many link with type info.
     """
-
-    def __init__(self, db: DatabaseAPI, primary_table_row: RowAPI, secondary_table: str) -> None:
-        """
-        Initialize the container and attach it to a database.
-
-        :param primary_table_row:
-        :param secondary_table:
-        """
-        self._db = db
-        self._primary_table_row = primary_table_row
-        self._secondary_table = secondary_table
 
     @abc.abstractmethod
     def get_link_types(self) -> frozenset[str]:
@@ -140,6 +162,34 @@ class ManyToManyTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI):
     # -------------------------------
 
 
+class ManyToManyPriorityMetadataContainerAPI(ManyToManyMetadataContainerAPI):
+    """
+    Contains metadata represented by a many-to-many link with priority and type info.
+    """
+
+    # -------------------------------
+    # - ROW ACCESS METHODS START HERE
+
+    @abc.abstractmethod
+    def get_priority_rows(self) -> list[RowAPI]:
+        """
+        Return all the rows in the database linked to the primary row.
+
+        :return:
+        """
+
+    def get_priority_row_ids(self) -> list[int]:
+        """
+        Return a list of all the ids in the database linked to the primary row.
+
+        :return:
+        """
+        return [_.id for _ in self.get_priority_rows()]
+
+    #
+    # -------------------------------
+
+
 
 
 
@@ -148,17 +198,6 @@ class ManyToManyPriorityTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI
     """
     Contains metadata represented by a many-to-many link with priority and type info.
     """
-
-    def __init__(self, db: DatabaseAPI, primary_table_row: RowAPI, secondary_table: str) -> None:
-        """
-        Initialize the container and attach it to a database.
-
-        :param primary_table_row:
-        :param secondary_table:
-        """
-        self._db = db
-        self._primary_table_row = primary_table_row
-        self._secondary_table = secondary_table
 
     @abc.abstractmethod
     def get_link_types(self) -> frozenset[str]:

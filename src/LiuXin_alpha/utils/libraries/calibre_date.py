@@ -25,7 +25,7 @@ from LiuXin_alpha.utils.which_os import iswindows, isosx
 
 from LiuXin_alpha.utils.localization import lcdata
 
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, iterkeys
 
 
 class SafeLocalTimeZone(tzlocal):
@@ -531,7 +531,7 @@ def replace_months(datestr, clang):
     else:
         return datestr
 
-    for k in dictoen.iterkeys():
+    for k in iterkeys(dictoen):
         tmp = re.sub(k, dictoen[k], datestr)
         if tmp != datestr:
             break
@@ -549,15 +549,32 @@ def c_parse(val):
 
     # The value may be coming off the database this way
     if isinstance(val, datetime):
-        return datetime
+        return val
 
     try:
         year, month, day, hour, minutes, seconds, tzsecs = _c_speedup(val)
 
     except (AttributeError, TypeError):
-        # If a value like 2001 is stored in the column, apsw will return it as an int
+        # If a value like 2001 is stored in the column, apsw will return it as an int.
+        # However, some code paths can store unix epoch seconds/ms as ints. Treat "large"
+        # ints as epoch timestamps rather than years.
         if isinstance(val, (int, float)):
-            return datetime(int(val), 1, 3, tzinfo=utc_tz)
+            v = float(val)
+            if v > 9999:
+                # Heuristic: epoch ms is usually > 1e12.
+                if v > 1e12:
+                    v = v / 1000.0
+                try:
+                    return datetime.fromtimestamp(v, tz=utc_tz)
+                except Exception:
+                    return UNDEFINED_DATE
+            y = int(v)
+
+            if 1 <= y <= 9999:
+                return datetime(y, 1, 3, tzinfo=utc_tz)
+
+            return UNDEFINED_DATE
+
         if val is None:
             return UNDEFINED_DATE
 

@@ -907,7 +907,76 @@ class FieldMetadata(dict):
         """
         key = self.custom_field_prefix + label
         if key in self._tb_cats:
+            # Idempotent refresh: startup/tests can rebuild FieldMetadata multiple times.
+            # If this is the *same* custom field (same label/colnum/in_table), update in place.
+            existing = self._tb_cats[key]
+            if (
+                existing.get("is_custom") is True
+                and existing.get("label") == label
+                and existing.get("colnum") == colnum
+                and existing.get("in_table", "books") == in_table
+            ):
+                if datatype not in self.VALID_DATA_TYPES:
+                    raise ValueError("Unknown datatype %s for field %s" % (datatype, key))
+
+                existing.update(
+                    {
+                        "table": table,
+                        "column": column,
+                        "datatype": datatype,
+                        "is_multiple": is_multiple,
+                        "kind": "field",
+                        "name": name,
+                        "search_terms": [key],
+                        "label": label,
+                        "colnum": colnum,
+                        "display": display,
+                        "is_custom": True,
+                        "is_category": is_category,
+                        "link_column": "value",
+                        "category_sort": "value",
+                        "is_csp": is_csp,
+                        "is_editable": is_editable,
+                        "in_table": in_table,
+                    }
+                )
+                self._tb_cats[key] = existing
+                self._tb_custom_fields[key] = existing
+                if key not in self._search_term_map:
+                    self._add_search_terms_to_map(key, [key])
+                self.custom_label_to_key_map[label] = key
+
+                if datatype == "series":
+                    idx_key = key + "_index"
+                    if idx_key in self._tb_cats:
+                        self._tb_cats[idx_key]["in_table"] = in_table
+                    else:
+                        self._tb_cats[idx_key] = {
+                            "table": None,
+                            "column": None,
+                            "datatype": "float",
+                            "is_multiple": {},
+                            "kind": "field",
+                            "name": "",
+                            "search_terms": [idx_key],
+                            "label": label + "_index",
+                            "colnum": None,
+                            "display": {},
+                            "is_custom": False,
+                            "is_category": False,
+                            "link_column": None,
+                            "category_sort": None,
+                            "is_editable": False,
+                            "is_csp": False,
+                            "in_table": in_table,
+                        }
+                    if idx_key not in self._search_term_map:
+                        self._add_search_terms_to_map(idx_key, [idx_key])
+                    self.custom_label_to_key_map[label + "_index"] = idx_key
+                return
+
             raise ValueError("Duplicate custom field [%s]" % label)
+
         if datatype not in self.VALID_DATA_TYPES:
             raise ValueError("Unknown datatype %s for field %s" % (datatype, key))
         self._tb_cats[key] = {
@@ -1738,7 +1807,76 @@ class CalibreFieldMetadata(dict):
     ):
         key = self.custom_field_prefix + label
         if key in self._tb_cats:
-            raise ValueError("Duplicate custom field [%s]" % (label))
+            # Idempotent refresh: startup/tests can rebuild FieldMetadata multiple times.
+            # If this is the *same* custom field (same label/colnum/in_table), update in place.
+            existing = self._tb_cats[key]
+            if (
+                existing.get("is_custom") is True
+                and existing.get("label") == label
+                and existing.get("colnum") == colnum
+                and existing.get("in_table", "books") == in_table
+            ):
+                if datatype not in self.VALID_DATA_TYPES:
+                    raise ValueError("Unknown datatype %s for field %s" % (datatype, key))
+
+                existing.update(
+                    {
+                        "table": table,
+                        "column": column,
+                        "datatype": datatype,
+                        "is_multiple": is_multiple,
+                        "kind": "field",
+                        "name": name,
+                        "search_terms": [key],
+                        "label": label,
+                        "colnum": colnum,
+                        "display": display,
+                        "is_custom": True,
+                        "is_category": is_category,
+                        "link_column": "value",
+                        "category_sort": "value",
+                        "is_csp": is_csp,
+                        "is_editable": is_editable,
+                        "in_table": in_table,
+                    }
+                )
+                self._tb_cats[key] = existing
+                self._tb_custom_fields[key] = existing
+                if key not in self._search_term_map:
+                    self._add_search_terms_to_map(key, [key])
+                self.custom_label_to_key_map[label] = key
+
+                if datatype == "series":
+                    idx_key = key + "_index"
+                    if idx_key in self._tb_cats:
+                        self._tb_cats[idx_key]["in_table"] = in_table
+                    else:
+                        self._tb_cats[idx_key] = {
+                            "table": None,
+                            "column": None,
+                            "datatype": "float",
+                            "is_multiple": {},
+                            "kind": "field",
+                            "name": "",
+                            "search_terms": [idx_key],
+                            "label": label + "_index",
+                            "colnum": None,
+                            "display": {},
+                            "is_custom": False,
+                            "is_category": False,
+                            "link_column": None,
+                            "category_sort": None,
+                            "is_editable": False,
+                            "is_csp": False,
+                            "in_table": in_table,
+                        }
+                    if idx_key not in self._search_term_map:
+                        self._add_search_terms_to_map(idx_key, [idx_key])
+                    self.custom_label_to_key_map[label + "_index"] = idx_key
+                return
+
+            raise ValueError("Duplicate custom field [%s]" % label)
+
         if datatype not in self.VALID_DATA_TYPES:
             raise ValueError("Unknown datatype %s for field %s" % (datatype, key))
         self._tb_cats[key] = {

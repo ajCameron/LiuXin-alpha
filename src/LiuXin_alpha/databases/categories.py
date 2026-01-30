@@ -186,6 +186,7 @@ def sort_categories(items, sort):
     return items
 
 
+# Todo: Want to shift TagsIcons over to display logic
 # Todo: Update so that first_letter_sort is actually supported
 def get_categories(dbcache, sort="name", book_ids=None, icon_map=None, first_letter_sort=False):
     """
@@ -197,7 +198,7 @@ def get_categories(dbcache, sort="name", book_ids=None, icon_map=None, first_let
     :param first_letter_sort:
     :return:
     """
-    from LiuXin_alpha.databases.field_metadata import TagsIcons
+    from LiuXin_alpha.databases.tags_icons import TagsIcons
 
     if icon_map is not None and type(icon_map) != TagsIcons:
         raise TypeError("icon_map passed to get_categories must be of type TagIcons")
