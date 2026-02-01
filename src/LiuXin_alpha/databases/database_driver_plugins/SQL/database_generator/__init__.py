@@ -1,6 +1,6 @@
 
 # Front end for the database_generator
-from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.database_generator.database_generator import (
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator.database_generator import (
     create_new_database,
 )
 

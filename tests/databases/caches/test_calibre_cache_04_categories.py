@@ -248,6 +248,7 @@ def _insert_minimal_book(db, title: str = "Ganymede") -> int:
 def _cat_name(x: Any) -> str:
     """
     Category items can be Tag-like objects (with .name) or plain strings.
+
     Normalize to a comparable string.
     """
     if isinstance(x, str):

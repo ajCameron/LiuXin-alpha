@@ -8,6 +8,9 @@ These include
  - file metadata
 
 It also includes the API for the plugins used to read and write metadata from files.
+
+APIs should, as a rule, be separate from the implementation.
+It makes typing much easier without accidentally building import loops.
 """
 
 from __future__ import annotations

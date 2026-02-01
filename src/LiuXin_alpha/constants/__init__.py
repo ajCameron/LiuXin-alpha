@@ -385,7 +385,8 @@ name_suffixes = {
 
 # MARC code list for relators
 # http://www.loc.gov/marc/relators/relaterm.html
-CREATOR_MARC_DICT = {"author": "aut", "authors": "aut"}
+CREATOR_MARC_DICT = {"author": "aut",
+                     "authors": "aut"}
 
 python_plugins = []
 

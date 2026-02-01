@@ -436,6 +436,16 @@ def default_test_database_specs() -> Dict[str, TestDatabaseSpec]:
             builder=_build_test_db_0_minimal,
             description="Minimal database with one title row.",
         ),
+        "test_db_2": TestDatabaseSpec(
+            name="test_db_2",
+            builder=_build_test_db_2_small,
+            description="Derived from the bundled test_db_1 CSV fixture but pruned to a single title.",
+        ),
+        "test_db_3": TestDatabaseSpec(
+            name="test_db_3",
+            builder=_build_test_db_3_formats_fixture,
+            description="Derived from test_db_1; generates lots of folder/file rows for format/link coverage.",
+        ),
         "test_db_13": TestDatabaseSpec(
             name="test_db_13",
             builder=_build_test_db_13_blank,
@@ -443,6 +453,239 @@ def default_test_database_specs() -> Dict[str, TestDatabaseSpec]:
         ),
     }
 
+
+def _bundled_test_db_1_csv_dir() -> Path:
+    """Locate the bundled CSV fixture for test_db_1.
+
+    We use test_db_1 as a canonical, richer dataset and derive smaller DBs
+    (like test_db_2) by pruning rows after import.
+    """
+
+    # Prefer import-based resolution so this works both in editable installs
+    # and in sdist/wheel layouts.
+    try:  # pragma: no cover
+        import importlib.util
+
+        spec = importlib.util.find_spec("LiuXin_tests.test_databases.test_db_1")
+        if spec is not None and spec.origin:
+            p = Path(spec.origin).resolve().parent
+            if p.is_dir():
+                return p
+    except Exception:
+        pass
+
+    # Fallback to conventional repo layout.
+    return _repo_root() / "src" / "LiuXin_tests" / "test_databases" / "test_db_1"
+
+
+def _load_csv_fixture_into_db(conn, *, csv_dir: Path) -> None:
+    """Load a CSV fixture folder into an already-created schema."""
+
+    import csv
+    import re
+
+    csv_dir = Path(csv_dir)
+    if not csv_dir.is_dir():
+        raise FileNotFoundError(f"CSV fixture directory not found: {csv_dir}")
+
+    def _table_info_map(table: str) -> dict[str, tuple]:
+        return {str(row[1]): row for row in conn.execute(f"PRAGMA table_info({table});").fetchall()}
+
+    _int_re = re.compile(r"^-?\d+$")
+    _float_re = re.compile(r"^-?\d+(?:\.\d+)?$")
+
+    def _coerce(value: str | None, decl_type: str) -> object:
+        if value is None:
+            return None
+        v = str(value).strip()
+        if v == "" or v.lower() == "none":
+            return None
+
+        t = (decl_type or "").upper()
+        if "INT" in t and _int_re.match(v):
+            try:
+                return int(v)
+            except Exception:
+                return v
+        if any(x in t for x in ("REAL", "FLOA", "DOUB")) and _float_re.match(v):
+            try:
+                return float(v)
+            except Exception:
+                return v
+        return v
+
+    # Disable FK enforcement during bulk load for speed and to avoid ordering issues.
+    conn.execute("PRAGMA foreign_keys=OFF;")
+
+    for csv_path in sorted(csv_dir.glob("*.csv")):
+        table = csv_path.stem
+        if not _table_exists(conn, table):
+            continue
+
+        with csv_path.open("r", newline="", encoding="utf-8") as fh:
+            reader = csv.DictReader(fh)
+            if reader.fieldnames is None:
+                continue
+            rows = list(reader)
+
+        if not rows:
+            continue
+
+        info = _table_info_map(table)
+        cols = [c for c in reader.fieldnames if c in info]
+        if not cols:
+            continue
+
+        col_sql = ",".join([f'"{c}"' for c in cols])
+        placeholders = ",".join(["?"] * len(cols))
+        sql = f'INSERT INTO "{table}" ({col_sql}) VALUES ({placeholders})'
+
+        values: list[list[object]] = []
+        for r in rows:
+            values.append([_coerce(r.get(c), str(info[c][2])) for c in cols])
+        conn.executemany(sql, values)
+
+    conn.commit()
+
+    # Re-enable and validate.
+    conn.execute("PRAGMA foreign_keys=ON;")
+    violations = conn.execute("PRAGMA foreign_key_check;").fetchall()
+    if violations:
+        raise AssertionError(f"Foreign key violations after CSV import: {violations[:10]}")
+
+
+def _build_test_db_2_small(db_path: Path) -> None:
+    """Create a small, rich test DB (historical test_db_2).
+
+    This is derived from the bundled test_db_1 CSV fixture by importing all
+    rows and then deleting all titles except title_id=1.
+    """
+
+    import sqlite3
+
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
+        create_new_database,
+    )
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        _register_sqlite_test_functions(conn)
+        create_new_database(conn)
+        _ensure_required_null_rows(conn)
+
+        _load_csv_fixture_into_db(conn, csv_dir=_bundled_test_db_1_csv_dir())
+
+        # Prune to a single title. Cascading FK constraints remove dependent rows.
+        conn.execute("PRAGMA foreign_keys=ON;")
+        conn.execute("DELETE FROM titles WHERE title_id >= 2;")
+        conn.commit()
+
+        # Final sanity check.
+        viol = conn.execute("PRAGMA foreign_key_check;").fetchall()
+        if viol:
+            raise AssertionError(f"Foreign key violations after pruning: {viol[:10]}")
+    finally:
+        conn.close()
+
+
+def _build_test_db_3_formats_fixture(db_path: Path) -> None:
+    """Create test_db_3 (legacy-style): many folders/files linked to books.
+
+    Ported from LiuXin `LiuXin_tests.test_databases.test_db_3.make_file_test_data`.
+    Deterministic (rand_int list + cycling extensions) so row counts are stable.
+    """
+
+    import sqlite3
+    from itertools import cycle
+
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
+        create_new_database,
+    )
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        _register_sqlite_test_functions(conn)
+        create_new_database(conn)
+        _ensure_required_null_rows(conn)
+
+        # Start from the canonical richer dataset.
+        _load_csv_fixture_into_db(conn, csv_dir=_bundled_test_db_1_csv_dir())
+
+        # Clear existing folder/file material so this DB is dominated by generated format data.
+        # With FK cascades, deleting folders removes dependent link rows + files.
+        conn.execute("PRAGMA foreign_keys=ON;")
+        conn.execute("DELETE FROM folders;")
+        conn.execute("DELETE FROM files;")
+        conn.commit()
+
+        rand_ints = [
+            5, 8, 5, 2, 6, 1, 6, 7, 5, 2, 4, 4, 5, 4, 6, 9, 9, 1, 3, 1,
+            9, 3, 9, 6, 1, 4, 7, 4, 9, 1, 5, 7, 8, 1, 8, 8, 1, 5, 6, 4,
+            7, 4, 9, 3, 6, 2, 5, 2, 3, 8, 8, 1, 9, 3, 6, 7, 3, 1, 8, 7,
+            9, 9, 7, 4, 8, 6, 2, 1, 3, 1, 2, 1, 9, 7, 5, 4, 4, 8, 4, 1,
+            5, 7, 1, 2, 6, 1, 5, 1, 9, 6, 9, 6, 4, 6, 7, 7, 3, 1, 7, 8,
+            9, 7, 3, 7, 5, 5, 7, 7, 1, 1, 3, 3, 9, 8, 8, 7, 4, 3, 9, 3,
+            2, 2, 6, 9, 5, 6, 5, 8, 3, 8, 6, 4, 6, 7, 3, 2, 6, 1, 7, 6,
+            2, 5, 1, 7, 6, 4, 8, 5, 5, 1, 6, 3, 9, 2, 1, 7, 4, 7, 6, 6,
+            2, 2, 1, 4, 2, 3, 5, 3, 3, 4, 5, 7, 3, 3, 9, 8, 9, 2, 5, 6,
+            9, 2, 4, 8, 5, 8, 4, 9, 9, 4, 3, 3, 5, 2, 5, 6, 4, 4, 2, 3,
+            8,
+        ]
+
+        rand_iter = cycle(rand_ints)
+        ext_iter = cycle(["epub", "mobi", "pdf"])
+
+        book_ids = [int(r[0]) for r in conn.execute("SELECT book_id FROM books ORDER BY book_id;").fetchall()]
+
+        for book_id in book_ids:
+            folder_count = next(rand_iter)
+            for folder_idx in range(int(folder_count)):
+                cur = conn.execute(
+                    "INSERT INTO folders (folder_scratch) VALUES (?);",
+                    ("DELETE ME",),
+                )
+                folder_id = int(cur.lastrowid)
+
+                # book <-> folder link (priority stable but not semantically important here)
+                conn.execute(
+                    "INSERT INTO book_folder_links "
+                    "(book_folder_link_book_id, book_folder_link_folder_id, book_folder_link_priority) "
+                    "VALUES (?, ?, ?);",
+                    (book_id, folder_id, folder_idx + 1),
+                )
+
+                file_count = next(rand_iter)
+                for _ in range(int(file_count)):
+                    ext = next(ext_iter)
+                    curf = conn.execute(
+                        "INSERT INTO files (file_base_folder, file_size, file_extension) VALUES (?, ?, ?);",
+                        (folder_id, 1234, ext),
+                    )
+                    file_id = int(curf.lastrowid)
+                    conn.execute(
+                        "INSERT INTO file_folder_links (file_folder_link_file_id, file_folder_link_folder_id) "
+                        "VALUES (?, ?);",
+                        (file_id, folder_id),
+                    )
+
+        # Freeze a couple of timestamps like the legacy builder (keeps DB stable across rebuilds).
+        conn.execute("UPDATE books SET book_created_datestamp = 1650844348;")
+        conn.execute(
+            "UPDATE titles SET "
+            "title_created_datestamp = '2022-05-09 18:28:52', "
+            "title_last_modified = '2022-05-09 18:28:52';"
+        )
+        conn.commit()
+
+        viol = conn.execute("PRAGMA foreign_key_check;").fetchall()
+        if viol:
+            raise AssertionError(f"Foreign key violations after test_db_3 build: {viol[:10]}")
+    finally:
+        conn.close()
 
 def _build_test_db_0_minimal(db_path: Path) -> None:
     """Create a tiny but valid database with one title row.
@@ -453,7 +696,7 @@ def _build_test_db_0_minimal(db_path: Path) -> None:
 
     import sqlite3
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQLite.database_generator.database_generator import (
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
         create_new_database,
     )
 
@@ -481,7 +724,7 @@ def _build_test_db_13_blank(db_path: Path) -> None:
 
     import sqlite3
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQLite.database_generator.database_generator import (
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
         create_new_database,
     )
 

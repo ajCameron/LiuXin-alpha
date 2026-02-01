@@ -2,7 +2,7 @@
 import sqlite3
 import tempfile
 
-from LiuXin_alpha.databases.database_driver_plugins.SQLite.database_generator import create_new_database
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import create_new_database
 
 
 class TestBasicGeneration:

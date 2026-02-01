@@ -17,6 +17,8 @@ def _count_titles(db_path: Path) -> int:
 def test_resources_manager_lists_default_dbs(test_resources_manager) -> None:
     names = test_resources_manager.available_test_databases()
     assert "test_db_0" in names
+    assert "test_db_2" in names
+    assert "test_db_3" in names
     assert "test_db_13" in names
 
 
@@ -33,6 +35,59 @@ def test_provisioned_database_opens(provision_test_database) -> None:
     finally:
         conn.close()
 
+
+def test_test_db_2_generates_and_is_pruned(provision_test_database) -> None:
+    provisioned = provision_test_database("test_db_2")
+
+    conn = sqlite3.connect(str(provisioned.db_path))
+    try:
+        # Should have the standard schema.
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='titles' LIMIT 1;"
+        ).fetchone()
+        assert row is not None
+
+        # Historical test_db_2 is derived from test_db_1 but pruned down to title_id=1.
+        max_id = conn.execute("SELECT MAX(title_id) FROM titles;").fetchone()[0]
+        assert int(max_id) == 1
+
+        title_count = conn.execute("SELECT COUNT(*) FROM titles;").fetchone()[0]
+        assert int(title_count) == 1
+
+        book_count = conn.execute("SELECT COUNT(*) FROM books;").fetchone()[0]
+        assert int(book_count) == 1
+    finally:
+        conn.close()
+
+
+def test_test_db_3_generates_formats_fixture(provision_test_database) -> None:
+    provisioned = provision_test_database("test_db_3")
+
+    conn = sqlite3.connect(str(provisioned.db_path))
+    try:
+        folder_count = int(conn.execute("SELECT COUNT(*) FROM folders;").fetchone()[0])
+        file_count = int(conn.execute("SELECT COUNT(*) FROM files;").fetchone()[0])
+        bfl_count = int(conn.execute("SELECT COUNT(*) FROM book_folder_links;").fetchone()[0])
+        ffl_count = int(conn.execute("SELECT COUNT(*) FROM file_folder_links;").fetchone()[0])
+
+        # These counts are deterministic (ported from legacy test_db_3 generation).
+        assert folder_count == 497
+        assert file_count == 2440
+        assert bfl_count == 497
+        assert ffl_count == 2440
+
+        ext_counts = dict(
+            (row[0], int(row[1]))
+            for row in conn.execute(
+                "SELECT file_extension, COUNT(*) FROM files GROUP BY file_extension;"
+            ).fetchall()
+        )
+        assert ext_counts == {"epub": 814, "mobi": 813, "pdf": 813}
+
+        viol = conn.execute("PRAGMA foreign_key_check;").fetchall()
+        assert viol == []
+    finally:
+        conn.close()
 
 def test_provisioned_copies_are_independent(tmp_path, test_resources_manager) -> None:
     db1 = test_resources_manager.provision_named_test_database(name="test_db_0", dst_dir=tmp_path / "a")

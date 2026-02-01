@@ -10,7 +10,7 @@ from typing import Iterable, Optional, Union
 from LiuXin_alpha.databases.api import RowAPI, DatabaseAPI
 # Todo: I thing row_id should be a class. Likewise table.
 
-class ManyToManyMetadataContainerAPI(abc.ABC):
+class OneToManyMetadataContainerAPI(abc.ABC):
     """
     Container representing a many-to-many metadata link.
     """
@@ -105,7 +105,7 @@ class ManyToManyMetadataContainerAPI(abc.ABC):
 
 
 
-class ManyToManyTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI):
+class OneToManyTypedMetadataContainerAPI(OneToManyMetadataContainerAPI):
     """
     Contains metadata represented by a many-to-many link with type info.
     """
@@ -166,7 +166,7 @@ class ManyToManyTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI):
     # -------------------------------
 
 
-class ManyToManyPriorityMetadataContainerAPI(ManyToManyMetadataContainerAPI):
+class ManyToManyPriorityMetadataContainerAPI(OneToManyMetadataContainerAPI):
     """
     Contains metadata represented by a many-to-many link with priority and type info.
     """
@@ -198,7 +198,7 @@ class ManyToManyPriorityMetadataContainerAPI(ManyToManyMetadataContainerAPI):
 
 
 
-class ManyToManyPriorityTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI):
+class OneToManyPriorityTypedMetadataContainerAPI(OneToManyMetadataContainerAPI):
     """
     Contains metadata represented by a many-to-many link with priority and type info.
     """

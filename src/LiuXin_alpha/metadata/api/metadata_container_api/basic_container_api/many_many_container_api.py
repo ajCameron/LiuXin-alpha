@@ -160,6 +160,18 @@ class ManyToManyTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI):
 
     #
     # -------------------------------
+    # -------------------------------
+    # - ROW UPDATE METHODS START HERE
+
+    @abc.abstractmethod
+    def update_type(self, target_row: Union[RowAPI, str, int], new_type: str) -> None:
+        """
+        Update the link type of a row linked to another row in this table.
+
+        E.g. A title may be linked to a creator with type "author" and the type should change to "editor".
+        :param target_row:
+        :return:
+        """
 
 
 class ManyToManyPriorityMetadataContainerAPI(ManyToManyMetadataContainerAPI):
@@ -188,10 +200,6 @@ class ManyToManyPriorityMetadataContainerAPI(ManyToManyMetadataContainerAPI):
 
     #
     # -------------------------------
-
-
-
-
 
 
 class ManyToManyPriorityTypedMetadataContainerAPI(ManyToManyMetadataContainerAPI):
