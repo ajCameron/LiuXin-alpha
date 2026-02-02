@@ -11,7 +11,15 @@ CREATE TABLE IF NOT EXISTS `ratings` (
 
   `rating_datestamp`  INTEGER  DEFAULT (STRFTIME('%s','now')),
 
+      -- timestamps (display DATETIME + epoch_ms source)
+  rating_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  rating_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-  `rating_scratch` TEXT NULL );
+    rating_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  rating_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  `rating_scratch` TEXT NULL
+
+);
 
 -- BREAK

@@ -74,6 +74,13 @@ CREATE TABLE IF NOT EXISTS `files` (
   `file_datestamp`         DATETIME DEFAULT (STRFTIME('%s', 'now')),
   `file_last_modified`     DATETIME DEFAULT CURRENT_TIMESTAMP,
 
+  -- timestamps (display DATETIME + epoch_ms source)
+  file_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  file_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  file_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  file_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
   `file_scratch` TEXT NULL,
 
   CONSTRAINT `file_item_fk`
@@ -93,6 +100,7 @@ CREATE TABLE IF NOT EXISTS `files` (
     REFERENCES `folders` (`folder_id`)
     ON DELETE SET NULL
     ON UPDATE CASCADE
+
 );
 
 -- Uniqueness: no duplicate key within the same store

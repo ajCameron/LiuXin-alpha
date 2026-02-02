@@ -28,9 +28,12 @@ CREATE TABLE IF NOT EXISTS `items` (
   `item_lifecycle_status` TEXT NULL,   -- 'active', 'withdrawn', 'lost', 'replaced', ...
   `item_condition` TEXT NULL,          -- 'fine', 'good', 'worn', 'damaged', ...
 
-  -- Timestamps
-  `item_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  `item_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+  -- timestamps (display DATETIME + epoch_ms source)
+  item_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  item_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  item_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  item_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
 
   `item_scratch` TEXT NULL,
 
@@ -39,6 +42,7 @@ CREATE TABLE IF NOT EXISTS `items` (
     REFERENCES `manifestations` (`manifestation_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE
+
 );
 
 CREATE INDEX IF NOT EXISTS `idx_items_manifestation_id`

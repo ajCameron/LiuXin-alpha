@@ -383,6 +383,14 @@ CREATE TABLE IF NOT EXISTS transform_runs (
   transform_run_finished_datestamp DATETIME NULL,
   transform_run_datestamp INTEGER DEFAULT (STRFTIME('%s','now')),
 
+    -- timestamps (display DATETIME + epoch_ms source)
+  transform_run_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  transform_run_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+    transform_run_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  transform_run_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+
   transform_run_scratch TEXT NULL,
 
   CONSTRAINT transform_run_status_check
@@ -469,8 +477,13 @@ CREATE TABLE IF NOT EXISTS file_derivations (
   file_derivation_kind TEXT NULL,          -- 'converted','ocr_text','thumbnail','repacked','repaired','extracted', ...
   file_derivation_note TEXT NULL,
 
-  file_derivation_created_datestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-  file_derivation_datestamp INTEGER DEFAULT (STRFTIME('%s','now')),
+    -- timestamps (display DATETIME + epoch_ms source)
+  file_derivation_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  file_derivation_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+    file_derivation_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  file_derivation_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
 
   file_derivation_scratch TEXT NULL,
 
@@ -494,6 +507,7 @@ CREATE TABLE IF NOT EXISTS file_derivations (
 
   CONSTRAINT fd_no_self
     CHECK (file_derivation_parent_file_id != file_derivation_child_file_id)
+
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_file_derivations_unique

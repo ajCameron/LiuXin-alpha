@@ -28,10 +28,15 @@ CREATE TABLE IF NOT EXISTS `works` (
   -- Concept-level provenance / notes
   `work_discovery_note` TEXT NULL,
 
-  -- Timestamps
-  `work_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  `work_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+    -- timestamps (display DATETIME + epoch_ms source)
+  work_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  work_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-  `work_scratch` TEXT NULL
+  work_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  work_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  `work_scratch` TEXT NULL,
+
+
 );
 -- BREAK

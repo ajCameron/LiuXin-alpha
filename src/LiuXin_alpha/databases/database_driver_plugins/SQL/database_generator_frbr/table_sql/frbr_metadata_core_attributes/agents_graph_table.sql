@@ -34,7 +34,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_org_agent_relations_unique
 ON org_agent_relations(
   org_agent_relation_child_agent_id,
   org_agent_relation_parent_agent_id,
-  org_agent_relation_type
+  org_agent_relation_type,
+  -- timestamps (display DATETIME + epoch_ms source)
+  org_agent_relation_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  org_agent_relation_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  org_agent_relation_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  org_agent_relation_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+
 );
 
 CREATE INDEX IF NOT EXISTS idx_org_agent_relations_parent

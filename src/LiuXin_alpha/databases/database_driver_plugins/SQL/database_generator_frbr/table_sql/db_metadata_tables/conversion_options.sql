@@ -11,8 +11,12 @@ CREATE TABLE IF NOT EXISTS `conversion_options` (
   `conversion_option_book` INTEGER,
   `conversion_option_data` BLOB NOT NULL,
 
-  `conversion_option_datestamp` DATETIME DEFAULT (STRFTIME('%s','now')),
-  `conversion_option_created_datestamp` DATETIME DEFAULT (STRFTIME('%s','now')),
+  -- timestamps (display DATETIME + epoch_ms source)
+  conversion_option_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  conversion_option_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  conversion_option_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  conversion_option_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
 
   UNIQUE(conversion_option_format,conversion_option_book))

@@ -22,10 +22,14 @@ CREATE TABLE IF NOT EXISTS `compressed_files` (
 
   `compressed_file_cache_attempted` INT NULL DEFAULT 0,
 
-  `compressed_file_datestamp` DATETIME DEFAULT (STRFTIME('%s','now')),
-  `compressed_file_created_datestamp` DATETIME DEFAULT (STRFTIME('%s','now')),
+  -- timestamps (display DATETIME + epoch_ms source)
+  compressed_file_reated_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  compressed_file_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-    `compressed_file_scratch` TEXT NULL)
+  compressed_file_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  compressed_file_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  `compressed_file_scratch` TEXT NULL)
 ;
 
 

@@ -11,6 +11,15 @@ CREATE TABLE IF NOT EXISTS `notes` (
   `note_datestamp` INTEGER  DEFAULT (STRFTIME('%s','now')),
   `note_created_datestamp` INTEGER  DEFAULT (STRFTIME('%s','now')),
 
-  `note_scratch` TEXT NULL );
+  -- timestamps (display DATETIME + epoch_ms source)
+  note_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  note_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  note_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  note_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  `note_scratch` TEXT NULL
+
+);
 
 -- BREAK

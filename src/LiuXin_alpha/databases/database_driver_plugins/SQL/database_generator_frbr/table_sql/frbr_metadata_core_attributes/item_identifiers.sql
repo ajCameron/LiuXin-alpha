@@ -20,6 +20,14 @@ CREATE TABLE IF NOT EXISTS `item_identifiers` (
   `item_identifier_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
   `item_identifier_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
 
+      -- timestamps (display DATETIME + epoch_ms source)
+  item_identifier_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  item_identifier_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  item_identifier_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  item_identifier_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+
   `item_identifier_scratch` TEXT NULL,
 
   CONSTRAINT `item_identifier_item_fk`
@@ -27,6 +35,7 @@ CREATE TABLE IF NOT EXISTS `item_identifiers` (
     REFERENCES `items` (`item_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE
+
 );
 
 CREATE INDEX IF NOT EXISTS `idx_item_identifiers_lookup`

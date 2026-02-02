@@ -18,5 +18,15 @@ CREATE TABLE annotations (
 
     annotation_source           TEXT,              -- 'kindle_import', 'kobo', 'internal'
     annotation_device_id        INTEGER,           -- FK to devices, nullable
-    annotation_extra_json       TEXT               -- room for vendor-specific cruft
+    annotation_extra_json       TEXT,               -- room for vendor-specific cruft,
+
+    -- timestamps (display DATETIME + epoch_ms source)
+  annotation_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  annotation_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+    annotation_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  annotation_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  annotation_scratch TEXT NULL
+
 );

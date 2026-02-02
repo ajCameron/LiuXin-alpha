@@ -20,17 +20,29 @@ CREATE TABLE IF NOT EXISTS `series` (
 
   `series_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
 
+  -- timestamps (display DATETIME + epoch_ms source)
+  series_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  series_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+    series_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  series_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
   `series_scratch` TEXT NULL,
+
   CONSTRAINT `series_unique` UNIQUE (`series`),
   CONSTRAINT `series_parent`
     FOREIGN KEY (`series_parent`)
     REFERENCES `series` (`series_id`)
     ON DELETE SET NULL
-    ON UPDATE CASCADE);
+    ON UPDATE CASCADE
+
+);
 
 -- BREAK
 -- BREAK
 
-CREATE INDEX `series_parent_index` ON `series` (`series_parent` ASC);
+CREATE INDEX `series_parent_index` ON `series` (`series_parent` ASC,
+
+);
 
 -- BREAK

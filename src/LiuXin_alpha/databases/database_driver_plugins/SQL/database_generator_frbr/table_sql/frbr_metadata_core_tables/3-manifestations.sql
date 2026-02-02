@@ -28,17 +28,21 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
   `manifestation_status` TEXT NULL,            -- 'in_print', 'out_of_print', 'limited', ...
   `manifestation_note` TEXT NULL,
 
-  -- Timestamps
-  `manifestation_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  `manifestation_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+  -- timestamps (display DATETIME + epoch_ms source)
+  manifestation_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  manifestation_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-  `manifestation_scratch` TEXT NULL,
+    manifestation_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  manifestation_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+    `manifestation_scratch` TEXT NULL,
 
   CONSTRAINT `manifestation_expression_fk`
     FOREIGN KEY (`manifestation_expression_id`)
     REFERENCES `expressions` (`expression_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE
+
 );
 
 CREATE INDEX IF NOT EXISTS `idx_manifestations_expression_id`

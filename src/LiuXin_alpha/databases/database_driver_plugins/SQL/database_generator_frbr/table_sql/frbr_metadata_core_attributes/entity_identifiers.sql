@@ -18,7 +18,17 @@ CREATE TABLE IF NOT EXISTS `entity_identifiers` (
   `entity_identifier_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
   `entity_identifier_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
 
+    -- timestamps (display DATETIME + epoch_ms source)
+  entity_identifier_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  entity_identifier_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+    entity_identifier_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  entity_identifier_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+
   `entity_identifier_scratch` TEXT NULL
+
+
 );
 
 CREATE INDEX IF NOT EXISTS `idx_entity_identifiers_lookup`

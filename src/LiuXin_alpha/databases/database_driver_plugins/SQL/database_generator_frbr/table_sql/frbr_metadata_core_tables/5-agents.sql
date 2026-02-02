@@ -27,9 +27,12 @@ CREATE TABLE IF NOT EXISTS agents (
   agent_aliases TEXT NULL,          -- e.g. a delimited list; or move to agent_aliases table later
   agent_note TEXT NULL,
 
-  -- Timestamps
-  agent_datestamp         DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  agent_created_datestamp DATETIME DEFAULT (STRFTIME('%s', 'now')),
+    -- timestamps (display DATETIME + epoch_ms source)
+  agent_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  agent_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  agent_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  agent_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   agent_scratch TEXT NULL,
 
@@ -77,10 +80,12 @@ CREATE TABLE IF NOT EXISTS human_agents (
   human_agent_nationality TEXT NULL,
   human_agent_biography   TEXT NULL,
 
-  -- Timestamps
-  human_agent_created_datestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-  human_agent_datestamp         DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  human_agent_last_modified     DATETIME DEFAULT CURRENT_TIMESTAMP,
+  -- timestamps (display DATETIME + epoch_ms source)
+  human_agent_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  human_agent_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  human_agent_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  human_agent_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   human_agent_scratch TEXT NULL,
 
@@ -152,7 +157,14 @@ CREATE TABLE IF NOT EXISTS org_agents (
       org_agent_founded_date IS NULL
       OR org_agent_dissolved_date IS NULL
       OR org_agent_founded_date <= org_agent_dissolved_date
-    )
+    ),
+  -- timestamps (display DATETIME + epoch_ms source)
+  agent_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  agent_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+    agent_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  agent_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+
 );
 
 CREATE INDEX IF NOT EXISTS idx_org_agents_agent_id
