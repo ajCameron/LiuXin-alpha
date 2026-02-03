@@ -27,6 +27,10 @@ CREATE TABLE IF NOT EXISTS labels (
   CONSTRAINT labels_norm_nonempty CHECK (LENGTH(TRIM(label_text_norm)) > 0)
 );
 
+-- BREAK
+-- BREAK
+
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_labels_unique_norm
 ON labels(label_text_norm);
 

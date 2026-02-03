@@ -19,16 +19,16 @@ CREATE TABLE IF NOT EXISTS `genres` (
   `genre_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
 
   -- timestamps (display DATETIME + epoch_ms source)
-  genre_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  genre_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `genre_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `genre_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-    genre_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  genre_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+  `genre_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `genre_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   `genre_scratch` TEXT NULL,
 
-  CONSTRAINT `genre_parent`
-    FOREIGN KEY (`genre_parent`)
+  CONSTRAINT `genre_parent_id`
+    FOREIGN KEY (`genre_parent_id`)
     REFERENCES `genres` (`genre_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE);
@@ -36,8 +36,7 @@ CREATE TABLE IF NOT EXISTS `genres` (
 -- BREAK
 -- BREAK
 
-CREATE INDEX `genre_parent_index` ON `genres` (`genre_parent` ASC,
-
-);
+CREATE INDEX IF NOT EXISTS `genre_parent_index`
+ON `genres` (`genre_parent_id`);
 
 -- BREAK

@@ -4,7 +4,14 @@
 --  - Intended to be applied AFTER liuXin_triggers.sql
 --  - Uses RAISE(ABORT, ...) for explicit error messages
 
+-- BREAK
+
+
 PRAGMA foreign_keys = ON;
+
+-- BREAK
+-- BREAK
+
 
 -- =====================================================
 -- HIERARCHY CYCLE PREVENTION (series / genres / subjects / folders)
@@ -26,6 +33,10 @@ BEGIN
     THEN RAISE(ABORT, 'series.series_parent_id cannot reference itself')
   END;
 END;
+
+-- BREAK
+-- BREAK
+
 
 CREATE TRIGGER IF NOT EXISTS trg_series_parent_no_cycles
 BEFORE UPDATE OF series_parent_id ON series
@@ -59,6 +70,10 @@ BEGIN
     THEN RAISE(ABORT, 'series.series_parent_id cannot reference itself')
   END;
 END;
+
+-- BREAK
+-- BREAK
+
 
 -- Prevent cycles on INSERT (parent chain cannot contain the new row id)
 CREATE TRIGGER IF NOT EXISTS trg_series_parent_no_cycles_ins
@@ -103,6 +118,9 @@ BEGIN
     THEN RAISE(ABORT, 'series.series_parent cannot reference itself')
   END;
 END;
+
+-- BREAK
+-- BREAK
 
 CREATE TRIGGER IF NOT EXISTS trg_series_parent_no_cycles_after_ins
 AFTER INSERT ON series

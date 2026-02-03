@@ -1,4 +1,6 @@
 
+-- BREAK
+
 -- ------------------------
 -- subjects: prevent cycles
 -- ------------------------
@@ -11,6 +13,10 @@ BEGIN
     THEN RAISE(ABORT, 'subjects.subject_parent_id cannot reference itself')
   END;
 END;
+
+-- BREAK
+-- BREAK
+
 
 CREATE TRIGGER IF NOT EXISTS trg_subjects_parent_no_cycles
 BEFORE UPDATE OF subject_parent_id ON subjects
@@ -31,8 +37,10 @@ BEGIN
     THEN RAISE(ABORT, 'subjects hierarchy cycle detected (cannot set parent creating a loop)')
   END;
 END;
+
 -- BREAK
 -- BREAK
+
 CREATE TRIGGER IF NOT EXISTS trg_subjects_parent_not_self_ins
 BEFORE INSERT ON subjects
 WHEN NEW.subject_parent_id IS NOT NULL
@@ -42,6 +50,10 @@ BEGIN
     THEN RAISE(ABORT, 'subjects.subject_parent_id cannot reference itself')
   END;
 END;
+
+-- BREAK
+-- BREAK
+
 
 CREATE TRIGGER IF NOT EXISTS trg_subjects_parent_no_cycles_ins
 BEFORE INSERT ON subjects
@@ -62,6 +74,7 @@ BEGIN
     THEN RAISE(ABORT, 'subjects hierarchy cycle detected (cannot insert row creating a loop)')
   END;
 END;
+
 -- BREAK
 -- BREAK
 
@@ -78,6 +91,10 @@ BEGIN
     THEN RAISE(ABORT, 'subjects.subject_parent cannot reference itself')
   END;
 END;
+
+-- BREAK
+-- BREAK
+
 
 CREATE TRIGGER IF NOT EXISTS trg_subjects_parent_no_cycles_after_ins
 AFTER INSERT ON subjects

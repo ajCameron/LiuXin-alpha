@@ -19,15 +19,15 @@ CREATE TABLE IF NOT EXISTS `subjects` (
   `subject_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
 
   -- timestamps (display DATETIME + epoch_ms source)
-  subject_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  subject_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `subject_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `subject_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-  subject_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  subject_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+  `subject_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `subject_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   `subject_scratch` TEXT NULL,
-  CONSTRAINT `subject_parent`
-    FOREIGN KEY (`subject_parent`)
+  CONSTRAINT `subject_parent_id`
+    FOREIGN KEY (`subject_parent_id`)
     REFERENCES `subjects` (`subject_id`)
     ON DELETE SET NULL
     ON UPDATE CASCADE);
@@ -35,8 +35,7 @@ CREATE TABLE IF NOT EXISTS `subjects` (
 -- BREAK
 -- BREAK
 
-CREATE INDEX `subject_parent_index` ON `subjects` (`subject_parent` ASC,
-
-);
+CREATE INDEX IF NOT EXISTS `subject_parent_index`
+ON `subjects` (`subject_parent_id`);
 
 -- BREAK

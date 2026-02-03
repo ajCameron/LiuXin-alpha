@@ -4,27 +4,25 @@
 PRAGMA foreign_keys = ON;
 
 -- BREAK
-
-
-
 -- BREAK
 
 -- agents: supertype for any actor involved in creation/publication/ownership/etc.
 -- Subtype tables can hang off this, e.g. human_agents (persons), org_agents (organisations), etc.
 
 CREATE TABLE IF NOT EXISTS agents (
-  agent_id INTEGER PRIMARY KEY,
+
+  `agent_id` INTEGER PRIMARY KEY,
 
   -- What kind of agent is this?
   -- Suggested values: 'person', 'organisation', 'group', 'pseudonym'
-  agent_type TEXT NOT NULL,
+  `agent_type` TEXT NOT NULL,
 
   -- Display/sort identity (canonical lives here; name-parts live in subtype tables)
-  agent_canonical_name TEXT NOT NULL,
-  agent_sort_name TEXT NULL,
+  `agent_canonical_name` TEXT NOT NULL,
+  `agent_sort_name` TEXT NULL,
 
   -- Optional extras for UI/search
-  agent_aliases TEXT NULL,          -- e.g. a delimited list; or move to agent_aliases table later
+  `agent_aliases` TEXT NULL,          -- e.g. a delimited list; or move to agent_aliases table later
   agent_note TEXT NULL,
 
     -- timestamps (display DATETIME + epoch_ms source)
@@ -41,12 +39,24 @@ CREATE TABLE IF NOT EXISTS agents (
     CHECK (agent_type IN ('person','organisation','group','pseudonym'))
 );
 
+-- BREAK
+-- BREAK
+
+
 -- Common lookup patterns
 CREATE INDEX IF NOT EXISTS idx_agents_type
 ON agents(agent_type);
 
+-- BREAK
+-- BREAK
+
+
 CREATE INDEX IF NOT EXISTS idx_agents_canonical_name
 ON agents(agent_canonical_name);
+
+-- BREAK
+-- BREAK
+
 
 CREATE INDEX IF NOT EXISTS idx_agents_sort_name
 ON agents(agent_sort_name);
@@ -59,35 +69,35 @@ ON agents(agent_sort_name);
 -- Requires: agents(agent_id) with agents.agent_type = 'person' for these rows.
 
 CREATE TABLE IF NOT EXISTS human_agents (
-  human_agent_id INTEGER PRIMARY KEY,
+  `human_agent_id` INTEGER PRIMARY KEY,
 
   -- 1:1 link to the supertype
-  human_agent_agent_id INTEGER NOT NULL UNIQUE,
+  `human_agent_agent_id` INTEGER NOT NULL UNIQUE,
 
   -- Name parts (optional; can be used to derive display/sort names in code)
-  human_agent_given_name  TEXT NULL,
-  human_agent_middle_name TEXT NULL,
-  human_agent_family_name TEXT NULL,
-  human_agent_prefix      TEXT NULL,   -- Dr, Sir, etc.
-  human_agent_suffix      TEXT NULL,   -- Jr, III, etc.
-  human_agent_preferred_name TEXT NULL, -- pen-name-ish but still a person
+  `human_agent_given_name`  TEXT NULL,
+  `human_agent_middle_name` TEXT NULL,
+  `human_agent_family_name` TEXT NULL,
+  `human_agent_prefix`      TEXT NULL,   -- Dr, Sir, etc.
+  `human_agent_suffix`      TEXT NULL,   -- Jr, III, etc.
+  `human_agent_preferred_name` TEXT NULL, -- pen-name-ish but still a person
 
   -- Life dates (store as ISO8601 text: YYYY-MM-DD when known)
-  human_agent_birth_date TEXT NULL,
-  human_agent_death_date TEXT NULL,
+  `human_agent_birth_date` TEXT NULL,
+  `human_agent_death_date` TEXT NULL,
 
   -- Lightweight bio / notes (identifiers belong in entity_identifiers)
-  human_agent_nationality TEXT NULL,
-  human_agent_biography   TEXT NULL,
+  `human_agent_nationality` TEXT NULL,
+  `human_agent_biography`   TEXT NULL,
 
   -- timestamps (display DATETIME + epoch_ms source)
-  human_agent_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  human_agent_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `human_agent_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `human_agent_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-  human_agent_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  human_agent_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `human_agent_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `human_agent_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-  human_agent_scratch TEXT NULL,
+  `human_agent_scratch` TEXT NULL,
 
   CONSTRAINT human_agents_agent_fk
     FOREIGN KEY (human_agent_agent_id)
@@ -104,8 +114,16 @@ CREATE TABLE IF NOT EXISTS human_agents (
     )
 );
 
+-- BREAK
+-- BREAK
+
+
 CREATE INDEX IF NOT EXISTS idx_human_agents_agent_id
 ON human_agents(human_agent_agent_id);
+
+-- BREAK
+-- BREAK
+
 
 CREATE INDEX IF NOT EXISTS idx_human_agents_family_given
 ON human_agents(human_agent_family_name, human_agent_given_name);
@@ -118,30 +136,32 @@ ON human_agents(human_agent_family_name, human_agent_given_name);
 -- Requires: agents(agent_id) with agents.agent_type = 'organisation' (or 'group').
 
 CREATE TABLE IF NOT EXISTS org_agents (
-  org_agent_id INTEGER PRIMARY KEY,
+  `org_agent_id` INTEGER PRIMARY KEY,
 
   -- 1:1 link to the supertype
-  org_agent_agent_id INTEGER NOT NULL UNIQUE,
+  `org_agent_agent_id` INTEGER NOT NULL UNIQUE,
 
   -- Optional structured organisation identity
-  org_agent_legal_name       TEXT NULL,  -- if different from agents.agent_canonical_name
-  org_agent_trading_name     TEXT NULL,  -- DBA / imprint / brand
-  org_agent_registration_id  TEXT NULL,  -- company number / registry id (scheme stored in entity_identifiers ideally)
-  org_agent_jurisdiction     TEXT NULL,  -- 'GB', 'US-DE', etc.
-  org_agent_founded_date     TEXT NULL,  -- ISO8601 'YYYY-MM-DD' when known
-  org_agent_dissolved_date   TEXT NULL,  -- ISO8601
+  `org_agent_legal_name`       TEXT NULL,  -- if different from agents.agent_canonical_name
+  `org_agent_trading_name`     TEXT NULL,  -- DBA / imprint / brand
+  `org_agent_registration_id`  TEXT NULL,  -- company number / registry id (scheme stored in entity_identifiers ideally)
+  `org_agent_jurisdiction`     TEXT NULL,  -- 'GB', 'US-DE', etc.
+  `org_agent_founded_date`     TEXT NULL,  -- ISO8601 'YYYY-MM-DD' when known
+  `org_agent_dissolved_date`   TEXT NULL,  -- ISO8601
 
   -- Contact-ish / location-ish (keep light; full addresses can be another table later)
-  org_agent_website          TEXT NULL,
-  org_agent_contact_email    TEXT NULL,
+  `org_agent_website`          TEXT NULL,
+  `org_agent_contact_email`    TEXT NULL,
 
   -- Light notes
-  org_agent_description      TEXT NULL,
+  `org_agent_description`      TEXT NULL,
 
-  -- Timestamps
-  org_agent_created_datestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-  org_agent_datestamp         DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  org_agent_last_modified     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- timestamps (display DATETIME + epoch_ms source)
+  `org_agent_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `org_agent_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+
+  `org_agent_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `org_agent_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   org_agent_scratch TEXT NULL,
 
@@ -157,18 +177,21 @@ CREATE TABLE IF NOT EXISTS org_agents (
       org_agent_founded_date IS NULL
       OR org_agent_dissolved_date IS NULL
       OR org_agent_founded_date <= org_agent_dissolved_date
-    ),
-  -- timestamps (display DATETIME + epoch_ms source)
-  agent_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  agent_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+    )
 
-    agent_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  agent_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
 
 );
 
+-- BREAK
+-- BREAK
+
+
 CREATE INDEX IF NOT EXISTS idx_org_agents_agent_id
 ON org_agents(org_agent_agent_id);
+
+-- BREAK
+-- BREAK
+
 
 CREATE INDEX IF NOT EXISTS idx_org_agents_legal_trading
 ON org_agents(org_agent_legal_name, org_agent_trading_name);

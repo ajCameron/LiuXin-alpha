@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS `expressions` (
   `expression_id` INTEGER PRIMARY KEY,
 
   -- Relation to work
-  `expression_work_id` INT NOT NULL,
+  `expression_work_id` INTEGER NOT NULL,
 
   -- Core identity
   `expression_type` TEXT NULL,               -- 'text', 'translation', 'revision', 'dub', ...

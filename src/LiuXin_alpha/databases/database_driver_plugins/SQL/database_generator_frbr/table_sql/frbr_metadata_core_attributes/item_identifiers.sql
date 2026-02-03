@@ -38,8 +38,16 @@ CREATE TABLE IF NOT EXISTS `item_identifiers` (
 
 );
 
+-- BREAK
+-- BREAK
+
+
 CREATE INDEX IF NOT EXISTS `idx_item_identifiers_lookup`
 ON `item_identifiers` (`item_identifier_scheme`, `item_identifier_value`);
+
+-- BREAK
+-- BREAK
+
 
 CREATE INDEX IF NOT EXISTS `idx_item_identifiers_item`
 ON `item_identifiers` (`item_identifier_item_id`);

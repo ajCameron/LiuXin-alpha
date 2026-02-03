@@ -45,8 +45,16 @@ CREATE TABLE IF NOT EXISTS `folders` (
 
 );
 
+-- BREAK
+-- BREAK
+
+
 CREATE UNIQUE INDEX IF NOT EXISTS `idx_folders_unique_sibling_name`
 ON `folders` (`folder_store_id`, `folder_parent_id`, `folder_name`);
+
+-- BREAK
+-- BREAK
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS `idx_folders_unique_relpath_per_store`
 ON `folders` (`folder_store_id`, `folder_relpath`);

@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
   `manifestation_id` INTEGER PRIMARY KEY,
 
   -- Relation to expression
-  `manifestation_expression_id` INT NOT NULL,
+  `manifestation_expression_id` INTEGER NOT NULL,
 
   -- Carrier / format
   `manifestation_carrier_type` TEXT NULL,      -- 'print_book', 'ebook', 'audiobook', 'bluray_disc', ...
@@ -29,13 +29,13 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
   `manifestation_note` TEXT NULL,
 
   -- timestamps (display DATETIME + epoch_ms source)
-  manifestation_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  manifestation_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `manifestation_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `manifestation_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-    manifestation_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  manifestation_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `manifestation_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `manifestation_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-    `manifestation_scratch` TEXT NULL,
+  `manifestation_scratch` TEXT NULL,
 
   CONSTRAINT `manifestation_expression_fk`
     FOREIGN KEY (`manifestation_expression_id`)
@@ -44,6 +44,10 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
     ON UPDATE CASCADE
 
 );
+
+-- BREAK
+-- BREAK
+
 
 CREATE INDEX IF NOT EXISTS `idx_manifestations_expression_id`
 ON `manifestations` (`manifestation_expression_id`);

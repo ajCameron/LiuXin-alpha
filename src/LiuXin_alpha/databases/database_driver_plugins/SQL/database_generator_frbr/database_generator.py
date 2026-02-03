@@ -3,7 +3,9 @@
 # Takes the default list of interlink tables. Generates the basic SQL syntax for them.
 # Does the same for the intralink tables
 # Adds any additional columns which have been created by the user
+
 import sqlite3
+
 # When viewing the database certain information needs to be all present and correct in one place. There are two options
 # for this
 # 1) Views - the sane, professional and reasonable solution. Views execute queries to generate the data requested on the
@@ -18,14 +20,14 @@ import sys
 import re
 import os
 import pprint
+import pathlib
 from copy import deepcopy
 
 from typing import Optional
 
-from LiuXin_alpha.metadata.constants import CREATOR_CATEGORIES
-from LiuXin_alpha.metadata.constants import RATING_TYPES
-from LiuXin_alpha.metadata.constants import EXTERNAL_EBOOK_ID_SCHEMA
-from LiuXin_alpha.metadata.constants import INTERNAL_EBOOK_ID_SCHEMA
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.constants import \
+    __INTERLINK_TABLE_CONSTRAINTS__, __INTERLINK_REQUESTED_COLS__, __ALLOWED_INTERLINK_TYPE_VAL_DICT__, \
+    __ALLOWED_INTRALINK_TYPE_VAL_DICT__
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 from LiuXin_alpha.utils.logging import LiuXin_print
@@ -42,208 +44,7 @@ from LiuXin_alpha.constants import VERBOSE_DEBUG
 
 
 # Constraints on the interlink tables - DO NOT IMPORT - dynamically modified at run time
-# Todo: All link tables should have an entry in here - creator_synopsis_links seemed to escape
-# Todo: In the test suite, generate test database and check them against the stored ones/run the tests on the,
-# Todo: creeator_title links should probably allow a person to play more than one role in their own work
-__INTERLINK_TABLE_CONSTRAINTS__ = {
-    # This information,. and the request columns - should be all that's needed to construct the SQL to build the table
-    "book_cover_links": {
-        "primary": "books",
-        "secondary": "covers",
-        "link_type": "many_many",
-    },
-    "book_file_links": {
-        "primary": "books",
-        "secondary": "files",
-        "link_type": "one_many",
-    },
-    "book_folder_links": {
-        "primary": "books",
-        "secondary": "folders",
-        "link_type": "many_many",
-    },
-    "comment_creator_links": {
-        "primary": "creators",
-        "secondary": "comments",
-        "link_type": "one_many",
-    },
-    "comment_series_links": {
-        "primary": "series",
-        "secondary": "comments",
-        "link_type": "one_many",
-    },
-    "comment_title_links": {
-        "primary": "titles",
-        "secondary": "comments",
-        "link_type": "one_many",
-    },
-    "cover_creator_links": {
-        "primary": "creators",
-        "secondary": "covers",
-        "link_type": "many_many",
-    },
-    "cover_series_links": {
-        "primary": "series",
-        "secondary": "covers",
-        "link_type": "many_many",
-    },
-    "creator_folder_links": {
-        "primary": "creators",
-        "secondary": "folders",
-        "link_type": "many_many",
-    },
-    "creator_language_links": {
-        "primary": "creators",
-        "secondary": "languages",
-        "link_type": "many_one",
-    },
-    "creator_note_links": {
-        "primary": "creators",
-        "secondary": "notes",
-        "link_type": "one_many",
-    },
-    # Todo: This restriction is silly, but leaving it in for the moment
-    "creator_series_links": {
-        "primary": "series",
-        "secondary": "creators",
-        "link_type": "many_one",
-    },
-    "creator_synopsis_links": {
-        "primary": "creators",
-        "secondary": "synopses",
-        "link_type": "one_many",
-    },
-    "creator_tag_links": {
-        "primary": "creators",
-        "secondary": "tags",
-        "link_type": "many_many",
-    },
-    "creator_title_links": {
-        "primary": "titles",
-        "secondary": "creators",
-        "link_type": "many_many",
-    },
-    # Todo: Is not actually one_one - it's more like one_many_single_val
-    # Todo: Your us9ing link type two different ways to mean two different things - consider a rename - mapping_type?
-    # Todo: This REALLY needs a set of types
-    "device_file_links": {
-        "primary": "files",
-        "secondary": "devices",
-        "link_type": "many_many",
-    },
-    "device_note_links": {
-        "primary": "devices",
-        "secondary": "notes",
-        "link_type": "one_many",
-    },
-    "file_folder_links": {
-        "primary": "files",
-        "secondary": "folders",
-        "link_type": "many_one",
-    },
-    "file_identifier_links": {
-        "primary": "files",
-        "secondary": "identifiers",
-        "link_type": "one_many",
-    },
-    # Todo: Really need to ship with a languages table
-    "file_language_links": {
-        "primary": "files",
-        "secondary": "languages",
-        "link_type": "many_one",
-    },
-    "file_publisher_links": {
-        "primary": "files",
-        "secondary": "publishers",
-        "link_type": "many_one",
-    },
-    "folder_series_links": {
-        "primary": "folders",
-        "secondary": "series",
-        "link_type": "many_many",
-    },
-    "folder_store_note_links": {
-        "primary": "folder_stores",
-        "secondary": "notes",
-        "link_type": "one_many",
-    },
-    "genre_series_links": {
-        "primary": "series",
-        "secondary": "genres",
-        "link_type": "many_many",
-    },
-    "genre_title_links": {
-        "primary": "titles",
-        "secondary": "genres",
-        "link_type": "many_many",
-    },
-    "identifier_title_links": {
-        "primary": "titles",
-        "secondary": "identifiers",
-        "link_type": "one_many",
-    },
-    # Todo: Come back and rethink this some
-    "language_title_links": {
-        "primary": "titles",
-        "secondary": "languages",
-        "link_type": "many_many_non_exclusive",
-    },
-    "note_publisher_links": {
-        "primary": "publishers",
-        "secondary": "notes",
-        "link_type": "one_many",
-    },
-    "note_series_links": {
-        "primary": "series",
-        "secondary": "notes",
-        "link_type": "one_many",
-    },
-    "note_title_links": {
-        "primary": "titles",
-        "secondary": "notes",
-        "link_type": "one_many",
-    },
-    "publisher_title_links": {
-        "primary": "titles",
-        "secondary": "publishers",
-        "link_type": "many_many",
-    },
-    "rating_title_links": {
-        "primary": "titles",
-        "secondary": "ratings",
-        "link_type": "rating",
-    },
-    "series_synopsis_links": {
-        "primary": "series",
-        "secondary": "synopses",
-        "link_type": "one_many",
-    },
-    "series_tag_links": {
-        "primary": "series",
-        "secondary": "tags",
-        "link_type": "many_many",
-    },
-    "series_title_links": {
-        "primary": "titles",
-        "secondary": "series",
-        "link_type": "many_many",
-    },
-    "subject_title_links": {
-        "primary": "titles",
-        "secondary": "subjects",
-        "link_type": "many_many",
-    },
-    "synopsis_title_links": {
-        "primary": "titles",
-        "secondary": "synopses",
-        "link_type": "one_many",
-    },
-    "tag_title_links": {
-        "primary": "titles",
-        "secondary": "tags",
-        "link_type": "many_many",
-    },
-}
+
 
 # http://stackoverflow.com/questions/4060221/how-to-reliably-open-a-file-in-the-same-directory-as-a-python-script
 
@@ -254,84 +55,6 @@ __database_file_path__ = os.path.join(__database_folder__, "LiuXin_main_database
 
 # Not all columns are needed in all interlink tables - this dictionary provides an easy way to specify the columns
 # needed
-__INTERLINK_REQUESTED_COLS__ = {
-    "book_cover_links": {"priority", "type"},
-    "book_file_links": {
-        "priority",
-    },
-    "book_folder_links": {
-        "priority",
-    },
-    "comment_creator_links": {"priority", "type"},
-    "comment_series_links": {"priority", "type"},
-    "comment_title_links": {"priority", "type"},
-    "cover_creator_links": {
-        "priority",
-    },
-    "cover_series_links": {
-        "priority",
-    },
-    "creator_folder_links": {
-        "priority",
-    },
-    "creator_language_links": None,
-    "creator_note_links": {"priority", "type"},
-    "creator_series_links": {
-        "type",
-    },
-    "creator_synopsis_links": None,
-    "creator_tag_links": None,
-    "creator_title_links": {"priority", "type"},
-    "device_file_links": {
-        "type",
-    },
-    "device_note_links": {
-        "priority",
-    },
-    "file_folder_links": None,
-    "file_identifier_links": {"type", "priority"},
-    "file_language_links": None,
-    "file_publisher_links": None,
-    "folder_series_links": {
-        "priority",
-    },
-    "folder_store_note_links": {
-        "priority",
-    },
-    "genre_series_links": {
-        "priority",
-    },
-    "genre_title_links": {
-        "priority",
-    },
-    "identifier_title_links": {"type", "priority"},
-    "language_title_links": {"type", "priority"},
-    "note_publisher_links": {
-        "priority",
-    },
-    "note_series_links": {
-        "priority",
-    },
-    "note_title_links": {"priority", "type"},
-    "series_synopsis_links": {
-        "priority",
-    },
-    "series_tag_links": None,
-    "series_title_links": {"priority", "index"},
-    "publisher_title_links": {
-        "priority",
-    },
-    "rating_title_links": {
-        "type",
-    },
-    "subject_title_links": {
-        "priority",
-    },
-    "synopsis_title_links": {
-        "priority",
-    },
-    "tag_title_links": None,
-}
 
 # Todo: Identify and note the custom columns in database startup
 # Todo: How do you want to handle story reviews of other works
@@ -339,61 +62,8 @@ __INTERLINK_REQUESTED_COLS__ = {
 # Todo: Might want to make a characters table - possibly as an example? Or an option you can turn on
 # Todo: These would make a lot of sense to move to db constants or something like that
 # See the docs - interlink_table_explanation for what each of these links should do
-__ALLOWED_INTERLINK_TYPE_VAL_DICT__ = {
-    "book_cover_links": {"from_file", "from_web"},
-    "comment_creator_links": ("amazon", "google"),
-    "comment_series_links": ("synopsis", "reading_notes", "dramatis_persona"),
-    "comment_title_links": ("synopsis", "reading_notes", "dramatis_persona"),
-    "creator_note_links": ("bio", "bibliography"),
-    "creator_series_links": tuple(ct for ct in CREATOR_CATEGORIES),
-    "creator_title_links": tuple(ct for ct in CREATOR_CATEGORIES),
-    "file_identifier_links": tuple(idt for idt in EXTERNAL_EBOOK_ID_SCHEMA),
-    "device_file_links": ("load_when_can", "ensure_on_device", "delete_when_possible"),
-    "identifier_title_links": tuple(
-        [idt for idt in EXTERNAL_EBOOK_ID_SCHEMA] + [idt for idt in INTERNAL_EBOOK_ID_SCHEMA]
-    ),
-    "language_title_links": (
-        "primary",
-        "about",
-        "available_language",
-        "contained_in",
-    ),
-    "note_title_links": ("summary", "synopsis", "glossary", "marginalia"),
-    "rating_title_links": tuple(rt for rt in RATING_TYPES),
-}
 
 # See the docs - explanations for what these are
-__ALLOWED_INTRALINK_TYPE_VAL_DICT__ = {
-    "creators": ("user_marked_different",),
-    "covers": (
-        "user_marked_different",
-        "derived_from",
-        "derived_from-higher_resolution_version",
-        "contained_in",
-        "backup",
-        "mirror",
-    ),
-    "files": (
-        "user_marked_different",
-        "derived_from",
-        "derived_from-higher_resolution_version",
-        "contained_in",
-        "backup",
-        "mirror",
-    ),
-    "folder_stores": ("user_marked_different", "mirror", "backup"),
-    "identifiers": ("differ_only_in_format",),
-    "publishers": ("user_marked_different", "rename", "translated_name"),
-    "tags": ("user_marked_different",),
-    "titles": (
-        "user_marked_different",
-        "contained_in",
-        "identical",
-        "alt_title",
-        "translation",
-        "abridgement",
-    ),
-}
 
 
 def create_new_database(connection: sqlite3.Connection) -> None:
@@ -407,6 +77,54 @@ def create_new_database(connection: sqlite3.Connection) -> None:
 
     builder = SQLiteDatabaseBuilder(conn=conn)
     builder.run()
+
+
+
+def get_main_table_sql_files() -> list[pathlib.Path]:
+    """
+    Walk and return the paths to all the table_sql files to load into the database.
+
+    :return:
+    """
+    all_sql_files = []
+
+    table_sql_folder = pathlib.Path(__folder__) / "table_sql"
+
+    assert table_sql_folder.is_dir(), "table_sql folder is not a directory"
+
+    for root, dirs, files in table_sql_folder.walk():
+
+        for file in files:
+
+            if os.path.splitext(file)[1] == ".sql":
+
+                all_sql_files.append(pathlib.Path(root) / file)
+
+    return all_sql_files
+
+
+def get_trigger_sql_files() -> list[pathlib.Path]:
+    """
+    Walk and return the paths to all the table_sql files to load into the database.
+
+    :return:
+    """
+    all_sql_files = []
+
+    table_sql_folder = pathlib.Path(__folder__) / "trigger_sql"
+
+    assert table_sql_folder.is_dir(), "trigger_sql folder is not a directory"
+
+    for root, dirs, files in table_sql_folder.walk():
+
+        for file in files:
+
+            if os.path.splitext(file)[1] == ".sql":
+
+                all_sql_files.append(pathlib.Path(root) / file)
+
+    return all_sql_files
+
 
 
 class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
@@ -427,6 +145,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         self.conn = conn
 
         self.main_tables = set()
+        self.main_tables_sql_files: list[pathlib.Path] = []
+
+        self.triggers_sql_files: list[pathlib.Path] = []
 
         self.interlink_tables = set()
         self.interlink_table_pairs = set()
@@ -439,11 +160,24 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         :return:
         """
-        # 0) Check what we're being commanded to do is, in fact, sane
+        # 0) Load resources
+        self.main_tables_sql_files = get_main_table_sql_files()
+        self.triggers_sql_files = get_trigger_sql_files()
+
+        # Todo: This is clearly not gonna be true at the moment
+        #  - Check what we're being commanded to do is, in fact, sane
         self.sanity_check_interlink_inputs()
 
         # 1) Building the main tables from SQLite - the main tables have to be created by direct SQL execution
         self.create_main_tables()
+
+        # 2) Build the triggers
+        self.create_main_triggers()
+
+        assert self.direct_get_tables() is None
+
+
+        raise NotImplementedError("Let's get the main tables up first.")
 
         # 2) Creates the interlink tables - these are sufficiently similar that they are amenable to automated creation
         self.interlink_tables_pairs = self.get_requested_interlink_tables()
@@ -453,7 +187,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         # 3) Validate the constraints which will be applied to the interlink tables
         self.validate_interlink_table_constraints()
 
-        # 4) Validate that the allow4ed types request is valid
+        # 4) Validate that the allowed types request is valid
         self.validate_allowed_type_val_dict()
 
         # 5) Validate the table column requests - the columns that we want added to each of the link tables
@@ -477,6 +211,20 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         # 10) Set the version - so we can check the database and driver version used to build this database
         self.set_database_version()
 
+    def direct_get_tables(self) -> list[str]:
+        """
+        Returns a index of the names of all tables in the database.
+        :param force_refresh: Force the driver to introspect the database again
+        :return:
+        """
+
+        stmt = "SELECT name FROM sqlite_master WHERE type = 'table';"
+        processed_return = []
+        for row in self.conn.execute(stmt):
+            processed_return.append(row[0])
+
+        return processed_return
+
     @staticmethod
     def sanity_check_interlink_inputs() -> None:
         """
@@ -490,7 +238,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             lt_rq = __INTERLINK_REQUESTED_COLS__[link_table]
             if lt_rq is not None and "type" in lt_rq:
                 assert (
-                    link_table in __ALLOWED_INTERLINK_TYPE_VAL_DICT__
+                        link_table in __ALLOWED_INTERLINK_TYPE_VAL_DICT__
                 ), "If you request a type column for {}, you must specify it's allowed values".format(link_table)
 
         # Check that, if there's type values specified, there's a table with a type column for them to go in
@@ -526,36 +274,95 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         conn = self.conn
         c = conn.cursor()
 
-        try:
-            with open(os.path.join(__folder__, "main_tables_sqlite.txt"), "r") as main_tables_sqlite_file:
-                test = main_tables_sqlite_file.readlines()
-        except IOError:
-            LiuXin_print(
-                "Error - create_main_tables failed, due to being unable to find the main_tables_sqlite.txt file."
-            )
-            sys.exit()
-
-        break_count = 0  # counting the number of break statements so far
-
-        current_statement = """ """
         statements = []
 
-        for line in test:
+        for main_table_sql_file in self.main_tables_sql_files:
 
-            if line[0:8] == "-- BREAK":
-                break_count += 1
+            try:
+                with main_table_sql_file.open("r") as main_tables_sqlite_file:
+                    test = main_tables_sqlite_file.readlines()
+            except IOError:
+                LiuXin_print(
+                    "Error - create_main_tables failed, due to being unable to find the main_tables_sqlite.txt file."
+                )
+                sys.exit()
 
-            current_statement += line
+            break_count = 0  # counting the number of break statements so far
 
-            if break_count == 2:
-                break_count = 0
-                statements.append(current_statement)
-                current_statement = """ """
+            current_statement = """ """
+
+            for line in test:
+
+                if line[0:8] == "-- BREAK":
+                    break_count += 1
+
+                current_statement += line
+
+                if break_count == 2:
+                    break_count = 0
+                    statements.append(current_statement)
+                    current_statement = """ """
 
         for statement in statements:
             if VERBOSE_DEBUG:
                 LiuXin_print(statement)
-            c.execute(statement)
+            try:
+                c.execute(statement)
+            except sqlite3.OperationalError as e:
+                raise TypeError(f"\n{statement}\n: {e}")
+            except sqlite3.ProgrammingError as e:
+                raise TypeError(f"\n{statement}\n: {e}")
+
+            conn.commit()
+
+    def create_main_triggers(self) -> None:
+        """
+        Generates and executes the SQL needed to build the main tables.
+
+        :return:
+        """
+        conn = self.conn
+        c = conn.cursor()
+
+        statements = []
+
+        for main_table_sql_file in self.triggers_sql_files:
+
+            try:
+                with main_table_sql_file.open("r") as main_tables_sqlite_file:
+                    test = main_tables_sqlite_file.readlines()
+            except IOError:
+                LiuXin_print(
+                    "Error - create_main_tables failed, due to being unable to find the main_tables_sqlite.txt file."
+                )
+                sys.exit()
+
+            break_count = 0  # counting the number of break statements so far
+
+            current_statement = """ """
+
+            for line in test:
+
+                if line[0:8] == "-- BREAK":
+                    break_count += 1
+
+                current_statement += line
+
+                if break_count == 2:
+                    break_count = 0
+                    statements.append(current_statement)
+                    current_statement = """ """
+
+        for statement in statements:
+            if VERBOSE_DEBUG:
+                LiuXin_print(statement)
+            try:
+                c.execute(statement)
+            except sqlite3.OperationalError as e:
+                raise TypeError(f"\n{statement}\n: {e}")
+            except sqlite3.ProgrammingError as e:
+                raise TypeError(f"\n{statement}\n: {e}")
+
             conn.commit()
 
     def get_requested_interlink_tables(self) -> set[str]:
@@ -1028,3 +835,5 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         c = self.conn.cursor()
         c.execute(del_stmt_block)
         self.conn.commit()
+
+

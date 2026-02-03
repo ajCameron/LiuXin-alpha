@@ -5,11 +5,6 @@
 --  - Foreign keys require PRAGMA foreign_keys=ON per connection
 --  - Use the -- BREAK markers as section boundaries
 
-
-
-
-
-
 -- BREAK
 
 
@@ -75,11 +70,11 @@ CREATE TABLE IF NOT EXISTS `files` (
   `file_last_modified`     DATETIME DEFAULT CURRENT_TIMESTAMP,
 
   -- timestamps (display DATETIME + epoch_ms source)
-  file_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  file_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `file_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `file_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-  file_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  file_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `file_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `file_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   `file_scratch` TEXT NULL,
 
@@ -103,27 +98,54 @@ CREATE TABLE IF NOT EXISTS `files` (
 
 );
 
+-- BREAK
+-- BREAK
+
+
 -- Uniqueness: no duplicate key within the same store
 CREATE UNIQUE INDEX IF NOT EXISTS `idx_files_unique_store_key`
 ON `files` (`file_store_id`, `file_storage_key`);
+
+-- BREAK
+-- BREAK
 
 -- Common joins
 CREATE INDEX IF NOT EXISTS `idx_files_item_id`
 ON `files` (`file_item_id`);
 
+-- BREAK
+-- BREAK
+
+
 CREATE INDEX IF NOT EXISTS `idx_files_folder_id`
 ON `files` (`file_folder_id`);
+
+-- BREAK
+-- BREAK
+
 
 -- Integrity / dedupe
 CREATE INDEX IF NOT EXISTS `idx_files_hash_sha256`
 ON `files` (`file_hash_sha256`);
 
+-- BREAK
+-- BREAK
+
+
 -- Policy filters
 CREATE INDEX IF NOT EXISTS `idx_files_class_mask`
 ON `files` (`file_class_mask`);
 
+-- BREAK
+-- BREAK
+
+
 CREATE INDEX IF NOT EXISTS `idx_files_visibility_mask`
 ON `files` (`file_visibility_mask`);
+
+-- BREAK
+-- BREAK
+
 
 CREATE INDEX IF NOT EXISTS `idx_files_role`
 ON `files` (`file_role`);

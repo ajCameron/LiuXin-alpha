@@ -1,4 +1,7 @@
 
+-- BREAK
+
+
 -- ------------------------
 -- folders: prevent cycles
 -- ------------------------
@@ -11,6 +14,10 @@ BEGIN
     THEN RAISE(ABORT, 'folders.folder_parent_id cannot reference itself')
   END;
 END;
+
+-- BREAK
+-- BREAK
+
 
 CREATE TRIGGER IF NOT EXISTS trg_folders_parent_no_cycles
 BEFORE UPDATE OF folder_parent_id ON folders
@@ -31,6 +38,8 @@ BEGIN
     THEN RAISE(ABORT, 'folders hierarchy cycle detected (cannot set parent creating a loop)')
   END;
 END;
+
+-- BREAK
 -- BREAK
 
 
@@ -72,6 +81,10 @@ BEGIN
     THEN RAISE(ABORT, 'folders.folder_relpath must not end with "/"')
   END;
 END;
+
+-- BREAK
+-- BREAK
+
 
 CREATE TRIGGER IF NOT EXISTS trg_folders_relpath_normalized_upd
 BEFORE UPDATE OF folder_relpath ON folders
@@ -117,6 +130,10 @@ BEGIN
     THEN RAISE(ABORT, 'folders.folder_parent_id cannot reference itself')
   END;
 END;
+
+-- BREAK
+-- BREAK
+
 
 CREATE TRIGGER IF NOT EXISTS trg_folders_parent_no_cycles_after_ins
 AFTER INSERT ON folders

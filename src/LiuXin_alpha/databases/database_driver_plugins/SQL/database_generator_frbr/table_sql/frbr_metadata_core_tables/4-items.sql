@@ -1,7 +1,5 @@
 -- BREAK
 
-
-
 -- -----------------------------------------------------
 -- Table `items`  (FRBR Item / copy)
 -- -----------------------------------------------------
@@ -9,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `items` (
   `item_id` INTEGER PRIMARY KEY,
 
   -- Relation to manifestation
-  `item_manifestation_id` INT NOT NULL,
+  `item_manifestation_id` INTEGER NOT NULL,
 
   -- Type of item
   `item_type` TEXT NULL,               -- 'digital', 'physical'
@@ -29,11 +27,11 @@ CREATE TABLE IF NOT EXISTS `items` (
   `item_condition` TEXT NULL,          -- 'fine', 'good', 'worn', 'damaged', ...
 
   -- timestamps (display DATETIME + epoch_ms source)
-  item_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  item_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `item_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `item_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-  item_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  item_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+  `item_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `item_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   `item_scratch` TEXT NULL,
 
@@ -45,6 +43,10 @@ CREATE TABLE IF NOT EXISTS `items` (
 
 );
 
+-- BREAK
+-- BREAK
+
 CREATE INDEX IF NOT EXISTS `idx_items_manifestation_id`
 ON `items` (`item_manifestation_id`);
+
 -- BREAK

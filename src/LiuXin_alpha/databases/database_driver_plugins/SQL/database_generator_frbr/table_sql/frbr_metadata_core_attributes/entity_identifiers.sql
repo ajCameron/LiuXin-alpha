@@ -31,11 +31,20 @@ CREATE TABLE IF NOT EXISTS `entity_identifiers` (
 
 );
 
+-- BREAK
+-- BREAK
+
 CREATE INDEX IF NOT EXISTS `idx_entity_identifiers_lookup`
 ON `entity_identifiers` (`entity_identifier_scheme`, `entity_identifier_value`);
 
+-- BREAK
+-- BREAK
+
 CREATE INDEX IF NOT EXISTS `idx_entity_identifiers_entity`
 ON `entity_identifiers` (`entity_identifier_entity_type`, `entity_identifier_entity_id`);
+
+-- BREAK
+-- BREAK
 
 CREATE INDEX IF NOT EXISTS `idx_entity_identifiers_primary`
 ON `entity_identifiers` (`entity_identifier_entity_type`, `entity_identifier_entity_id`, `entity_identifier_scheme`, `entity_identifier_is_primary`);

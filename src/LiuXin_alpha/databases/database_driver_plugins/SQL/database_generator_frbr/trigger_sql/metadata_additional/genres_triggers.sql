@@ -13,6 +13,9 @@ BEGIN
   END;
 END;
 
+-- BREAK
+-- BREAK
+
 CREATE TRIGGER IF NOT EXISTS trg_genres_parent_no_cycles
 BEFORE UPDATE OF genre_parent_id ON genres
 WHEN NEW.genre_parent_id IS NOT NULL
@@ -44,6 +47,9 @@ BEGIN
     THEN RAISE(ABORT, 'genres.genre_parent_id cannot reference itself')
   END;
 END;
+
+-- BREAK
+-- BREAK
 
 CREATE TRIGGER IF NOT EXISTS trg_genres_parent_no_cycles_ins
 BEFORE INSERT ON genres
@@ -80,6 +86,9 @@ BEGIN
   END;
 END;
 
+-- BREAK
+-- BREAK
+
 CREATE TRIGGER IF NOT EXISTS trg_genres_parent_no_cycles_after_ins
 AFTER INSERT ON genres
 WHEN NEW.genre_parent IS NOT NULL
@@ -87,12 +96,12 @@ BEGIN
   SELECT CASE
     WHEN EXISTS (
       WITH RECURSIVE anc(id) AS (
-        SELECT NEW.genre_parent
+        SELECT NEW.genre_parent_is
         UNION ALL
-        SELECT g.genre_parent
+        SELECT g.genre_parent_id
         FROM genres g
         JOIN anc ON g.genre_id = anc.id
-        WHERE g.genre_parent IS NOT NULL
+        WHERE g.genre_parent_id IS NOT NULL
       )
       SELECT 1 FROM anc WHERE id = NEW.genre_id LIMIT 1
     )
