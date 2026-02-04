@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
+import sqlite3
 from pathlib import Path
 
 from typing import Optional
@@ -147,3 +148,38 @@ def provision_test_covers(tmp_path: Path, test_resources_manager):
 
     return _provision
 
+
+
+def _sqlite_has_fts5(conn: sqlite3.Connection) -> bool:
+    try:
+        conn.execute("CREATE VIRTUAL TABLE temp._fts5_probe USING fts5(x)")
+        conn.execute("DROP TABLE temp._fts5_probe")
+        return True
+    except sqlite3.OperationalError:
+        return False
+
+
+@pytest.fixture(scope="session")
+def calibre_library_template_manager(tmp_path_factory: pytest.TempPathFactory):
+    from tests.support.calibre_library_templates import CalibreLibraryTemplateManager
+
+    cache_dir = tmp_path_factory.getbasetemp() / "liuxin_calibre_library_templates"
+    return CalibreLibraryTemplateManager(cache_dir=cache_dir)
+
+
+@pytest.fixture
+def provision_calibre_library(tmp_path: Path, calibre_library_template_manager):
+    # Calibre's current metadata schema requires FTS5.
+    probe = sqlite3.connect(":memory:")
+    try:
+        if not _sqlite_has_fts5(probe):
+            pytest.skip("SQLite build lacks FTS5; Calibre metadata schema requires it")
+    finally:
+        probe.close()
+
+    def _provision(name: str = "calibre_library", **kwargs):
+        return calibre_library_template_manager.provision_blank_library(
+            dst_dir=tmp_path, name=name, **kwargs
+        )
+
+    return _provision

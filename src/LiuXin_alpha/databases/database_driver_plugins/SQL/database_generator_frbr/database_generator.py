@@ -174,7 +174,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         # 2) Build the triggers
         self.create_main_triggers()
 
-        assert self.direct_get_tables() is None
+        assert self.direct_get_tables() is None, sorted(self.direct_get_tables())
 
 
         raise NotImplementedError("Let's get the main tables up first.")
@@ -211,7 +211,11 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         # 10) Set the version - so we can check the database and driver version used to build this database
         self.set_database_version()
 
-    def direct_get_tables(self) -> list[str]:
+
+    # Todo: Add annotations table?
+    # Todo: Add a unified tasks table?
+
+    def direct_get_tables(self) -> set[str]:
         """
         Returns a index of the names of all tables in the database.
         :param force_refresh: Force the driver to introspect the database again
@@ -223,7 +227,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         for row in self.conn.execute(stmt):
             processed_return.append(row[0])
 
-        return processed_return
+        return set(processed_return)
 
     @staticmethod
     def sanity_check_interlink_inputs() -> None:

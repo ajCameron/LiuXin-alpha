@@ -1,5 +1,112 @@
 -- ENTER THE REQUESTED LINK TABLE IN THE FORM table1-table2_links LIKE BELOW
 
+[
+
+
+'hashes',
+'human_agents',
+'images',
+'item_identifiers',
+'items',
+'labels',
+'languages',
+'last_read_positions',
+'library_id',
+'manifestations',
+'metadata_dirtied_books',
+'new_books',
+'notes',
+'org_agents',
+'preferences',
+'ratings',
+'series',
+'stores',
+'subjects',
+'synopses',
+'works']
+
+-- ORIGINAL LINK TABLES
+
+    agents -- comments
+    agents -- expressions
+    agents -- feeds
+    agents -- images
+    agents -- items
+    agents -- labels
+    agents -- languages
+    agents -- manifestations
+    agents -- synopses
+    agents -- works
+
+    comments -- compressed_files
+    comments -- conversion_options
+    comments -- custom_columns
+    comments -- devices
+    comments -- expressions
+    comments -- feeds
+    comments -- human_agents
+    comments -- items
+    comments -- manifestations
+    comments -- org_agents
+    comments -- series
+    comments -- stores
+    comments -- works
+
+    devices -- feeds
+    devices -- expressions
+    devices -- items
+    devices -- labels
+    devices -- notes
+    devices -- series
+    devices -- stores
+
+    expressions -- images
+    expressions -- human_agents
+    expressions -- labels
+    expressions -- languages
+    expressions -- notes
+    expressions -- org_agents
+
+    feeds -- genres
+    feeds -- human_agents
+    feeds -- images
+    feeds -- items
+    feeds -- languages
+    feeds -- notes
+    feeds -- org_agents
+    feeds -- stores
+    feeds -- subjects
+    feeds -- synopses
+
+    files -- folders
+    files -- hashes
+    files -- images
+    files -- items
+    files -- labels
+    files -- languages
+    files -- last_read_positions
+    files -- stores
+
+    folders -- feeds
+    folders -- items
+    folders -- series
+    folders -- stores
+    folders -- works
+
+    genres -- works
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- ORIGINAL LINK TABLES
 
     book-cover_links

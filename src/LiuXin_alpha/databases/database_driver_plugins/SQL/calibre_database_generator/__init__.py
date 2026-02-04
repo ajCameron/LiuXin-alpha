@@ -13,14 +13,26 @@ Design goals:
 from __future__ import annotations
 
 from .database_generator import (
+    create_new_database,
+    create_calibre_library_skeleton,
+    CalibreLibraryPaths,
+    validate_metadata_database,
+    ensure_library_id_row,
     calibre_sql_paths,
+    calibre_metadata_schema_info,
     calibre_metadata_user_version,
     calibre_metadata_application_id,
     read_calibre_sql,
 )
 
 __all__ = [
+    "create_new_database",
+    "create_calibre_library_skeleton",
+    "CalibreLibraryPaths",
+    "validate_metadata_database",
+    "ensure_library_id_row",
     "calibre_sql_paths",
+    "calibre_metadata_schema_info",
     "calibre_metadata_user_version",
     "calibre_metadata_application_id",
     "read_calibre_sql",

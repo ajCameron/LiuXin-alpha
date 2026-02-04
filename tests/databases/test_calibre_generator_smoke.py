@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import os
 import pathlib
+import sqlite3
+
+import pytest
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import database_generator as cal_gen
 
@@ -30,3 +33,28 @@ def test_calibre_metadata_version_metadata_is_extractable() -> None:
 
     assert isinstance(user_version, int) and user_version > 0
     assert isinstance(application_id, int) and application_id > 0
+
+
+def _sqlite_has_fts5(conn: sqlite3.Connection) -> bool:
+    try:
+        conn.execute("CREATE VIRTUAL TABLE temp._fts5_probe USING fts5(x)")
+        conn.execute("DROP TABLE temp._fts5_probe")
+        return True
+    except sqlite3.OperationalError:
+        return False
+
+
+def test_create_new_calibre_metadata_db_in_memory() -> None:
+    conn = sqlite3.connect(":memory:")
+
+    if not _sqlite_has_fts5(conn):
+        pytest.skip("SQLite build lacks FTS5; Calibre metadata schema requires it")
+
+    # Should create schema and validate application_id/user_version.
+    cal_gen.create_new_database(conn, validate=True)
+
+    # Spot check that a core Calibre table exists.
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books'"
+    ).fetchone()
+    assert row is not None
