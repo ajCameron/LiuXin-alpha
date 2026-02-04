@@ -183,3 +183,19 @@ def provision_calibre_library(tmp_path: Path, calibre_library_template_manager):
         )
 
     return _provision
+
+
+@pytest.fixture
+def provision_populated_calibre_library(provision_calibre_library):
+    """Factory fixture: provision a Calibre library and get a builder for it."""
+
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import (
+        CalibreLibraryBuilder,
+    )
+
+    def _provision(*, name: str = "calibre_library", **kwargs):
+        lib = provision_calibre_library(name=name, **kwargs)
+        builder = CalibreLibraryBuilder(lib.root)
+        return lib, builder
+
+    return _provision

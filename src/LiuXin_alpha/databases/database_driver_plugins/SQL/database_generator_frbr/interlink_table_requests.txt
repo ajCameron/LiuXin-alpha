@@ -1,39 +1,26 @@
--- ENTER THE REQUESTED LINK TABLE IN THE FORM table1-table2_links LIKE BELOW
-
-[
-
-
-'hashes',
-'human_agents',
-'images',
-'item_identifiers',
-'items',
-'labels',
-'languages',
-'last_read_positions',
-'library_id',
-'manifestations',
-'metadata_dirtied_books',
-'new_books',
-'notes',
-'org_agents',
-'preferences',
-'ratings',
-'series',
-'stores',
-'subjects',
-'synopses',
-'works']
-
--- ORIGINAL LINK TABLES
+-- ENTER THE REQUESTED LINK TABLE IN THE FORM table1 -- table2 LIKE BELOW
 
     agents -- comments
+# You want to be able to make comments on a generic agent
+
     agents -- expressions
+# Which expressions the agents are responsible for
+
     agents -- feeds
+# Agents also create and manage feeds of various sorts. Tags which agents
+
     agents -- images
+# You can assign pictures to agents - such as cover photos
+
     agents -- items
+# Agents can be responsible for different parts of each part of the WEMI stack
+
     agents -- labels
+# You can label agents in various ways
+
     agents -- languages
+# Agents can work in different languages (e.g. Alistair Reynaulds is an English language author). (Orbit is an English language publishing housre)
+
     agents -- manifestations
     agents -- synopses
     agents -- works
@@ -94,75 +81,55 @@
     folders -- works
 
     genres -- works
+    hashes -- new_books
 
+    human_agents -- images
+    human_agents -- labels
+    human_agents -- languages
+    human_agents -- series
+    human_agents -- subjects
+    human_agents -- synopses
+    human_agents -- works
 
+    images -- items
+    images -- labels
+    images -- manifestations
+    images -- series
+    images -- works
 
+    items -- labels
+    items -- languages
+    items -- last_read_positions
 
+    labels -- new_books
+    labels -- org_agents
+    labels -- series
+    labels -- stores
+    labels -- works
 
+    languages -- manifestations
+    languages -- works
 
+    notes -- org_agents
+    notes -- stores
+    notes -- works
 
+    org_agents -- series
+    org_agents -- works
+    org_agents -- subjects
+    org_agents -- works
 
+    ratings -- series
+    ratings -- works
 
+    series -- works
+    series -- subjects
+    series -- synopses
 
+    stores -- subjects
+    stores -- synopses
 
+    subjects -- synopses
+    subjects -- works
 
-
--- ORIGINAL LINK TABLES
-
-    book-cover_links
-    book-file_links
-    book-folder_links
-
-    comment-creator_links
-    comment-series_links
-    comment-title_links
-
-    cover-creator_links
-	cover-series_links
-
-	creator-folder_links
-	creator-language_links
-    creator-note_links
-	creator-series_links
-	creator-synopsis_links
-	creator-tag_links
-	creator-title_links
-
-    device-file_links
-	device-note_links
-
-	file-folder_links
-	file-identifier_links
-	file-language_links
-	file-publisher_links
-
-    folder-series_links
-
-	folder_store-note_links
-
-	genre-series_links
-	genre-title_links
-
-	identifier-title_links
-
-	language-title_links
-
-	note-publisher_links
-	note-series_links
-	note-title_links
-
-	publisher-title_links
-
-	rating-title_links
-
-	series-synopsis_links
-	series-tag_links
-	series-title_links
-
-    subject-title_links
-
-	tag-title_links
-
-	title-synopsis_links
-
--- USER CREATED LINK TABLES
+    synopses -- works

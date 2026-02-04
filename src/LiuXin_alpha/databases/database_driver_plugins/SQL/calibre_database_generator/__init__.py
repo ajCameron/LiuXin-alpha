@@ -25,6 +25,12 @@ from .database_generator import (
     read_calibre_sql,
 )
 
+from .library_builder import (
+    CalibreLibraryBuilder,
+    AddedBook,
+    AddedFormat,
+)
+
 __all__ = [
     "create_new_database",
     "create_calibre_library_skeleton",
@@ -36,4 +42,7 @@ __all__ = [
     "calibre_metadata_user_version",
     "calibre_metadata_application_id",
     "read_calibre_sql",
+    "CalibreLibraryBuilder",
+    "AddedBook",
+    "AddedFormat",
 ]

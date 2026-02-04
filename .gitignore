@@ -206,3 +206,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .idea/LiuXin-alpha.iml
+
+# Zipped repos
+LiuXin-alpha-[0-9-]*.zip
