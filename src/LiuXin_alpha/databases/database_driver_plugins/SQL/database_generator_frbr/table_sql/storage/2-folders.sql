@@ -9,8 +9,8 @@
 CREATE TABLE IF NOT EXISTS `folders` (
   `folder_id` INTEGER PRIMARY KEY,
 
-  `folder_store_id` INT NOT NULL,
-  `folder_parent_id` INT NULL,
+  `folder_store_id` INTEGER NOT NULL,
+  `folder_parent_id` INTEGER NULL,
 
   `folder_name` TEXT NOT NULL,          -- single path segment
   `folder_relpath` TEXT NULL,           -- cached relative path inside store

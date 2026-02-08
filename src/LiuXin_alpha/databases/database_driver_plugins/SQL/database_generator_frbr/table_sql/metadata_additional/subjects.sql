@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS `subjects` (
   `subject_phash` TEXT NULL,
   `subject_sort` TEXT NULL,
 
-  `subject_parent_id` INT UNSIGNED NULL,
-  `subject_parent_position` INT UNSIGNED NULL,
+  `subject_parent_id` INTEGER NULL,
+  `subject_parent_position` INTEGER NULL,
   `subject_tree_id` TEXT NULL,
   `subject_full` TEXT NULL,
 

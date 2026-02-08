@@ -12,7 +12,7 @@
 CREATE TABLE IF NOT EXISTS `item_identifiers` (
   `item_identifier_id` INTEGER PRIMARY KEY,
 
-  `item_identifier_item_id` INT NOT NULL,
+  `item_identifier_item_id` INTEGER NOT NULL,
   `item_identifier_scheme`  TEXT NOT NULL,   -- 'isbn13', 'isbn10', 'asin', 'barcode', ...
   `item_identifier_value`   TEXT NOT NULL,
   `item_identifier_source`  TEXT NULL,       -- 'scan', 'file_metadata', 'calibre', ...

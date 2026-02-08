@@ -617,8 +617,8 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
     -- -----------------------------------------------------
     CREATE TABLE IF NOT EXISTS `{0}s` (
       `{0}_id` INTEGER PRIMARY KEY ,
-      `{0}_primary_id` INT UNSIGNED NULL,
-      `{0}_secondary_id` INT UNSIGNED NULL,
+      `{0}_primary_id` INTEGER NULL,
+      `{0}_secondary_id` INTEGER NULL,
       `{0}_type` TEXT NULL,
       `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
       `{0}_scratch` TEXT NULL,

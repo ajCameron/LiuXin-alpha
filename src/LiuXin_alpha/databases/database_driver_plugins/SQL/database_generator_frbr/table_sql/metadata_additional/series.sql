@@ -11,10 +11,10 @@ CREATE TABLE IF NOT EXISTS `series` (
   `series_sort` TEXT NULL,
   `series_phash` TEXT NULL,
 
-  `series_over_author` INT DEFAULT 0,
+  `series_over_author` INTEGER DEFAULT 0,
 
-  `series_parent_id` INT UNSIGNED NULL,
-  `series_parent_position` INT UNSIGNED NULL,
+  `series_parent_id` INTEGER NULL,
+  `series_parent_position` INTEGER NULL,
   `series_tree_id` TEXT NULL,
   `series_full` TEXT NULL,
 

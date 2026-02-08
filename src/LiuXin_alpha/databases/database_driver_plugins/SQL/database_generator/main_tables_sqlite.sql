@@ -14,16 +14,16 @@ CREATE TABLE IF NOT EXISTS `books` (
 
   `book_uuid` TEXT NULL,
 
-  `book_has_cover` INT DEFAULT 0,
-  `book_has_local_cover` INT DEFAULT 0,
+  `book_has_cover` INTEGER DEFAULT 0,
+  `book_has_local_cover` INTEGER DEFAULT 0,
   `book_last_modified` TEXT NULL,
 
   `book_fingerprint` TEXT NULL,
 
   `book_paths` PYSET NULL,
-  `book_size` INT DEFAULT 0,
+  `book_size` INTEGER DEFAULT 0,
 
-  `book_rating` INT UNSIGNED NULL,
+  `book_rating` INTEGER NULL,
 
   `book_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
   `book_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
@@ -66,17 +66,17 @@ CREATE TABLE IF NOT EXISTS `covers` (
   `cover_name` TEXT NULL,
   `cover_extension` TEXT NULL,
   `cover_path` TEXT NULL,
-  `cover_use_auto_name` TINYINT(1) DEFAULT 1,
+  `cover_use_auto_name` INTEGER DEFAULT 1,
 
   `cover_hash` TEXT NULL,
   `cover_new_hash` TEXT NULL,
-  `cover_corrupt` TINYINT(1) DEFAULT 0,
+  `cover_corrupt` INTEGER DEFAULT 0,
 
   `cover_original_path` TEXT NULL,
 
-  `cover_local` TINYINT(1) NULL,
+  `cover_local` INTEGER NULL,
 
-  `cover_base_folder` INT UNSIGNED NULL,
+  `cover_base_folder` INTEGER NULL,
   `cover_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `cover_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
 
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS `creators` (
 
   `creator_type` TEXT NULL,
   `creator_seminal_work` TEXT NULL,
-  `creator_one_person` TINYINT(1) NULL DEFAULT 0,
+  `creator_one_person` INTEGER NULL DEFAULT 0,
 
   `creator_wikipedia` TEXT NULL,
   `creator_imdb` TEXT NULL,
@@ -157,9 +157,9 @@ CREATE TABLE IF NOT EXISTS `genres` (
   `genre_sort` TEXT NULL,
   `genre_phash` TEXT NULL,
 
-  `genre_parent` INT UNSIGNED NULL,
-  `genre_position` INT UNSIGNED NULL,
-  `genre_tree_id` INT UNSIGNED NULL,
+  `genre_parent` INTEGER NULL,
+  `genre_position` INTEGER NULL,
+  `genre_tree_id` INTEGER NULL,
   `genre_full` TEXT NULL,
 
   `genre_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -192,25 +192,25 @@ CREATE TABLE IF NOT EXISTS `files` (
   `file_extension` TEXT NULL,
   `file_path` TEXT NULL,
   `file_auto_name` TEXT NULL,
-  `file_use_auto_name` INT DEFAULT 1,
+  `file_use_auto_name` INTEGER DEFAULT 1,
 
-  `file_size` INT UNSIGNED NULL,
+  `file_size` INTEGER NULL,
   `file_hash` TEXT NULL,
   `file_new_hash` TEXT NULL,
-  `file_corrupt` INT UNSIGNED NULL,
+  `file_corrupt` INTEGER NULL,
 
-  `file_base_folder` INT UNSIGNED NULL,
+  `file_base_folder` INTEGER NULL,
   `file_acquired_timestamp` TEXT NULL,
 
   `file_source` TEXT NULL,
   `file_original_name` TEXT NULL,
   `file_original_path` TEXT NULL,
   `file_phash` TEXT NULL,
-  `file_anthology` TINYINT(1) NULL,
-  `file_critical` TINYINT(1) NULL DEFAULT 1,
+  `file_anthology` INTEGER NULL,
+  `file_critical` INTEGER NULL DEFAULT 1,
   `file_parent` TEXT NULL,
   `file_conversion_settings` TEXT NULL,
-  `file_processed` TINYINT(1) NULL DEFAULT 0,
+  `file_processed` INTEGER NULL DEFAULT 0,
 
   `file_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `file_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
@@ -248,11 +248,11 @@ CREATE TABLE IF NOT EXISTS `folder_stores` (
   `folder_store_forbidden_print` TEXT NULL,
   `folder_store_preferred_print` TEXT NULL,
   `folder_store_cache` INTEGER DEFAULT 0,
-  `folder_store_storage` INT DEFAULT 1,
+  `folder_store_storage` INTEGER DEFAULT 1,
   `folder_store_cf_expansion` INTEGER DEFAULT 0,
-  `folder_store_cache_priority` INT DEFAULT 0,
+  `folder_store_cache_priority` INTEGER DEFAULT 0,
 
-  `folder_store_max_path_length` INT DEFAULT 4000,
+  `folder_store_max_path_length` INTEGER DEFAULT 4000,
   `folder_store_user_name` TEXT NULL,
   `folder_store_password` TEXT NULL,
   `folder_store_type` TEXT NULL,
@@ -261,12 +261,12 @@ CREATE TABLE IF NOT EXISTS `folder_stores` (
   `folder_store_marker_path`TEXT NULL,
   `folder_store_marker_path_os_type` TEXT NULL,
   `folder_store_dedicated_drive` INTEGER DEFAULT 1,
-  `folder_store_max_size` INT NULL DEFAULT 0,
+  `folder_store_max_size` INTEGER NULL DEFAULT 0,
 
   `folder_store_found` INTEGER DEFAULT 1,
   `folder_store_readable` INTEGER DEFAULT 1,
   `folder_store_writeable` INTEGER DEFAULT 1,
-  `folder_store_size` INT DEFAULT 0,
+  `folder_store_size` INTEGER DEFAULT 0,
   `folder_store_free_size` INTEGER DEFAULT 0,
 
   `folder_store_creation_date` TEXT NULL,
@@ -289,15 +289,15 @@ CREATE TABLE IF NOT EXISTS `folders` (
   `folder_tag` TEXT NULL,
   `folder_original_name` TEXT NULL,
   `folder_auto_name` TEXT NULL,
-  `folder_use_auto_name` INT DEFAULT 1,
+  `folder_use_auto_name` INTEGER DEFAULT 1,
   `folder_path` TEXT NULL,
-  `folder_auto_position` INT DEFAULT 1,
+  `folder_auto_position` INTEGER DEFAULT 1,
 
-  `folder_found` INT DEFAULT 1,
-  `folder_folder_store_id` INT UNSIGNED NULL,
-  `folder_parent` INT NULL,
-  `folder_depth` INT NULL,
-  `folder_size` INT NULL,
+  `folder_found` INTEGER DEFAULT 1,
+  `folder_folder_store_id` INTEGER NULL,
+  `folder_parent` INTEGER NULL,
+  `folder_depth` INTEGER NULL,
+  `folder_size` INTEGER NULL,
   `folder_hash` TEXT NULL,
   `folder_types` TEXT NULL,
 
@@ -401,7 +401,7 @@ CREATE TABLE IF NOT EXISTS `publishers` (
 
   `publisher_parent` TEXT NULL,
   `publisher_position` TEXT NULL,
-  `publisher_tree_id` INT NULL,
+  `publisher_tree_id` INTEGER NULL,
   `publisher_full` TEXT NULL,
 
   `publisher_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -420,7 +420,7 @@ CREATE TABLE IF NOT EXISTS `publishers` (
 CREATE TABLE IF NOT EXISTS `ratings` (
   `rating_id` INTEGER PRIMARY KEY,
 
-  `rating` INT NULL,
+  `rating` INTEGER NULL,
   `rating_source` TEXT NULL,
 
   `rating_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -436,14 +436,14 @@ CREATE TABLE IF NOT EXISTS `ratings` (
 CREATE TABLE IF NOT EXISTS `series` (
   `series_id` INTEGER PRIMARY KEY ,
 
-  `series` INT UNSIGNED NULL,
+  `series` INTEGER NULL,
   `series_sort` TEXT NULL,
   `series_phash` TEST NULL,
 
-  `series_over_author` INT DEFAULT 0,
+  `series_over_author` INTEGER DEFAULT 0,
 
-  `series_parent` INT UNSIGNED NULL,
-  `series_parent_position` INT UNSIGNED NULL,
+  `series_parent` INTEGER NULL,
+  `series_parent_position` INTEGER NULL,
   `series_tree_id` TEXT NULL,
   `series_full` TEXT NULL,
 
@@ -475,8 +475,8 @@ CREATE TABLE IF NOT EXISTS `subjects` (
   `subject_phash` TEXT NULL,
   `subject_sort` TEXT NULL,
 
-  `subject_parent` INT UNSIGNED NULL,
-  `subject_parent_position` INT UNSIGNED NULL,
+  `subject_parent` INTEGER NULL,
+  `subject_parent_position` INTEGER NULL,
   `subject_tree_id` TEXT NULL,
   `subject_full` TEXT NULL,
 
@@ -544,8 +544,8 @@ CREATE TABLE IF NOT EXISTS `titles` (
   `title_pub_date` TEXT NULL,
   `title_copyright_date` TEXT NULL,
   `title_wikipedia` TEXT NULL,
-  `title_fiction_length_category` INT UNSIGNED NULL,
-  `title_type` INT UNSIGNED NULL,
+  `title_fiction_length_category` INTEGER NULL,
+  `title_type` INTEGER NULL,
   `title_wordcount` TEXT NULL,
 
   `title_source` TEXT NULL,
@@ -568,14 +568,14 @@ CREATE TABLE IF NOT EXISTS `titles` (
 CREATE TABLE IF NOT EXISTS `new_books` (
   `new_book_id` INTEGER PRIMARY KEY,
   `new_book_name` TEXT,
-  `new_book_extension` INT NULL DEFAULT 0,
-  `new_book_path` INT UNSIGNED NULL,
+  `new_book_extension` INTEGER NULL DEFAULT 0,
+  `new_book_path` INTEGER NULL,
   `new_book_hash_1` TEXT NULL,
   `new_book_hash_2` INTEGER,
   `new_book_size` INTEGER,
   `new_book_group_id` INTEGER,
-  `new_book_cached` INT NULL DEFAULT 0,
-  `new_book_cache_attempted` INT NULL DEFAULT 0,
+  `new_book_cached` INTEGER NULL DEFAULT 0,
+  `new_book_cache_attempted` INTEGER NULL DEFAULT 0,
   `new_book_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `new_book_scratch` TEXT NULL)
 ;
@@ -590,15 +590,15 @@ CREATE TABLE IF NOT EXISTS `new_books` (
 CREATE TABLE IF NOT EXISTS `compressed_files` (
   `compressed_file_id` INTEGER PRIMARY KEY,
   `compressed_file_name` TEXT,
-  `compressed_file_extension` INT NULL DEFAULT 0,
-  `compressed_file_path` INT UNSIGNED NULL,
+  `compressed_file_extension` INTEGER NULL DEFAULT 0,
+  `compressed_file_path` INTEGER NULL,
   `compressed_file_hash_1` TEXT NULL,
   `compressed_file_hash_2` INTEGER,
   `compressed_file_size` INTEGER,
   `compressed_file_group_id` INTEGER,
   `compressed_file_folder` INTEGER,
-  `compressed_file_cached` INT NULL DEFAULT 0,
-  `compressed_file_cache_attempted` INT NULL DEFAULT 0,
+  `compressed_file_cached` INTEGER NULL DEFAULT 0,
+  `compressed_file_cache_attempted` INTEGER NULL DEFAULT 0,
   `compressed_file_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `compressed_file_scratch` TEXT NULL)
 ;
@@ -612,7 +612,7 @@ CREATE TABLE IF NOT EXISTS `compressed_files` (
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `books_plugin_data` (
   `book_plugin_data_id` INTEGER PRIMARY KEY ,
-  `book_plugin_data_book` INT UNSIGNED NULL,
+  `book_plugin_data_book` INTEGER NULL,
   `book_plugin_data_name` TEXT NULL,
   `book_plugin_data_val` TEXT NULL,
   `book_plugin_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -628,18 +628,18 @@ CREATE TABLE IF NOT EXISTS `books_plugin_data` (
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `custom_columns` (
   `custom_column_id` INTEGER PRIMARY KEY,
-  `custom_column_mark_for_delete` INT NULL DEFAULT 0,
+  `custom_column_mark_for_delete` INTEGER NULL DEFAULT 0,
   `custom_column_in_table` TEXT NULL,
   `custom_column_label` TEXT NULL,
   `custom_column_name` TEXT NULL,
   `custom_column_datatype` TEXT NULL,
   `custom_column_db_datatype` TEXT NULL,
-  `custom_column_editable` INT NULL DEFAULT 1,
+  `custom_column_editable` INTEGER NULL DEFAULT 1,
   `custom_column_display` TEXT NULL,
-  `custom_column_normalized` INT NULL DEFAULT 0,
-  `custom_column_display_sort` INT NULL DEFAULT 0,
-  `custom_column_is_multiple` INT NULL DEFAULT 0,
-  `custom_column_ordered` INT NULL DEFAULT 0,
+  `custom_column_normalized` INTEGER NULL DEFAULT 0,
+  `custom_column_display_sort` INTEGER NULL DEFAULT 0,
+  `custom_column_is_multiple` INTEGER NULL DEFAULT 0,
+  `custom_column_ordered` INTEGER NULL DEFAULT 0,
   `custom_column_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `custom_column_scratch` TEXT NULL,
   CONSTRAINT `custom_column_name_unique` UNIQUE (`custom_column_name`),

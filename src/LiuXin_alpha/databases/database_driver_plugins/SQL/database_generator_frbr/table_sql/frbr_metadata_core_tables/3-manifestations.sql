@@ -17,12 +17,12 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
 
   -- Edition / publication info
   `manifestation_edition_statement` TEXT NULL, -- "1st ed.", "Revised ed.", ...
-  `manifestation_pub_year` INT NULL,
+  `manifestation_pub_year` INTEGER NULL,
   `manifestation_pub_date` TEXT NULL,          -- 'YYYY-MM-DD' if known
 
   -- Physical / technical characteristics (stable for the product)
-  `manifestation_page_count` INT NULL,
-  `manifestation_runtime_minutes` INT NULL,
+  `manifestation_page_count` INTEGER NULL,
+  `manifestation_runtime_minutes` INTEGER NULL,
   `manifestation_region_code` TEXT NULL,       -- 'Region 2', 'Region A', ...
 
   -- Status / notes

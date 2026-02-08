@@ -35,30 +35,30 @@ CREATE TABLE IF NOT EXISTS `stores` (
   `store_last_healthcheck_ok` DATETIME NULL,
 
   -- Capabilities
-  `store_supports_folders` INT NOT NULL DEFAULT 1,
-  `store_supports_hierarchical_list` INT NOT NULL DEFAULT 1,
+  `store_supports_folders` INTEGER NOT NULL DEFAULT 1,
+  `store_supports_hierarchical_list` INTEGER NOT NULL DEFAULT 1,
 
-  `store_supports_random_read` INT NOT NULL DEFAULT 1,
-  `store_supports_random_write` INT NOT NULL DEFAULT 1,
-  `store_supports_append` INT NOT NULL DEFAULT 1,
+  `store_supports_random_read` INTEGER NOT NULL DEFAULT 1,
+  `store_supports_random_write` INTEGER NOT NULL DEFAULT 1,
+  `store_supports_append` INTEGER NOT NULL DEFAULT 1,
 
-  `store_supports_atomic_rename` INT NOT NULL DEFAULT 1,
-  `store_supports_atomic_overwrite` INT NOT NULL DEFAULT 1,
+  `store_supports_atomic_rename` INTEGER NOT NULL DEFAULT 1,
+  `store_supports_atomic_overwrite` INTEGER NOT NULL DEFAULT 1,
 
-  `store_supports_delete` INT NOT NULL DEFAULT 1,
-  `store_is_read_only` INT NOT NULL DEFAULT 0,
+  `store_supports_delete` INTEGER NOT NULL DEFAULT 1,
+  `store_is_read_only` INTEGER NOT NULL DEFAULT 0,
 
-  `store_is_eventually_consistent` INT NOT NULL DEFAULT 0,
+  `store_is_eventually_consistent` INTEGER NOT NULL DEFAULT 0,
 
-  `store_supports_checksums` INT NOT NULL DEFAULT 0,
-  `store_supports_immutable_objects` INT NOT NULL DEFAULT 0,
-  `store_supports_snapshots` INT NOT NULL DEFAULT 0,
-  `store_supports_server_side_encryption` INT NOT NULL DEFAULT 0,
+  `store_supports_checksums` INTEGER NOT NULL DEFAULT 0,
+  `store_supports_immutable_objects` INTEGER NOT NULL DEFAULT 0,
+  `store_supports_snapshots` INTEGER NOT NULL DEFAULT 0,
+  `store_supports_server_side_encryption` INTEGER NOT NULL DEFAULT 0,
 
-  `store_supports_parallel_read` INT NOT NULL DEFAULT 1,
-  `store_supports_parallel_write` INT NOT NULL DEFAULT 1,
+  `store_supports_parallel_read` INTEGER NOT NULL DEFAULT 1,
+  `store_supports_parallel_write` INTEGER NOT NULL DEFAULT 1,
 
-  `store_requires_mount` INT NOT NULL DEFAULT 0,
+  `store_requires_mount` INTEGER NOT NULL DEFAULT 0,
   `store_latency_class` TEXT NULL,      -- 'hot','warm','cold','glacial'
 
   -- timestamps (display DATETIME + epoch_ms source)

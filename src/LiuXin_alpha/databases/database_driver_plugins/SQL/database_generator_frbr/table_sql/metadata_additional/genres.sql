@@ -10,9 +10,9 @@ CREATE TABLE IF NOT EXISTS `genres` (
   `genre_sort` TEXT NULL,
   `genre_phash` TEXT NULL,
 
-  `genre_parent_id` INT UNSIGNED NULL,
-  `genre_position` INT UNSIGNED NULL,
-  `genre_tree_id` INT UNSIGNED NULL,
+  `genre_parent_id` INTEGER NULL,
+  `genre_position` INTEGER NULL,
+  `genre_tree_id` INTEGER NULL,
   `genre_full` TEXT NULL,
 
   `genre_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),

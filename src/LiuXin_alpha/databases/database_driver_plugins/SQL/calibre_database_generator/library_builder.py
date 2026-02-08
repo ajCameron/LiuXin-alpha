@@ -203,7 +203,7 @@ class CalibreLibraryBuilder:
 
             # SQLite type affinity
             if datatype in ("rating", "int"):
-                dt = "INT"
+                dt = "INTEGER"
             elif datatype in ("text", "comments", "series", "composite", "enumeration"):
                 dt = "TEXT"
             elif datatype in ("float",):

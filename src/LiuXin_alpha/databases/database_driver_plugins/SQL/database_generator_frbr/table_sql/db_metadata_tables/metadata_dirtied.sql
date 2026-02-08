@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS `metadata_dirtied_books` (
   `metadata_dirtied_id` TEXT PRIMARY KEY,
 
-  `metadata_dirtied_table_id` INT NULL,
+  `metadata_dirtied_table_id` INTEGER NULL,
   `metadata_dirtied_table` TEXT NULL,
   `metadata_drtied_reason` TEXT NULL,
 

@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS `images` (
   `image_id` INTEGER PRIMARY KEY,
 
   -- Relations
-  `image_item_id`   INT NULL,
-  `image_store_id`  INT NOT NULL,
-  `image_folder_id` INT NULL,
+  `image_item_id`   INTEGER NULL,
+  `image_store_id`  INTEGER NOT NULL,
+  `image_folder_id` INTEGER NULL,
 
   -- Locator (authoritative, RELATIVE)
   `image_storage_key` TEXT NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `images` (
   `image_extension` TEXT NULL,
   `image_tag` TEXT NULL,
   `image_auto_name` TEXT NULL,
-  `image_use_auto_name` INT DEFAULT 1,
+  `image_use_auto_name` INTEGER DEFAULT 1,
 
   -- Type / role / classification
   `image_mime_type` TEXT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS `images` (
   `image_media_category` TEXT NULL,       -- 'ebook_text','scan','image','video','audio','metadata', ...
   `image_class_mask` INTEGER NULL,        -- placement/category bitmask
   `image_visibility_mask` INTEGER NULL,   -- privacy/visibility bitmask
-  `image_critical` TINYINT(1) NULL DEFAULT 1,
+  `image_critical` INTEGER NULL DEFAULT 1,
 
   -- Size / integrity
   `image_size_bytes` INTEGER NULL,
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `images` (
   `image_hash_blake3` TEXT NULL,
   `image_phash` TEXT NULL,
 
-  `image_corrupt` INT UNSIGNED NULL,
+  `image_corrupt` INTEGER NULL,
   `image_integrity_status` TEXT NULL,     -- 'ok','missing','hash_mismatch','pending','unknown'
   `image_last_seen_at` DATETIME NULL,
   `image_last_integrity_check` DATETIME NULL,
@@ -59,10 +59,10 @@ CREATE TABLE IF NOT EXISTS `images` (
   `image_original_path` TEXT NULL,
 
   -- Processing / lineage placeholders
-  `image_anthology` TINYINT(1) NULL,
+  `image_anthology` INTEGER NULL,
   `image_parent` TEXT NULL,
   `image_conversion_settings` TEXT NULL,
-  `image_processed` TINYINT(1) NULL DEFAULT 0,
+  `image_processed` INTEGER NULL DEFAULT 0,
 
   -- timestamps (display DATETIME + epoch_ms source)
   `image_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),

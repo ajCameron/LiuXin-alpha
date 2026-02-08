@@ -309,10 +309,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             link_rows = """
                 CREATE TABLE IF NOT EXISTS `{0}s`(
                   `{0}_id` INTEGER PRIMARY KEY ,
-                  `{0}_{1}_id` INT UNSIGNED NULL,
-                  `{0}_{2}_id` INT UNSIGNED NULL,
-                  `{0}_priority` INT DEFAULT 0,
-                  `{0}_primary` INT NULL DEFAULT 0,
+                  `{0}_{1}_id` INTEGER NULL,
+                  `{0}_{2}_id` INTEGER NULL,
+                  `{0}_priority` INTEGER DEFAULT 0,
+                  `{0}_primary` INTEGER NULL DEFAULT 0,
                   `{0}_type` TEXT NULL,
                   `{0}_index` TEXT NULL,
                   `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
@@ -326,15 +326,15 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             link_rows_header = """
                 CREATE TABLE IF NOT EXISTS `{0}s`(
                   `{0}_id` INTEGER PRIMARY KEY ,
-                  `{0}_{1}_id` INT UNSIGNED NULL,
-                  `{0}_{2}_id` INT UNSIGNED NULL,"""
+                  `{0}_{1}_id` INTEGER NULL,
+                  `{0}_{2}_id` INTEGER NULL,"""
 
             if "priority" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_priority` INT DEFAULT 0,"
+                link_rows_header += "\n      `{0}_priority` INTEGER DEFAULT 0,"
                 decrement_requested_cols.remove("priority")
 
             if "primary" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_primary` INT NULL DEFAULT 0,"
+                link_rows_header += "\n      `{0}_primary` INTEGER NULL DEFAULT 0,"
                 decrement_requested_cols.remove("primary")
 
             if "type" in decrement_requested_cols:
@@ -724,10 +724,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             link_rows = """
         CREATE TABLE IF NOT EXISTS `{0}s`(
           `{0}_id` INTEGER PRIMARY KEY ,
-          `{0}_{1}_id` INT UNSIGNED NULL,
-          `{0}_{2}_id` INT UNSIGNED NULL,
-          `{0}_priority` INT DEFAULT 0,
-          `{0}_primary` INT NULL DEFAULT 0,
+          `{0}_{1}_id` INTEGER NULL,
+          `{0}_{2}_id` INTEGER NULL,
+          `{0}_priority` INTEGER DEFAULT 0,
+          `{0}_primary` INTEGER NULL DEFAULT 0,
           `{0}_type` TEXT NULL,
           `{0}_index` TEXT NULL,
           `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
@@ -741,15 +741,15 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             link_rows_header = """
         CREATE TABLE IF NOT EXISTS `{0}s`(
           `{0}_id` INTEGER PRIMARY KEY ,
-          `{0}_{1}_id` INT UNSIGNED NULL,
-          `{0}_{2}_id` INT UNSIGNED NULL,"""
+          `{0}_{1}_id` INTEGER NULL,
+          `{0}_{2}_id` INTEGER NULL,"""
 
             if "priority" in decremented_requested_cols:
-                link_rows_header += "\n      `{0}_priority` INT DEFAULT 0,"
+                link_rows_header += "\n      `{0}_priority` INTEGER DEFAULT 0,"
                 decremented_requested_cols.remove("priority")
 
             if "primary" in decremented_requested_cols:
-                link_rows_header += "\n      `{0}_primary` INT NULL DEFAULT 0,"
+                link_rows_header += "\n      `{0}_primary` INTEGER NULL DEFAULT 0,"
                 decremented_requested_cols.remove("primary")
 
             if "type" in decremented_requested_cols:

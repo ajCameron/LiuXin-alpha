@@ -18,11 +18,11 @@ CREATE TABLE IF NOT EXISTS `works` (
   `work_sort_title` TEXT NULL,
 
   -- Original context
-  `work_original_language_id` INT NULL, -- FK later (languages), kept as INT for compatibility
-  `work_original_year` INT NULL,
+  `work_original_language_id` INTEGER NULL, -- FK later (languages), kept as INTEGER for compatibility
+  `work_original_year` INTEGER NULL,
 
   -- High-level classification
-  `work_is_fiction` INT NULL,           -- 1 = fiction, 0 = non-fiction, NULL = unknown
+  `work_is_fiction` INTEGER NULL,           -- 1 = fiction, 0 = non-fiction, NULL = unknown
   `work_audience` TEXT NULL,            -- 'adult', 'ya', 'children', 'all_ages'
   `work_completion_status` TEXT NULL,   -- 'complete', 'ongoing', 'abandoned', 'one_shot'
 

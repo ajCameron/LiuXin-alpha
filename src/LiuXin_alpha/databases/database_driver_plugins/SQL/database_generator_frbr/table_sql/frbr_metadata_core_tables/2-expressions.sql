@@ -13,11 +13,11 @@ CREATE TABLE IF NOT EXISTS `expressions` (
   -- Core identity
   `expression_type` TEXT NULL,               -- 'text', 'translation', 'revision', 'dub', ...
   `expression_label` TEXT NULL,              -- "French translation by X", "Director's Cut"
-  `expression_year` INT NULL,
-  `expression_is_preferred` INT NULL,        -- 1 = preferred, 0 = not, NULL = unknown
+  `expression_year` INTEGER NULL,
+  `expression_is_preferred` INTEGER NULL,        -- 1 = preferred, 0 = not, NULL = unknown
 
   -- Language & mode
-  `expression_language_id` INT NULL,         -- FK later (languages)
+  `expression_language_id` INTEGER NULL,         -- FK later (languages)
   `expression_mode` TEXT NULL,               -- 'text', 'spoken_word', 'moving_image', 'music', 'mixed'
 
   -- Titles (generally formed from Work title; override only when truly different)
@@ -25,12 +25,12 @@ CREATE TABLE IF NOT EXISTS `expressions` (
   `expression_subtitle` TEXT NULL,
 
   -- Text-centric details
-  `expression_wordcount` INT NULL,
+  `expression_wordcount` INTEGER NULL,
   `expression_fiction_length_category` TEXT NULL, -- 'short_story', 'novella', 'novel', ...
 
   -- AV-centric details
   `expression_cut_type` TEXT NULL,           -- 'theatrical', 'director_cut', 'extended', ...
-  `expression_nominal_duration_seconds` INT NULL,
+  `expression_nominal_duration_seconds` INTEGER NULL,
 
   -- Status / provenance
   `expression_status` TEXT NULL,             -- 'complete', 'fragment', 'draft', ...

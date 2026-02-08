@@ -9,7 +9,7 @@
 CREATE TABLE IF NOT EXISTS `works_plugin_data` (
   `works_plugin_data_id` INTEGER PRIMARY KEY ,
 
-  `works_plugin_data_work` INT UNSIGNED NULL,
+  `works_plugin_data_work` INTEGER NULL,
 
   `works_plugin_data_name` TEXT NULL,
   `works_plugin_data_val` TEXT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `works_plugin_data` (
 CREATE TABLE IF NOT EXISTS `expressions_plugin_data` (
   `expressions_plugin_data_id` INTEGER PRIMARY KEY ,
 
-  `expressions_plugin_data_expressions` INT UNSIGNED NULL,
+  `expressions_plugin_data_expressions` INTEGER NULL,
 
   `expressions_plugin_data_name` TEXT NULL,
   `expressions_plugin_data_val` TEXT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS `expressions_plugin_data` (
 CREATE TABLE IF NOT EXISTS `manifestations_plugin_data` (
   `manifestations_plugin_data_id` INTEGER PRIMARY KEY ,
 
-  `manifestations_plugin_data_manifestations` INT UNSIGNED NULL,
+  `manifestations_plugin_data_manifestations` INTEGER NULL,
 
   `manifestations_plugin_data_name` TEXT NULL,
   `manifestations_plugin_data_val` TEXT NULL,
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS `manifestations_plugin_data` (
 CREATE TABLE IF NOT EXISTS `items_plugin_data` (
   `items_plugin_data_id` INTEGER PRIMARY KEY ,
 
-  `items_plugin_data_items` INT UNSIGNED NULL,
+  `items_plugin_data_items` INTEGER NULL,
 
   `items_plugin_data_name` TEXT NULL,
   `items_plugin_data_val` TEXT NULL,

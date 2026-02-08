@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `items` (
 
   -- Acquisition / lifecycle
   `item_acquired_date` TEXT NULL,      -- 'YYYY-MM-DD' or datetime
-  `item_acquired_price_minor` INT NULL,
+  `item_acquired_price_minor` INTEGER NULL,
   `item_lifecycle_status` TEXT NULL,   -- 'active', 'withdrawn', 'lost', 'replaced', ...
   `item_condition` TEXT NULL,          -- 'fine', 'good', 'worn', 'damaged', ...
 

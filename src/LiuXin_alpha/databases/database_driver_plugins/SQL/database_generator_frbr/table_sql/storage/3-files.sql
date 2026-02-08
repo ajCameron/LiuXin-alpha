@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS `files` (
   `file_id` INTEGER PRIMARY KEY,
 
   -- Relations
-  `file_item_id`   INT NULL,
-  `file_store_id`  INT NOT NULL,
-  `file_folder_id` INT NULL,
+  `file_item_id`   INTEGER NULL,
+  `file_store_id`  INTEGER NOT NULL,
+  `file_folder_id` INTEGER NULL,
 
   -- Locator (authoritative, RELATIVE)
   `file_storage_key` TEXT NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `files` (
   `file_extension` TEXT NULL,
   `file_tag` TEXT NULL,
   `file_auto_name` TEXT NULL,
-  `file_use_auto_name` INT DEFAULT 1,
+  `file_use_auto_name` INTEGER DEFAULT 1,
 
   -- Type / role / classification
   `file_mime_type` TEXT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS `files` (
   `file_media_category` TEXT NULL,       -- 'ebook_text','scan','cover','video','audio','metadata', ...
   `file_class_mask` INTEGER NULL,        -- placement/category bitmask
   `file_visibility_mask` INTEGER NULL,   -- privacy/visibility bitmask
-  `file_critical` TINYINT(1) NULL DEFAULT 1,
+  `file_critical` INTEGER NULL DEFAULT 1,
 
   -- Size / integrity
   `file_size_bytes` INTEGER NULL,
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `files` (
   `file_hash_blake3` TEXT NULL,
   `file_phash` TEXT NULL,
 
-  `file_corrupt` INT UNSIGNED NULL,
+  `file_corrupt` INTEGER NULL,
   `file_integrity_status` TEXT NULL,     -- 'ok','missing','hash_mismatch','pending','unknown'
   `file_last_seen_at` DATETIME NULL,
   `file_last_integrity_check` DATETIME NULL,
@@ -59,10 +59,10 @@ CREATE TABLE IF NOT EXISTS `files` (
   `file_original_path` TEXT NULL,
 
   -- Processing / lineage placeholders
-  `file_anthology` TINYINT(1) NULL,
+  `file_anthology` INTEGER NULL,
   `file_parent` TEXT NULL,
   `file_conversion_settings` TEXT NULL,
-  `file_processed` TINYINT(1) NULL DEFAULT 0,
+  `file_processed` INTEGER NULL DEFAULT 0,
 
   -- timestamps (display DATETIME + epoch_ms source)
   `file_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),

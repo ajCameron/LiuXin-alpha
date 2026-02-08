@@ -398,7 +398,7 @@ class CustomColumnsDriverWrapperMixin(object):
 
         # In calibre, text might be somewhat badly named - I think it should be "tags" or something similar
         if datatype in ("rating", "int"):
-            dt = "INT"
+            dt = "INTEGER"
         elif datatype in ("text", "comments", "series", "composite", "enumeration"):
             dt = "TEXT"
         elif datatype in ("float",):
