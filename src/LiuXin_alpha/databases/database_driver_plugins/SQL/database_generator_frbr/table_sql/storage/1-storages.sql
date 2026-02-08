@@ -62,11 +62,8 @@ CREATE TABLE IF NOT EXISTS `stores` (
   `store_latency_class` TEXT NULL,      -- 'hot','warm','cold','glacial'
 
   -- timestamps (display DATETIME + epoch_ms source)
-  store_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  store_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-
-  store_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  store_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `store_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `store_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   `store_scratch` TEXT NULL
 

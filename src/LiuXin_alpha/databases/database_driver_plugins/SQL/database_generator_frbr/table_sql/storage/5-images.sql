@@ -64,16 +64,8 @@ CREATE TABLE IF NOT EXISTS `images` (
   `image_conversion_settings` TEXT NULL,
   `image_processed` TINYINT(1) NULL DEFAULT 0,
 
-  -- Timestamps
-  `image_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `image_datestamp`         DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  `image_last_modified`     DATETIME DEFAULT CURRENT_TIMESTAMP,
-
   -- timestamps (display DATETIME + epoch_ms source)
-  `image_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `image_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-
-  `image_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `image_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   `image_scratch` TEXT NULL,

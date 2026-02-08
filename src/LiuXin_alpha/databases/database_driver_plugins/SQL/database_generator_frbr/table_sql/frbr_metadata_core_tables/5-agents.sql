@@ -91,10 +91,7 @@ CREATE TABLE IF NOT EXISTS human_agents (
   `human_agent_biography`   TEXT NULL,
 
   -- timestamps (display DATETIME + epoch_ms source)
-  `human_agent_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `human_agent_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-
-  `human_agent_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `human_agent_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   `human_agent_scratch` TEXT NULL,
@@ -157,10 +154,7 @@ CREATE TABLE IF NOT EXISTS org_agents (
   `org_agent_description`      TEXT NULL,
 
     -- timestamps (display DATETIME + epoch_ms source)
-  `org_agent_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `org_agent_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-
-  `org_agent_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `org_agent_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   org_agent_scratch TEXT NULL,

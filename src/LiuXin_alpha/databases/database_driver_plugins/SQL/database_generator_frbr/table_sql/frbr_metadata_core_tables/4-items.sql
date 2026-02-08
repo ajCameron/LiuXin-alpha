@@ -27,10 +27,7 @@ CREATE TABLE IF NOT EXISTS `items` (
   `item_condition` TEXT NULL,          -- 'fine', 'good', 'worn', 'damaged', ...
 
   -- timestamps (display DATETIME + epoch_ms source)
-  `item_created_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `item_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-
-  `item_modified_timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `item_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   `item_scratch` TEXT NULL,

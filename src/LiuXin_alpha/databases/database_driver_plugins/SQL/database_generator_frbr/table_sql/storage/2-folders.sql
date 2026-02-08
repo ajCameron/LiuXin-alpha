@@ -25,11 +25,8 @@ CREATE TABLE IF NOT EXISTS `folders` (
   `folder_scratch` TEXT NULL,
 
   -- timestamps (display DATETIME + epoch_ms source)
-  folder_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  folder_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-
-  folder_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  folder_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `folder_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `folder_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
   CONSTRAINT `folder_store_fk`
     FOREIGN KEY (`folder_store_id`)
