@@ -10,6 +10,7 @@ inherit from these interfaces.
 
 from __future__ import annotations
 
+import abc
 from abc import ABC, abstractmethod
 
 from typing import Any, Dict, Iterable, Iterator, Mapping, MutableSequence, Optional, Self
@@ -77,7 +78,7 @@ class WorksCollectionAPI(ABC):
     @abstractmethod
     def works(self) -> MutableSequence[WorkContainerAPI]:
         """
-        Returns all the
+        Returns all the works in this collection.
 
         :return:
         """
@@ -85,18 +86,42 @@ class WorksCollectionAPI(ABC):
 
     @abstractmethod
     def add(self, work: WorkContainerAPI) -> None:
+        """
+        Add a work to the collection.
+
+        :param work:
+        :return:
+        """
         raise NotImplementedError
 
     @abstractmethod
     def extend(self, works: Iterable[WorkContainerAPI]) -> None:
+        """
+        Extend the collection of works.
+
+        :param works:
+        :return:
+        """
         raise NotImplementedError
 
     @abstractmethod
-    def get_by_id(self, work_id: int) -> Optional[WorkContainerAPI]:
+    def get_work_by_id(self, work_id: int) -> Optional[WorkContainerAPI]:
+        """
+        Return a work by its ID.
+
+        :param work_id:
+        :return:
+        """
         raise NotImplementedError
 
     @abstractmethod
-    def remove_by_id(self, work_id: int) -> bool:
+    def remove_work_by_id(self, work_id: int) -> bool:
+        """
+        Remove a work by its ID.
+
+        :param work_id:
+        :return:
+        """
         raise NotImplementedError
 
 
@@ -164,12 +189,89 @@ class ExpressionsCollectionAPI(ABC):
     """
     @property
     @abstractmethod
-    def works(self) -> Iterable[WorkContainerAPI]:
+    def works(self) -> MutableSequence[WorkContainerAPI]:
         """
-        Every Expression must belong to, at most, one Work.
+        Returns all the works in this collection.
 
         :return:
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[WorkContainerAPI]:
+        """
+        Iterate through all the :class:`WorksContainerAPI` rows.
+
+        :return:
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def __len__(self) -> int:
+        """
+        How many works are present in the collection.
+
+        :return:
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def __getitem__(self, idx: int) -> WorkContainerAPI:
+        """
+        Return Work at the given index.
+
+        :param idx:
+        :return:
+        """
+        raise NotImplementedError
+
+
+    @abstractmethod
+    def add(self, work: WorkContainerAPI) -> None:
+        """
+        Add a work to the collection.
+
+        :param work:
+        :return:
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def extend(self, works: Iterable[WorkContainerAPI]) -> None:
+        """
+        Extend the collection of works.
+
+        :param works:
+        :return:
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_work_by_id(self, work_id: int) -> Optional[WorkContainerAPI]:
+        """
+        Return a work by its ID.
+
+        :param work_id:
+        :return:
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def remove_work_by_id(self, work_id: int) -> bool:
+        """
+        Remove a work by its ID.
+
+        :param work_id:
+        :return:
+        """
+        raise NotImplementedError
+
+
+class ManifestationContainerAPI(abc.ABC):
+    """
+    Container for a Manifestation attached to an Expression attached to an Expression row.
+    """
+
 
 
 
