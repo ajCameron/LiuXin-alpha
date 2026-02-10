@@ -17,12 +17,12 @@ CREATE TABLE IF NOT EXISTS `item_identifiers` (
   `item_identifier_value`   TEXT NOT NULL,
   `item_identifier_source`  TEXT NULL,       -- 'scan', 'file_metadata', 'calibre', ...
 
-  `item_identifier_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  `item_identifier_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
 
-      -- timestamps (display DATETIME + epoch_ms source)
+      -- timestamps (epoch_ms)
   `item_identifier_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `item_identifier_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `item_identifier_source_created_datestamp_ep_k` INTEGER NULL,
+  `item_identifier_source_modified_datestamp_ep_k` INTEGER NULL,
 
   `item_identifier_scratch` TEXT NULL,
 

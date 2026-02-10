@@ -31,9 +31,11 @@ CREATE TABLE IF NOT EXISTS `workflow_steps` (
 
   `workflow_step_scope` TEXT NULL;
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `workflow_step_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `workflow_step_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `workflow_step_source_created_datestamp_ep_k` INTEGER NULL,
+  `workflow_step_source_modified_datestamp_ep_k` INTEGER NULL,
 
   CONSTRAINT `workflow_steps_bool_check`
     CHECK (`workflow_step_is_required` IN (0,1) AND `workflow_step_is_skippable` IN (0,1)),

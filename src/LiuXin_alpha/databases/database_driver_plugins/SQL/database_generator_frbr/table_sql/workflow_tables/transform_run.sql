@@ -16,15 +16,14 @@ CREATE TABLE IF NOT EXISTS transform_runs (
   `transform_run_status` TEXT NOT NULL DEFAULT 'started', -- 'started','succeeded','failed','aborted'
   `transform_run_error` TEXT NULL,
 
-  `transform_run_started_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `transform_run_finished_datestamp` DATETIME NULL,
-  `transform_run_datestamp` INTEGER DEFAULT (STRFTIME('%s','now')),
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `transform_run_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `transform_run_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `transform_run_started_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `transform_run_finished_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `transform_run_source_created_datestamp_ep_k` INTEGER NULL,
+  `transform_run_source_modified_datestamp_ep_k` INTEGER NULL,
+  `transform_run_started_timestamp_ep_k` INTEGER NULL,
+  `transform_run_finished_timestamp_ep_k` INTEGER NULL,
 
   `transform_run_scratch` TEXT NULL,
 

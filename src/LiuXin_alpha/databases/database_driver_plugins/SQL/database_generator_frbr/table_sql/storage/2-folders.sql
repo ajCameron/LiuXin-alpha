@@ -16,17 +16,16 @@ CREATE TABLE IF NOT EXISTS `folders` (
   `folder_relpath` TEXT NULL,           -- cached relative path inside store
 
   `folder_policy_json` TEXT NULL,       -- optional overrides for store policy
-  `folder_last_seen_at` DATETIME NULL,  -- telemetry
+  `folder_last_seen_timestamp_ep_k` INTEGER NULL, -- telemetry
 
-  `folder_created_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `folder_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  `folder_last_modified` DATETIME DEFAULT CURRENT_TIMESTAMP,
 
   `folder_scratch` TEXT NULL,
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `folder_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `folder_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `folder_source_created_datestamp_ep_k` INTEGER NULL,
+  `folder_source_modified_datestamp_ep_k` INTEGER NULL,
 
   CONSTRAINT `folder_store_fk`
     FOREIGN KEY (`folder_store_id`)

@@ -20,9 +20,11 @@ CREATE TABLE IF NOT EXISTS `new_books` (
   `new_book_cached` INTEGER NULL DEFAULT 0,
   `new_book_cache_attempted` INTEGER NULL DEFAULT 0,
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `new_book_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `new_book_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `new_book_source_created_datestamp_ep_k` INTEGER NULL,
+  `new_book_source_modified_datestamp_ep_k` INTEGER NULL,
 
   `new_book_scratch` TEXT NULL
 

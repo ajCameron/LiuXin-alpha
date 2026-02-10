@@ -17,9 +17,11 @@ CREATE TABLE IF NOT EXISTS `org_agent_relations` (
   `org_agent_relation_end_date`   TEXT NULL, -- ISO8601
   `org_agent_relation_note` TEXT NULL,
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `org_agent_relation_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `org_agent_relation_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `org_agent_relation_source_created_datestamp_ep_k` INTEGER NULL,
+  `org_agent_relation_source_modified_datestamp_ep_k` INTEGER NULL,
 
   `org_agent_relation_scratch` TEXT NULL,
 
@@ -47,11 +49,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS `idx_org_agent_relations_unique`
 ON `org_agent_relations`(
   `org_agent_relation_child_agent_id`,
   `org_agent_relation_parent_agent_id`,
-  `org_agent_relation_type`,
+  `org_agent_relation_type`
 
-  -- timestamps
-  `org_agent_relation_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `org_agent_relation_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
 
 );
 

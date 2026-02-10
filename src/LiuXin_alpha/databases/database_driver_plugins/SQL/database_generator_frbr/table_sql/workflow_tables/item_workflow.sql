@@ -21,8 +21,10 @@ CREATE TABLE IF NOT EXISTS `item_workflow` (
 
   `item_workflow_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `item_workflow_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `item_workflow_started_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `item_workflow_finished_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `item_workflow_source_created_datestamp_ep_k` INTEGER NULL,
+  `item_workflow_source_modified_datestamp_ep_k` INTEGER NULL,
+  `item_workflow_started_timestamp_ep_k` INTEGER NULL,
+  `item_workflow_finished_timestamp_ep_k` INTEGER NULL,
 
   `item_workflow_scratch` TEXT NULL,
 

@@ -99,8 +99,8 @@ AFTER UPDATE OF file_workflow_status ON file_workflow
 WHEN NEW.file_workflow_status = 'doing' AND OLD.file_workflow_status != 'doing'
 BEGIN
   UPDATE file_workflow
-  SET file_workflow_started_datestamp = COALESCE(file_workflow_started_datestamp, CURRENT_TIMESTAMP),
-      file_workflow_last_modified = CURRENT_TIMESTAMP
+  SET file_workflow_started_timestamp_ep_k = COALESCE(file_workflow_started_timestamp_ep_k, (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))),
+      file_workflow_modified_timestamp_ep_k = (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
   WHERE file_workflow_id = NEW.file_workflow_id;
 END;
 
@@ -112,8 +112,8 @@ AFTER UPDATE OF file_workflow_status ON file_workflow
 WHEN NEW.file_workflow_status IN ('done','failed','skipped') AND OLD.file_workflow_status NOT IN ('done','failed','skipped')
 BEGIN
   UPDATE file_workflow
-  SET file_workflow_finished_datestamp = COALESCE(file_workflow_finished_datestamp, CURRENT_TIMESTAMP),
-      file_workflow_last_modified = CURRENT_TIMESTAMP
+  SET file_workflow_finished_timestamp_ep_k = COALESCE(file_workflow_finished_timestamp_ep_k, (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))),
+      file_workflow_modified_timestamp_ep_k = (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
   WHERE file_workflow_id = NEW.file_workflow_id;
 END;
 

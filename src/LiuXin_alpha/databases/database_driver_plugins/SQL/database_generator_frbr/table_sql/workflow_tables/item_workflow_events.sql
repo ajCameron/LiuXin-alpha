@@ -22,9 +22,12 @@ CREATE TABLE IF NOT EXISTS item_workflow_events (
   item_workflow_event_tool TEXT NULL,         -- 'ocr_engine_v2', 'dedupe_pass_1', etc.
   item_workflow_event_run_id TEXT NULL,       -- correlate a batch run
 
-  item_workflow_event_created_datestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-  item_workflow_event_datestamp INTEGER DEFAULT (STRFTIME('%s','now')),
 
+  -- timestamps (epoch_ms)
+  item_workflow_event_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  item_workflow_event_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  item_workflow_event_source_created_datestamp_ep_k INTEGER NULL,
+  item_workflow_event_source_modified_datestamp_ep_k INTEGER NULL,
   item_workflow_event_scratch TEXT NULL,
 
   CONSTRAINT item_workflow_events_item_fk
@@ -52,7 +55,7 @@ CREATE TABLE IF NOT EXISTS item_workflow_events (
 
 
 CREATE INDEX IF NOT EXISTS idx_item_workflow_events_item_step_time
-ON item_workflow_events(item_workflow_event_item_id, item_workflow_event_step_id, item_workflow_event_datestamp);
+ON item_workflow_events(item_workflow_event_item_id, item_workflow_event_step_id, item_workflow_event_created_timestamp_ep_k);
 
 
 -- BREAK

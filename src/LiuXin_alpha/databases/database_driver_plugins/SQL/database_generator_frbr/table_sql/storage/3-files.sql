@@ -49,11 +49,11 @@ CREATE TABLE IF NOT EXISTS `files` (
 
   `file_corrupt` INTEGER NULL,
   `file_integrity_status` TEXT NULL,     -- 'ok','missing','hash_mismatch','pending','unknown'
-  `file_last_seen_at` DATETIME NULL,
-  `file_last_integrity_check` DATETIME NULL,
+  `file_last_seen_timestamp_ep_k` INTEGER NULL,
+  `file_last_integrity_check_timestamp_ep_k` INTEGER NULL,
 
   -- Provenance / ingestion
-  `file_acquired_timestamp` TEXT NULL,
+  `file_acquired_timestamp_ep_k` INTEGER NULL,
   `file_source` TEXT NULL,
   `file_original_name` TEXT NULL,
   `file_original_path` TEXT NULL,
@@ -64,9 +64,11 @@ CREATE TABLE IF NOT EXISTS `files` (
   `file_conversion_settings` TEXT NULL,
   `file_processed` INTEGER NULL DEFAULT 0,
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `file_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `file_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `file_source_created_datestamp_ep_k` INTEGER NULL,
+  `file_source_modified_datestamp_ep_k` INTEGER NULL,
 
   `file_scratch` TEXT NULL,
 

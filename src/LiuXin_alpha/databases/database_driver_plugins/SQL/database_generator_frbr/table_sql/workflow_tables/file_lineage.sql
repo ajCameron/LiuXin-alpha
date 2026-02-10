@@ -14,11 +14,13 @@ CREATE TABLE IF NOT EXISTS file_derivations (
   `file_derivation_kind` TEXT NULL,          -- 'converted','ocr_text','thumbnail','repacked','repaired','extracted', ...
   `file_derivation_note` TEXT NULL,
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `file_derivation_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `file_derivation_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `file_derivation_started_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `file_derivation_finished_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `file_derivation_source_created_datestamp_ep_k` INTEGER NULL,
+  `file_derivation_source_modified_datestamp_ep_k` INTEGER NULL,
+  `file_derivation_started_timestamp_ep_k` INTEGER NULL,
+  `file_derivation_finished_timestamp_ep_k` INTEGER NULL,
 
   `file_derivation_scratch` TEXT NULL,
 

@@ -15,12 +15,12 @@ CREATE TABLE IF NOT EXISTS `entity_identifiers` (
   `entity_identifier_is_primary`  INTEGER NULL,       -- 1 = canonical for this entity/scheme
   `entity_identifier_provenance`  TEXT NULL,      -- 'derived_from_items', 'import', 'manual'
 
-  `entity_identifier_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  `entity_identifier_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
 
     -- timestamps
   `entity_identifier_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `entity_identifier_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `entity_identifier_source_created_datestamp_ep_k` INTEGER NULL,
+  `entity_identifier_source_modified_datestamp_ep_k` INTEGER NULL,
 
 
   `entity_identifier_scratch` TEXT NULL

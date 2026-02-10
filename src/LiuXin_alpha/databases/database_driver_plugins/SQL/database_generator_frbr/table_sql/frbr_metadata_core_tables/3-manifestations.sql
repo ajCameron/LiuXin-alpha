@@ -29,9 +29,11 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
   `manifestation_status` TEXT NULL,            -- 'in_print', 'out_of_print', 'limited', ...
   `manifestation_note` TEXT NULL,
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `manifestation_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `manifestation_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `manifestation_source_created_datestamp_ep_k` INTEGER NULL,
+  `manifestation_source_modified_datestamp_ep_k` INTEGER NULL,
 
   `manifestation_scratch` TEXT NULL,
 

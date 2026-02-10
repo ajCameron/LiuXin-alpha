@@ -15,12 +15,12 @@ CREATE TABLE IF NOT EXISTS `genres` (
   `genre_tree_id` INTEGER NULL,
   `genre_full` TEXT NULL,
 
-  `genre_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-  `genre_created_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `genre_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `genre_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `genre_source_created_datestamp_ep_k` INTEGER NULL,
+  `genre_source_modified_datestamp_ep_k` INTEGER NULL,
 
   `genre_scratch` TEXT NULL,
 

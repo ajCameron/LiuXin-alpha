@@ -26,9 +26,11 @@ CREATE TABLE IF NOT EXISTS `items` (
   `item_lifecycle_status` TEXT NULL,   -- 'active', 'withdrawn', 'lost', 'replaced', ...
   `item_condition` TEXT NULL,          -- 'fine', 'good', 'worn', 'damaged', ...
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `item_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `item_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `item_source_created_datestamp_ep_k` INTEGER NULL,
+  `item_source_modified_datestamp_ep_k` INTEGER NULL,
 
   `item_scratch` TEXT NULL,
 

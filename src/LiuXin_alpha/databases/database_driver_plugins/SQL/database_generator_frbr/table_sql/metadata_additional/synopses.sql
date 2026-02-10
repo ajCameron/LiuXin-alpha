@@ -8,9 +8,11 @@ CREATE TABLE IF NOT EXISTS `synopses` (
 
   `synopsis` TEXT NULL,
 
-  -- timestamps (display DATETIME + epoch_ms source)
-  `synops_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `synops_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  -- timestamps (epoch_ms)
+  `synopsis_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `synopsis_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `synopsis_source_created_datestamp_ep_k` INTEGER NULL,
+  `synopsis_source_modified_datestamp_ep_k` INTEGER NULL,
 
   `synopsis_scratch` TEXT NULL
 

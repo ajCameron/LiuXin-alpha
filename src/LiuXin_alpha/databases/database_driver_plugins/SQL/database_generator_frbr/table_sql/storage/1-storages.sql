@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS `stores` (
   `store_location_note` TEXT NULL,
 
   -- Telemetry
-  `store_last_seen_online` DATETIME NULL,
-  `store_last_healthcheck_ok` DATETIME NULL,
+  `store_last_seen_online_timestamp_ep_k` INTEGER NULL,
+  `store_last_healthcheck_ok_timestamp_ep_k` INTEGER NULL,
 
   -- Capabilities
   `store_supports_folders` INTEGER NOT NULL DEFAULT 1,
@@ -61,9 +61,11 @@ CREATE TABLE IF NOT EXISTS `stores` (
   `store_requires_mount` INTEGER NOT NULL DEFAULT 0,
   `store_latency_class` TEXT NULL,      -- 'hot','warm','cold','glacial'
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `store_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `store_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `store_source_created_datestamp_ep_k` INTEGER NULL,
+  `store_source_modified_datestamp_ep_k` INTEGER NULL,
 
   `store_scratch` TEXT NULL
 

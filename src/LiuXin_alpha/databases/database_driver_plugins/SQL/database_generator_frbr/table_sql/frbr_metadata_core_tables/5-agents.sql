@@ -25,12 +25,12 @@ CREATE TABLE IF NOT EXISTS agents (
   `agent_aliases` TEXT NULL,          -- e.g. a delimited list; or move to agent_aliases table later
   agent_note TEXT NULL,
 
-    -- timestamps (display DATETIME + epoch_ms source)
-  agent_created_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- timestamps (epoch_ms)
   agent_created_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
-  agent_modified_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   agent_modified_timestamp_ep_k INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  agent_source_created_datestamp_ep_k INTEGER NULL,
+  agent_source_modified_datestamp_ep_k INTEGER NULL,
 
   agent_scratch TEXT NULL,
 
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS human_agents (
   `human_agent_nationality` TEXT NULL,
   `human_agent_biography`   TEXT NULL,
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `human_agent_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `human_agent_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS org_agents (
   -- Light notes
   `org_agent_description`      TEXT NULL,
 
-    -- timestamps (display DATETIME + epoch_ms source)
+    -- timestamps (epoch_ms)
   `org_agent_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `org_agent_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
 

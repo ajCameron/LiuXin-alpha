@@ -20,11 +20,13 @@ CREATE TABLE IF NOT EXISTS `file_workflow` (
   `file_workflow_reason` TEXT NULL,             -- why blocked/failed/skipped
   `file_workflow_progress` REAL NULL,           -- 0..1
 
-  -- timestamps (display DATETIME + epoch_ms source)
+  -- timestamps (epoch_ms)
   `file_workflow_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `file_workflow_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `file_workflow_started_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `file_workflow_finished_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `file_workflow_source_created_datestamp_ep_k` INTEGER NULL,
+  `file_workflow_source_modified_datestamp_ep_k` INTEGER NULL,
+  `file_workflow_started_timestamp_ep_k` INTEGER NULL,
+  `file_workflow_finished_timestamp_ep_k` INTEGER NULL,
 
   `file_workflow_scratch` TEXT NULL,
 

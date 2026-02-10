@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS `conversion_options` (
   -- timestamps
   `conversion_option_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `conversion_option_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `conversion_option_source_created_datestamp_ep_k` INTEGER NULL,
+  `conversion_option_source_modified_datestamp_ep_k` INTEGER NULL,
 
   UNIQUE(conversion_option_format,conversion_option_book))
 ;
