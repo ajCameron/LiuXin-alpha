@@ -3,7 +3,7 @@
 -- 5) FILE LINEAGE (explicit derivation edges)
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS file_derivations (
+CREATE TABLE IF NOT EXISTS `file_derivations` (
 
   `file_derivation_id` INTEGER PRIMARY KEY,
 
@@ -30,29 +30,29 @@ CREATE TABLE IF NOT EXISTS file_derivations (
     ON DELETE CASCADE
     ON UPDATE CASCADE,
 
-  CONSTRAINT fd_child_fk
-    FOREIGN KEY (file_derivation_child_file_id)
-    REFERENCES files(file_id)
+  CONSTRAINT `fd_child_fk`
+    FOREIGN KEY (`file_derivation_child_file_id`)
+    REFERENCES `files`(`file_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
 
-  CONSTRAINT fd_run_fk
-    FOREIGN KEY (file_derivation_run_id)
-    REFERENCES transform_runs(transform_run_id)
+  CONSTRAINT `fd_run_fk`
+    FOREIGN KEY (`file_derivation_run_id`)
+    REFERENCES `transform_runs`(`transform_run_id`)
     ON DELETE SET NULL
     ON UPDATE CASCADE,
 
-  CONSTRAINT fd_no_self
-    CHECK (file_derivation_parent_file_id != file_derivation_child_file_id)
+  CONSTRAINT `fd_no_self`
+    CHECK (`file_derivation_parent_file_id` != `file_derivation_child_file_id`)
 
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_file_derivations_unique
-ON file_derivations(file_derivation_parent_file_id, file_derivation_child_file_id);
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_file_derivations_unique`
+ON `file_derivations`(`file_derivation_parent_file_id`, `file_derivation_child_file_id`);
 
-CREATE INDEX IF NOT EXISTS idx_file_derivations_parent
-ON file_derivations(file_derivation_parent_file_id);
+CREATE INDEX IF NOT EXISTS `idx_file_derivations_parent`
+ON `file_derivations`(`file_derivation_parent_file_id`);
 
-CREATE INDEX IF NOT EXISTS idx_file_derivations_child
-ON file_derivations(file_derivation_child_file_id);
+CREATE INDEX IF NOT EXISTS `idx_file_derivations_child`
+ON `file_derivations`(`file_derivation_child_file_id`);
 

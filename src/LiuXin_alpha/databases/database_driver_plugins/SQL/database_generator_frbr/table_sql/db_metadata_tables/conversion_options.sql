@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS `conversion_options` (
   `conversion_option_id` INTEGER PRIMARY KEY,
 
-  `conversion_option_format` TEXT NOT NULL COLLATE NOCASE,
+  `conversion_option_format` TEXT NOT NULL COLLATE `NOCASE`,
 
   `conversion_option_book` INTEGER,
   `conversion_option_data` BLOB NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS `conversion_options` (
   `conversion_option_source_created_datestamp_ep_k` INTEGER NULL,
   `conversion_option_source_modified_datestamp_ep_k` INTEGER NULL,
 
-  UNIQUE(conversion_option_format,conversion_option_book))
+  UNIQUE(`conversion_option_format`,`conversion_option_book`))
 ;
 
 

@@ -1,4 +1,4 @@
-CREATE TABLE annotations (
+CREATE TABLE `annotations` (
     `annotation_id`               INTEGER PRIMARY KEY,
     `annotation_user_id`          INTEGER NOT NULL,
     `annotation_item_id`          INTEGER NOT NULL,  -- which copy/file they annotated

@@ -3,7 +3,7 @@
 -- 3) TRANSFORM RUNS (what happened, with parameters and outcomes)
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS transform_runs (
+CREATE TABLE IF NOT EXISTS `transform_runs` (
   `transform_run_id` INTEGER PRIMARY KEY,
 
   `transform_run_type` TEXT NOT NULL,        -- 'ocr','convert','thumbnail','hash','dedupe','repair','extract', ...
@@ -27,11 +27,11 @@ CREATE TABLE IF NOT EXISTS transform_runs (
 
   `transform_run_scratch` TEXT NULL,
 
-  CONSTRAINT transform_run_status_check
-    CHECK (transform_run_status IN ('started','succeeded','failed','aborted'))
+  CONSTRAINT `transform_run_status_check`
+    CHECK (`transform_run_status` IN ('started','succeeded','failed','aborted'))
 
     );
 
-CREATE INDEX IF NOT EXISTS idx_transform_runs_type_status
-ON transform_runs(transform_run_type, transform_run_status);
+CREATE INDEX IF NOT EXISTS `idx_transform_runs_type_status`
+ON `transform_runs`(`transform_run_type`, `transform_run_status`);
 

@@ -20,15 +20,15 @@ CREATE TABLE IF NOT EXISTS `transform_run_outputs` (
   `transform_run_output_finished_timestamp_ep_k` INTEGER NULL,
 
 
-  CONSTRAINT tro_run_fk
-    FOREIGN KEY (transform_run_output_run_id)
-    REFERENCES transform_runs(transform_run_id)
+  CONSTRAINT `tro_run_fk`
+    FOREIGN KEY (`transform_run_output_run_id`)
+    REFERENCES `transform_runs`(`transform_run_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
 
-  CONSTRAINT tro_file_fk
-    FOREIGN KEY (transform_run_output_file_id)
-    REFERENCES files(file_id)
+  CONSTRAINT `tro_file_fk`
+    FOREIGN KEY (`transform_run_output_file_id`)
+    REFERENCES `files`(`file_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE
 );
@@ -36,13 +36,13 @@ CREATE TABLE IF NOT EXISTS `transform_run_outputs` (
 -- BREAK
 -- BREAK
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_transform_run_outputs_unique
-ON transform_run_outputs(transform_run_output_run_id, transform_run_output_file_id);
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_transform_run_outputs_unique`
+ON `transform_run_outputs`(`transform_run_output_run_id`, `transform_run_output_file_id`);
 
 -- BREAK
 -- BREAK
 
-CREATE INDEX IF NOT EXISTS idx_transform_run_outputs_file
-ON transform_run_outputs(transform_run_output_file_id);
+CREATE INDEX IF NOT EXISTS `idx_transform_run_outputs_file`
+ON `transform_run_outputs`(`transform_run_output_file_id`);
 
 -- BREAK

@@ -2,79 +2,28 @@
 
 -- BREAK
 
-CREATE TRIGGER IF NOT EXISTS update_ta_creators_field_update AFTER UPDATE ON creator_title_links
+CREATE TRIGGER IF NOT EXISTS `update_ta_creators_field_update` AFTER UPDATE ON `creator_title_links`
 BEGIN
 
-  UPDATE titles_aggregate
-  SET ta_creators = (SELECT PYSET(creator) FROM
-  (SELECT * FROM creators WHERE creator_id IN
-  (SELECT creator_title_link_creator_id FROM creator_title_links WHERE
-  (creator_title_link_title_id = NEW.creator_title_link_title_id))));
+  UPDATE `titles_aggregate`
+  SET `ta_creators` = (SELECT `PYSET`(`creator`) FROM
+  (SELECT * FROM `creators` WHERE `creator_id` IN
+  (SELECT `creator_title_link_creator_id` FROM `creator_title_links` WHERE
+  (`creator_title_link_title_id` = NEW.`creator_title_link_title_id`))));
 
 END;
 
 -- BREAK
 -- BREAK
 
-CREATE TRIGGER IF NOT EXISTS update_ta_creators_field_delete AFTER DELETE ON creator_title_links
+CREATE TRIGGER IF NOT EXISTS `update_ta_creators_field_delete` AFTER DELETE ON `creator_title_links`
 BEGIN
 
-  UPDATE titles_aggregate
-  SET ta_creators = (SELECT PYSET(creator) FROM
-  (SELECT * FROM creators WHERE creator_id IN
-  (SELECT creator_title_link_creator_id FROM creator_title_links WHERE
-  (creator_title_link_title_id = OLD.creator_title_link_title_id))));
-
-END;
-
--- BREAK
-
--- BREAK
-
-CREATE TRIGGER IF NOT EXISTS update_ta_creators_field_delete AFTER DELETE ON creator_title_links
-BEGIN
-
-  UPDATE titles_aggregate
-  SET ta_creators = (SELECT PYLIST(creator) FROM
-  (SELECT * FROM creators WHERE creator_id IN
-  (SELECT creator_title_link_creator_id FROM creator_title_links WHERE
-  creator_title_link_title_id = OLD.creator_title_link_title_id ORDER BY creator_title_link_priority)))
-  WHERE ta_title_id = OLD.creator_title_link_title_id;
-
-END;
-
--- BREAK
-
-
-
--- BREAK
-
-CREATE TRIGGER IF NOT EXISTS update_ta_creator_tags_update AFTER UPDATE ON creator_tag_links
-BEGIN
-
-    UPDATE titles_aggregate
-    SET ta_creators_tags = (SELECT PYSET(tag) FROM
-    (SELECT * FROM tags WHERE tag_id IN
-    (SELECT creator_tag_link_tag_id FROM creator_tag_links WHERE creator_tag_link_creator_id IN
-    (SELECT creator_id FROM creators WHERE creator_id IN
-    (SELECT creator_title_link_creator_id FROM creator_title_links WHERE creator_title_link_title_id =
-    NEW.creator_title_link_title_id)))));
-
-END;
-
--- BREAK
--- BREAK
-
-CREATE TRIGGER IF NOT EXISTS update_ta_creator_tags_update AFTER INSERT ON creator_tag_links
-BEGIN
-
-    UPDATE titles_aggregate
-    SET ta_creators_tags = (SELECT PYSET(tag) FROM
-    (SELECT * FROM tags WHERE tag_id IN
-    (SELECT creator_tag_link_tag_id FROM creator_tag_links WHERE creator_tag_link_creator_id IN
-    (SELECT creator_id FROM creators WHERE creator_id IN
-    (SELECT creator_title_link_creator_id FROM creator_title_links WHERE creator_title_link_title_id =
-    NEW.creator_title_link_title_id)))));
+  UPDATE `titles_aggregate`
+  SET `ta_creators` = (SELECT `PYSET`(`creator`) FROM
+  (SELECT * FROM `creators` WHERE `creator_id` IN
+  (SELECT `creator_title_link_creator_id` FROM `creator_title_links` WHERE
+  (`creator_title_link_title_id` = OLD.`creator_title_link_title_id`))));
 
 END;
 
@@ -82,16 +31,67 @@ END;
 
 -- BREAK
 
-CREATE TRIGGER IF NOT EXISTS update_ta_creator_tags_update AFTER DELETE ON creator_tag_links
+CREATE TRIGGER IF NOT EXISTS `update_ta_creators_field_delete` AFTER DELETE ON `creator_title_links`
 BEGIN
 
-    UPDATE titles_aggregate
-    SET ta_creators_tags = (SELECT PYSET(tag) FROM
-    (SELECT * FROM tags WHERE tag_id IN
-    (SELECT creator_tag_link_tag_id FROM creator_tag_links WHERE creator_tag_link_creator_id IN
-    (SELECT creator_id FROM creators WHERE creator_id IN
-    (SELECT creator_title_link_creator_id FROM creator_title_links WHERE creator_title_link_title_id =
-    OLD.creator_title_link_title_id)))));
+  UPDATE `titles_aggregate`
+  SET `ta_creators` = (SELECT `PYLIST`(`creator`) FROM
+  (SELECT * FROM `creators` WHERE `creator_id` IN
+  (SELECT `creator_title_link_creator_id` FROM `creator_title_links` WHERE
+  `creator_title_link_title_id` = OLD.`creator_title_link_title_id` ORDER BY `creator_title_link_priority`)))
+  WHERE `ta_title_id` = OLD.`creator_title_link_title_id`;
+
+END;
+
+-- BREAK
+
+
+
+-- BREAK
+
+CREATE TRIGGER IF NOT EXISTS `update_ta_creator_tags_update` AFTER UPDATE ON `creator_tag_links`
+BEGIN
+
+    UPDATE `titles_aggregate`
+    SET `ta_creators_tags` = (SELECT `PYSET`(`tag`) FROM
+    (SELECT * FROM `tags` WHERE `tag_id` IN
+    (SELECT `creator_tag_link_tag_id` FROM `creator_tag_links` WHERE `creator_tag_link_creator_id` IN
+    (SELECT `creator_id` FROM `creators` WHERE `creator_id` IN
+    (SELECT `creator_title_link_creator_id` FROM `creator_title_links` WHERE `creator_title_link_title_id` =
+    NEW.`creator_title_link_title_id`)))));
+
+END;
+
+-- BREAK
+-- BREAK
+
+CREATE TRIGGER IF NOT EXISTS `update_ta_creator_tags_update` AFTER INSERT ON `creator_tag_links`
+BEGIN
+
+    UPDATE `titles_aggregate`
+    SET `ta_creators_tags` = (SELECT `PYSET`(`tag`) FROM
+    (SELECT * FROM `tags` WHERE `tag_id` IN
+    (SELECT `creator_tag_link_tag_id` FROM `creator_tag_links` WHERE `creator_tag_link_creator_id` IN
+    (SELECT `creator_id` FROM `creators` WHERE `creator_id` IN
+    (SELECT `creator_title_link_creator_id` FROM `creator_title_links` WHERE `creator_title_link_title_id` =
+    NEW.`creator_title_link_title_id`)))));
+
+END;
+
+-- BREAK
+
+-- BREAK
+
+CREATE TRIGGER IF NOT EXISTS `update_ta_creator_tags_update` AFTER DELETE ON `creator_tag_links`
+BEGIN
+
+    UPDATE `titles_aggregate`
+    SET `ta_creators_tags` = (SELECT `PYSET`(`tag`) FROM
+    (SELECT * FROM `tags` WHERE `tag_id` IN
+    (SELECT `creator_tag_link_tag_id` FROM `creator_tag_links` WHERE `creator_tag_link_creator_id` IN
+    (SELECT `creator_id` FROM `creators` WHERE `creator_id` IN
+    (SELECT `creator_title_link_creator_id` FROM `creator_title_links` WHERE `creator_title_link_title_id` =
+    OLD.`creator_title_link_title_id`)))));
 
 END;
 
@@ -101,14 +101,14 @@ END;
 
 -- BREAK
 
-CREATE TRIGGER IF NOT EXISTS update_ta_creator_sort_update AFTER INSERT ON creator_title_links
+CREATE TRIGGER IF NOT EXISTS `update_ta_creator_sort_update` AFTER INSERT ON `creator_title_links`
 BEGIN
 
-  UPDATE titles_aggregate
-  SET ta_creators_sort = (SELECT SORTAG(creator_sort) FROM
-  (SELECT * FROM creators WHERE creator_id IN
-  (SELECT creator_title_link_creator_id FROM creator_title_links WHERE
-  creator_title_link_title_id = NEW.creator_title_link_title_id ORDER BY creator_title_link_priority)));
+  UPDATE `titles_aggregate`
+  SET `ta_creators_sort` = (SELECT `SORTAG`(`creator_sort`) FROM
+  (SELECT * FROM `creators` WHERE `creator_id` IN
+  (SELECT `creator_title_link_creator_id` FROM `creator_title_links` WHERE
+  `creator_title_link_title_id` = NEW.`creator_title_link_title_id` ORDER BY `creator_title_link_priority`)));
 
 END;
 
@@ -116,19 +116,19 @@ END;
 
 -- BREAK
 
-CREATE TRIGGER IF NOT EXISTS update_ta_creator_sort_update AFTER UPDATE ON creator_title_links
+CREATE TRIGGER IF NOT EXISTS `update_ta_creator_sort_update` AFTER UPDATE ON `creator_title_links`
 BEGIN
 
-  UPDATE titles_aggregate
-  SET ta_creators_sort = (SELECT SORTAG(creator_sort) FROM
-  (SELECT * FROM creators WHERE creator_id IN
-  (SELECT creator_title_link_creator_id FROM creator_title_links WHERE
-  creator_title_link_title_id = NEW.creator_title_link_title_id ORDER BY creator_title_link_priority)));
-  UPDATE titles_aggregate
-  SET ta_creators_sort = (SELECT SORTAG(creator_sort) FROM
-  (SELECT * FROM creators WHERE creator_id IN
-  (SELECT creator_title_link_creator_id FROM creator_title_links WHERE
-  creator_title_link_title_id = OLD.creator_title_link_title_id ORDER BY creator_title_link_priority)));
+  UPDATE `titles_aggregate`
+  SET `ta_creators_sort` = (SELECT `SORTAG`(`creator_sort`) FROM
+  (SELECT * FROM `creators` WHERE `creator_id` IN
+  (SELECT `creator_title_link_creator_id` FROM `creator_title_links` WHERE
+  `creator_title_link_title_id` = NEW.`creator_title_link_title_id` ORDER BY `creator_title_link_priority`)));
+  UPDATE `titles_aggregate`
+  SET `ta_creators_sort` = (SELECT `SORTAG`(`creator_sort`) FROM
+  (SELECT * FROM `creators` WHERE `creator_id` IN
+  (SELECT `creator_title_link_creator_id` FROM `creator_title_links` WHERE
+  `creator_title_link_title_id` = OLD.`creator_title_link_title_id` ORDER BY `creator_title_link_priority`)));
 
 END;
 
@@ -136,14 +136,14 @@ END;
 
 -- BREAK
 
-CREATE TRIGGER IF NOT EXISTS update_ta_creator_sort_delete AFTER DELETE ON creator_title_links
+CREATE TRIGGER IF NOT EXISTS `update_ta_creator_sort_delete` AFTER DELETE ON `creator_title_links`
 BEGIN
 
-  UPDATE titles_aggregate
-  SET ta_creators_sort = (SELECT SORTAG(creator_sort) FROM
-  (SELECT * FROM creators WHERE creator_id IN
-  (SELECT creator_title_link_creator_id FROM creator_title_links WHERE
-  creator_title_link_title_id = OLD.creator_title_link_title_id ORDER BY creator_title_link_priority)));
+  UPDATE `titles_aggregate`
+  SET `ta_creators_sort` = (SELECT `SORTAG`(`creator_sort`) FROM
+  (SELECT * FROM `creators` WHERE `creator_id` IN
+  (SELECT `creator_title_link_creator_id` FROM `creator_title_links` WHERE
+  `creator_title_link_title_id` = OLD.`creator_title_link_title_id` ORDER BY `creator_title_link_priority`)));
 
 END;
 

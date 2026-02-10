@@ -76,16 +76,16 @@ ON `item_workflow`(`item_workflow_item_id`);
 
 
 -- If a step is marked required and not skippable, forbid setting status to 'skipped'
-CREATE TRIGGER IF NOT EXISTS trg_item_workflow_forbid_skipping_required
-BEFORE UPDATE OF item_workflow_status ON item_workflow
-WHEN NEW.item_workflow_status = 'skipped'
+CREATE TRIGGER IF NOT EXISTS `trg_item_workflow_forbid_skipping_required`
+BEFORE UPDATE OF `item_workflow_status` ON `item_workflow`
+WHEN NEW.`item_workflow_status` = 'skipped'
 BEGIN
   SELECT CASE
     WHEN EXISTS (
-      SELECT 1 FROM workflow_steps
-      WHERE workflow_step_id = NEW.item_workflow_step_id
-        AND workflow_step_is_required = 1
-        AND workflow_step_is_skippable = 0
+      SELECT 1 FROM `workflow_steps`
+      WHERE `workflow_step_id` = NEW.`item_workflow_step_id`
+        AND `workflow_step_is_required` = 1
+        AND `workflow_step_is_skippable` = 0
       LIMIT 1
     )
     THEN RAISE(ABORT, 'cannot skip a required non-skippable workflow step')
@@ -96,7 +96,7 @@ END;
 -- BREAK
 -- BREAK
 
-PRAGMA foreign_keys = ON;
+PRAGMA `foreign_keys` = ON;
 
 
 -- BREAK

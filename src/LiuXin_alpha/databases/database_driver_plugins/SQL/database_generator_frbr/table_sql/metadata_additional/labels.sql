@@ -4,7 +4,7 @@
 -- Table `labels` (tags... ish)
 -- -----------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS labels (
+CREATE TABLE IF NOT EXISTS `labels` (
 
   `label_id` INTEGER PRIMARY KEY,
 
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS labels (
 -- BREAK
 
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_labels_unique_norm
-ON labels(label_text_norm);
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_labels_unique_norm`
+ON `labels`(`label_text_norm`);
 
 -- BREAK

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS `last_read_positions` (
   `last_read_position_id` INTEGER PRIMARY KEY,
 
   `last_read_position_book` INTEGER NOT NULL,
-  `last_read_position_format` TEXT NOT NULL COLLATE NOCASE,
+  `last_read_position_format` TEXT NOT NULL COLLATE `NOCASE`,
   `last_read_position_user` TEXT NOT NULL,
   `last_read_position_device` TEXT NOT NULL,
   `last_read_position_cfi` TEXT NOT NULL,
