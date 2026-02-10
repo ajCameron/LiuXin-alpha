@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS `works` (
   -- Core identity
   `work_type` TEXT NULL,                -- 'novel', 'short_story', 'collection', 'film', 'tv_series', ...
   `work_medium` TEXT NULL,              -- 'text', 'audio', 'moving_image', 'mixed'
+
+  `work_title` TEXT NULL,
   `work_canonical_title` TEXT NULL,
   `work_sort_title` TEXT NULL,
 
