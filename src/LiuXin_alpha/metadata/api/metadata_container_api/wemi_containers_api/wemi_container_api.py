@@ -25,21 +25,47 @@ class WorkContainerAPI(WorkContainerPropertiesApi):
     Abstract API for a single row from the `works` table.
 
     Provides a full interface to a work row.
+    The Work sits at the top of the WEMI stack.
+    As such, it's purely fan down from here.
     """
 
     # ------------------------------------------------------------------
     # WEMI stack helpers
     # ------------------------------------------------------------------
     @abstractmethod
-    def expressions(self) -> "ExpressionsCollectionAPI":
+    def expressions(self) -> "ExpressionsCollectionContainerAPI":
         """
         Returns the Expressions linked to this Work.
 
         :return:
         """
 
+    @abstractmethod
+    def manifestations(self) -> "ManifestationsCollectionContainerAPI":
+        """
+        Returns all the Manifestations linked to this work through Expressions.
 
-class WorksCollectionAPI(ABC):
+        :return:
+        """
+
+    @abstractmethod
+    def items(self) -> "ItemsCollectionContainerAPI":
+        """
+        Returns all the Items linked to this work through Manifestations and Expressions.
+
+        :return:
+        """
+
+    @abstractmethod
+    def files(self) -> "FilesCollectionContainerAPI":
+        """
+        Returns all the Files linked to this Work's items.
+
+        :return:
+        """
+
+
+class WorksCollectionCollectionAPI(ABC):
     """
     Abstract API for a collection of :class:`WorksContainerAPI` rows.
 
@@ -183,7 +209,7 @@ class WorkExpressionsCollectionAPI(ABC):
         """
 
 
-class ExpressionsCollectionAPI(ABC):
+class ExpressionsCollectionContainerAPI(ABC):
     """
     Return a collection of Expressions which might not be linked to a single work.
     """
@@ -237,7 +263,7 @@ class ExpressionsCollectionAPI(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def extend(self, works: Iterable[WorkContainerAPI]) -> None:
+    def extend(self, new_expression: Iterable[ExpressionContainerAPI]) -> None:
         """
         Extend the collection of works.
 
@@ -270,6 +296,33 @@ class ExpressionsCollectionAPI(ABC):
 class ManifestationContainerAPI(abc.ABC):
     """
     Container for a Manifestation attached to an Expression attached to an Expression row.
+
+    A Manifestation is part of the WEMI chain.
+    This container allows you to request resources from up and down the
+
+    """
+    @property
+    @abstractmethod
+    def works(self) -> Optional["WorksCollectionCollectionAPI"]:
+        """
+        Manifestations can manifest multiple expressions which can, in turn, be expressions of multiple works.
+
+        :return:
+        """
+
+    @property
+    @abstractmethod
+    def expressions(self) -> Optional["ExpressionsCollectionContainerAPI"]:
+        """
+
+
+        :return:
+        """
+
+
+class ManifestationsCollectionContainerAPI(ABC):
+    """
+    Collection of Manifestations.
     """
 
 
@@ -277,6 +330,14 @@ class ManifestationContainerAPI(abc.ABC):
 
 
 
+
+
+
+class ItemContainerAPI(ABC):
+    """
+
+
+    """
 
 
 

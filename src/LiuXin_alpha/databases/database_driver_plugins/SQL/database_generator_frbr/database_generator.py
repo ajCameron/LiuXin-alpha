@@ -1,5 +1,6 @@
 # Generates the database from the stored SQL and instructions
 # Starts from the SQL code for the main tables. Generates them.
+# Some SQL files contain multiple statements; those should be executed via executescript.
 # Takes the default list of interlink tables. Generates the basic SQL syntax for them.
 # Does the same for the intralink tables
 # Adds any additional columns which have been created by the user
@@ -15,6 +16,16 @@ import sqlite3
 # 2) aggregate_tables - put all the information needed in one table which updates itself from other tables using
 #                       quite a lot of triggers. Much faster. Needs a lot more code and results in a bloated database
 # Hopefully you will have the option to choose.
+
+from typing import Any
+
+try:
+    import tomllib  # py3.11+
+except ImportError:  # pragma: no cover
+    try:
+        import tomli as tomllib  # type: ignore
+    except ImportError:  # pragma: no cover
+        tomllib = None  # type: ignore
 
 import sys
 import re
@@ -340,6 +351,20 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                     "Error - create_main_tables failed, due to being unable to find the main_tables_sqlite.txt file."
                 )
                 sys.exit()
+
+            # If the trigger file uses no BREAK markers, execute it as a script.
+            # This is important for large trigger bundles (e.g. timestamp triggers) that are authored as multi-statement SQL.
+            if not any(line.startswith("-- BREAK") for line in test):
+                statement = "".join(test)
+                if statement.strip():
+                    try:
+                        conn.executescript(statement)
+                    except sqlite3.OperationalError as e:
+                        raise TypeError(f"\n{statement}\n: {e}")
+                    except sqlite3.ProgrammingError as e:
+                        raise TypeError(f"\n{statement}\n: {e}")
+                    conn.commit()
+                continue
 
             break_count = 0  # counting the number of break statements so far
 

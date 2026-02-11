@@ -27,13 +27,13 @@ CREATE TABLE IF NOT EXISTS `org_agent_relations` (
 
   CONSTRAINT `org_agent_relation_child_fk`
     FOREIGN KEY (`org_agent_relation_child_agent_id`)
-    REFERENCES `agents`(`agent_id`)
+    REFERENCES `org_agents`(`org_agent_agent_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
 
   CONSTRAINT `org_agent_relation_parent_fk`
     FOREIGN KEY (`org_agent_relation_parent_agent_id`)
-    REFERENCES `agents`(`agent_id`)
+    REFERENCES `org_agents`(`org_agent_agent_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
 
@@ -68,4 +68,88 @@ ON `org_agent_relations`(`org_agent_relation_parent_agent_id`);
 CREATE INDEX IF NOT EXISTS `idx_org_agent_relations_child`
 ON `org_agent_relations`(`org_agent_relation_child_agent_id`);
 
+-- BREAK
+-- BREAK
+
+
+CREATE TRIGGER IF NOT EXISTS `trg_org_agent_relations_no_cycle_insert`
+BEFORE INSERT ON `org_agent_relations`
+BEGIN
+  SELECT RAISE(ABORT, 'org_agent_relations cycle detected')
+  WHERE EXISTS (
+    WITH RECURSIVE `p`(`id`) AS (
+      SELECT NEW.`org_agent_relation_parent_agent_id`
+      UNION
+      SELECT `r`.`org_agent_relation_parent_agent_id`
+      FROM `org_agent_relations` AS `r`
+      JOIN `p` ON `r`.`org_agent_relation_child_agent_id` = `p`.`id`
+    )
+    SELECT 1 FROM `p` WHERE `id` = NEW.`org_agent_relation_child_agent_id`
+  );
+END;
+
+-- BREAK
+
+
+CREATE TRIGGER IF NOT EXISTS `trg_org_agent_relations_no_cycle_update`
+BEFORE UPDATE OF `org_agent_relation_child_agent_id`, `org_agent_relation_parent_agent_id`
+ON `org_agent_relations`
+BEGIN
+  SELECT RAISE(ABORT, 'org_agent_relations cycle detected')
+  WHERE EXISTS (
+    WITH RECURSIVE `p`(`id`) AS (
+      SELECT NEW.`org_agent_relation_parent_agent_id`
+      UNION
+      SELECT `r`.`org_agent_relation_parent_agent_id`
+      FROM `org_agent_relations` AS `r`
+      JOIN `p` ON `r`.`org_agent_relation_child_agent_id` = `p`.`id`
+      WHERE `r`.`org_agent_relation_id` != OLD.`org_agent_relation_id`
+    )
+    SELECT 1 FROM `p` WHERE `id` = NEW.`org_agent_relation_child_agent_id`
+  );
+END;
+
+-- BREAK
+-- BREAK
+
+
+CREATE TRIGGER IF NOT EXISTS `trg_org_agent_relations_no_cycle_insert`
+BEFORE INSERT ON `org_agent_relations`
+BEGIN
+  SELECT RAISE(ABORT, 'org_agent_relations cycle detected')
+  WHERE EXISTS (
+    WITH RECURSIVE `p`(`id`) AS (
+      SELECT NEW.`org_agent_relation_parent_agent_id`
+      UNION
+      SELECT `r`.`org_agent_relation_parent_agent_id`
+      FROM `org_agent_relations` AS `r`
+      JOIN `p` ON `r`.`org_agent_relation_child_agent_id` = `p`.`id`
+    )
+    SELECT 1 FROM `p` WHERE `id` = NEW.`org_agent_relation_child_agent_id`
+  );
+END;
+
+-- BREAK
+-- BREAK
+
+
+CREATE TRIGGER IF NOT EXISTS `trg_org_agent_relations_no_cycle_update`
+BEFORE UPDATE OF `org_agent_relation_child_agent_id`, `org_agent_relation_parent_agent_id`
+ON `org_agent_relations`
+BEGIN
+  SELECT RAISE(ABORT, 'org_agent_relations cycle detected')
+  WHERE EXISTS (
+    WITH RECURSIVE `p`(`id`) AS (
+      SELECT NEW.`org_agent_relation_parent_agent_id`
+      UNION
+      SELECT `r`.`org_agent_relation_parent_agent_id`
+      FROM `org_agent_relations` AS `r`
+      JOIN `p` ON `r`.`org_agent_relation_child_agent_id` = `p`.`id`
+      WHERE `r`.`org_agent_relation_id` != OLD.`org_agent_relation_id`
+    )
+    SELECT 1 FROM `p` WHERE `id` = NEW.`org_agent_relation_child_agent_id`
+  );
+END;
+
+-- BREAK
 -- BREAK

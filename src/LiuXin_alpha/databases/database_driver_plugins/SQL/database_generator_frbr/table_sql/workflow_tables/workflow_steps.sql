@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `workflow_steps` (
   -- Optional ordering hint for UI
   `workflow_step_ord` INTEGER NULL,
 
-  `workflow_step_scope` TEXT NULL;
+  `workflow_step_scope` TEXT NULL,
 
   -- timestamps (epoch_ms)
   `workflow_step_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),

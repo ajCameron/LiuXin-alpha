@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `last_read_positions` (
 
   `last_read_positions_scratch` TEXT NULL,
 
-  UNIQUE(`user`, `device`, `book`, `format`)
+  UNIQUE(`last_read_position_user`, `last_read_position_device`, `last_read_position_book`, `last_read_position_format`)
 
 );
 
