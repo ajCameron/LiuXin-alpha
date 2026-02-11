@@ -187,9 +187,6 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         assert self.direct_get_tables() is None, sorted(self.direct_get_tables())
 
-
-        raise NotImplementedError("Let's get the main tables up first.")
-
         # 2) Creates the interlink tables - these are sufficiently similar that they are amenable to automated creation
         self.interlink_tables_pairs = self.get_requested_interlink_tables()
         for link_pair in self.interlink_tables_pairs:
@@ -302,6 +299,21 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                 )
                 sys.exit()
 
+
+            # If the table file uses no BREAK markers, execute it as a script (supports multi-statement SQL).
+            # This avoids silently skipping tables like metadata_additional/annotations.sql.
+            if not any(line.startswith("-- BREAK") for line in test):
+                statement = "".join(test)
+                if statement.strip():
+                    try:
+                        conn.executescript(statement)
+                    except sqlite3.OperationalError as e:
+                        raise TypeError(f"\n{statement}\n: {e}")
+                    except sqlite3.ProgrammingError as e:
+                        raise TypeError(f"\n{statement}\n: {e}")
+                    conn.commit()
+                continue
+
             break_count = 0  # counting the number of break statements so far
 
             current_statement = """ """
@@ -394,51 +406,152 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
             conn.commit()
 
-    def get_requested_interlink_tables(self) -> set[str]:
+    def get_requested_interlink_tables(self) -> set[tuple[str, str]]:
         """
-        Parses a link table file for a list of requested tables.
+        Parses the interlink spec for a list of requested interlink table pairs.
 
-        :return link_tables: A set of tuples of two table names between which a link should be created
+        Prefers `interlink_table_requests.toml` (structured, commentable), but supports the legacy
+        `interlink_table_requests.txt` file as a fallback.
+
+        Verification performed:
+          - Unknown or misspelled table names (warn + skip)
+          - Self-links (warn + skip)
+          - Duplicate requests (warn + dedupe)
+          - Potentially redundant requests where a direct FK already exists between the tables
+            (warn; optionally skip)
+
+        :return: A set of canonical (table_a, table_b) pairs (sorted within each tuple).
         """
-        # parses a file for a list of requested link tables
-        # interprets these tables to work out the tables it should join
-        # generates the SQL of the link table
-        # applies any custom SQL to the tables once they exist
-
         c = self.conn.cursor()
+
+        # Refresh known tables
         stmt = "SELECT name FROM sqlite_master WHERE type='table';"
         current_tables = self.main_tables
         for row in c.execute(stmt):
             current_tables.add(row[0])
-        link_tables = set()
 
-        try:
-            with open(os.path.join(__folder__, "interlink_table_requests.txt"), "r") as requests_file:
-                requested_table_names = requests_file.readlines()
-        except IOError:
-            LiuXin_print("Error - get_requested_interlink_tables failed to find the link table requests text file.")
-            raise
+        spec_path_toml = os.path.join(__folder__, "interlink_table_requests.toml")
+        spec_path_txt = os.path.join(__folder__, "interlink_table_requests.txt")
 
-        for line in requested_table_names:
+        allow_redundant_links = True
+        warn_on_redundant_links = True
 
-            tables = self.extract_main_tables(line)
+        requested_pairs: list[tuple[str, str]] = []
 
-            if tables is not None:
+        # Prefer TOML
+        if os.path.exists(spec_path_toml):
+            if tomllib is None:
+                raise RuntimeError(
+                    "interlink_table_requests.toml present but tomllib/tomli is unavailable in this Python runtime."
+                )
 
-                c_table1 = tables[0]
-                c_table2 = tables[1]
+            with open(spec_path_toml, "rb") as fh:
+                data: dict[str, Any] = tomllib.load(fh)
 
-                if (c_table1 not in current_tables) or (c_table2 not in current_tables):
-                    warn_str = "Warning - get_requested_interlink_tables reports that you're trying to create a table"
-                    warn_str += " that should not be.\n"
-                    warn_str += repr(line)
-                    LiuXin_warning_print(warn_str)
-                else:
-                    current_table = (c_table1, c_table2)
-                    link_tables.add(current_table)
+            allow_redundant_links = bool(data.get("allow_redundant_links", True))
+            warn_on_redundant_links = bool(data.get("warn_on_redundant_links", True))
+
+            interlinks = data.get("interlinks", [])
+            if not isinstance(interlinks, list):
+                raise TypeError("TOML key `interlinks` must be a list")
+
+            for idx, entry in enumerate(interlinks):
+                if not isinstance(entry, dict):
+                    LiuXin_warning_print(f"Warning - interlink spec entry {idx} is not a table (dict): {entry!r}")
+                    continue
+
+                left = entry.get("left_table") or entry.get("left") or entry.get("table1") or entry.get("a")
+                right = entry.get("right_table") or entry.get("right") or entry.get("table2") or entry.get("b")
+
+                if not left or not right:
+                    LiuXin_warning_print(
+                        f"Warning - interlink spec entry {idx} missing left_table/right_table: {entry!r}"
+                    )
+                    continue
+
+                requested_pairs.append((str(left), str(right)))
+
+        # Fallback legacy text format(s)
+        elif os.path.exists(spec_path_txt):
+            try:
+                with open(spec_path_txt, "r") as requests_file:
+                    requested_table_names = requests_file.readlines()
+            except IOError:
+                LiuXin_print("Error - get_requested_interlink_tables failed to find the link table requests file.")
+                raise
+
+            for line in requested_table_names:
+                # Human-friendly: `table1 -- table2`
+                m = re.match(r"^\s*([0-9a-zA-Z_]+)\s*--\s*([0-9a-zA-Z_]+)\s*$", line)
+                if m:
+                    requested_pairs.append((m.group(1), m.group(2)))
+                    continue
+
+                # Legacy: `table1-table2_`
+                tables = self.extract_main_tables(line)
+                if tables is not None:
+                    requested_pairs.append((tables[0], tables[1]))
+
+        else:
+            LiuXin_warning_print(
+                "Warning - no interlink request file found (expected interlink_table_requests.toml or .txt)"
+            )
+            return set()
+
+        # Build a set of unordered FK edges to warn about redundant interlinks
+        fk_pairs: set[tuple[str, str]] = set()
+        for table in sorted(current_tables):
+            try:
+                for fk in c.execute(f"PRAGMA foreign_key_list(`{table}`);"):
+                    ref_table = fk[2]
+                    if isinstance(ref_table, str) and ref_table in current_tables:
+                        fk_pairs.add(tuple(sorted((table, ref_table))))
+            except sqlite3.OperationalError:
+                # Some sqlite builds may reject PRAGMA calls for ephemeral objects; ignore
+                continue
+
+        link_tables: set[tuple[str, str]] = set()
+
+        for raw_left, raw_right in requested_pairs:
+            c_table1 = self.match_to_table_name(raw_left)
+            c_table2 = self.match_to_table_name(raw_right)
+
+            if c_table1 is None or c_table2 is None:
+                LiuXin_warning_print(
+                    "Warning - unknown table in interlink request: " + repr((raw_left, raw_right))
+                )
+                continue
+
+            if c_table1 == c_table2:
+                LiuXin_warning_print(
+                    "Warning - self-link requested (ignored): " + repr((c_table1, c_table2))
+                )
+                continue
+
+            current_pair = tuple(sorted((c_table1, c_table2)))
+
+            if current_pair in link_tables:
+                LiuXin_warning_print("Warning - duplicate interlink request (deduped): " + repr(current_pair))
+                continue
+
+            if current_pair in fk_pairs:
+                if warn_on_redundant_links:
+                    LiuXin_warning_print(
+                        "Warning - interlink request duplicates an existing FK edge: " + repr(current_pair)
+                    )
+                if not allow_redundant_links:
+                    continue
+
+            if (c_table1 not in current_tables) or (c_table2 not in current_tables):
+                warn_str = "Warning - get_requested_interlink_tables reports that you're trying to create a table"
+                warn_str += " that should not be.\n"
+                warn_str += repr((raw_left, raw_right))
+                LiuXin_warning_print(warn_str)
+                continue
+
+            link_tables.add(current_pair)
 
         return link_tables
-
     def extract_main_tables(self, interlink_request: str) -> Optional[list[str]]:
         """
         Extract the main tables we're being instructed to link from the main table.
@@ -738,18 +851,67 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         :return:
         """
+        c = self.conn.cursor()
+
         current_tables = self.main_tables
+        stmt = "SELECT name FROM sqlite_master WHERE type='table';"
+        for row in c.execute(stmt):
+            current_tables.add(row[0])
 
         intralink_tables = set()
 
-        input_pattern = re.compile(r"\s*([^-\s]*[0-9a-zA-Z]+)")
+        input_pattern = re.compile(r"\s*([^\-\s]*[0-9a-zA-Z_]+)")
 
-        try:
-            with open(os.path.join(__folder__, "intralink_table_requests.txt"), "r") as intra_reqs_file:
-                requested_table_names = intra_reqs_file.readlines()
-        except IOError:
-            LiuXin_print("Error - get_requested_intralink_tables failed to find the link table requests text file.")
-            sys.exit()
+        spec_path_toml = os.path.join(__folder__, "intralink_table_requests.toml")
+        spec_path_txt = os.path.join(__folder__, "intralink_table_requests.txt")
+
+        require_table_exists = True
+
+        if os.path.exists(spec_path_toml):
+            if tomllib is None:
+                raise RuntimeError(
+                    "intralink_table_requests.toml present but tomllib/tomli is unavailable in this Python runtime."
+                )
+
+            with open(spec_path_toml, "rb") as fh:
+                data: dict[str, Any] = tomllib.load(fh)
+
+            require_table_exists = bool(data.get("require_table_exists", True))
+
+            intralinks = data.get("intralinks", [])
+            if not isinstance(intralinks, list):
+                raise TypeError("TOML key `intralinks` must be a list")
+
+            requested_table_names = []
+            for idx, entry in enumerate(intralinks):
+                if isinstance(entry, str):
+                    requested_table_names.append(entry + "\n")
+                    continue
+
+                if not isinstance(entry, dict):
+                    LiuXin_warning_print(
+                        f"Warning - intralink spec entry {idx} is not a string or table (dict): {entry!r}"
+                    )
+                    continue
+
+                name = entry.get("table") or entry.get("table_name") or entry.get("name")
+                if not name:
+                    LiuXin_warning_print(
+                        f"Warning - intralink spec entry {idx} missing `table`: {entry!r}"
+                    )
+                    continue
+
+                requested_table_names.append(str(name) + "\n")
+
+        else:
+            try:
+                with open(spec_path_txt, "r") as intra_reqs_file:
+                    requested_table_names = intra_reqs_file.readlines()
+            except IOError:
+                LiuXin_print(
+                    "Error - get_requested_intralink_tables failed to find the link table requests text file."
+                )
+                sys.exit()
 
         for line in requested_table_names:
 
@@ -760,11 +922,16 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                 i_table = tables.group(1)
                 c_table = self.match_to_table_name(i_table)
 
+                if c_table is None and (not require_table_exists) and (i_table in __ALLOWED_INTRALINK_TYPE_VAL_DICT__):
+                    c_table = i_table
+
                 if c_table not in current_tables:
                     warn_str = "Error - get_requested_intralink_tables reports that you're trying to create a table"
                     warn_str += " that should not be.\n"
                     warn_str += line
                     LiuXin_warning_print(warn_str)
+                    if (not require_table_exists) and (c_table is not None):
+                        intralink_tables.add(c_table)
                 else:
                     intralink_tables.add(c_table)
 

@@ -1,80 +1,83 @@
 # Interlink table requests (FRBR generator)
+#
 # Each [[interlinks]] entry requests an interlink table between two existing main tables.
 # Add your "why this exists" notes in `rationale` (safe to be long / multi-line).
 #
 # NOTE: The generator normalises table names via match_to_table_name() (plural/singular fuzz).
-#
+
 version = 1
+allow_redundant_links = true
+warn_on_redundant_links = true
 
 [[interlinks]]
 left_table = "agents"
 right_table = "comments"
-rationale = """You want to be able to make comments on a generic agent."""
+rationale = """You want to be able to make comments on a generic agent"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "expressions"
-rationale = """Which expressions the agents are responsible for."""
+rationale = """Which expressions the agents are responsible for"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "feeds"
-rationale = """Agents also create and manage feeds of various sorts."""
+rationale = """Agents also create and manage feeds of various sorts. Tags which agents"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "images"
-rationale = """You can assign pictures to agents - such as cover photos."""
+rationale = """You can assign pictures to agents - such as cover photos"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "items"
-rationale = """Agents can be responsible for different parts of each part of the WEMI stack."""
+rationale = """Agents can be responsible for different parts of each part of the WEMI stack"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "labels"
-rationale = """You can label agents in various ways."""
+rationale = """You can label agents in various ways"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "languages"
-rationale = """Agents can work in different languages (e.g. author language, publisher house language)."""
+rationale = """Agents can work in different languages (e.g. Alistair Reynaulds is an English language author). (Orbit is an English language publishing housre)"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "manifestations"
-rationale = ""
+rationale = """Agents can be responsible for creating manifestations."""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "synopses"
-rationale = ""
+rationale = """A synopses of an agent conveys infomation about the agent."""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "works"
-rationale = ""
+rationale = """An Agent can be responsible for creating a work (e.g. a report commisioned by a body)."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "compressed_files"
-rationale = ""
+rationale = """Comment on a compressed files - e.g. what might be in it."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "conversion_options"
-rationale = ""
+rationale = """Comment on a conversion option - doe it produce good output? E.t.c."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "custom_columns"
-rationale = ""
+rationale = """Comment on a custom column - what does it do?"""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "devices"
-rationale = ""
+rationale = """Comment on a device - provides more info about it."""
 
 [[interlinks]]
 left_table = "comments"
@@ -348,3 +351,161 @@ rationale = ""
 
 [[interlinks]]
 left_table = "images"
+right_table = "items"
+rationale = ""
+
+[[interlinks]]
+left_table = "images"
+right_table = "labels"
+rationale = ""
+
+[[interlinks]]
+left_table = "images"
+right_table = "manifestations"
+rationale = ""
+
+[[interlinks]]
+left_table = "images"
+right_table = "series"
+rationale = ""
+
+[[interlinks]]
+left_table = "images"
+right_table = "works"
+rationale = ""
+
+[[interlinks]]
+left_table = "items"
+right_table = "labels"
+rationale = ""
+
+[[interlinks]]
+left_table = "items"
+right_table = "languages"
+rationale = ""
+
+[[interlinks]]
+left_table = "items"
+right_table = "last_read_positions"
+rationale = ""
+
+[[interlinks]]
+left_table = "labels"
+right_table = "new_books"
+rationale = ""
+
+[[interlinks]]
+left_table = "labels"
+right_table = "org_agents"
+rationale = ""
+
+[[interlinks]]
+left_table = "labels"
+right_table = "series"
+rationale = ""
+
+[[interlinks]]
+left_table = "labels"
+right_table = "stores"
+rationale = ""
+
+[[interlinks]]
+left_table = "labels"
+right_table = "works"
+rationale = ""
+
+[[interlinks]]
+left_table = "languages"
+right_table = "manifestations"
+rationale = ""
+
+[[interlinks]]
+left_table = "languages"
+right_table = "works"
+rationale = ""
+
+[[interlinks]]
+left_table = "notes"
+right_table = "org_agents"
+rationale = ""
+
+[[interlinks]]
+left_table = "notes"
+right_table = "stores"
+rationale = ""
+
+[[interlinks]]
+left_table = "notes"
+right_table = "works"
+rationale = ""
+
+[[interlinks]]
+left_table = "org_agents"
+right_table = "series"
+rationale = ""
+
+[[interlinks]]
+left_table = "org_agents"
+right_table = "works"
+rationale = ""
+
+[[interlinks]]
+left_table = "org_agents"
+right_table = "subjects"
+rationale = ""
+
+[[interlinks]]
+left_table = "org_agents"
+right_table = "works"
+rationale = ""
+
+[[interlinks]]
+left_table = "ratings"
+right_table = "series"
+rationale = ""
+
+[[interlinks]]
+left_table = "ratings"
+right_table = "works"
+rationale = ""
+
+[[interlinks]]
+left_table = "series"
+right_table = "works"
+rationale = ""
+
+[[interlinks]]
+left_table = "series"
+right_table = "subjects"
+rationale = ""
+
+[[interlinks]]
+left_table = "series"
+right_table = "synopses"
+rationale = ""
+
+[[interlinks]]
+left_table = "stores"
+right_table = "subjects"
+rationale = ""
+
+[[interlinks]]
+left_table = "stores"
+right_table = "synopses"
+rationale = ""
+
+[[interlinks]]
+left_table = "subjects"
+right_table = "synopses"
+rationale = ""
+
+[[interlinks]]
+left_table = "subjects"
+right_table = "works"
+rationale = ""
+
+[[interlinks]]
+left_table = "synopses"
+right_table = "works"
+rationale = ""
+

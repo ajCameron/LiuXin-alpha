@@ -1,0 +1,48 @@
+# Intralink table requests (FRBR generator)
+#
+# Intralinks create a "self-link" table for a given base table (table links to itself),
+# for modelling relations like "alias of", "derived from", "mirror", etc.
+#
+# Each [[intralinks]] entry requests an intralink table for `table`.
+# Put any notes about *why* the intralink exists in `rationale` (safe to be long / multi-line).
+#
+# require_table_exists:
+#   - true  => warn+skip requests for tables not yet present in sqlite_master (legacy behaviour)
+#   - false => warn but still return them (useful while iterating on schemas)
+#
+version = 1
+require_table_exists = true
+
+[[intralinks]]
+table = "creators"
+rationale = ""
+
+[[intralinks]]
+table = "covers"
+rationale = ""
+
+[[intralinks]]
+table = "files"
+rationale = ""
+
+[[intralinks]]
+table = "folder_stores"
+rationale = ""
+
+[[intralinks]]
+table = "identifiers"
+rationale = ""
+
+[[intralinks]]
+table = "tags"
+rationale = ""
+
+[[intralinks]]
+table = "titles"
+rationale = ""
+
+[[intralinks]]
+table = "publishers"
+rationale = ""
+
+# Intralinks for user-created tables can be added below.
