@@ -12,500 +12,600 @@ warn_on_redundant_links = true
 [[interlinks]]
 left_table = "agents"
 right_table = "comments"
+link_type = "many_to_many"
 rationale = """You want to be able to make comments on a generic agent"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "expressions"
+link_type = "many_to_many"
 rationale = """Which expressions the agents are responsible for"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "feeds"
+link_type = "many_to_many"
 rationale = """Agents also create and manage feeds of various sorts. Tags which agents"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "images"
+link_type = "many_to_many"
 rationale = """You can assign pictures to agents - such as cover photos"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "items"
+link_type = "many_to_many"
 rationale = """Agents can be responsible for different parts of each part of the WEMI stack"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "labels"
+link_type = "many_to_many"
 rationale = """You can label agents in various ways"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "languages"
+link_type = "many_to_many"
 rationale = """Agents can work in different languages (e.g. Alistair Reynaulds is an English language author). (Orbit is an English language publishing housre)"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "manifestations"
+link_type = "many_to_many"
 rationale = """Agents can be responsible for creating manifestations."""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "synopses"
+link_type = "many_to_many"
 rationale = """A synopses of an agent conveys infomation about the agent."""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "works"
+link_type = "many_to_many"
 rationale = """An Agent can be responsible for creating a work (e.g. a report commisioned by a body)."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "compressed_files"
+link_type = "many_to_many"
 rationale = """Comment on a compressed files - e.g. what might be in it."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "conversion_options"
+link_type = "many_to_many"
 rationale = """Comment on a conversion option - doe it produce good output? E.t.c."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "custom_columns"
+link_type = "many_to_many"
 rationale = """Comment on a custom column - what does it do?"""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "devices"
+link_type = "many_to_many"
 rationale = """Comment on a device - provides more info about it."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "expressions"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "feeds"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "human_agents"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "items"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "manifestations"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "org_agents"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "series"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "stores"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "feeds"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "expressions"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "items"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "labels"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "notes"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "series"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "stores"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "expressions"
 right_table = "images"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "expressions"
 right_table = "human_agents"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "expressions"
 right_table = "labels"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "expressions"
 right_table = "languages"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "expressions"
 right_table = "notes"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "expressions"
 right_table = "org_agents"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "genres"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "human_agents"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "images"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "items"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "languages"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "notes"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "org_agents"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "stores"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "subjects"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "synopses"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "files"
 right_table = "folders"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "files"
 right_table = "hashes"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "files"
 right_table = "images"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "files"
 right_table = "items"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "files"
 right_table = "labels"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "files"
 right_table = "languages"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "files"
 right_table = "last_read_positions"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "files"
 right_table = "stores"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "folders"
 right_table = "feeds"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "folders"
 right_table = "items"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "folders"
 right_table = "series"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "folders"
 right_table = "stores"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "folders"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "genres"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "hashes"
 right_table = "new_books"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "human_agents"
 right_table = "images"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "human_agents"
 right_table = "labels"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "human_agents"
 right_table = "languages"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "human_agents"
 right_table = "series"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "human_agents"
 right_table = "subjects"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "human_agents"
 right_table = "synopses"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "human_agents"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "images"
 right_table = "items"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "images"
 right_table = "labels"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "images"
 right_table = "manifestations"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "images"
 right_table = "series"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "images"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "items"
 right_table = "labels"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "items"
 right_table = "languages"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "items"
 right_table = "last_read_positions"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "labels"
 right_table = "new_books"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "labels"
 right_table = "org_agents"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "labels"
 right_table = "series"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "labels"
 right_table = "stores"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "labels"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "languages"
 right_table = "manifestations"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "languages"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "notes"
 right_table = "org_agents"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "notes"
 right_table = "stores"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "notes"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "org_agents"
 right_table = "series"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "org_agents"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "org_agents"
 right_table = "subjects"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "org_agents"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "ratings"
 right_table = "series"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "ratings"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "series"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "series"
 right_table = "subjects"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "series"
 right_table = "synopses"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "stores"
 right_table = "subjects"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "stores"
 right_table = "synopses"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "subjects"
 right_table = "synopses"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "subjects"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
 [[interlinks]]
 left_table = "synopses"
 right_table = "works"
+link_type = "many_to_many"
 rationale = ""
 
