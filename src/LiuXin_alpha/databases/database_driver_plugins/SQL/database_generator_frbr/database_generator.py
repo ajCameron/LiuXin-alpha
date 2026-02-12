@@ -163,6 +163,14 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         self.interlink_tables = set()
         self.interlink_table_pairs = set()
 
+        # Per-run interlink spec metadata (direction + declared link type)
+        self.interlink_specs_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
+        self.interlink_default_link_type: str = "many_to_many"
+
+        # Per-instance copies so we can add dynamic constraints based on TOML
+        self.ALLOWED_INTERLINK_TYPE_VAL_DICT = deepcopy(__ALLOWED_INTERLINK_TYPE_VAL_DICT__)
+        self.INTERLINK_TABLE_CONSTRAINTS = deepcopy(__INTERLINK_TABLE_CONSTRAINTS__)
+
         self.intralink_tables = set()
 
     def run(self) -> None:
@@ -191,6 +199,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         self.interlink_tables_pairs = self.get_requested_interlink_tables()
         for link_pair in self.interlink_tables_pairs:
             self.interlink_tables.add(self.get_interlink_name(link_pair))
+
+        # Populate/override link-table constraints from the interlink spec (incl. link_type / direction)
+        self.apply_interlink_constraints_from_spec()
 
         # 3) Validate the constraints which will be applied to the interlink tables
         self.validate_interlink_table_constraints()
@@ -424,6 +435,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         """
         c = self.conn.cursor()
 
+        # Reset per-run spec metadata
+        self.interlink_specs_by_pair = {}
+
         # Refresh known tables
         stmt = "SELECT name FROM sqlite_master WHERE type='table';"
         current_tables = self.main_tables
@@ -436,7 +450,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         allow_redundant_links = True
         warn_on_redundant_links = True
 
-        requested_pairs: list[tuple[str, str]] = []
+        requested_entries: list[tuple[str, str, str]] = []
 
         # Prefer TOML
         if os.path.exists(spec_path_toml):
@@ -450,6 +464,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
             allow_redundant_links = bool(data.get("allow_redundant_links", True))
             warn_on_redundant_links = bool(data.get("warn_on_redundant_links", True))
+
+            default_link_type = str(data.get("default_link_type", "many_to_many"))
+            self.interlink_default_link_type = default_link_type
 
             interlinks = data.get("interlinks", [])
             if not isinstance(interlinks, list):
@@ -469,7 +486,8 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                     )
                     continue
 
-                requested_pairs.append((str(left), str(right)))
+                link_type = entry.get("link_type") or entry.get("link") or entry.get("cardinality") or default_link_type
+                requested_entries.append((str(left), str(right), str(link_type)))
 
         # Fallback legacy text format(s)
         elif os.path.exists(spec_path_txt):
@@ -484,13 +502,13 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                 # Human-friendly: `table1 -- table2`
                 m = re.match(r"^\s*([0-9a-zA-Z_]+)\s*--\s*([0-9a-zA-Z_]+)\s*$", line)
                 if m:
-                    requested_pairs.append((m.group(1), m.group(2)))
+                    requested_entries.append((m.group(1), m.group(2), self.interlink_default_link_type))
                     continue
 
                 # Legacy: `table1-table2_`
                 tables = self.extract_main_tables(line)
                 if tables is not None:
-                    requested_pairs.append((tables[0], tables[1]))
+                    requested_entries.append((tables[0], tables[1], self.interlink_default_link_type))
 
         else:
             LiuXin_warning_print(
@@ -512,7 +530,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         link_tables: set[tuple[str, str]] = set()
 
-        for raw_left, raw_right in requested_pairs:
+        for raw_left, raw_right, raw_link_type in requested_entries:
             c_table1 = self.match_to_table_name(raw_left)
             c_table2 = self.match_to_table_name(raw_right)
 
@@ -529,6 +547,21 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                 continue
 
             current_pair = tuple(sorted((c_table1, c_table2)))
+
+            # Record spec metadata (direction + link_type) for later constraint generation
+            if current_pair not in self.interlink_specs_by_pair:
+                self.interlink_specs_by_pair[current_pair] = {
+                    "left_table": c_table1,
+                    "right_table": c_table2,
+                    "link_type": raw_link_type,
+                }
+            else:
+                existing = self.interlink_specs_by_pair[current_pair]
+                if (existing.get("left_table"), existing.get("right_table"), existing.get("link_type")) != (c_table1, c_table2, raw_link_type):
+                    LiuXin_warning_print(
+                        "Warning - duplicate interlink request with different metadata (keeping first): "
+                        + repr((current_pair, existing, (c_table1, c_table2, raw_link_type)))
+                    )
 
             if current_pair in link_tables:
                 LiuXin_warning_print("Warning - duplicate interlink request (deduped): " + repr(current_pair))
@@ -552,6 +585,76 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             link_tables.add(current_pair)
 
         return link_tables
+
+
+    @staticmethod
+    def _canonicalize_link_type(link_type: str) -> str:
+        """Normalize common link-type spellings to a small canonical set."""
+        if link_type is None:
+            return "many_to_many"
+        s = str(link_type).strip().lower()
+        s = s.replace("-", "_")
+        s = re.sub(r"\s+", "_", s)
+
+        aliases = {
+            "many_many": "many_to_many",
+            "many_to_many": "many_to_many",
+            "m2m": "many_to_many",
+            "one_many": "one_to_many",
+            "one_to_many": "one_to_many",
+            "o2m": "one_to_many",
+            "many_one": "many_to_one",
+            "many_to_one": "many_to_one",
+            "m2o": "many_to_one",
+            "one_one": "one_to_one",
+            "one_to_one": "one_to_one",
+            "o2o": "one_to_one",
+        }
+        return aliases.get(s, s)
+
+    def apply_interlink_constraints_from_spec(self) -> None:
+        """
+        Ensure every requested interlink table has an entry in INTERLINK_TABLE_CONSTRAINTS.
+
+        We populate/override constraints from `interlink_table_requests.toml` (when present), so the link-table
+        generator can enforce cardinality via constraints (many_many / one_many / many_one / one_one).
+
+        If a pair has no explicit spec metadata, we default to many-to-many.
+        """
+        default_link_type = getattr(self, "interlink_default_link_type", "many_to_many")
+
+        for pair in getattr(self, "interlink_tables_pairs", set()):
+            table_a, table_b = pair
+
+            spec = getattr(self, "interlink_specs_by_pair", {}).get(pair)
+            left_table = spec.get("left_table") if spec else table_a
+            right_table = spec.get("right_table") if spec else table_b
+            link_type_raw = spec.get("link_type") if spec else default_link_type
+
+            link_type = self._canonicalize_link_type(link_type_raw)
+
+            # Map spec language -> internal constraint language
+            if link_type == "many_to_many":
+                primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many"
+            elif link_type == "one_to_many":
+                primary_table, secondary_table, internal_link_type = left_table, right_table, "one_many"
+            elif link_type == "many_to_one":
+                primary_table, secondary_table, internal_link_type = left_table, right_table, "many_one"
+            elif link_type == "one_to_one":
+                primary_table, secondary_table, internal_link_type = left_table, right_table, "one_one"
+            else:
+                LiuXin_warning_print(
+                    f"Warning - unknown interlink link_type {link_type_raw!r} for pair {pair!r}; defaulting to many_to_many"
+                )
+                primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many"
+
+            link_table_name = self.get_interlink_name([table_a, table_b])
+
+            self.INTERLINK_TABLE_CONSTRAINTS[link_table_name] = {
+                "primary": primary_table,
+                "secondary": secondary_table,
+                "link_type": internal_link_type,
+            }
     def extract_main_tables(self, interlink_request: str) -> Optional[list[str]]:
         """
         Extract the main tables we're being instructed to link from the main table.
@@ -578,23 +681,28 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         :return:
         """
-        for link_table in __INTERLINK_TABLE_CONSTRAINTS__.keys():
-            assert link_table in self.interlink_tables, self.__constraint_not_found_error(link_table)
+        for link_table in self.interlink_tables:
+            assert link_table in self.INTERLINK_TABLE_CONSTRAINTS, self.__constraint_not_found_error(link_table)
 
     def validate_allowed_type_val_dict(self) -> None:
         """
-        Check that the allowed_type_val_dict is keyed with valid link tables which have a type columns requested.
+        If a link table requests a `type` column, ensure it has an allowed-types entry.
 
-        :return:
+        (Most FRBR link tables won't want enumerated types; this is only enforced when requested.)
         """
-        for link_table in __ALLOWED_INTERLINK_TYPE_VAL_DICT__.keys():
-            assert link_table in self.interlink_tables
+        for link_table in self.interlink_tables:
+            requested_cols = __INTERLINK_REQUESTED_COLS__.get(link_table, {"priority"})
 
             # If all columns are being created, then a type column will certainly be generated
-            if __INTERLINK_REQUESTED_COLS__[link_table] == "all":
+            if requested_cols == "all":
+                assert link_table in self.ALLOWED_INTERLINK_TYPE_VAL_DICT
                 continue
 
-            assert "type" in __INTERLINK_REQUESTED_COLS__[link_table]
+            if requested_cols is None:
+                continue
+
+            if isinstance(requested_cols, set) and "type" in requested_cols:
+                assert link_table in self.ALLOWED_INTERLINK_TYPE_VAL_DICT
 
     def validate_interlink_table_column_requests(self) -> None:
         """
@@ -603,12 +711,13 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         :return:
         """
         for table_constraint in __INTERLINK_REQUESTED_COLS__.keys():
-            # Check that the table to be constrained
-            assert table_constraint in self.interlink_tables, self.__constraint_not_found_error(table_constraint)
+            # Only validate constraints for link tables that are actually being created
+            if table_constraint not in self.interlink_tables:
+                continue
 
             # Check that the request is valid
             column_requests = __INTERLINK_REQUESTED_COLS__[table_constraint]
-            if column_requests is None:
+            if column_requests is None or column_requests == "all":
                 continue
 
             for cr in column_requests:
@@ -640,7 +749,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         :return:
         """
         link_table_name = self.get_interlink_name(link_pair)
-        return __INTERLINK_TABLE_CONSTRAINTS__[link_table_name]
+        return self.INTERLINK_TABLE_CONSTRAINTS[link_table_name]
 
     def match_to_table_name(self, candidate_name: str) -> Optional[str]:
         """
@@ -686,7 +795,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         table_name, _ = self.get_interlink_table_name(table1, table2)
 
-        requested_cols = "all"
+        requested_cols: Any = {"priority"}
         if table_name in __INTERLINK_REQUESTED_COLS__:
             requested_cols = deepcopy(__INTERLINK_REQUESTED_COLS__[table_name])
 
@@ -1031,5 +1140,4 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         c = self.conn.cursor()
         c.execute(del_stmt_block)
         self.conn.commit()
-
 
