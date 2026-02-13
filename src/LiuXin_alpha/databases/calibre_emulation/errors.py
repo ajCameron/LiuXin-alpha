@@ -13,3 +13,7 @@ class CalibreLibraryNotFoundError(CalibreError):
 
 class CalibreSchemaError(CalibreError):
     """Raised when an existing Calibre database does not match expectations."""
+
+
+class CalibreUnsafePathError(CalibreSchemaError):
+    """Raised when a DB path attempts to escape the library root."""

@@ -13,13 +13,14 @@ Design goals:
 from __future__ import annotations
 
 from dataclasses import dataclass
+import io
 from pathlib import Path
 import os
 import sqlite3
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, IO, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple
 
 from .db import CalibreDB
-from .errors import CalibreSchemaError
+from .errors import CalibreSchemaError, CalibreUnsafePathError
 from .types import (
     CalibreBookNormalized,
     CalibreCustomColumnDef,
@@ -86,9 +87,72 @@ def _as_rel_path(p: Any) -> str:
     return str(p).lstrip("/").lstrip("\\")
 
 
+def _split_rel_parts(p: Any) -> Tuple[str, ...]:
+    """Split a Calibre-stored relative path into safe path parts.
+
+    Calibre typically stores paths like ``Author/Title (id)``. When ingesting
+    arbitrary libraries, however, we should defend against attempts to escape
+    the library root (e.g. via ``..``) or to smuggle absolute paths.
+    """
+    s = _as_rel_path(p)
+    # Normalize Windows-style separators that may appear in DBs created on Windows.
+    s = s.replace("\\", "/")
+    parts: list[str] = []
+    for raw in s.split("/"):
+        if not raw or raw == ".":
+            continue
+        if raw == "..":
+            # Path traversal attempt.
+            return ("..",)
+        # Reject NUL and other control chars; keep it simple.
+        cleaned = raw.replace("\x00", "")
+        parts.append(cleaned)
+    return tuple(parts)
+
+
+def _safe_join_under_root(library_root: Path, rel_path: Any) -> Path:
+    """Resolve a relative path under root and ensure it stays inside root."""
+    root = library_root.resolve()
+    parts = _split_rel_parts(rel_path)
+    if parts and parts[0] == "..":
+        raise CalibreUnsafePathError(f"Unsafe relative path (contains '..'): {rel_path!r}")
+
+    candidate = (root / Path(*parts)).resolve()
+    try:
+        candidate.relative_to(root)
+    except Exception as e:
+        raise CalibreUnsafePathError(
+            f"Unsafe relative path (escapes library root): {rel_path!r} -> {candidate}"
+        ) from e
+    return candidate
+
+
+def _sanitize_filename(name: Any) -> str:
+    """Return a basename-like filename (no path separators)."""
+    if name is None:
+        return ""
+    s = str(name).replace("\x00", "")
+    # Protect against odd DB values like "../foo" or "a/b".
+    s = s.replace("\\", "/")
+    return os.path.basename(s)
+
+
+def _ensure_path_under_root(library_root: Path, p: Path) -> Path:
+    """Ensure an absolute path is within the library root.
+
+    This is used by file open helpers as a last line of defense.
+    """
+    root = library_root.resolve()
+    rp = p.resolve()
+    try:
+        rp.relative_to(root)
+    except Exception as e:
+        raise CalibreUnsafePathError(f"Unsafe path (outside library root): {rp}") from e
+    return rp
+
+
 def _resolve_book_dir(library_root: Path, books_path: Any) -> Path:
-    rel = _as_rel_path(books_path)
-    return (library_root / rel).resolve()
+    return _safe_join_under_root(library_root, books_path)
 
 
 def _resolve_cover_path(book_dir: Path) -> Path:
@@ -101,9 +165,9 @@ def _resolve_format_path(book_dir: Path, *, base_name: str, fmt: str) -> Path:
     ext = fmt_clean.lower()
     if not ext:
         # Unknown format; just return something predictable.
-        return book_dir / base_name
+        return book_dir / _sanitize_filename(base_name)
 
-    base = base_name or ""
+    base = _sanitize_filename(base_name) or ""
     # If base already contains an extension, keep it as-is.
     lower = base.lower()
     if lower.endswith("." + ext):
@@ -135,6 +199,17 @@ def _safe_getsize(p: Path) -> Optional[int]:
         return None
 
 
+def _ensure_under_root(library_root: Path, candidate: Path) -> Path:
+    """Ensure an absolute candidate path is inside the library root."""
+    root = library_root.resolve()
+    c = candidate.resolve()
+    try:
+        c.relative_to(root)
+    except Exception as e:
+        raise CalibreUnsafePathError(f"Unsafe path (escapes library root): {candidate}") from e
+    return c
+
+
 @dataclass(frozen=True, slots=True)
 class CalibreReader:
     """High-level streaming reader for an existing Calibre library."""
@@ -145,6 +220,37 @@ class CalibreReader:
     def from_root(cls, library_root: str | Path, *, read_only: bool = True, timeout_ms: int = 5_000) -> "CalibreReader":
         return cls(db=CalibreDB.from_root(library_root, read_only=read_only, timeout_ms=timeout_ms))
 
+    # ----------------------------
+    # File helpers (Stage A4)
+    # ----------------------------
+
+    def open_cover(self, cover_path: Path) -> IO[bytes]:
+        """Open a cover file for streaming reads.
+
+        Guardrail: refuses to open paths outside the library root.
+        """
+        root = Path(self.db.paths.library_root)
+        safe = _ensure_path_under_root(root, Path(cover_path))
+        return open(safe, "rb")
+
+    def open_format(self, fmt: CalibreFormatRef) -> IO[bytes]:
+        """Open a format file for streaming reads.
+
+        Guardrail: refuses to open paths outside the library root.
+        """
+        root = Path(self.db.paths.library_root)
+        safe = _ensure_path_under_root(root, Path(fmt.file_path))
+        return open(safe, "rb")
+
+    @staticmethod
+    def iter_file_chunks(fh: IO[bytes], *, chunk_size: int = 1024 * 1024) -> Iterator[bytes]:
+        """Yield bytes from an already-open file handle."""
+        while True:
+            chunk = fh.read(int(chunk_size))
+            if not chunk:
+                return
+            yield chunk
+
     def iter_book_payloads(
         self,
         *,
@@ -152,6 +258,7 @@ class CalibreReader:
         include_custom_values: bool = True,
         include_formats: bool = True,
         include_cover_path: bool = True,
+        strict_paths: bool = False,
     ) -> Iterator[CalibreBookNormalized]:
         """Stream CalibreBookNormalized payloads for ingestion."""
         conn = self.db.connect()
@@ -210,8 +317,8 @@ class CalibreReader:
                 )
                 series_map = self._read_series_for_books(conn, batch_ids, by_id=by_id)
                 comments_map = self._read_comments_for_books(conn, batch_ids, comments_text_col=comments_text_col) if _table_exists(conn, "comments") else {}
-                formats_map = (
-                    self._read_formats_for_books(
+                if include_formats:
+                    formats_map, unsafe_format_books = self._read_formats_for_books(
                         conn,
                         batch_ids,
                         by_id=by_id,
@@ -219,10 +326,10 @@ class CalibreReader:
                         data_format_col=data_format_col,
                         data_name_col=data_name_col,
                         data_size_col=data_size_col,
+                        strict_paths=strict_paths,
                     )
-                    if include_formats
-                    else {}
-                )
+                else:
+                    formats_map, unsafe_format_books = {}, set()
                 custom_map = self._read_custom_values_for_books(conn, batch_ids, custom_defs) if custom_defs else {}
 
                 for book_id in batch_ids:
@@ -234,9 +341,16 @@ class CalibreReader:
 
                     title = str(r.get("title") if isinstance(r, Mapping) else r["title"])
                     books_path = r.get("path") if isinstance(r, Mapping) else r["path"]
-                    book_dir = _resolve_book_dir(library_root, books_path)
+                    book_dir: Optional[Path]
+                    try:
+                        book_dir = _resolve_book_dir(library_root, books_path)
+                    except CalibreUnsafePathError:
+                        if strict_paths:
+                            raise
+                        book_dir = None
+                        warnings.append(f"unsafe_book_path:{books_path!r}")
 
-                    if not book_dir.exists():
+                    if book_dir is not None and not book_dir.exists():
                         warnings.append(f"missing_book_folder:{book_dir}")
 
                     cover_path: Optional[Path] = None
@@ -246,15 +360,21 @@ class CalibreReader:
                             has_cover = int(r.get("has_cover") if isinstance(r, Mapping) else r["has_cover"] or 0)
                         except Exception:
                             has_cover = 0
-                        candidate = _resolve_cover_path(book_dir)
-                        if candidate.exists():
-                            cover_path = candidate
-                        elif has_cover:
-                            warnings.append(f"missing_cover_file:{candidate}")
+                        if book_dir is None:
+                            if has_cover:
+                                warnings.append("missing_cover_file:<unsafe_book_path>")
+                        else:
+                            candidate = _resolve_cover_path(book_dir)
+                            if candidate.exists():
+                                cover_path = candidate
+                            elif has_cover:
+                                warnings.append(f"missing_cover_file:{candidate}")
 
                     fmt_refs: Tuple[CalibreFormatRef, ...] = ()
                     if include_formats:
                         fmt_refs = formats_map.get(int(book_id), ())
+                        if int(book_id) in unsafe_format_books:
+                            warnings.append("unsafe_book_path_for_formats")
                         for f in fmt_refs:
                             if not Path(f.file_path).exists():
                                 warnings.append(f"missing_format_file:{f.fmt}:{f.file_path}")
@@ -438,7 +558,8 @@ class CalibreReader:
         data_format_col: str,
         data_name_col: str,
         data_size_col: str,
-    ) -> Dict[int, Tuple[CalibreFormatRef, ...]]:
+        strict_paths: bool,
+    ) -> Tuple[Dict[int, Tuple[CalibreFormatRef, ...]], set[int]]:
         q = _qmarks(len(book_ids))
         rows = conn.execute(
             f"""
@@ -451,6 +572,7 @@ class CalibreReader:
         ).fetchall()
 
         out: Dict[int, List[CalibreFormatRef]] = {}
+        unsafe_books: set[int] = set()
         for r in rows:
             bid = int(r[0])
             fmt = str(r[1])
@@ -461,8 +583,17 @@ class CalibreReader:
             except Exception:
                 sz = None
 
-            books_path = by_id[bid].get("path")
-            book_dir = _resolve_book_dir(library_root, books_path)
+            # sqlite3.Row supports mapping access via __getitem__ but does not
+            # implement dict.get().
+            books_path = by_id[bid]["path"]
+            try:
+                book_dir = _resolve_book_dir(library_root, books_path)
+            except CalibreUnsafePathError:
+                if strict_paths:
+                    raise
+                unsafe_books.add(bid)
+                # No safe place to resolve this format.
+                continue
 
             file_path = _resolve_format_path(book_dir, base_name=name, fmt=fmt)
             size_bytes = _safe_getsize(file_path) or sz
@@ -471,7 +602,7 @@ class CalibreReader:
                 CalibreFormatRef(fmt=fmt, file_path=file_path, size_bytes=size_bytes)
             )
 
-        return {k: tuple(v) for k, v in out.items()}
+        return {k: tuple(v) for k, v in out.items()}, unsafe_books
 
     @staticmethod
     def _read_custom_values_for_books(
@@ -494,12 +625,16 @@ class CalibreReader:
                 continue
 
             value_col = _pick_column(vcols, candidates=("value", "val", "name", "text"), fallback="value")
-            extra_col = "extra" if "extra" in {c.lower() for c in vcols} else None
+
+            # For normalized custom columns, Calibre stores the series index in the
+            # LINK table's `extra` column (not in the value table).
+            lcols = _table_columns(conn, link_table)
+            link_extra_col = "extra" if "extra" in {c.lower() for c in (lcols or ())} else None
 
             q = _qmarks(len(book_ids))
-            if extra_col:
+            if link_extra_col:
                 sql = f"""
-                    SELECT l.book AS book_id, v.{value_col} AS value, v.{extra_col} AS extra
+                    SELECT l.book AS book_id, v.{value_col} AS value, l.{link_extra_col} AS extra
                     FROM {link_table} l
                     JOIN {value_table} v ON v.id = l.value
                     WHERE l.book IN ({q})

@@ -513,7 +513,7 @@ CREATE TRIGGER fkc_update_{table}
         authors: Sequence[str] | None = None,
         languages: Sequence[str] | None = ("eng",),
         tags: Sequence[str] | None = None,
-        series: str | None = None,
+        series: str | tuple[str, float] | None = None,
         series_index: float | None = None,
         publisher: str | None = None,
         identifiers: Mapping[str, str] | None = None,
@@ -535,6 +535,10 @@ CREATE TRIGGER fkc_update_{table}
         identifiers = dict(identifiers or {})
         custom_values = dict(custom_values or {})
 
+        # Convenience: accept series=(name, index) to mirror common caller usage.
+        if isinstance(series, (tuple, list)) and len(series) == 2 and series_index is None:
+            series, series_index = str(series[0]), float(series[1])
+
         conn = self.connect()
         try:
             book_id = self._insert_book_row(conn, title=title, authors=authors)
@@ -548,8 +552,19 @@ CREATE TRIGGER fkc_update_{table}
                 self._set_languages(conn, book_id=book_id, languages=languages)
             if tags:
                 self._set_tags(conn, book_id=book_id, tags=tags)
+            # Convenience: allow series=(name, index) as a single argument.
+            series_name: str | None = None
             if series:
-                self._set_series(conn, book_id=book_id, series=series, series_index=series_index)
+                if isinstance(series, (tuple, list)) and len(series) == 2 and series_index is None:
+                    series_name = str(series[0])
+                    try:
+                        series_index = float(series[1])
+                    except Exception:
+                        series_index = None
+                else:
+                    series_name = str(series)
+            if series_name:
+                self._set_series(conn, book_id=book_id, series=series_name, series_index=series_index)
             if publisher:
                 self._set_publisher(conn, book_id=book_id, publisher=publisher)
             if comments_html is not None:
