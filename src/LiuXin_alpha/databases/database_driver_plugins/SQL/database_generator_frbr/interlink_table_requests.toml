@@ -149,16 +149,22 @@ We do not want to share comments between devices - dupe them if needed.
 [[interlinks]]
 left_table = "comments"
 right_table = "expressions"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """You can comment on an expressions. If you want."""
+link_type = "many_to_one"
+requested_columns = ["priority", "nullable"]
+rationale = """
+You can comment on an expressions. If you want.
+Comments should not be shared between expressions. Dupe them instead if needed.
+"""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "feeds"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """You can comment on a feed."""
+link_type = "many_to_one"
+requested_columns = ["priority", \"nullable"]
+rationale = """
+You can comment on a feed.
+Comments should not be shared between feeds. Dupe them if required.
+"""
 
 [[forbidden_interlinks]]
 left_table = "comments"
@@ -168,52 +174,86 @@ rationale = """You cannot comment on the human_agents sidecar table. Please comm
 [[interlinks]]
 left_table = "comments"
 right_table = "agents"
-link_type = "many_to_many"
+link_type = "many_to_one"
 requested_columns = ["priority", "type", "nullable"]
-rationale = """You can comment on a human_agent - in their role as a human. And an agent."""
+rationale = """
+You can comment on an agent - in their role as a human. And an agent.
+A single comment should only be on one agent.
+"""
 
 
 [[interlinks]]
 left_table = "comments"
 right_table = "items"
-link_type = "many_to_many"
+link_type = "many_to_one"
 requested_columns = ["priority", "type", "nullable"]
-rationale = """"You can comment on an item. If you wish."""
+rationale = """"
+You can comment on an item. If you wish.
+Each comment belongs to one and only one item.
+"""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "manifestations"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """You can comment on a manifestation."""
+link_type = "many_to_one"
+requested_columns = ["priority", "nullable"]
+rationale = """
+You can comment on a manifestation.
+Each comment can belong to one and only one manifestation.
+"""
+
+[[forbidden_interlinks]]
+left_table = "comments"
+right_table = "org_agents"
+rationale = """
+You can, and perhaps often should, comment on an organisation.
+But comment on their entry in the agents table, not the org agents sidecar."""
+
+[[forbidden_interlinks]]
+left_table = "comments"
+right_table = "human_agents"
+rationale = """
+You can, and perhaps often should, comment on people.
+But comment on their entry in the agents table, not the org agents sidecar.
+"""
 
 [[interlinks]]
 left_table = "comments"
-right_table = "org_agents"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """You can, and perhaps often should, comment on an organisation."""
+right_table = "agents"
+link_type = "many_to_one"
+requested_columns = ["priority", "nullable"]
+rationale = """
+You can, and perhaps often should, comment on an agent - either human or org.
+Each comment should belong to one, and only one, agent.
+"""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "series"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+link_type = "many_to_one"
+requested_columns = ["priority", "nullable"]
 rationale = """You can comment on a series. If you wish."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "stores"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """Comments on the stores created on the system."""
+requested_columns = ["priority", "nullable"]
+rationale = """
+Comments on the stores created on the system.
+Note - these are for human readable comments.
+Machine readable "comments" are probably labels.
+"""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "works"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """You can comment on works, and, indeed, should."""
+link_type = "many_to_one"
+requested_columns = ["priority", "nullable"]
+rationale = """
+You can comment on works, and, indeed, should.
+However, one comment per work.
+"""
 
 [[interlinks]]
 left_table = "devices"

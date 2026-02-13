@@ -85,6 +85,28 @@ class CalibreCustomColumnDef:
 
 
 @dataclass(frozen=True, slots=True)
+class CalibreIssue:
+    """Structured issues discovered while reading a Calibre library.
+
+    These are intended for diagnostics and snapshot tests, not as a logging
+    system. Keep messages short and stable.
+    """
+
+    severity: str  # "info" | "warning" | "error"
+    code: str
+    message: str
+    context: Mapping[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Mapping[str, Any]:
+        return {
+            "severity": self.severity,
+            "code": self.code,
+            "message": self.message,
+            "context": dict(self.context),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CalibreVersionPlan:
     """A lightweight plan/report for handling a Calibre schema version.
 
@@ -100,6 +122,7 @@ class CalibreVersionPlan:
     known_user_version_min: int = 0
     known_user_version_max: Optional[int] = None
     status: str = "ok"
+    action: str = "continue"  # "continue" | "continue_with_warnings" | "refuse"
     warnings: Tuple[str, ...] = ()
 
     def to_dict(self) -> Mapping[str, Any]:
@@ -112,6 +135,7 @@ class CalibreVersionPlan:
             "known_user_version_min": self.known_user_version_min,
             "known_user_version_max": self.known_user_version_max,
             "status": self.status,
+            "action": self.action,
             "warnings": list(self.warnings),
         }
 
@@ -128,6 +152,7 @@ class CalibreSchemaInfo:
     has_notes: bool = False
     custom_columns: Tuple[CalibreCustomColumnDef, ...] = ()
     version_plan: Optional[CalibreVersionPlan] = None
+    issues: Tuple[CalibreIssue, ...] = ()
 
     def to_dict(self) -> Mapping[str, Any]:
         return {
@@ -139,6 +164,7 @@ class CalibreSchemaInfo:
             "has_notes": self.has_notes,
             "custom_columns": [c.to_dict() for c in self.custom_columns],
             "version_plan": None if self.version_plan is None else self.version_plan.to_dict(),
+            "issues": [i.to_dict() for i in self.issues],
         }
 
 

@@ -17,9 +17,14 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Iterable, Optional, Sequence, Tuple
 
-from .errors import CalibreLibraryNotFoundError, CalibreSchemaError
-from .types import CalibreCustomColumnDef, CalibreLibraryPaths, CalibreSchemaInfo
-from .versioning import resolve_version_plan
+from .errors import (
+    CalibreCorruptError,
+    CalibreLibraryNotFoundError,
+    CalibreSchemaError,
+    CalibreUnsupportedVersionError,
+)
+from .types import CalibreCustomColumnDef, CalibreIssue, CalibreLibraryPaths, CalibreSchemaInfo
+from .versioning import CalibreVersionPolicy, resolve_version_plan
 
 
 def _as_path(p: str | Path) -> Path:
@@ -128,7 +133,10 @@ class CalibreDB:
         db_path = _as_path(self.paths.metadata_db_path)
         if not db_path.exists():
             raise CalibreLibraryNotFoundError(f"metadata.db not found: {db_path}")
-        return _connect_sqlite(db_path, read_only=self.read_only, timeout_ms=self.timeout_ms)
+        try:
+            return _connect_sqlite(db_path, read_only=self.read_only, timeout_ms=self.timeout_ms)
+        except sqlite3.DatabaseError as e:
+            raise CalibreCorruptError(f"SQLite failed to open metadata.db: {db_path}: {e}") from e
 
     # ---------------------------------------------------------------------------------------------
     # Schema discovery
@@ -142,12 +150,18 @@ class CalibreDB:
         include_custom_columns: bool = True,
         include_version_plan: bool = True,
         require_core_tables: bool = True,
+        best_effort: bool = False,
+        version_policy: CalibreVersionPolicy | None = None,
     ) -> CalibreSchemaInfo:
         """Return observed schema info for the library."""
         conn = self.connect()
+        issues: list[CalibreIssue] = []
         try:
-            application_id = int(conn.execute("PRAGMA application_id").fetchone()[0])
-            user_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+            try:
+                application_id = int(conn.execute("PRAGMA application_id").fetchone()[0])
+                user_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+            except sqlite3.DatabaseError as e:
+                raise CalibreCorruptError(f"SQLite PRAGMA read failed for {self.paths.metadata_db_path}: {e}") from e
 
             tables: Tuple[str, ...] = ()
             triggers: Tuple[str, ...] = ()
@@ -157,7 +171,19 @@ class CalibreDB:
                 triggers = _sqlite_master_names(conn, kind="trigger")
 
             if require_core_tables:
-                self._validate_core_tables(conn)
+                try:
+                    self._validate_core_tables(conn)
+                except CalibreSchemaError as e:
+                    if best_effort:
+                        issues.append(
+                            CalibreIssue(
+                                severity="error",
+                                code="missing_core_tables",
+                                message=str(e),
+                            )
+                        )
+                    else:
+                        raise
 
             custom_columns: Tuple[CalibreCustomColumnDef, ...] = ()
             if include_custom_columns and _table_exists(conn, "custom_columns"):
@@ -166,6 +192,21 @@ class CalibreDB:
             has_notes = bool(self.paths.notes_db_path and _as_path(self.paths.notes_db_path).exists())
             has_fts = bool(self.paths.fts_db_path and _as_path(self.paths.fts_db_path).exists())
 
+            version_plan = (
+                resolve_version_plan(
+                    application_id=application_id,
+                    user_version=user_version,
+                    policy=version_policy,
+                )
+                if include_version_plan
+                else None
+            )
+
+            if version_plan is not None and version_plan.action == "refuse" and not best_effort:
+                raise CalibreUnsupportedVersionError(
+                    f"Calibre metadata.db version policy refused library: status={version_plan.status} warnings={version_plan.warnings}"
+                )
+
             return CalibreSchemaInfo(
                 application_id=application_id,
                 user_version=user_version,
@@ -173,8 +214,9 @@ class CalibreDB:
                 triggers=triggers,
                 has_fts=has_fts,
                 has_notes=has_notes,
-                version_plan=resolve_version_plan(application_id=application_id, user_version=user_version) if include_version_plan else None,
+                version_plan=version_plan,
                 custom_columns=custom_columns,
+                issues=tuple(issues),
             )
         finally:
             conn.close()

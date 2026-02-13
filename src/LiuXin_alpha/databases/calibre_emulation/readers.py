@@ -63,11 +63,31 @@ def _pick_column(cols: Sequence[str], *, candidates: Sequence[str], fallback: Op
     return cols[0] if cols else ""
 
 
-def _iter_book_id_batches(conn: sqlite3.Connection, *, batch_size: int) -> Iterator[List[int]]:
+def _row_get(row: Any, key: str, default: Any = None) -> Any:
+    """Best-effort mapping access for sqlite3.Row / dict-like objects."""
+    if row is None:
+        return default
+    try:
+        if isinstance(row, Mapping):
+            return row.get(key, default)
+    except Exception:
+        pass
+    try:
+        return row[key]
+    except Exception:
+        return default
+
+
+def _iter_book_id_batches(
+    conn: sqlite3.Connection,
+    *,
+    book_id_col: str,
+    batch_size: int,
+) -> Iterator[List[int]]:
     last_id = 0
     while True:
         rows = conn.execute(
-            "SELECT id FROM books WHERE id > ? ORDER BY id LIMIT ?",
+            f"SELECT {book_id_col} FROM books WHERE {book_id_col} > ? ORDER BY {book_id_col} LIMIT ?",
             (last_id, int(batch_size)),
         ).fetchall()
         ids = [int(r[0]) for r in rows]
@@ -264,17 +284,42 @@ class CalibreReader:
         include_formats: bool = True,
         include_cover_path: bool = True,
         strict_paths: bool = False,
+        best_effort: bool = True,
     ) -> Iterator[CalibreBookNormalized]:
         """Stream CalibreBookNormalized payloads for ingestion."""
         conn = self.db.connect()
         try:
-            # Validate core tables up front. (schema_info already does this, but we avoid
-            # extra work and give a clear error if called directly.)
-            self.db._validate_core_tables(conn)  # type: ignore[attr-defined]
+            tables = set()
+            try:
+                tables = set(
+                    r[0]
+                    for r in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+                    ).fetchall()
+                )
+            except Exception:
+                tables = set()
+
+            if "books" not in {t.lower() for t in tables} and not _table_exists(conn, "books"):
+                raise CalibreSchemaError("Calibre metadata.db missing 'books' table; cannot stream books")
+
+            if not best_effort:
+                # Validate core tables up front (strict mode).
+                self.db._validate_core_tables(conn)  # type: ignore[attr-defined]
 
             library_root = Path(self.db.paths.library_root)
 
+            global_warnings: List[str] = []
+
             # Column discovery for version drift tolerance.
+            books_cols = _table_columns(conn, "books")
+            book_id_col = _pick_column(books_cols, candidates=("id", "book_id", "book"), fallback="id")
+            title_col = _pick_column(books_cols, candidates=("title", "name"), fallback="title")
+            path_col = _pick_column(books_cols, candidates=("path", "folder", "relpath", "relative_path"), fallback="path")
+            books_lower = {c.lower() for c in books_cols}
+            has_cover_col = "has_cover" if "has_cover" in books_lower else None
+            series_index_col = "series_index" if "series_index" in books_lower else None
+
             languages_cols = _table_columns(conn, "languages") if _table_exists(conn, "languages") else ()
             languages_code_col = _pick_column(
                 languages_cols,
@@ -307,53 +352,144 @@ class CalibreReader:
             if include_custom_values and _table_exists(conn, "custom_columns"):
                 custom_defs = self.db._read_custom_columns(conn)  # type: ignore[attr-defined]
 
-            for batch_ids in _iter_book_id_batches(conn, batch_size=int(batch_size)):
+            # Table presence warnings (best-effort mode).
+            if not (_table_exists(conn, "authors") and _table_exists(conn, "books_authors_link")):
+                global_warnings.append("missing_tables:authors")
+            if not (_table_exists(conn, "data")):
+                global_warnings.append("missing_tables:data")
+            if include_formats and not _table_exists(conn, "data"):
+                include_formats = False
+            if not (_table_exists(conn, "books_tags_link") and _table_exists(conn, "tags")):
+                # Optional
+                pass
+            if not (_table_exists(conn, "books_languages_link") and _table_exists(conn, "languages")):
+                pass
+            if not _table_exists(conn, "identifiers"):
+                pass
+            if not _table_exists(conn, "comments"):
+                pass
+
+            for batch_ids in _iter_book_id_batches(conn, book_id_col=book_id_col, batch_size=int(batch_size)):
                 by_id: Dict[int, sqlite3.Row] = {}
                 q = _qmarks(len(batch_ids))
 
-                for r in conn.execute(f"SELECT * FROM books WHERE id IN ({q}) ORDER BY id", batch_ids).fetchall():
-                    by_id[int(r["id"])] = r
-
-                authors_map = self._read_authors_for_books(conn, batch_ids)
-                tags_map = (
-                    self._read_tags_for_books(conn, batch_ids)
-                    if (_table_exists(conn, 'books_tags_link') and _table_exists(conn, 'tags'))
-                    else {}
-                )
-                langs_map = (
-                    self._read_languages_for_books(conn, batch_ids, languages_code_col=languages_code_col)
-                    if (_table_exists(conn, 'books_languages_link') and _table_exists(conn, 'languages'))
-                    else {}
-                )
-                idents_map = self._read_identifiers_for_books(
-                    conn, batch_ids, ident_type_col=ident_type_col, ident_val_col=ident_val_col
-                )
-                series_map = self._read_series_for_books(conn, batch_ids, by_id=by_id)
-                comments_map = self._read_comments_for_books(conn, batch_ids, comments_text_col=comments_text_col) if _table_exists(conn, "comments") else {}
-                if include_formats:
-                    formats_map, unsafe_format_books = self._read_formats_for_books(
-                        conn,
+                try:
+                    rows = conn.execute(
+                        f"SELECT * FROM books WHERE {book_id_col} IN ({q}) ORDER BY {book_id_col}",
                         batch_ids,
-                        by_id=by_id,
-                        library_root=library_root,
-                        data_format_col=data_format_col,
-                        data_name_col=data_name_col,
-                        data_size_col=data_size_col,
-                        strict_paths=strict_paths,
+                    ).fetchall()
+                except sqlite3.DatabaseError as e:
+                    if not best_effort:
+                        raise
+                    # Can't read the batch; stop streaming.
+                    global_warnings.append(f"db_error:books:{type(e).__name__}:{e}")
+                    return
+
+                for r in rows:
+                    bid = _row_get(r, book_id_col)
+                    if bid is None:
+                        continue
+                    try:
+                        by_id[int(bid)] = r
+                    except Exception:
+                        continue
+
+                try:
+                    authors_map = self._read_authors_for_books(conn, batch_ids) if _table_exists(conn, "authors") and _table_exists(conn, "books_authors_link") else {}
+                except sqlite3.DatabaseError as e:
+                    if not best_effort:
+                        raise
+                    global_warnings.append(f"db_error:authors:{type(e).__name__}:{e}")
+                    authors_map = {}
+                try:
+                    tags_map = (
+                        self._read_tags_for_books(conn, batch_ids)
+                        if (_table_exists(conn, 'books_tags_link') and _table_exists(conn, 'tags'))
+                        else {}
                     )
+                except sqlite3.DatabaseError as e:
+                    if not best_effort:
+                        raise
+                    global_warnings.append(f"db_error:tags:{type(e).__name__}:{e}")
+                    tags_map = {}
+
+                try:
+                    langs_map = (
+                        self._read_languages_for_books(conn, batch_ids, languages_code_col=languages_code_col)
+                        if (_table_exists(conn, 'books_languages_link') and _table_exists(conn, 'languages'))
+                        else {}
+                    )
+                except sqlite3.DatabaseError as e:
+                    if not best_effort:
+                        raise
+                    global_warnings.append(f"db_error:languages:{type(e).__name__}:{e}")
+                    langs_map = {}
+                try:
+                    idents_map = self._read_identifiers_for_books(
+                        conn, batch_ids, ident_type_col=ident_type_col, ident_val_col=ident_val_col
+                    )
+                except sqlite3.DatabaseError as e:
+                    if not best_effort:
+                        raise
+                    global_warnings.append(f"db_error:identifiers:{type(e).__name__}:{e}")
+                    idents_map = {}
+
+                try:
+                    series_map = self._read_series_for_books(conn, batch_ids, by_id=by_id, series_index_col=series_index_col)
+                except sqlite3.DatabaseError as e:
+                    if not best_effort:
+                        raise
+                    global_warnings.append(f"db_error:series:{type(e).__name__}:{e}")
+                    series_map = {}
+
+                try:
+                    comments_map = (
+                        self._read_comments_for_books(conn, batch_ids, comments_text_col=comments_text_col)
+                        if _table_exists(conn, "comments")
+                        else {}
+                    )
+                except sqlite3.DatabaseError as e:
+                    if not best_effort:
+                        raise
+                    global_warnings.append(f"db_error:comments:{type(e).__name__}:{e}")
+                    comments_map = {}
+                if include_formats:
+                    try:
+                        formats_map, unsafe_format_books = self._read_formats_for_books(
+                            conn,
+                            batch_ids,
+                            by_id=by_id,
+                            books_path_col=path_col,
+                            library_root=library_root,
+                            data_format_col=data_format_col,
+                            data_name_col=data_name_col,
+                            data_size_col=data_size_col,
+                            strict_paths=strict_paths,
+                        )
+                    except sqlite3.DatabaseError as e:
+                        if not best_effort:
+                            raise
+                        global_warnings.append(f"db_error:formats:{type(e).__name__}:{e}")
+                        formats_map, unsafe_format_books = {}, set()
                 else:
                     formats_map, unsafe_format_books = {}, set()
-                custom_map = self._read_custom_values_for_books(conn, batch_ids, custom_defs) if custom_defs else {}
+                try:
+                    custom_map = self._read_custom_values_for_books(conn, batch_ids, custom_defs) if custom_defs else {}
+                except sqlite3.DatabaseError as e:
+                    if not best_effort:
+                        raise
+                    global_warnings.append(f"db_error:custom:{type(e).__name__}:{e}")
+                    custom_map = {}
 
                 for book_id in batch_ids:
                     r = by_id.get(int(book_id))
                     if r is None:
                         continue
 
-                    warnings: List[str] = []
+                    warnings: List[str] = list(global_warnings)
 
-                    title = str(r.get("title") if isinstance(r, Mapping) else r["title"])
-                    books_path = r.get("path") if isinstance(r, Mapping) else r["path"]
+                    title = str(_row_get(r, title_col, ""))
+                    books_path = _row_get(r, path_col, "")
                     book_dir: Optional[Path]
                     try:
                         book_dir = _resolve_book_dir(library_root, books_path)
@@ -369,10 +505,11 @@ class CalibreReader:
                     cover_path: Optional[Path] = None
                     if include_cover_path:
                         has_cover = 0
-                        try:
-                            has_cover = int(r.get("has_cover") if isinstance(r, Mapping) else r["has_cover"] or 0)
-                        except Exception:
-                            has_cover = 0
+                        if has_cover_col is not None:
+                            try:
+                                has_cover = int(_row_get(r, has_cover_col, 0) or 0)
+                            except Exception:
+                                has_cover = 0
                         if book_dir is None:
                             if has_cover:
                                 warnings.append("missing_cover_file:<unsafe_book_path>")
@@ -513,6 +650,7 @@ class CalibreReader:
         book_ids: Sequence[int],
         *,
         by_id: Mapping[int, sqlite3.Row],
+        series_index_col: Optional[str] = "series_index",
     ) -> Dict[int, Optional[CalibreSeriesRef]]:
         q = _qmarks(len(book_ids))
         if not (_table_exists(conn, "books_series_link") and _table_exists(conn, "series")):
@@ -534,7 +672,8 @@ class CalibreReader:
             name = str(r[1])
             idx: Optional[float] = None
             try:
-                idx = float(by_id[bid]["series_index"])
+                if series_index_col:
+                    idx = float(_row_get(by_id.get(bid), series_index_col))
             except Exception:
                 idx = None
             out[bid] = CalibreSeriesRef(name=name, index=idx)
@@ -567,6 +706,7 @@ class CalibreReader:
         book_ids: Sequence[int],
         *,
         by_id: Mapping[int, sqlite3.Row],
+        books_path_col: str = "path",
         library_root: Path,
         data_format_col: str,
         data_name_col: str,
@@ -598,7 +738,7 @@ class CalibreReader:
 
             # sqlite3.Row supports mapping access via __getitem__ but does not
             # implement dict.get().
-            books_path = by_id[bid]["path"]
+            books_path = _row_get(by_id.get(bid), books_path_col, "")
             try:
                 book_dir = _resolve_book_dir(library_root, books_path)
             except CalibreUnsafePathError:
