@@ -1,31 +1,19 @@
-"""Calibre emulation helpers.
-
-This package will host *readers* and other compatibility helpers for working
-with existing Calibre libraries (metadata.db + on-disk layout).
-
-Stage A1: shared types used by the readers/import pipeline.
-
-Stage A2: read-only DB wrapper + schema discovery.
-"""
-
-from __future__ import annotations
-
+from .db import CalibreDB
+from .errors import CalibreLibraryNotFoundError, CalibreSchemaError
+from .readers import CalibreReader
 from .types import (
+    CalibreBookNormalized,
+    CalibreBookRow,
+    CalibreCustomColumnDef,
+    CalibreFormatRef,
     CalibreLibraryPaths,
     CalibreSchemaInfo,
-    CalibreCustomColumnDef,
     CalibreSeriesRef,
-    CalibreFormatRef,
-    CalibreBookRow,
-    CalibreBookNormalized,
 )
-
-from .errors import CalibreError, CalibreLibraryNotFoundError, CalibreSchemaError
-from .db import CalibreDB
 
 __all__ = [
     "CalibreDB",
-    "CalibreError",
+    "CalibreReader",
     "CalibreLibraryNotFoundError",
     "CalibreSchemaError",
     "CalibreLibraryPaths",

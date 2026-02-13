@@ -23,7 +23,7 @@ Use expressions↔agents and join through agents ↔ org_agents when you need th
 left_table = "agents"
 right_table = "comments"
 link_type = "one_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = []
 rationale = """You want to be able to make comments on a generic agent"""
 
 [[interlinks]]
@@ -31,42 +31,57 @@ left_table = "agents"
 right_table = "expressions"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = """Which expressions the agents are responsible for"""
+rationale = """
+Which expressions the agents are responsible for.
+Many agents can, and probaly will be, responsible for many expressions.
+"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "feeds"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = """Agents also create and manage feeds of various sorts. Tags which agents"""
+types = ["insert_marc_roles", ]
+rationale = """
+Agents also create and manage feeds of various sorts.
+Additonally, Agents can co-operate on feeds, making the relationship many-many."""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "images"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = """You can assign pictures to agents - such as cover photos"""
+types = ["logo", "agent_photo"]
+rationale = """
+You can assign pictures to agents - such as cover photos.
+The relationship is many-many as some photos should be assigned to multiple agents.
+For example, a human type agent may be an author in their own right.
+But also an employee at an org type agent.
+As such, they should have an author photo linked to them as an author and a photo linked to the other org as an employee.
+"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "items"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
+types = ["insert_marc_roles", ]
 rationale = """Agents can be responsible for different parts of each part of the WEMI stack"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "labels"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """You can label agents in various ways"""
+rationale = """You can label agents freely."""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "languages"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = """Agents can work in different languages (e.g. Alistair Reynaulds is an English language author). (Orbit is an English language publishing housre)"""
+rationale = """
+Agents can work in different languages (e.g. Alistair Reynaulds is an English language author).
+(Orbit is an English language publishing housre)"""
 
 [[interlinks]]
 left_table = "agents"
