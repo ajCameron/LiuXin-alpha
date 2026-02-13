@@ -9,6 +9,16 @@ version = 1
 allow_redundant_links = true
 warn_on_redundant_links = true
 
+# Links that must never be created. If a requested interlink matches one of these pairs,
+# the generator will abort with the given reason.
+
+[[forbidden_interlinks]]
+left_table = "expressions"
+right_table = "org_agents"
+reason = """org_agents are a specialization of agents; expressions should link to agents (or agent roles) instead.
+Creating an expressions ↔ org_agents interlink duplicates the polymorphic agent link surface and invites contradictory tagging/roles.
+Use expressions↔agents and join through agents ↔ org_agents when you need the organizational subtype."""
+
 [[interlinks]]
 left_table = "agents"
 right_table = "comments"
@@ -121,110 +131,116 @@ link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
 rationale = """You can comment on a feed."""
 
-[[interlinks]]
+[[forbidden_interlinks]]
 left_table = "comments"
 right_table = "human_agents"
+rationale = """You cannot comment on the human_agents sidecar table. Please comment on agents."""
+
+[[interlinks]]
+left_table = "comments"
+right_table = "agents"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
 rationale = """You can comment on a human_agent - in their role as a human. And an agent."""
+
 
 [[interlinks]]
 left_table = "comments"
 right_table = "items"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """"You can comment on an item. If you wish."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "manifestations"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """You can comment on a manifestation."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "org_agents"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """You can, and perhaps often should, comment on an organisation."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "series"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """You can comment on a series. If you wish."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "stores"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Comments on the stores created on the system."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """You can comment on works, and, indeed, should."""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "feeds"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Linking a device to a feed means that any entries detected to the feed will be loaded to the device."""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "expressions"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Register either that we have loaded an expression to a device or we will load it when we can."""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "items"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Register either that we have loaded an item to a device or we will load it when we can."""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "labels"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Label devices to control behavior and provide hints."""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "notes"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Make a note on a device."""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "series"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Note that a series either has been, or will be, loaded to the device when possible."""
 
 [[interlinks]]
 left_table = "devices"
 right_table = "stores"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Anything in the store can be loaded to the device and visa versa."""
 
 [[interlinks]]
 left_table = "expressions"
 right_table = "images"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """You can link expressions to images - perhaps covers for that particular expression."""
 
 [[interlinks]]
 left_table = "expressions"
@@ -238,301 +254,345 @@ left_table = "expressions"
 right_table = "labels"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """You can label an expression independently of a work."""
 
 [[interlinks]]
 left_table = "expressions"
 right_table = "languages"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Expressions can have languages independent of works. (e.g. translations)."""
 
 [[interlinks]]
 left_table = "expressions"
 right_table = "notes"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
-
-[[interlinks]]
-left_table = "expressions"
-right_table = "org_agents"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """You can make notes on Expressions."""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "genres"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Feeds can have a genre - such as 'architecture' e.t.c."""
+
+[[forbidden_interlinks]]
+left_table = "feeds"
+right_table = "human_agents"
+rationale = """Do not link to human_agents - link to their entry in the Agents table instead."""
 
 [[interlinks]]
 left_table = "feeds"
-right_table = "human_agents"
+right_table = "agents"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Agents - be they organisations or people - have feeds that can be linked to them.
+Feeds are, after all, a form of creative expressions."""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "images"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Assign an image to a feed."""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "items"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """A feed can be a source for an item. Entries can be pulled from the feed and written to the item."""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "languages"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """What language is a feed in?"""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "notes"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Allows you to make notes on a feed."""
 
-[[interlinks]]
+[[forbidden_interlinks]]
 left_table = "feeds"
 right_table = "org_agents"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = ""
-
-[[interlinks]]
-left_table = "feeds"
-right_table = "stores"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """org_agents is a sidcare to sgents as, as such, should not be directly linked to."""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "subjects"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """What subjects do a feed involve?"""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "synopses"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Allows you to give a synopses to a feed."""
 
 [[interlinks]]
 left_table = "files"
 right_table = "folders"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """
+Files can - but do not have to be - grouped into folders.
+These can be real or virtual - the folder store will either try and respect and create them on disk - or not.
+"""
 
 [[interlinks]]
 left_table = "files"
 right_table = "hashes"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """
+Notes the hashes of a given file.
+Every file should have one, and only one, hash.
+(though the hashes can be of different types).
+"""
 
 [[interlinks]]
 left_table = "files"
 right_table = "images"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Allows you to assign a cover, or other type of image, to an individual file."""
 
 [[interlinks]]
 left_table = "files"
 right_table = "items"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """
+An item can be assigned files - the actual expresssions of the platonic item.
+This is one of the points where we step off the WEMI stack and into actual storage on disk land.
+"""
 
 [[interlinks]]
 left_table = "files"
 right_table = "labels"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """
+Allows you to label files.
+This is often used for controlling conversion - metadata extraction and other process tasks.
+"""
 
 [[interlinks]]
 left_table = "files"
 right_table = "languages"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """What languages are contained in the given file?"""
 
 [[interlinks]]
 left_table = "files"
 right_table = "last_read_positions"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """What last read position did you get to in the given file?"""
 
 [[interlinks]]
 left_table = "files"
 right_table = "stores"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Files are assigned to stores - which can be on and offline.
+Thus, to ensure high reliability,  each file should be in multiple stores."""
 
 [[interlinks]]
 left_table = "folders"
 right_table = "feeds"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """You can assign a feed to a folder - or many folders.
+Items from that feed will be preferentially filed inside that folder."""
 
 [[interlinks]]
 left_table = "folders"
 right_table = "items"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """
+Items can be placed in folders.
+Not every store has a folder structure.
+However, they also serve as a convenient shorthand for collections - 'copy this folder to a device' is a convenient shorthand for it, all it's subfolders and files.
+"""
 
 [[interlinks]]
 left_table = "folders"
 right_table = "series"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """You can associated a folder with a series to create a rich folder structure on disk.
+This can be taken too far - hundreds of nested series folders tend to overwealm file systems.
+So it's a nice to have - not a garantee.
+"""
 
 [[interlinks]]
 left_table = "folders"
 right_table = "stores"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Folders can be in a store."""
 
 [[interlinks]]
 left_table = "folders"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """
+A Work can be assigned a folder - every file associated with that work will be preferentially sorted here.
+"""
 
 [[interlinks]]
 left_table = "genres"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """A genre can be in a work - somewhere on the works tree."""
 
 [[interlinks]]
 left_table = "hashes"
 right_table = "new_books"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Scan new_books folders for hashes to compare to existing files on the system."""
 
-[[interlinks]]
+[[forbidden_interlinks]]
 left_table = "human_agents"
 right_table = "images"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Do not link to human_agents - link to the agents table instead. human_agents is a sidecar."""
+
+[[forbidden_interlinks]]
+left_table = "human_agents"
+right_table = "labels"
+rationale = "label the main agents table - instead of this sidecar tables."
 
 [[interlinks]]
-left_table = "human_agents"
+left_table = "agents"
 right_table = "labels"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "labels can be applied to the agents table."
+
+[[forbidden_interlinks]]
+left_table = "human_agents"
+right_table = "languages"
+rationale = "Apply the languages to the agents table - not the hufman_agents table."
 
 [[interlinks]]
-left_table = "human_agents"
+left_table = "agents"
 right_table = "languages"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "What language does the agent work in?"
+
+[[forbidden_interlinks]]
+left_table = "human_agents"
+right_table = "series"
+rationale = "Link to the agents table - not the human_agents sidecar."
 
 [[interlinks]]
-left_table = "human_agents"
+left_table = "agents"
 right_table = "series"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
 rationale = ""
 
-[[interlinks]]
+[[forbidden_interlinks]]
 left_table = "human_agents"
+right_table = "subjects"
+rationale = "Please assign subjects to agents - rather than the human agents sidecar."
+
+
+[[interlinks]]
+left_table = "agents"
 right_table = "subjects"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "Some agents are only responsible for one subject."
+
+
+[[forbidden_interlinks]]
+left_table = "human_agents"
+right_table = "synopses"
+rationale = "Please link a synopsis to an agent, not the human_agent sidecar table."
 
 [[interlinks]]
-left_table = "human_agents"
+left_table = "agents"
 right_table = "synopses"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can assign a synopses to agents."
+
+[[forbidden_interlinks]]
+left_table = "human_agents"
+right_table = "works"
+rationale = "Please link an agent to a work, not the sidecar human_agents table."
 
 [[interlinks]]
-left_table = "human_agents"
+left_table = "agents"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "Someone, at some point, has to be responsible for a work."
 
 [[interlinks]]
 left_table = "images"
 right_table = "items"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can assign an image to an individual item - such as a specilized cannon."
 
 [[interlinks]]
 left_table = "images"
 right_table = "labels"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can label an individual image if you wish - mostly used for conversion control."
 
 [[interlinks]]
 left_table = "images"
 right_table = "manifestations"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """Individual manifestations can be assigned a cover/have derived illustrations."""
 
 [[interlinks]]
 left_table = "images"
 right_table = "series"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can assign a image as a cover to a series."
 
 [[interlinks]]
 left_table = "images"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can assign an image to a work as a cover."
 
 [[interlinks]]
 left_table = "items"
 right_table = "labels"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can label an item - mostly used for conversion control and the like."
 
 [[interlinks]]
 left_table = "items"
 right_table = "languages"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "An item is probably in either one or more languages."
 
 [[interlinks]]
 left_table = "items"
@@ -548,110 +608,128 @@ link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
 rationale = ""
 
-[[interlinks]]
+[[forbidden_interlinks]]
 left_table = "labels"
 right_table = "org_agents"
+rationale = "Please label the agents table, and not the org_agents sidecar table."
+
+[[interlinks]]
+left_table = "labels"
+right_table = "agents"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can tag entir agents if you wish."
 
 [[interlinks]]
 left_table = "labels"
 right_table = "series"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can directly label a series."
 
 [[interlinks]]
 left_table = "labels"
 right_table = "stores"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can directly label a store - used for sorting and automated movement."
 
 [[interlinks]]
 left_table = "labels"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can label a work."
 
 [[interlinks]]
 left_table = "languages"
 right_table = "manifestations"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "Every Manifestation has at least one language."
 
 [[interlinks]]
 left_table = "languages"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "Every work has a language, if only the original language it was created in."
+
+[[forbidden_interlinks]]
+left_table = "notes"
+right_table = "org_agents"
+rationale = "Please make notes on agents directly, not the sidecar org_agents table."
 
 [[interlinks]]
 left_table = "notes"
-right_table = "org_agents"
+right_table = "agents"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can, and perhaps should, make notes on agents."
 
 [[interlinks]]
 left_table = "notes"
 right_table = "stores"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can make notes on stores."
 
 [[interlinks]]
 left_table = "notes"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can make notes on works."
+
+[[forbidden_interlinks]]
+left_table = "org_agents"
+right_table = "series"
+rationale = "Please link agents to series, not the org_agents sidecar table."
 
 [[interlinks]]
-left_table = "org_agents"
+left_table = "agents"
 right_table = "series"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "Agents, of various sorts, can be responsible for creating and publishing series."
+
+[[forbidden_interlinks]]
+left_table = "org_agents"
+right_table = "works"
+rationale = "Please link works to the agents table, not the org_agents sidecar table."
 
 [[interlinks]]
-left_table = "org_agents"
+left_table = "agents"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "An agent can be responsible for creating a work - probably is."
+
+[[forbidden_interlinks]]
+left_table = "org_agents"
+right_table = "subjects"
+rationale = "Please link an agent to a subject, not the org_agents sidecar table."
 
 [[interlinks]]
-left_table = "org_agents"
+left_table = "agents"
 right_table = "subjects"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
-
-[[interlinks]]
-left_table = "org_agents"
-right_table = "works"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can declare that an agent is involved with a single subject - e.g. a human_agent who is a historian."
 
 [[interlinks]]
 left_table = "ratings"
 right_table = "series"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can rate a series."
 
 [[interlinks]]
 left_table = "ratings"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can rate a work."
 
 [[interlinks]]
 left_table = "series"
@@ -665,47 +743,50 @@ left_table = "series"
 right_table = "subjects"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "Occasionally, a series will have a single subject."
 
 [[interlinks]]
 left_table = "series"
 right_table = "synopses"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can assign synopsis to a series."
 
 [[interlinks]]
 left_table = "stores"
 right_table = "subjects"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """
+If you want to dedicate a stores to just one subject - will be accounted for when trying to place an item in a store.
+Occasionally this has more practical uses - a comics store might have different properties to a text store, for example.
+"""
 
 [[interlinks]]
 left_table = "stores"
 right_table = "synopses"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """A summary of what a store is."""
 
 [[interlinks]]
 left_table = "subjects"
 right_table = "synopses"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = """An explanation for what a subject is."""
 
 [[interlinks]]
 left_table = "subjects"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "Works are probably the simplext things which can have a subject."
 
 [[interlinks]]
 left_table = "synopses"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
-rationale = ""
+rationale = "You can assign synopses to works."
 

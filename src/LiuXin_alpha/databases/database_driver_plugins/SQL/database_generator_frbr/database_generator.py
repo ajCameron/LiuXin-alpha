@@ -437,6 +437,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         # Reset per-run spec metadata
         self.interlink_specs_by_pair = {}
+        self.forbidden_interlink_pairs = {}
 
         # Refresh known tables
         stmt = "SELECT name FROM sqlite_master WHERE type='table';"
@@ -464,6 +465,41 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
             allow_redundant_links = bool(data.get("allow_redundant_links", True))
             warn_on_redundant_links = bool(data.get("warn_on_redundant_links", True))
+
+            # Forbidden interlinks: explicit pairs that must never be created
+            forbidden = data.get("forbidden_interlinks", [])
+            if forbidden is None:
+                forbidden = []
+            if not isinstance(forbidden, list):
+                raise TypeError("TOML key `forbidden_interlinks` must be a list")
+
+            for fidx, fent in enumerate(forbidden):
+                if not isinstance(fent, dict):
+                    LiuXin_warning_print("Warning - forbidden_interlinks entry is not a dict: " + repr(fent))
+                    continue
+                fleft = fent.get("left_table") or fent.get("left") or fent.get("a")
+                fright = fent.get("right_table") or fent.get("right") or fent.get("b")
+                if not fleft or not fright:
+                    LiuXin_warning_print("Warning - forbidden_interlinks entry missing left_table/right_table: " + repr(fent))
+                    continue
+                cf1 = self.match_to_table_name(str(fleft))
+                cf2 = self.match_to_table_name(str(fright))
+                if cf1 is None or cf2 is None:
+                    LiuXin_warning_print("Warning - forbidden_interlinks references unknown table: " + repr((fleft, fright)))
+                    continue
+                if cf1 == cf2:
+                    LiuXin_warning_print("Warning - forbidden_interlinks contains self-link (ignored): " + repr((cf1, cf2)))
+                    continue
+                fpair = tuple(sorted((cf1, cf2)))
+                reason = str(fent.get("reason", ""))
+                severity = str(fent.get("severity", "error")).lower().strip()
+                # Keep first; warn on duplicates with different text
+                if fpair in self.forbidden_interlink_pairs:
+                    prev = self.forbidden_interlink_pairs[fpair]
+                    if (prev.get("reason"), prev.get("severity")) != (reason, severity):
+                        LiuXin_warning_print("Warning - duplicate forbidden_interlinks entry differs (keeping first): " + repr(fpair))
+                    continue
+                self.forbidden_interlink_pairs[fpair] = {"reason": reason, "severity": severity}
 
             default_link_type = str(data.get("default_link_type", "many_to_many"))
             self.interlink_default_link_type = default_link_type
@@ -547,6 +583,19 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                 continue
 
             current_pair = tuple(sorted((c_table1, c_table2)))
+
+            # Hard fail if the pair is explicitly forbidden
+            forbid = getattr(self, "forbidden_interlink_pairs", {}).get(current_pair)
+            if forbid is not None:
+                severity = str(forbid.get("severity", "error")).lower().strip()
+                reason = str(forbid.get("reason", ""))
+                msg = ("Forbidden interlink requested: " + repr(current_pair))
+                if reason:
+                    msg += "\nReason: " + reason
+                if severity in ("warn", "warning"):
+                    LiuXin_warning_print("Warning - " + msg)
+                    continue
+                raise TypeError(msg)
 
             # Record spec metadata (direction + link_type) for later constraint generation
             if current_pair not in self.interlink_specs_by_pair:
