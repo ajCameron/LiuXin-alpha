@@ -117,6 +117,7 @@ def test_iter_book_payloads_warns_on_missing_format_file(provision_calibre_libra
 
     # Delete the first format file on disk to simulate drift.
     book_dir, data_name, fmt = _fetch_one_book_paths(lib.metadata_db)
+
     # Expected file name is data_name + '.' + lower(fmt); fallback logic should still point there.
     drift_path = book_dir / f"{data_name}.{fmt.lower()}"
     if not drift_path.exists():

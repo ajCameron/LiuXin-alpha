@@ -83,3 +83,47 @@ def test_schema_info_detects_optional_aux_dbs(provision_calibre_library) -> None
     info = db.schema_info()
     assert info.has_notes is True
     assert info.has_fts is True
+
+def test_schema_info_includes_version_plan(provision_calibre_library) -> None:
+    lib = provision_calibre_library(name="lib_version_plan")
+    db = CalibreDB.from_root(lib.root)
+
+    info = db.schema_info()
+    assert info.version_plan is not None
+    assert info.version_plan.application_id == info.application_id
+    assert info.version_plan.user_version == info.user_version
+    # The shipped SQL snapshot should be detectable in this repo.
+    assert info.version_plan.known_user_version_max is not None
+    assert info.version_plan.warnings == ()
+
+
+def test_schema_info_version_plan_warns_on_mismatch_and_newer_schema(tmp_path) -> None:
+    # Build a minimal-but-valid Calibre-ish DB with mismatched pragma values.
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import calibre_metadata_user_version
+
+    root = tmp_path / "badlib"
+    root.mkdir(parents=True, exist_ok=True)
+    db_path = root / "metadata.db"
+
+    import sqlite3
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        conn.execute("PRAGMA application_id = 0")
+        conn.execute(f"PRAGMA user_version = {calibre_metadata_user_version() + 999}")
+        conn.execute("CREATE TABLE books(id INTEGER PRIMARY KEY, title TEXT, path TEXT)")
+        conn.execute("CREATE TABLE authors(id INTEGER PRIMARY KEY, name TEXT)")
+        conn.execute("CREATE TABLE books_authors_link(id INTEGER PRIMARY KEY, book INTEGER, author INTEGER)")
+        conn.execute("CREATE TABLE data(id INTEGER PRIMARY KEY, book INTEGER, format TEXT, name TEXT)")
+        conn.execute("CREATE TABLE custom_columns(id INTEGER PRIMARY KEY, label TEXT, name TEXT, datatype TEXT, is_multiple INTEGER, display TEXT)")
+        conn.commit()
+    finally:
+        conn.close()
+
+    db = CalibreDB.from_root(root)
+    info = db.schema_info()
+    assert info.version_plan is not None
+    assert info.version_plan.status in {"application_id_mismatch", "newer_than_supported"}
+    assert any(w.startswith("application_id_mismatch") for w in info.version_plan.warnings)
+    assert any(w.startswith("schema_newer_than_supported") for w in info.version_plan.warnings)
+

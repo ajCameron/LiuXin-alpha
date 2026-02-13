@@ -220,6 +220,11 @@ class CalibreReader:
     def from_root(cls, library_root: str | Path, *, read_only: bool = True, timeout_ms: int = 5_000) -> "CalibreReader":
         return cls(db=CalibreDB.from_root(library_root, read_only=read_only, timeout_ms=timeout_ms))
 
+
+    def schema_info(self, **kwargs):
+        """Convenience pass-through to :meth:`CalibreDB.schema_info`."""
+        return self.db.schema_info(**kwargs)
+
     # ----------------------------
     # File helpers (Stage A4)
     # ----------------------------
@@ -310,8 +315,16 @@ class CalibreReader:
                     by_id[int(r["id"])] = r
 
                 authors_map = self._read_authors_for_books(conn, batch_ids)
-                tags_map = self._read_tags_for_books(conn, batch_ids)
-                langs_map = self._read_languages_for_books(conn, batch_ids, languages_code_col=languages_code_col)
+                tags_map = (
+                    self._read_tags_for_books(conn, batch_ids)
+                    if (_table_exists(conn, 'books_tags_link') and _table_exists(conn, 'tags'))
+                    else {}
+                )
+                langs_map = (
+                    self._read_languages_for_books(conn, batch_ids, languages_code_col=languages_code_col)
+                    if (_table_exists(conn, 'books_languages_link') and _table_exists(conn, 'languages'))
+                    else {}
+                )
                 idents_map = self._read_identifiers_for_books(
                     conn, batch_ids, ident_type_col=ident_type_col, ident_val_col=ident_val_col
                 )

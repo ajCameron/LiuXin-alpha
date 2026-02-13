@@ -8,6 +8,7 @@ from .types import (
     CalibreFormatRef,
     CalibreLibraryPaths,
     CalibreSchemaInfo,
+    CalibreVersionPlan,
     CalibreSeriesRef,
 )
 
@@ -19,6 +20,7 @@ __all__ = [
     "CalibreUnsafePathError",
     "CalibreLibraryPaths",
     "CalibreSchemaInfo",
+    "CalibreVersionPlan",
     "CalibreCustomColumnDef",
     "CalibreSeriesRef",
     "CalibreFormatRef",

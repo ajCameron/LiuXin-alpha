@@ -19,6 +19,7 @@ from typing import Any, Iterable, Optional, Sequence, Tuple
 
 from .errors import CalibreLibraryNotFoundError, CalibreSchemaError
 from .types import CalibreCustomColumnDef, CalibreLibraryPaths, CalibreSchemaInfo
+from .versioning import resolve_version_plan
 
 
 def _as_path(p: str | Path) -> Path:
@@ -139,6 +140,7 @@ class CalibreDB:
         include_tables: bool = True,
         include_triggers: bool = True,
         include_custom_columns: bool = True,
+        include_version_plan: bool = True,
         require_core_tables: bool = True,
     ) -> CalibreSchemaInfo:
         """Return observed schema info for the library."""
@@ -171,6 +173,7 @@ class CalibreDB:
                 triggers=triggers,
                 has_fts=has_fts,
                 has_notes=has_notes,
+                version_plan=resolve_version_plan(application_id=application_id, user_version=user_version) if include_version_plan else None,
                 custom_columns=custom_columns,
             )
         finally:
@@ -184,11 +187,6 @@ class CalibreDB:
             "books_authors_link",
             "data",
             "custom_columns",
-            "tags",
-            "series",
-            "publishers",
-            "languages",
-            "library_id",
         }
         existing = set(_sqlite_master_names(conn, kind="table"))
         missing = sorted(required - existing)

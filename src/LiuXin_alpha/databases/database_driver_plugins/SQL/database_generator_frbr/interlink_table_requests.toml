@@ -102,35 +102,49 @@ left_table = "agents"
 right_table = "works"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", "nullable"]
+types = ["insert_marc_roles", ]
 rationale = """An Agent can be responsible for creating a work (e.g. a report commisioned by a body)."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "compressed_files"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """Comment on a compressed files - e.g. what might be in it."""
+link_type = "many_to_one"
+requested_columns = ["priority", "nullable"]
+rationale = """
+Comment on a compressed files - e.g. what might be in it.
+May be used and consumed by the import system during import.
+However, we don't want to share comments between compressed_files - dupe them if needed.
+"""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "conversion_options"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """Comment on a conversion option - doe it produce good output? E.t.c."""
+link_type = "many_to_one"
+requested_columns = ["priority", "nullable"]
+rationale = """
+Comment on a conversion option - doe it produce good output? E.t.c.
+We don't want to share comments between conversion options - dupe them if needed.
+"""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "custom_columns"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """Comment on a custom column - what does it do?"""
+link_type = "many_to_one"
+requested_columns = ["priority", "nullable"]
+rationale = """
+Comment on a custom column - what does it do?
+We do not want to share comments between custom_columns - dupe them if needed.
+"""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "devices"
-link_type = "many_to_many"
+link_type = "many_to_one"
 requested_columns = ["priority", "type", "nullable"]
-rationale = """Comment on a device - provides more info about it."""
+rationale = """
+Comment on a device - provides more info about it.
+We do not want to share comments between devices - dupe them if needed.
+"""
 
 [[interlinks]]
 left_table = "comments"

@@ -85,6 +85,38 @@ class CalibreCustomColumnDef:
 
 
 @dataclass(frozen=True, slots=True)
+class CalibreVersionPlan:
+    """A lightweight plan/report for handling a Calibre schema version.
+
+    This is advisory only: it records what we observed and how it compares to
+    the Calibre SQL snapshot vendored with LiuXin (if available).
+    """
+
+    application_id: int
+    user_version: int
+    target_user_version: Optional[int] = None
+    expected_application_id: Optional[int] = None
+    latest_supported_user_version: Optional[int] = None
+    known_user_version_min: int = 0
+    known_user_version_max: Optional[int] = None
+    status: str = "ok"
+    warnings: Tuple[str, ...] = ()
+
+    def to_dict(self) -> Mapping[str, Any]:
+        return {
+            "application_id": self.application_id,
+            "user_version": self.user_version,
+            "target_user_version": self.target_user_version,
+            "expected_application_id": self.expected_application_id,
+            "latest_supported_user_version": self.latest_supported_user_version,
+            "known_user_version_min": self.known_user_version_min,
+            "known_user_version_max": self.known_user_version_max,
+            "status": self.status,
+            "warnings": list(self.warnings),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CalibreSchemaInfo:
     """Observed schema information for a Calibre library."""
 
@@ -95,6 +127,7 @@ class CalibreSchemaInfo:
     has_fts: bool = False
     has_notes: bool = False
     custom_columns: Tuple[CalibreCustomColumnDef, ...] = ()
+    version_plan: Optional[CalibreVersionPlan] = None
 
     def to_dict(self) -> Mapping[str, Any]:
         return {
@@ -105,6 +138,7 @@ class CalibreSchemaInfo:
             "has_fts": self.has_fts,
             "has_notes": self.has_notes,
             "custom_columns": [c.to_dict() for c in self.custom_columns],
+            "version_plan": None if self.version_plan is None else self.version_plan.to_dict(),
         }
 
 
