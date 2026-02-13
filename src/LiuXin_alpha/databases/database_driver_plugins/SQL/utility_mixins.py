@@ -137,6 +137,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         index_both=True,
         allowed_types=None,
         override_restriction_sql=None,
+        nullable_fks: bool = True,
     ):
 
         link_sql_list, table_name = self._get_direct_link_main_tables_sqlite(
@@ -147,6 +148,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             index_both=index_both,
             allowed_types=allowed_types,
             override_restriction_sql=override_restriction_sql,
+            nullable_fks=nullable_fks,
         )
 
         try:
@@ -178,6 +180,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         allowed_types: Optional[Iterable[str]] = None,
         one_link_with_one_type: bool = True,
         override_restriction_sql: Optional[str] = None,
+        nullable_fks: bool = True,
     ) -> tuple[list[str], Union[str, LiteralString]]:
         """
         Link the given main tables. The primary and secondary table designations indicate which table should be linked
@@ -309,8 +312,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             link_rows = """
                 CREATE TABLE IF NOT EXISTS `{0}s`(
                   `{0}_id` INTEGER PRIMARY KEY ,
-                  `{0}_{1}_id` INTEGER NULL,
-                  `{0}_{2}_id` INTEGER NULL,
+                  `{0}_{1}_id` INTEGER {3},
+                  `{0}_{2}_id` INTEGER {3},
                   `{0}_priority` INTEGER DEFAULT 0,
                   `{0}_primary` INTEGER NULL DEFAULT 0,
                   `{0}_type` TEXT NULL,
@@ -326,8 +329,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             link_rows_header = """
                 CREATE TABLE IF NOT EXISTS `{0}s`(
                   `{0}_id` INTEGER PRIMARY KEY ,
-                  `{0}_{1}_id` INTEGER NULL,
-                  `{0}_{2}_id` INTEGER NULL,"""
+                  `{0}_{1}_id` INTEGER {3},
+                  `{0}_{2}_id` INTEGER {3},"""
 
             if "priority" in decrement_requested_cols:
                 link_rows_header += "\n      `{0}_priority` INTEGER DEFAULT 0,"
@@ -353,7 +356,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         # The full statement will be constructed with a join later - do not want a comma between the comment and the
         # start of the actual table
-        link_rows = comment_row + link_rows.format(column_name, table1_l_s, table2_l_s)
+        fk_null_sql = "NULL" if nullable_fks else "NOT NULL"
+
+        link_rows = comment_row + link_rows.format(column_name, table1_l_s, table2_l_s, fk_null_sql)
         table_sql_stmt_component_list.append(link_rows)
 
         # If the entry in either the left or the right table is deleted then it should remove this entry in the link
@@ -603,7 +608,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             self,
             table1: str,
             table2: str,
-            requested_cols: Optional[Union[str, Iterable[str]]] = None
+            requested_cols: Optional[Union[str, Iterable[str]]] = None,
+            allowed_types: Optional[Iterable[str]] = None,
+            nullable_fks: bool = True,
     ) -> list[str]:
         """
         Build and return sqlite for the interlink table.
@@ -621,16 +628,18 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             sql_override_restriction = self.INTERLINK_TABLE_CONSTRAINTS[table_name]
         assert sql_override_restriction is not None, "This should not be none - {}".format(table_name)
 
-        allowed_link_types = None
-        if requested_cols == "all" or "type" in requested_cols:
+        # If a type column is requested, callers may optionally provide an explicit allowed-types
+        # set. If they don't, we fall back to any legacy mapping present; otherwise the type
+        # column remains free-form text (no allowed-types table will be built).
+        if allowed_types is None:
+            try:
+                if requested_cols == "all" or (requested_cols is not None and "type" in requested_cols):
+                    allowed_types = self.ALLOWED_INTERLINK_TYPE_VAL_DICT.get(table_name)
+            except TypeError:
+                # requested_cols might be a non-iterable sentinel; ignore
+                allowed_types = self.ALLOWED_INTERLINK_TYPE_VAL_DICT.get(table_name)
 
-            # A type column has been declared - if there is TYPE column, then there should also be an allowed_type
-            # table
-            assert (
-                table_name in self.ALLOWED_INTERLINK_TYPE_VAL_DICT.keys()
-            ), "type column requested for {} but not corresponding value in allowed_type_val_dict".format(table_name)
-
-            allowed_link_types = self.ALLOWED_INTERLINK_TYPE_VAL_DICT[table_name]
+        allowed_link_types = allowed_types
 
         # We have a simple string to use instead of any generated restrictions - just use that
         # Todo: Eventually should be able to pull this out - it's becoming increasingly redundant
@@ -640,6 +649,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 secondary_table=table2,
                 requested_cols=requested_cols,
                 allowed_types=allowed_link_types,
+                nullable_fks=nullable_fks,
                 override_restriction_sql=sql_override_restriction,
             )
 
@@ -656,6 +666,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 link_type=link_tyoe,
                 requested_cols=requested_cols,
                 allowed_types=allowed_link_types,
+                nullable_fks=nullable_fks,
                 one_link_with_one_type=True,
                 override_restriction_sql=None,
             )
@@ -724,8 +735,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             link_rows = """
         CREATE TABLE IF NOT EXISTS `{0}s`(
           `{0}_id` INTEGER PRIMARY KEY ,
-          `{0}_{1}_id` INTEGER NULL,
-          `{0}_{2}_id` INTEGER NULL,
+          `{0}_{1}_id` INTEGER {3},
+          `{0}_{2}_id` INTEGER {3},
           `{0}_priority` INTEGER DEFAULT 0,
           `{0}_primary` INTEGER NULL DEFAULT 0,
           `{0}_type` TEXT NULL,
@@ -741,8 +752,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             link_rows_header = """
         CREATE TABLE IF NOT EXISTS `{0}s`(
           `{0}_id` INTEGER PRIMARY KEY ,
-          `{0}_{1}_id` INTEGER NULL,
-          `{0}_{2}_id` INTEGER NULL,"""
+          `{0}_{1}_id` INTEGER {3},
+          `{0}_{2}_id` INTEGER {3},"""
 
             if "priority" in decremented_requested_cols:
                 link_rows_header += "\n      `{0}_priority` INTEGER DEFAULT 0,"
@@ -768,7 +779,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         # The full statement will be constructed with a join later - do not want a comma between the comment and the
         # start of the actual table
-        link_rows = comment_row + link_rows.format(column_name, table1_l_s, table2_l_s)
+        fk_null_sql = "NULL" if nullable_fks else "NOT NULL"
+
+        link_rows = comment_row + link_rows.format(column_name, table1_l_s, table2_l_s, fk_null_sql)
         sql_stmt_component_list.append(link_rows)
 
         if requested_cols == "all" or "type" in requested_cols:

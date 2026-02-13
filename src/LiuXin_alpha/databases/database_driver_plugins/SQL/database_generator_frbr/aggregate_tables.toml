@@ -1,0 +1,15 @@
+# Aggregate / derived tables (FRBR generator)
+#
+# This file replaces the legacy aggregate_tables.txt.
+#
+# Aggregates are optional. Keep them disabled while the core schema is in flux.
+# When you are ready, set enabled=true and either:
+#   - list explicit SQL scripts in sql_files (paths are relative to this folder), and/or
+#   - point sql_folder at a directory of .sql files to execute (relative to this folder).
+#
+version = 1
+enabled = false
+
+# Example:
+# sql_files = ["aggregate_sql/works_search_cache.sql"]
+# sql_folder = "aggregate_sql"
