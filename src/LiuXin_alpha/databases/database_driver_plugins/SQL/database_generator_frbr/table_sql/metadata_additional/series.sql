@@ -43,3 +43,17 @@ CREATE INDEX IF NOT EXISTS `series_parent_index`
 ON `series` (`series_parent_id`);
 
 -- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_series_unique_name_norm`
+ON `series` (`series_name_norm`)
+WHERE `series_name_norm` IS NOT NULL;
+
+-- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_series_unique_full`
+ON `series` (`series_full` COLLATE NOCASE)
+WHERE `series_full` IS NOT NULL;
+
+-- BREAK

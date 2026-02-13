@@ -37,8 +37,28 @@ CREATE TABLE IF NOT EXISTS `works` (
   `work_source_created_datestamp_ep_k` INTEGER NULL,
   `work_source_modified_datestamp_ep_k` INTEGER NULL,
 
-  `work_scratch` TEXT NULL
+  `work_scratch` TEXT NULL,
+
+  CONSTRAINT `work_original_language_fk`
+    FOREIGN KEY (`work_original_language_id`)
+    REFERENCES `languages` (`language_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
 
 
 );
+-- BREAK
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_works_canonical_title`
+ON `works` (`work_canonical_title`);
+
+CREATE INDEX IF NOT EXISTS `idx_works_sort_title`
+ON `works` (`work_sort_title`);
+
+-- Optional but usually handy for quick equality lookups / ordering
+CREATE INDEX IF NOT EXISTS `idx_works_title`
+ON `works` (`work_title`);
+
 -- BREAK

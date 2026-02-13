@@ -37,3 +37,24 @@ CREATE INDEX IF NOT EXISTS `genre_parent_index`
 ON `genres` (`genre_parent_id`);
 
 -- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_genres_unique_parent_sort`
+ON `genres` (`genre_parent_id`, `genre_sort` COLLATE NOCASE)
+WHERE `genre_sort` IS NOT NULL;
+
+-- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_genres_unique_parent_name`
+ON `genres` (`genre_parent_id`, `genre` COLLATE NOCASE)
+WHERE `genre` IS NOT NULL;
+
+-- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_genres_unique_full`
+ON `genres` (`genre_full` COLLATE NOCASE)
+WHERE `genre_full` IS NOT NULL;
+
+-- BREAK

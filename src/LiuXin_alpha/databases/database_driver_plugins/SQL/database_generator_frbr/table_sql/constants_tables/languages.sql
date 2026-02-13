@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS `languages` (
   `language_source_created_datestamp_ep_k` INTEGER NULL,
   `language_source_modified_datestamp_ep_k` INTEGER NULL,
 
-  `language_scratch` TEXT NULL
+  `language_scratch` TEXT NULL,
+
+  CONSTRAINT `language_code_unique`
+    UNIQUE (`language_code`)
 )
 ;
 

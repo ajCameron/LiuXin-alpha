@@ -37,3 +37,24 @@ CREATE INDEX IF NOT EXISTS `subject_parent_index`
 ON `subjects` (`subject_parent_id`);
 
 -- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_subjects_unique_parent_sort`
+ON `subjects` (`subject_parent_id`, `subject_sort` COLLATE NOCASE)
+WHERE `subject_sort` IS NOT NULL;
+
+-- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_subjects_unique_parent_name`
+ON `subjects` (`subject_parent_id`, `subject` COLLATE NOCASE)
+WHERE `subject` IS NOT NULL;
+
+-- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_subjects_unique_full`
+ON `subjects` (`subject_full` COLLATE NOCASE)
+WHERE `subject_full` IS NOT NULL;
+
+-- BREAK
