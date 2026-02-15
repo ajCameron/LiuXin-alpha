@@ -81,6 +81,13 @@ DEFAULT_INCLUDE_HINTS = [
 ]
 
 
+DEFAULT_EXTRA_WALK_DIRS = {
+    # Nested repos / data repos that live inside the main repo but won't be
+    # enumerated by `git ls-files` (git does not descend into nested .git dirs).
+    "LiuXin_alpha_data",
+}
+
+
 def run(cmd: Sequence[str], cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         list(cmd),
@@ -141,6 +148,12 @@ def should_exclude_path(
             if fnmatch.fnmatch(part, pat):
                 return True
 
+    # Also exclude the filename if it matches an excluded-dir pattern.
+    # This catches nested repo markers like `.git` when it's a file.
+    for pat in exclude_dirs:
+        if fnmatch.fnmatch(rel.name, pat):
+            return True
+
     # Exclude the filename by glob
     if matches_any_glob(rel.name, exclude_globs):
         return True
@@ -184,6 +197,36 @@ def iter_files_fallback(
             if include_globs is not None and include_globs:
                 if not any(fnmatch.fnmatch(rel.as_posix(), g) or fnmatch.fnmatch(rel.name, g) for g in include_globs):
                     continue
+            yield p
+
+
+
+def iter_files_subtree(
+    repo_root: Path,
+    subtree_root: Path,
+    exclude_dirs: Sequence[str],
+    exclude_globs: Sequence[str],
+) -> Iterable[Path]:
+    """Walk `subtree_root` and yield files, filtering by `repo_root`-relative paths.
+
+    This is mainly used to include nested Git repositories (directories containing their own
+    `.git` metadata). Git will not enumerate their contents via `git ls-files`, but for
+    upload zips we often *do* want the working tree content (excluding Git internals).
+    """
+
+    for dirpath, dirnames, filenames in os.walk(subtree_root):
+        # Prune excluded directories (by immediate dir name)
+        dirnames[:] = [d for d in dirnames if not any(fnmatch.fnmatch(d, pat) for pat in exclude_dirs)]
+        dirpath_p = Path(dirpath)
+
+        for fn in filenames:
+            p = dirpath_p / fn
+            try:
+                rel = p.relative_to(repo_root)
+            except ValueError:
+                continue
+            if should_exclude_path(p, rel, exclude_dirs, exclude_globs):
+                continue
             yield p
 
 
@@ -278,6 +321,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         root = repo_root
         try:
             candidates = git_file_list(repo_root)
+            # Include known nested repos / data directories that Git won't enumerate.
+            for extra in sorted(DEFAULT_EXTRA_WALK_DIRS):
+                extra_root = repo_root / extra
+                if extra_root.is_dir():
+                    candidates.extend(
+                        list(iter_files_subtree(repo_root, extra_root, exclude_dirs, exclude_globs))
+                    )
         except Exception as e:
             print(f"Git mode failed ({e}); falling back to directory walk.", file=sys.stderr)
             use_git = False

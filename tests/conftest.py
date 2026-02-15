@@ -3,8 +3,12 @@
 These tests are designed to run both when the project is installed (e.g.
 `pip install -e .`) and when running directly from a source checkout.
 """
-
 from __future__ import annotations
+
+# Load shared fixture plugins (kept here so they are available to the entire suite).
+pytest_plugins = (
+    "tests.fixtures.liuxin_alpha_data_fixtures",
+)
 
 import os
 import sys

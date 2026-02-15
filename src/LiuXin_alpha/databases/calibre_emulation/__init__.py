@@ -7,6 +7,7 @@ from .errors import (
     CalibreUnsafePathError,
 )
 from .readers import CalibreReader
+from .opf_sidecar import CalibreSidecarReader
 from .types import (
     CalibreBookNormalized,
     CalibreBookRow,
@@ -17,6 +18,7 @@ from .types import (
     CalibreVersionPlan,
     CalibreSeriesRef,
     CalibreIssue,
+    CalibreDriftEvent,
 )
 from .versioning import CalibreVersionPolicy
 
@@ -24,6 +26,7 @@ __all__ = [
     "CalibreCorruptError",
     "CalibreDB",
     "CalibreReader",
+    "CalibreSidecarReader",
     "CalibreLibraryNotFoundError",
     "CalibreSchemaError",
     "CalibreUnsupportedVersionError",
@@ -33,6 +36,7 @@ __all__ = [
     "CalibreVersionPlan",
     "CalibreVersionPolicy",
     "CalibreIssue",
+    "CalibreDriftEvent",
     "CalibreCustomColumnDef",
     "CalibreSeriesRef",
     "CalibreFormatRef",

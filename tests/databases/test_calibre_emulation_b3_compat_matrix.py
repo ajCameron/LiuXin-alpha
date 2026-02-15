@@ -36,7 +36,7 @@ def _set_pragmas(*, metadata_db: Path, user_version: int | None = None, applicat
 def _add_one_book_with_custom_column(lib_root: Path) -> None:
     b = CalibreLibraryBuilder(lib_root)
     b.create_custom_column(label="mood", name="Mood", datatype="text", is_multiple=False)
-    book_id = b.add_book(
+    added = b.add_book(
         title="Compat Canary",
         authors=["Ada Lovelace"],
         formats={"EPUB": b"epub-bytes"},
@@ -44,7 +44,7 @@ def _add_one_book_with_custom_column(lib_root: Path) -> None:
         tags=["compat"],
         languages=["en"],
     )
-    b.set_custom_value(book_id=book_id, label="mood", value="laconic")
+    b.set_custom_value(book_id=added.book_id, label="mood", value="laconic")
 
 
 @pytest.mark.parametrize(

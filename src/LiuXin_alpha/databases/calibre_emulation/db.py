@@ -109,6 +109,22 @@ def _parse_display_json(raw: Any) -> dict[str, Any]:
     except Exception:
         return {}
 
+def _table_columns(conn: sqlite3.Connection, table_name: str) -> Tuple[str, ...]:
+    """Return column names for a table via PRAGMA table_info (best-effort)."""
+    try:
+        rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    except Exception:
+        return ()
+    out: list[str] = []
+    for r in rows:
+        try:
+            out.append(str(r[1]))
+        except Exception:
+            continue
+    return tuple(out)
+
+
+
 
 @dataclass(frozen=True, slots=True)
 class CalibreDB:
@@ -187,7 +203,8 @@ class CalibreDB:
 
             custom_columns: Tuple[CalibreCustomColumnDef, ...] = ()
             if include_custom_columns and _table_exists(conn, "custom_columns"):
-                custom_columns = self._read_custom_columns(conn)
+                existing = set(tables) if tables else set(_sqlite_master_names(conn, kind="table"))
+                custom_columns = self._read_custom_columns(conn, existing_tables=existing, issues_out=issues)
 
             has_notes = bool(self.paths.notes_db_path and _as_path(self.paths.notes_db_path).exists())
             has_fts = bool(self.paths.fts_db_path and _as_path(self.paths.fts_db_path).exists())
@@ -236,21 +253,129 @@ class CalibreDB:
             raise CalibreSchemaError(f"Calibre metadata.db missing required tables: {missing!r}")
 
     @staticmethod
-    def _read_custom_columns(conn: sqlite3.Connection) -> Tuple[CalibreCustomColumnDef, ...]:
-        # Calibre's schema uses `id` (AUTOINCREMENT) as the dynamic custom column number.
+    def _read_custom_columns(
+        conn: sqlite3.Connection,
+        *,
+        existing_tables: Optional[set[str]] = None,
+        issues_out: Optional[list[CalibreIssue]] = None,
+    ) -> Tuple[CalibreCustomColumnDef, ...]:
+        """Read custom column definitions with best-effort column discovery.
+
+        Real Calibre libraries include extra columns such as `normalized` and
+        `editable`. Some mangled/minimal DBs may not; in that case we fall back
+        to Calibre's datatype rules and record issues when appropriate.
+        """
+
+        # Compute existing tables once if not supplied.
+        if existing_tables is None:
+            existing_tables = set(_sqlite_master_names(conn, kind="table"))
+
+        cc_cols = {c.lower(): c for c in _table_columns(conn, "custom_columns")}
+        if not cc_cols:
+            return ()
+
+        def col_or_null(name: str) -> str:
+            real = cc_cols.get(name.lower())
+            return f"{real} AS {name}" if real else f"NULL AS {name}"
+
+        # Desired columns (aliases used for stable Row access)
+        select_cols = [
+            col_or_null("id"),
+            col_or_null("label"),
+            col_or_null("name"),
+            col_or_null("datatype"),
+            col_or_null("is_multiple"),
+            col_or_null("display"),
+            col_or_null("normalized"),
+            col_or_null("editable"),
+            col_or_null("mark_for_delete"),
+        ]
+        order_by = "id" if "id" in cc_cols else "rowid"
+
         rows = conn.execute(
-            "SELECT id, label, name, datatype, is_multiple, display FROM custom_columns ORDER BY id",
+            f"SELECT {', '.join(select_cols)} FROM custom_columns ORDER BY {order_by}",
         ).fetchall()
+
         out: list[CalibreCustomColumnDef] = []
-        for r in rows:
+        for idx, r in enumerate(rows):
+            raw_id = r[0]
+            if raw_id is None:
+                # Extremely broken schema; best-effort numbering.
+                num = idx + 1
+                if issues_out is not None:
+                    issues_out.append(
+                        CalibreIssue(
+                            severity="warning",
+                            code="custom_columns_missing_id",
+                            message="custom_columns row missing id; using positional numbering",
+                            context={"pos": idx},
+                        )
+                    )
+            else:
+                num = int(raw_id)
+
+            label = "" if r[1] is None else str(r[1])
+            name = "" if r[2] is None else str(r[2])
+            datatype = "" if r[3] is None else str(r[3])
+            is_multiple = bool(int(r[4])) if r[4] is not None else False
+            display = _parse_display_json(r[5])
+
+            # Prefer stored flags; otherwise use Calibre's rules.
+            if r[6] is None:
+                normalized = datatype not in ("datetime", "comments", "int", "bool", "float", "composite")
+            else:
+                normalized = bool(int(r[6]))
+            if r[7] is None:
+                editable = True
+            else:
+                editable = bool(int(r[7]))
+            mark_for_delete = bool(int(r[8])) if r[8] is not None else False
+
+            value_table = f"custom_column_{num}"
+            link_table = f"books_custom_column_{num}_link"
+            expects_link = bool(normalized)
+
+            has_value = value_table in existing_tables
+            has_link = link_table in existing_tables
+
+            # Record drift-ish issues (schema-level).
+            if issues_out is not None:
+                if not has_value:
+                    issues_out.append(
+                        CalibreIssue(
+                            severity="warning",
+                            code="missing_custom_value_table",
+                            message="custom column value table missing",
+                            context={"label": label, "num": num, "table": value_table},
+                        )
+                    )
+                if expects_link and not has_link:
+                    issues_out.append(
+                        CalibreIssue(
+                            severity="warning",
+                            code="missing_custom_link_table",
+                            message="custom column link table missing (normalized column)",
+                            context={"label": label, "num": num, "table": link_table},
+                        )
+                    )
+
             out.append(
                 CalibreCustomColumnDef(
-                    num=int(r[0]),
-                    label=str(r[1]),
-                    name=str(r[2]),
-                    datatype=str(r[3]),
-                    is_multiple=bool(int(r[4])) if r[4] is not None else False,
-                    display=_parse_display_json(r[5]),
+                    num=num,
+                    label=label,
+                    name=name,
+                    datatype=datatype,
+                    is_multiple=is_multiple,
+                    display=display,
+                    normalized=normalized,
+                    editable=editable,
+                    mark_for_delete=mark_for_delete,
+                    value_table=value_table,
+                    link_table=link_table,
+                    expects_link_table=expects_link,
+                    has_value_table=has_value,
+                    has_link_table=has_link,
+                    link_has_extra=expects_link and datatype == "series",
                 )
             )
         return tuple(out)

@@ -14,9 +14,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import io
+import json
 from pathlib import Path
 import os
 import sqlite3
+from datetime import datetime, timezone
 from typing import Any, Dict, IO, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple
 
 from .db import CalibreDB
@@ -26,6 +28,7 @@ from .types import (
     CalibreCustomColumnDef,
     CalibreFormatRef,
     CalibreSeriesRef,
+    CalibreDriftEvent,
 )
 
 
@@ -201,15 +204,223 @@ def _resolve_format_path(book_dir: Path, *, base_name: str, fmt: str) -> Path:
     if expected_upper.exists():
         return expected_upper
 
-    # Fallback: if there is exactly one file with this extension, pick it.
-    try:
-        matches = [p for p in book_dir.glob(f"*.{ext}") if p.is_file()]
-        if len(matches) == 1:
-            return matches[0]
-    except Exception:
-        pass
-
     return expected
+
+
+# ----------------------------
+# Filesystem reconciliation helpers (Stage C)
+# ----------------------------
+
+_SIDECAR_FILENAMES = {
+    "metadata.opf",
+    "cover.jpg",
+    "cover.jpeg",
+    "cover.png",
+}
+
+
+def _list_book_files(book_dir: Path) -> Tuple[Path, ...]:
+    """List immediate files in a Calibre book directory (non-recursive)."""
+    try:
+        return tuple(sorted((p for p in book_dir.iterdir() if p.is_file()), key=lambda x: x.name.lower()))
+    except Exception:
+        return tuple()
+
+
+def _is_sidecar_file(p: Path) -> bool:
+    n = p.name.lower()
+    if n in _SIDECAR_FILENAMES:
+        return True
+    if n.startswith("cover.") and p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
+        return True
+    if p.suffix.lower() in {".opf"}:
+        return True
+    return False
+
+
+def _files_by_ext(files: Sequence[Path]) -> Dict[str, List[Path]]:
+    out: Dict[str, List[Path]] = {}
+    for p in files:
+        ext = p.suffix[1:].lower() if p.suffix else ""
+        if not ext:
+            continue
+        out.setdefault(ext, []).append(p)
+    return out
+
+
+def _pick_newest(paths: Sequence[Path]) -> Optional[Path]:
+    best: Optional[Path] = None
+    best_m = -1
+    for p in paths:
+        try:
+            m = int(p.stat().st_mtime_ns)
+        except Exception:
+            m = 0
+        if m > best_m:
+            best_m = m
+            best = p
+    return best
+
+
+def _dedupe_preserve_order(values: Sequence[Any]) -> List[Any]:
+    """Deduplicate values while preserving order (best-effort).
+
+    Real Calibre schemas enforce uniqueness for most custom-column link tables,
+    but mangled DBs can contain duplicates. Deduping avoids surprising importer
+    behavior while keeping the output stable.
+    """
+
+    out: List[Any] = []
+    seen: set[str] = set()
+    for v in values:
+        if isinstance(v, (dict, list)):
+            try:
+                key = json.dumps(v, sort_keys=True, ensure_ascii=False, default=str)
+            except Exception:
+                key = repr(v)
+        else:
+            key = repr(v)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(v)
+    return out
+
+
+def _coerce_int(v: Any) -> Optional[int]:
+    if v is None:
+        return None
+    try:
+        return int(v)
+    except Exception:
+        try:
+            return int(float(str(v).strip()))
+        except Exception:
+            return None
+
+
+def _coerce_float(v: Any) -> Optional[float]:
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except Exception:
+        try:
+            return float(str(v).strip())
+        except Exception:
+            return None
+
+
+def _coerce_bool(v: Any) -> bool:
+    if v is None:
+        return False
+    if isinstance(v, bool):
+        return bool(v)
+    if isinstance(v, (int, float)):
+        return bool(int(v))
+    s = str(v).strip().lower()
+    if s in {"1", "true", "t", "yes", "y", "on"}:
+        return True
+    if s in {"0", "false", "f", "no", "n", "off", ""}:
+        return False
+    # Fallback: non-empty string means truthy.
+    return True
+
+
+def _normalize_datetime(v: Any) -> Optional[str]:
+    """Normalize a Calibre datetime-ish value to an ISO8601 string.
+
+    Calibre typically stores datetimes as TEXT in sqlite (often ISO-like), but
+    in the wild you may see numeric epochs or legacy string formats.
+    """
+
+    if v is None:
+        return None
+
+    if isinstance(v, (bytes, bytearray)):
+        try:
+            v = v.decode("utf-8", errors="replace")
+        except Exception:
+            return None
+
+    if isinstance(v, str):
+        s = v.strip()
+        if not s:
+            return None
+        # Common "Z" suffix
+        s2 = s.replace("Z", "+00:00")
+        try:
+            dt = datetime.fromisoformat(s2)
+            return dt.isoformat()
+        except Exception:
+            pass
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                dt = datetime.strptime(s, fmt)
+                return dt.isoformat()
+            except Exception:
+                continue
+        # Best-effort: return original.
+        return s
+
+    if isinstance(v, (int, float)):
+        num = float(v)
+        # Heuristic: ms vs seconds
+        sec = num / 1000.0 if num > 1.0e11 else num
+        try:
+            dt = datetime.fromtimestamp(sec, tz=timezone.utc)
+            return dt.isoformat()
+        except Exception:
+            return str(v)
+
+    return str(v)
+
+
+def _coerce_custom_item(datatype: str, val: Any, extra: Any) -> Any:
+    dt = (datatype or "").strip().lower()
+    if dt == "series":
+        idx = _coerce_float(extra)
+        # Calibre commonly treats a missing series index as 1.0.
+        if idx is None and val is not None:
+            idx = 1.0
+        return {
+            "name": None if val is None else str(val),
+            "index": idx,
+        }
+    if dt in {"int", "rating"}:
+        # Keep None if it doesn't parse cleanly.
+        parsed = _coerce_int(val)
+        return parsed if parsed is not None else (None if val is None else str(val))
+    if dt == "float":
+        parsed_f = _coerce_float(val)
+        return parsed_f if parsed_f is not None else (None if val is None else str(val))
+    if dt == "bool":
+        return _coerce_bool(val)
+    if dt == "datetime":
+        return _normalize_datetime(val)
+    # comments/enumeration/composite/text fall back to strings.
+    return None if val is None else str(val)
+
+
+def _case_insensitive_resolve_dir(root: Path, rel_parts: Sequence[str]) -> Optional[Path]:
+    """Resolve a directory under root by casefolding each path component.
+
+    Useful when ingesting a library created on a case-insensitive filesystem
+    but imported onto a case-sensitive one.
+    """
+    cur = Path(root)
+    for part in rel_parts:
+        try:
+            matches = [
+                p for p in cur.iterdir()
+                if p.is_dir() and p.name.casefold() == str(part).casefold()
+            ]
+        except Exception:
+            return None
+        if len(matches) != 1:
+            return None
+        cur = matches[0]
+    return cur
 
 
 def _safe_getsize(p: Path) -> Optional[int]:
@@ -244,6 +455,49 @@ class CalibreReader:
     def schema_info(self, **kwargs):
         """Convenience pass-through to :meth:`CalibreDB.schema_info`."""
         return self.db.schema_info(**kwargs)
+
+    def custom_columns(self, *, best_effort: bool = True) -> Tuple[CalibreCustomColumnDef, ...]:
+        """Return custom column definitions (best-effort by default)."""
+        info = self.db.schema_info(
+            include_custom_columns=True,
+            include_tables=True,
+            include_triggers=False,
+            include_version_plan=False,
+            require_core_tables=False,
+            best_effort=bool(best_effort),
+        )
+        return tuple(info.custom_columns)
+
+    def read_custom_values(self, book_id: int, *, best_effort: bool = True) -> Dict[str, Any]:
+        """Read custom values for a single book id.
+
+        This is a convenience wrapper around the internal batch reader used by
+        :meth:`iter_book_payloads`.
+        """
+
+        conn = self.db.connect()
+        try:
+            if not _table_exists(conn, "custom_columns"):
+                return {}
+            # Read defs directly off this connection to avoid a nested open.
+            existing: Optional[set[str]] = None
+            try:
+                existing = {
+                    str(r[0])
+                    for r in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+                    ).fetchall()
+                }
+            except Exception:
+                existing = None
+
+            defs = self.db._read_custom_columns(conn, existing_tables=existing)  # type: ignore[attr-defined]
+            if not defs:
+                return {}
+            out = self._read_custom_values_for_books(conn, [int(book_id)], defs)
+            return dict(out.get(int(book_id), {}))
+        finally:
+            conn.close()
 
     # ----------------------------
     # File helpers (Stage A4)
@@ -283,10 +537,19 @@ class CalibreReader:
         include_custom_values: bool = True,
         include_formats: bool = True,
         include_cover_path: bool = True,
+        include_files: bool | None = None,
+        include_covers: bool | None = None,
+        filesystem_reconcile: bool = True,
+        include_orphan_formats: bool = False,
         strict_paths: bool = False,
         best_effort: bool = True,
     ) -> Iterator[CalibreBookNormalized]:
         """Stream CalibreBookNormalized payloads for ingestion."""
+        # Back-compat aliases
+        if include_files is not None:
+            include_formats = bool(include_files)
+        if include_covers is not None:
+            include_cover_path = bool(include_covers)
         conn = self.db.connect()
         try:
             tables = set()
@@ -487,20 +750,54 @@ class CalibreReader:
                         continue
 
                     warnings: List[str] = list(global_warnings)
+                    drift_events: List[CalibreDriftEvent] = []
 
                     title = str(_row_get(r, title_col, ""))
                     books_path = _row_get(r, path_col, "")
                     book_dir: Optional[Path]
+                    rel_parts: Tuple[str, ...] = tuple()
                     try:
+                        rel_parts = _split_rel_parts(books_path)
                         book_dir = _resolve_book_dir(library_root, books_path)
                     except CalibreUnsafePathError:
                         if strict_paths:
                             raise
                         book_dir = None
                         warnings.append(f"unsafe_book_path:{books_path!r}")
+                        drift_events.append(
+                            CalibreDriftEvent(
+                                severity="error",
+                                code="unsafe_book_path",
+                                message="books.path escapes library root",
+                                context={"books_path": str(books_path)},
+                            )
+                        )
+
+                    # If the expected folder is missing, attempt a case-insensitive walk.
+                    if filesystem_reconcile and book_dir is not None and not book_dir.exists() and rel_parts:
+                        alt = _case_insensitive_resolve_dir(library_root, rel_parts)
+                        if alt is not None and alt.exists():
+                            drift_events.append(
+                                CalibreDriftEvent(
+                                    severity="warning",
+                                    code="book_folder_case_mismatch",
+                                    message="book folder found via case-insensitive match",
+                                    context={"expected": str(book_dir), "actual": str(alt)},
+                                )
+                            )
+                            warnings.append(f"book_folder_case_mismatch:{book_dir}->{alt}")
+                            book_dir = alt
 
                     if book_dir is not None and not book_dir.exists():
                         warnings.append(f"missing_book_folder:{book_dir}")
+                        drift_events.append(
+                            CalibreDriftEvent(
+                                severity="error",
+                                code="missing_book_folder",
+                                message="book folder is missing on disk",
+                                context={"book_dir": str(book_dir)},
+                            )
+                        )
 
                     cover_path: Optional[Path] = None
                     if include_cover_path:
@@ -513,21 +810,163 @@ class CalibreReader:
                         if book_dir is None:
                             if has_cover:
                                 warnings.append("missing_cover_file:<unsafe_book_path>")
+                                drift_events.append(
+                                    CalibreDriftEvent(
+                                        severity="warning",
+                                        code="missing_cover_file",
+                                        message="cover expected but book path is unsafe",
+                                        context={"books_path": str(books_path)},
+                                    )
+                                )
                         else:
                             candidate = _resolve_cover_path(book_dir)
                             if candidate.exists():
                                 cover_path = candidate
                             elif has_cover:
                                 warnings.append(f"missing_cover_file:{candidate}")
+                                drift_events.append(
+                                    CalibreDriftEvent(
+                                        severity="warning",
+                                        code="missing_cover_file",
+                                        message="cover expected but missing on disk",
+                                        context={"cover_path": str(candidate)},
+                                    )
+                                )
 
                     fmt_refs: Tuple[CalibreFormatRef, ...] = ()
                     if include_formats:
                         fmt_refs = formats_map.get(int(book_id), ())
                         if int(book_id) in unsafe_format_books:
                             warnings.append("unsafe_book_path_for_formats")
-                        for f in fmt_refs:
-                            if not Path(f.file_path).exists():
-                                warnings.append(f"missing_format_file:{f.fmt}:{f.file_path}")
+                            drift_events.append(
+                                CalibreDriftEvent(
+                                    severity="error",
+                                    code="unsafe_book_path_for_formats",
+                                    message="cannot resolve format paths safely (unsafe books.path)",
+                                    context={"books_path": str(books_path)},
+                                )
+                            )
+
+                        # Filesystem reconciliation: recover missing formats + detect orphan/duplicate files.
+                        if filesystem_reconcile and book_dir is not None and book_dir.exists():
+                            files = _list_book_files(book_dir)
+                            by_ext = _files_by_ext(files)
+
+                            resolved: List[CalibreFormatRef] = []
+                            referenced_paths: set[Path] = set()
+
+                            if not fmt_refs:
+                                # DB has no format entries for this book; salvage from filesystem.
+                                salvage = [p for p in files if not _is_sidecar_file(p)]
+                                if salvage:
+                                    warnings.append("db_missing_format_entries:salvaged_from_filesystem")
+                                    drift_events.append(
+                                        CalibreDriftEvent(
+                                            severity="warning",
+                                            code="db_missing_format_entries",
+                                            message="no DB formats for book; salvaged from filesystem",
+                                            context={"count": len(salvage)},
+                                        )
+                                    )
+                                for p in salvage:
+                                    ext = p.suffix[1:].upper() if p.suffix else ""
+                                    if not ext:
+                                        continue
+                                    resolved.append(
+                                        CalibreFormatRef(fmt=ext, file_path=p, size_bytes=_safe_getsize(p))
+                                    )
+                                    referenced_paths.add(p)
+                            else:
+                                # Reconcile each DB-backed format.
+                                for fr in fmt_refs:
+                                    p = Path(fr.file_path)
+                                    ext = (fr.fmt or "").lower().strip()
+                                    if p.exists():
+                                        resolved.append(fr)
+                                        referenced_paths.add(p)
+                                        # Detect duplicate files with same extension.
+                                        if ext and ext in by_ext and len(by_ext[ext]) > 1:
+                                            drift_events.append(
+                                                CalibreDriftEvent(
+                                                    severity="info",
+                                                    code="duplicate_format_files",
+                                                    message="multiple files with same extension exist in book folder",
+                                                    context={"fmt": fr.fmt, "files": [str(x) for x in by_ext[ext]]},
+                                                )
+                                            )
+                                        continue
+
+                                    # Missing: try to recover by scanning extension matches.
+                                    candidates = by_ext.get(ext, []) if ext else []
+                                    if candidates:
+                                        chosen = _pick_newest(candidates) or candidates[0]
+                                        if len(candidates) > 1:
+                                            drift_events.append(
+                                                CalibreDriftEvent(
+                                                    severity="warning",
+                                                    code="duplicate_format_files",
+                                                    message="format file missing; picked newest among duplicates",
+                                                    context={"fmt": fr.fmt, "picked": str(chosen), "candidates": [str(x) for x in candidates]},
+                                                )
+                                            )
+                                            warnings.append(f"duplicate_format_files:{fr.fmt}:{len(candidates)}")
+                                        else:
+                                            drift_events.append(
+                                                CalibreDriftEvent(
+                                                    severity="info",
+                                                    code="format_recovered_by_scan",
+                                                    message="format file recovered by extension scan",
+                                                    context={"fmt": fr.fmt, "picked": str(chosen)},
+                                                )
+                                            )
+                                            warnings.append(f"format_recovered_by_scan:{fr.fmt}:{chosen.name}")
+
+                                        resolved.append(
+                                            CalibreFormatRef(fmt=fr.fmt, file_path=chosen, size_bytes=_safe_getsize(chosen))
+                                        )
+                                        referenced_paths.add(chosen)
+                                    else:
+                                        warnings.append(f"missing_format_file:{fr.fmt}:{fr.file_path}")
+                                        drift_events.append(
+                                            CalibreDriftEvent(
+                                                severity="warning",
+                                                code="missing_format_file",
+                                                message="format file missing on disk",
+                                                context={"fmt": fr.fmt, "expected": str(fr.file_path)},
+                                            )
+                                        )
+
+                            # Orphan files: present on disk but not referenced.
+                            referenced_paths |= {Path(cover_path)} if cover_path else set()
+                            referenced_paths |= {book_dir / 'metadata.opf'} if (book_dir / 'metadata.opf').exists() else set()
+
+                            orphans = [p for p in files if (p not in referenced_paths and not _is_sidecar_file(p))]
+                            if orphans:
+                                for p in orphans:
+                                    drift_events.append(
+                                        CalibreDriftEvent(
+                                            severity="info",
+                                            code="orphan_file",
+                                            message="file exists in book folder but is not referenced by DB",
+                                            context={"file": str(p)},
+                                        )
+                                    )
+                                warnings.append(f"orphan_files:{len(orphans)}")
+                                if include_orphan_formats:
+                                    for p in orphans:
+                                        ext = p.suffix[1:].upper() if p.suffix else ""
+                                        if not ext:
+                                            continue
+                                        resolved.append(
+                                            CalibreFormatRef(fmt=ext, file_path=p, size_bytes=_safe_getsize(p))
+                                        )
+
+                            fmt_refs = tuple(resolved)
+                        else:
+                            # No reconciliation; just check existence.
+                            for f in fmt_refs:
+                                if not Path(f.file_path).exists():
+                                    warnings.append(f"missing_format_file:{f.fmt}:{f.file_path}")
 
                     payload = CalibreBookNormalized(
                         calibre_book_id=int(book_id),
@@ -541,6 +980,7 @@ class CalibreReader:
                         comments_html=comments_map.get(int(book_id)),
                         cover_path=cover_path,
                         custom_values=dict(custom_map.get(int(book_id), {})),
+                        drift_events=tuple(drift_events),
                         warnings=tuple(warnings),
                     )
                     yield payload
@@ -766,10 +1206,13 @@ class CalibreReader:
         out: Dict[int, Dict[str, Any]] = {}
 
         for cd in custom_defs:
-            value_table = f"custom_column_{cd.num}"
-            link_table = f"books_custom_column_{cd.num}_link"
+            value_table = cd.value_table or f"custom_column_{cd.num}"
+            link_table = cd.link_table or f"books_custom_column_{cd.num}_link"
+            expects_link = bool(cd.expects_link_table) if cd.expects_link_table is not None else (
+                cd.datatype not in ("datetime", "comments", "int", "bool", "float", "composite")
+            )
 
-            if not (_table_exists(conn, value_table) and _table_exists(conn, link_table)):
+            if not _table_exists(conn, value_table):
                 # Broken or partial DB; keep going.
                 continue
 
@@ -777,32 +1220,59 @@ class CalibreReader:
             if not vcols:
                 continue
 
-            value_col = _pick_column(vcols, candidates=("value", "val", "name", "text"), fallback="value")
+            vcols_l = {c.lower() for c in vcols}
+            v_id_col = "id" if "id" in vcols_l else "rowid"
 
-            # For normalized custom columns, Calibre stores the series index in the
-            # LINK table's `extra` column (not in the value table).
-            lcols = _table_columns(conn, link_table)
-            link_extra_col = "extra" if "extra" in {c.lower() for c in (lcols or ())} else None
+            # Non-normalized custom columns store `book` and `value` in the value table.
+            if not expects_link or not _table_exists(conn, link_table):
+                book_col = _pick_column(vcols, candidates=("book", "book_id"), fallback="book")
+                if book_col.lower() not in vcols_l:
+                    # Unexpected shape; skip.
+                    continue
 
-            q = _qmarks(len(book_ids))
-            if link_extra_col:
+                value_col = _pick_column(vcols, candidates=("value", "val", "name", "text"), fallback="value")
+                q = _qmarks(len(book_ids))
                 sql = f"""
-                    SELECT l.book AS book_id, v.{value_col} AS value, l.{link_extra_col} AS extra
-                    FROM {link_table} l
-                    JOIN {value_table} v ON v.id = l.value
-                    WHERE l.book IN ({q})
-                    ORDER BY l.book, l.id
+                    SELECT v.{book_col} AS book_id, v.{value_col} AS value, NULL AS extra
+                    FROM {value_table} v
+                    WHERE v.{book_col} IN ({q})
+                    ORDER BY v.{book_col}, v.{v_id_col}
                 """
+                rows = conn.execute(sql, list(book_ids)).fetchall()
             else:
-                sql = f"""
-                    SELECT l.book AS book_id, v.{value_col} AS value, NULL AS extra
-                    FROM {link_table} l
-                    JOIN {value_table} v ON v.id = l.value
-                    WHERE l.book IN ({q})
-                    ORDER BY l.book, l.id
-                """
+                value_col = _pick_column(vcols, candidates=("value", "val", "name", "text"), fallback="value")
 
-            rows = conn.execute(sql, list(book_ids)).fetchall()
+                # For normalized custom columns, Calibre stores the series index in the
+                # LINK table's `extra` column (not in the value table).
+                lcols = _table_columns(conn, link_table)
+                lcols_l = {c.lower() for c in (lcols or ())}
+                l_id_col = "id" if "id" in lcols_l else "rowid"
+                link_extra_col = "extra" if "extra" in lcols_l else None
+                link_book_col = _pick_column(lcols, candidates=("book", "book_id"), fallback="book")
+                link_value_fk_col = _pick_column(lcols, candidates=("value", "val", "item"), fallback="value")
+
+                # Best-effort join key for value table PK.
+                v_pk = "id" if "id" in vcols_l else "rowid"
+
+                q = _qmarks(len(book_ids))
+                if link_extra_col:
+                    sql = f"""
+                        SELECT l.{link_book_col} AS book_id, v.{value_col} AS value, l.{link_extra_col} AS extra
+                        FROM {link_table} l
+                        JOIN {value_table} v ON v.{v_pk} = l.{link_value_fk_col}
+                        WHERE l.{link_book_col} IN ({q})
+                        ORDER BY l.{link_book_col}, l.{l_id_col}
+                    """
+                else:
+                    sql = f"""
+                        SELECT l.{link_book_col} AS book_id, v.{value_col} AS value, NULL AS extra
+                        FROM {link_table} l
+                        JOIN {value_table} v ON v.{v_pk} = l.{link_value_fk_col}
+                        WHERE l.{link_book_col} IN ({q})
+                        ORDER BY l.{link_book_col}, l.{l_id_col}
+                    """
+
+                rows = conn.execute(sql, list(book_ids)).fetchall()
 
             # Build per-book lists first (even for single values).
             per_book: Dict[int, List[Any]] = {}
@@ -811,37 +1281,13 @@ class CalibreReader:
                 val = r[1]
                 extra = r[2]
 
-                if cd.datatype == "series":
-                    # JSON-friendly representation (don't leak dataclasses into custom_values).
-                    try:
-                        extra_f = float(extra) if extra is not None else None
-                    except Exception:
-                        extra_f = None
-                    item = {"name": None if val is None else str(val), "index": extra_f}
-                elif cd.datatype in {"int", "rating"}:
-                    try:
-                        item = int(val) if val is not None else None
-                    except Exception:
-                        item = None if val is None else str(val)
-                elif cd.datatype in {"float"}:
-                    try:
-                        item = float(val) if val is not None else None
-                    except Exception:
-                        item = None if val is None else str(val)
-                elif cd.datatype in {"bool"}:
-                    try:
-                        item = bool(int(val)) if val is not None else False
-                    except Exception:
-                        item = bool(val)
-                else:
-                    item = None if val is None else str(val)
-
+                item = _coerce_custom_item(cd.datatype, val, extra)
                 per_book.setdefault(bid, []).append(item)
 
             # Write into out mapping
             for bid, vals in per_book.items():
                 if cd.is_multiple:
-                    out.setdefault(bid, {})[cd.label] = list(vals)
+                    out.setdefault(bid, {})[cd.label] = _dedupe_preserve_order(vals)
                 else:
                     out.setdefault(bid, {})[cd.label] = vals[0] if vals else None
 

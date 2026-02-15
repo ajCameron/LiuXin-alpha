@@ -335,7 +335,7 @@ CREATE TRIGGER fkc_update_{table}
 
     def set_custom_value(
         self,
-        conn: sqlite3.Connection,
+        conn: sqlite3.Connection | None = None,
         *,
         book_id: int,
         label: str,
@@ -347,118 +347,129 @@ CREATE TRIGGER fkc_update_{table}
         The column must already exist (use `create_custom_column()` first).
         """
 
-        meta = conn.execute(
-            "SELECT id, datatype, is_multiple, normalized FROM custom_columns WHERE label=?",
-            (label,),
-        ).fetchone()
-        if not meta:
-            raise KeyError(f"Custom column not found: {label!r}")
+        owns_conn = False
+        if conn is None:
+            conn = self.connect()
+            owns_conn = True
+        try:
+            meta = conn.execute(
+                "SELECT id, datatype, is_multiple, normalized FROM custom_columns WHERE label=?",
+                (label,),
+            ).fetchone()
+            if not meta:
+                raise KeyError(f"Custom column not found: {label!r}")
 
-        num, datatype, is_multiple, normalized = int(meta[0]), str(meta[1]), bool(meta[2]), bool(meta[3])
-        table, lt = self.custom_table_names(num)
+            num, datatype, is_multiple, normalized = int(meta[0]), str(meta[1]), bool(meta[2]), bool(meta[3])
+            table, lt = self.custom_table_names(num)
 
-        # Normalize the incoming value into a list for multi-valued columns.
-        if is_multiple:
-            if value is None:
-                values: list[Any] = []
-            elif isinstance(value, (list, tuple, set)):
-                values = list(value)
+            # Normalize the incoming value into a list for multi-valued columns.
+            if is_multiple:
+                if value is None:
+                    values: list[Any] = []
+                elif isinstance(value, (list, tuple, set)):
+                    values = list(value)
+                else:
+                    values = [value]
             else:
                 values = [value]
-        else:
-            values = [value]
 
-        if normalized:
-            # Clear existing links for this book.
-            conn.execute(f"DELETE FROM {lt} WHERE book=?", (book_id,))
+            if normalized:
+                # Clear existing links for this book.
+                conn.execute(f"DELETE FROM {lt} WHERE book=?", (book_id,))
 
-            def _parse_series_value(v: Any) -> tuple[str, float | None]:
-                """Parse a Calibre custom 'series' value into (name, index).
+                def _parse_series_value(v: Any) -> tuple[str, float | None]:
+                    """Parse a Calibre custom 'series' value into (name, index).
 
-                Accepts:
-                    - "Series Name" (uses `extra` parameter / default)
-                    - ("Series Name", 2) / ["Series Name", 2]
-                    - {"name": "Series", "index": 2}
-                """
-                if v is None:
-                    raise ValueError(f"NULL is not a valid value for custom column {label!r}")
+                    Accepts:
+                        - "Series Name" (uses `extra` parameter / default)
+                        - ("Series Name", 2) / ["Series Name", 2]
+                        - {"name": "Series", "index": 2}
+                    """
+                    if v is None:
+                        raise ValueError(f"NULL is not a valid value for custom column {label!r}")
 
-                idx: float | None = None
-                name: Any = v
+                    idx: float | None = None
+                    name: Any = v
 
-                if isinstance(v, (tuple, list)) and len(v) == 2:
-                    name, idx = v[0], v[1]
-                elif isinstance(v, dict):
-                    # Flexible keys for convenience in tests.
-                    name = v.get("name", v.get("series", v.get("value")))
-                    idx = v.get("index", v.get("series_index", v.get("extra")))
+                    if isinstance(v, (tuple, list)) and len(v) == 2:
+                        name, idx = v[0], v[1]
+                    elif isinstance(v, dict):
+                        # Flexible keys for convenience in tests.
+                        name = v.get("name", v.get("series", v.get("value")))
+                        idx = v.get("index", v.get("series_index", v.get("extra")))
 
-                if name is None:
-                    raise ValueError(f"Missing series name for custom column {label!r}")
+                    if name is None:
+                        raise ValueError(f"Missing series name for custom column {label!r}")
 
-                if idx is None:
-                    # Prefer explicit `extra=` parameter if provided.
-                    if extra is not None:
-                        idx = extra
+                    if idx is None:
+                        # Prefer explicit `extra=` parameter if provided.
+                        if extra is not None:
+                            idx = extra
 
-                if idx is None:
-                    return str(name), None
-                return str(name), float(idx)
+                    if idx is None:
+                        return str(name), None
+                    return str(name), float(idx)
 
-            def _value_id(v: Any) -> int:
-                if v is None:
-                    raise ValueError(f"NULL is not a valid value for custom column {label!r}")
-                if datatype in ("int", "rating"):
-                    vv = int(v)
-                elif datatype == "float":
-                    vv = float(v)
-                elif datatype == "bool":
-                    vv = 1 if bool(v) else 0
-                else:
-                    vv = str(v)
-                conn.execute(f"INSERT OR IGNORE INTO {table} (value) VALUES (?)", (vv,))
-                r = conn.execute(f"SELECT id FROM {table} WHERE value=?", (vv,)).fetchone()
-                if not r:
-                    raise RuntimeError(f"Failed to resolve value id for {vv!r} in {table}")
-                return int(r[0])
+                def _value_id(v: Any) -> int:
+                    if v is None:
+                        raise ValueError(f"NULL is not a valid value for custom column {label!r}")
+                    if datatype in ("int", "rating"):
+                        vv = int(v)
+                    elif datatype == "float":
+                        vv = float(v)
+                    elif datatype == "bool":
+                        vv = 1 if bool(v) else 0
+                    else:
+                        vv = str(v)
+                    conn.execute(f"INSERT OR IGNORE INTO {table} (value) VALUES (?)", (vv,))
+                    r = conn.execute(f"SELECT id FROM {table} WHERE value=?", (vv,)).fetchone()
+                    if not r:
+                        raise RuntimeError(f"Failed to resolve value id for {vv!r} in {table}")
+                    return int(r[0])
 
-            for v in values:
-                if datatype == "series":
-                    s_name, s_idx = _parse_series_value(v)
-                    vid = _value_id(s_name)
-                    # Calibre treats the index as a REAL; default to 1.0 if absent.
-                    idx = 1.0 if s_idx is None else float(s_idx)
-                    conn.execute(
-                        f"INSERT OR IGNORE INTO {lt} (book, value, extra) VALUES (?, ?, ?)",
-                        (book_id, vid, idx),
-                    )
-                else:
-                    vid = _value_id(v)
-                    conn.execute(
-                        f"INSERT OR IGNORE INTO {lt} (book, value) VALUES (?, ?)",
-                        (book_id, vid),
-                    )
-        else:
-            if is_multiple:
-                raise ValueError(f"Custom column {label!r} does not support multiple values")
-
-            if value is None:
-                conn.execute(f"DELETE FROM {table} WHERE book=?", (book_id,))
-                return
-
-            if datatype in ("int", "rating"):
-                vv = int(value)
-            elif datatype == "float":
-                vv = float(value)
-            elif datatype == "bool":
-                vv = 1 if bool(value) else 0
+                for v in values:
+                    if datatype == "series":
+                        s_name, s_idx = _parse_series_value(v)
+                        vid = _value_id(s_name)
+                        # Calibre treats the index as a REAL; default to 1.0 if absent.
+                        idx = 1.0 if s_idx is None else float(s_idx)
+                        conn.execute(
+                            f"INSERT OR IGNORE INTO {lt} (book, value, extra) VALUES (?, ?, ?)",
+                            (book_id, vid, idx),
+                        )
+                    else:
+                        vid = _value_id(v)
+                        conn.execute(
+                            f"INSERT OR IGNORE INTO {lt} (book, value) VALUES (?, ?)",
+                            (book_id, vid),
+                        )
             else:
-                vv = str(value)
+                if is_multiple:
+                    raise ValueError(f"Custom column {label!r} does not support multiple values")
 
-            conn.execute(
-                f"INSERT OR REPLACE INTO {table} (book, value) VALUES (?, ?)",
-                (book_id, vv),
-            )
+                if value is None:
+                    conn.execute(f"DELETE FROM {table} WHERE book=?", (book_id,))
+                    return
+
+                if datatype in ("int", "rating"):
+                    vv = int(value)
+                elif datatype == "float":
+                    vv = float(value)
+                elif datatype == "bool":
+                    vv = 1 if bool(value) else 0
+                else:
+                    vv = str(value)
+
+                conn.execute(
+                    f"INSERT OR REPLACE INTO {table} (book, value) VALUES (?, ?)",
+                    (book_id, vv),
+                )
+
+            if owns_conn:
+                conn.commit()
+        finally:
+            if owns_conn:
+                conn.close()
 
     def get_custom_value(self, conn: sqlite3.Connection, *, book_id: int, label: str) -> Any:
         """Fetch a custom-column value (best-effort helper for tests)."""

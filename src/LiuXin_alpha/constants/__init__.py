@@ -251,11 +251,11 @@ def check_image_tuple(image_tuple):
         return True, "Both entries are None"
 
     # if the type entry is not None and the data entry is None the tupple fails again
-    if type is "file" and data is None:
+    if type == "file" and data is None:
         return False, "No data provided"
 
     # Todo: Add more checks to make sure imghdr works as intended - and to parse it's output properly
-    if type is "file" and data is not None:
+    if type == "file" and data is not None:
 
         # Todo: Check the file actually corresponds to the claimed type
         # if the file actually exists, we can run test on it. Hmm. Testing. Cake. E.t.c.

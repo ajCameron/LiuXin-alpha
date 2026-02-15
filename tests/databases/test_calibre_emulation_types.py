@@ -15,6 +15,7 @@ from LiuXin_alpha.databases.calibre_emulation import (
     CalibreFormatRef,
     CalibreBookRow,
     CalibreBookNormalized,
+    CalibreDriftEvent,
 )
 
 
@@ -74,6 +75,8 @@ def test_book_row_and_normalized_to_dict_are_json_serialisable(tmp_path: Path) -
         custom_values={"#my_series": ("The Saga", 2.0)},
     )
 
+    drift = CalibreDriftEvent(severity="warning", code="missing_format_file", message="missing", context={"fmt": "PDF"})
+
     norm = CalibreBookNormalized(
         calibre_book_id=1,
         title="Hello",
@@ -86,6 +89,7 @@ def test_book_row_and_normalized_to_dict_are_json_serialisable(tmp_path: Path) -
         comments_html="<p>Hi</p>",
         cover_path=tmp_path / "cover.jpg",
         custom_values={"#my_series": {"name": "The Saga", "index": 2.0}},
+        drift_events=(drift,),
         warnings=("missing_format:PDF",),
     )
 

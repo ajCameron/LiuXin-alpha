@@ -104,3 +104,44 @@ def test_git_file_list_returns_tracked_and_untracked(tmp_path: Path) -> None:
     rels = {p.relative_to(tmp_path).as_posix() for p in files}
     assert "tracked.txt" in rels
     assert "untracked.txt" in rels
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
+def test_main_includes_nested_data_repo_but_not_git_internals(tmp_path: Path) -> None:
+    from LiuXin_alpha.utils.zip_project import main
+
+    # init main repo
+    subprocess.check_call(["git", "init"], cwd=str(tmp_path))
+    (tmp_path / "tracked.txt").write_text("t")
+    subprocess.check_call(["git", "add", "tracked.txt"], cwd=str(tmp_path))
+    subprocess.check_call(
+        [
+            "git",
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "user.name=Test",
+            "commit",
+            "-m",
+            "init",
+        ],
+        cwd=str(tmp_path),
+    )
+
+    # nested data repo
+    data_root = tmp_path / "LiuXin_alpha_data"
+    data_root.mkdir()
+    subprocess.check_call(["git", "init"], cwd=str(data_root))
+    (data_root / "md_test_files").mkdir(parents=True)
+    (data_root / "md_test_files" / "a.md").write_text("# hello\n")
+
+    out = tmp_path / "out.zip"
+    rc = main([str(tmp_path), "-o", str(out)])
+    assert rc == 0
+    assert out.exists()
+
+    with zipfile.ZipFile(out, "r") as z:
+        names = set(z.namelist())
+
+    assert "LiuXin_alpha_data/md_test_files/a.md" in names
+    assert not any(n.startswith("LiuXin_alpha_data/.git/") or n == "LiuXin_alpha_data/.git" for n in names)

@@ -64,7 +64,17 @@ class CalibreLibraryPaths:
 
 @dataclass(frozen=True, slots=True)
 class CalibreCustomColumnDef:
-    """Definition of a Calibre custom column from the `custom_columns` table."""
+    """Definition of a Calibre custom column from the `custom_columns` table.
+
+    Calibre creates dynamic tables per custom column id:
+
+    - value table:   ``custom_column_{id}``
+    - link table:    ``books_custom_column_{id}_link`` (only for normalised columns)
+
+    We store both the *expected* table names and (when known) their presence in
+    sqlite_master so higher-level readers can be robust in the face of partial
+    or mangled libraries.
+    """
 
     num: int
     label: str
@@ -73,6 +83,48 @@ class CalibreCustomColumnDef:
     is_multiple: bool
     display: Mapping[str, Any] = field(default_factory=dict)
 
+    # Extra flags from Calibre (may be missing in partial schemas).
+    normalized: Optional[bool] = None
+    editable: Optional[bool] = None
+    mark_for_delete: bool = False
+
+    # Derived table names (filled from `num` if not provided).
+    value_table: Optional[str] = None
+    link_table: Optional[str] = None
+
+    # Expectations / observed presence (optional: may be unknown if schema_info
+    # did not enumerate sqlite_master).
+    expects_link_table: Optional[bool] = None
+    has_value_table: Optional[bool] = None
+    has_link_table: Optional[bool] = None
+    link_has_extra: Optional[bool] = None  # series index stored in link.extra when normalised
+
+    def __post_init__(self) -> None:
+        # Fill defaults in a frozen dataclass.
+        if self.normalized is None:
+            object.__setattr__(
+                self,
+                "normalized",
+                self.datatype not in ("datetime", "comments", "int", "bool", "float", "composite"),
+            )
+        if self.editable is None:
+            object.__setattr__(self, "editable", True)
+
+        if self.value_table is None:
+            object.__setattr__(self, "value_table", f"custom_column_{self.num}")
+        if self.link_table is None:
+            object.__setattr__(self, "link_table", f"books_custom_column_{self.num}_link")
+
+        if self.expects_link_table is None:
+            object.__setattr__(self, "expects_link_table", bool(self.normalized))
+
+        if self.link_has_extra is None:
+            object.__setattr__(
+                self,
+                "link_has_extra",
+                bool(self.expects_link_table) and self.datatype == "series",
+            )
+
     def to_dict(self) -> Mapping[str, Any]:
         return {
             "num": self.num,
@@ -80,7 +132,16 @@ class CalibreCustomColumnDef:
             "name": self.name,
             "datatype": self.datatype,
             "is_multiple": self.is_multiple,
+            "normalized": self.normalized,
+            "editable": self.editable,
+            "mark_for_delete": self.mark_for_delete,
             "display": dict(self.display),
+            "value_table": self.value_table,
+            "link_table": self.link_table,
+            "expects_link_table": self.expects_link_table,
+            "has_value_table": self.has_value_table,
+            "has_link_table": self.has_link_table,
+            "link_has_extra": self.link_has_extra,
         }
 
 
@@ -90,6 +151,28 @@ class CalibreIssue:
 
     These are intended for diagnostics and snapshot tests, not as a logging
     system. Keep messages short and stable.
+    """
+
+    severity: str  # "info" | "warning" | "error"
+    code: str
+    message: str
+    context: Mapping[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Mapping[str, Any]:
+        return {
+            "severity": self.severity,
+            "code": self.code,
+            "message": self.message,
+            "context": dict(self.context),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CalibreDriftEvent:
+    """Per-book filesystem drift events.
+
+    These are derived from reconciling DB expectations with on-disk reality.
+    Keep codes stable so callers can build ingestion policies.
     """
 
     severity: str  # "info" | "warning" | "error"
@@ -246,6 +329,7 @@ class CalibreBookNormalized:
     comments_html: Optional[str] = None
     cover_path: Optional[Path] = None
     custom_values: Mapping[str, Any] = field(default_factory=dict)
+    drift_events: Tuple[CalibreDriftEvent, ...] = ()
     warnings: Tuple[str, ...] = ()
 
     def to_dict(self) -> Mapping[str, Any]:
@@ -261,5 +345,6 @@ class CalibreBookNormalized:
             "comments_html": self.comments_html,
             "cover_path": _jsonify_path(self.cover_path),
             "custom_values": dict(self.custom_values),
+            "drift_events": [d.to_dict() for d in self.drift_events],
             "warnings": list(self.warnings),
         }
