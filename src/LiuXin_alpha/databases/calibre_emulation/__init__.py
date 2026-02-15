@@ -8,6 +8,7 @@ from .errors import (
 )
 from .readers import CalibreReader
 from .opf_sidecar import CalibreSidecarReader
+from .scan import scan_calibre_library
 from .types import (
     CalibreBookNormalized,
     CalibreBookRow,
@@ -19,6 +20,9 @@ from .types import (
     CalibreSeriesRef,
     CalibreIssue,
     CalibreDriftEvent,
+    CalibreScanCounts,
+    CalibreDriftSummary,
+    CalibreScanReport,
 )
 from .versioning import CalibreVersionPolicy
 
@@ -42,4 +46,8 @@ __all__ = [
     "CalibreFormatRef",
     "CalibreBookRow",
     "CalibreBookNormalized",
+    "CalibreScanCounts",
+    "CalibreDriftSummary",
+    "CalibreScanReport",
+    "scan_calibre_library",
 ]

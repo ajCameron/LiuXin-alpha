@@ -348,3 +348,65 @@ class CalibreBookNormalized:
             "drift_events": [d.to_dict() for d in self.drift_events],
             "warnings": list(self.warnings),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class CalibreScanCounts:
+    """Aggregate counts produced by a best-effort scan."""
+
+    books: int = 0
+    formats_total: int = 0
+    authors_unique: int = 0
+    tags_unique: int = 0
+    custom_columns: int = 0
+    drift_events_total: int = 0
+
+    def to_dict(self) -> Mapping[str, Any]:
+        return {
+            "books": int(self.books),
+            "formats_total": int(self.formats_total),
+            "authors_unique": int(self.authors_unique),
+            "tags_unique": int(self.tags_unique),
+            "custom_columns": int(self.custom_columns),
+            "drift_events_total": int(self.drift_events_total),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CalibreDriftSummary:
+    """Summary of filesystem drift observations."""
+
+    by_code: Mapping[str, int] = field(default_factory=dict)
+    by_severity: Mapping[str, int] = field(default_factory=dict)
+    examples: Tuple[Mapping[str, Any], ...] = ()
+
+    def to_dict(self) -> Mapping[str, Any]:
+        return {
+            "by_code": dict(self.by_code),
+            "by_severity": dict(self.by_severity),
+            "examples": [dict(e) for e in self.examples],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CalibreScanReport:
+    """A best-effort scan report for a Calibre library root."""
+
+    library_root: Path
+    mode: str  # "db" | "opf"
+    schema: Optional[CalibreSchemaInfo] = None
+    counts: CalibreScanCounts = field(default_factory=CalibreScanCounts)
+    drift: CalibreDriftSummary = field(default_factory=CalibreDriftSummary)
+    issues: Tuple[CalibreIssue, ...] = ()
+    sample_books: Tuple[Mapping[str, Any], ...] = ()
+
+    def to_dict(self) -> Mapping[str, Any]:
+        return {
+            "library_root": str(self.library_root),
+            "mode": self.mode,
+            "schema": None if self.schema is None else self.schema.to_dict(),
+            "counts": self.counts.to_dict(),
+            "drift": self.drift.to_dict(),
+            "issues": [i.to_dict() for i in self.issues],
+            "sample_books": [dict(b) for b in self.sample_books],
+        }

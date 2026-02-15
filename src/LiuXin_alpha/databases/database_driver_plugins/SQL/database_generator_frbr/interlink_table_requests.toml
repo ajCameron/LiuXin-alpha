@@ -12,45 +12,66 @@ warn_on_redundant_links = true
 # Links that must never be created. If a requested interlink matches one of these pairs,
 # the generator will abort with the given reason.
 
+# Thought about having a "nullable" column - instead, the easiest way to do that seems to be an incomplete link
+# - Where you have an id for the src and None for the dst
+# This is mostly for calibre emulation - allows it to deset the first entry if the calibre entry is None
+# You can also have None as the top option without deleting everything
+
 [[forbidden_interlinks]]
 left_table = "expressions"
 right_table = "org_agents"
-reason = """org_agents are a specialization of agents; expressions should link to agents (or agent roles) instead.
-Creating an expressions ↔ org_agents interlink duplicates the polymorphic agent link surface and invites contradictory tagging/roles.
-Use expressions↔agents and join through agents ↔ org_agents when you need the organizational subtype."""
+reason = """
+org_agents are a specialization of agents; expressions should link to agents (or agent roles) instead.
+Creating an expressions ↔ org_agents interlink duplicates the polymorphic agent link surface and invites contradictory
+tagging/roles.
+Use expressions ↔ agents and join through agents ↔ org_agents when you need the organizational subtype."""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "comments"
 link_type = "one_to_many"
-requested_columns = []
-rationale = """You want to be able to make comments on a generic agent"""
+requested_columns = ["priority", "origin"]
+nullable = "true"
+rationale = """
+You might want to be able to make comments on a generic agent.
+ - priority provides an ordering for the comments as they appear in the UI
+ - origin tells you where the comment came from
+"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "expressions"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type", "origin"]
+types = ["insert_marc_roles", ]
+nullable = "true"
 rationale = """
-Which expressions the agents are responsible for.
+Which expressions the agents are responsible for?
 Many agents can, and probaly will be, responsible for many expressions.
+
+ - priority - provides a (here optional) ordering of the agents
+ - type - the role the agent played in the expression
+ - origin - Why do we think the agent is responsible for the given work in the given way?
 """
 
 [[interlinks]]
 left_table = "agents"
 right_table = "feeds"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type"]
+nullable = "true"
 types = ["insert_marc_roles", ]
 rationale = """
 Agents also create and manage feeds of various sorts.
-Additonally, Agents can co-operate on feeds, making the relationship many-many."""
+Additonally, Agents can co-operate on feeds, making the relationship many-many.
+"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "images"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type", "origin"]
+nullable = "true"
 types = ["logo", "agent_photo"]
 rationale = """
 You can assign pictures to agents - such as cover photos.
@@ -64,9 +85,17 @@ As such, they should have an author photo linked to them as an author and a phot
 left_table = "agents"
 right_table = "items"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type", "origin"]
+nullable = "true"
 types = ["insert_marc_roles", ]
-rationale = """Agents can be responsible for different parts of each part of the WEMI stack"""
+rationale = """
+Agents can be responsible for different parts of each part of the WEMI stack.
+
+ - priority - orders whose responsible for the work.
+ - type - the type of role the agent played in the work
+ - origin - why do we think the agent did that for the work?
+
+"""
 
 [[interlinks]]
 left_table = "agents"
@@ -160,7 +189,7 @@ Comments should not be shared between expressions. Dupe them instead if needed.
 left_table = "comments"
 right_table = "feeds"
 link_type = "many_to_one"
-requested_columns = ["priority", \"nullable"]
+requested_columns = ["priority", "nullable"]
 rationale = """
 You can comment on a feed.
 Comments should not be shared between feeds. Dupe them if required.
@@ -893,46 +922,66 @@ Series can also be in a nested heirachy.
 left_table = "series"
 right_table = "subjects"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "nullable"]
 rationale = "Occasionally (mostly) a series will have a enumerable set of subjects."
 
 [[interlinks]]
 left_table = "series"
 right_table = "synopses"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = "You can assign synopsis to a series."
+requested_columns = ["priority", "nullable", "origin"]
+rationale = """You can assign mutiple synopsis to a series."""
 
 [[interlinks]]
 left_table = "stores"
 right_table = "subjects"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type", "nullable", "policy"]
+types = ["always", "never", "policy"]
 rationale = """
 If you want to dedicate a stores to just one subject - will be accounted for when trying to place an item in a store.
 Occasionally this has more practical uses - a comics store might have different properties to a text store, for example.
+
+Types are as follows
+ - always - always load any entries for the subject to store
+ - never - never load (or deload as fast as possible) subjects from the store
+ - policy - refer to the policy column to determine load
+
+# Todo: The poloicy column idea seems like a good one - check it's used everywhere it needs to be.
 """
 
 [[interlinks]]
 left_table = "stores"
 right_table = "synopses"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """A summary of what a store is."""
+requested_columns = ["priority", "nullable", "origin"]
+rationale = """
+Am explanation of what a store is.
+
+You can
+ - comment
+ - note
+ - synopses
+
+On a store if you really want.
+
+# Todo: Origin options.
+# Todo: Origin normalisation table.
+"""
 
 [[interlinks]]
 left_table = "subjects"
 right_table = "synopses"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "origin"]
 rationale = """An explanation for what a subject is."""
 
 [[interlinks]]
 left_table = "subjects"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = "Works are probably the simplext things which can have a subject."
+requested_columns = ["priority", "nullable"]
+rationale = "Works can have a subject. Independent of their series identity."
 
 [[interlinks]]
 left_table = "synopses"
