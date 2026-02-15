@@ -17,6 +17,8 @@ warn_on_redundant_links = true
 # This is mostly for calibre emulation - allows it to deset the first entry if the calibre entry is None
 # You can also have None as the top option without deleting everything
 
+# Many-to-One and One-to-Many tables are duels of each other.
+
 [[forbidden_interlinks]]
 left_table = "expressions"
 right_table = "org_agents"
@@ -101,65 +103,102 @@ Agents can be responsible for different parts of each part of the WEMI stack.
 left_table = "agents"
 right_table = "labels"
 link_type = "many_to_many"
-rationale = """You can label agents freely."""
+requested_columns = ["origin"]
+rationale = """
+You can label agents freely.
+
+(Though this is sufficiently broad that it has to be used with care.
+Labels like
+ - scientist
+ - politician
+
+e.t.c)
+
+"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "languages"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type"]
+types = ["insert_marc_roles", ]
+nullable = "true"
 rationale = """
-Agents can work in different languages (e.g. Alistair Reynaulds is an English language author).
-(Orbit is an English language publishing housre)"""
+Agents can work in different languages
+e.g. Alistair Reynaulds is an English language author.
+e.g. Orbit is an English language publishing house."""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "manifestations"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """Agents can be responsible for creating manifestations."""
+requested_columns = ["priority", "type"]
+types = ["insert_marc_roles", ]
+nullable = "true"
+rationale = """
+Agents can be responsible for creating manifestations.
+e.g. a printer is responsible for printing an Expression.
+e.g. a copyeditor is responsible for corrections to an Expression to make a new Manifestation.
+"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "synopses"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """A synopses of an agent conveys infomation about the agent."""
+requested_columns = ["priority", ]
+nullable = "true"
+rationale = """
+A synopses of an agent conveys infomation about the agent.
+
+ - priority allows multiple of them to be ordered.
+"""
 
 [[interlinks]]
 left_table = "agents"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type", ]
+nullable = "true"
 types = ["insert_marc_roles", ]
-rationale = """An Agent can be responsible for creating a work (e.g. a report commisioned by a body)."""
+rationale = """
+An Agent is responsible for creating a Work
+ - e.g. An Author writes a book
+ - e.g. An Artist illustrates a work
+ - e.g. a report commisioned by a body
+
+ You can use priority to order the creators who worked on a work.
+ (Perhaps that cover artist is more important to that novel than the author. Idk).
+ """
 
 [[interlinks]]
 left_table = "comments"
 right_table = "compressed_files"
 link_type = "many_to_one"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """
 Comment on a compressed files - e.g. what might be in it.
 May be used and consumed by the import system during import.
-However, we don't want to share comments between compressed_files - dupe them if needed.
+We don't want to share comments between compressed_files - dupe them if needed - hence this table is many_to_one.
 """
 
 [[interlinks]]
 left_table = "comments"
 right_table = "conversion_options"
 link_type = "many_to_one"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """
-Comment on a conversion option - doe it produce good output? E.t.c.
-We don't want to share comments between conversion options - dupe them if needed.
+Comment on a conversion option - does it produce good output? E.t.c.
+We don't want to share comments between conversion options - dupe them if needed - hence this table is many_to_one.
 """
 
 [[interlinks]]
 left_table = "comments"
 right_table = "custom_columns"
 link_type = "many_to_one"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """
 Comment on a custom column - what does it do?
 We do not want to share comments between custom_columns - dupe them if needed.
@@ -169,7 +208,8 @@ We do not want to share comments between custom_columns - dupe them if needed.
 left_table = "comments"
 right_table = "devices"
 link_type = "many_to_one"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """
 Comment on a device - provides more info about it.
 We do not want to share comments between devices - dupe them if needed.
@@ -179,20 +219,26 @@ We do not want to share comments between devices - dupe them if needed.
 left_table = "comments"
 right_table = "expressions"
 link_type = "many_to_one"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """
 You can comment on an expressions. If you want.
-Comments should not be shared between expressions. Dupe them instead if needed.
+Comments should not be shared between expressions.
+Dupe them instead if needed.
+Hence this is a many-to-one table.
 """
 
 [[interlinks]]
 left_table = "comments"
 right_table = "feeds"
 link_type = "many_to_one"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """
 You can comment on a feed.
-Comments should not be shared between feeds. Dupe them if required.
+Comments should not be shared between feeds.
+Dupe them if required.
+Hence this is a many-to-one table.
 """
 
 [[forbidden_interlinks]]
@@ -204,7 +250,9 @@ rationale = """You cannot comment on the human_agents sidecar table. Please comm
 left_table = "comments"
 right_table = "agents"
 link_type = "many_to_one"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
+types = ["insert_marc_roles", ]
 rationale = """
 You can comment on an agent - in their role as a human. And an agent.
 A single comment should only be on one agent.
@@ -215,8 +263,9 @@ A single comment should only be on one agent.
 left_table = "comments"
 right_table = "items"
 link_type = "many_to_one"
-requested_columns = ["priority", "type", "nullable"]
-rationale = """"
+requested_columns = ["priority", "type",]
+nullable = "true"
+rationale = """
 You can comment on an item. If you wish.
 Each comment belongs to one and only one item.
 """
@@ -225,7 +274,8 @@ Each comment belongs to one and only one item.
 left_table = "comments"
 right_table = "manifestations"
 link_type = "many_to_one"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority",]
+nullable = "true"
 rationale = """
 You can comment on a manifestation.
 Each comment can belong to one and only one manifestation.
@@ -250,7 +300,8 @@ But comment on their entry in the agents table, not the org agents sidecar.
 left_table = "comments"
 right_table = "agents"
 link_type = "many_to_one"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority",]
+nullable = "true"
 rationale = """
 You can, and perhaps often should, comment on an agent - either human or org.
 Each comment should belong to one, and only one, agent.
@@ -260,14 +311,16 @@ Each comment should belong to one, and only one, agent.
 left_table = "comments"
 right_table = "series"
 link_type = "many_to_one"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority",]
+nullable = "true"
 rationale = """You can comment on a series. If you wish."""
 
 [[interlinks]]
 left_table = "comments"
 right_table = "stores"
 link_type = "many_to_many"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority",]
+nullable = "true"
 rationale = """
 Comments on the stores created on the system.
 Note - these are for human readable comments.
@@ -278,7 +331,8 @@ Machine readable "comments" are probably labels.
 left_table = "comments"
 right_table = "works"
 link_type = "many_to_one"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """
 You can comment on works, and, indeed, should.
 However, one comment per work.
@@ -330,7 +384,8 @@ rationale = """Label devices to control behavior and provide hints."""
 left_table = "devices"
 right_table = "notes"
 link_type = "one_to_many"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """
 Make a note on a device.
 This could include firmware version e.t.c.
@@ -362,7 +417,8 @@ Allows you to have a local staging store, which is just copied wholesale onto th
 left_table = "expressions"
 right_table = "images"
 link_type = "many_to_many"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """
 You can link expressions to images - perhaps covers for that particular expression.
 """
@@ -376,7 +432,8 @@ rationale = "Please link to the agents table directly - not the human_agents sid
 left_table = "expressions"
 right_table = "agents"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type", ]
+nullable = "true"
 types = ["insert_marc_roles", ]
 rationale = """
 Agents can be responsible for individual expressions, where they might - or might not - be responsible for the whole work.
@@ -392,7 +449,8 @@ rationale = """You can label an expression independently of a work."""
 left_table = "expressions"
 right_table = "languages"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type", ]
+nullable = "true"
 types = ["translation", "comments_in"]
 rationale = """Expressions can have languages independent of works. (e.g. translations)."""
 
@@ -400,14 +458,16 @@ rationale = """Expressions can have languages independent of works. (e.g. transl
 left_table = "expressions"
 right_table = "notes"
 link_type = "one_to_many"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """You can make notes on Expressions - which are ordered."""
 
 [[interlinks]]
 left_table = "feeds"
 right_table = "genres"
 link_type = "many_to_many"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority", ]
+nullable = "true"
 rationale = """Feeds can have a genre - such as 'architecture' e.t.c."""
 
 [[forbidden_interlinks]]
@@ -419,7 +479,8 @@ rationale = """Do not link to human_agents - link to their entry in the Agents t
 left_table = "feeds"
 right_table = "agents"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["insert_marc_roles", ]
 rationale = """
 Agents - be they organisations or people - have feeds that can be linked to them.
@@ -430,7 +491,8 @@ Feeds are, after all, a form of creative expressions.
 left_table = "feeds"
 right_table = "images"
 link_type = "many_to_many"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority",]
+nullable = "true"
 rationale = """
 Assign an image to a feed.
 Feeds can have a cover.
@@ -440,7 +502,8 @@ Feeds can have a cover.
 left_table = "feeds"
 right_table = "items"
 link_type = "many_to_many"
-requested_columns = ["type", "nullable"]
+requested_columns = ["type",]
+nullable = "true"
 types = ["update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf", "load_all"]
 rationale = """
 A feed can be a source for an item. Entries can be pulled from the feed and written to the item.
@@ -477,7 +540,8 @@ rationale = """What subjects do a feed involve?"""
 left_table = "feeds"
 right_table = "synopses"
 link_type = "many_to_one"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority",]
+nullable = "true"
 rationale = """Allows you to give a synopses to a feed."""
 
 [[interlinks]]
@@ -504,7 +568,8 @@ Every file should have one, and only one, hash.
 left_table = "files"
 right_table = "images"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["cover", "contained_image", "author_image"]
 rationale = """
 Allows you to assign a cover, or other type of image, to an individual file.
@@ -514,7 +579,8 @@ Allows you to assign a cover, or other type of image, to an individual file.
 left_table = "files"
 right_table = "items"
 link_type = "many_to_one"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 rationale = """
 An item can be assigned files - the actual expresssions of the platonic item.
 This is one of the points where we step off the WEMI stack and into actual storage on disk land.
@@ -533,7 +599,8 @@ This is often used for controlling conversion - metadata extraction and other pr
 left_table = "files"
 right_table = "languages"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 rationale = """What languages are contained in the given file?"""
 
 [[interlinks]]
@@ -564,7 +631,8 @@ Items from that feed will be preferentially filed inside that folder."""
 left_table = "folders"
 right_table = "items"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 rationale = """
 Items can be placed in folders.
 Not every store has a folder structure.
@@ -585,7 +653,8 @@ In common with the rest of the folder structure, it's more guidelines than rules
 left_table = "folders"
 right_table = "stores"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["real", ]
 rationale = """
 Folders can be in a store - if the store has chosen to generate them."""
@@ -594,7 +663,8 @@ Folders can be in a store - if the store has chosen to generate them."""
 left_table = "folders"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 rationale = """
 A Work can be assigned a folder - every file associated with that work will be preferentially sorted here.
 """
@@ -603,7 +673,8 @@ A Work can be assigned a folder - every file associated with that work will be p
 left_table = "genres"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 rationale = """A genre can be in a work - somewhere on the works tree."""
 
 [[interlinks]]
@@ -651,7 +722,8 @@ rationale = "Link to the agents table - not the human_agents sidecar."
 left_table = "agents"
 right_table = "series"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["insert_marc_roles", ]
 rationale = """
 Agents can be responsible for series in various ways.
@@ -671,7 +743,8 @@ rationale = "Please assign subjects to agents - rather than the human agents sid
 left_table = "agents"
 right_table = "subjects"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["specilizes_in", "known_for", "dispises"]
 rationale = """
 Some agents are only responsible for one subject.
@@ -688,7 +761,8 @@ rationale = "Please link a synopsis to an agent, not the human_agent sidecar tab
 left_table = "agents"
 right_table = "synopses"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 rationale = "You can assign a synopses to agents."
 
 [[forbidden_interlinks]]
@@ -700,7 +774,8 @@ rationale = "Please link an agent to a work, not the sidecar human_agents table.
 left_table = "agents"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["insert_marc_roles", ]
 rationale = "Someone, at some point, has to be responsible for a work."
 
@@ -708,7 +783,8 @@ rationale = "Someone, at some point, has to be responsible for a work."
 left_table = "images"
 right_table = "items"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["cover", "contained_in"]
 rationale = "You can assign an image to an individual item - such as a specilized cover."
 
@@ -722,14 +798,16 @@ rationale = "You can label an individual image if you wish - mostly used for con
 left_table = "images"
 right_table = "manifestations"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 rationale = """Individual manifestations can be assigned a cover/have derived illustrations."""
 
 [[interlinks]]
 left_table = "images"
 right_table = "series"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["cover", "illustration", "diagram", "map"]
 rationale = "You can assign a image as a cover to a series or for other reasons."
 
@@ -737,7 +815,8 @@ rationale = "You can assign a image as a cover to a series or for other reasons.
 left_table = "images"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["cover", "illustration", "diagram", "map"]
 rationale = "You can assign an image to a work as a cover or for other reasons."
 
@@ -751,7 +830,8 @@ rationale = "You can label an item - mostly used for conversion control and the 
 left_table = "items"
 right_table = "languages"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["primary", ]
 rationale = "An item is probably in either one or more languages."
 
@@ -759,7 +839,8 @@ rationale = "An item is probably in either one or more languages."
 left_table = "items"
 right_table = "last_read_positions"
 link_type = "many_to_many"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority",]
+nullable = "true"
 rationale = """Stores your last read positions on an item level.
 Probably a composite from your your file last read positions."""
 
@@ -804,7 +885,8 @@ rationale = "You can label a work and, indeed, should."
 left_table = "languages"
 right_table = "manifestations"
 link_type = "many_to_many"
-requested_columns = ["type", "nullable"]
+requested_columns = ["type",]
+nullable = "true"
 types = ["original", "contained", "translated_into"]
 rationale = """
 Every Manifestation has at least one language.
@@ -814,7 +896,8 @@ Every Manifestation has at least one language.
 left_table = "languages"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 rationale = "Every work has a language, if only the original language it was created in."
 
 [[forbidden_interlinks]]
@@ -856,7 +939,8 @@ rationale = "Please link agents to series, not the org_agents sidecar table."
 left_table = "agents"
 right_table = "series"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["insert_marc_roles", ]
 rationale = "Agents, of various sorts, can be responsible for creating and publishing series."
 
@@ -869,7 +953,8 @@ rationale = "Please link works to the agents table, not the org_agents sidecar t
 left_table = "agents"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 types = ["insert_marc_roles", ]
 rationale = """An agent can be responsible for creating a work.
 Probably at least one is."""
@@ -912,7 +997,8 @@ You can even use floats! If you must.
 left_table = "series"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 rationale = """
 Works can be in a series of works.
 Series can also be in a nested heirachy.
@@ -922,7 +1008,8 @@ Series can also be in a nested heirachy.
 left_table = "series"
 right_table = "subjects"
 link_type = "many_to_many"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority",]
+nullable = "true"
 rationale = "Occasionally (mostly) a series will have a enumerable set of subjects."
 
 [[interlinks]]
@@ -980,13 +1067,15 @@ rationale = """An explanation for what a subject is."""
 left_table = "subjects"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "nullable"]
+requested_columns = ["priority",]
+nullable = "true"
 rationale = "Works can have a subject. Independent of their series identity."
 
 [[interlinks]]
 left_table = "synopses"
 right_table = "works"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "nullable"]
+requested_columns = ["priority", "type",]
+nullable = "true"
 rationale = "You can assign synopses to works."
 

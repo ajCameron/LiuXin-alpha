@@ -410,3 +410,53 @@ class CalibreScanReport:
             "issues": [i.to_dict() for i in self.issues],
             "sample_books": [dict(b) for b in self.sample_books],
         }
+
+
+@dataclass(frozen=True, slots=True)
+class CalibreImportPolicy:
+    """Policy for classifying Calibre books into ingestion jobs.
+
+    This is deliberately simple and stable; callers can layer more complex
+    behaviour on top.
+    """
+
+    action_default: str = "full"  # "full" | "metadata_only" | "skip"
+    action_on_error_drift: str = "metadata_only"
+    action_on_no_formats: str = "metadata_only"
+    full_min_formats: int = 1
+    require_safe_paths_for_full: bool = True
+
+    # When a book is classified as metadata_only, optionally keep references.
+    metadata_only_keep_cover_path: bool = False
+    metadata_only_keep_formats: bool = False
+
+    def to_dict(self) -> Mapping[str, Any]:
+        return {
+            "action_default": self.action_default,
+            "action_on_error_drift": self.action_on_error_drift,
+            "action_on_no_formats": self.action_on_no_formats,
+            "full_min_formats": int(self.full_min_formats),
+            "require_safe_paths_for_full": bool(self.require_safe_paths_for_full),
+            "metadata_only_keep_cover_path": bool(self.metadata_only_keep_cover_path),
+            "metadata_only_keep_formats": bool(self.metadata_only_keep_formats),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CalibreImportJob:
+    """A single streaming ingestion job yielded by :func:`iter_import_jobs`."""
+
+    library_root: Path
+    source_mode: str  # "db" | "opf"
+    action: str  # "full" | "metadata_only" | "skip"
+    reasons: Tuple[str, ...] = ()
+    payload: Optional[CalibreBookNormalized] = None
+
+    def to_dict(self) -> Mapping[str, Any]:
+        return {
+            "library_root": str(self.library_root),
+            "source_mode": self.source_mode,
+            "action": self.action,
+            "reasons": list(self.reasons),
+            "payload": None if self.payload is None else self.payload.to_dict(),
+        }

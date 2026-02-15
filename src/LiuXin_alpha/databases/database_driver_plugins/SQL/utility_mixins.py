@@ -771,6 +771,12 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 link_rows_header += "\n      `{0}_index` TEXT NULL,"
                 decremented_requested_cols.remove("index")
 
+
+            # Any remaining bespoke requested columns: default to nullable TEXT.
+            # (The FRBR generator TOML is allowed to introduce extra metadata columns per link table.)
+            for extra_col in sorted(decremented_requested_cols):
+                link_rows_header += f"\n      `{{0}}_{extra_col}` TEXT NULL,"
+            decremented_requested_cols.clear()
             link_table_footer = """
           `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
           `{0}_scratch` TEXT NULL"""
@@ -784,7 +790,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         link_rows = comment_row + link_rows.format(column_name, table1_l_s, table2_l_s, fk_null_sql)
         sql_stmt_component_list.append(link_rows)
 
-        if requested_cols == "all" or "type" in requested_cols:
+        # Only enforce an allowed-types FK when an explicit allowed_types enumeration was provided.
+        # (If allowed_types is omitted, the `type` column is free-form text.)
+        if (requested_cols == "all" or "type" in requested_cols) and att_table_sqlite:
             # Add in the foreign key linking out to the allowed_types table
             att_name = self.get_allowed_types_table_name(table_name)
             att_col_name = att_name[:-1]  # Consistently just trimming the s off

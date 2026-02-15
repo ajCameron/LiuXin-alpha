@@ -54,6 +54,64 @@ from LiuXin_alpha.databases.api import DatabaseBuilderAPI
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 
 
+# ---------------------------------------------------------------------------
+# Interlink TOML helpers (types expansion / SQL emission)
+# ---------------------------------------------------------------------------
+
+def _parse_toml_bool(value: Any, *, default: bool = False) -> bool:
+    """Parse a permissive TOML boolean value.
+
+    Accepts bools, ints, and common string spellings ("true"/"false", "yes"/"no", "1"/"0").
+    """
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return bool(value)
+    if isinstance(value, str):
+        s = value.strip().lower()
+        if s in {"true", "t", "yes", "y", "1", "on"}:
+            return True
+        if s in {"false", "f", "no", "n", "0", "off", ""}:
+            return False
+    raise TypeError(f"TOML boolean value is not parseable: {value!r}")
+
+
+def _sql_quote_literal(value: str) -> str:
+    """SQL-quote a literal string for inclusion in a statement."""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def collect_type_tables(allowed_types_by_link_table: dict[str, Optional[list[str]]]) -> dict[str, set[str]]:
+    """Collect `{link_table}__types` reference tables to build, keyed by their table names."""
+    out: dict[str, set[str]] = {}
+    for link_table, types in allowed_types_by_link_table.items():
+        if not types:
+            continue
+        types_table = f"{link_table}__types"
+        bucket = out.setdefault(types_table, set())
+        bucket.update(types)
+    return out
+
+
+def emit_types_tables_sql(types_map: dict[str, set[str]]) -> list[str]:
+    """Emit idempotent SQL statements to create and seed all requested `__types` tables."""
+    stmts: list[str] = []
+    for types_table in sorted(types_map):
+        stmts.append(
+            f"""CREATE TABLE IF NOT EXISTS `{types_table}` (
+  `type` TEXT PRIMARY KEY
+);"""
+        )
+        for t in sorted(types_map[types_table]):
+            stmts.append(
+                f"INSERT OR IGNORE INTO `{types_table}` (`type`) VALUES ({_sql_quote_literal(t)});"
+            )
+    return stmts
+
+
+
 # Constraints on the interlink tables - DO NOT IMPORT - dynamically modified at run time
 
 
@@ -148,6 +206,16 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
     # Interlink constraints are derived entirely from the TOML spec at build time.
     INTERLINK_TABLE_CONSTRAINTS: dict[str, dict[str, str]] = {}
 
+    # Additional optional columns permitted on interlink tables via TOML requested_columns
+    INTERLINK_TABLE_COLUMN_NAME_DICT: dict[str, tuple] = {
+        'priority': ('priority', 'INTEGER', 'DEFAULT 0'),
+        'primary': ('primary', 'INTEGER', 'NULL DEFAULT 0'),
+        'type': ('type', 'TEXT', 'NULL'),
+        'origin': ('origin', 'TEXT', 'NULL'),
+        'data': ('data', 'TEXT', 'NULL'),
+        'index': ('index', 'TEXT', 'NULL'),
+    }
+
     def __init__(self, conn: sqlite3.Connection) -> None:
         """
         A conn object pointing to an empty database.
@@ -174,12 +242,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         self.interlink_nullable_fks_by_table: dict[str, bool] = {}
         self.intralink_allowed_types_by_table: dict[str, Optional[list[str]]] = {}
 
-
-
         # Per-instance copies so we can add dynamic constraints based on TOML
         self.ALLOWED_INTERLINK_TYPE_VAL_DICT = deepcopy(__ALLOWED_INTERLINK_TYPE_VAL_DICT__)
         self.INTERLINK_TABLE_CONSTRAINTS = deepcopy(__INTERLINK_TABLE_CONSTRAINTS__)
-
 
         # FRBR generator is TOML-first: do not fall back to legacy hard-coded type enums.
         self.ALLOWED_INTERLINK_TYPE_VAL_DICT = {}
@@ -205,7 +270,8 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         # 2) Build the triggers
         self.create_main_triggers()
 
-        assert self.direct_get_tables() is None, sorted(self.direct_get_tables())
+        # Sanity: ensure we can introspect tables after main DDL
+        _ = self.direct_get_tables()
 
         # 2) Creates the interlink tables - these are sufficiently similar that they are amenable to automated creation
         self.interlink_tables_pairs = self.get_requested_interlink_tables()
@@ -223,6 +289,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         # 5) Validate the table column requests - the columns that we want added to each of the link tables
         self.validate_interlink_table_column_requests()
+
+        # 5b) Create and seed any interlink type reference tables
+        self.materialize_interlink_type_reference_tables()
 
         # 6) Build the interlink tables
         for table in self.interlink_tables_pairs:
@@ -260,7 +329,6 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         return set(processed_return)
 
-    
     def sanity_check_interlink_inputs(self) -> None:
         """
         Lightweight sanity checks for TOML specs.
@@ -285,7 +353,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "index", "nullable", "all"}
+        allowed_req_cols = {"priority", "primary", "type", "origin", "data", "index", "nullable", "all"}
 
         for idx, entry in enumerate(interlinks):
             if not isinstance(entry, dict):
@@ -315,9 +383,14 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             for rc in requested_columns:
                 rcs = str(rc).strip().lower()
                 if rcs not in allowed_req_cols:
-                    raise TypeError(f"Unknown requested_columns entry {rcs!r} in interlink {idx}")
+                    # Permit bespoke per-link metadata columns as long as the name is safe.
+                    if not re.fullmatch(r"[a-z][a-z0-9_]*", rcs):
+                        raise TypeError(f"Unknown requested_columns entry {rcs!r} in interlink {idx}")
 
 
+            # Validate optional per-interlink nullable flag (may be stringly-typed in TOML).
+            if 'nullable' in entry:
+                _parse_toml_bool(entry.get('nullable'))
 
     def sanity_check_intralink_inputs(self) -> None:
         """
@@ -327,7 +400,6 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         """
         for intralink_table in self.intralink_tables:
             assert intralink_table in self.main_tables, f"Unknown intralink main table: {intralink_table!r}"
-
 
     def create_main_tables(self) -> None:
         """
@@ -458,7 +530,6 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
             conn.commit()
 
-
     def get_requested_interlink_tables(self) -> set[tuple[str, str]]:
         """
         Parse `interlink_table_requests.toml` and return requested interlink table pairs.
@@ -519,25 +590,33 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                 continue
             fleft = fent.get("left_table") or fent.get("left") or fent.get("a")
             fright = fent.get("right_table") or fent.get("right") or fent.get("b")
+
             if not fleft or not fright:
                 LiuXin_warning_print("Warning - forbidden_interlinks entry missing left_table/right_table: " + repr(fent))
                 continue
+
             cf1 = self.match_to_table_name(str(fleft))
             cf2 = self.match_to_table_name(str(fright))
             if cf1 is None or cf2 is None:
                 LiuXin_warning_print("Warning - forbidden_interlinks references unknown table: " + repr((fleft, fright)))
                 continue
+
             if cf1 == cf2:
                 LiuXin_warning_print("Warning - forbidden_interlinks contains self-link (ignored): " + repr((cf1, cf2)))
                 continue
+
             fpair = tuple(sorted((cf1, cf2)))
-            reason = str(fent.get("reason", ""))
+
+            reason = str(fent.get("rationale") or fent.get("reason", ""))
+
             severity = str(fent.get("severity", "error")).lower().strip()
+
             if fpair in self.forbidden_interlink_pairs:
                 prev = self.forbidden_interlink_pairs[fpair]
                 if (prev.get("reason"), prev.get("severity")) != (reason, severity):
                     LiuXin_warning_print("Warning - duplicate forbidden_interlinks entry differs (keeping first): " + repr(fpair))
                 continue
+
             self.forbidden_interlink_pairs[fpair] = {"reason": reason, "severity": severity}
 
         default_link_type = str(data.get("default_link_type", "many_to_many"))
@@ -547,7 +626,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "index", "nullable", "all"}
+        allowed_req_cols = {"priority", "primary", "type", "origin", "data", "index", "nullable", "all"}
 
         # Build a set of unordered FK edges to warn about redundant interlinks
         fk_pairs: set[tuple[str, str]] = set()
@@ -594,7 +673,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                     lowered = [str(x).strip().lower() for x in requested_columns]
                     for rc in lowered:
                         if rc not in allowed_req_cols:
-                            raise TypeError(f"Unknown requested_columns entry {rc!r} in interlink {idx}")
+                            # Permit bespoke per-link metadata columns as long as the name is safe.
+                            if not re.fullmatch(r"[a-z][a-z0-9_]*", rc):
+                                raise TypeError(f"Unknown requested_columns entry {rc!r} in interlink {idx}")
                     if "nullable" in lowered:
                         nullable_fks = True
                         lowered = [x for x in lowered if x != "nullable"]
@@ -605,13 +686,49 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                 else:
                     raise TypeError(f"requested_columns must be a list or string; got: {type(requested_columns)}")
 
+            # Support an explicit per-interlink `nullable` key (preferred), in addition to the
+            # legacy `requested_columns = [..., 'nullable', ...]` sentinel.
+            if 'nullable' in entry and entry.get('nullable') is not None:
+                nullable_fks = _parse_toml_bool(entry.get('nullable'), default=nullable_fks)
             # allowed_types: optional explicit allowed values for the type column
             allowed_types = entry.get("allowed_types") or entry.get("types")
             allowed_types_list: Optional[list[str]] = None
             if allowed_types is not None:
                 if not isinstance(allowed_types, list):
                     raise TypeError(f"allowed_types must be a list of strings; got: {allowed_types!r}")
-                allowed_types_list = [str(x) for x in allowed_types]
+
+                raw_items = [str(x).strip() for x in allowed_types if str(x).strip()]
+
+                # Expand special placeholders.
+                expanded: list[str] = []
+                for item in raw_items:
+                    key = item.strip()
+                    if key.lower() == "insert_marc_roles":
+                        try:
+                            from LiuXin_alpha.constants.marc_relator_dicts import MARC_ROLE_DESC
+                        except Exception as e:  # pragma: no cover
+                            raise RuntimeError("Unable to import MARC_ROLE_DESC for insert_marc_roles expansion") from e
+                        expanded.extend(sorted(MARC_ROLE_DESC.keys()))
+                        continue
+                    if key.lower() == "insert_known_hash_types":
+                        import hashlib
+                        expanded.extend(sorted(hashlib.algorithms_guaranteed))
+                        continue
+                    if key.lower().startswith("insert_"):
+                        raise TypeError(f"Unknown types placeholder {key!r} in interlink {idx}")
+                    expanded.append(key)
+
+                # De-duplicate while preserving order (deterministic for MARC roles because we sort that expansion).
+                seen: set[str] = set()
+                allowed_types_list = []
+                for v in expanded:
+                    if v in seen:
+                        continue
+                    seen.add(v)
+                    allowed_types_list.append(v)
+
+                if not allowed_types_list:
+                    raise TypeError(f"allowed_types list is empty after expansion in interlink {idx}")
 
             # If the spec defines an explicit enumeration for the type column, ensure the type column is present.
             if allowed_types_list is not None and requested_cols != "all":
@@ -682,7 +799,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
     @staticmethod
     def _canonicalize_link_type(link_type: str) -> str:
-        """Normalize common link-type spellings to a small canonical set."""
+        """
+        Normalize common link-type spellings to a small canonical set.
+        """
+
         if link_type is None:
             return "many_to_many"
         s = str(link_type).strip().lower()
@@ -808,16 +928,31 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         """
         Validate requested_columns from TOML for each interlink table.
 
-        The FRBR generator supports: priority, primary, type, index (or 'all').
+        Supported optional columns are those in INTERLINK_TABLE_COLUMN_NAME_DICT
+        (e.g. priority, primary, type, origin, data, index) plus the legacy
+        requested_columns entry "nullable" (now handled via the TOML key `nullable`).
         """
-        allowed_cols = {"priority", "primary", "type", "index"}
+        allowed_cols = set(self.INTERLINK_TABLE_COLUMN_NAME_DICT.keys())
         for link_table in self.interlink_tables:
             req = self.interlink_requested_cols_by_table.get(link_table, {"priority"})
             if req is None or req == "all":
                 continue
             assert isinstance(req, set), f"requested_columns for {link_table} must be a set or 'all'"
             for cr in req:
-                assert cr in allowed_cols, f"cr {cr} not valid"
+                # Legacy no-op (nullable is now derived from TOML key `nullable`)
+                if cr == "nullable":
+                    continue
+                assert cr in allowed_cols, f"requested column {cr!r} not valid for {link_table} (allowed: {sorted(allowed_cols)})"
+    def materialize_interlink_type_reference_tables(self) -> None:
+        """Create and seed all `{link_table}__types` tables requested by TOML."""
+        types_map = collect_type_tables(self.interlink_allowed_types_by_table)
+        if not types_map:
+            return
+        c = self.conn.cursor()
+        for stmt in emit_types_tables_sql(types_map):
+            c.execute(stmt)
+        self.conn.commit()
+
     def __constraint_not_found_error(self, link_table: str) -> str:
         err_msg = [
             "{} not found in the known interlink tables".format(link_table),
@@ -925,7 +1060,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             self.create_interlink_types_reference_table(
                 interlink_table_name=table_name,
                 interlink_column_base=column_name,
-                allowed_types=None,
+                allowed_types=allowed_types,
                 connection=conn,
             )
 
@@ -938,40 +1073,29 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         allowed_types: list[str],
         connection: sqlite3.Connection,
     ) -> None:
-        """
-        For interlink tables that include a `{column_base}_type` column, we optionally materialise a reference
-        table holding permitted values.
+        """Create/seed `{interlink_table_name}__types` and install guard triggers.
 
-        The reference table is named: `{interlink_table_name}__types`
+        The types table is a simple extensible reference set: column `type` is the primary key.
+        Rows may be added later without rebuilding the schema.
 
-        This keeps the enumeration extensible: you can add additional rows later without needing to rebuild
-        the schema, while still letting the generator seed a default set.
-
-        We also install INSERT/UPDATE triggers that abort if a non-null type value is not present in the
-        reference table.
+        We enforce membership via INSERT/UPDATE triggers on the interlink table.
         """
         conn = connection
         c = conn.cursor()
 
         types_table = f"{interlink_table_name}__types"
-        type_col = "type"
 
-        create_types_table = f"""
-        CREATE TABLE IF NOT EXISTS `{types_table}` (
-          `type_id` INTEGER PRIMARY KEY,
-          `{type_col}` TEXT NOT NULL,
-          `type_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
-          `type_scratch` TEXT NULL,
-          CONSTRAINT `{types_table}__type_unique`
-            UNIQUE(`{type_col}`)
-        );
-        """
+        # Create the reference table (idempotent) and seed permitted values (idempotent).
+        c.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS `{types_table}` (
+              `type` TEXT PRIMARY KEY
+            );
+            """
+        )
 
-        c.execute(create_types_table)
-
-        # Seed permitted values (idempotent)
         for t in allowed_types:
-            c.execute(f"INSERT OR IGNORE INTO `{types_table}` (`{type_col}`) VALUES (?);", (t,))
+            c.execute(f"INSERT OR IGNORE INTO `{types_table}` (`type`) VALUES (?);", (t,))
 
         # Enforce: if the link row includes a type, it must exist in the reference table.
         link_type_col = f"{interlink_column_base}_type"
@@ -985,7 +1109,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             BEFORE INSERT ON `{interlink_table_name}`
             FOR EACH ROW
             WHEN NEW.`{link_type_col}` IS NOT NULL
-             AND NOT EXISTS (SELECT 1 FROM `{types_table}` WHERE `{type_col}` = NEW.`{link_type_col}`)
+             AND NOT EXISTS (SELECT 1 FROM `{types_table}` WHERE `type` = NEW.`{link_type_col}`)
             BEGIN
               SELECT RAISE(ABORT, 'Invalid link type (not in {types_table}).');
             END;
@@ -998,7 +1122,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             BEFORE UPDATE OF `{link_type_col}` ON `{interlink_table_name}`
             FOR EACH ROW
             WHEN NEW.`{link_type_col}` IS NOT NULL
-             AND NOT EXISTS (SELECT 1 FROM `{types_table}` WHERE `{type_col}` = NEW.`{link_type_col}`)
+             AND NOT EXISTS (SELECT 1 FROM `{types_table}` WHERE `type` = NEW.`{link_type_col}`)
             BEGIN
               SELECT RAISE(ABORT, 'Invalid link type (not in {types_table}).');
             END;
@@ -1006,6 +1130,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         )
 
         conn.commit()
+
 
 
 
@@ -1339,4 +1464,3 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         c = self.conn.cursor()
         c.execute(del_stmt_block)
         self.conn.commit()
-
