@@ -4,7 +4,7 @@ from typing import List
 
 import pytest
 
-from .calibre_fixture_libraries import (
+from databases.calibre_fixture_libraries import (
     CalibreFixtureSpec,
     discover_calibre_fixtures,
     extract_library_zip,

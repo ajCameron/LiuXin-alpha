@@ -1,3 +1,10 @@
+
+"""
+API for the calibre_emulation module.
+"""
+
+
+
 from .db import CalibreDB
 from .errors import (
     CalibreCorruptError,

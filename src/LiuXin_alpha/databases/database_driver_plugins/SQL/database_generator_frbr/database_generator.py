@@ -32,6 +32,7 @@ import re
 import os
 import pprint
 import pathlib
+import difflib
 from copy import deepcopy
 
 from typing import Optional
@@ -745,9 +746,40 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             c_table1 = self.match_to_table_name(str(left))
             c_table2 = self.match_to_table_name(str(right))
 
+            if c_table1 is None:
+                raw_left = str(left).strip()
+                if raw_left in current_tables:
+                    c_table1 = raw_left
+            if c_table2 is None:
+                raw_right = str(right).strip()
+                if raw_right in current_tables:
+                    c_table2 = raw_right
+
             if c_table1 is None or c_table2 is None:
-                LiuXin_warning_print("Warning - unknown table in interlink request: " + repr((left, right)))
-                continue
+                raw_left = str(left).strip()
+                raw_right = str(right).strip()
+                missing = []
+                if c_table1 is None:
+                    missing.append(raw_left)
+                if c_table2 is None:
+                    missing.append(raw_right)
+
+                known = sorted(current_tables)
+                sugg_lines = []
+                for miss in missing:
+                    matches = difflib.get_close_matches(miss, known, n=5, cutoff=0.6)
+                    if matches:
+                        sugg_lines.append(f"  - {miss!r} -> {matches!r}")
+                msg = (
+                    f"Unknown table referenced in interlinks[{idx}] in interlink_table_requests.toml: "
+                    f"{raw_left!r} ↔ {raw_right!r}. Missing: {missing!r}."
+                )
+                if sugg_lines:
+                    msg += "
+Did you mean one of:
+" + "
+".join(sugg_lines)
+                raise ValueError(msg)
 
             if c_table1 == c_table2:
                 LiuXin_warning_print("Warning - self-link requested (ignored): " + repr((c_table1, c_table2)))
@@ -871,6 +903,8 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                     primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many_non_exclusive"
                 else:
                     primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many"
+
+            elif link_type == "one_to_many":
                 primary_table, secondary_table, internal_link_type = left_table, right_table, "one_many"
             elif link_type == "many_to_one":
                 primary_table, secondary_table, internal_link_type = left_table, right_table, "many_one"
@@ -1172,8 +1206,6 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         with open(spec_path_toml, "rb") as fh:
             data: dict[str, Any] = tomllib.load(fh)
 
-        require_table_exists = bool(data.get("require_table_exists", True))
-
         intralinks = data.get("intralinks", [])
         if not isinstance(intralinks, list):
             raise TypeError("TOML key `intralinks` must be a list")
@@ -1207,11 +1239,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                 # Ensure a stable key exists so later build steps can be simple
                 self.intralink_allowed_types_by_table.setdefault(c_table, None)
 
-            if require_table_exists and c_table not in current_tables:
-                LiuXin_warning_print(
-                    "Warning - intralink request references unknown main table (skipped): " + repr(c_table)
+            if c_table not in current_tables:
+                raise ValueError(
+                    f"Unknown table referenced in intralinks[{idx}] in intralink_table_requests.toml: {c_table!r}"
                 )
-                continue
 
             intralink_tables.add(c_table)
 

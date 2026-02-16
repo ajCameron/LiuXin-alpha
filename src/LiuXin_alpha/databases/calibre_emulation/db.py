@@ -1,6 +1,6 @@
-"""Read-only connection wrapper and schema discovery for Calibre libraries.
+"""
+Read-only connection wrapper and schema discovery for Calibre libraries.
 
-Stage A2 scope:
 - Open an existing ``metadata.db`` safely (read-only)
 - Discover schema info (application_id, user_version, table/trigger lists)
 - Discover custom columns (from ``custom_columns`` table)
@@ -28,6 +28,12 @@ from .versioning import CalibreVersionPolicy, resolve_version_plan
 
 
 def _as_path(p: str | Path) -> Path:
+    """
+    Attempt to cast the given object to a path.
+
+    :param p:
+    :return:
+    """
     return p if isinstance(p, Path) else Path(p)
 
 
@@ -38,7 +44,16 @@ def _connect_sqlite(
     timeout_ms: int,
     row_factory: Any = sqlite3.Row,
 ) -> sqlite3.Connection:
-    """Open sqlite3 connection (optionally read-only) with safe pragmas."""
+    """
+    Open sqlite3 connection (optionally read-only) with safe pragmas.
+
+    The aim is a as-safe-as-possible connection to enable database reading.
+    :param db_path:
+    :param read_only:
+    :param timeout_ms:
+    :param row_factory:
+    :return:
+    """
     if read_only:
         # Use a proper file:// URI (with escaping) to support spaces/unicode.
         uri = db_path.resolve().as_uri() + "?mode=ro"
@@ -73,6 +88,13 @@ def _connect_sqlite(
 
 
 def _sqlite_master_names(conn: sqlite3.Connection, *, kind: str) -> Tuple[str, ...]:
+    """
+    Extract the master names from the master schema table of the database.
+
+    :param conn:
+    :param kind:
+    :return:
+    """
     rows = conn.execute(
         "SELECT name FROM sqlite_master WHERE type=? AND name NOT LIKE 'sqlite_%' ORDER BY name",
         (kind,),
@@ -81,6 +103,13 @@ def _sqlite_master_names(conn: sqlite3.Connection, *, kind: str) -> Tuple[str, .
 
 
 def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
+    """
+    Check to see if a table exists in the database.
+
+    :param conn:
+    :param table_name:
+    :return:
+    """
     row = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
         (table_name,),
@@ -89,6 +118,12 @@ def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
 
 
 def _parse_display_json(raw: Any) -> dict[str, Any]:
+    """
+    Parse a raw JSON string into a dict.
+
+    :param raw:
+    :return:
+    """
     if raw is None:
         return {}
     if isinstance(raw, dict):
@@ -110,7 +145,13 @@ def _parse_display_json(raw: Any) -> dict[str, Any]:
         return {}
 
 def _table_columns(conn: sqlite3.Connection, table_name: str) -> Tuple[str, ...]:
-    """Return column names for a table via PRAGMA table_info (best-effort)."""
+    """
+    Return column names for a table via PRAGMA table_info (best-effort).
+
+    :param conn:
+    :param table_name:
+    :return:
+    """
     try:
         rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
     except Exception:
@@ -122,8 +163,6 @@ def _table_columns(conn: sqlite3.Connection, table_name: str) -> Tuple[str, ...]
         except Exception:
             continue
     return tuple(out)
-
-
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +181,14 @@ class CalibreDB:
         read_only: bool = True,
         timeout_ms: int = 5_000,
     ) -> "CalibreDB":
+        """
+        Attempt to locate and load a calibre library from a root path.
+
+        :param library_root:
+        :param read_only:
+        :param timeout_ms:
+        :return:
+        """
         return cls(paths=CalibreLibraryPaths.from_root(_as_path(library_root)), read_only=read_only, timeout_ms=timeout_ms)
 
     def connect(self) -> sqlite3.Connection:
@@ -169,7 +216,20 @@ class CalibreDB:
         best_effort: bool = False,
         version_policy: CalibreVersionPolicy | None = None,
     ) -> CalibreSchemaInfo:
-        """Return observed schema info for the library."""
+        """
+        Return observed schema info for the library.
+
+        The aim of this class is to pull as much data as possible out of a calibre database.
+        As such, we're introspecting to discover the schema.
+        :param include_tables:
+        :param include_triggers:
+        :param include_custom_columns:
+        :param include_version_plan:
+        :param require_core_tables:
+        :param best_effort:
+        :param version_policy:
+        :return:
+        """
         conn = self.connect()
         issues: list[CalibreIssue] = []
         try:
@@ -240,6 +300,13 @@ class CalibreDB:
 
     @staticmethod
     def _validate_core_tables(conn: sqlite3.Connection) -> None:
+        """
+        Check the database for core tables.
+
+        If we don't have these, then there's not much to salvage.
+        :param conn:
+        :return:
+        """
         required = {
             "books",
             "authors",
@@ -259,11 +326,17 @@ class CalibreDB:
         existing_tables: Optional[set[str]] = None,
         issues_out: Optional[list[CalibreIssue]] = None,
     ) -> Tuple[CalibreCustomColumnDef, ...]:
-        """Read custom column definitions with best-effort column discovery.
+        """
+        Read custom column definitions with best-effort column discovery.
 
         Real Calibre libraries include extra columns such as `normalized` and
         `editable`. Some mangled/minimal DBs may not; in that case we fall back
         to Calibre's datatype rules and record issues when appropriate.
+
+        :param conn: connection to database
+        :param existing_tables: If we know about some tables, hint them here.
+        :param issues_out:
+        :return:
         """
 
         # Compute existing tables once if not supplied.

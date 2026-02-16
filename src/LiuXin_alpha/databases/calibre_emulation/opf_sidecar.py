@@ -1,4 +1,5 @@
-"""Stage B4 (pre-C): best-effort readers for Calibre sidecar OPF metadata.
+"""
+Stage B4 (pre-C): best-effort readers for Calibre sidecar OPF metadata.
 
 Why this exists
 ---------------
@@ -41,6 +42,12 @@ from .types import CalibreBookNormalized, CalibreFormatRef, CalibreSeriesRef
 # ----------------------------
 
 def _localname(tag: str) -> str:
+    """
+    Extract the tag text from a tag.
+
+    :param tag:
+    :return:
+    """
     # '{ns}name' -> 'name'
     if not tag:
         return ""
@@ -50,12 +57,25 @@ def _localname(tag: str) -> str:
 
 
 def _strip_text(x: Optional[str]) -> str:
+    """
+    Strip leading and trailing whitespace from a string.
+
+    :param x:
+    :return:
+    """
     if x is None:
         return ""
     return str(x).strip()
 
 
 def _iter_elements_by_localname(root: ET.Element, local: str) -> Iterator[ET.Element]:
+    """
+    Iterate over all elements within a local-name tag.
+
+    :param root:
+    :param local:
+    :return:
+    """
     want = local.lower()
     for elem in root.iter():
         if _localname(elem.tag).lower() == want:
@@ -63,17 +83,34 @@ def _iter_elements_by_localname(root: ET.Element, local: str) -> Iterator[ET.Ele
 
 
 def _meta_key(elem: ET.Element) -> str:
-    # OPF2 uses name/content; OPF3 uses property/text.
+    """
+    OPF2 uses name/content; OPF3 uses property/text.
+
+    :param elem:
+    :return:
+    """
     return _strip_text(elem.attrib.get("name") or elem.attrib.get("property"))
 
 
 def _meta_value(elem: ET.Element) -> str:
+    """
+    Best effort to get the value from the element.
+
+    :param elem:
+    :return:
+    """
     if "content" in elem.attrib:
         return _strip_text(elem.attrib.get("content"))
     return _strip_text(elem.text)
 
 
 def _safe_parse_xml(opf_bytes: bytes) -> Tuple[Optional[ET.Element], Optional[str]]:
+    """
+    Pase an xml as bytes into something with an iterate over.
+
+    :param opf_bytes:
+    :return:
+    """
     try:
         root = ET.fromstring(opf_bytes)
         return root, None
@@ -94,6 +131,9 @@ def _safe_parse_xml(opf_bytes: bytes) -> Tuple[Optional[ET.Element], Optional[st
 
 @dataclass(frozen=True, slots=True)
 class ParsedOPF:
+    """
+    The results of parsing an OPF.
+    """
     title: str = ""
     authors: Tuple[str, ...] = ()
     tags: Tuple[str, ...] = ()
