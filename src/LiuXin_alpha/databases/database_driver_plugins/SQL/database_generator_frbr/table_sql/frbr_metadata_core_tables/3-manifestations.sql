@@ -8,8 +8,7 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
 
     `manifestation_id` INTEGER PRIMARY KEY,
 
-  -- Relation to expression
-  `manifestation_expression_id` INTEGER NOT NULL,
+  -- Relation to expressions is via `expression_manifestation_links` (many-to-many)
 
   -- Carrier / format
   `manifestation_carrier_type` TEXT NULL,      -- 'print_book', 'ebook', 'audiobook', 'bluray_disc', ...
@@ -35,13 +34,7 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
   `manifestation_source_created_datestamp_ep_k` INTEGER NULL,
   `manifestation_source_modified_datestamp_ep_k` INTEGER NULL,
 
-  `manifestation_scratch` TEXT NULL,
-
-  CONSTRAINT `manifestation_expression_fk`
-    FOREIGN KEY (`manifestation_expression_id`)
-    REFERENCES `expressions` (`expression_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
+  `manifestation_scratch` TEXT NULL
 
 );
 
@@ -49,7 +42,5 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
 -- BREAK
 
 
-CREATE INDEX IF NOT EXISTS `idx_manifestations_expression_id`
-ON `manifestations` (`manifestation_expression_id`);
 
 -- BREAK

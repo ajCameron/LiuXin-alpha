@@ -161,7 +161,8 @@ def get_main_table_sql_files() -> list[pathlib.Path]:
 
     assert table_sql_folder.is_dir(), "table_sql folder is not a directory"
 
-    for root, dirs, files in table_sql_folder.walk():
+    # pathlib.Path.walk() is only available on Python 3.12+; use os.walk for compatibility.
+    for root, dirs, files in os.walk(table_sql_folder):
 
         for file in files:
 
@@ -184,7 +185,8 @@ def get_trigger_sql_files() -> list[pathlib.Path]:
 
     assert table_sql_folder.is_dir(), "trigger_sql folder is not a directory"
 
-    for root, dirs, files in table_sql_folder.walk():
+    # pathlib.Path.walk() is only available on Python 3.12+; use os.walk for compatibility.
+    for root, dirs, files in os.walk(table_sql_folder):
 
         for file in files:
 
@@ -212,6 +214,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         'primary': ('primary', 'INTEGER', 'NULL DEFAULT 0'),
         'type': ('type', 'TEXT', 'NULL'),
         'origin': ('origin', 'TEXT', 'NULL'),
+        'policy': ('policy', 'TEXT', 'NULL'),
         'data': ('data', 'TEXT', 'NULL'),
         'index': ('index', 'TEXT', 'NULL'),
     }
@@ -289,9 +292,6 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         # 5) Validate the table column requests - the columns that we want added to each of the link tables
         self.validate_interlink_table_column_requests()
-
-        # 5b) Create and seed any interlink type reference tables
-        self.materialize_interlink_type_reference_tables()
 
         # 6) Build the interlink tables
         for table in self.interlink_tables_pairs:
@@ -641,6 +641,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         link_tables: set[tuple[str, str]] = set()
 
+        # Track canonical unordered interlink pairs seen in the TOML spec; duplicates are always an error.
+        seen_interlink_pairs: dict[tuple[str, str], int] = {}
+
         for idx, entry in enumerate(interlinks):
             if not isinstance(entry, dict):
                 LiuXin_warning_print(f"Warning - interlink spec entry {idx} is not a table (dict): {entry!r}")
@@ -765,9 +768,16 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                     continue
                 raise TypeError(msg)
 
-            if current_pair in link_tables:
-                LiuXin_warning_print("Warning - duplicate interlink request (deduped): " + repr(current_pair))
-                continue
+            first_idx = seen_interlink_pairs.get(current_pair)
+            if first_idx is not None:
+                raise ValueError(
+                    f"Duplicate interlink pair {current_pair!r} in interlink_table_requests.toml: "
+                    f"interlinks[{first_idx}] and interlinks[{idx}]. "
+                    f"Please merge them into a single entry."
+                )
+            seen_interlink_pairs[current_pair] = idx
+
+            link_tables.add(current_pair)
 
             if current_pair in fk_pairs:
                 if warn_on_redundant_links:
@@ -791,7 +801,6 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                 "allowed_types": allowed_types_list,
             }
 
-            link_tables.add(current_pair)
 
         return link_tables
 
@@ -813,6 +822,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             "many_many": "many_to_many",
             "many_to_many": "many_to_many",
             "m2m": "many_to_many",
+            "many_many_non_exclusive": "many_to_many_non_exclusive",
+            "many_to_many_non_exclusive": "many_to_many_non_exclusive",
+            "m2m_non_exclusive": "many_to_many_non_exclusive",
             "one_many": "one_to_many",
             "one_to_many": "one_to_many",
             "o2m": "one_to_many",
@@ -845,11 +857,20 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             link_type_raw = spec.get("link_type") if spec else default_link_type
 
             link_type = self._canonicalize_link_type(link_type_raw)
-
             # Map spec language -> internal constraint language
             if link_type == "many_to_many":
-                primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many"
-            elif link_type == "one_to_many":
+                # If the spec requests a `type` column, this is almost always a role-style mapping.
+                # Use many_many_non_exclusive so (A,B,type) is unique while allowing multiple roles.
+                if spec is not None:
+                    rc = spec.get("requested_cols")
+                    has_type = (rc == "all") or (isinstance(rc, (set, list, tuple)) and ("type" in rc))
+                else:
+                    has_type = False
+
+                if has_type:
+                    primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many_non_exclusive"
+                else:
+                    primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many"
                 primary_table, secondary_table, internal_link_type = left_table, right_table, "one_many"
             elif link_type == "many_to_one":
                 primary_table, secondary_table, internal_link_type = left_table, right_table, "many_one"
@@ -1073,63 +1094,14 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         allowed_types: list[str],
         connection: sqlite3.Connection,
     ) -> None:
-        """Create/seed `{interlink_table_name}__types` and install guard triggers.
+        """Delegate to the shared link-table utility mixin implementation."""
 
-        The types table is a simple extensible reference set: column `type` is the primary key.
-        Rows may be added later without rebuilding the schema.
-
-        We enforce membership via INSERT/UPDATE triggers on the interlink table.
-        """
-        conn = connection
-        c = conn.cursor()
-
-        types_table = f"{interlink_table_name}__types"
-
-        # Create the reference table (idempotent) and seed permitted values (idempotent).
-        c.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS `{types_table}` (
-              `type` TEXT PRIMARY KEY
-            );
-            """
+        return super().create_interlink_types_reference_table(
+            interlink_table_name=interlink_table_name,
+            interlink_column_base=interlink_column_base,
+            allowed_types=allowed_types,
+            connection=connection,
         )
-
-        for t in allowed_types:
-            c.execute(f"INSERT OR IGNORE INTO `{types_table}` (`type`) VALUES (?);", (t,))
-
-        # Enforce: if the link row includes a type, it must exist in the reference table.
-        link_type_col = f"{interlink_column_base}_type"
-
-        trig_insert = f"{interlink_table_name}__type_guard_insert"
-        trig_update = f"{interlink_table_name}__type_guard_update"
-
-        c.execute(
-            f"""
-            CREATE TRIGGER IF NOT EXISTS `{trig_insert}`
-            BEFORE INSERT ON `{interlink_table_name}`
-            FOR EACH ROW
-            WHEN NEW.`{link_type_col}` IS NOT NULL
-             AND NOT EXISTS (SELECT 1 FROM `{types_table}` WHERE `type` = NEW.`{link_type_col}`)
-            BEGIN
-              SELECT RAISE(ABORT, 'Invalid link type (not in {types_table}).');
-            END;
-            """
-        )
-
-        c.execute(
-            f"""
-            CREATE TRIGGER IF NOT EXISTS `{trig_update}`
-            BEFORE UPDATE OF `{link_type_col}` ON `{interlink_table_name}`
-            FOR EACH ROW
-            WHEN NEW.`{link_type_col}` IS NOT NULL
-             AND NOT EXISTS (SELECT 1 FROM `{types_table}` WHERE `type` = NEW.`{link_type_col}`)
-            BEGIN
-              SELECT RAISE(ABORT, 'Invalid link type (not in {types_table}).');
-            END;
-            """
-        )
-
-        conn.commit()
 
 
 
@@ -1158,123 +1130,19 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             connection.commit()
 
     def build_intralink_table_sqlite(self, name: str) -> list[str]:
-        """
-        Takes a table name. Builds the sqlite for a table refering back to the main table.
+        """Delegate intralink SQL generation to the shared utility mixin."""
 
-        :param name:
-        :return:
-        """
-        name_local = deepcopy(name)
-        name_local = six_unicode(name_local)
-
-        target_table_name = self.match_to_table_name(name_local)
-
-        target_row_name = plural_singular_mapper(target_table_name)
-
-        row_name = "{}_{}_intralink"
-        row_name = row_name.format(target_row_name, target_row_name)
-
-        allowed_type_table_sqlite = self.build_allowed_types_table_intralink(target_table_name)
-
-        columns = """
-
-    -- -----------------------------------------------------
-    -- Table `{0}s`
-    -- -----------------------------------------------------
-    CREATE TABLE IF NOT EXISTS `{0}s` (
-      `{0}_id` INTEGER PRIMARY KEY ,
-      `{0}_primary_id` INTEGER NULL,
-      `{0}_secondary_id` INTEGER NULL,
-      `{0}_type` TEXT NULL,
-      `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-      `{0}_scratch` TEXT NULL,
-
-    """
-        columns = columns.format(row_name)
-
-                # Optionally add in a foreign key linking out to an allowed-types table
-        # (only when configured for this intralink in TOML)
-        at_foreign_key = ""
-        if allowed_type_table_sqlite:
-            att_name = self.get_allowed_types_table_name_intralinks(name)
-            att_col_name = att_name[:-1]  # Consistently just trimming the s off
-
-            at_foreign_key = """
-        CONSTRAINT `{0}_type_is_allowed`
-          FOREIGN KEY (`{1}_type`)
-          REFERENCES `{2}` (`{3}_type`)
-
-        """.format(
-                att_name, row_name, att_name, att_col_name
-            )
+        return super().build_intralink_table_sqlite(name)
 
 
-        first_constraint = """
-      CONSTRAINT `{}_primary_id`
-        FOREIGN KEY (`{}_primary_id`)
-        REFERENCES `{}` (`{}_id`)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE,
+    def build_allowed_types_table_intralink(
+        self,
+        for_table: str,
+        allowed_types: Optional[list[str]] = None,
+    ) -> list[str]:
+        """Delegate allowed-types SQL generation to the shared utility mixin."""
 
-    """
-        first_constraint = first_constraint.format(row_name, row_name, target_table_name, target_row_name)
-
-        second_constraint = """
-      CONSTRAINT `{}_secondary_id`
-        FOREIGN KEY (`{}_secondary_id`)
-        REFERENCES `{}` (`{}_id`)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE)
-    ;
-        """
-
-        second_constraint = second_constraint.format(row_name, row_name, target_table_name, target_row_name)
-
-        allowed_type_table_sqlite.append(
-            columns + at_foreign_key + first_constraint + second_constraint,
-        )
-        return allowed_type_table_sqlite
-
-
-    def build_allowed_types_table_intralink(self, for_table: str) -> list[str]:
-        """
-        Construct an allowed-types table for an intralink table, if configured.
-
-        Allowed values are sourced from `intralink_table_requests.toml` (per-table `allowed_types`).
-        If no allowed-types are configured for the table, we return an empty list and the intralink
-        `type` column will be free-form text.
-        """
-        assert for_table in self.intralink_tables
-
-        allowed_types = self.intralink_allowed_types_by_table.get(for_table)
-        if allowed_types is None:
-            return []
-
-        allowed_table_name = self.get_allowed_types_table_name_intralinks(for_table)
-        allowed_table_col_name = allowed_table_name[:-1]
-
-        att_table_sqlite = """
-        CREATE TABLE IF NOT EXISTS `{table}` (
-          `{column}_id` INTEGER PRIMARY KEY,
-          `{column}_type` TEXT NULL,
-          `{column}_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
-          `{column}_scratch` TEXT NULL,
-          CONSTRAINT `{table}_type_unique`
-          UNIQUE({column}_type)
-          );
-
-        """.format(
-            table=allowed_table_name, column=allowed_table_col_name
-        )
-
-        att_add_sqlite = []
-        for at in allowed_types:
-            at_insert_stmt = 'INSERT INTO {table} ({column}_type) VALUES ("{at}");'.format(
-                table=allowed_table_name, column=allowed_table_col_name, at=at
-            )
-            att_add_sqlite.append(at_insert_stmt)
-
-        return [att_table_sqlite] + att_add_sqlite
+        return super().build_allowed_types_table_intralink(for_table, allowed_types=allowed_types)
 
 
 

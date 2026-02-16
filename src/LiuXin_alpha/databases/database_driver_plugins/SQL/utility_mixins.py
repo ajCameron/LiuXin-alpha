@@ -386,22 +386,31 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         # 3) Apply the restrictions to ensure the link is of the given type
         if override_restriction_sql is None:
 
+            # Some link tables carry a `type` column. For strict many-many mappings we still
+            # enforce uniqueness on just the pair (A,B). For role-style mappings, use
+            # many_many_non_exclusive which uses (A,B,type) to allow multiple roles.
+            has_type_col = (
+                requested_cols == "all"
+                or (
+                    requested_cols is not None
+                    and requested_cols != "all"
+                    and "type" in requested_cols
+                )
+            )
+
             if link_type == "many_many":
 
                 many_many_restrictions_list = []
 
-                # One restriction must be applied - the same two objects cannot be linked twice
+                # Strict many-to-many: the same pair cannot be linked twice (even if a type column exists).
                 many_many_restriction = (
                     "\n    CONSTRAINT `{0}_and_{1}_non_repeating_many_many_mapping`\n"
                     "      UNIQUE ({2}_{1}_id, {2}_{0}_id)".format(table1_l_s, table2_l_s, column_name)
                 )
-
                 many_many_restrictions_list.append(many_many_restriction)
 
-                # If we have a priority column, then we need to generate a priority so that the primary is well ordered on
-                # the secondary
+                # If we have a priority column then ensure ordering on the secondary.
                 if requested_cols == "all" or "priority" in requested_cols:
-
                     m_t_m_ordering = (
                         "\n    CONSTRAINT `{0}_well_ordered_on_secondary_{1}`\n"
                         "UNIQUE ({2}_{3}_id, {2}_priority)".format(
@@ -419,21 +428,54 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
                 many_many_ne_restrictions_list = []
 
-                if requested_cols == "all" or "priority" in requested_cols:
-
-                    m_t_m_ordering = (
-                        "\n    CONSTRAINT `{0}_well_ordered_on_secondary_{1}`\n"
-                        "UNIQUE ({2}_{3}_id, {2}_priority)".format(
-                            primary_table,
-                            secondary_table,
+                # Role-style many-to-many: allow the same pair multiple times as long as `type` differs.
+                # SQLite UNIQUE treats NULL as distinct, so multiple NULL types are permitted.
+                if has_type_col:
+                    many_many_ne_restriction = (
+                        "\n    CONSTRAINT `{0}_and_{1}_non_repeating_many_many_non_exclusive_mapping`\n"
+                        "      UNIQUE ({2}_{1}_id, {2}_{0}_id, {2}_type)".format(
+                            table1_l_s,
+                            table2_l_s,
                             column_name,
-                            primary_table_row_name,
                         )
                     )
+                else:
+                    # Without a type column, fall back to strict uniqueness on the pair.
+                    many_many_ne_restriction = (
+                        "\n    CONSTRAINT `{0}_and_{1}_non_repeating_many_many_non_exclusive_mapping`\n"
+                        "      UNIQUE ({2}_{1}_id, {2}_{0}_id)".format(
+                            table1_l_s,
+                            table2_l_s,
+                            column_name,
+                        )
+                    )
+                many_many_ne_restrictions_list.append(many_many_ne_restriction)
+
+                if requested_cols == "all" or "priority" in requested_cols:
+
+                    if has_type_col:
+                        m_t_m_ordering = (
+                            "\n    CONSTRAINT `{0}_well_ordered_on_secondary_{1}`\n"
+                            "UNIQUE ({2}_{3}_id, {2}_type, {2}_priority)".format(
+                                primary_table,
+                                secondary_table,
+                                column_name,
+                                primary_table_row_name,
+                            )
+                        )
+                    else:
+                        m_t_m_ordering = (
+                            "\n    CONSTRAINT `{0}_well_ordered_on_secondary_{1}`\n"
+                            "UNIQUE ({2}_{3}_id, {2}_priority)".format(
+                                primary_table,
+                                secondary_table,
+                                column_name,
+                                primary_table_row_name,
+                            )
+                        )
                     many_many_ne_restrictions_list.append(m_t_m_ordering)
 
                 table_sql_stmt_component_list.append(",\n".join(many_many_ne_restrictions_list))
-
             elif link_type == "one_many":
 
                 one_many_restrictions_list = []
@@ -520,19 +562,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 # Add in the foreign key linking out to the allowed_types table
                 att_name = self.get_allowed_types_table_name(table_name)
                 att_col_name = att_name[:-1]  # Consistently just trimming the s off
-
-                # Should not be necessary in the other cases
-                # Todo: Check that this is true for all other cases
-                if link_type == "many_many_non_exclusive" and one_link_with_one_type:
-
-                    olot_constraint = """
-                    CONSTRAINT `{1}_{2}_linked_max_once_for_each_type`
-                    UNIQUE({0}_{1}_id, {0}_{2}_id, {0}_type)
-                    """.format(
-                        column_name, primary_table_row_name, secondary_table_row_name
-                    )
-
-                    table_sql_stmt_component_list.append(olot_constraint)
 
                 at_foreign_key = """
                 CONSTRAINT `{0}_type_is_allowed`
@@ -894,3 +923,180 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         return [
             att_table_sqlite,
         ] + att_add_sqlite
+
+
+    # ---------------------------------------------------------------------
+    # FRBR generator helpers
+    #
+    # The FRBR database generator prefers a `{link_table}__types` reference
+    # table (extensible) plus triggers, rather than a strict FK into an
+    # `allowed_types__*` table. Centralise that logic here so that link-table
+    # related SQL is produced in one place.
+    # ---------------------------------------------------------------------
+
+    def create_interlink_types_reference_table(
+        self,
+        interlink_table_name: str,
+        interlink_column_base: str,
+        allowed_types: list[str],
+        connection: sqlite3.Connection,
+    ) -> None:
+        """Create/seed `{interlink_table_name}__types` and install guard triggers."""
+
+        conn = connection
+        c = conn.cursor()
+
+        types_table = f"{interlink_table_name}__types"
+
+        c.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS `{types_table}` (
+              `type` TEXT PRIMARY KEY
+            );
+            """
+        )
+
+        for t in allowed_types:
+            c.execute(f"INSERT OR IGNORE INTO `{types_table}` (`type`) VALUES (?);", (t,))
+
+        link_type_col = f"{interlink_column_base}_type"
+
+        trig_insert = f"{interlink_table_name}__type_guard_insert"
+        trig_update = f"{interlink_table_name}__type_guard_update"
+
+        c.execute(
+            f"""
+            CREATE TRIGGER IF NOT EXISTS `{trig_insert}`
+            BEFORE INSERT ON `{interlink_table_name}`
+            FOR EACH ROW
+            WHEN NEW.`{link_type_col}` IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM `{types_table}` WHERE `type` = NEW.`{link_type_col}`)
+            BEGIN
+              SELECT RAISE(ABORT, 'Invalid link type (not in {types_table}).');
+            END;
+            """
+        )
+
+        c.execute(
+            f"""
+            CREATE TRIGGER IF NOT EXISTS `{trig_update}`
+            BEFORE UPDATE OF `{link_type_col}` ON `{interlink_table_name}`
+            FOR EACH ROW
+            WHEN NEW.`{link_type_col}` IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM `{types_table}` WHERE `type` = NEW.`{link_type_col}`)
+            BEGIN
+              SELECT RAISE(ABORT, 'Invalid link type (not in {types_table}).');
+            END;
+            """
+        )
+
+        conn.commit()
+
+
+    def build_allowed_types_table_intralink(
+        self,
+        for_table: str,
+        allowed_types: Optional[Iterable[str]] = None,
+    ) -> list[str]:
+        """Build an allowed-types table for an intralink table."""
+
+        # Preserve historical generator behaviour: intralink allowed-types are only
+        # meaningful for tables explicitly requested for intralinks.
+        intralink_tables = getattr(self, "intralink_tables", None)
+        if intralink_tables is not None:
+            assert for_table in intralink_tables, f"Unknown intralink main table: {for_table!r}"
+
+        if allowed_types is None:
+            allowed_types = getattr(self, "intralink_allowed_types_by_table", {}).get(for_table)
+        if not allowed_types:
+            return []
+
+        allowed_table_name = self.get_allowed_types_table_name_intralinks(for_table)
+        allowed_table_col_name = allowed_table_name[:-1]
+
+        att_table_sqlite = """
+        CREATE TABLE IF NOT EXISTS `{table}` (
+          `{column}_id` INTEGER PRIMARY KEY,
+          `{column}_type` TEXT NULL,
+          `{column}_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+          `{column}_scratch` TEXT NULL,
+          CONSTRAINT `{table}_type_unique`
+          UNIQUE({column}_type)
+          );
+
+        """.format(
+            table=allowed_table_name, column=allowed_table_col_name
+        )
+
+        att_add_sqlite: list[str] = []
+        for at in allowed_types:
+            at_insert_stmt = 'INSERT INTO {table} ({column}_type) VALUES ("{at}");'.format(
+                table=allowed_table_name, column=allowed_table_col_name, at=at
+            )
+            att_add_sqlite.append(at_insert_stmt)
+
+        return [att_table_sqlite] + att_add_sqlite
+
+
+    def build_intralink_table_sqlite(self, name: str, allowed_types: Optional[Iterable[str]] = None) -> list[str]:
+        """Build SQLite for a self-link (intralink) table."""
+
+        name_local = deepcopy(name)
+        name_local = six_unicode(name_local)
+
+        target_table_name = getattr(self, "match_to_table_name", lambda x: x)(name_local)
+        if target_table_name is None:
+            target_table_name = name_local
+
+        target_row_name = plural_singular_mapper(target_table_name)
+        row_name = f"{target_row_name}_{target_row_name}_intralink"
+
+        allowed_type_table_sqlite = self.build_allowed_types_table_intralink(
+            target_table_name, allowed_types=allowed_types
+        )
+
+        columns = f"""
+
+    -- -----------------------------------------------------
+    -- Table `{row_name}s`
+    -- -----------------------------------------------------
+    CREATE TABLE IF NOT EXISTS `{row_name}s` (
+      `{row_name}_id` INTEGER PRIMARY KEY ,
+      `{row_name}_primary_id` INTEGER NULL,
+      `{row_name}_secondary_id` INTEGER NULL,
+      `{row_name}_type` TEXT NULL,
+      `{row_name}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
+      `{row_name}_scratch` TEXT NULL,
+
+    """
+
+        at_foreign_key = ""
+        if allowed_type_table_sqlite:
+            att_name = self.get_allowed_types_table_name_intralinks(target_table_name)
+            att_col_name = att_name[:-1]
+            at_foreign_key = f"""
+        CONSTRAINT `{att_name}_type_is_allowed`
+          FOREIGN KEY (`{row_name}_type`)
+          REFERENCES `{att_name}` (`{att_col_name}_type`)
+
+        """
+
+        first_constraint = f"""
+      CONSTRAINT `{row_name}_primary_id`
+        FOREIGN KEY (`{row_name}_primary_id`)
+        REFERENCES `{target_table_name}` (`{target_row_name}_id`)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    """
+
+        second_constraint = f"""
+      CONSTRAINT `{row_name}_secondary_id`
+        FOREIGN KEY (`{row_name}_secondary_id`)
+        REFERENCES `{target_table_name}` (`{target_row_name}_id`)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE)
+    ;
+        """
+
+        return allowed_type_table_sqlite + [columns + at_foreign_key + first_constraint + second_constraint]

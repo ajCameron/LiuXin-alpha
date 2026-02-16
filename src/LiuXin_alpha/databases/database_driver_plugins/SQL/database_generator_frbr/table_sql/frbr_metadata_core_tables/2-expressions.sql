@@ -7,8 +7,7 @@
 CREATE TABLE IF NOT EXISTS `expressions` (
   `expression_id` INTEGER PRIMARY KEY,
 
-  -- Relation to work
-  `expression_work_id` INTEGER NOT NULL,
+  -- Relation to works is via `expression_work_links` (many-to-many)
 
   -- Core identity
   `expression_type` TEXT NULL,               -- 'text', 'translation', 'revision', 'dub', ...
@@ -48,12 +47,6 @@ CREATE TABLE IF NOT EXISTS `expressions` (
     FOREIGN KEY (`expression_language_id`)
     REFERENCES `languages` (`language_id`)
     ON DELETE SET NULL
-    ON UPDATE CASCADE,
-
-  CONSTRAINT `expression_work_fk`
-    FOREIGN KEY (`expression_work_id`)
-    REFERENCES `works` (`work_id`)
-    ON DELETE CASCADE
     ON UPDATE CASCADE
 
 );
@@ -61,8 +54,6 @@ CREATE TABLE IF NOT EXISTS `expressions` (
 -- BREAK
 -- BREAK
 
-CREATE INDEX IF NOT EXISTS `idx_expressions_work_id`
-ON `expressions` (`expression_work_id`);
 
 CREATE INDEX IF NOT EXISTS `idx_expressions_language_id`
 ON `expressions` (`expression_language_id`);

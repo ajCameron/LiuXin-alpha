@@ -5,7 +5,7 @@
 #
 # NOTE: The generator normalises table names via match_to_table_name() (plural/singular fuzz).
 
-version = 1
+version = 2
 allow_redundant_links = true
 warn_on_redundant_links = true
 
@@ -19,6 +19,17 @@ warn_on_redundant_links = true
 
 # Many-to-One and One-to-Many tables are duels of each other.
 
+[[interlinks]]
+left_table = "agents"
+right_table = "comments"
+link_type = "many_to_one"
+requested_columns = ["priority", "origin",]
+nullable = "true"
+rationale = """
+You can comment on an agent - in their role as a human. And an agent.
+A single comment should only be on one agent.
+"""
+
 [[forbidden_interlinks]]
 left_table = "expressions"
 right_table = "org_agents"
@@ -27,18 +38,6 @@ org_agents are a specialization of agents; expressions should link to agents (or
 Creating an expressions ↔ org_agents interlink duplicates the polymorphic agent link surface and invites contradictory
 tagging/roles.
 Use expressions ↔ agents and join through agents ↔ org_agents when you need the organizational subtype."""
-
-[[interlinks]]
-left_table = "agents"
-right_table = "comments"
-link_type = "one_to_many"
-requested_columns = ["priority", "origin"]
-nullable = "true"
-rationale = """
-You might want to be able to make comments on a generic agent.
- - priority provides an ordering for the comments as they appear in the UI
- - origin tells you where the comment came from
-"""
 
 [[interlinks]]
 left_table = "agents"
@@ -66,6 +65,8 @@ types = ["insert_marc_roles", ]
 rationale = """
 Agents also create and manage feeds of various sorts.
 Additonally, Agents can co-operate on feeds, making the relationship many-many.
+Agents - be they organisations or people - have feeds that can be linked to them.
+Feeds are, after all, a form of creative expressions.
 """
 
 [[interlinks]]
@@ -121,7 +122,7 @@ left_table = "agents"
 right_table = "languages"
 link_type = "many_to_many"
 requested_columns = ["priority", "type"]
-types = ["insert_marc_roles", ]
+types = ["published_in", "native", ]
 nullable = "true"
 rationale = """
 Agents can work in different languages
@@ -151,7 +152,44 @@ rationale = """
 A synopses of an agent conveys infomation about the agent.
 
  - priority allows multiple of them to be ordered.
+ - nullable means you can set the first, or others, to None
 """
+
+# -----------------------------------------------------
+# WEMI core linkage (non-pyramid)
+# -----------------------------------------------------
+
+[[interlinks]]
+left_table = "works"
+right_table = "expressions"
+link_type = "many_to_many"
+requested_columns = ["priority", "primary", "origin"]
+rationale = """
+Replaces the former `expressions.expression_work_id` foreign key with a many-to-many link table.
+
+This removes the strict pyramid and allows one Expression to participate in multiple Works
+(e.g. tete-beche / flip-book structures, shared expressions, modelling compilations).
+
+ - priority: order expressions within a given work
+ - primary: mark the primary work for an expression (when an expression links to multiple works)
+ - origin: provenance for the link ("user_set", "calibre_import", ...)
+"""
+
+[[interlinks]]
+left_table = "expressions"
+right_table = "manifestations"
+link_type = "many_to_many"
+requested_columns = ["priority", "primary", "origin"]
+rationale = """
+Replaces the former `manifestations.manifestation_expression_id` foreign key with a many-to-many link table.
+
+Allows multi-expression manifestations (e.g. bilingual editions) and shared manifestations where useful.
+
+ - priority: order manifestations within a given expression
+ - primary: mark the primary manifestation for an expression (when multiple exist)
+ - origin: provenance for the link ("user_set", "calibre_import", ...)
+"""
+
 
 [[interlinks]]
 left_table = "agents"
@@ -169,6 +207,7 @@ An Agent is responsible for creating a Work
  You can use priority to order the creators who worked on a work.
  (Perhaps that cover artist is more important to that novel than the author. Idk).
  """
+
 
 [[interlinks]]
 left_table = "comments"
@@ -246,17 +285,7 @@ left_table = "comments"
 right_table = "human_agents"
 rationale = """You cannot comment on the human_agents sidecar table. Please comment on agents."""
 
-[[interlinks]]
-left_table = "comments"
-right_table = "agents"
-link_type = "many_to_one"
-requested_columns = ["priority", "type",]
-nullable = "true"
-types = ["insert_marc_roles", ]
-rationale = """
-You can comment on an agent - in their role as a human. And an agent.
-A single comment should only be on one agent.
-"""
+
 
 
 [[interlinks]]
@@ -298,17 +327,6 @@ But comment on their entry in the agents table, not the org agents sidecar.
 
 [[interlinks]]
 left_table = "comments"
-right_table = "agents"
-link_type = "many_to_one"
-requested_columns = ["priority",]
-nullable = "true"
-rationale = """
-You can, and perhaps often should, comment on an agent - either human or org.
-Each comment should belong to one, and only one, agent.
-"""
-
-[[interlinks]]
-left_table = "comments"
 right_table = "series"
 link_type = "many_to_one"
 requested_columns = ["priority",]
@@ -342,8 +360,8 @@ However, one comment per work.
 left_table = "devices"
 right_table = "feeds"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "data"]
-types = ["load_all", "update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf"]
+requested_columns = ["priority", "type", "data", "policy"]
+types = ["load_all", "update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf", "policy"]
 rationale = """
 Linking a device to a feed means that any entries detected to the feed will be loaded to the device.
 (or not, as the case may be).
@@ -354,8 +372,8 @@ Part of the auto-update and maintenance system which enables LiuXin to manage yo
 left_table = "devices"
 right_table = "expressions"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "data"]
-types = ["update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf", "load_all"]
+requested_columns = ["priority", "type", "data", "policy"]
+types = ["update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf", "load_all", "policy"]
 rationale = """
 Register either that we have loaded an expression to a device or we will load it when we can.
 The type of the link provides useful filtering for what we're going to load.
@@ -366,8 +384,8 @@ The default is everything - but this is controllable by device.
 left_table = "devices"
 right_table = "items"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", "data"]
-types = ["update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf", "load_all"]
+requested_columns = ["priority", "type", "data", "policy"]
+types = ["update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf", "load_all", "policy"]
 rationale = """
 Register either that we have loaded an item to a device or we will load it when we can.
 The type of the link provides useful filtering for what we're going to load.
@@ -395,8 +413,8 @@ This could include firmware version e.t.c.
 left_table = "devices"
 right_table = "series"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", ]
-types = ["update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf", "load_all"]
+requested_columns = ["priority", "type", "policy"]
+types = ["update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf", "load_all", "policy"]
 rationale = """
 Note that a series either has been, or will be, loaded to the device when possible.
 The system will update the device with the given series where
@@ -406,8 +424,8 @@ The system will update the device with the given series where
 left_table = "devices"
 right_table = "stores"
 link_type = "many_to_many"
-requested_columns = ["priority", "type", ]
-types = ["update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf", "load_all"]
+requested_columns = ["priority", "type", "policy"]
+types = ["update", "do_not_load", "load_txt", "load_epub", "load_mobi", "load_pdf", "load_all", "policy"]
 rationale = """
 Anything in the store can be loaded to the device and visa versa.
 Allows you to have a local staging store, which is just copied wholesale onto the device when it's plugged in.
@@ -427,17 +445,6 @@ You can link expressions to images - perhaps covers for that particular expressi
 left_table = "expressions"
 right_table = "human_agents"
 rationale = "Please link to the agents table directly - not the human_agents sidecar table."
-
-[[interlinks]]
-left_table = "expressions"
-right_table = "agents"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", ]
-nullable = "true"
-types = ["insert_marc_roles", ]
-rationale = """
-Agents can be responsible for individual expressions, where they might - or might not - be responsible for the whole work.
-"""
 
 [[interlinks]]
 left_table = "expressions"
@@ -475,17 +482,7 @@ left_table = "feeds"
 right_table = "human_agents"
 rationale = """Do not link to human_agents - link to their entry in the Agents table instead."""
 
-[[interlinks]]
-left_table = "feeds"
-right_table = "agents"
-link_type = "many_to_many"
-requested_columns = ["priority", "type",]
-nullable = "true"
-types = ["insert_marc_roles", ]
-rationale = """
-Agents - be they organisations or people - have feeds that can be linked to them.
-Feeds are, after all, a form of creative expressions.
-"""
+
 
 [[interlinks]]
 left_table = "feeds"
@@ -616,7 +613,7 @@ Probably can be derived from all the files last read positions.
 left_table = "files"
 right_table = "stores"
 link_type = "many_to_many"
-requested_columns = ["priority", "type"]
+requested_columns = ["priority", "type", "policy"]
 rationale = """Files are assigned to stores - which can be on and offline.
 Thus, to ensure high reliability,  each file should be in multiple stores."""
 
@@ -653,7 +650,7 @@ In common with the rest of the folder structure, it's more guidelines than rules
 left_table = "folders"
 right_table = "stores"
 link_type = "many_to_many"
-requested_columns = ["priority", "type",]
+requested_columns = ["priority", "type", "policy"]
 nullable = "true"
 types = ["real", ]
 rationale = """
@@ -695,23 +692,12 @@ left_table = "human_agents"
 right_table = "labels"
 rationale = "label the main agents table - instead of this sidecar tables."
 
-[[interlinks]]
-left_table = "agents"
-right_table = "labels"
-link_type = "many_to_many"
-rationale = "labels can be applied to the agents table."
-
 [[forbidden_interlinks]]
 left_table = "human_agents"
 right_table = "languages"
 rationale = "Apply the languages to the agents table - not the hufman_agents table."
 
-[[interlinks]]
-left_table = "agents"
-right_table = "languages"
-link_type = "many_to_many"
-requested_columns = ["published_in", "native", ]
-rationale = "What language does the agent work in?"
+
 
 [[forbidden_interlinks]]
 left_table = "human_agents"
@@ -734,6 +720,7 @@ For example
 Each of these relations should be represented in the metadata graph.
 """
 
+
 [[forbidden_interlinks]]
 left_table = "human_agents"
 right_table = "subjects"
@@ -750,6 +737,11 @@ rationale = """
 Some agents are only responsible for one subject.
 E.g. Some publishers only focus on one subject. Or are best known for it.
 Some authors only write history, or are best known for it.
+
+e.g.
+A human_agent who is a historian.
+An author who is mostly known for science fiction.
+An organisation which publishes medical research.
 """
 
 [[forbidden_interlinks]]
@@ -757,27 +749,10 @@ left_table = "human_agents"
 right_table = "synopses"
 rationale = "Please link a synopsis to an agent, not the human_agent sidecar table."
 
-[[interlinks]]
-left_table = "agents"
-right_table = "synopses"
-link_type = "many_to_many"
-requested_columns = ["priority", "type",]
-nullable = "true"
-rationale = "You can assign a synopses to agents."
-
 [[forbidden_interlinks]]
 left_table = "human_agents"
 right_table = "works"
 rationale = "Please link an agent to a work, not the sidecar human_agents table."
-
-[[interlinks]]
-left_table = "agents"
-right_table = "works"
-link_type = "many_to_many"
-requested_columns = ["priority", "type",]
-nullable = "true"
-types = ["insert_marc_roles", ]
-rationale = "Someone, at some point, has to be responsible for a work."
 
 [[interlinks]]
 left_table = "images"
@@ -857,12 +832,6 @@ rationale = "Please label the agents table, and not the org_agents sidecar table
 
 [[interlinks]]
 left_table = "labels"
-right_table = "agents"
-link_type = "many_to_many"
-rationale = "You can tag/label entire agents if you wish."
-
-[[interlinks]]
-left_table = "labels"
 right_table = "series"
 link_type = "many_to_many"
 rationale = "You can directly label a series."
@@ -935,46 +904,17 @@ left_table = "org_agents"
 right_table = "series"
 rationale = "Please link agents to series, not the org_agents sidecar table."
 
-[[interlinks]]
-left_table = "agents"
-right_table = "series"
-link_type = "many_to_many"
-requested_columns = ["priority", "type",]
-nullable = "true"
-types = ["insert_marc_roles", ]
-rationale = "Agents, of various sorts, can be responsible for creating and publishing series."
 
 [[forbidden_interlinks]]
 left_table = "org_agents"
 right_table = "works"
 rationale = "Please link works to the agents table, not the org_agents sidecar table."
 
-[[interlinks]]
-left_table = "agents"
-right_table = "works"
-link_type = "many_to_many"
-requested_columns = ["priority", "type",]
-nullable = "true"
-types = ["insert_marc_roles", ]
-rationale = """An agent can be responsible for creating a work.
-Probably at least one is."""
-
 [[forbidden_interlinks]]
 left_table = "org_agents"
 right_table = "subjects"
 rationale = "Please link an agent to a subject, not the org_agents sidecar table."
 
-[[interlinks]]
-left_table = "agents"
-right_table = "subjects"
-link_type = "many_to_many"
-rationale = """
-You can declare that an agent is involved with a single subject -
-e.g.
-A human_agent who is a historian.
-An author who is mostly known for science fiction.
-An organisation which publishes medical research.
-"""
 
 [[interlinks]]
 left_table = "ratings"

@@ -15,6 +15,11 @@ def _init_mimetypes():
         ]
     )
 
+
+    # Ensure common ebook container types exist even if the bundled mime.types is missing entries.
+    mimetypes.add_type("application/x-dtbncx+xml", ".ncx")
+    mimetypes.add_type("application/oebps-package+xml", ".opf")
+    mimetypes.add_type("application/epub+zip", ".epub")
     _mt_inited = True
 
 

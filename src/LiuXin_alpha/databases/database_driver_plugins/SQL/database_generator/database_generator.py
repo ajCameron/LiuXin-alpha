@@ -525,15 +525,26 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         """
         conn = self.conn
         c = conn.cursor()
+        main_tables_candidates = [
+            os.path.join(__folder__, "main_tables_sqlite.txt"),
+            os.path.join(__folder__, "main_tables_sqlite.sql"),
+        ]
 
-        try:
-            with open(os.path.join(__folder__, "main_tables_sqlite.txt"), "r") as main_tables_sqlite_file:
-                test = main_tables_sqlite_file.readlines()
-        except IOError:
-            LiuXin_print(
-                "Error - create_main_tables failed, due to being unable to find the main_tables_sqlite.txt file."
+        test = None
+        for candidate in main_tables_candidates:
+            try:
+                with open(candidate, "r") as main_tables_sqlite_file:
+                    test = main_tables_sqlite_file.readlines()
+                break
+            except OSError:
+                continue
+
+        if test is None:
+            raise FileNotFoundError(
+                "create_main_tables failed: expected one of "
+                + repr(main_tables_candidates)
+                + " to exist."
             )
-            sys.exit()
 
         break_count = 0  # counting the number of break statements so far
 
