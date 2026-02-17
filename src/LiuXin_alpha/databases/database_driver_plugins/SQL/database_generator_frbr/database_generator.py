@@ -66,17 +66,39 @@ def _parse_toml_bool(value: Any, *, default: bool = False) -> bool:
     """
     if value is None:
         return default
+
     if isinstance(value, bool):
         return value
+
     if isinstance(value, int):
         return bool(value)
+
     if isinstance(value, str):
         s = value.strip().lower()
         if s in {"true", "t", "yes", "y", "1", "on"}:
             return True
         if s in {"false", "f", "no", "n", "0", "off", ""}:
             return False
+
     raise TypeError(f"TOML boolean value is not parseable: {value!r}")
+
+
+def _require_toml_bool(value: Any, *, context: str) -> bool:
+    """Require a *real* TOML boolean.
+
+    TOML supports native booleans (`true`/`false`). For a few high-impact knobs (notably
+    link-table FK nullability), we deliberately refuse stringly-typed values like "true".
+
+    :param value: Parsed TOML value.
+    :param context: Human-friendly location for error messages.
+    :return: The boolean value.
+    """
+    if isinstance(value, bool):
+        return value
+
+    raise TypeError(
+        f"{context} must be a TOML boolean (true/false), not {type(value).__name__}: {value!r}"
+    )
 
 
 def _sql_quote_literal(value: str) -> str:
@@ -245,6 +267,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         self.interlink_allowed_types_by_table: dict[str, Optional[list[str]]] = {}
         self.interlink_nullable_fks_by_table: dict[str, bool] = {}
         self.intralink_allowed_types_by_table: dict[str, Optional[list[str]]] = {}
+        self.intralink_requested_cols_by_table: dict[str, Any] = {}
+        self.intralink_nullable_fks_by_table: dict[str, bool] = {}
+        self.intralink_symmetric_by_table: dict[str, bool] = {}
+        self.intralink_symmetric_types_by_table: dict[str, Optional[list[str]]] = {}
 
         # Per-instance copies so we can add dynamic constraints based on TOML
         self.ALLOWED_INTERLINK_TYPE_VAL_DICT = deepcopy(__ALLOWED_INTERLINK_TYPE_VAL_DICT__)
@@ -389,9 +415,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                         raise TypeError(f"Unknown requested_columns entry {rcs!r} in interlink {idx}")
 
 
-            # Validate optional per-interlink nullable flag (may be stringly-typed in TOML).
-            if 'nullable' in entry:
-                _parse_toml_bool(entry.get('nullable'))
+            # Validate optional per-interlink nullable flag (must be a *real* TOML bool).
+            if 'nullable' in entry and entry.get('nullable') is not None:
+                _require_toml_bool(entry.get('nullable'), context=f"interlinks[{idx}].nullable")
 
     def sanity_check_intralink_inputs(self) -> None:
         """
@@ -418,7 +444,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             try:
                 with main_table_sql_file.open("r") as main_tables_sqlite_file:
                     test = main_tables_sqlite_file.readlines()
-            except IOError:
+            except IOError as e:
                 LiuXin_print(
                     "Error - create_main_tables failed, due to being unable to find the main_tables_sqlite.txt file."
                 )
@@ -693,7 +719,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             # Support an explicit per-interlink `nullable` key (preferred), in addition to the
             # legacy `requested_columns = [..., 'nullable', ...]` sentinel.
             if 'nullable' in entry and entry.get('nullable') is not None:
-                nullable_fks = _parse_toml_bool(entry.get('nullable'), default=nullable_fks)
+                nullable_fks = _require_toml_bool(entry.get('nullable'), context=f"interlinks[{idx}].nullable")
             # allowed_types: optional explicit allowed values for the type column
             allowed_types = entry.get("allowed_types") or entry.get("types")
             allowed_types_list: Optional[list[str]] = None
@@ -775,10 +801,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                     f"{raw_left!r} ↔ {raw_right!r}. Missing: {missing!r}."
                 )
                 if sugg_lines:
-                    msg += "
-Did you mean one of:
-" + "
-".join(sugg_lines)
+                    msg += "\nDid you mean one of:\n" + "\n".join(sugg_lines)
                 raise ValueError(msg)
 
             if c_table1 == c_table2:
@@ -903,6 +926,19 @@ Did you mean one of:
                     primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many_non_exclusive"
                 else:
                     primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many"
+
+
+            elif link_type == "many_to_many_non_exclusive":
+                # Explicit role-style many-to-many: allow multiple (A,B) links as long as `type` differs.
+                # This requires a `type` column; ensure it is requested.
+                primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many_non_exclusive"
+                if spec is not None:
+                    rc = spec.get("requested_cols")
+                    if rc is None:
+                        spec["requested_cols"] = {"priority", "type"}
+                    elif rc != "all" and isinstance(rc, (set, list, tuple)):
+                        if "type" not in rc:
+                            spec["requested_cols"] = set(rc) | {"type"}
 
             elif link_type == "one_to_many":
                 primary_table, secondary_table, internal_link_type = left_table, right_table, "one_many"
@@ -1138,53 +1174,72 @@ Did you mean one of:
         )
 
 
-
-
-
-# this section deals with adding the intralink tables
-    # examples might be authors and their pseudonames.
-    # The format is always primary is type of secondary
+    # this section deals with adding the intralink tables
+        # examples might be authors and their pseudonames.
+        # The format is always primary is type of secondary
     def create_intralink_table(self, table_name: str, connection: sqlite3.Connection) -> None:
-        """
-        Takes the name of a table. Creates an interlink table for that table - tables that link tables to themselves
+        """Create the intralink (self-link) table for `table_name` from the TOML spec."""
 
-        :param table_name:
-        :param connection:
-        :return:
-        """
-        c = connection.cursor()
+        conn = connection
+        c = conn.cursor()
 
         name_local = deepcopy(table_name)
         name_local = six_unicode(name_local)
 
-        sql_list = self.build_intralink_table_sqlite(name_local)
+        # TOML-derived configuration for this intralink table
+        requested_cols: Any = self.intralink_requested_cols_by_table.get(name_local, {"type"})
+        allowed_types = self.intralink_allowed_types_by_table.get(name_local)
+        nullable_fks = self.intralink_nullable_fks_by_table.get(name_local, False)
+        symmetric = self.intralink_symmetric_by_table.get(name_local, False)
+        symmetric_types = self.intralink_symmetric_types_by_table.get(name_local)
 
-        for intralink_statement in sql_list:
-            c.execute(intralink_statement)
-            connection.commit()
+        sql_list = super().build_intralink_table_sqlite(
+            name_local,
+            allowed_types=allowed_types,
+            requested_cols=requested_cols,
+            nullable_fks=nullable_fks,
+            symmetric=symmetric,
+            symmetric_types=symmetric_types,
+            use_reference_types_table=True,
+        )
 
-    def build_intralink_table_sqlite(self, name: str) -> list[str]:
+        for stmt in sql_list:
+            if VERBOSE_DEBUG:
+                LiuXin_print(stmt)
+            c.execute(stmt)
+        conn.commit()
+
+        # If this intralink defines a permitted enumeration for the type column, materialise it into a
+        # dedicated reference table `{intralink_table}__types` and enforce it via lightweight triggers.
+        if allowed_types is not None:
+            target_table_name = self.match_to_table_name(name_local) or name_local
+            target_row_name = plural_singular_mapper(target_table_name)
+            row_name = f"{target_row_name}_{target_row_name}_intralink"
+            intralink_table_name = f"{row_name}s"
+            self.create_interlink_types_reference_table(
+                interlink_table_name=intralink_table_name,
+                interlink_column_base=row_name,
+                allowed_types=allowed_types,
+                connection=conn,
+            )
+
+    def build_intralink_table_sqlite(self, name: str, **kwargs: Any) -> list[str]:
         """Delegate intralink SQL generation to the shared utility mixin."""
 
-        return super().build_intralink_table_sqlite(name)
-
-
-    def build_allowed_types_table_intralink(
-        self,
-        for_table: str,
-        allowed_types: Optional[list[str]] = None,
-    ) -> list[str]:
-        """Delegate allowed-types SQL generation to the shared utility mixin."""
-
-        return super().build_allowed_types_table_intralink(for_table, allowed_types=allowed_types)
-
-
+        return super().build_intralink_table_sqlite(name, **kwargs)
 
     def get_requested_intralink_tables(self) -> set[str]:
-        """
-        Parse `intralink_table_requests.toml` and return requested intralink tables.
+        """Parse `intralink_table_requests.toml` and return requested intralink tables.
 
-        This method is TOML-only (legacy .txt specs are intentionally unsupported).
+        Intralinks are TOML-only (legacy .txt specs are intentionally unsupported).
+
+        Supported keys per `[[intralinks]]` entry:
+          - table: str (required)
+          - requested_cols / requested_columns: 'all' or list[str] (optional)
+          - types / allowed_types: list[str] (optional; supports insert_marc_roles and insert_known_hash_types)
+          - nullable: bool (optional; controls FK NULL vs NOT NULL)
+          - symmetric: bool (optional; enforce ordering for *all* rows)
+          - symmetric_types: list[str] (optional; enforce ordering only for these type values)
         """
         c = self.conn.cursor()
 
@@ -1195,7 +1250,6 @@ Did you mean one of:
 
         spec_path_toml = os.path.join(__folder__, "intralink_table_requests.toml")
         if not os.path.exists(spec_path_toml):
-            # Intralinks are optional; if the spec isn't present, we simply skip them.
             return set()
 
         if tomllib is None:  # pragma: no cover
@@ -1210,46 +1264,144 @@ Did you mean one of:
         if not isinstance(intralinks, list):
             raise TypeError("TOML key `intralinks` must be a list")
 
+        allowed_req_cols = {"priority", "primary", "type", "origin", "policy", "data", "index", "nullable", "all"}
+
         intralink_tables: set[str] = set()
 
         for idx, entry in enumerate(intralinks):
             if isinstance(entry, str):
-                name = entry
-            elif isinstance(entry, dict):
-                name = entry.get("table") or entry.get("table_name") or entry.get("name")
-            else:
-                LiuXin_warning_print(f"Warning - intralink spec entry {idx} is not a string or table (dict): {entry!r}")
+                entry = {"table": entry}
+            if not isinstance(entry, dict):
+                LiuXin_warning_print(
+                    f"Warning - intralink spec entry {idx} is not a string or table (dict): {entry!r}"
+                )
                 continue
 
+            name = entry.get("table") or entry.get("table_name") or entry.get("name")
             if not name:
                 LiuXin_warning_print(f"Warning - intralink spec entry {idx} missing `table`: {entry!r}")
                 continue
 
             c_table = self.match_to_table_name(str(name)) or str(name)
 
-            # Optional allowed types for the intralink `type` column
-            allowed_types = None
-            if isinstance(entry, dict):
-                allowed_types = entry.get("allowed_types") or entry.get("types")
-            if allowed_types is not None:
-                if not isinstance(allowed_types, list):
-                    raise TypeError(f"allowed_types for intralink {c_table!r} must be a list[str]")
-                self.intralink_allowed_types_by_table[c_table] = [str(x) for x in allowed_types]
-            else:
-                # Ensure a stable key exists so later build steps can be simple
-                self.intralink_allowed_types_by_table.setdefault(c_table, None)
-
             if c_table not in current_tables:
                 raise ValueError(
                     f"Unknown table referenced in intralinks[{idx}] in intralink_table_requests.toml: {c_table!r}"
                 )
 
+            # requested columns
+            requested_columns = entry.get("requested_columns")
+            if requested_columns is None:
+                requested_columns = entry.get("requested_cols") or entry.get("requested_col") or entry.get("columns")
+
+            requested_cols: Any = {"type"}
+            nullable_fks: bool = False  # prefer strictness for self-links
+
+            if requested_columns is not None:
+                if isinstance(requested_columns, str):
+                    if requested_columns.strip().lower() != "all":
+                        raise TypeError(
+                            f"requested_cols for intralink {idx} must be 'all' or a list; got: {requested_columns!r}"
+                        )
+                    requested_cols = "all"
+                elif isinstance(requested_columns, list):
+                    lowered = [str(x).strip().lower() for x in requested_columns]
+                    for rc in lowered:
+                        if rc not in allowed_req_cols:
+                            if not re.fullmatch(r"[a-z][a-z0-9_]*", rc):
+                                raise TypeError(f"Unknown requested_cols entry {rc!r} in intralink {idx}")
+                    if "nullable" in lowered:
+                        nullable_fks = True
+                        lowered = [x for x in lowered if x != "nullable"]
+                    if "all" in lowered:
+                        requested_cols = "all"
+                    else:
+                        requested_cols = set(lowered) if lowered else set()
+                else:
+                    raise TypeError(f"requested_cols must be a list or string; got: {type(requested_columns)}")
+
+            # explicit nullable key (preferred)
+            if "nullable" in entry and entry.get("nullable") is not None:
+                nullable_fks = _require_toml_bool(entry.get("nullable"), context=f"intralinks[{idx}].nullable")
+
+            # allowed types (optional)
+            allowed_types = entry.get("allowed_types") or entry.get("types")
+            allowed_types_list: Optional[list[str]] = None
+            if allowed_types is not None:
+                if not isinstance(allowed_types, list):
+                    raise TypeError(f"types for intralink {c_table!r} must be a list[str]")
+                raw_items = [str(x).strip() for x in allowed_types if str(x).strip()]
+                expanded: list[str] = []
+                for item in raw_items:
+                    key = item.strip()
+                    if key.lower() == "insert_marc_roles":
+                        try:
+                            from LiuXin_alpha.constants.marc_relator_dicts import MARC_ROLE_DESC
+                        except Exception as e:  # pragma: no cover
+                            raise RuntimeError("Unable to import MARC_ROLE_DESC for insert_marc_roles expansion") from e
+                        expanded.extend(sorted(MARC_ROLE_DESC.keys()))
+                        continue
+                    if key.lower() == "insert_known_hash_types":
+                        import hashlib
+
+                        expanded.extend(sorted(hashlib.algorithms_guaranteed))
+                        continue
+                    if key.lower().startswith("insert_"):
+                        raise TypeError(f"Unknown types placeholder {key!r} in intralink {idx}")
+                    expanded.append(key)
+
+                seen: set[str] = set()
+                allowed_types_list = []
+                for v in expanded:
+                    if v in seen:
+                        continue
+                    seen.add(v)
+                    allowed_types_list.append(v)
+
+                if not allowed_types_list:
+                    raise TypeError(f"types list is empty after expansion in intralink {idx}")
+
+            # ensure type column exists if types are declared
+            if allowed_types_list is not None and requested_cols != "all":
+                if isinstance(requested_cols, set) and "type" not in requested_cols:
+                    requested_cols.add("type")
+
+            # symmetric ordering enforcement
+            symmetric = False
+            if "symmetric" in entry and entry.get("symmetric") is not None:
+                symmetric = _parse_toml_bool(entry.get("symmetric"), default=False)
+
+            symmetric_types = entry.get("symmetric_types") or entry.get("symmetric_type")
+            symmetric_types_list: Optional[list[str]] = None
+            if symmetric_types is not None:
+                if not isinstance(symmetric_types, list):
+                    raise TypeError(f"symmetric_types for intralink {c_table!r} must be a list[str]")
+                symmetric_types_list = [str(x).strip() for x in symmetric_types if str(x).strip()]
+                if not symmetric_types_list:
+                    symmetric_types_list = None
+
+            # validate symmetric_types (requires type col, and should be subset of allowed types if provided)
+            if symmetric_types_list is not None:
+                if requested_cols != "all":
+                    if isinstance(requested_cols, set) and "type" not in requested_cols:
+                        raise TypeError(f"symmetric_types requires requested_cols to include 'type' in intralink {idx}")
+                if allowed_types_list is not None:
+                    unknown = sorted(set(symmetric_types_list) - set(allowed_types_list))
+                    if unknown:
+                        raise TypeError(
+                            f"symmetric_types contains values not present in types list for intralink {idx}: {unknown!r}"
+                        )
+
+            # Persist per-table intralink config for the build step.
+            self.intralink_allowed_types_by_table[c_table] = allowed_types_list
+            self.intralink_requested_cols_by_table[c_table] = requested_cols
+            self.intralink_nullable_fks_by_table[c_table] = nullable_fks
+            self.intralink_symmetric_by_table[c_table] = symmetric
+            self.intralink_symmetric_types_by_table[c_table] = symmetric_types_list
+
             intralink_tables.add(c_table)
 
         return intralink_tables
-
-
-
     def create_aggregate_tables(self) -> None:
         """
         Execute any aggregate / derived SQL configured for this generator.

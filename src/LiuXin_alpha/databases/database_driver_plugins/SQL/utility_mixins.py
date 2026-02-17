@@ -6,6 +6,7 @@ Mixins for other classes to add functionality.
 # Moving some of the code here so it can be imported and used for common operations
 
 import sqlite3
+import re
 
 from copy import deepcopy
 
@@ -128,6 +129,36 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
     )
 
     # Todo: Standardize table names for this type of method to primary and secondary
+    def set_database_version(self) -> None:
+        """
+        Set the database version row in the `database_version` table.
+
+        This provides a concrete implementation for DatabaseBuilderAPI.set_database_version
+        for any builder class that mixes in SQLiteTableLinkingMixin.
+        """
+        from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw import get_SQLite_driver_master_version
+
+        version_str = get_SQLite_driver_master_version()
+
+        c = self.conn.cursor()
+        try:
+            c.execute(
+                "INSERT OR REPLACE INTO database_version (database_version_id, database_version_version) VALUES (?, ?);",
+                ("1", version_str),
+            )
+        except sqlite3.OperationalError as e:
+            raise AssertionError(
+                "database_version table is missing; ensure metadata tables are created before calling set_database_version()"
+            ) from e
+        self.conn.commit()
+
+        row = c.execute(
+            "SELECT database_version_version FROM database_version WHERE database_version_id = ?;",
+            ("1",),
+        ).fetchone()
+        assert row is not None and row[0] == version_str
+
+
     def direct_link_main_tables(
         self,
         primary_table,
@@ -303,12 +334,20 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         table_sql_stmt_component_list = []
 
         if requested_cols is None:
-            requested_cols = set()
+            requested_cols_norm: Union[str, set[str]] = set()
+        elif isinstance(requested_cols, str):
+            if requested_cols.strip().lower() == "all":
+                requested_cols_norm = "all"
+            else:
+                raise TypeError(f"requested_cols must be 'all' or an iterable; got: {requested_cols!r}")
+        else:
+            requested_cols_norm = {str(x).strip().lower() for x in requested_cols}
 
-        decrement_requested_cols = deepcopy(requested_cols)
+        decrement_requested_cols = deepcopy(requested_cols_norm)
 
         if decrement_requested_cols == "all":
 
+            # "all" includes the full standard metadata surface for link tables.
             link_rows = """
                 CREATE TABLE IF NOT EXISTS `{0}s`(
                   `{0}_id` INTEGER PRIMARY KEY ,
@@ -317,14 +356,24 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                   `{0}_priority` INTEGER DEFAULT 0,
                   `{0}_primary` INTEGER NULL DEFAULT 0,
                   `{0}_type` TEXT NULL,
+                  `{0}_origin` TEXT NULL,
+                  `{0}_policy` TEXT NULL,
+                  `{0}_data` TEXT NULL,
                   `{0}_index` TEXT NULL,
                   `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
                   `{0}_scratch` TEXT NULL 
                   """
 
+            if link_type == "many_many_non_exclusive":
+                link_rows = link_rows.replace("`{0}_type` TEXT NULL", "`{0}_type` TEXT NOT NULL")
+
         else:
 
             assert isinstance(decrement_requested_cols, set)
+
+            # Support "nullable" sentinel (documented in TOML) but it does not create a physical column.
+            if "nullable" in decrement_requested_cols:
+                decrement_requested_cols.remove("nullable")
 
             link_rows_header = """
                 CREATE TABLE IF NOT EXISTS `{0}s`(
@@ -341,12 +390,34 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 decrement_requested_cols.remove("primary")
 
             if "type" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_type` TEXT NULL,"
+                link_rows_header += "\n      `{0}_type` TEXT " + ("NOT NULL" if link_type == "many_many_non_exclusive" else "NULL") + ","
                 decrement_requested_cols.remove("type")
+
+            if "origin" in decrement_requested_cols:
+                link_rows_header += "\n      `{0}_origin` TEXT NULL,"
+                decrement_requested_cols.remove("origin")
+
+            if "policy" in decrement_requested_cols:
+                link_rows_header += "\n      `{0}_policy` TEXT NULL,"
+                decrement_requested_cols.remove("policy")
+
+            if "data" in decrement_requested_cols:
+                link_rows_header += "\n      `{0}_data` TEXT NULL,"
+                decrement_requested_cols.remove("data")
 
             if "index" in decrement_requested_cols:
                 link_rows_header += "\n      `{0}_index` TEXT NULL,"
                 decrement_requested_cols.remove("index")
+
+            # Any remaining requested columns are treated as bespoke TEXT columns, provided they are safe SQL identifiers.
+            for extra_col in sorted(decrement_requested_cols):
+                assert re.match(
+                    r"^[a-z][a-z0-9_]*$",
+                    extra_col,
+                ), f"Unsafe requested column name {extra_col!r} for link table {table_name!r}"
+                link_rows_header += f"\n      `{{0}}_{extra_col}` TEXT NULL,"
+
+            decrement_requested_cols.clear()
 
             link_table_footer = """
                   `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
@@ -719,157 +790,25 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         override_restriction_sql: Optional[str] = None,
     ) -> list[str]:
         """
-        Takes the names of two tables. Builds the SQLite code and returns it.
+        Deprecated compatibility wrapper.
 
-        :param table1: The name of the first table (order doesn't matter - they will be alphabetized)
-        :param table2: The name of the second table
-        :param requested_cols: The cols which should be included in the
+        Historically this method had an independent SQL generator implementation.
+        To keep link-table SQL generation in one place, this now delegates to
+        `build_interlink_table_sqlite`.
 
-        :return link_sql: SQL for a table to link the two given tables. Also with the SQL needed to make an
-                          Allowed types table for the link in question - if required.
+        NOTE: `override_restriction_sql` is ignored here; callers should update
+        `INTERLINK_TABLE_CONSTRAINTS` if they need custom restriction SQL.
         """
-        tables = [table1, table2]
-        tables.sort()
-
-        table_name, column_name = self.get_interlink_table_name(table1, table2)
-
-        # the plural form of the table names - the names of the actual table
-        table1_l_p = deepcopy(tables[0])
-        table1_l_p = six_unicode(table1_l_p)
-
-        table2_l_p = deepcopy(tables[1])
-        table2_l_p = six_unicode(table2_l_p)
-
-        # the singular form of the actual table - used in making the column names
-        table1_l_s = plural_singular_mapper(table1_l_p)
-
-        table2_l_s = plural_singular_mapper(table2_l_p)
-
-        # With the table name in hand we can go ahead and construct the allowed type table
-        att_table_sqlite = self.build_allowed_types_table_interlink(table_name, allowed_types=allowed_types)
-
-        comment_row = """
-        -- -----------------------------------------------------
-        -- Table `{}s`
-        -- -----------------------------------------------------
-            """
-
-        comment_row = comment_row.format(column_name)
-
-        sql_stmt_component_list = []
-
-        # If we've got a type column we also need a allowed_types__{table_name} table
-        if requested_cols == "all":
-
-            link_rows = """
-        CREATE TABLE IF NOT EXISTS `{0}s`(
-          `{0}_id` INTEGER PRIMARY KEY ,
-          `{0}_{1}_id` INTEGER {3},
-          `{0}_{2}_id` INTEGER {3},
-          `{0}_priority` INTEGER DEFAULT 0,
-          `{0}_primary` INTEGER NULL DEFAULT 0,
-          `{0}_type` TEXT NULL,
-          `{0}_index` TEXT NULL,
-          `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-          `{0}_scratch` TEXT NULL"""
-
-        else:
-
-            assert isinstance(requested_cols, set)
-            decremented_requested_cols = deepcopy(requested_cols)
-
-            link_rows_header = """
-        CREATE TABLE IF NOT EXISTS `{0}s`(
-          `{0}_id` INTEGER PRIMARY KEY ,
-          `{0}_{1}_id` INTEGER {3},
-          `{0}_{2}_id` INTEGER {3},"""
-
-            if "priority" in decremented_requested_cols:
-                link_rows_header += "\n      `{0}_priority` INTEGER DEFAULT 0,"
-                decremented_requested_cols.remove("priority")
-
-            if "primary" in decremented_requested_cols:
-                link_rows_header += "\n      `{0}_primary` INTEGER NULL DEFAULT 0,"
-                decremented_requested_cols.remove("primary")
-
-            if "type" in decremented_requested_cols:
-                link_rows_header += "\n      `{0}_type` TEXT NULL,"
-                decremented_requested_cols.remove("type")
-
-            if "index" in decremented_requested_cols:
-                link_rows_header += "\n      `{0}_index` TEXT NULL,"
-                decremented_requested_cols.remove("index")
-
-
-            # Any remaining bespoke requested columns: default to nullable TEXT.
-            # (The FRBR generator TOML is allowed to introduce extra metadata columns per link table.)
-            for extra_col in sorted(decremented_requested_cols):
-                link_rows_header += f"\n      `{{0}}_{extra_col}` TEXT NULL,"
-            decremented_requested_cols.clear()
-            link_table_footer = """
-          `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-          `{0}_scratch` TEXT NULL"""
-
-            link_rows = link_rows_header + link_table_footer
-
-        # The full statement will be constructed with a join later - do not want a comma between the comment and the
-        # start of the actual table
-        fk_null_sql = "NULL" if nullable_fks else "NOT NULL"
-
-        link_rows = comment_row + link_rows.format(column_name, table1_l_s, table2_l_s, fk_null_sql)
-        sql_stmt_component_list.append(link_rows)
-
-        # Only enforce an allowed-types FK when an explicit allowed_types enumeration was provided.
-        # (If allowed_types is omitted, the `type` column is free-form text.)
-        if (requested_cols == "all" or "type" in requested_cols) and att_table_sqlite:
-            # Add in the foreign key linking out to the allowed_types table
-            att_name = self.get_allowed_types_table_name(table_name)
-            att_col_name = att_name[:-1]  # Consistently just trimming the s off
-
-            at_foreign_key = """
-            CONSTRAINT `{0}_type_is_allowed`
-              FOREIGN KEY (`{1}_type`)
-              REFERENCES `{2}` (`{3}_type`)
-
-            """.format(
-                att_name, column_name, att_name, att_col_name
-            )
-
-            sql_stmt_component_list.append(at_foreign_key)
-
-        # If the entry in either the left or the right table is deleted then it should remove this entry in the link
-        # table as well
-        left_foreign_key = """
-        CONSTRAINT `{0}_{1}_id`
-          FOREIGN KEY (`{0}_{1}_id`)
-          REFERENCES `{2}` (`{1}_id`)
-          ON DELETE CASCADE
-          ON UPDATE CASCADE""".format(
-            column_name, table1_l_s, table1_l_p, table2_l_s, table2_l_p
+        _ = override_restriction_sql
+        return self.build_interlink_table_sqlite(
+            table1=table1,
+            table2=table2,
+            requested_cols=requested_cols,
+            allowed_types=allowed_types,
+            nullable_fks=True,
         )
 
-        right_foreign_key = """
-        CONSTRAINT `{0}_{3}_id`
-          FOREIGN KEY (`{0}_{3}_id`)
-          REFERENCES `{4}` (`{3}_id`)
-          ON DELETE CASCADE
-          ON UPDATE CASCADE""".format(
-            column_name, table1_l_s, table1_l_p, table2_l_s, table2_l_p
-        )
-        sql_stmt_component_list.append(left_foreign_key)
-        sql_stmt_component_list.append(right_foreign_key)
 
-        if override_restriction_sql is not None:
-            sql_stmt_component_list.append(override_restriction_sql)
-
-        sqlite = ",".join(sql_stmt_component_list) + ");"
-        if att_table_sqlite is not None:
-            att_table_sqlite.append(sqlite)
-            return att_table_sqlite
-        else:
-            return [
-                sqlite,
-            ]
 
     def build_allowed_types_table_interlink(
             self,
@@ -1038,8 +977,28 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         return [att_table_sqlite] + att_add_sqlite
 
 
-    def build_intralink_table_sqlite(self, name: str, allowed_types: Optional[Iterable[str]] = None) -> list[str]:
-        """Build SQLite for a self-link (intralink) table."""
+    def build_intralink_table_sqlite(
+        self,
+        name: str,
+        allowed_types: Optional[Iterable[str]] = None,
+        requested_cols: Optional[Union[str, Iterable[str], set[str]]] = None,
+        index_both: bool = True,
+        nullable_fks: bool = True,
+        symmetric: bool = False,
+        symmetric_types: Optional[Iterable[str]] = None,
+        use_reference_types_table: bool = False,
+    ) -> list[str]:
+        """Build SQLite for a self-link (intralink) table.
+
+        Backwards compatible with the historical signature ``build_intralink_table_sqlite(name, allowed_types=None)``.
+
+        Enhancements for the FRBR generator:
+          - requested_cols (interlink-style optional metadata columns, plus safe bespoke TEXT cols)
+          - origin/policy/data columns (when requested)
+          - allowed type guards via `{table}__types` reference tables (when ``use_reference_types_table=True``)
+          - symmetric ordering enforcement (either for all rows via ``symmetric=True`` or for a subset of types via
+            ``symmetric_types=[...]``)
+        """
 
         name_local = deepcopy(name)
         name_local = six_unicode(name_local)
@@ -1050,53 +1009,217 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         target_row_name = plural_singular_mapper(target_table_name)
         row_name = f"{target_row_name}_{target_row_name}_intralink"
+        table_name = f"{row_name}s"
 
-        allowed_type_table_sqlite = self.build_allowed_types_table_intralink(
-            target_table_name, allowed_types=allowed_types
+        # Normalise requested columns.
+        if requested_cols is None:
+            # Historical behaviour: always include `type` for intralinks.
+            req: Union[str, set[str]] = {"type"}
+        elif isinstance(requested_cols, str):
+            if requested_cols.strip().lower() == "all":
+                req = "all"
+            else:
+                raise TypeError(f"requested_cols must be 'all' or an iterable; got: {requested_cols!r}")
+        else:
+            req = {str(x).strip().lower() for x in requested_cols}
+
+        # If allowed types were requested, ensure we have a `type` column.
+        if allowed_types and req != "all":
+            req.add("type")
+
+        # Support "nullable" sentinel (documented in TOML) but it does not create a physical column.
+        if req != "all" and "nullable" in req:
+            req.remove("nullable")
+
+        # If symmetric_types is used we must have a type column.
+        if symmetric_types:
+            if req != "all" and "type" not in req:
+                raise ValueError("symmetric_types requires a `type` requested column in the intralink table")
+
+        # Decide FK nullability.
+        fk_null_sql = "NULL" if nullable_fks else "NOT NULL"
+
+        # Optional allowed-types table (legacy mode) OR types reference tables (FRBR mode).
+        # In FRBR mode we create `{table}__types` via `create_interlink_types_reference_table` at runtime,
+        # so do not emit an FK here.
+        allowed_type_table_sqlite: list[str] = []
+        at_foreign_key = ""
+        if (allowed_types is not None) and (not use_reference_types_table):
+            allowed_type_table_sqlite = self.build_allowed_types_table_intralink(
+                target_table_name, allowed_types=allowed_types
+            )
+            if allowed_type_table_sqlite:
+                att_name = self.get_allowed_types_table_name_intralinks(target_table_name)
+                att_col_name = att_name[:-1]
+                at_foreign_key = f"""
+      CONSTRAINT `{att_name}_type_is_allowed`
+        FOREIGN KEY (`{row_name}_type`)
+        REFERENCES `{att_name}` (`{att_col_name}_type`),
+"""
+
+        # Column builder
+        col_lines: list[str] = [
+            f"  `{row_name}_id` INTEGER PRIMARY KEY ,",
+            f"  `{row_name}_primary_id` INTEGER {fk_null_sql},",
+            f"  `{row_name}_secondary_id` INTEGER {fk_null_sql},",
+        ]
+
+        # Interlink-style optional columns
+        def _add_optional(col: str, ddl: str) -> None:
+            col_lines.append(f"  `{row_name}_{col}` {ddl},")
+
+        if req == "all" or (req != "all" and "priority" in req):
+            _add_optional("priority", "INTEGER DEFAULT 0")
+        if req == "all" or (req != "all" and "primary" in req):
+            _add_optional("primary", "INTEGER NULL DEFAULT 0")
+        if req == "all" or (req != "all" and "type" in req):
+            _add_optional("type", "TEXT NULL")
+        if req == "all" or (req != "all" and "index" in req):
+            _add_optional("index", "TEXT NULL")
+        if req == "all" or (req != "all" and "origin" in req):
+            _add_optional("origin", "TEXT NULL")
+        if req == "all" or (req != "all" and "policy" in req):
+            _add_optional("policy", "TEXT NULL")
+        if req == "all" or (req != "all" and "data" in req):
+            _add_optional("data", "TEXT NULL")
+
+        # Bespoke safe columns (TEXT NULL)
+        if req != "all":
+            reserved = {
+                "priority",
+                "primary",
+                "type",
+                "index",
+                "origin",
+                "policy",
+                "data",
+            }
+            for extra in sorted(req - reserved):
+                if not re.fullmatch(r"[a-z][a-z0-9_]*", extra):
+                    raise TypeError(f"Unsafe intralink requested column name: {extra!r}")
+                _add_optional(extra, "TEXT NULL")
+
+        # Standard tail columns
+        col_lines.append(f"  `{row_name}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),")
+        col_lines.append(f"  `{row_name}_scratch` TEXT NULL,")
+
+        # Constraints
+        constraint_lines: list[str] = []
+
+        # Always disallow self-self edges when both ends are non-null.
+        constraint_lines.append(
+            f"  CONSTRAINT `{row_name}_no_self_link` CHECK (`{row_name}_primary_id` IS NULL OR `{row_name}_secondary_id` IS NULL OR `{row_name}_primary_id` != `{row_name}_secondary_id`),"
         )
 
-        columns = f"""
+        has_type_col = (req == "all") or (req != "all" and "type" in req)
 
-    -- -----------------------------------------------------
-    -- Table `{row_name}s`
-    -- -----------------------------------------------------
-    CREATE TABLE IF NOT EXISTS `{row_name}s` (
-      `{row_name}_id` INTEGER PRIMARY KEY ,
-      `{row_name}_primary_id` INTEGER NULL,
-      `{row_name}_secondary_id` INTEGER NULL,
-      `{row_name}_type` TEXT NULL,
-      `{row_name}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-      `{row_name}_scratch` TEXT NULL,
+        # Uniqueness on (primary,secondary[,type])
+        if has_type_col:
+            constraint_lines.append(
+                f"  CONSTRAINT `{row_name}_pair_unique_with_type` UNIQUE (`{row_name}_primary_id`, `{row_name}_secondary_id`, `{row_name}_type`),"
+            )
+        else:
+            constraint_lines.append(
+                f"  CONSTRAINT `{row_name}_pair_unique` UNIQUE (`{row_name}_primary_id`, `{row_name}_secondary_id`),"
+            )
 
-    """
+        # If priority exists, enforce ordering uniqueness per primary (and per type if present).
+        has_priority = (req == "all") or (req != "all" and "priority" in req)
+        if has_priority:
+            if has_type_col:
+                constraint_lines.append(
+                    f"  CONSTRAINT `{row_name}_well_ordered` UNIQUE (`{row_name}_primary_id`, `{row_name}_type`, `{row_name}_priority`),"
+                )
+            else:
+                constraint_lines.append(
+                    f"  CONSTRAINT `{row_name}_well_ordered` UNIQUE (`{row_name}_primary_id`, `{row_name}_priority`),"
+                )
 
-        at_foreign_key = ""
-        if allowed_type_table_sqlite:
-            att_name = self.get_allowed_types_table_name_intralinks(target_table_name)
-            att_col_name = att_name[:-1]
-            at_foreign_key = f"""
-        CONSTRAINT `{att_name}_type_is_allowed`
-          FOREIGN KEY (`{row_name}_type`)
-          REFERENCES `{att_name}` (`{att_col_name}_type`)
+        # Foreign keys to the base table.
+        constraint_lines.append(
+            f"""
+  CONSTRAINT `{row_name}_primary_id_fk`
+    FOREIGN KEY (`{row_name}_primary_id`)
+    REFERENCES `{target_table_name}` (`{target_row_name}_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,""".rstrip()
+        )
+        constraint_lines.append(
+            f"""
+  CONSTRAINT `{row_name}_secondary_id_fk`
+    FOREIGN KEY (`{row_name}_secondary_id`)
+    REFERENCES `{target_table_name}` (`{target_row_name}_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE""".rstrip()
+        )
 
-        """
+        # Assemble CREATE TABLE
+        columns_sql = "\n".join(col_lines)
+        constraints_sql = "\n".join(constraint_lines)
 
-        first_constraint = f"""
-      CONSTRAINT `{row_name}_primary_id`
-        FOREIGN KEY (`{row_name}_primary_id`)
-        REFERENCES `{target_table_name}` (`{target_row_name}_id`)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE,
+        create_stmt = f"""
 
-    """
+-- -----------------------------------------------------
+-- Table `{table_name}`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `{table_name}` (
+{columns_sql}
+{at_foreign_key}{constraints_sql}
+);
+""".strip("\n")
 
-        second_constraint = f"""
-      CONSTRAINT `{row_name}_secondary_id`
-        FOREIGN KEY (`{row_name}_secondary_id`)
-        REFERENCES `{target_table_name}` (`{target_row_name}_id`)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE)
-    ;
-        """
+        stmts: list[str] = []
+        stmts.extend(allowed_type_table_sqlite)
+        stmts.append(create_stmt)
 
-        return allowed_type_table_sqlite + [columns + at_foreign_key + first_constraint + second_constraint]
+        # Indexing (optional, mirrors interlink behaviour).
+        if index_both:
+            stmts.append(
+                f"CREATE INDEX IF NOT EXISTS `{table_name}__primary_idx` ON `{table_name}` (`{row_name}_primary_id`);"
+            )
+            stmts.append(
+                f"CREATE INDEX IF NOT EXISTS `{table_name}__secondary_idx` ON `{table_name}` (`{row_name}_secondary_id`);"
+            )
+
+        # Symmetric ordering enforcement: cannot auto-swap in SQLite triggers, so reject out-of-order inserts/updates.
+        if symmetric or symmetric_types:
+            if symmetric_types:
+                types_list = [str(t) for t in symmetric_types]
+                in_list = ", ".join(["'" + t.replace("'", "''") + "'" for t in types_list])
+                type_pred = f"NEW.`{row_name}_type` IN ({in_list})"
+                label = " (symmetric_types)"
+            else:
+                type_pred = "1=1"
+                label = ""
+
+            trig_ins = f"{table_name}__symmetric_order_guard_insert"
+            trig_upd = f"{table_name}__symmetric_order_guard_update"
+
+            cond = (
+                f"""WHEN {type_pred}
+ AND NEW.`{row_name}_primary_id` IS NOT NULL
+ AND NEW.`{row_name}_secondary_id` IS NOT NULL
+ AND NEW.`{row_name}_primary_id` >= NEW.`{row_name}_secondary_id`"""
+            )
+
+            stmts.append(
+                f"""CREATE TRIGGER IF NOT EXISTS `{trig_ins}`
+BEFORE INSERT ON `{table_name}`
+FOR EACH ROW
+{cond}
+BEGIN
+  SELECT RAISE(ABORT, 'Symmetric intralink requires primary_id < secondary_id{label}.');
+END;"""
+            )
+
+            stmts.append(
+                f"""CREATE TRIGGER IF NOT EXISTS `{trig_upd}`
+BEFORE UPDATE OF `{row_name}_primary_id`, `{row_name}_secondary_id`, `{row_name}_type` ON `{table_name}`
+FOR EACH ROW
+{cond}
+BEGIN
+  SELECT RAISE(ABORT, 'Symmetric intralink requires primary_id < secondary_id{label}.');
+END;"""
+            )
+
+        return stmts

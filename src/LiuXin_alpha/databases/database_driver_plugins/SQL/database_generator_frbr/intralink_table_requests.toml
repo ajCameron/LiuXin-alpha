@@ -11,38 +11,159 @@
 #   - false => warn but still return them (useful while iterating on schemas)
 #
 version = 1
-require_table_exists = true
 
 [[intralinks]]
-table = "creators"
-rationale = ""
+table = "compressed_files"
+symmetric = true
+requested_cols = ["type"]
+types = ["same_hash", "contained_in", "same_path", ]
+rationale = """
+During mass imports, you might well run into the same file multiple times.
+This provides a mechanism for noting this.
+"""
+
+# Todo: Need a way to mark images and files as irreplaceable originals
 
 [[intralinks]]
-table = "covers"
-rationale = ""
+table = "images"
+symmetric = true
+requested_cols = ["type", "data", "origin"]
+types = ["converted_from", "same_subject"]
+rationale = """
+Images are often descended or created from each other.
+
+If they are marked "converted_from" then one image was produced from the other by conversion.
+(In this case, the data is the conversion setting required to produce the current picture).
+
+If they are marked "same_subject" then they are two pictures of the same object or person.
+(In this case data may be, but is not required to be, the thing the picture is of).
+
+"""
 
 [[intralinks]]
 table = "files"
-rationale = ""
+symmetric = true
+requested_cols = ["type", "data", "origin"]
+types = ["converted_from", "compressed_version", "anthology_of"]
+rationale = """
+Files are often produced by converting or otherwise mangling each other.
+
+This table represents these relations.
+
+ - converted_from
+
+Another file has been converted to produce this one.
+Data, here, are the conversion settings (including versions - ideally producing a byte to byte identicle final state).
+
+ - compressed_version
+
+Another file has been compressed to produce this one.
+Data, here, is the compression settings (including versions).
+
+ - anthology_of
+
+ A file which is built out of other files.
+ Data, here, are the file ids used to build the file in the right order.
+
+"""
 
 [[intralinks]]
-table = "folder_stores"
-rationale = ""
+table = "stores"
+symmetric = true
+requested_cols = ["type", "data", "origin"]
+types = ["backup", "partial_backup"]
+rationale = """
+Defines the inter-relations between stores.
+
+Stores can be backups of each other.
+
+ - backup
+
+ One store should just be a complete backup of the other.
+ In this case, we're just writing everything out to the other store.
+
+  - partial_backup
+
+ The store is a partial backup of the other.
+ In this case data contains the policy required to determine the backup.
+
+"""
 
 [[intralinks]]
-table = "identifiers"
-rationale = ""
+table = "works"
+symmetric = true
+requested_cols = ["type", "origin"]
+types = ["inspired_by", "fanfiction_of", "user_marked_different"]
+rationale = """
+Defines the inter-relation between works.
+
+ - type
+
+The type of the inter-relation.
+ - inspired_by
+One work inspires the other.
+ - fanfiction_of
+Eventually we're going to want to incorporate the entire ao3 metadata/works database.
+ - user_marked_different
+The automated system has flagged this work as the same, but the user reckons it's not.
+"""
 
 [[intralinks]]
-table = "tags"
-rationale = ""
+table = "expressions"
+symmetric = true
+requested_cols = ["type", "origin"]
+types = ["user_marked_different", ]
+rationale = """
+Defines the inter-relation between expressions.
+
+ - type
+
+ - user_marked_different
+The automated system has flagged this expression as the same, but the user reckons it's not.
+
+In this particular case, the default is to assume everything is under one expression.
+Slicing the mono-expression up can be done manually.
+
+"""
+
 
 [[intralinks]]
-table = "titles"
-rationale = ""
+table = "manifestations"
+symmetric = true
+requested_cols = ["type", "origin"]
+types = ["user_marked_different", ]
+rationale = """
+Defines the inter-relation between manifestation.
+
+ - type
+
+ - user_marked_different
+The automated system has flagged this manifestation as the same, but the user reckons it's not.
+
+In this particular case, the default is to assume everything is under one manifestation.
+Slicing the mono-expression up can be done manually.
+
+"""
+
 
 [[intralinks]]
-table = "publishers"
-rationale = ""
+table = "items"
+symmetric = true
+requested_cols = ["type", "origin"]
+types = ["user_marked_different", ]
+rationale = """
+Defines the inter-relation between item.
+
+ - type
+
+ - user_marked_different
+The automated system has flagged this item as the same, but the user reckons it's not.
+
+In this particular case, the default is to assume everything is under one item.
+Slicing the mono-expression up can be done manually.
+
+"""
+
+
 
 # Intralinks for user-created tables can be added below.

@@ -29,7 +29,7 @@ def _unique_groups(sql: str) -> list[set[str]]:
         inner = m.group(1)
         cols = []
         for part in inner.split(","):
-            c = part.strip().strip("`" ")
+            c = part.strip().strip("`\" ")
             if c:
                 cols.append(c)
         groups.append(set(cols))

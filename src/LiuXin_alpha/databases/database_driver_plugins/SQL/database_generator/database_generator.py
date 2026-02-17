@@ -922,9 +922,8 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         try:
             with open(os.path.join(__folder__, "intralink_table_requests.txt"), "r") as intra_reqs_file:
                 requested_table_names = intra_reqs_file.readlines()
-        except IOError:
-            LiuXin_print("Error - get_requested_intralink_tables failed to find the link table requests text file.")
-            sys.exit()
+        except IOError as e:
+            raise IOError("Error - get_requested_intralink_tables failed to find the link table requests text file.") from e
 
         for line in requested_table_names:
 
