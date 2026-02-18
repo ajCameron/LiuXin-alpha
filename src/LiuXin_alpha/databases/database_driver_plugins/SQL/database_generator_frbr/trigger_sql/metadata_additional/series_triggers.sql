@@ -111,11 +111,11 @@ END;
 -- ----------------------
 CREATE TRIGGER IF NOT EXISTS `trg_series_parent_not_self_after_ins`
 AFTER INSERT ON `series`
-WHEN NEW.`series_parent` IS NOT NULL
+WHEN NEW.`series_parent_id` IS NOT NULL
 BEGIN
   SELECT CASE
-    WHEN NEW.`series_parent` = NEW.`series_id`
-    THEN RAISE(ABORT, 'series.series_parent cannot reference itself')
+    WHEN NEW.`series_parent_id` = NEW.`series_id`
+    THEN RAISE(ABORT, 'series.series_parent_id cannot reference itself')
   END;
 END;
 
@@ -124,17 +124,17 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS `trg_series_parent_no_cycles_after_ins`
 AFTER INSERT ON `series`
-WHEN NEW.`series_parent` IS NOT NULL
+WHEN NEW.`series_parent_id` IS NOT NULL
 BEGIN
   SELECT CASE
     WHEN EXISTS (
       WITH RECURSIVE `anc`(`id`) AS (
-        SELECT NEW.`series_parent`
+        SELECT NEW.`series_parent_id`
         UNION ALL
-        SELECT `s`.`series_parent`
+        SELECT `s`.`series_parent_id`
         FROM `series` `s`
         JOIN `anc` ON `s`.`series_id` = `anc`.`id`
-        WHERE `s`.`series_parent` IS NOT NULL
+        WHERE `s`.`series_parent_id` IS NOT NULL
       )
       SELECT 1 FROM `anc` WHERE `id` = NEW.`series_id` LIMIT 1
     )

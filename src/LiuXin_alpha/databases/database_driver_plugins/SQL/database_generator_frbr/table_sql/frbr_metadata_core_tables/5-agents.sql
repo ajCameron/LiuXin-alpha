@@ -15,10 +15,13 @@ CREATE TABLE IF NOT EXISTS `agents` (
 
   -- What kind of agent is this?
   -- Suggested values: 'person', 'organisation', 'group', 'pseudonym'
-  `agent_type` TEXT NOT NULL,
+  -- NOTE: LiuXin frequently creates "blank" rows via get_blank_row(), inserting only the scratch column.
+  -- A DEFAULT keeps that workflow working while still enforcing NOT NULL + CHECK.
+  `agent_type` TEXT NOT NULL DEFAULT 'person',
 
   -- Display/sort identity (canonical lives here; name-parts live in subtype tables)
-  `agent_canonical_name` TEXT NOT NULL,
+  -- As above: provide a safe default so blank-row creation doesn't violate NOT NULL.
+  `agent_canonical_name` TEXT NOT NULL DEFAULT '',
   `agent_sort_name` TEXT NULL,
 
   -- Optional extras for UI/search

@@ -56,9 +56,43 @@ def _pick_alt_main_table(db, *, exclude: set[str]) -> str | None:
     return None
 
 
+def _cc_default_table(db) -> str:
+    """Pick the default main table for Calibre-style custom columns.
+
+    Historically this was 'books'. In the FRBR/WEMI schema, the closest analogue is
+    usually 'manifestations'. If neither is available (or doesn't support get_blank_row),
+    fall back to any main table that *does* support get_blank_row.
+    """
+
+    for cand in ("books", "manifestations", "items"):
+        if cand not in getattr(db, "main_tables", set()):
+            continue
+        try:
+            _ = db.driver_wrapper.get_scratch_column(cand)
+        except Exception:
+            continue
+        return cand
+
+    alt = _pick_alt_main_table(db, exclude={"custom_columns"})
+    if alt is None:
+        pytest.skip("No suitable main table available for custom column contract tests")
+    return alt
+
+
+def _cc_canonical_table(db, table: str) -> str:
+    """Canonicalise 'books' to the best available FRBR/WEMI analogue."""
+
+    if table == "books" and table not in getattr(db, "main_tables", set()):
+        return _cc_default_table(db)
+    return table
+
+
+
+
 def _create_target_row(db, table: str):
     """Create a blank Row in a table (requires that table has a scratch column)."""
 
+    table = _cc_canonical_table(db, table)
     _require_table(db, table)
     row = db.get_blank_row(table)
     assert row.row_id is not None
@@ -76,14 +110,47 @@ def _find_one(headings: Iterable[str], predicate, *, label: str) -> str:
     return str(matches[0])
 
 
+def _detect_fk_from_col(db, *, table: str, target_table: str, headings: Iterable[str]) -> str | None:
+    """Find the column in `table` that FK-references `target_table`.
+
+    This keeps tests robust across legacy naming (e.g. *_book referencing a non-books table)
+    and FRBR/WEMI-aware naming.
+    """
+
+    try:
+        rows = db.driver_wrapper.execute(
+            f"PRAGMA foreign_key_list('{table}');"
+        ).fetchall()
+    except Exception:
+        return None
+
+    heading_set = {str(h) for h in headings}
+
+    # SQLite PRAGMA foreign_key_list columns:
+    # (id, seq, table, from, to, on_update, on_delete, match)
+    for r in rows or []:
+        try:
+            ref_table = r[2]
+            from_col = r[3]
+        except Exception:
+            continue
+        if str(ref_table) == str(target_table) and str(from_col) in heading_set:
+            return str(from_col)
+    return None
+
+
 @dataclass(frozen=True)
 class _CCTables:
     cc_table: str
     link_table: str | None
+    in_table: str
+
 
 
 def _create_cc(db, *, name: str, datatype: str, in_table: str = "books", is_multiple: bool = False) -> tuple[int, _CCTables]:
     """Create a custom column, refresh Database metadata, and return (num, tables)."""
+
+    in_table = _cc_canonical_table(db, in_table)
 
     num = int(
         db.driver_wrapper.create_custom_column(
@@ -102,8 +169,7 @@ def _create_cc(db, *, name: str, datatype: str, in_table: str = "books", is_mult
     existing = set(db.get_tables(force_refresh=True))
     lt = link_table if link_table in existing else None
 
-    return num, _CCTables(str(cc_table), str(lt) if lt else None)
-
+    return num, _CCTables(str(cc_table), str(lt) if lt else None, str(in_table))
 
 def _insert_custom_value_row(db, cc_table: str, value) -> int:
     """Insert a row in a custom column value table and return its id."""
@@ -115,14 +181,67 @@ def _insert_custom_value_row(db, cc_table: str, value) -> int:
     return int(db.driver.direct_get_highest_id(cc_table))
 
 
-def _insert_link_row(db, link_table: str, *, book_id: int, value_id: int, extra=None) -> int:
-    """Insert a row in a custom-column link table and return its id."""
+
+def _insert_link_row(db, link_table: str, *, target_table: str, target_id: int, value_id: int, extra=None) -> int:
+    """Insert a row in a custom-column link table and return its id.
+
+    Link-table naming is not fully stable across schemas (e.g. some Calibre-derived paths
+    keep the historical *_book column name even when the actual target table is not books).
+    This helper therefore prefers FK-introspection and only falls back to name heuristics.
+    """
 
     headings = _headings(db, link_table)
-    book_col = _find_one(headings, lambda h: h.endswith("_book"), label="link book column")
+
     value_col = _find_one(headings, lambda h: h.endswith("_value"), label="link value column")
 
-    payload = {book_col: int(book_id), value_col: int(value_id)}
+    def _detect_target_col_via_fk() -> str | None:
+        """Use FK metadata to find the link table column that points at target_table."""
+
+        try:
+            rows = db.driver_wrapper.execute(
+                f"PRAGMA foreign_key_list('{link_table}');"
+            ).fetchall()
+        except Exception:
+            return None
+
+        # SQLite PRAGMA foreign_key_list columns:
+        # (id, seq, table, from, to, on_update, on_delete, match)
+        for r in rows or []:
+            try:
+                ref_table = r[2]
+                from_col = r[3]
+            except Exception:
+                continue
+            if str(ref_table) == str(target_table) and str(from_col) in headings:
+                return str(from_col)
+        return None
+
+    # Prefer FK-introspection (robust against naming differences like *_book vs *_manifestation).
+    target_col = _detect_target_col_via_fk()
+
+    if target_col is None:
+        # Heuristic: target column is typically the only non-id, non-value, non-extra column.
+        candidates = [
+            h
+            for h in headings
+            if not h.endswith("_id") and h != value_col and not h.endswith("_extra")
+        ]
+        if len(candidates) == 1:
+            target_col = str(candidates[0])
+        else:
+            # Legacy Calibre naming sometimes hard-codes *_book regardless of the real target table.
+            bookish = [h for h in candidates if str(h).endswith("_book")]
+            if len(bookish) == 1:
+                target_col = str(bookish[0])
+            else:
+                target_suffix = f"_{plural_singular_mapper(target_table)}"
+                suffixed = [h for h in candidates if str(h).endswith(target_suffix)]
+                if len(suffixed) == 1:
+                    target_col = str(suffixed[0])
+                else:
+                    assert False, f"Could not find link target column in headings: {headings!r}"
+
+    payload = {target_col: int(target_id), value_col: int(value_id)}
     extra_cols = [h for h in headings if h.endswith("_extra")]
     if extra_cols:
         # Extra is optional, but if caller provides it, write it to the single _extra column.
@@ -138,14 +257,23 @@ def _insert_link_row(db, link_table: str, *, book_id: int, value_id: int, extra=
 
 
 def test_create_custom_column_rejects_unknown_datatype(db) -> None:
+    in_table = _cc_default_table(db)
     with pytest.raises(ValueError):
-        db.driver_wrapper.create_custom_column(name="cc_badtype", datatype="giraffe", in_table="books")
+        db.driver_wrapper.create_custom_column(name="cc_badtype", datatype="giraffe", in_table=in_table)
+
 
 
 @pytest.mark.parametrize("datatype", ["rating", "int", "float", "datetime", "bool"])
 def test_create_custom_column_rejects_multiple_for_scalar_types(db, datatype: str) -> None:
+    in_table = _cc_default_table(db)
     with pytest.raises(NotImplementedError):
-        db.driver_wrapper.create_custom_column(name=f"cc_multi_{datatype}", datatype=datatype, is_multiple=True)
+        db.driver_wrapper.create_custom_column(
+            name=f"cc_multi_{datatype}",
+            datatype=datatype,
+            is_multiple=True,
+            in_table=in_table,
+        )
+
 
 
 @pytest.mark.parametrize(
@@ -160,8 +288,9 @@ def test_create_custom_column_rejects_multiple_for_scalar_types(db, datatype: st
     ],
 )
 def test_create_custom_column_rejects_invalid_label(db, label: str) -> None:
+    in_table = _cc_default_table(db)
     with pytest.raises((AssertionError, ValueError)):
-        db.driver_wrapper.create_custom_column(name="cc_label", datatype="text", label=label)
+        db.driver_wrapper.create_custom_column(name="cc_label", datatype="text", label=label, in_table=in_table)
 
 
 def test_create_custom_column_requires_valid_in_table(db) -> None:
@@ -206,22 +335,23 @@ def test_create_custom_column_creates_unnormalized_table_only(db, datatype: str)
 
 
 def test_set_custom_column_metadata_updates_custom_columns_row(db) -> None:
-    num, _tables = _create_cc(db, name="cc_meta", datatype="text", in_table="books")
+    num, _tables = _create_cc(db, name="cc_meta", datatype="text")
+    base = _tables.in_table
 
     changed = db.driver_wrapper.set_custom_column_metadata(
         num=num,
         name="cc_meta_renamed",
-        label="books__cc_meta_label",
+        label=f"{base}__cc_meta_label",
         is_editable=False,
         display={"heading": "🚀", "enum_values": ["a", "b"]},
-        in_table="books",
+        in_table=base,
     )
     assert changed is True
 
     row = db.get_row_from_id("custom_columns", num)
     assert row is not None
     assert row["custom_column_name"] == "cc_meta_renamed"
-    assert row["custom_column_label"] == "books__cc_meta_label"
+    assert row["custom_column_label"] == f"{base}__cc_meta_label"
     assert bool(row["custom_column_editable"]) is False
 
 
@@ -248,9 +378,9 @@ def test_get_interlinked_rows_cc_normalized_roundtrip_unicode_and_injection(db, 
     _num, tables = _create_cc(db, name="cc_text", datatype="text", in_table="books")
     assert tables.link_table is not None
 
-    book = _create_target_row(db, "books")
+    book = _create_target_row(db, tables.in_table)
     cc_id = _insert_custom_value_row(db, tables.cc_table, value)
-    _insert_link_row(db, tables.link_table, book_id=int(book.row_id), value_id=cc_id)
+    _insert_link_row(db, tables.link_table, target_table=tables.in_table, target_id=int(book.row_id), value_id=cc_id)
 
     got = db.get_interlinked_rows_cc(book, tables.cc_table, link_table=True)
     assert isinstance(got, list)
@@ -266,7 +396,7 @@ def test_get_interlinked_rows_cc_normalized_empty_when_no_links(db) -> None:
     _num, tables = _create_cc(db, name="cc_empty", datatype="text", in_table="books")
     assert tables.link_table is not None
 
-    book = _create_target_row(db, "books")
+    book = _create_target_row(db, tables.in_table)
     assert db.get_interlinked_rows_cc(book, tables.cc_table, link_table=True) == []
 
 
@@ -274,7 +404,7 @@ def test_get_interlinked_rows_cc_normalized_orders_by_link_row_id(db, pick_paylo
     _num, tables = _create_cc(db, name="cc_order", datatype="text", in_table="books")
     assert tables.link_table is not None
 
-    book = _create_target_row(db, "books")
+    book = _create_target_row(db, tables.in_table)
 
     # Insert two distinct custom values.
     v1 = pick_payload(0)
@@ -286,8 +416,8 @@ def test_get_interlinked_rows_cc_normalized_orders_by_link_row_id(db, pick_paylo
     id2 = _insert_custom_value_row(db, tables.cc_table, v2)
 
     # Link them in a specific order (id2 first, then id1).
-    _insert_link_row(db, tables.link_table, book_id=int(book.row_id), value_id=id2)
-    _insert_link_row(db, tables.link_table, book_id=int(book.row_id), value_id=id1)
+    _insert_link_row(db, tables.link_table, target_table=tables.in_table, target_id=int(book.row_id), value_id=id2)
+    _insert_link_row(db, tables.link_table, target_table=tables.in_table, target_id=int(book.row_id), value_id=id1)
 
     got = db.get_interlinked_rows_cc(book, tables.cc_table, link_table=True)
     value_col = f"{plural_singular_mapper(tables.cc_table)}_value"
@@ -295,7 +425,8 @@ def test_get_interlinked_rows_cc_normalized_orders_by_link_row_id(db, pick_paylo
 
 
 def test_get_interlinked_rows_cc_normalized_errors_when_link_table_not_registered(db) -> None:
-    book = _create_target_row(db, "books")
+    # Use the schema-appropriate default main table (historically 'books').
+    book = _create_target_row(db, _cc_default_table(db))
     with pytest.raises(InputIntegrityError):
         db.get_interlinked_rows_cc(book, "custom_column_999999", link_table=True)
 
@@ -304,7 +435,7 @@ def test_get_interlinked_rows_cc_normalized_errors_on_target_table_mismatch(db) 
     _num, tables = _create_cc(db, name="cc_mismatch", datatype="text", in_table="books")
     assert tables.link_table is not None
 
-    alt = _pick_alt_main_table(db, exclude={"books", "custom_columns"})
+    alt = _pick_alt_main_table(db, exclude={tables.in_table, "custom_columns"})
     if alt is None:
         pytest.skip("No alternate main table with scratch column available")
 
@@ -317,28 +448,28 @@ def test_link_table_enforces_unique_pairs(db) -> None:
     _num, tables = _create_cc(db, name="cc_pairs", datatype="text", in_table="books")
     assert tables.link_table is not None
 
-    book = _create_target_row(db, "books")
+    book = _create_target_row(db, tables.in_table)
     cc_id = _insert_custom_value_row(db, tables.cc_table, "unique-pair")
-    _insert_link_row(db, tables.link_table, book_id=int(book.row_id), value_id=cc_id)
+    _insert_link_row(db, tables.link_table, target_table=tables.in_table, target_id=int(book.row_id), value_id=cc_id)
 
     with pytest.raises(DatabaseIntegrityError):
-        _insert_link_row(db, tables.link_table, book_id=int(book.row_id), value_id=cc_id)
+        _insert_link_row(db, tables.link_table, target_table=tables.in_table, target_id=int(book.row_id), value_id=cc_id)
 
 
 def test_link_table_rejects_missing_foreign_keys(db) -> None:
     _num, tables = _create_cc(db, name="cc_fk", datatype="text", in_table="books")
     assert tables.link_table is not None
 
-    book = _create_target_row(db, "books")
+    book = _create_target_row(db, tables.in_table)
     cc_id = _insert_custom_value_row(db, tables.cc_table, "fk-value")
 
     # Bad book id.
     with pytest.raises(DatabaseIntegrityError):
-        _insert_link_row(db, tables.link_table, book_id=int(book.row_id) + 10_000_000, value_id=cc_id)
+        _insert_link_row(db, tables.link_table, target_table=tables.in_table, target_id=int(book.row_id) + 10_000_000, value_id=cc_id)
 
     # Bad value id.
     with pytest.raises(DatabaseIntegrityError):
-        _insert_link_row(db, tables.link_table, book_id=int(book.row_id), value_id=cc_id + 10_000_000)
+        _insert_link_row(db, tables.link_table, target_table=tables.in_table, target_id=int(book.row_id), value_id=cc_id + 10_000_000)
 
 
 def test_custom_value_table_enforces_unique_value_for_normalized_types(db) -> None:
@@ -348,10 +479,25 @@ def test_custom_value_table_enforces_unique_value_for_normalized_types(db) -> No
         _insert_custom_value_row(db, tables.cc_table, "dup")
 
 
-def test_custom_value_table_rejects_embedded_nul(db) -> None:
+def test_custom_value_table_sanitizes_embedded_nul(db) -> None:
+    """Embedded NUL bytes are normalized to a visible placeholder.
+
+    Historically we avoid hard-rejecting these because they can appear in imported
+    metadata. Instead we keep stored TEXT values safe for common tooling.
+    """
+
     _num, tables = _create_cc(db, name="cc_nul", datatype="text", in_table="books")
-    with pytest.raises((ValueError, DatabaseIntegrityError)):
-        _insert_custom_value_row(db, tables.cc_table, "nul\x00byte")
+
+    cc_id = _insert_custom_value_row(db, tables.cc_table, "nul\x00byte")
+
+    row = db.driver_wrapper.get_row_from_id(tables.cc_table, cc_id)
+    assert row is not None
+
+    headings = _headings(db, tables.cc_table)
+    value_col = _find_one(headings, lambda h: h.endswith("_value"), label="custom value column")
+
+    assert row[value_col] == "nul<NUL>byte"
+    assert "\x00" not in row[value_col]
 
 
 # ---------------------------------------------------------------------------
@@ -363,10 +509,20 @@ def test_custom_value_table_rejects_embedded_nul(db) -> None:
 def test_get_interlinked_rows_cc_unnormalized_roundtrip_via_direct_table(db, datatype: str) -> None:
     _num, tables = _create_cc(db, name=f"cc_un_{datatype}", datatype=datatype, in_table="books")
 
-    book = _create_target_row(db, "books")
+    book = _create_target_row(db, tables.in_table)
 
     headings = _headings(db, tables.cc_table)
-    book_col = _find_one(headings, lambda h: h.endswith("_book"), label="custom unnormalized book column")
+
+    # Prefer FK-introspection (robust against naming differences like *_book vs *_manifestation).
+    book_col = _detect_fk_from_col(db, table=tables.cc_table, target_table=tables.in_table, headings=headings)
+    if book_col is None:
+        target_suffix = f"_{plural_singular_mapper(tables.in_table)}"
+        book_col = _find_one(
+            headings,
+            lambda h: h.endswith(target_suffix) or h.endswith("_book"),
+            label="custom unnormalized target column",
+        )
+
     value_col = _find_one(headings, lambda h: h.endswith("_value"), label="custom unnormalized value column")
 
     if datatype == "int":
@@ -391,7 +547,7 @@ def test_get_interlinked_rows_cc_unnormalized_roundtrip_via_direct_table(db, dat
 
 def test_get_interlinked_rows_cc_unnormalized_raises_if_link_table_true(db) -> None:
     _num, tables = _create_cc(db, name="cc_un_comments", datatype="comments", in_table="books")
-    book = _create_target_row(db, "books")
+    book = _create_target_row(db, tables.in_table)
 
     with pytest.raises(InputIntegrityError):
         db.get_interlinked_rows_cc(book, tables.cc_table, link_table=True)
@@ -399,10 +555,20 @@ def test_get_interlinked_rows_cc_unnormalized_raises_if_link_table_true(db) -> N
 
 def test_unnormalized_table_enforces_one_value_per_book(db) -> None:
     _num, tables = _create_cc(db, name="cc_un_one", datatype="int", in_table="books")
-    book = _create_target_row(db, "books")
+    book = _create_target_row(db, tables.in_table)
 
     headings = _headings(db, tables.cc_table)
-    book_col = _find_one(headings, lambda h: h.endswith("_book"), label="custom unnormalized book column")
+
+    # Prefer FK-introspection (robust against naming differences like *_book vs *_manifestation).
+    book_col = _detect_fk_from_col(db, table=tables.cc_table, target_table=tables.in_table, headings=headings)
+    if book_col is None:
+        target_suffix = f"_{plural_singular_mapper(tables.in_table)}"
+        book_col = _find_one(
+            headings,
+            lambda h: h.endswith(target_suffix) or h.endswith("_book"),
+            label="custom unnormalized target column",
+        )
+
     value_col = _find_one(headings, lambda h: h.endswith("_value"), label="custom unnormalized value column")
 
     db.driver_wrapper.add_row({book_col: int(book.row_id), value_col: 1})
@@ -425,7 +591,7 @@ def test_delete_custom_column_marks_for_delete(db) -> None:
 
 
 def test_marked_custom_column_is_removed_on_customcolumns_load(db) -> None:
-    # NOTE: CustomColumns' deletion routine currently assumes in_table='books'.
+    # CustomColumns' deletion routine should drop tables for the attachment table (books/manifestations/etc.).
     num, tables = _create_cc(db, name="cc_del_apply", datatype="text", in_table="books")
     assert tables.link_table is not None
 
@@ -434,7 +600,7 @@ def test_marked_custom_column_is_removed_on_customcolumns_load(db) -> None:
     # Simulate "restart" behaviour by instantiating the Calibre-style CustomColumns loader.
     from LiuXin_alpha.databases.custom_columns import CustomColumns
 
-    _ = CustomColumns(db=db, table="books")
+    _ = CustomColumns(db=db, table=tables.in_table)
 
     existing = set(db.get_tables(force_refresh=True))
     assert tables.cc_table not in existing
@@ -444,9 +610,11 @@ def test_marked_custom_column_is_removed_on_customcolumns_load(db) -> None:
     assert db.get_row_from_id("custom_columns", num) is None
 
 
-@pytest.mark.xfail(reason="CustomColumns.deleted_marked_custom_columns() assumes in_table='books' when dropping tables")
-def test_mark_delete_for_non_books_table_is_currently_buggy(db) -> None:
-    alt = _pick_alt_main_table(db, exclude={"books", "custom_columns"})
+
+
+def test_mark_delete_for_non_default_table(db) -> None:
+    base = _cc_default_table(db)
+    alt = _pick_alt_main_table(db, exclude={base, "custom_columns"})
     if alt is None:
         pytest.skip("No alternate main table with scratch column available")
 
@@ -461,3 +629,4 @@ def test_mark_delete_for_non_books_table_is_currently_buggy(db) -> None:
     existing = set(db.get_tables(force_refresh=True))
     assert tables.cc_table not in existing
     assert tables.link_table not in existing
+

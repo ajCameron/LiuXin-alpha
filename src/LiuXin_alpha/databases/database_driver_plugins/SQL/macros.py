@@ -1223,7 +1223,7 @@ class SQLiteDatabaseCustomColumnMacros:
                 x[0]
                 for x in conn.get(
                     'SELECT name FROM sqlite_master WHERE type="table" AND '
-                    '(name GLOB "custom_column_*" OR name GLOB "books_custom_column_*")'
+                    '(name GLOB "custom_column_*" OR name GLOB "*_custom_column_*_link")'
                 )
             ]
         )

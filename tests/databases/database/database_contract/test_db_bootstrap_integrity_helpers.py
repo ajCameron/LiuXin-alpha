@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pytest
 
+from LiuXin_alpha.databases.bootstrap_constants import AGENTS_NULL_CANONICAL_NAME
+
 
 def _expected_rating_value(rating_id: int) -> float:
     # rating_id 1..11 => 0.0..5.0 step 0.5
@@ -77,9 +79,10 @@ def test_fresh_database_bootstrap_creates_ratings_and_null_rows(tmp_path: Path, 
         assert series0
         assert series0.get("series") is None
 
-        pub0 = db.driver_wrapper.get_row_from_id("publishers", 0)
-        assert pub0
-        assert pub0.get("publisher") is None
+        agent0 = db.driver_wrapper.get_row_from_id("agents", 0)
+        assert agent0
+        assert agent0.get("agent_type") == "organisation"
+        assert agent0.get("agent_canonical_name") == AGENTS_NULL_CANONICAL_NAME
     finally:
         db.close()
 
@@ -153,9 +156,10 @@ def test_ensure_null_rows_is_idempotent(open_db):
     assert series0
     assert series0.get("series") is None
 
-    pub0 = db.driver_wrapper.get_row_from_id("publishers", 0)
-    assert pub0
-    assert pub0.get("publisher") is None
+    agent0 = db.driver_wrapper.get_row_from_id("agents", 0)
+    assert agent0
+    assert agent0.get("agent_type") == "organisation"
+    assert agent0.get("agent_canonical_name") == AGENTS_NULL_CANONICAL_NAME
 
 
 def test_ensure_null_rows_repairs_series_null_value(open_db):
@@ -175,21 +179,24 @@ def test_ensure_null_rows_repairs_series_null_value(open_db):
     assert repaired.get("series") is None
 
 
-def test_ensure_null_rows_repairs_publisher_null_value(open_db):
-    """If the publisher null row has a value, ensure_null_rows should reset it to None."""
+def test_ensure_null_rows_repairs_agents_null_value(open_db):
+    """If the agents null row is missing required values, ensure_null_rows should repair it."""
 
     db = open_db
-    row = db.get_row_from_id("publishers", 0)
+    row = db.get_row_from_id("agents", 0)
     assert row is not None
 
-    row["publisher"] = "NOT NULL"
+    # Break the sentinel row.
+    row["agent_type"] = "person"
+    row["agent_canonical_name"] = "NOT NULL"
     row.sync()
 
     db.ensure_null_rows()
 
-    repaired = db.driver_wrapper.get_row_from_id("publishers", 0)
+    repaired = db.driver_wrapper.get_row_from_id("agents", 0)
     assert repaired
-    assert repaired.get("publisher") is None
+    assert repaired.get("agent_type") == "organisation"
+    assert repaired.get("agent_canonical_name") == AGENTS_NULL_CANONICAL_NAME
 
 
 def test_rating_table_expected_shape(open_db):

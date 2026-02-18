@@ -38,11 +38,47 @@ from LiuXin_alpha.utils.logging import default_log
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
+from LiuXin_alpha.databases.bootstrap_constants import AGENTS_NULL_CANONICAL_NAME
+
 # Todo: Embed this version number in the database - so that we can check the version of the code used to produce each
 #       test database
 __object_version__ = (1, 0, 0)
 
 # Todo: Point uuid requests to the library_id instead
+
+HELPER_TABLES = frozenset(
+    {
+        "conversion_options",
+        "compressed_files",
+        "custom_columns",
+        "database_metadata",
+        "database_version",
+        "feeds",
+        "hashes",
+        "last_read_positions",
+        "library_id",
+        "metadata_dirtied_books",
+        "new_books",
+        "preferences",
+        # FRBR plugin data
+        "works_plugin_data",
+        "expressions_plugin_data",
+        "manifestations_plugin_data",
+        "items_plugin_data",
+        # Workflow tables
+        "file_derivations",
+        "file_workflow",
+        "file_workflow_events",
+        "item_workflow",
+        "item_workflow_events",
+        "transform_runs",
+        "transform_run_inputs",
+        "transform_run_outputs",
+        "workflow_states",
+        "workflow_steps",
+    }
+)
+
 
 
 class Database(CustomColumnDatabaseMixin, DatabaseAPI):
@@ -179,19 +215,7 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
 
         self.dirtiable_tables = None
 
-        self.helper_tables = {
-            "conversion_options",
-            "compressed_files",
-            "new_books",
-            "database_metadata",
-            "hashes",
-            "preferences",
-            "books_plugin_data",
-            "ratings",
-            "metadata_dirtied_books",
-            "library_id",
-            "database_version",
-        }
+        self.helper_tables = HELPER_TABLES
 
         self.refresh_db_metadata()
 
@@ -275,19 +299,7 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
 
             self.allowed_type_tables = None
 
-            self.helper_tables = {
-                "conversion_options",
-                "compressed_files",
-                "new_books",
-                "database_metadata",
-                "hashes",
-                "preferences",
-                "books_plugin_data",
-                "ratings",
-                "metadata_dirtied_books",
-                "library_id",
-                "database_version",
-            }
+            self.helper_tables = HELPER_TABLES
 
             # DatabasePing uuid - unique identifier given to the database
             self._uuid = None
@@ -564,33 +576,55 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
     # Todo: THese methods should be private - only run during startup
     def ensure_null_rows(self):
         """
-        Checks that the null rows have been entered as they should be.
-        NUll rows are used when linking two tables togeher - to indicate that the first result should be recorded as
-        None - e.g. series linked to a title - if you want the first series to be None, then either make no links or
-        link the title to the Null row first.
-        Not every table has a null row - sometimes nullification is accomplished by deleting all the rows instead.
-        :return:
-        """
-        # Ensure the series null row - check if it already exists - if it does then make sure that the series value
-        # is set to None - if not then create it.
-        series_0_row = self.driver_wrapper.get_row_from_id("series", 0)
-        if not series_0_row:
-            series_null_row = dict()
-            series_null_row["series_id"] = 0
-            self.driver_wrapper.add_row(series_null_row)
-        else:
-            series_0_row["series"] = None
-            self.driver_wrapper.update_row(series_0_row)
+        Ensure required sentinel/null rows exist.
 
-        # Ensure the publisher null row
-        pub_0_row = self.driver_wrapper.get_row_from_id("publishers", 0)
-        if not pub_0_row:
-            pub_null_row = dict()
-            pub_null_row["publisher_id"] = 0
-            self.driver_wrapper.add_row(pub_null_row)
-        else:
-            pub_0_row["publisher"] = None
-            self.driver_wrapper.update_row(pub_0_row)
+        Historically, LiuXin used id=0 in certain tables as a "null" record for
+        link tables.
+
+        In the FRBR-first/WEMI schema, publishing entities are modelled via
+        `agents` (+ subtype sidecars like `org_agents`) rather than a dedicated
+        `publishers` table.
+        """
+
+        # Ensure the series null row
+        if getattr(self, "all_tables", None) is None or "series" in self.all_tables:
+            series_0_row = self.driver_wrapper.get_row_from_id("series", 0)
+            if not series_0_row:
+                series_null_row = {"series_id": 0}
+                self.driver_wrapper.add_row(series_null_row)
+            else:
+                # Convention: the sentinel row's display value is NULL
+                series_0_row["series"] = None
+                self.driver_wrapper.update_row(series_0_row)
+
+        # Preferred (FRBR-first): ensure an organisation agent sentinel row
+        if getattr(self, "all_tables", None) is None or "agents" in self.all_tables:
+            agent_0_row = self.driver_wrapper.get_row_from_id("agents", 0)
+            if not agent_0_row:
+                agent_null_row = {
+                    "agent_id": 0,
+                    "agent_type": "organisation",
+                    # agent_canonical_name is NOT NULL in the current schema
+                    "agent_canonical_name": AGENTS_NULL_CANONICAL_NAME,
+                }
+                self.driver_wrapper.add_row(agent_null_row)
+            else:
+                agent_0_row["agent_type"] = "organisation"
+                # Always repair/normalize the sentinel row's canonical name.
+                # (It's NOT NULL in schema, so we use a clearly intentional string.)
+                if agent_0_row.get("agent_canonical_name") != AGENTS_NULL_CANONICAL_NAME:
+                    agent_0_row["agent_canonical_name"] = AGENTS_NULL_CANONICAL_NAME
+                self.driver_wrapper.update_row(agent_0_row)
+
+        # Legacy fallback (Calibre-style DBs): keep the old publishers sentinel row if that table exists.
+        elif getattr(self, "all_tables", None) is None or "publishers" in self.all_tables:
+            pub_0_row = self.driver_wrapper.get_row_from_id("publishers", 0)
+            if not pub_0_row:
+                pub_null_row = {"publisher_id": 0}
+                self.driver_wrapper.add_row(pub_null_row)
+            else:
+                pub_0_row["publisher"] = None
+                self.driver_wrapper.update_row(pub_0_row)
 
     @property
     def main_tables(self) -> frozenset[str]:
@@ -681,20 +715,25 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         self._interlink_tables = set()
         self.intralink_tables = set()
         self.allowed_type_tables = set()
+        # Check helper tables exist (report *all* missing; helper_tables is a set-like).
+        missing_helpers = sorted(set(self.helper_tables) - set(self.all_tables))
+        if missing_helpers:
+            import difflib
 
-        # Check that the pre set helper tables can be found in the all_tables field
-        for helper_table in self.helper_tables:
+            suggestions = {
+                t: difflib.get_close_matches(t, sorted(self.all_tables), n=3, cutoff=0.6)
+                for t in missing_helpers
+            }
 
-            if helper_table not in self.all_tables:
-                err_str = "Unable to find a helper table in the database return"
-                err_str = default_log.log_variables(
-                    err_str,
-                    "ERROR",
-                    ("helper_table", helper_table),
-                    ("all_tables", pprint.pformat(self.all_tables)),
-                )
-                raise DatabaseIntegrityError(err_str)
-
+            err_str = "Unable to find required helper table(s) in the database"
+            err_str = default_log.log_variables(
+                err_str,
+                "ERROR",
+                ("missing_helper_tables", pprint.pformat(missing_helpers)),
+                ("suggestions", pprint.pformat(suggestions)),
+                ("all_tables", pprint.pformat(self.all_tables)),
+            )
+            raise DatabaseIntegrityError(err_str)
         # Populate the individual categories
         for table in self.all_tables:
             table_cat = self.categorize_table(table)
@@ -1283,6 +1322,7 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
                 ("secondary_table", secondary_table),
             )
             raise InputIntegrityError(err_str)
+
         if secondary_table not in self.main_tables and secondary_table not in self.helper_tables:
             err_str = "Secondary table needs to be in either the main tables or the helper tables"
             err_str = default_log.log_variables(
@@ -1292,6 +1332,7 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
                 ("secondary_table", secondary_table),
             )
             raise InputIntegrityError(err_str)
+
         if target_row.table == secondary_table:
             err_str = "This method is for interlink rows, not intralink rows."
             err_str = default_log.log_variables(

@@ -54,10 +54,12 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 # Every table which can be added to directly has a method here
 # So to add some metadata to the library call library.add.table_name() - with the required parameters
 # This also allows you to swap other add classes in more easily, if they've been rewritten
-class Add(object):
+class Add:
     """
     Class to add rows to the library.
+
     There is no rating method here - because all ratings should already have been added.
+
     This method is for metadata - to find the methods used to add objects physically look in the folder_stores,adder
     method.
     """
@@ -88,8 +90,11 @@ class Add(object):
     ):
         """
         Creates an entry in the books table linked to the given title. Needs to be linked to an existing title row.
+
         Generates everything off that.
-        One and only one book is allowed per title row. This is enforced by a foreign key constraint. If you try and add
+
+        One and only one book is allowed per title row. This is enforced by a foreign key constraint.
+        If you try and add
         a book from the same title row twice, you will get an error. Delete that row specifically, using the delete
         methods in library.db, then try to add the book again.
 
@@ -597,77 +602,3 @@ class Add(object):
         tag_row.sync()
         return tag_row
 
-    # Todo: Enable adding title interlink data in one call
-    # So would like to able to note that this is an alt-title for another work with just one call to this method.
-    def title(
-        self,
-        title,
-        title_sort=None,
-        title_phash=None,
-        title_creator_sort=None,
-        title_pub_date=None,
-        title_copyright_date=None,
-        title_wikipedia=None,
-        title_fiction_length_category=None,
-        title_type=None,
-        title_wordcount=None,
-        title_source=None,
-        title_source_path=None,
-        title_source_name=None,
-        title_created_datestamp=None,
-        title_datestamp=None,
-        override_title_row=None,
-    ):
-        """
-        Populate a title row, add it to the database, and return.
-        :param title: The title of the work
-        :param title_sort: The title_sort for the work - will be set automatically if nothing is provided
-        :param title_phash: Phash generated from the title and the creators - which is used to fuzzily match books when
-                            adding.
-        :param title_creator_sort:  Sort string for the creators of a work
-        :param title_pub_date: The publication date for the work
-        :param title_copyright_date: The copyright date for the work
-        :param title_wikipedia: A wikipedia link to the work
-        :param title_fiction_length_category:
-        :param title_type: What type of resource is the title?
-        :param title_wordcount: What is the title's wordcount?
-        :param title_source: Where did the title come from?
-        :param title_source_path: The original paths of the files in the book (for debugging).
-        :param title_source_name: The original names of all the files
-        :param title_created_datestamp: Defaults to now
-        :param title_datestamp: When was the title created?
-        :param override_title_row: If this is passed in then it's used in place of a generated blank row - useful if
-                                   you just want to update the information in a title row.
-        :return:
-        """
-        if override_title_row is None:
-            title_row = Row(database=self.db)
-        else:
-            title_row = override_title_row
-
-        title_row["title"] = title
-        title_row["title_sort"] = title_sort if title_sort is not None else generate_title_sort(title)
-        title_row["title_phash"] = title_phash if title_phash is not None else make_title_search_term(title)
-
-        title_row["title_creator_sort"] = title_creator_sort
-
-        title_row["title_pub_date"] = title_pub_date
-        if title_copyright_date is not None:
-            title_row["title_copyright_date"] = title_copyright_date
-        else:
-            title_row["title_copyright_date"] = title_pub_date
-        title_row["title_wikipedia"] = title_wikipedia
-        title_row["title_fiction_length_category"] = title_fiction_length_category
-        title_row["title_type"] = title_type
-        title_row["title_wordcount"] = title_wordcount
-
-        title_row["title_source"] = title_source
-        title_row["title_source_path"] = title_source_path
-        title_row["title_source_name"] = title_source_name
-        title_row["title_created_datestamp"] = (
-            title_created_datestamp if title_created_datestamp is not None else utcnow()
-        )
-
-        title_row.sync()
-
-        return title_row

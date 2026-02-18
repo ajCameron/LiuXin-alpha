@@ -182,7 +182,8 @@ def get_main_table_sql_files() -> list[pathlib.Path]:
 
     table_sql_folder = pathlib.Path(__folder__) / "table_sql"
 
-    assert table_sql_folder.is_dir(), "table_sql folder is not a directory"
+    if not table_sql_folder.is_dir():
+        raise NotADirectoryError(f"Expected 'table_sql' folder to be a directory: {table_sql_folder!s}")
 
     # pathlib.Path.walk() is only available on Python 3.12+; use os.walk for compatibility.
     for root, dirs, files in os.walk(table_sql_folder):
@@ -205,8 +206,8 @@ def get_trigger_sql_files() -> list[pathlib.Path]:
     all_sql_files = []
 
     table_sql_folder = pathlib.Path(__folder__) / "trigger_sql"
-
-    assert table_sql_folder.is_dir(), "trigger_sql folder is not a directory"
+    if not table_sql_folder.is_dir():
+        raise NotADirectoryError(f"Expected 'trigger_sql' folder to be a directory: {table_sql_folder!s}")
 
     # pathlib.Path.walk() is only available on Python 3.12+; use os.walk for compatibility.
     for root, dirs, files in os.walk(table_sql_folder):
@@ -426,7 +427,8 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         Intralinks are always self-links (table ↔ table), so we only validate existence here.
         """
         for intralink_table in self.intralink_tables:
-            assert intralink_table in self.main_tables, f"Unknown intralink main table: {intralink_table!r}"
+            if intralink_table not in self.main_tables:
+                raise ValueError(f"Unknown intralink main table: {intralink_table!r}")
 
     def create_main_tables(self) -> None:
         """
@@ -442,13 +444,12 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         for main_table_sql_file in self.main_tables_sql_files:
 
             try:
-                with main_table_sql_file.open("r") as main_tables_sqlite_file:
+                with main_table_sql_file.open("r", encoding="utf-8") as main_tables_sqlite_file:
                     test = main_tables_sqlite_file.readlines()
-            except IOError as e:
-                LiuXin_print(
-                    "Error - create_main_tables failed, due to being unable to find the main_tables_sqlite.txt file."
-                )
-                sys.exit()
+            except OSError as e:
+                raise FileNotFoundError(
+                    f"Unable to read main-table SQL file: {main_table_sql_file!s}"
+                ) from e
 
 
             # If the table file uses no BREAK markers, execute it as a script (supports multi-statement SQL).
@@ -507,13 +508,12 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         for main_table_sql_file in self.triggers_sql_files:
 
             try:
-                with main_table_sql_file.open("r") as main_tables_sqlite_file:
+                with main_table_sql_file.open("r", encoding="utf-8") as main_tables_sqlite_file:
                     test = main_tables_sqlite_file.readlines()
-            except IOError:
-                LiuXin_print(
-                    "Error - create_main_tables failed, due to being unable to find the main_tables_sqlite.txt file."
-                )
-                sys.exit()
+            except OSError as e:
+                raise FileNotFoundError(
+                    f"Unable to read trigger SQL file: {main_table_sql_file!s}"
+                ) from e
 
             # If the trigger file uses no BREAK markers, execute it as a script.
             # This is important for large trigger bundles (e.g. timestamp triggers) that are authored as multi-statement SQL.
@@ -601,8 +601,21 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         with open(spec_path_toml, "rb") as fh:
             data: dict[str, Any] = tomllib.load(fh)
 
-        allow_redundant_links = bool(data.get("allow_redundant_links", True))
-        warn_on_redundant_links = bool(data.get("warn_on_redundant_links", True))
+        if "allow_redundant_links" in data:
+            allow_redundant_links = _require_toml_bool(
+                data.get("allow_redundant_links"),
+                context="allow_redundant_links",
+            )
+        else:
+            allow_redundant_links = True
+
+        if "warn_on_redundant_links" in data:
+            warn_on_redundant_links = _require_toml_bool(
+                data.get("warn_on_redundant_links"),
+                context="warn_on_redundant_links",
+            )
+        else:
+            warn_on_redundant_links = True
 
         # Forbidden interlinks: explicit pairs that must never be created
         forbidden = data.get("forbidden_interlinks", [])
@@ -646,7 +659,20 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
             self.forbidden_interlink_pairs[fpair] = {"reason": reason, "severity": severity}
 
-        default_link_type = str(data.get("default_link_type", "many_to_many"))
+        default_link_type_raw = data.get("default_link_type", "many_to_many")
+        default_link_type = self._canonicalize_link_type(str(default_link_type_raw))
+        allowed_link_types = {
+            "many_to_many",
+            "many_to_many_non_exclusive",
+            "one_to_many",
+            "many_to_one",
+            "one_to_one",
+        }
+        if default_link_type not in allowed_link_types:
+            raise TypeError(
+                f"Unknown default_link_type {default_link_type_raw!r} (canonical: {default_link_type!r}). "
+                f"Allowed: {sorted(allowed_link_types)!r}"
+            )
         self.interlink_default_link_type = default_link_type
 
         interlinks = data.get("interlinks", [])
@@ -684,6 +710,20 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                 continue
 
             link_type = entry.get("link_type") or entry.get("link") or entry.get("cardinality") or default_link_type
+
+            link_type_canon = self._canonicalize_link_type(str(link_type))
+            allowed_link_types = {
+                "many_to_many",
+                "many_to_many_non_exclusive",
+                "one_to_many",
+                "many_to_one",
+                "one_to_one",
+            }
+            if link_type_canon not in allowed_link_types:
+                raise TypeError(
+                    f"Unknown link_type {link_type!r} (canonical: {link_type_canon!r}) in interlinks[{idx}]. "
+                    f"Allowed: {sorted(allowed_link_types)!r}"
+                )
 
             # requested_columns
             requested_columns = entry.get("requested_columns")
@@ -850,7 +890,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             self.interlink_specs_by_pair[current_pair] = {
                 "left_table": c_table1,
                 "right_table": c_table2,
-                "link_type": str(link_type),
+                "link_type": str(link_type_canon),
                 "requested_cols": requested_cols,
                 "nullable_fks": bool(nullable_fks),
                 "allowed_types": allowed_types_list,
@@ -947,10 +987,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             elif link_type == "one_to_one":
                 primary_table, secondary_table, internal_link_type = left_table, right_table, "one_one"
             else:
-                LiuXin_warning_print(
-                    f"Warning - unknown interlink link_type {link_type_raw!r} for pair {pair!r}; defaulting to many_to_many"
+                raise TypeError(
+                    f"Unknown interlink link_type {link_type_raw!r} (canonical: {link_type!r}) for pair {pair!r}."
                 )
-                primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many"
 
             link_table_name = self.get_interlink_name([table_a, table_b])
 
@@ -997,7 +1036,8 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         :return:
         """
         for link_table in self.interlink_tables:
-            assert link_table in self.INTERLINK_TABLE_CONSTRAINTS, self.__constraint_not_found_error(link_table)
+            if link_table not in self.INTERLINK_TABLE_CONSTRAINTS:
+                raise KeyError(self.__constraint_not_found_error(link_table))
 
 
     def validate_allowed_type_val_dict(self) -> None:
@@ -1011,9 +1051,11 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             allowed = self.interlink_allowed_types_by_table.get(link_table)
             if allowed is None:
                 continue
-            assert isinstance(allowed, list), f"allowed_types for {link_table} must be a list[str]"
+            if not isinstance(allowed, list):
+                raise TypeError(f"allowed_types for {link_table} must be a list[str], got: {type(allowed)}")
             for v in allowed:
-                assert isinstance(v, str), f"allowed_types entry for {link_table} must be a string: {v!r}"
+                if not isinstance(v, str):
+                    raise TypeError(f"allowed_types entry for {link_table} must be a string, got: {type(v)}: {v!r}")
 
     def validate_interlink_table_column_requests(self) -> None:
         """
@@ -1028,12 +1070,16 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             req = self.interlink_requested_cols_by_table.get(link_table, {"priority"})
             if req is None or req == "all":
                 continue
-            assert isinstance(req, set), f"requested_columns for {link_table} must be a set or 'all'"
+            if not isinstance(req, set):
+                raise TypeError(f"requested_columns for {link_table} must be a set or 'all', got: {type(req)}")
             for cr in req:
                 # Legacy no-op (nullable is now derived from TOML key `nullable`)
                 if cr == "nullable":
                     continue
-                assert cr in allowed_cols, f"requested column {cr!r} not valid for {link_table} (allowed: {sorted(allowed_cols)})"
+                if cr not in allowed_cols:
+                    raise TypeError(
+                        f"requested column {cr!r} not valid for {link_table} (allowed: {sorted(allowed_cols)})"
+                    )
     def materialize_interlink_type_reference_tables(self) -> None:
         """Create and seed all `{link_table}__types` tables requested by TOML."""
         types_map = collect_type_tables(self.interlink_allowed_types_by_table)
@@ -1126,7 +1172,8 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
 
         # Check that the table we're building is actually expected
-        assert table_name in self.interlink_tables
+        if table_name not in self.interlink_tables:
+            raise ValueError(f"Unexpected interlink table_name {table_name!r} (not in known interlink tables)")
 
         # Up to two tables need to be constructed, and one needs to be populated
         # If required, an allowed_type_table will be constructed and populated from the list of statements already
@@ -1308,8 +1355,10 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                     lowered = [str(x).strip().lower() for x in requested_columns]
                     for rc in lowered:
                         if rc not in allowed_req_cols:
-                            if not re.fullmatch(r"[a-z][a-z0-9_]*", rc):
-                                raise TypeError(f"Unknown requested_cols entry {rc!r} in intralink {idx}")
+                            raise TypeError(
+                                f"Unknown requested_cols entry {rc!r} in intralinks[{idx}] "
+                                f"(allowed: {sorted(allowed_req_cols)!r})"
+                            )
                     if "nullable" in lowered:
                         nullable_fks = True
                         lowered = [x for x in lowered if x != "nullable"]
@@ -1421,7 +1470,13 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         with open(spec_path_toml, "rb") as fh:
             data: dict[str, Any] = tomllib.load(fh)
 
-        if not bool(data.get("enabled", False)):
+        enabled_raw = data.get("enabled", False)
+        if "enabled" in data:
+            enabled = _require_toml_bool(enabled_raw, context="aggregate_tables.enabled")
+        else:
+            enabled = False
+
+        if not enabled:
             return
 
         sql_files = data.get("sql_files", [])
@@ -1481,7 +1536,8 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         version_val = None
         for row in c.execute("SELECT database_version_version FROM database_version;"):
             version_val = row[0]
-        assert version_val == version_str
+        if version_val != version_str:
+            raise RuntimeError(f"database_version insert mismatch: expected {version_str!r}, got {version_val!r}")
 
         ins_stmt_block = """
         CREATE TRIGGER IF NOT EXISTS block_insert_on_database_version_table

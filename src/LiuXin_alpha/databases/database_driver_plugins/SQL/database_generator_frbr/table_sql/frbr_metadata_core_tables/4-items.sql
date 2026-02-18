@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS `items` (
   `item_id` INTEGER PRIMARY KEY,
 
   -- Relation to manifestation
-  `item_manifestation_id` INTEGER NOT NULL,
+  -- NOTE: LiuXin creates "blank" rows via get_blank_row(), inserting only the scratch column.
+  -- Keeping this nullable avoids NOT NULL failures during that workflow; application logic can enforce it later.
+  `item_manifestation_id` INTEGER NULL,
 
   -- Type of item
   `item_type` TEXT NULL,               -- 'digital', 'physical'

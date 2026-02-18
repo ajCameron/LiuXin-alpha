@@ -28,6 +28,8 @@ from typing import Callable, Dict, Iterable, Mapping, Optional, Protocol, Sequen
 import importlib
 import pkgutil
 
+from LiuXin_alpha.databases.bootstrap_constants import AGENTS_NULL_CANONICAL_NAME
+
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -724,7 +726,7 @@ def _build_test_db_13_blank(db_path: Path) -> None:
 
     import sqlite3
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.database_generator import (
         create_new_database,
     )
 
@@ -883,15 +885,25 @@ def _detect_pk_column(conn, table: str) -> Optional[str]:
 
 
 def _ensure_required_null_rows(conn) -> None:
-    """Ensure historic required null rows exist.
+    """Ensure historic required null/sentinel rows exist.
 
     LiuXin uses id=0 in some tables as a "null" record for link tables.
+
+    In the FRBR-first/WEMI schema, publishing entities are modelled via
+    `agents` (+ subtype sidecars like `org_agents`) rather than a dedicated
+    `publishers` table.
     """
 
-    for table, preferred_text_col in (
-        ("series", "series"),
-        ("publishers", "publisher"),
-    ):
+    required = (
+        # Classic Calibre/LiuXin sentinel row
+        ("series", {"preferred_text_col": "series", "desired_text": None, "extra_values": {}}),
+
+        # FRBR-first replacement for legacy `publishers`: an "organisation" agent at id=0.
+        # Note: agents.agent_canonical_name is NOT NULL in the current schema.
+        ("agents", {"preferred_text_col": "agent_canonical_name", "desired_text": AGENTS_NULL_CANONICAL_NAME, "extra_values": {"agent_type": "organisation"}}),
+    )
+
+    for table, spec in required:
         if not _table_exists(conn, table):
             continue
 
@@ -900,23 +912,64 @@ def _ensure_required_null_rows(conn) -> None:
             continue
 
         cols = {str(name) for _cid, name, *_rest in _table_info(conn, table)}
-        text_col = preferred_text_col if preferred_text_col in cols else None
+
+        preferred_text_col = str(spec.get("preferred_text_col") or "")
+        desired_text = spec.get("desired_text", None)
+
+        text_col = preferred_text_col if preferred_text_col and preferred_text_col in cols else None
+
+        extra_values = {
+            str(k): v for k, v in (spec.get("extra_values") or {}).items() if str(k) in cols
+        }
 
         existing = conn.execute(
             f"SELECT {pk_col} FROM {table} WHERE {pk_col} = 0 LIMIT 1;"
         ).fetchone()
+
         if existing is None:
-            if text_col is None:
-                conn.execute(f"INSERT INTO {table} ({pk_col}) VALUES (0);")
-            else:
-                conn.execute(
-                    f"INSERT INTO {table} ({pk_col}, {text_col}) VALUES (0, NULL);"
-                )
+            insert_values = {pk_col: 0}
+            insert_values.update(extra_values)
+
+            # If we have a preferred text column, set it to desired_text (or NULL if None).
+            if text_col is not None and text_col not in insert_values:
+                insert_values[text_col] = desired_text
+
+            # If desired_text is None, we still need a value for NOT NULL columns.
+            # The only current case is agents.agent_canonical_name, where we use a sentinel string.
+            if table == "agents":
+                if "agent_type" in cols and "agent_type" not in insert_values:
+                    insert_values["agent_type"] = "organisation"
+                if "agent_canonical_name" in cols:
+                    if insert_values.get("agent_canonical_name") is None:
+                        insert_values["agent_canonical_name"] = AGENTS_NULL_CANONICAL_NAME
+
+            col_list = ", ".join(insert_values.keys())
+            placeholders = ", ".join(["?"] * len(insert_values))
+            conn.execute(
+                f"INSERT INTO {table} ({col_list}) VALUES ({placeholders});",
+                tuple(insert_values.values()),
+            )
         else:
+            updates = dict(extra_values)
+
             if text_col is not None:
+                if desired_text is None:
+                    updates[text_col] = None
+                else:
+                    updates[text_col] = desired_text
+
+            # Ensure agents sentinel row remains schema-valid.
+            if table == "agents" and "agent_canonical_name" in cols:
+                if updates.get("agent_canonical_name") is None:
+                    updates["agent_canonical_name"] = AGENTS_NULL_CANONICAL_NAME
+
+            if updates:
+                set_clause = ", ".join([f"{col} = ?" for col in updates.keys()])
                 conn.execute(
-                    f"UPDATE {table} SET {text_col} = NULL WHERE {pk_col} = 0;"
+                    f"UPDATE {table} SET {set_clause} WHERE {pk_col} = 0;",
+                    tuple(updates.values()),
                 )
+
 
 
 def _default_value_for_type(col_name: str, col_type: str, preferred_text_value: str):

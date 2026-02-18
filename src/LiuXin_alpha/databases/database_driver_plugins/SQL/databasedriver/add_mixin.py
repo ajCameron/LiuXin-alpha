@@ -17,21 +17,23 @@ class AddingMixin:
 
 
     @staticmethod
-    def _reject_embedded_nul_text(*, target_table: str, row_dict: dict) -> None:
-        """Reject embedded NUL ("\x00") in str payloads.
+    def _sanitize_embedded_nul_text(*, target_table: str, row_dict: dict) -> None:
+        """Sanitize embedded NUL ("\x00") in str payloads.
 
-        SQLite can store NULs inside TEXT values, but a lot of tooling (and some
-        driver paths) treat NUL as a string terminator or otherwise mis-handle it.
-        Calibre-style DB layers typically reject such payloads at the API boundary.
+        SQLite can store NULs inside TEXT values, but other parts of the stack
+        (and some external tooling) can treat NUL as a string terminator.
 
-        We raise ValueError to make this a clear caller-input issue.
+        Historically we handled this with separate "display" vs "source" fields.
+        Custom-column value tables do not have that split, so we normalize any
+        embedded NUL bytes into a visible placeholder string.
 
-        Not currently used - to many unicode issues.
+        This avoids false-positive rejections during import while keeping stored
+        TEXT values safer for common tooling.
         """
 
-        for col, val in row_dict.items():
+        for col, val in list(row_dict.items()):
             if isinstance(val, str) and "\x00" in val:
-                raise ValueError(f"Embedded NUL byte rejected for {target_table}.{col}")
+                row_dict[col] = val.replace("\x00", "<NUL>")
 
 
     def direct_add_simple_row_dict(self, row_dict):
@@ -41,6 +43,11 @@ class AddingMixin:
         :return :
         """
         target_table = self.identify_table_from_row(row_dict)
+
+        # Calibre-style: sanitize embedded NUL in custom-column value tables.
+        # (SQLite will store it, but downstream tooling and some drivers may not.)
+        if isinstance(target_table, str) and target_table.startswith("custom_column_"):
+            self._sanitize_embedded_nul_text(target_table=target_table, row_dict=row_dict)
 
         # Assembling a list of placeholders of the form ?,?,?
         values_placeholders = ""
@@ -107,6 +114,11 @@ class AddingMixin:
         # Gets a reference element. Errors will be thrown if every row doesn;t match this one.
         reference_row_dict = row_dict_list[0]
         target_table = self.identify_table_from_row(reference_row_dict)
+
+        # Calibre-style: sanitize embedded NUL in custom-column value tables.
+        if isinstance(target_table, str) and target_table.startswith("custom_column_"):
+            for row in row_dict_list:
+                self._sanitize_embedded_nul_text(target_table=target_table, row_dict=row)
 
         # TODO: re-write add_multiple_simple_rows to handle multiple different types of row
         for row in row_dict_list:

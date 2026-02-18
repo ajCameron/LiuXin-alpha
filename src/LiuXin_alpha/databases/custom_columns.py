@@ -149,6 +149,24 @@ class CustomColumnsDriverWrapperMixin(object):
             # Stores properties of the database
             self.custom_tables = set()
 
+    def _canonicalise_cc_in_table(self, in_table: str) -> str:
+        """Resolve legacy/compat aliases for custom-column attachment tables.
+
+        Calibre-style APIs historically default to 'books'. In a FRBR/WEMI-first schema
+        that table may not exist; in that case we opportunistically map to a sensible
+        analogue (typically 'manifestations').
+        """
+
+        available = self.db.main_tables.union(self.db.interlink_tables).union(self.db.intralink_tables)
+        if in_table in available:
+            return in_table
+        if in_table == "books":
+            for candidate in ("manifestations", "items", "works"):
+                if candidate in available:
+                    return candidate
+        return in_table
+
+
     @property
     def conn(self):
         """Return a live connection for this DB.
@@ -342,6 +360,8 @@ class CustomColumnsDriverWrapperMixin(object):
                 raise TypeError("Pass only one of table= or in_table= (or keep them identical).")
             in_table = table
 
+        in_table = self._canonicalise_cc_in_table(in_table)
+
         assert in_table in self.db.main_tables.union(self.db.interlink_tables).union(
             self.db.intralink_tables
         ), "in_table {} not found in main, intralink or interlink tables".format(in_table)
@@ -364,9 +384,11 @@ class CustomColumnsDriverWrapperMixin(object):
         # at the next startup
         label = label if label is not None else "{}__{}".format(in_table, name)
 
-        assert "#" not in label
+        if not label:
+            raise ValueError(_("The label must be non-empty."))
 
-        if re.match("^\w*$", label) is None or not label[0].isalpha() or label.lower() != label:
+ 
+        if re.match(r"^\w+$", label) is None or (not label) or (not label[0].isalpha()) or label.lower() != label:
             raise ValueError(
                 _("The label must contain only lower case letters, digits and underscores, and start " "with a letter")
             )
@@ -574,6 +596,13 @@ class CustomColumns(CustomColumnsDriverWrapperMixin):
         self.embed = embed
 
         self.db = db
+
+        # Calibre compatibility: default table was historically 'books'.
+        # In a FRBR/WEMI-first schema that table may not exist.
+        if table == "books" and "books" not in getattr(db, "main_tables", set()):
+            if "manifestations" in getattr(db, "main_tables", set()):
+                table = "manifestations"
+
         self.table = table
 
         # Prefer using the driver's live connection (see CustomColumnsDriverWrapperMixin.conn).
