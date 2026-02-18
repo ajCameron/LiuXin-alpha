@@ -13,7 +13,7 @@ from functools import partial
 from LiuXin_alpha.utils.date import utc_tz, UNDEFINED_DATE, parse_date
 from LiuXin_alpha.utils.logging import default_log
 
-from liuxin_dateutil.tz import tzlocal, tzutc, EPOCHORDINAL
+from LiuXin_alpha.utils.libraries.liuxin_dateutil.tz import tzlocal, tzutc, EPOCHORDINAL
 
 from LiuXin_alpha.utils.plugins import plugins
 

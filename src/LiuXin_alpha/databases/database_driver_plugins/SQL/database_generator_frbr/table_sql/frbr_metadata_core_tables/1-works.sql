@@ -49,13 +49,20 @@ CREATE TABLE IF NOT EXISTS `works` (
 );
 -- BREAK
 -- BREAK
--- BREAK
 
 CREATE INDEX IF NOT EXISTS `idx_works_canonical_title`
 ON `works` (`work_canonical_title`);
 
+-- BREAK
+-- BREAK
+
+
 CREATE INDEX IF NOT EXISTS `idx_works_sort_title`
 ON `works` (`work_sort_title`);
+
+-- BREAK
+-- BREAK
+
 
 -- Optional but usually handy for quick equality lookups / ordering
 CREATE INDEX IF NOT EXISTS `idx_works_title`

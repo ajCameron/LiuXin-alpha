@@ -6,7 +6,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import re
 from collections import namedtuple
 
-from typing import Optional, Any
+from typing import Optional, Any, Iterable, Union
 
 from six import string_types
 
@@ -23,7 +23,7 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-CUSTOM_DATA_TYPES = frozenset(
+CUSTOM_DATA_TYPES: frozenset[str] = frozenset(
     [
         "rating",
         "text",
@@ -41,7 +41,7 @@ CUSTOM_DATA_TYPES = frozenset(
 
 def force_to_bool(val: Any) -> Optional[bool]:
     """
-    Coerce a val to bool.
+    Best effort to coerce a value to bool.
 
     :param val:
     :return:
@@ -66,6 +66,11 @@ _fuzzy_title_patterns = None
 
 
 def fuzzy_title_patterns():
+    """
+    Create and return fuzzy patterns
+
+    :return:
+    """
     global _fuzzy_title_patterns
     if _fuzzy_title_patterns is None:
         _fuzzy_title_patterns = tuple(
@@ -83,7 +88,7 @@ def fuzzy_title_patterns():
     return _fuzzy_title_patterns
 
 
-def fuzzy_title(title):
+def fuzzy_title(title: str) -> re.Pattern[str]:
     """
     Produces a pattern to match to titles.
 
@@ -96,9 +101,17 @@ def fuzzy_title(title):
     return title
 
 
-def find_identical_books(mi, data):
+def find_identical_books(mi, data) -> set[int]:
+    """
+    Try and locate identical books in the database.
+
+    :param mi: Find books which are similar to the one represented by this metadata object.
+    :param data:
+    :return:
+    """
     author_map, aid_map, title_map = data
     found_books = None
+
     for a in mi.authors:
         author_ids = author_map.get(icu_lower(a))
         if author_ids is None:
@@ -117,12 +130,13 @@ def find_identical_books(mi, data):
         title = title_map.get(book_id, "")
         if fuzzy_title(title) == titleq:
             ans.add(book_id)
+
     return ans
 
 
 # Todo: Update DatabasePing method
 # Todo: There seems to be several versions of this class.
-def get_link_table_name(self, table1, table2):
+def get_link_table_name(table1: str, table2: str) -> str:
     """
     Takes two tables. Makes and returns the name of their link table.
 
@@ -154,15 +168,22 @@ Entry = namedtuple("Entry", "path size timestamp thumbnail_size")
 
 
 class CacheError(Exception):
+    """
+    Something has gone wrong with the cache table.
+    """
     pass
 
 
-def cleanup_tags(tags):
+def cleanup_tags(tags: Iterable[Union[str, bytes]]) -> list[str]:
     """
     Take a CSV tags string and prepare it for writing to the database.
+
+    Dedupe, clean and return.
     :param tags:
     :return:
     """
+    from LiuXin_alpha.utils.text import isbytestring
+
     tags = [x.strip().replace(",", ";") for x in tags if x.strip()]
     tags = [x.decode(preferred_encoding, "replace") if isbytestring(x) else x for x in tags]
     tags = [" ".join(x.split()) for x in tags]

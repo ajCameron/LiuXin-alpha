@@ -194,3 +194,4 @@ class CustomColumnsManager:
             tables.add(self._canonicalise_table(str(raw_in_table)))
 
         return tables
+j

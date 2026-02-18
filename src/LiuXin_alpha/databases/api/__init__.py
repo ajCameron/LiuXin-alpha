@@ -168,14 +168,6 @@ class RowAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def sync(self) -> None:
-        """
-        Sync the current contents of the row to the database.
-
-        :return:
-        """
-
-    @abc.abstractmethod
     def no_sync(self) -> None:
         """
         Method to replace sync if we're in read only mode.

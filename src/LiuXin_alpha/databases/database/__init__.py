@@ -21,6 +21,7 @@ from typing import Optional
 from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseDriverWrapperAPI, DatabaseDriverAPI
 
 from LiuXin_alpha.constants.paths import LiuXin_default_database
+from LiuXin_alpha.databases.database.constants import HELPER_TABLES
 
 from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
 from LiuXin_alpha.databases.database_driver_plugins.driver_wrapper import DriverWrapper
@@ -35,10 +36,13 @@ from LiuXin_alpha.preferences import preferences
 
 from LiuXin_alpha.utils.logging import default_log
 
+from LiuXin_alpha.databases.database.rating_mixin import DatabaseRatingMixin
+from LiuXin_alpha.databases.database.null_rows_mixin import DatabaseNullRowsMixin
+from LiuXin_alpha.databases.database.metadata_mixin import DatabaseMetadataMixin
+
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
-from LiuXin_alpha.databases.bootstrap_constants import AGENTS_NULL_CANONICAL_NAME
 
 # Todo: Embed this version number in the database - so that we can check the version of the code used to produce each
 #       test database
@@ -46,42 +50,14 @@ __object_version__ = (1, 0, 0)
 
 # Todo: Point uuid requests to the library_id instead
 
-HELPER_TABLES = frozenset(
-    {
-        "conversion_options",
-        "compressed_files",
-        "custom_columns",
-        "database_metadata",
-        "database_version",
-        "feeds",
-        "hashes",
-        "last_read_positions",
-        "library_id",
-        "metadata_dirtied_books",
-        "new_books",
-        "preferences",
-        # FRBR plugin data
-        "works_plugin_data",
-        "expressions_plugin_data",
-        "manifestations_plugin_data",
-        "items_plugin_data",
-        # Workflow tables
-        "file_derivations",
-        "file_workflow",
-        "file_workflow_events",
-        "item_workflow",
-        "item_workflow_events",
-        "transform_runs",
-        "transform_run_inputs",
-        "transform_run_outputs",
-        "workflow_states",
-        "workflow_steps",
-    }
-)
 
-
-
-class Database(CustomColumnDatabaseMixin, DatabaseAPI):
+class Database(
+    CustomColumnDatabaseMixin,
+    DatabaseAPI,
+    DatabaseRatingMixin,
+    DatabaseNullRowsMixin,
+    DatabaseMetadataMixin
+):
     """
     Represents a database which LiuXin could be connected to. Access to the database should always be through this class
     The default database is simply the database located in LiuXin_data.
@@ -130,6 +106,9 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
 
         # Queue for dirtied records
         self.dirty_records_queue = Queue.Queue()
+        # Persistent helper table for metadata sidecar write-out (historic name: metadata_dirtied_books)
+        self._metadata_dirtied_table = "metadata_dirtied_books"
+
 
         self.driver.dirty_records_queue = self.dirty_records_queue
         self.driver_wrapper.dirty_records_queue = self.dirty_records_queue
@@ -301,6 +280,7 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
 
             self.helper_tables = HELPER_TABLES
 
+
             # DatabasePing uuid - unique identifier given to the database
             self._uuid = None
 
@@ -333,18 +313,6 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         self.driver.db = self
         self.macros.db = self
 
-    @property
-    def uuid(self):
-        if self._uuid is not None:
-            return self._uuid
-        else:
-            self._uuid = self.driver_wrapper.get_uuid()
-            return self._uuid
-
-    @uuid.setter
-    def uuid(self, value):
-        self._uuid = value
-        self.driver_wrapper.set_uuid(value)
 
     def set_driver(self, new_driver: DatabaseDriverAPI) -> None:
         """
@@ -427,7 +395,8 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
             pass
 
     def close(self) -> None:
-        """        Close any open resources associated with this database.
+        """
+        Close any open resources associated with this database.
 
         In particular, ensure all SQLite connections are closed so temporary database files can be deleted on Windows.
 
@@ -535,97 +504,6 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
             except Exception:
                 pass
 
-    # Todo: THis might also want to be an internal method
-    def check_rating_table(self):
-        """
-        Checks that there is a valid ratings table.
-
-        It should have 11 entries - each should be an integer from 0-10. Check that these exist. Do nothing if they do,
-        error should if they do, but not in the expected form and insert them if they do not.
-        :return:
-        """
-        for i in range(1, 12):
-            rating = six_unicode(i - 1)
-            rating_id = six_unicode(i)
-            rating_row = self.get_row_from_id("ratings", rating_id)
-
-            if rating_row is None:
-                new_row_dict = {
-                    "rating_id": rating_id,
-                    "rating": six_unicode(float(rating) / 2.0),
-                }
-                self.driver_wrapper.add_row(new_row_dict)
-
-            else:
-
-                if float(rating_row["rating"]) != float(rating) / 2.0:
-                    err_str = "Rating row malformed - correcting"
-                    default_log.log_variables(
-                        err_str,
-                        "INFO",
-                        ("rating", rating),
-                        ('rating_row["rating"]', six_unicode(rating_row["rating"])),
-                    )
-                    rating_row["rating"] = float(rating) / 2.0
-                    rating_row.sync()
-
-        # rating_11_row = self.get_row_from_id("ratings", 11)
-        # if rating_11_row is not None:
-        #     self.delete(rating_11_row)
-
-    # Todo: THese methods should be private - only run during startup
-    def ensure_null_rows(self):
-        """
-        Ensure required sentinel/null rows exist.
-
-        Historically, LiuXin used id=0 in certain tables as a "null" record for
-        link tables.
-
-        In the FRBR-first/WEMI schema, publishing entities are modelled via
-        `agents` (+ subtype sidecars like `org_agents`) rather than a dedicated
-        `publishers` table.
-        """
-
-        # Ensure the series null row
-        if getattr(self, "all_tables", None) is None or "series" in self.all_tables:
-            series_0_row = self.driver_wrapper.get_row_from_id("series", 0)
-            if not series_0_row:
-                series_null_row = {"series_id": 0}
-                self.driver_wrapper.add_row(series_null_row)
-            else:
-                # Convention: the sentinel row's display value is NULL
-                series_0_row["series"] = None
-                self.driver_wrapper.update_row(series_0_row)
-
-        # Preferred (FRBR-first): ensure an organisation agent sentinel row
-        if getattr(self, "all_tables", None) is None or "agents" in self.all_tables:
-            agent_0_row = self.driver_wrapper.get_row_from_id("agents", 0)
-            if not agent_0_row:
-                agent_null_row = {
-                    "agent_id": 0,
-                    "agent_type": "organisation",
-                    # agent_canonical_name is NOT NULL in the current schema
-                    "agent_canonical_name": AGENTS_NULL_CANONICAL_NAME,
-                }
-                self.driver_wrapper.add_row(agent_null_row)
-            else:
-                agent_0_row["agent_type"] = "organisation"
-                # Always repair/normalize the sentinel row's canonical name.
-                # (It's NOT NULL in schema, so we use a clearly intentional string.)
-                if agent_0_row.get("agent_canonical_name") != AGENTS_NULL_CANONICAL_NAME:
-                    agent_0_row["agent_canonical_name"] = AGENTS_NULL_CANONICAL_NAME
-                self.driver_wrapper.update_row(agent_0_row)
-
-        # Legacy fallback (Calibre-style DBs): keep the old publishers sentinel row if that table exists.
-        elif getattr(self, "all_tables", None) is None or "publishers" in self.all_tables:
-            pub_0_row = self.driver_wrapper.get_row_from_id("publishers", 0)
-            if not pub_0_row:
-                pub_null_row = {"publisher_id": 0}
-                self.driver_wrapper.add_row(pub_null_row)
-            else:
-                pub_0_row["publisher"] = None
-                self.driver_wrapper.update_row(pub_0_row)
-
     @property
     def main_tables(self) -> frozenset[str]:
         """
@@ -643,56 +521,6 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         :return:
         """
         return frozenset(self._interlink_tables)
-
-    @property
-    def library_id(self):
-        """
-        The UUID for this library. As long as the user only operates on libraries with LiuXin, it will be unique.
-        :return:
-        """
-        if getattr(self, "_library_id_", None) is None:
-            ans = self.driver_wrapper.get("SELECT library_id_uuid FROM library_id", all=False)
-            if ans is None:
-                ans = str(uuid.uuid4())
-                self.library_id = ans
-            else:
-                self._library_id_ = ans
-        return self._library_id_
-
-    @library_id.setter
-    def library_id(self, value):
-        """
-        Setter function for the library id - handles updating the database with the new id.
-        :param value:
-        :return:
-        """
-        self._library_id_ = six_unicode(value)
-        self.macros.set_library_id(value)
-
-    @property
-    def database_version(self):
-        """
-        The UUID for this library. As long as the user only operates on libraries with LiuXin, it will be unique.
-        :return:
-        """
-        if getattr(self, "_database_version_", None) is None:
-            c = self.conn.cursor()
-            version_val = None
-
-            for row in c.execute("SELECT database_version_version FROM database_version;"):
-                version_val = row[0]
-            self._database_version_ = version_val
-        return self._database_version_
-
-    @database_version.setter
-    def database_version(self, value):
-        """
-        Setter function for the library id - handles updating the database with the new id.
-        :param value:
-        :return:
-        """
-        self._database_version_ = six_unicode(value)
-        self.macros.set_database_version(value)
 
     def check_exists(self):
         """
@@ -843,6 +671,170 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
         :return table_and_columns:
         """
         return self.driver_wrapper.get_tables_and_columns()
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # Dirtied-record tracking (queue + optional persistence)
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
+    def metadata_dirtied_table(self) -> str:
+        """Name of the persistent dirtied-records helper table.
+
+        The name is historic ("..._books") but the contents are generic: it records (table, row_id, reason)
+        so a sidecar writer can resume across process restarts.
+        """
+        return getattr(self, "_metadata_dirtied_table", "metadata_dirtied_books")
+
+    def get_dirtied_count(self, *, include_persisted: bool = False) -> int:
+        """Return the number of queued dirtied-record events.
+
+        By default this reflects the in-memory queue size (fast, thread-safe-ish). If include_persisted is True,
+        we add the number of rows already persisted to ``metadata_dirtied_table``.
+        """
+        q = self.dirty_records_queue.qsize() if self.dirty_records_queue is not None else 0
+        if include_persisted:
+            q += self.get_persisted_dirtied_count()
+        return q
+
+    def dirty_record(self, table: str, row_id: int, reason: str = "") -> None:
+        """Enqueue a dirtied-record event for later processing.
+
+        This method is intentionally lightweight: it only enqueues into ``dirty_records_queue`` so callers can
+        safely call it from many contexts (including triggers that bounce into Python). Persisting to the database
+        is performed separately via :meth:`persist_dirtied_records`.
+        """
+        if self.dirtiable_tables is None:
+            # Defensive: refresh metadata if this is called very early in init.
+            try:
+                self.refresh_db_metadata()
+            except Exception:
+                pass
+
+        if self.dirtiable_tables is None or table not in self.dirtiable_tables:
+            wrn_str = "Unable to dirty record - table not found.\n"
+            default_log.log_variables(
+                wrn_str,
+                "WARNING",
+                ("table", table),
+                ("row_id", row_id),
+                ("reason", reason),
+            )
+            return
+
+        self.dirty_records_queue.put((table, row_id, reason))
+
+    def get_persisted_dirtied_count(self) -> int:
+        """Count rows currently stored in the persistent dirtied table (if present)."""
+        table = self.metadata_dirtied_table
+        if getattr(self, "all_tables", None) is None or table not in self.all_tables:
+            return 0
+        try:
+            cur = self.driver_wrapper.execute(f"SELECT COUNT(*) FROM `{table}`")
+            row = cur.fetchone()
+            return int(row[0]) if row else 0
+        except Exception:
+            return 0
+
+    def persist_dirtied_records(self, *, limit: Optional[int] = None) -> int:
+        """Drain dirtied-record events from the in-memory queue into ``metadata_dirtied_table``.
+
+        This is intended to be called from a single controlling thread (e.g. a maintenance loop) to avoid
+        cross-thread SQLite connection use. Returns the number of persisted events.
+        """
+        table = self.metadata_dirtied_table
+        if getattr(self, "all_tables", None) is None or table not in self.all_tables:
+            return 0
+
+        # Discover which columns exist (legacy schemas vary).
+        try:
+            headings = set(self.driver_wrapper.direct_get_column_headings(table))
+        except Exception:
+            return 0
+
+        id_col = None
+        for cand in ("metadata_dirtied_id", "metadata_dirtied_book_id", "metadata_dirtied_record_id"):
+            if cand in headings:
+                id_col = cand
+                break
+        if id_col is None:
+            # Can't safely persist without a primary key column.
+            return 0
+
+        table_col = None
+        for cand in ("metadata_dirtied_table", "metadata_dirtied_table_name"):
+            if cand in headings:
+                table_col = cand
+                break
+
+        row_id_col = None
+        for cand in ("metadata_dirtied_table_id", "metadata_dirtied_book", "metadata_dirtied_row_id"):
+            if cand in headings:
+                row_id_col = cand
+                break
+
+        reason_col = None
+        for cand in ("metadata_drtied_reason", "metadata_dirtied_reason"):
+            if cand in headings:
+                reason_col = cand
+                break
+
+        cols = [id_col]
+        if table_col:
+            cols.append(table_col)
+        if row_id_col:
+            cols.append(row_id_col)
+        if reason_col:
+            cols.append(reason_col)
+
+        col_sql = ", ".join(f"`{c}`" for c in cols)
+        ph_sql = ", ".join(["?"] * len(cols))
+        stmt = f"INSERT INTO `{table}` ({col_sql}) VALUES ({ph_sql})"
+
+        values = []
+        persisted = 0
+        while True:
+            if limit is not None and persisted >= int(limit):
+                break
+            try:
+                tname, rid, rsn = self.dirty_records_queue.get_nowait()
+            except Exception:
+                break
+
+            row = [uuid.uuid4().hex]
+            if table_col:
+                row.append(tname)
+            if row_id_col:
+                row.append(int(rid))
+            if reason_col:
+                row.append(str(rsn))
+            values.append(tuple(row))
+            persisted += 1
+
+        if not values:
+            return 0
+
+        try:
+            self.driver_wrapper.executemany(stmt, values)
+        except Exception:
+            # Best-effort: if persistence fails, re-queue the drained items to avoid silent loss.
+            try:
+                for v in values:
+                    # v layout: (id, table?, row_id?, reason?)
+                    vi = 1
+                    tname = v[vi] if table_col else None
+                    if table_col:
+                        vi += 1
+                    rid = v[vi] if row_id_col else None
+                    if row_id_col:
+                        vi += 1
+                    rsn = v[vi] if reason_col else ""
+                    if tname is not None and rid is not None:
+                        self.dirty_records_queue.put((tname, int(rid), str(rsn)))
+            except Exception:
+                pass
+            return 0
+
+        return persisted
+
 
     def get_record_count(self, target_table):
         """
@@ -2274,5 +2266,4 @@ class Database(CustomColumnDatabaseMixin, DatabaseAPI):
 # ----------------------------------------------------------------------------------------------------------------------
 ########################################################################################################################
 ########################################################################################################################
-
 

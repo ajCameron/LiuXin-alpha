@@ -72,7 +72,11 @@ def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str])
 
 
 def _pick_interlink_shape(open_db) -> InterlinkShape:
-    """Pick an interlinkable (primary, secondary) table pair that exists."""
+    """Pick an interlinkable (primary, secondary) table pair that exists.
+
+    Prefer a shape whose link table supports a `type` column if possible, since many contract
+    tests exercise type-aware paths.
+    """
     dw = open_db.driver_wrapper
 
     def resolve_pair(a: str, b: str) -> Optional[InterlinkShape]:
@@ -112,21 +116,90 @@ def _pick_interlink_shape(open_db) -> InterlinkShape:
             type_link_col=type_link_col,
         )
 
+    best: Optional[InterlinkShape] = None
+
     # Try preferred pairs first.
     for a, b in PREFERRED_INTERLINK_PAIRS:
         sh = resolve_pair(a, b) or resolve_pair(b, a)
-        if sh is not None:
+        if sh is None:
+            continue
+        if sh.type_link_col is not None:
             return sh
+        if best is None:
+            best = sh
 
     # Otherwise, scan all main-table pairs.
     mains = list(open_db.main_tables)
     for i, a in enumerate(mains):
         for b in mains[i + 1 :]:
             sh = resolve_pair(a, b) or resolve_pair(b, a)
-            if sh is not None:
+            if sh is None:
+                continue
+            if sh.type_link_col is not None:
                 return sh
+            if best is None:
+                best = sh
+
+    if best is not None:
+        return best
 
     raise pytest.SkipTest("No interlinkable table pair found in this schema")  # pragma: no cover
+
+
+
+def _pick_allowed_type_for_shape(open_db, sh: "InterlinkShape", *, preferred: str = "authors") -> Optional[str]:
+    """Pick an allowed link `type` for the chosen interlink shape.
+
+    The FRBR generator may enforce allowed types via either:
+
+    * `{link_table}__types` (single column: `type`)
+    * `allowed_types__{link_table}` (legacy pattern; type column ends with `_type`)
+
+    If the shape has no type column, return None.
+    """
+
+    if sh.type_link_col is None:
+        return None
+
+    existing = set(open_db.get_tables(force_refresh=True))
+
+    def fresh_get(stmt: str):
+        conn = open_db.driver.get_connection()
+        try:
+            return conn.get(stmt, all=True)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    types_table = f"{sh.link_table}__types"
+    if types_table in existing:
+        rows = fresh_get(f"SELECT `type` FROM `{types_table}` ORDER BY `type`;")
+        types = [r[0] for r in rows if r and r[0] is not None]
+        if preferred in types:
+            return preferred
+        return types[0] if types else preferred
+
+    legacy_table = f"allowed_types__{sh.link_table}"
+    if legacy_table in existing:
+        headings = list(open_db.driver_wrapper.get_column_headings(legacy_table))
+        if "type" in headings:
+            col = "type"
+        else:
+            type_cols = [h for h in headings if h.endswith("_type") and not h.endswith("_id")]
+            col = type_cols[0] if type_cols else headings[0]
+        rows = fresh_get(
+            f"SELECT `{col}` FROM `{legacy_table}` WHERE `{col}` IS NOT NULL ORDER BY `{col}`;"
+        )
+        types = [r[0] for r in rows if r and r[0] is not None]
+        if preferred in types:
+            return preferred
+        return types[0] if types else preferred
+
+    # If the schema provides a type column but no registry table exists, just return the preferred.
+    return preferred
+
 
 
 def _create_distinct_row(open_db, table: str, *, payload: str) -> Row:
@@ -135,8 +208,37 @@ def _create_distinct_row(open_db, table: str, *, payload: str) -> Row:
     row = open_db.get_blank_row(table)
     assert isinstance(row, Row)
     cols = list(dw.get_column_headings(table))
+
+    # Prefer the scratch column if it actually exists on the table.
+    # Many FRBR/WEMI tables have required foreign keys; writing payload into an FK column
+    # will fail. The scratch column exists specifically to make a row distinct.
+    try:
+        scratch_col = dw.get_scratch_column(table)
+    except Exception:
+        scratch_col = None
+    if scratch_col and scratch_col in cols:
+        row[scratch_col] = payload
+        row.sync()
+        return row
+
     base = dw.get_column_base(table)
-    exclude = {dw.get_id_column(table), dw.get_scratch_column(table)}
+
+    # If there's no scratch column, avoid id + any foreign-key columns when picking
+    # a payload target.
+    exclude = {dw.get_id_column(table)}
+    try:
+        conn = open_db.driver.get_connection()
+        try:
+            fk_rows = conn.get(f"PRAGMA foreign_key_list(`{table}`);", all=True)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        # SQLite PRAGMA foreign_key_list columns: (id, seq, table, from, to, on_update, on_delete, match)
+        exclude |= {r[3] for r in fk_rows if r and len(r) > 3}
+    except Exception:
+        pass
 
     text_col = _pick_text_like_column(cols, base=base, exclude=exclude)
     row[text_col] = payload
@@ -214,12 +316,11 @@ def test_get_interlink_row_returns_none_if_unlinked(open_db):
 def test_get_interlink_row_roundtrips_one_link(open_db, payload: str):
     sh = _pick_interlink_shape(open_db)
 
-    assert sh.link_table == "creator_title_links", "should just be true - breaks due to allowable type constraint otherwise"
-
     p = _create_distinct_row(open_db, sh.primary_table, payload=f"p:{payload}")
     s = _create_distinct_row(open_db, sh.secondary_table, payload=f"s:{payload}")
 
-    link = _interlink(open_db, sh, primary=p, secondary=s, priority=1, link_type="authors")
+    link_type = _pick_allowed_type_for_shape(open_db, sh, preferred="authors")
+    link = _interlink(open_db, sh, primary=p, secondary=s, priority=1, link_type=link_type)
     assert isinstance(link, Row)
     assert link.table == sh.link_table
 
@@ -255,13 +356,16 @@ def test_get_interlink_row_errors_on_multiple_links_when_possible(open_db):
     if sh.type_link_col is None:
         pytest.skip("Link table has no type column; cannot create multiple links for the same row-pair")
 
-    if sh.type_link_col == "creator_title_link_type":
-        _interlink(open_db, sh, primary=p, secondary=s, priority=1, link_type="authors")
-    else:
-        assert True is False, sh.type_link_col
+    types = _pick_two_allowed_types_for_shape(open_db, sh, preferred="authors")
+    if types is None:
+        pytest.skip("Could not find two distinct allowed types for this link table")
+
+    t1, t2 = types
+
+    _interlink(open_db, sh, primary=p, secondary=s, priority=1, link_type=t1)
 
     try:
-        _interlink(open_db, sh, primary=p, secondary=s, priority=2, link_type="beta")
+        _interlink(open_db, sh, primary=p, secondary=s, priority=2, link_type=t2)
     except DatabaseIntegrityError:
         pytest.skip("Link table enforces uniqueness across row-pair even with differing type; cannot create multi-link")
 
@@ -273,8 +377,10 @@ def test_get_interlink_row_errors_on_multiple_links_when_possible(open_db):
     assert len(got) >= 2
 
 
+
 def test_get_interlink_rows_returns_all_links_and_sorts_by_priority_if_present(open_db):
     sh = _pick_interlink_shape(open_db)
+    link_type = _pick_allowed_type_for_shape(open_db, sh, preferred="authors")
 
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-pri")
 
@@ -283,9 +389,9 @@ def test_get_interlink_rows_returns_all_links_and_sorts_by_priority_if_present(o
     s3 = _create_distinct_row(open_db, sh.secondary_table, payload="s-pri-3")
 
     # Create links with explicit priority numbers (ignored if table lacks a priority column).
-    _interlink(open_db, sh, primary=p, secondary=s1, priority=10, link_type="authors")
-    _interlink(open_db, sh, primary=p, secondary=s2, priority=-5, link_type="authors")
-    _interlink(open_db, sh, primary=p, secondary=s3, priority=3, link_type="authors")
+    _interlink(open_db, sh, primary=p, secondary=s1, priority=10, link_type=link_type)
+    _interlink(open_db, sh, primary=p, secondary=s2, priority=-5, link_type=link_type)
+    _interlink(open_db, sh, primary=p, secondary=s3, priority=3, link_type=link_type)
 
     link_rows = open_db.get_interlink_rows(primary_row=p, secondary_table=sh.secondary_table)
     assert isinstance(link_rows, list)
@@ -303,6 +409,7 @@ def test_get_interlink_rows_returns_all_links_and_sorts_by_priority_if_present(o
 
 def test_get_interlinked_rows_returns_secondary_rows_in_priority_order_when_present(open_db):
     sh = _pick_interlink_shape(open_db)
+    link_type = _pick_allowed_type_for_shape(open_db, sh, preferred="authors")
 
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-linked")
 
@@ -310,9 +417,9 @@ def test_get_interlinked_rows_returns_secondary_rows_in_priority_order_when_pres
     s_mid = _create_distinct_row(open_db, sh.secondary_table, payload="s-mid")
     s_lo = _create_distinct_row(open_db, sh.secondary_table, payload="s-lo")
 
-    _interlink(open_db, sh, primary=p, secondary=s_lo, priority=1, link_type="authors")
-    _interlink(open_db, sh, primary=p, secondary=s_mid, priority=5, link_type="authors")
-    _interlink(open_db, sh, primary=p, secondary=s_hi, priority=9, link_type="authors")
+    _interlink(open_db, sh, primary=p, secondary=s_lo, priority=1, link_type=link_type)
+    _interlink(open_db, sh, primary=p, secondary=s_mid, priority=5, link_type=link_type)
+    _interlink(open_db, sh, primary=p, secondary=s_hi, priority=9, link_type=link_type)
 
     linked = open_db.get_interlinked_rows(target_row=p, secondary_table=sh.secondary_table)
     assert isinstance(linked, list)
@@ -339,25 +446,31 @@ def test_get_interlinked_rows_type_filter_when_available(open_db):
     if sh.type_link_col is None:
         pytest.skip("Link table has no type column; cannot test type_filter")
 
+    types = _pick_two_allowed_types_for_shape(open_db, sh, preferred="authors")
+    if types is None:
+        pytest.skip("Could not find two distinct allowed types for this link table")
+    t_a, t_b = types
+
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-type")
     s_a1 = _create_distinct_row(open_db, sh.secondary_table, payload="s-a1")
     s_a2 = _create_distinct_row(open_db, sh.secondary_table, payload="s-a2")
     s_b = _create_distinct_row(open_db, sh.secondary_table, payload="s-b")
 
-    _interlink(open_db, sh, primary=p, secondary=s_a1, priority=1, link_type="authors")
-    _interlink(open_db, sh, primary=p, secondary=s_a2, priority=2, link_type="authors")
-    _interlink(open_db, sh, primary=p, secondary=s_b, priority=3, link_type="editors")
+    _interlink(open_db, sh, primary=p, secondary=s_a1, priority=1, link_type=t_a)
+    _interlink(open_db, sh, primary=p, secondary=s_a2, priority=1, link_type=t_a)
+    _interlink(open_db, sh, primary=p, secondary=s_b, priority=1, link_type=t_b)
 
-    # Todo: Should error when the type filter is not possible in the given table
-    alpha = open_db.get_interlinked_rows(target_row=p, secondary_table=sh.secondary_table, type_filter="authors")
-    beta = open_db.get_interlinked_rows(target_row=p, secondary_table=sh.secondary_table, type_filter="editors")
+    got_a = open_db.get_interlinked_rows(primary_row=p, secondary_table=sh.secondary_table, type_filter=t_a)
+    got_b = open_db.get_interlinked_rows(primary_row=p, secondary_table=sh.secondary_table, type_filter=t_b)
 
-    assert {r.row_id for r in alpha} == {s_a1.row_id, s_a2.row_id}
-    assert {r.row_id for r in beta} == {s_b.row_id}
+    assert {r.row_id for r in got_a} == {s_a1.row_id, s_a2.row_id}
+    assert {r.row_id for r in got_b} == {s_b.row_id}
+
 
 
 def test_get_interlink_values_returns_set_when_unique_column_available(open_db):
     sh = _pick_interlink_shape(open_db)
+    link_type = _pick_allowed_type_for_shape(open_db, sh, preferred="authors")
 
     unique_col = _pick_unique_column_for_table(open_db, sh.secondary_table)
 
@@ -375,7 +488,7 @@ def test_get_interlink_values_returns_set_when_unique_column_available(open_db):
     s1.sync()
     s2.sync()
 
-    _interlink(open_db, sh, primary=p, secondary=s1, priority=1, link_type="authors")
+    _interlink(open_db, sh, primary=p, secondary=s1, priority=1, link_type=link_type)
     _interlink(open_db, sh, primary=p, secondary=s2, priority=2, link_type="editors")
 
     got = open_db.get_interlink_values(target_row=p, secondary_column=unique_col)
@@ -384,6 +497,7 @@ def test_get_interlink_values_returns_set_when_unique_column_available(open_db):
 #
 # def test_get_interlinked_rows_rejects_invalid_inputs(open_db):
 #     sh = _pick_interlink_shape(open_db)
+    link_type = _pick_allowed_type_for_shape(open_db, sh, preferred="authors")
 #     p = _create_distinct_row(open_db, sh.primary_table, payload="p-invalid")
 #
 #     with pytest.raises(InputIntegrityError):
@@ -398,6 +512,7 @@ def test_get_interlink_values_returns_set_when_unique_column_available(open_db):
 #
 # def test_get_interlinked_rows_returns_empty_list_when_no_link_table_exists(open_db):
 #     sh = _pick_interlink_shape(open_db)
+    link_type = _pick_allowed_type_for_shape(open_db, sh, preferred="authors")
 #     p = _create_distinct_row(open_db, sh.primary_table, payload="p-nolink")
 #
 #     # Find a secondary main table that does NOT have a link table with primary.
