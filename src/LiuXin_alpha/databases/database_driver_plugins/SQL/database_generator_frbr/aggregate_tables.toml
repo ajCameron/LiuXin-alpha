@@ -8,7 +8,13 @@
 #   - point sql_folder at a directory of .sql files to execute (relative to this folder).
 #
 version = 1
-enabled = false
+enabled = true
+
+# Views / read-model projections.
+#
+# These are intentionally *lossy* helpers aimed at UI and compatibility layers.
+# The canonical truth remains in the FRBR/WEMI tables.
+sql_files = ["aggregate_sql/wemi_views.sql"]
 
 # Example:
 # sql_files = ["aggregate_sql/works_search_cache.sql"]

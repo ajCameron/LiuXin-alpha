@@ -1,6 +1,8 @@
 
 import uuid
 
+from copy import deepcopy
+
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
@@ -72,3 +74,92 @@ class DatabaseMetadataMixin:
         self._database_version_ = six_unicode(value)
         self.macros.set_database_version(value)
 
+
+    # ----------------------------------------------------------------
+    #
+    # - METHODS TO GET BASIC INFORMATION ABOUT THE DATABASE START HERE
+
+    def get_tables(self, force_refresh: bool = False):
+        """
+        Directly get the tables for the currently loaded database
+        :return:
+        """
+        return self.driver_wrapper.get_tables(force_refresh=force_refresh)
+
+    # Methods to get basic information about the database start here
+    def get_column_headings(self, table):
+        """
+        Gets the column headings for a table in the database.
+        :param table:
+        :return column_headings: An index of column headings in the order they appear on the database
+        """
+        return self.driver_wrapper.get_column_headings(table)
+
+    def get_view_column_headings(self, view):
+        """
+        Gets the column headings for a table in the database.
+        :param table:
+        :return column_headings: An index of column headings in the order they appear on the database
+        """
+        return self.driver_wrapper.get_view_column_headings(view)
+
+    def get_tables_and_columns(self):
+        """
+        Returns a dictionary keyed by the table name with the column headings as the values.
+        :return table_and_columns:
+        """
+        return self.driver_wrapper.get_tables_and_columns()
+
+
+    def get_record_count(self, target_table):
+        """
+        Returns the number of records in a given table.
+        :param target_table:
+        :return:
+        """
+        return self.driver_wrapper.get_record_count(target_table)
+
+    def get_max(self, column):
+        """
+        Get the maximum value from the given column.
+        :param column:
+        :return:
+        """
+        return self.driver.direct_get_max(column)
+
+    def get_min(self, column):
+        """
+        Get the minimum value from the given column.
+        :param column:
+        :return:
+        """
+        return self.driver.direct_get_min(column)
+
+
+    def row_counts(self):
+        """
+        Returns a string representation of the row counts for every table in the DatabasePing.
+        :return:
+        """
+        ans = list()
+        ans.append("LiuXin _Database: Table row_counts")
+        ans.append("database_uuid: {}".format(self.uuid))
+
+        for table_type in [
+            "main_tables",
+            "interlink_tables",
+            "intralink_tables",
+            "helper_tables",
+        ]:
+
+            type_tables = sorted([t for t in deepcopy(object.__getattribute__(self, table_type))])
+            ans.append("\n{}:\n".format(table_type))
+
+            for table in type_tables:
+                ans.append("{}: {}".format(table, self.get_record_count(table)))
+
+        return "\n".join(ans)
+
+
+    #
+    # ----------------------------------------------------------------

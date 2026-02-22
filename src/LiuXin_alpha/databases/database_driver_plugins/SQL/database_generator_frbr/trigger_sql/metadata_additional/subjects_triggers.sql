@@ -84,11 +84,11 @@ END;
 -- ----------------------
 CREATE TRIGGER IF NOT EXISTS `trg_subjects_parent_not_self_after_ins`
 AFTER INSERT ON `subjects`
-WHEN NEW.`subject_parent` IS NOT NULL
+WHEN NEW.`subject_parent_id` IS NOT NULL
 BEGIN
   SELECT CASE
-    WHEN NEW.`subject_parent` = NEW.`subject_id`
-    THEN RAISE(ABORT, 'subjects.subject_parent cannot reference itself')
+    WHEN NEW.`subject_parent_id` = NEW.`subject_id`
+    THEN RAISE(ABORT, 'subjects.subject_parent_id cannot reference itself')
   END;
 END;
 
@@ -98,17 +98,17 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS `trg_subjects_parent_no_cycles_after_ins`
 AFTER INSERT ON `subjects`
-WHEN NEW.`subject_parent` IS NOT NULL
+WHEN NEW.`subject_parent_id` IS NOT NULL
 BEGIN
   SELECT CASE
     WHEN EXISTS (
       WITH RECURSIVE `anc`(`id`) AS (
-        SELECT NEW.`subject_parent`
+        SELECT NEW.`subject_parent_id`
         UNION ALL
-        SELECT `s`.`subject_parent`
+        SELECT `s`.`subject_parent_id`
         FROM `subjects` `s`
         JOIN `anc` ON `s`.`subject_id` = `anc`.`id`
-        WHERE `s`.`subject_parent` IS NOT NULL
+        WHERE `s`.`subject_parent_id` IS NOT NULL
       )
       SELECT 1 FROM `anc` WHERE `id` = NEW.`subject_id` LIMIT 1
     )

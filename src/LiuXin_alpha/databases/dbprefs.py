@@ -1,28 +1,37 @@
 #!/usr/bin/env python2
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+"""
+Interface for convenient management of preferences stores in the database.
+"""
 
-# Interface for convenient management of preferences stores in the database.
+from __future__ import unicode_literals, division, absolute_import, print_function
 
 import json
 import os
 
-from LiuXin.constants import preferred_encoding
+from LiuXin_alpha.constants import preferred_encoding
 
-from LiuXin.utils.config.config_tools import to_json, from_json
+from LiuXin_alpha.utils.config.config_tools import to_json, from_json
+from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.databases.api import DatabaseAPI
 
 
 class DBPrefs(dict):
     """
     Store preferences as key:value pairs in the db.
+
     Ported from Calibre.
     Used to store the preferences that affect how the database is displayed and sorted in the database itself.
     """
 
-    def __init__(self, db):
+    def __init__(self, db: DatabaseAPI) -> None:
+        """
+        Startup the preferences cache.
+
+        :param db:
+        """
         super(DBPrefs, self).__init__()
         self.db = db
         self.defaults = {}
@@ -32,6 +41,7 @@ class DBPrefs(dict):
     def load_from_db(self):
         """
         Load the preferences off the database.
+
         Originally used the self.db.conn method - modified to work with the LiuXin.databases.database intermediary.
         :return:
         """

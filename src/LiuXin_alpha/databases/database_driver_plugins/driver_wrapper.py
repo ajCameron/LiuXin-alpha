@@ -19,7 +19,7 @@ from LiuXin_alpha.databases.api import DatabaseDriverWrapperAPI, MacrosAPI
 
 class DriverWrapper(DatabaseDriverWrapperAPI, CustomColumnsDriverWrapperMixin):
     """
-    Everything coming out of this class should be a be a row_dictionary.
+    Everything coming out of this class should be a row_dict.
     """
 
     _macros: MacrosAPI

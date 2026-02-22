@@ -19,7 +19,7 @@ from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_warning_print
 from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.database_generator import (
     create_new_database,
 )
-from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import SQLiteDatabaseMacros
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.macros import SQLiteDatabaseMacros
 from LiuXin_alpha.databases.database_driver_plugins.SQL.custom_columns import (
     SQLiteCustomColumnsDriverMixin,
 )

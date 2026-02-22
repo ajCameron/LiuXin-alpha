@@ -12,7 +12,6 @@ import re
 import textwrap
 from functools import partial
 
-
 from LiuXin_alpha.databases.utils import CUSTOM_DATA_TYPES
 
 from LiuXin_alpha.utils.python_tools import to_json_str

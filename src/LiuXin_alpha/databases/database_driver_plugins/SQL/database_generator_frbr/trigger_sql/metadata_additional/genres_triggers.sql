@@ -78,11 +78,11 @@ END;
 -- ----------------------
 CREATE TRIGGER IF NOT EXISTS `trg_genres_parent_not_self_after_ins`
 AFTER INSERT ON `genres`
-WHEN NEW.`genre_parent` IS NOT NULL
+WHEN NEW.`genre_parent_id` IS NOT NULL
 BEGIN
   SELECT CASE
-    WHEN NEW.`genre_parent` = NEW.`genre_id`
-    THEN RAISE(ABORT, 'genres.genre_parent cannot reference itself')
+    WHEN NEW.`genre_parent_id` = NEW.`genre_id`
+    THEN RAISE(ABORT, 'genres.genre_parent_id cannot reference itself')
   END;
 END;
 
@@ -91,12 +91,12 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS `trg_genres_parent_no_cycles_after_ins`
 AFTER INSERT ON `genres`
-WHEN NEW.`genre_parent` IS NOT NULL
+WHEN NEW.`genre_parent_id` IS NOT NULL
 BEGIN
   SELECT CASE
     WHEN EXISTS (
       WITH RECURSIVE `anc`(`id`) AS (
-        SELECT NEW.`genre_parent_is`
+        SELECT NEW.`genre_parent_id`
         UNION ALL
         SELECT `g`.`genre_parent_id`
         FROM `genres` `g`
