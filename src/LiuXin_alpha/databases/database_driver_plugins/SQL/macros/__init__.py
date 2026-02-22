@@ -16,7 +16,7 @@ import sqlite3 as sqlite
 
 from collections import defaultdict
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.custom_column_macros_mixin import \
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin import \
     SQLiteDatabaseCustomColumnMacros
 from LiuXin_alpha.errors import DatabaseDriverError, DatabaseIntegrityError
 
@@ -24,12 +24,17 @@ from LiuXin_alpha.utils.logging import default_log
 
 # Todo: This needs to be replaced with a column name factory
 from LiuXin_alpha.databases.database_driver_plugins.macros_base import MacrosBase
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.temp_tables_macros_mixin import TempTablesMacrosMixin
 
 
 # Todo: Probably should have it's own API
 
 
-class SQLiteDatabaseMacros(MacrosBase, SQLiteDatabaseCustomColumnMacros):
+class SQLiteDatabaseMacros(
+    MacrosBase,
+    SQLiteDatabaseCustomColumnMacros,
+    TempTablesMacrosMixin
+):
     """
     Provides pre-defined operations on an SQLite database.
     """
