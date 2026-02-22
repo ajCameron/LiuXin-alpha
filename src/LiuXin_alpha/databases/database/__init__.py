@@ -77,6 +77,23 @@ class Database(
     _driver: DatabaseDriverAPI
     _driver_wrapper: DatabaseDriverWrapperAPI
 
+    # Legacy convenience aliases (kept for backwards compatibility / test contracts):
+    # - conn: primary driver connection
+    # - lock: wrapper lock connection
+    # - execute / executemany / executescript / get: direct-SQL escape hatches
+    #   NOTE: these are meaningful only for SQL-like backends (SQLite/sqlite3/apsw, etc.).
+    #   Non-SQL drivers may leave them unset.
+    # These are *attributes* (not methods) so Database.close() can clear them to
+    # help release handles on Windows.
+    conn = None
+    lock = None
+    execute = None
+    executemany = None
+    executescript = None
+    get = None
+    shell = None
+    get_connection = None
+
     # Todo: Split some of these out into factory methods and slim this down
     def __init__(
         self,
@@ -377,6 +394,30 @@ class Database(
         except Exception:
             pass
 
+        # Legacy convenience aliases used across the codebase and relied upon by tests.
+        # NOTE: these are intentionally attribute bindings to the wrapper/driver so they can
+        # be cleared on close() to help break reference cycles and release SQLite file locks.
+        try:
+            self.conn = getattr(self._driver, "conn", None)
+        except Exception:
+            self.conn = None
+
+        for name in (
+            "execute",
+            "executemany",
+            "executescript",
+            "get",
+            "shell",
+            "get_connection",
+        ):
+            try:
+                setattr(self, name, getattr(self._driver_wrapper, name))
+            except Exception:
+                try:
+                    setattr(self, name, None)
+                except Exception:
+                    pass
+
     def set_driver_wrapper(self, new_driver_wrapper: DatabaseDriverWrapperAPI) -> None:
         """
         Set the database driver wrapper.
@@ -472,7 +513,16 @@ class Database(
             pass
 
         # Remove convenience aliases that can keep connections alive
-        for attr in ("lock",):
+        for attr in (
+            "conn",
+            "lock",
+            "execute",
+            "executemany",
+            "executescript",
+            "get",
+            "shell",
+            "get_connection",
+        ):
             try:
                 setattr(self, attr, None)
             except Exception:
@@ -507,6 +557,15 @@ class Database(
             "maintainer",
             "dirty_records_queue",
             "_link_has_priority",
+            # Convenience aliases (see set_driver)
+            "conn",
+            "lock",
+            "execute",
+            "executemany",
+            "executescript",
+            "get",
+            "shell",
+            "get_connection",
         ):
             try:
                 setattr(self, attr, None)

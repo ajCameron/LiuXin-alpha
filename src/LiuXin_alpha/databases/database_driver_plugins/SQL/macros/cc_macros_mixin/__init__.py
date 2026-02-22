@@ -13,7 +13,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin.c
 
 
 
-class SQLiteDatabaseCustomColumnMacros:
+class SQLiteDatabaseCustomColumnMacros(CustomColumnsManagementMacrosMixin):
     """
     Macros affecting only custom columns.
 

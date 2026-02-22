@@ -3,6 +3,7 @@
 Apply objects to entries in the database.
 """
 
+from LiuXin_alpha.databases.api import DatabaseAPI
 
 from LiuXin_alpha.databases.row import Row
 
@@ -13,15 +14,17 @@ from LiuXin_alpha.metadata.ebook_metadata_tools import check_issn, check_isbn
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types as string_types
 
+from LiuXin_alpha.databases.metadata_tools.apply.label_apply_mixin import LabelApplyMixin
 
-class Apply:
+
+class Apply(LabelApplyMixin):
     """
     Class to associate resources on the database together by applying one to the other.
     Use methods for this class if you want to link elements from the library together - use the get methods if you want
     to retrieve associated resources - this centralization means that the schema can be more easily changed.
     """
 
-    def __init__(self, database):
+    def __init__(self, database: DatabaseAPI) -> None:
         self.db = database
         self.add = None
         self.ensure = None
@@ -541,53 +544,3 @@ class Apply:
 
         link_row = self.db.interlink_rows(primary_row=resource, secondary_row=synopsis_row)
         return link_row
-
-    def tag(self, tag, resource):
-        """
-        Apply a tag to the given resource.
-        If the tag is a row, apply it directly. If the tag is text, then ensure the tag, and then use that row.
-        :param tag: A row, string or iterable.
-        :param resource: Something which can have a tag applied to it.
-        :return:
-        """
-        if isinstance(tag, Row):
-            tag_row = tag
-        elif isinstance(tag, (list, set)):
-            for tag_str in tag:
-                self.tag(tag=tag_str, resource=resource)
-            return
-        elif isinstance(tag, string_types):
-            tag_row = self.ensure.tag(tag_text=tag)
-        else:
-            err_str = "Tag must be a string or row"
-            err_str = default_log.log_variables(err_str, "ERROR", ("tag", tag), ("tag_type", type(tag)))
-            raise InputIntegrityError(err_str)
-
-        if not isinstance(resource, Row):
-            err_str = "Resource must be a row"
-            err_str = default_log.log_variables(
-                err_str,
-                "ERROR",
-                ("resource", resource),
-                ("resource_type", type(resource)),
-            )
-            raise InputIntegrityError(err_str)
-
-        interlink_table = self.db.driver_wrapper.get_link_table_name("tags", resource.table)
-        if not interlink_table:
-            err_str = "Resource cannot be tagged - no link table exists between them"
-            err_str = default_log.log_variables(
-                err_str,
-                "ERROR",
-                ("resource", resource),
-                ("tag_row", tag_row),
-                ("tag", tag),
-            )
-            raise InputIntegrityError(err_str)
-
-        try:
-            self.db.interlink_rows(primary_row=tag_row, secondary_row=resource, priority="not_set")
-        # Thrown if the tag is already applied to this row
-        # Todo: Need to broaden the exception types
-        except DatabaseIntegrityError:
-            pass

@@ -8,8 +8,10 @@ CREATE TABLE IF NOT EXISTS `labels` (
 
   `label_id` INTEGER PRIMARY KEY,
 
-  `label_text` TEXT NOT NULL,
-  `label_text_norm` TEXT NOT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `label_text` TEXT NULL,
+  `label_text_norm` TEXT NULL,
   `label_description` TEXT NULL,
 
 

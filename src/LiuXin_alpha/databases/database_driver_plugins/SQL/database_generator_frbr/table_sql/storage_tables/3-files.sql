@@ -19,11 +19,15 @@ CREATE TABLE IF NOT EXISTS `files` (
 
   -- Relations
   `file_item_id`   INTEGER NULL,
-  `file_store_id`  INTEGER NOT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `file_store_id`  INTEGER NULL,
   `file_folder_id` INTEGER NULL,
 
   -- Locator (authoritative, RELATIVE)
-  `file_storage_key` TEXT NOT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `file_storage_key` TEXT NULL,
 
   -- Naming (UI / compatibility)
   `file_name` TEXT NULL,

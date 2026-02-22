@@ -364,8 +364,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                   `{0}_scratch` TEXT NULL 
                   """
 
-            if link_type == "many_many_non_exclusive":
-                link_rows = link_rows.replace("`{0}_type` TEXT NULL", "`{0}_type` TEXT NOT NULL")
+            # NOTE: Link tables are constructed via a "blank row then fill" workflow in DriverWrapper.get_blank_row.
+            # Any NOT NULL constraints on optional metadata columns (like `type`) break that workflow.
+            # We therefore keep `{0}_type` nullable even for role-style many_many_non_exclusive tables, and rely on
+            # UNIQUE(..., type) semantics (SQLite treats NULL as distinct) to preserve non-exclusive behaviour.
 
         else:
 
@@ -390,7 +392,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 decrement_requested_cols.remove("primary")
 
             if "type" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_type` TEXT " + ("NOT NULL" if link_type == "many_many_non_exclusive" else "NULL") + ","
+                # Keep `type` nullable (see NOTE above).
+                link_rows_header += "\n      `{0}_type` TEXT NULL,"
                 decrement_requested_cols.remove("type")
 
             if "origin" in decrement_requested_cols:
@@ -427,7 +430,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         # The full statement will be constructed with a join later - do not want a comma between the comment and the
         # start of the actual table
-        fk_null_sql = "NULL" if nullable_fks else "NOT NULL"
+        # NOTE: Interlink rows are often created as "blank" placeholders and then populated.
+        # Enforcing NOT NULL on FK columns prevents this workflow, so we keep FKs nullable for now.
+        # (We can revisit strict FK NOT NULL constraints once row construction is not placeholder-based.)
+        fk_null_sql = "NULL"
 
         link_rows = comment_row + link_rows.format(column_name, table1_l_s, table2_l_s, fk_null_sql)
         table_sql_stmt_component_list.append(link_rows)

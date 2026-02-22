@@ -9,10 +9,14 @@
 CREATE TABLE IF NOT EXISTS `folders` (
   `folder_id` INTEGER PRIMARY KEY,
 
-  `folder_store_id` INTEGER NOT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `folder_store_id` INTEGER NULL,
   `folder_parent_id` INTEGER NULL,
 
-  `folder_name` TEXT NOT NULL,          -- single path segment
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `folder_name` TEXT NULL,          -- single path segment
   `folder_relpath` TEXT NULL,           -- cached relative path inside store
 
   `folder_policy_json` TEXT NULL,       -- optional overrides for store policy

@@ -12,9 +12,11 @@
 CREATE TABLE IF NOT EXISTS `item_identifiers` (
   `item_identifier_id` INTEGER PRIMARY KEY,
 
-  `item_identifier_item_id` INTEGER NOT NULL,
-  `item_identifier_scheme`  TEXT NOT NULL,   -- 'isbn13', 'isbn10', 'asin', 'barcode', ...
-  `item_identifier_value`   TEXT NOT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `item_identifier_item_id` INTEGER NULL,
+  `item_identifier_scheme`  TEXT NULL,   -- 'isbn13', 'isbn10', 'asin', 'barcode', ...
+  `item_identifier_value`   TEXT NULL,
   `item_identifier_source`  TEXT NULL,       -- 'scan', 'file_metadata', 'calibre', ...
 
 

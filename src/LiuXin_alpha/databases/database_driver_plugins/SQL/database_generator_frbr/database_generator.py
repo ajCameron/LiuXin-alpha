@@ -1236,7 +1236,11 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         # TOML-derived configuration for this intralink table
         requested_cols: Any = self.intralink_requested_cols_by_table.get(name_local, {"type"})
         allowed_types = self.intralink_allowed_types_by_table.get(name_local)
-        nullable_fks = self.intralink_nullable_fks_by_table.get(name_local, False)
+        # NOTE:
+        # DriverWrapper.get_blank_row() creates placeholder rows by inserting ONLY the scratch column first,
+        # and then updating FK/type/etc. afterwards.
+        # Until we revisit that design, intralink FK columns must stay nullable or blank-row creation breaks.
+        nullable_fks = True
         symmetric = self.intralink_symmetric_by_table.get(name_local, False)
         symmetric_types = self.intralink_symmetric_types_by_table.get(name_local)
 

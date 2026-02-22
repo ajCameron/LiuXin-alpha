@@ -9,11 +9,13 @@
 CREATE TABLE IF NOT EXISTS `item_workflow_events` (
   `item_workflow_event_id` INTEGER PRIMARY KEY,
 
-  `item_workflow_event_item_id` INTEGER NOT NULL,
-  `item_workflow_event_step_id` INTEGER NOT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `item_workflow_event_item_id` INTEGER NULL,
+  `item_workflow_event_step_id` INTEGER NULL,
 
   `item_workflow_event_from_status` TEXT NULL,
-  `item_workflow_event_to_status`   TEXT NOT NULL,
+  `item_workflow_event_to_status`   TEXT NULL,
 
   `item_workflow_event_actor` TEXT NULL,        -- user/tool name
   `item_workflow_event_note`  TEXT NULL,

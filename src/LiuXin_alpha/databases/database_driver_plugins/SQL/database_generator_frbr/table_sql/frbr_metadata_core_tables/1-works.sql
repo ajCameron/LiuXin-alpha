@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS `works` (
   -- Original context
   `work_original_language_id` INTEGER NULL, -- FK later (languages), kept as INTEGER for compatibility
   `work_original_year` INTEGER NULL,
+  `work_wikipedia_link` TEXT NULL,
 
   -- High-level classification
   `work_is_fiction` INTEGER NULL,           -- 1 = fiction, 0 = non-fiction, NULL = unknown

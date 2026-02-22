@@ -54,50 +54,6 @@ class TitleAddMixin:
     Add a "title" to the database
     """
 
-    def wemi(self) -> RowAPI:
-        """
-        Sometimes (often) you'll want to create an entire wemi stack all at once.
-
-        This function provides a shorthand for doing this.
-        :return:
-        """
-
-
-
-    def work(
-        self,
-        work_title,
-        work_canonical_title = None,
-        work_sort_title = None,
-
-        work_phash=None,
-        work_creator_sort=None,
-        work_pub_date=None,
-        work_copyright_date=None,
-        work_wikipedia=None,
-        work_fiction_length_category=None,
-        work_type=None,
-        work_wordcount=None,
-        work_source=None,
-        work_source_path=None,
-        work_source_name=None,
-        work_created_datestamp=None,
-        work_modified_datestamp=None,
-        override_work_row=None,
-    ) -> RowAPI:
-        """
-
-
-
-        :return:
-        """
-
-        if override_work_row is None:
-            title_row = Row(database=self.db)
-        else:
-            title_row = override_work_row
-
-
     # Todo: Enable adding title interlink data in one call
     # So would like to able to note that this is an alt-title for another work with just one call to this method.
     def title(

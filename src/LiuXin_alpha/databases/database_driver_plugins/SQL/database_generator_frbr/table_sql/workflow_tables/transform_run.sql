@@ -6,7 +6,9 @@
 CREATE TABLE IF NOT EXISTS `transform_runs` (
   `transform_run_id` INTEGER PRIMARY KEY,
 
-  `transform_run_type` TEXT NOT NULL,        -- 'ocr','convert','thumbnail','hash','dedupe','repair','extract', ...
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `transform_run_type` TEXT NULL,        -- 'ocr','convert','thumbnail','hash','dedupe','repair','extract', ...
   `transform_run_tool` TEXT NULL,            -- executable/tool name/version
   `transform_run_profile` TEXT NULL,         -- named preset ('epub->kepub', 'ocr-fast', ...)
   `transform_run_params` TEXT NULL,          -- JSON string OK here: deterministic tool params

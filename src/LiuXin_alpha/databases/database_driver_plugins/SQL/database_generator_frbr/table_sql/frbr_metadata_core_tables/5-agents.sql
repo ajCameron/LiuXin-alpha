@@ -75,7 +75,9 @@ CREATE TABLE IF NOT EXISTS `human_agents` (
   `human_agent_id` INTEGER PRIMARY KEY,
 
   -- 1:1 link to the supertype
-  `human_agent_agent_id` INTEGER NOT NULL UNIQUE,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `human_agent_agent_id` INTEGER NULL UNIQUE,
 
   -- Name parts (optional; can be used to derive display/sort names in code)
   `human_agent_given_name`  TEXT NULL,
@@ -139,7 +141,9 @@ CREATE TABLE IF NOT EXISTS `org_agents` (
   `org_agent_id` INTEGER PRIMARY KEY,
 
   -- 1:1 link to the supertype
-  `org_agent_agent_id` INTEGER NOT NULL UNIQUE,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `org_agent_agent_id` INTEGER NULL UNIQUE,
 
   -- Optional structured organisation identity
   `org_agent_legal_name`       TEXT NULL,  -- if different from agents.agent_canonical_name

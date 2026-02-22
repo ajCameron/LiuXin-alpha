@@ -53,8 +53,6 @@ from LiuXin_alpha.databases.api import RowAPI
 from typing import Optional
 
 
-
-
 class LabelMixin:
     """
     Enables adding labels to the system.
@@ -72,9 +70,11 @@ class LabelMixin:
         :return:
         """
         tag_row = Row(database=self.db)
+
         tag_row["label"] = tag
         tag_row["label_phash"] = tag_phash if tag_phash is not None else make_tag_search_term(tag)
         tag_row.sync()
+
         return tag_row
 
     def tag(self, tag: str, tag_phash: Optional[str] = None) -> RowAPI:

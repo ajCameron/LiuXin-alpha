@@ -4,13 +4,15 @@
 CREATE TABLE IF NOT EXISTS `last_read_positions` (
   `last_read_position_id` INTEGER PRIMARY KEY,
 
-  `last_read_position_book` INTEGER NOT NULL,
-  `last_read_position_format` TEXT NOT NULL COLLATE `NOCASE`,
-  `last_read_position_user` TEXT NOT NULL,
-  `last_read_position_device` TEXT NOT NULL,
-  `last_read_position_cfi` TEXT NOT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `last_read_position_book` INTEGER NULL,
+  `last_read_position_format` TEXT NULL COLLATE `NOCASE`,
+  `last_read_position_user` TEXT NULL,
+  `last_read_position_device` TEXT NULL,
+  `last_read_position_cfi` TEXT NULL,
 
-  `last_read_position_epoch` REAL NOT NULL,
+  `last_read_position_epoch` REAL NULL,
 
   `last_read_position_pos_frac` REAL NOT NULL DEFAULT 0,
 

@@ -7,8 +7,10 @@ CREATE TABLE IF NOT EXISTS `file_derivations` (
 
   `file_derivation_id` INTEGER PRIMARY KEY,
 
-  `file_derivation_parent_file_id` INTEGER NOT NULL,
-  `file_derivation_child_file_id`  INTEGER NOT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `file_derivation_parent_file_id` INTEGER NULL,
+  `file_derivation_child_file_id`  INTEGER NULL,
 
   `file_derivation_run_id` INTEGER NULL,     -- optional: link to the transform run that produced it
   `file_derivation_kind` TEXT NULL,          -- 'converted','ocr_text','thumbnail','repacked','repaired','extracted', ...

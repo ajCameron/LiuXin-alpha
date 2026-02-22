@@ -379,15 +379,29 @@ class DatabaseDriverWrapperAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_view_column_headings(self, view: str) -> list[str]:
-        """Return the column headings for a view."""
+        """
+        Return the column headings for a view.
+
+        :param view:
+        :return:
+        """
 
     @abc.abstractmethod
     def get_tables_and_columns(self) -> dict[str, list[str]]:
-        """Return a mapping of table name -> column headings."""
+        """
+        Return a mapping of table name -> column headings.
+
+        :return:
+        """
 
     @abc.abstractmethod
     def get_highest_id(self, target_table: str) -> Optional[int]:
-        """Return the highest id value in the given table (or None if empty)."""
+        """
+        Return the highest id value in the given table (or None if empty).
+
+        :param target_table: Name of a table in the database.
+        :return:
+        """
 
     @property
     @abc.abstractmethod
@@ -399,11 +413,21 @@ class DatabaseDriverWrapperAPI(abc.ABC):
     # ------------------------------------------------------------------------------------------------------------------
     @abc.abstractmethod
     def get_record_count(self, target_table: str) -> int:
-        """Return the number of records in a given table."""
+        """
+        Return the number of records in a given table.
+
+        :param target_table:
+        :return:
+        """
 
     @abc.abstractmethod
     def get_id_column(self, table: str) -> str:
-        """Return the id column name for the given table."""
+        """
+        Return the id column name for the given table.
+
+        :param table:
+        :return:
+        """
 
     @abc.abstractmethod
     def get_datestamp_column(self, table: str) -> str:

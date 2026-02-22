@@ -13,8 +13,12 @@ CREATE TABLE IF NOT EXISTS `stores` (
   `store_id` INTEGER PRIMARY KEY,
 
   -- Identity / addressing
-  `store_name` TEXT NOT NULL,
-  `store_kind` TEXT NOT NULL,           -- 'filesystem', 'nas', 'tape', 'rclone', 'http_ro', ...
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `store_name` TEXT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `store_kind` TEXT NULL,           -- 'filesystem', 'nas', 'tape', 'rclone', 'http_ro', ...
   `store_access_protocol` TEXT NULL,    -- 'file', 'nfs', 'smb', 'tape', 'rclone', 'http', 'https', ...
   `store_root_uri` TEXT NULL,           -- base locator (may change); file keys are relative to this
 

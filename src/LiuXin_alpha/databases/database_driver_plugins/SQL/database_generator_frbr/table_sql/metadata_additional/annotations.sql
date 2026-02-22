@@ -1,12 +1,14 @@
 CREATE TABLE `annotations` (
     `annotation_id`               INTEGER PRIMARY KEY,
-    `annotation_user_id`          INTEGER NOT NULL,
-    `annotation_item_id`          INTEGER NOT NULL,  -- which copy/file they annotated
-    `annotation_kind`             TEXT NOT NULL,     -- 'highlight', 'note', 'bookmark', 'clip'
+    -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+    -- Application logic can enforce presence later.
+    `annotation_user_id`          INTEGER NULL,
+    `annotation_item_id`          INTEGER NULL,  -- which copy/file they annotated
+    `annotation_kind`             TEXT NULL,     -- 'highlight', 'note', 'bookmark', 'clip'
 
-    `annotation_anchor_type`      TEXT NOT NULL,     -- 'cfi', 'percentage', 'page_offset',
+    `annotation_anchor_type`      TEXT NULL,     -- 'cfi', 'percentage', 'page_offset',
                                         -- 'timecode', 'frame', 'loc', etc.
-    `annotation_anchor_start`     TEXT NOT NULL,     -- encoded position
+    `annotation_anchor_start`     TEXT NULL,     -- encoded position
     `annotation_anchor_end`       TEXT,              -- for ranges; null for bookmarks
 
     `annotation_selected_text`    TEXT,              -- optional snapshot of highlight

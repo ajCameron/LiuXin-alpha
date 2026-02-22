@@ -8,10 +8,12 @@
 CREATE TABLE IF NOT EXISTS `entity_identifiers` (
   `entity_identifier_id` INTEGER PRIMARY KEY,
 
-  `entity_identifier_entity_type` TEXT NOT NULL,  -- 'work', 'expression', 'manifestation', 'item'
-  `entity_identifier_entity_id`   INTEGER NOT NULL,
-  `entity_identifier_scheme`      TEXT NOT NULL,  -- 'isbn13', 'asin', 'uuid', ...
-  `entity_identifier_value`       TEXT NOT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `entity_identifier_entity_type` TEXT NULL,  -- 'work', 'expression', 'manifestation', 'item'
+  `entity_identifier_entity_id`   INTEGER NULL,
+  `entity_identifier_scheme`      TEXT NULL,  -- 'isbn13', 'asin', 'uuid', ...
+  `entity_identifier_value`       TEXT NULL,
   `entity_identifier_is_primary`  INTEGER NULL,       -- 1 = canonical for this entity/scheme
   `entity_identifier_provenance`  TEXT NULL,      -- 'derived_from_items', 'import', 'manual'
 

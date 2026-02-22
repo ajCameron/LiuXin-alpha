@@ -6,8 +6,10 @@
 CREATE TABLE IF NOT EXISTS `item_workflow` (
   `item_workflow_id` INTEGER PRIMARY KEY,
 
-  `item_workflow_item_id` INTEGER NOT NULL,
-  `item_workflow_step_id` INTEGER NOT NULL,
+  -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
+  -- Application logic can enforce presence later.
+  `item_workflow_item_id` INTEGER NULL,
+  `item_workflow_step_id` INTEGER NULL,
 
   `item_workflow_status` TEXT NOT NULL DEFAULT 'todo',
 

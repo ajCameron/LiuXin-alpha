@@ -25,6 +25,10 @@ from LiuXin_alpha.utils.logging import default_log
 # Todo: This needs to be replaced with a column name factory
 from LiuXin_alpha.databases.database_driver_plugins.macros_base import MacrosBase
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.temp_tables_macros_mixin import TempTablesMacrosMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.hash_tables_macros_mixin import HashTablesMacrosMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.titles_macros_mixin import TitlesMacroMethodsMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.books_mecros_mixin import BooksMacrosMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.series_title_link_macros import SeriesTitleLinkMacros
 
 
 # Todo: Probably should have it's own API
@@ -33,7 +37,9 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.temp_tables_macro
 class SQLiteDatabaseMacros(
     MacrosBase,
     SQLiteDatabaseCustomColumnMacros,
-    TempTablesMacrosMixin
+    TempTablesMacrosMixin,
+    HashTablesMacrosMixin,
+    TitlesMacroMethodsMixin, BooksMacrosMixin, SeriesTitleLinkMacros
 ):
     """
     Provides pre-defined operations on an SQLite database.
@@ -1687,205 +1693,3 @@ class SQLiteDatabaseMacros(
 
     #
     # ------------------------------------------------------------------------------------------------------------------
-    # ------------------------------------------------------------------------------------------------------------------
-    #
-    # - SERIES_TITLE_LINK MACROS
-
-    def get_series_id_from_value(self, series):
-        """
-        Returns the series_id from the given series value.
-        :param series:
-        :return:
-        """
-        return self.db.driver.conn.get("SELECT series_id FROM series WHERE series=?;", (series,), all=False)
-
-    def check_for_series_title_link(self, series_id, title_id):
-        """
-        Check to see if there is an existing link between a given series and title.
-        :param series_id:
-        :param title_id:
-        :return:
-        """
-        stmt = (
-            "SELECT series_title_link_id, series_title_link_index "
-            "FROM series_title_links "
-            "WHERE series_title_link_series_id = ? AND series_title_link_title_id = ?"
-            "ORDER BY series_title_link_priority DESC;"
-        )
-        return self.db.driver.conn.get_row(stmt, (series_id, title_id), all=False)
-
-    def get_primary_series_index(self, title_id):
-        """
-        Return the index of the primary series for the given title.
-        :param title_id:
-        :return:
-        """
-        stmt = (
-            "SELECT series_title_link_index "
-            "FROM series_title_links "
-            "WHERE series_title_link_title_id = ?"
-            "ORDER BY series_title_link_priority DESC;"
-        )
-        return self.db.driver.conn.get(stmt, (title_id,), all=False)
-
-    def break_series_title_link(self, title_id, series_id=0):
-        """
-        Break a link between the series and a given title.
-        :param title_id:
-        :param series_id:
-        :return:
-        """
-        del_stmt = (
-            "DELETE FROM series_title_links "
-            "WHERE series_title_link_series_id = ? AND series_title_link_title_id = ?;"
-        )
-        self.db.driver_wrapper.execute(
-            del_stmt,
-            (
-                series_id,
-                title_id,
-            ),
-        )
-
-    def link_null_series_to_title(self, title_id, series_index):
-        """
-        Link the title to the null series - and records the series index for later use.
-        :param title_id:
-        :param series_index:
-        :return:
-        """
-        stmt = (
-            "INSERT INTO series_title_links "
-            "(series_title_link_title_id, series_title_link_series_id, "
-            "series_title_link_index, series_title_link_priority) "
-            "SELECT ?, 0, ?, MAX(series_title_link_priority) + 1 FROM series_title_links;"
-        )
-        try:
-            self.db.driver_wrapper.execute(stmt, (title_id, series_index))
-        except DatabaseDriverError:
-            # Link has already been set null
-            # Todo: Should, if this link exists, update the link with the new index
-            pass
-
-    def read_primary_title_series_id_from_meta(self, title_id):
-        """
-        Read and return the series_id from the meta view.
-        :param title_id:
-        :return:
-        """
-        return self.db.driver.conn.get("SELECT series_id FROM meta WHERE id=?;", (title_id,), all=False)
-
-    def update_index_for_series_title_link(self, title_id, series_id, index):
-        """
-        Update the index for the given series title link.
-        :param title_id:
-        :param series_id:
-        :param index:
-        :return:
-        """
-        stmt = (
-            "UPDATE series_title_links "
-            "SET series_title_link_index = ? "
-            "WHERE series_title_link_series_id = ?"
-            "AND series_title_link_title_id = ?;"
-        )
-        self.db.driver.conn.execute(stmt, (float(index), series_id, title_id))
-        self.db.driver.conn.commit()
-
-    #
-    # ------------------------------------------------------------------------------------------------------------------
-    # ------------------------------------------------------------------------------------------------------------------
-    #
-    # - BOOK METHODS
-
-    def update_book_last_modified(self, book_id, last_modified):
-        """
-        Update the last_modified value for the book.
-        :param book_id:
-        :param last_modified:
-        :return:
-        """
-        update_stmt = "UPDATE books SET book_last_modified = ? WHERE books.book_id = ?;"
-        self.db.driver.conn.execute(update_stmt, (last_modified, int(book_id)))
-        self.db.driver.conn.commit()
-
-    #
-    # ------------------------------------------------------------------------------------------------------------------
-    # ------------------------------------------------------------------------------------------------------------------
-    #
-    # - TITLE CREATOR METHODS
-
-    def clear_title_creator_links_for_given_type_and_title(self, title_id):
-        """
-        Clear the links between a certain title and all creators with a certain link type.
-        :param title_id: All creator links to this title will be cleared
-        :return:
-        """
-        stmt = (
-            "DELETE FROM creator_title_links "
-            "WHERE creator_title_link_title_id = ? AND creator_title_link_type='authors';"
-        )
-        self.db.driver.conn.execute(stmt, (title_id,))
-        self.db.driver.conn.commit()
-
-    def check_for_title_author_link(self, title_id, creator_id):
-        """
-        Check to see that there is an author type link between the title and the creator
-        :param title_id:
-        :param creator_id:
-        :return:
-        """
-        stmt = (
-            "SELECT creator_title_link_id FROM creator_title_links "
-            "WHERE creator_title_link_title_id = ? "
-            "AND creator_title_link_creator_id = ? "
-            "AND creator_title_links.creator_title_link_type='authors';"
-        )
-        return self.db.driver.conn.get(stmt, (title_id, creator_id), all=False)
-
-    def update_title_author_link_priority(self, title_id, creator_id, new_priority):
-        """
-        Update the link between the title and the creator - of author type
-        :param title_id:
-        :param creator_id:
-        :param new_priority:
-        :return:
-        """
-        stmt = (
-            "UPDATE creator_title_links "
-            "SET creator_title_link_priority = ? "
-            "WHERE creator_title_link_title_id = ? "
-            "AND creator_title_link_creator_id = ? "
-            "AND creator_title_links.creator_title_link_type='authors';"
-        )
-        self.db.driver.conn.execute(stmt, (new_priority, title_id, creator_id))
-        self.db.driver.conn.commit()
-
-    #
-    # ------------------------------------------------------------------------------------------------------------------
-
-    def hash_table(self, target_table, columns):
-        """
-        Construct a hash of the given table using the given columns.
-
-        Used to tag snapshots of the current state of the db.
-        :param target_table:
-        :param columns:
-        :return:
-        """
-        columns = tuple(columns)
-
-        import hashlib
-
-        m = hashlib.md5()
-
-        for row in self.db.get_all_rows(target_table):
-            current_row_list = []
-            for col in columns:
-                current_row_list.append(row[col])
-
-            current_row_tuple = tuple(current_row_list)
-
-            m.update(str(current_row_tuple))
-
-        return m.hexdigest()
