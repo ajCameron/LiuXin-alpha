@@ -232,48 +232,138 @@ class CustomColumnsManagementMacrosMixin:
                     cc_table=cc_table,
                     cc_table_col=cc_table_col,
                 ),
-                # Todo: This is both totally broken and needs to be generalized - probably a bad idea to do it this way
-                #       in the database at all
-                # Todo: Titles have ratings, not books in the current schema
-                """
-                CREATE VIEW tag_browser_{cc_table} AS SELECT
-                    {cc_table_col}_id,
-                    {cc_table_col}_value,
-                    (SELECT COUNT(id) FROM {lt} WHERE value={cc_table}.{cc_table_col}_id) count,
-                    (SELECT AVG(r.rating)
-                     FROM {lt},
-                          book_rating_links as bl,
-                          ratings as r
-                     WHERE {lt}.value={cc_table}.id and bl.book_rating_link_book_id={lt}.book and
-                           r.rating_id = bl.book_rating_link_rating_id and r.rating <> 0) avg_rating,
-                    value AS sort
-                FROM {cc_table};
-                """.format(
-                    lt=link_table,
-                    lt_col=lt_col,
-                    cc_table=cc_table,
-                    cc_table_col=cc_table_col,
-                ),
-                """
-                CREATE VIEW tag_browser_filtered_{cc_table} AS SELECT
-                    id,
-                    value,
-                    (SELECT COUNT({lt}.id) FROM {lt} WHERE value={cc_table}.id AND
-                    books_list_filter(book)) count,
-                    (SELECT AVG(r.rating)
-                     FROM {lt},
-                          book_rating_links as bl,
-                          ratings as r
-                     WHERE {lt}.value={cc_table}.id AND bl.book_rating_link_book_id={lt}.book AND
-                           r.rating_id = bl.book_rating_link_rating_id AND r.rating <> 0 AND
-                           books_list_filter(bl.book_rating_link_book_id)) avg_rating,
-                    value AS sort
-                FROM {cc_table};
-                """.format(
-                    lt=link_table, cc_table=cc_table
-                ),
-            ]
+                            ]
 
+            # Tag browser helper views (Calibre-style).
+            #
+            # These views are used by Calibre-style UIs to show counts and (optionally)
+            # average ratings for a given normalized custom column table.
+            #
+            # In FRBR-first databases we may *not* have the Calibre ratings tables yet.
+            # If we create views that reference missing tables, later introspection
+            # (e.g. PRAGMA table_info(view_name)) will error and break generic tooling
+            # like get_blank_row(). Build a safe fallback variant in that case.
+            def _has_table(_name: str) -> bool:
+                try:
+                    row = conn.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1;",
+                        (_name,),
+                    ).fetchone()
+                    return row is not None
+                except Exception:
+                    return False
+
+            supports_ratings = _has_table("book_rating_links") and _has_table("ratings")
+
+            if supports_ratings:
+                lines.extend(
+                    [
+                        """
+                        CREATE VIEW tag_browser_{cc_table} AS
+                            SELECT
+                                {cc_table}.{cc_table_col}_id AS id,
+                                {cc_table}.{cc_table_col}_value AS value,
+                                (
+                                    SELECT COUNT({lt}.{lt_col}_id)
+                                    FROM {lt}
+                                    WHERE {lt}.{lt_col}_value = {cc_table}.{cc_table_col}_id
+                                ) AS count,
+                                (
+                                    SELECT AVG(r.rating)
+                                    FROM {lt}
+                                    JOIN book_rating_links AS bl
+                                        ON bl.book_rating_link_book_id = {lt}.{lt_col}_book
+                                    JOIN ratings AS r
+                                        ON r.rating_id = bl.book_rating_link_rating_id
+                                    WHERE {lt}.{lt_col}_value = {cc_table}.{cc_table_col}_id
+                                      AND r.rating <> 0
+                                ) AS avg_rating,
+                                {cc_table}.{cc_table_col}_value AS sort
+                            FROM {cc_table};
+                        """.format(
+                            lt=link_table,
+                            lt_col=lt_col,
+                            cc_table=cc_table,
+                            cc_table_col=cc_table_col,
+                        ),
+                        """
+                        CREATE VIEW tag_browser_filtered_{cc_table} AS
+                            SELECT
+                                {cc_table}.{cc_table_col}_id AS id,
+                                {cc_table}.{cc_table_col}_value AS value,
+                                (
+                                    SELECT COUNT({lt}.{lt_col}_id)
+                                    FROM {lt}
+                                    WHERE {lt}.{lt_col}_value = {cc_table}.{cc_table_col}_id
+                                      AND books_list_filter({lt}.{lt_col}_book)
+                                ) AS count,
+                                (
+                                    SELECT AVG(r.rating)
+                                    FROM {lt}
+                                    JOIN book_rating_links AS bl
+                                        ON bl.book_rating_link_book_id = {lt}.{lt_col}_book
+                                    JOIN ratings AS r
+                                        ON r.rating_id = bl.book_rating_link_rating_id
+                                    WHERE {lt}.{lt_col}_value = {cc_table}.{cc_table_col}_id
+                                      AND r.rating <> 0
+                                      AND books_list_filter(bl.book_rating_link_book_id)
+                                ) AS avg_rating,
+                                {cc_table}.{cc_table_col}_value AS sort
+                            FROM {cc_table};
+                        """.format(
+                            lt=link_table,
+                            lt_col=lt_col,
+                            cc_table=cc_table,
+                            cc_table_col=cc_table_col,
+                        ),
+                    ]
+                )
+            else:
+                # Ratings tables not present: create views with the same shape but
+                # with avg_rating set to NULL.
+                lines.extend(
+                    [
+                        """
+                        CREATE VIEW tag_browser_{cc_table} AS
+                            SELECT
+                                {cc_table}.{cc_table_col}_id AS id,
+                                {cc_table}.{cc_table_col}_value AS value,
+                                (
+                                    SELECT COUNT({lt}.{lt_col}_id)
+                                    FROM {lt}
+                                    WHERE {lt}.{lt_col}_value = {cc_table}.{cc_table_col}_id
+                                ) AS count,
+                                NULL AS avg_rating,
+                                {cc_table}.{cc_table_col}_value AS sort
+                            FROM {cc_table};
+                        """.format(
+                            lt=link_table,
+                            lt_col=lt_col,
+                            cc_table=cc_table,
+                            cc_table_col=cc_table_col,
+                        ),
+                        """
+                        CREATE VIEW tag_browser_filtered_{cc_table} AS
+                            SELECT
+                                {cc_table}.{cc_table_col}_id AS id,
+                                {cc_table}.{cc_table_col}_value AS value,
+                                (
+                                    SELECT COUNT({lt}.{lt_col}_id)
+                                    FROM {lt}
+                                    WHERE {lt}.{lt_col}_value = {cc_table}.{cc_table_col}_id
+                                      AND books_list_filter({lt}.{lt_col}_book)
+                                ) AS count,
+                                NULL AS avg_rating,
+                                {cc_table}.{cc_table_col}_value AS sort
+                            FROM {cc_table};
+                        """.format(
+                            lt=link_table,
+                            lt_col=lt_col,
+                            cc_table=cc_table,
+                            cc_table_col=cc_table_col,
+                        ),
+                    ]
+                )
         else:
 
             lines = [

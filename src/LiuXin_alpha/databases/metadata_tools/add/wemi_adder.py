@@ -11,14 +11,14 @@ class WEMIAdderMixin:
     Add methods for the basic WEMI classes.
     """
     def work(self,
-             # - Core Identity
-             work_type: str,
-             work_medium: str,
              # - Titles and sorting
              work_title: str,
              work_canonical_title: str,
              work_sort_title: str,
              work_creator_sort: str,
+             # - Core Identity
+             work_type: Optional[str],
+             work_medium: str,
              # - Flags for sorting e.t.c
              work_flags: str,
              # - Original context
@@ -53,7 +53,7 @@ class WEMIAdderMixin:
         :param work_created_timestamp:
         :return:
         """
-        new_row_dict = {}
+        new_row_dict = {"work_type": work_type}
 
 
 

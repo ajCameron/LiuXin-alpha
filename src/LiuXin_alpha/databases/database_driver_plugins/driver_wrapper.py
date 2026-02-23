@@ -457,7 +457,8 @@ class DriverWrapper(DatabaseDriverWrapperAPI, CustomColumnsDriverWrapperMixin):
         :param row_dict:
         :return:
         """
-        self.driver.direct_add_simple_row_dict(row_dict)
+        # Returns the SQLite rowid / INTEGER PRIMARY KEY value if available.
+        return self.driver.direct_add_simple_row_dict(row_dict)
 
     def add_multiple_rows(self, row_dict_list):
         """

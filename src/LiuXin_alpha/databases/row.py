@@ -79,6 +79,105 @@ class Row(RowAPI):
         self.read_only = True
         self.sync = self.no_sync
 
+    
+    @staticmethod
+    def _best_effort_sqlite_object_type(database: DatabaseAPI, name: str) -> Optional[str]:
+        """
+        Best-effort helper to classify a SQLite schema object as 'table' or 'view'.
+
+        This is used purely to produce clearer error messages when an inferred target is a view.
+        If the underlying driver is not SQLite (or does not expose sqlite_master), returns None.
+        """
+        try:
+            driver = getattr(database, "driver_wrapper", None)
+            driver = getattr(driver, "driver", None)
+            get_conn = getattr(driver, "get_connection", None)
+            if get_conn is None:
+                return None
+            conn = get_conn()
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT type FROM sqlite_master WHERE name = ? LIMIT 1;", (name,))
+                row = cur.fetchone()
+                if row:
+                    return row[0]
+                return None
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        except Exception:
+            return None
+
+    @classmethod
+    def from_idless_row_dict(
+        cls,
+        database: DatabaseAPI,
+        row_dict: dict[str, Any],
+        *,
+        table: Optional[str] = None,
+        read_only: bool = False,
+        reload_from_db: bool = True,
+    ) -> "Row":
+        """
+        Factory constructor: insert an id-less row_dict into the database and return a Row.
+
+        This is intended to replace the "get_blank_row -> mutate -> sync" workflow.
+
+        Notes:
+          - If the target table has an INTEGER PRIMARY KEY and the id column is omitted (or set to None),
+            SQLite will auto-assign an id.
+          - If reload_from_db is True, we will re-read the inserted row from the database to pick up
+            defaults and trigger-side changes.
+
+        :param database: A LiuXin database instance
+        :param row_dict: Column/value payload (may omit the id column)
+        :param table: Optional explicit target table. Use this if inference would otherwise pick a view.
+        :param read_only: If True, the returned Row will be read-only.
+        :param reload_from_db: If True, reload the inserted row via id after insertion.
+        :return: Row instance representing the inserted row
+        """
+        if database is None:
+            raise DatabaseDriverError("from_idless_row_dict called without a database")
+        if row_dict is None:
+            raise TypeError("from_idless_row_dict requires a row_dict")
+        local_row_dict: dict[str, Any] = deepcopy(row_dict)
+
+        target_table = table or database.driver_wrapper.identify_table_from_row_dict(local_row_dict)
+
+        # If the inferred target is a view, error early with a helpful message.
+        obj_type = cls._best_effort_sqlite_object_type(database, target_table)
+        if obj_type == "view":
+            raise DatabaseDriverError(
+                f"Cannot INSERT into '{target_table}' because it is a view. "
+                f"Pass table='<base table>' explicitly to from_idless_row_dict()."
+            )
+
+        # If the id column is present but None, omit it so SQLite assigns an id.
+        id_col: Optional[str] = None
+        try:
+            id_col = database.driver_wrapper.get_id_column(target_table)
+        except Exception:
+            id_col = None
+
+        if id_col and id_col in local_row_dict and local_row_dict[id_col] is None:
+            local_row_dict.pop(id_col, None)
+
+        new_id = database.driver_wrapper.add_row(local_row_dict)
+
+        # If we have a numeric id, prefer to reload from the DB so defaults/triggers are reflected.
+        if reload_from_db and new_id not in (None, 0) and id_col:
+            row = cls(database=database, row_dict=None, read_only=read_only)
+            row.load_row_from_id(row_id=int(new_id), table=target_table)
+            return row
+
+        # Otherwise, return a row built from what we know.
+        if id_col and new_id not in (None, 0):
+            local_row_dict[id_col] = new_id
+
+        return cls(database=database, row_dict=local_row_dict, read_only=read_only)
+
     def refresh_db_properties(self) -> None:
         """
         Read the properties for the row off the database.
@@ -253,7 +352,7 @@ class Row(RowAPI):
         if row_id is not None:
             object.__setattr__(self, "row_id", row_id)
         if table is not None:
-            object.__setattr__(self, "table", table)
+            object.__setattr__(self, "_table", table)
 
         row_id = object.__getattribute__(self, "row_id")
         table = object.__getattribute__(self, "table")
@@ -275,7 +374,7 @@ class Row(RowAPI):
         :return:
         """
         if table is not None:
-            object.__setattr__(self, "table", table)
+            object.__setattr__(self, "_table", table)
 
         blank_row_dict = self.db.driver_wrapper.get_blank_row(object.__getattribute__(self, "table"))
         object.__setattr__(self, "int_row_dict", blank_row_dict)

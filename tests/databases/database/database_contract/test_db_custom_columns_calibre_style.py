@@ -43,10 +43,15 @@ def _require_table(db, table: str) -> None:
 
 
 def _pick_alt_main_table(db, *, exclude: set[str]) -> str | None:
-    """Pick a usable non-excluded main table that supports get_blank_row (has a scratch column)."""
+    """Pick a usable non-excluded main table that supports get_blank_row (has a scratch column).
+
+    We deliberately avoid views: contract tests should only write to real tables.
+    """
 
     for t in sorted(db.main_tables):
         if t in exclude:
+            continue
+        if not _is_insertable_table(db, t):
             continue
         try:
             _ = db.driver_wrapper.get_scratch_column(t)
@@ -56,16 +61,37 @@ def _pick_alt_main_table(db, *, exclude: set[str]) -> str | None:
     return None
 
 
+
+def _sqlite_master_type(db, name: str) -> str | None:
+    """Return sqlite_master.type for name (table/view/index/trigger) if available."""
+    try:
+        cur = db.driver_wrapper.execute("SELECT type FROM sqlite_master WHERE name=?;", (name,))
+        row = cur.fetchone() if hasattr(cur, "fetchone") else (next(cur, None) if cur is not None else None)
+        return str(row[0]) if row else None
+    except Exception:
+        return None
+
+
+def _is_insertable_table(db, name: str) -> bool:
+    """True if `name` is a concrete table (not a view) in SQLite."""
+    t = _sqlite_master_type(db, name)
+    if t is None:
+        # Unknown backend or table not found; be conservative and allow callers to handle.
+        return False
+    return t == "table"
+
 def _cc_default_table(db) -> str:
     """Pick the default main table for Calibre-style custom columns.
 
-    Historically this was 'books'. In the FRBR/WEMI schema, the closest analogue is
-    usually 'manifestations'. If neither is available (or doesn't support get_blank_row),
-    fall back to any main table that *does* support get_blank_row.
+    Historically this was 'books'. In the FRBR/WEMI schema the closest analogue is
+    usually 'manifestations'. We therefore prefer insertable FRBR tables and only
+    fall back to 'books' if it is a *real* table (not a view).
     """
 
-    for cand in ("books", "manifestations", "items"):
-        if cand not in getattr(db, "main_tables", set()):
+    for cand in ("manifestations", "items", "works", "books"):
+        if cand not in db.get_tables(force_refresh=True):
+            continue
+        if not _is_insertable_table(db, cand):
             continue
         try:
             _ = db.driver_wrapper.get_scratch_column(cand)
@@ -80,10 +106,14 @@ def _cc_default_table(db) -> str:
 
 
 def _cc_canonical_table(db, table: str) -> str:
-    """Canonicalise 'books' to the best available FRBR/WEMI analogue."""
+    """Canonicalise Calibre-era table choices to an insertable FRBR/WEMI analogue."""
 
-    if table == "books" and table not in getattr(db, "main_tables", set()):
-        return _cc_default_table(db)
+    if table == "books":
+        existing = set(db.get_tables(force_refresh=True))
+        if table not in existing:
+            return _cc_default_table(db)
+        if not _is_insertable_table(db, table):
+            return _cc_default_table(db)
     return table
 
 
@@ -629,4 +659,3 @@ def test_mark_delete_for_non_default_table(db) -> None:
     existing = set(db.get_tables(force_refresh=True))
     assert tables.cc_table not in existing
     assert tables.link_table not in existing
-

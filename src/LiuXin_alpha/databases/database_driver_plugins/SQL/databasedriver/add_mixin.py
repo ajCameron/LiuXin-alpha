@@ -74,8 +74,10 @@ class AddingMixin:
             LiuXin_debug_print("add_simple_row about to execute SQL code.")
             LiuXin_debug_print(stmt, " on ", target_table, " with values ", values)
 
+        new_rowid = None
         try:
             c.execute(stmt, values)
+            new_rowid = c.lastrowid
         except sqlite3.OperationalError as e:
             err_str = "sqlite3.OperationalError."
             err_str = default_log.log_exception(
@@ -101,6 +103,8 @@ class AddingMixin:
         finally:
             conn.commit()
             conn.close()
+
+        return new_rowid
 
 
     def direct_add_multiple_simple_row_dicts(self, row_dict_list):
