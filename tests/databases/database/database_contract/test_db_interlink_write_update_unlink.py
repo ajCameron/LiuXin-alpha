@@ -57,16 +57,61 @@ class InterlinkShape:
     type_link_col: Optional[str]
 
 
+
 def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str]) -> str:
-    cols_list = list(cols)
-    if base in cols_list and base not in exclude:
-        return base
-    pref = [c for c in cols_list if c.startswith(base) and c not in exclude]
-    if pref:
-        return pref[0]
-    for c in cols_list:
-        if c not in exclude:
-            return c
+    """Pick a column suitable for stuffing an arbitrary unicode payload.
+
+    Contract tests need to be able to create "distinct" rows in arbitrary tables.
+    Some tables begin with FK/id columns (e.g. folder_store_id), so a naive "first
+    non-excluded" choice will violate foreign keys when we write text into it.
+
+    Heuristics:
+    - never pick *_id / *_fk columns unless there is no alternative
+    - avoid timestamp-ish columns
+    - prefer name/title/text/payload/comment/json/path/value-like columns
+    """
+    cols_list = [c for c in cols if c not in exclude]
+    if not cols_list:
+        # Fall back to whatever we were given.
+        return list(cols)[0]
+
+    def is_id_like(c: str) -> bool:
+        cl = c.lower()
+        return cl.endswith('_id') or cl.endswith('_fk') or cl == 'id'
+
+    def is_time_like(c: str) -> bool:
+        cl = c.lower()
+        return (
+            'timestamp' in cl
+            or 'datestamp' in cl
+            or cl.endswith('_ep_k')
+            or cl.endswith('_epoch')
+            or cl.endswith('_epoch_ms')
+        )
+
+    keywords = (
+        'payload', 'name', 'title', 'text', 'comment', 'note', 'label', 'key', 'path', 'relpath', 'json', 'value'
+    )
+
+    candidates = [c for c in cols_list if not is_id_like(c) and not is_time_like(c)]
+
+    for kw in keywords:
+        for c in candidates:
+            if kw in c.lower():
+                return c
+
+    for suf in ('name', 'title', 'text', 'payload', 'value'):
+        cand = f"{base}_{suf}"
+        if cand in candidates:
+            return cand
+
+    if candidates:
+        return candidates[0]
+
+    non_id = [c for c in cols_list if not is_id_like(c)]
+    if non_id:
+        return non_id[0]
+
     return cols_list[0]
 
 
@@ -224,13 +269,19 @@ UNICODE_TORTURE_PAYLOADS: tuple[str, ...] = (
 def test_interlink_rows_rejects_rows_without_ids(open_db):
     sh = _pick_interlink_shape(open_db)
 
-    p = open_db.get_blank_row(sh.primary_table)
-    s = _create_distinct_row(open_db, sh.secondary_table, payload="secondary-has-id")
+    # Construct a Row-like object that *identifies* as the primary table but has no id column.
+    # (Using get_blank_row() would insert a real row and therefore have an id.)
+    dw = open_db.driver_wrapper
+    scratch_col = dw.get_scratch_column(sh.primary_table)
+    p = Row(database=open_db, row_dict={scratch_col: 'contract-no-id'})
+
+    s = _create_distinct_row(open_db, sh.secondary_table, payload='secondary-has-id')
     assert p.row_id is None
     assert s.row_id is not None
 
     with pytest.raises(InputIntegrityError):
-        open_db.interlink_rows(primary_row=p, secondary_row=s, priority="not_set")
+        open_db.interlink_rows(primary_row=p, secondary_row=s, priority='not_set')
+
 
 
 def test_interlink_rows_rejects_unlinkable_tables_when_possible(open_db):

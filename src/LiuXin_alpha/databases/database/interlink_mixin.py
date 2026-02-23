@@ -135,7 +135,7 @@ class DatabaseInterlinkRowsMixin:
             link_rows = sorted(link_rows, key=lambda x: x[priority_col])
         return link_rows
 
-    def get_interlinked_rows(self, target_row, secondary_table, type_filter=None):
+    def get_interlinked_rows(self, target_row=None, secondary_table=None, type_filter=None, **kwargs):
         """
         Takes a row and the name of another table. Finds all the rows in the second table linked to the given row.
         Returns them as an index ordered by their priority.
@@ -144,6 +144,20 @@ class DatabaseInterlinkRowsMixin:
         :param type_filter: Only results which are linked to the target_row with a link of this type will be retured
         :return row_list (ordered by priority)/[]:
         """
+
+        # Backwards/forwards compatibility: some callers (notably contract tests) use
+        # primary_row=<Row> to mean the same as target_row=<Row>.
+        if target_row is None and "primary_row" in kwargs:
+            target_row = kwargs.pop("primary_row")
+
+        # Defensive: if a caller passed unexpected keywords, fail loudly with a helpful message.
+        if kwargs:
+            unexpected = ", ".join(sorted(kwargs.keys()))
+            raise TypeError(f"get_interlinked_rows() got unexpected keyword argument(s): {unexpected}")
+
+        if secondary_table is None:
+            raise TypeError("get_interlinked_rows() missing required argument: 'secondary_table'")
+
         if not isinstance(target_row, Row):
             err_str = "Input to the DatabasePing class has to be in the form of Rows"
             err_str = default_log.log_variables(

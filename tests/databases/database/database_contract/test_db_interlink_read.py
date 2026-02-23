@@ -57,17 +57,61 @@ class InterlinkShape:
     type_link_col: Optional[str]
 
 
+
 def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str]) -> str:
-    cols_list = list(cols)
-    if base in cols_list and base not in exclude:
-        return base
-    pref = [c for c in cols_list if c.startswith(base) and c not in exclude]
-    if pref:
-        return pref[0]
-    for c in cols_list:
-        if c not in exclude:
-            return c
-    # last resort
+    """Pick a column suitable for stuffing an arbitrary unicode payload.
+
+    Contract tests need to be able to create "distinct" rows in arbitrary tables.
+    Some tables begin with FK/id columns (e.g. folder_store_id), so a naive "first
+    non-excluded" choice will violate foreign keys when we write text into it.
+
+    Heuristics:
+    - never pick *_id / *_fk columns unless there is no alternative
+    - avoid timestamp-ish columns
+    - prefer name/title/text/payload/comment/json/path/value-like columns
+    """
+    cols_list = [c for c in cols if c not in exclude]
+    if not cols_list:
+        # Fall back to whatever we were given.
+        return list(cols)[0]
+
+    def is_id_like(c: str) -> bool:
+        cl = c.lower()
+        return cl.endswith('_id') or cl.endswith('_fk') or cl == 'id'
+
+    def is_time_like(c: str) -> bool:
+        cl = c.lower()
+        return (
+            'timestamp' in cl
+            or 'datestamp' in cl
+            or cl.endswith('_ep_k')
+            or cl.endswith('_epoch')
+            or cl.endswith('_epoch_ms')
+        )
+
+    keywords = (
+        'payload', 'name', 'title', 'text', 'comment', 'note', 'label', 'key', 'path', 'relpath', 'json', 'value'
+    )
+
+    candidates = [c for c in cols_list if not is_id_like(c) and not is_time_like(c)]
+
+    for kw in keywords:
+        for c in candidates:
+            if kw in c.lower():
+                return c
+
+    for suf in ('name', 'title', 'text', 'payload', 'value'):
+        cand = f"{base}_{suf}"
+        if cand in candidates:
+            return cand
+
+    if candidates:
+        return candidates[0]
+
+    non_id = [c for c in cols_list if not is_id_like(c)]
+    if non_id:
+        return non_id[0]
+
     return cols_list[0]
 
 
@@ -78,6 +122,59 @@ def _pick_interlink_shape(open_db) -> InterlinkShape:
     tests exercise type-aware paths.
     """
     dw = open_db.driver_wrapper
+
+    def supports_multiple_links_per_primary(sh: InterlinkShape) -> bool:
+        """Return True if the link table can hold multiple secondary links for one primary.
+
+        The FRBR schema uses *link tables* for several cardinalities (many-many, many-one,
+        one-many, one-one). These contract tests assume a many-many-style table (or
+        many-many-non-exclusive) where a single primary row can link to multiple secondaries.
+
+        We detect "not many-many" by looking for UNIQUE indexes that constrain the primary
+        link column without also including the secondary link column.
+
+        This is intentionally SQLite-specific (PRAGMA index_list / index_info), but these
+        contract suites currently run against SQLite-backed drivers (sqlite3 / apsw).
+        """
+
+        # If direct SQL isn't available, fail open (other backends may not expose PRAGMA).
+        if getattr(open_db, "get", None) is None:
+            return True
+
+        try:
+            idx_rows = open_db.get(f"PRAGMA index_list(`{sh.link_table}`);")
+        except Exception:
+            return True
+
+        # A UNIQUE index that includes the primary link column but *not* the secondary link
+        # column indicates a many-one / one-one style constraint on the primary side.
+        permitted = {sh.primary_link_col}
+        if sh.type_link_col is not None:
+            permitted.add(sh.type_link_col)
+        if sh.priority_link_col is not None:
+            permitted.add(sh.priority_link_col)
+
+        for row in idx_rows:
+            # sqlite returns: (seq, name, unique, origin, partial)
+            if len(row) < 3:
+                continue
+            idx_name = row[1]
+            is_unique = int(row[2]) == 1
+            if not is_unique:
+                continue
+            try:
+                col_rows = open_db.get(f"PRAGMA index_info(`{idx_name}`);")
+            except Exception:
+                continue
+            cols = {r[2] for r in col_rows if len(r) >= 3}
+
+            if sh.primary_link_col in cols and sh.secondary_link_col not in cols:
+                # Only treat it as constraining if it's a "simple" uniqueness restriction.
+                # (If other columns are included, it may still allow multiple links.)
+                if cols.issubset(permitted):
+                    return False
+
+        return True
 
     def resolve_pair(a: str, b: str) -> Optional[InterlinkShape]:
         link_table = dw.get_link_table_name(a, b)
@@ -123,6 +220,8 @@ def _pick_interlink_shape(open_db) -> InterlinkShape:
         sh = resolve_pair(a, b) or resolve_pair(b, a)
         if sh is None:
             continue
+        if not supports_multiple_links_per_primary(sh):
+            continue
         if sh.type_link_col is not None:
             return sh
         if best is None:
@@ -134,6 +233,8 @@ def _pick_interlink_shape(open_db) -> InterlinkShape:
         for b in mains[i + 1 :]:
             sh = resolve_pair(a, b) or resolve_pair(b, a)
             if sh is None:
+                continue
+            if not supports_multiple_links_per_primary(sh):
                 continue
             if sh.type_link_col is not None:
                 return sh
@@ -199,6 +300,80 @@ def _pick_allowed_type_for_shape(open_db, sh: "InterlinkShape", *, preferred: st
 
     # If the schema provides a type column but no registry table exists, just return the preferred.
     return preferred
+
+
+
+def _pick_two_allowed_types_for_shape(
+    open_db,
+    sh: "InterlinkShape",
+    *,
+    preferred: str = "authors",
+) -> Optional[Tuple[str, str]]:
+    """Pick two distinct allowed link `type` values for the chosen interlink shape.
+
+    When an explicit registry exists, we only return values present in that registry.
+    If no registry exists, we return two conventional strings (preferred + a fallback).
+
+    If we cannot produce two distinct values, return None.
+    """
+
+    if sh.type_link_col is None:
+        return None
+
+    existing = set(open_db.get_tables(force_refresh=True))
+
+    def fresh_get(stmt: str):
+        conn = open_db.driver.get_connection()
+        try:
+            return conn.get(stmt, all=True)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    types: list[str] = []
+
+    types_table = f"{sh.link_table}__types"
+    if types_table in existing:
+        rows = fresh_get(f"SELECT `type` FROM `{types_table}` ORDER BY `type`;")
+        types = [r[0] for r in rows if r and r[0] is not None]
+
+    legacy_table = f"allowed_types__{sh.link_table}"
+    if not types and legacy_table in existing:
+        headings = list(open_db.driver_wrapper.get_column_headings(legacy_table))
+        if "type" in headings:
+            col = "type"
+        else:
+            type_cols = [h for h in headings if h.endswith("_type") and not h.endswith("_id")]
+            col = type_cols[0] if type_cols else headings[0]
+        rows = fresh_get(
+            f"SELECT `{col}` FROM `{legacy_table}` WHERE `{col}` IS NOT NULL ORDER BY `{col}`;"
+        )
+        types = [r[0] for r in rows if r and r[0] is not None]
+
+    # No registry present -> use two conventional strings.
+    if not types:
+        alt = "editors" if preferred != "editors" else "roles"
+        return (preferred, alt)
+
+    # De-dupe while preserving ordering.
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for t in types:
+        if t in seen:
+            continue
+        seen.add(t)
+        deduped.append(t)
+
+    if not deduped:
+        return None
+
+    first = preferred if preferred in deduped else deduped[0]
+    second = next((t for t in deduped if t != first), None)
+    if second is None:
+        return None
+    return (first, second)
 
 
 
@@ -341,7 +516,7 @@ def test_get_interlink_row_roundtrips_one_link(open_db, payload: str):
 
     # Sanity: interlink_rows may set type/priority if available.
     if sh.type_link_col is not None:
-        assert got[sh.type_link_col] == "authors"
+        assert got[sh.type_link_col] == link_type
     if sh.priority_link_col is not None:
         assert isinstance(got[sh.priority_link_col], (int, float))
 
@@ -489,7 +664,15 @@ def test_get_interlink_values_returns_set_when_unique_column_available(open_db):
     s2.sync()
 
     _interlink(open_db, sh, primary=p, secondary=s1, priority=1, link_type=link_type)
-    _interlink(open_db, sh, primary=p, secondary=s2, priority=2, link_type="editors")
+
+    # Use a second allowed type if possible; otherwise just re-use the first.
+    if sh.type_link_col is not None:
+        two = _pick_two_allowed_types_for_shape(open_db, sh, preferred=link_type or "authors")
+        link_type_2 = two[1] if two is not None else link_type
+    else:
+        link_type_2 = None
+
+    _interlink(open_db, sh, primary=p, secondary=s2, priority=2, link_type=link_type_2)
 
     got = open_db.get_interlink_values(target_row=p, secondary_column=unique_col)
     assert got == {"val-α", "val-β"}

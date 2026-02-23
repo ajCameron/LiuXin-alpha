@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS `items` (
   -- Keeping this nullable avoids NOT NULL failures during that workflow; application logic can enforce it later.
   `item_manifestation_id` INTEGER NULL,
 
+  `item_flags` TEXT NULL,
+
+
   -- Type of item
   `item_type` TEXT NULL,               -- 'digital', 'physical'
 
@@ -18,14 +21,21 @@ CREATE TABLE IF NOT EXISTS `items` (
   `item_location` TEXT NULL,           -- shelf/box or logical location for digital
   `item_inventory_code` TEXT NULL,     -- barcode/internal code
 
+  `item_original_date` INTEGER NULL,
+  `item_original_copyright_date` TEXT NULL,
+
   -- Source / provenance (per-copy)
   `item_source` TEXT NULL,             -- 'calibre', 'scan', 'web_dl', 'manual', ...
   `item_source_detail` TEXT NULL,      -- path/url/library name/seller/etc.
+  `item_source_path` TEXT NULL,
+  `item_source_name` TEXT NULL,
 
   -- Acquisition / lifecycle
   `item_acquired_date` TEXT NULL,      -- 'YYYY-MM-DD' or datetime
   `item_acquired_price_minor` INTEGER NULL,
+
   `item_lifecycle_status` TEXT NULL,   -- 'active', 'withdrawn', 'lost', 'replaced', ...
+
   `item_condition` TEXT NULL,          -- 'fine', 'good', 'worn', 'damaged', ...
 
   -- timestamps (epoch_ms)

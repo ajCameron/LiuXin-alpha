@@ -276,22 +276,37 @@ class MaintenanceBot(threading.Thread, MaintenanceBotAPI):
             pass
 
     def run(self):
-        while self.keep_running:
+        """Main maintenance loop.
 
+        Uses a short scheduling sleep so stop() can take effect quickly (important for tests and clean shutdown),
+        while still throttling work to roughly `self.interval` seconds per processed record.
+        """
+        next_tick = time.monotonic()
+        while self.keep_running:
             try:
-                time.sleep(self.interval)  # Limit to one record to update every two seconds
+                now = time.monotonic()
+                if now < next_tick:
+                    time.sleep(min(self.scheduling_interval, next_tick - now))
+                    continue
+
+                next_tick = now + float(self.interval)
+
                 try:
                     table, row_id = self.main_table_queue.get_nowait()
                 except Queue.Empty:
                     continue
-                print("table", table, "row_id", row_id)
+
+                # TODO: implement actual maintenance tasks.
+                # Avoid printing from a daemon thread; it makes tests and logs noisy/flaky.
+                _ = (table, row_id)
+
             except Exception as e:
-                debug_str = "Happens during interpreter shutdown - MetadataBackupThread has exited as expected"
+                debug_str = "MaintenanceBot loop exception (often during interpreter shutdown)."
                 default_log.log_exception(debug_str, e, "DEBUG")
                 break
 
-            if not self.keep_running:
-                break
+
+# ----------------------------------------------------------------------------------------------------------------------
 
 
 # ----------------------------------------------------------------------------------------------------------------------

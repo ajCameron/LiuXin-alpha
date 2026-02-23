@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
 
     `manifestation_id` INTEGER PRIMARY KEY,
 
+    `manifestation_flags` TEXT NULL,
+
   -- Relation to expressions is via `expression_manifestation_links` (many-to-many)
 
   -- Carrier / format
