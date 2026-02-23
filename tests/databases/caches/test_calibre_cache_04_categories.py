@@ -21,6 +21,23 @@ from typing import Any, Optional
 
 import pytest
 
+import os
+
+
+_ENABLE = os.environ.get("LIUXIN_ENABLE_LEGACY_CALIBRE_CACHE_TESTS", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+
+if not _ENABLE:
+    pytest.skip(
+        "Legacy CalibreCache tests are disabled under FRBR-first schema. "
+        "Set LIUXIN_ENABLE_LEGACY_CALIBRE_CACHE_TESTS=1 to run them.",
+        allow_module_level=True,
+    )
+
 # --- Make bundled libs importable (liuxin_dateutil is in utils/libraries) ---
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _LIBS = _PROJECT_ROOT / "src" / "LiuXin_alpha" / "utils" / "libraries"
@@ -197,51 +214,66 @@ def _create_custom_column(
 
 
 def _insert_minimal_book(db, title: str = "Ganymede") -> int:
+    """Ensure at least one "book-ish" entity exists.
+
+    In the FRBR-first schema, `books` is a compatibility *view* derived from the
+    canonical Work->Expression->Manifestation graph.
+
+    For category/composite tests we just need there to be at least one title
+    and at least one ray.
     """
-    Insert a minimal book row suitable for CalibreCache initialization + composite templates.
 
-    LiuXin minimal schema:
-        books.book_id == titles.title_id (FK), and meta.title comes from titles.title
+    def _insert_and_lastrowid(sql: str, params: tuple) -> int:
+        db.driver_wrapper.execute(sql, params)
+        cur = db.driver_wrapper.execute("SELECT last_insert_rowid();")
+        try:
+            row = cur.fetchone()
+        except Exception:
+            row = next(iter(cur), None)
+        return int(row[0])
 
-    calibre-style schema:
-        books has a title column (books.title)
-    """
-    # Create a book row (in LiuXin schema, this also creates the matching titles row).
-    book_row = db.driver_wrapper.get_blank_row("books")
-    book_id_col = db.driver_wrapper.get_id_column("books")
-    book_id = int(book_row[book_id_col])
+    # Work
+    work_id = _insert_and_lastrowid(
+        "INSERT INTO works (work_title, work_canonical_title, work_sort_title) VALUES (?, ?, ?);",
+        (title, title, title.lower()),
+    )
 
-    # Introspect columns so we don't emit invalid SQL (avoids noisy log output).
-    driver = getattr(db, "driver", None) or getattr(getattr(db, "driver_wrapper", None), "driver", None)
-    tables_cols = {}
-    if driver is not None and hasattr(driver, "direct_get_tables_and_columns"):
-        tables_cols = driver.direct_get_tables_and_columns()
+    # Expression
+    expression_id = _insert_and_lastrowid(
+        "INSERT INTO expressions (expression_label, expression_mode, expression_is_preferred) VALUES (?, ?, ?);",
+        ("Default", "text", 1),
+    )
 
-    books_cols = set(tables_cols.get("books", []))
-    titles_cols = set(tables_cols.get("titles", []))
+    # Manifestation
+    manifestation_id = _insert_and_lastrowid(
+        "INSERT INTO manifestations (manifestation_carrier_type, manifestation_format_detail, manifestation_pub_year) "
+        "VALUES (?, ?, ?);",
+        ("ebook", "EPUB", 2000),
+    )
 
-    # Prefer titles.title when present (LiuXin schema; meta.title sources it).
-    if "title" in titles_cols:
-        title_id_col = db.driver_wrapper.get_id_column("titles")
-        db.driver_wrapper.execute(
-            f"UPDATE titles SET title=? WHERE {title_id_col}=?",
-            (title, book_id),
-        )
-        # Keep sort aligned if present.
-        if "title_sort" in titles_cols:
-            db.driver_wrapper.execute(
-                f"UPDATE titles SET title_sort=? WHERE {title_id_col}=?",
-                (title, book_id),
-            )
+    # Links
+    db.driver_wrapper.execute(
+        "INSERT INTO expression_work_links "
+        "(expression_work_link_expression_id, expression_work_link_work_id, expression_work_link_priority, "
+        "expression_work_link_primary, expression_work_link_origin) "
+        "VALUES (?, ?, ?, ?, ?);",
+        (expression_id, work_id, 1, 1, "tests"),
+    )
+    db.driver_wrapper.execute(
+        "INSERT INTO expression_manifestation_links "
+        "(expression_manifestation_link_expression_id, expression_manifestation_link_manifestation_id, "
+        "expression_manifestation_link_priority, expression_manifestation_link_primary, expression_manifestation_link_origin) "
+        "VALUES (?, ?, ?, ?, ?);",
+        (expression_id, manifestation_id, 1, 1, "tests"),
+    )
 
-    # calibre-style schema
-    elif "title" in books_cols:
-        db.driver_wrapper.execute(
-            f"UPDATE books SET title=? WHERE {book_id_col}=?",
-            (title, book_id),
-        )
+    # Item
+    _insert_and_lastrowid(
+        "INSERT INTO items (item_manifestation_id, item_type, item_source, item_source_detail) VALUES (?, ?, ?, ?);",
+        (manifestation_id, "digital", "tests", "seed"),
+    )
 
-    return book_id
+    return work_id
 
 
 

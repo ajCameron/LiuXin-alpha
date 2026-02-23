@@ -15,21 +15,18 @@ CREATE TABLE IF NOT EXISTS `works` (
   `work_type` TEXT NULL,                -- 'novel', 'short_story', 'collection', 'film', 'tv_series', ...
   `work_medium` TEXT NULL,              -- 'text', 'audio', 'moving_image', 'mixed'
 
-  -- Titles and sorting
   `work_title` TEXT NULL,
   `work_canonical_title` TEXT NULL,
   `work_sort_title` TEXT NULL,
   `work_creator_sort` TEXT NULL,
 
-  -- Flags for sorting e.t.c
   `work_flags` TEXT NULL,
 
   -- Original context
   `work_original_language_id` INTEGER NULL, -- FK later (languages), kept as INTEGER for compatibility
+  `work_original_year` INTEGER NULL,
   `work_original_date` INTEGER NULL,
   `work_original_copyright_date` TEXT NULL,
-
-  -- Work metadata and references
   `work_wikipedia_link` TEXT NULL,
 
   -- High-level classification

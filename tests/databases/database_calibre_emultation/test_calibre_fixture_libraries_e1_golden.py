@@ -4,7 +4,7 @@ from typing import Dict, List
 
 import pytest
 
-from databases.calibre_fixture_libraries import (
+from tests.databases.calibre_fixture_libraries import (
     CalibreFixtureSpec,
     discover_calibre_fixtures,
     find_data_repo_root,

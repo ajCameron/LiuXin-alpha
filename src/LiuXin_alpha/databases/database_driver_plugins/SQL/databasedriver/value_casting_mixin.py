@@ -50,8 +50,13 @@ class ValueCastingMixin:
         if declared_type is None:
             return ""
         dt = str(declared_type).strip().upper()
+        if not dt:
+            return ""
         # Strip constraints / extras and size spec (e.g. VARCHAR(255))
-        dt = dt.split()[0]
+        parts = dt.split()
+        if not parts:
+            return ""
+        dt = parts[0]
         dt = dt.split("(", 1)[0]
         return dt
 

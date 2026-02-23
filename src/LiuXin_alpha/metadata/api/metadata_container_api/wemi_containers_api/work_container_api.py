@@ -357,6 +357,28 @@ class WorkContainerPropertiesApi(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     # ------------------------------------------------------------------
+    # Scratch / misc
+    # ------------------------------------------------------------------
+
+    @property
+    def scratch(self) -> Optional[str]:
+        return self.work_scratch
+
+    @scratch.setter
+    def scratch(self, value: Optional[str]) -> None:
+        self.work_scratch = value
+
+    @property
+    @abstractmethod
+    def work_scratch(self) -> Optional[str]:
+        raise NotImplementedError
+
+    @work_scratch.setter
+    @abstractmethod
+    def work_scratch(self, work_scratch: Optional[str]) -> None:
+        raise NotImplementedError
+
+    # ------------------------------------------------------------------
     # Mapping helpers
     # ------------------------------------------------------------------
 
@@ -368,6 +390,16 @@ class WorkContainerPropertiesApi(metaclass=abc.ABCMeta):
     @abstractmethod
     def to_mapping(self) -> Dict[str, Any]:
         raise NotImplementedError
+
+
+class WorkContainerAPI(WorkContainerPropertiesApi, metaclass=abc.ABCMeta):
+    """Typing interface for a Work container.
+
+    This exists so container implementations can inherit a single ABC with the
+    full property + mapping surface.
+    """
+
+    pass
 
 
 

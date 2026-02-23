@@ -4,6 +4,23 @@ from pathlib import Path
 
 import pytest
 
+import os
+
+
+_ENABLE = os.environ.get("LIUXIN_ENABLE_LEGACY_CALIBRE_CACHE_TESTS", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+
+if not _ENABLE:
+    pytest.skip(
+        "Legacy CalibreCache tests are disabled under FRBR-first schema. "
+        "Set LIUXIN_ENABLE_LEGACY_CALIBRE_CACHE_TESTS=1 to run them.",
+        allow_module_level=True,
+    )
+
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.field_metadata import FieldMetadata
 

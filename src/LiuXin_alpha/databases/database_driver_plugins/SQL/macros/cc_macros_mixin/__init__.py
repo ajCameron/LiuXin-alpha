@@ -49,7 +49,29 @@ class SQLiteDatabaseCustomColumnMacros(CustomColumnsManagementMacrosMixin):
 
         :return:
         """
-        stmt = "SELECT metadata_dirtied_book FROM metadata_dirtied_books"
+        # Schema drift handling:
+        #   legacy: metadata_dirtied_books(metadata_dirtied_book)
+        #   current: metadata_dirtied_books(metadata_dirtied_table, metadata_dirtied_table_id)
+        try:
+            cols = [row[1] for row in self.db.driver_wrapper.execute("PRAGMA table_info(metadata_dirtied_books)")]
+        except Exception:
+            cols = []
+
+        if "metadata_dirtied_book" in cols:
+            stmt = "SELECT metadata_dirtied_book FROM metadata_dirtied_books"
+        elif "metadata_dirtied_table_id" in cols:
+            # Prefer book dirties if the table distinguishes them, otherwise take all.
+            if "metadata_dirtied_table" in cols:
+                stmt = (
+                    "SELECT metadata_dirtied_table_id FROM metadata_dirtied_books "
+                    "WHERE metadata_dirtied_table='books' AND metadata_dirtied_table_id IS NOT NULL"
+                )
+            else:
+                stmt = "SELECT metadata_dirtied_table_id FROM metadata_dirtied_books WHERE metadata_dirtied_table_id IS NOT NULL"
+        else:
+            # Best effort: empty cache when table is absent or unknown.
+            return {}
+
         dirtied_cache = {x: i for i, (x,) in enumerate(self.db.driver_wrapper.execute(stmt))}
         return dirtied_cache
 

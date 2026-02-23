@@ -111,10 +111,20 @@ class MetadataMethodMixin:
                 self._invalidate_schema_caches()
 
         if self.tables is None:
-            stmt = "SELECT name FROM sqlite_master WHERE type = 'table';"
+            # Include both tables and views. The FRBR/WEMI schema uses compatibility
+            # surfaces (e.g. `titles`, `books`) implemented as views.
+            stmt = "SELECT name FROM sqlite_master WHERE type IN ('table','view');"
             processed_return = []
             for row in self.conn.execute(stmt):
                 processed_return.append(row[0])
+
+            # If both a base view/table and its "_v" variant exist, prefer the base.
+            # This avoids ambiguous row->table inference for compatibility views
+            # like titles/books/identifiers.
+            names = set(processed_return)
+            suppressed = {n for n in names if n.endswith("_v") and n[:-2] in names}
+            if suppressed:
+                processed_return = [n for n in processed_return if n not in suppressed]
 
             self.tables = processed_return
             # Record the schema_version the cache was built against.

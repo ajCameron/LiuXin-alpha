@@ -4,7 +4,7 @@ from typing import List
 
 import pytest
 
-from databases.calibre_fixture_libraries import (
+from tests.databases.calibre_fixture_libraries import (
     CalibreFixtureSpec,
     discover_calibre_fixtures,
     extract_library_zip,
@@ -29,7 +29,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.mark.parametrize("spec", _SPECS, ids=lambda s: s.id())
+@pytest.mark.parametrize("spec", _SPECS, ids=[s.id() for s in _SPECS])
 def test_fixture_library_snapshot_roundtrip(spec: CalibreFixtureSpec, tmp_path):
     expected = load_expected_snapshot(spec)
     lib_root = extract_library_zip(spec, tmp_path / spec.id().replace("/", "_"))

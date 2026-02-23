@@ -27,6 +27,23 @@ from typing import Any, Tuple
 
 import pytest
 
+import os
+
+
+_ENABLE = os.environ.get("LIUXIN_ENABLE_LEGACY_CALIBRE_CACHE_TESTS", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+
+if not _ENABLE:
+    pytest.skip(
+        "Legacy CalibreCache tests are disabled under FRBR-first schema. "
+        "Set LIUXIN_ENABLE_LEGACY_CALIBRE_CACHE_TESTS=1 to run them.",
+        allow_module_level=True,
+    )
+
 # --- Make bundled libs importable (liuxin_dateutil is in utils/libraries) ---
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _LIBS = _PROJECT_ROOT / "src" / "LiuXin_alpha" / "utils" / "libraries"

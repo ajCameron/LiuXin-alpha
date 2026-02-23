@@ -13,10 +13,6 @@ from pathlib import Path
 import pytest
 
 
-# Reuse driver_contract fixtures (driver_spec, torture corpora, etc.).
-pytest_plugins = ("tests.databases.database_driver_plugins.database_driver_contract.conftest",)
-
-
 @pytest.fixture
 def contract_db_name() -> str:
     """Name of the test DB resource used by database-contract tests."""
