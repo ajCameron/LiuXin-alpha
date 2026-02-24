@@ -20,6 +20,8 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin i
     SQLiteDatabaseCustomColumnMacros
 from LiuXin_alpha.errors import DatabaseDriverError, DatabaseIntegrityError
 
+from LiuXin_alpha.databases.api import MacrosAPI
+
 from LiuXin_alpha.utils.logging import default_log
 
 # Todo: This needs to be replaced with a column name factory
@@ -39,7 +41,8 @@ class SQLiteDatabaseMacros(
     SQLiteDatabaseCustomColumnMacros,
     TempTablesMacrosMixin,
     HashTablesMacrosMixin,
-    TitlesMacroMethodsMixin, BooksMacrosMixin, SeriesTitleLinkMacros
+    TitlesMacroMethodsMixin, BooksMacrosMixin, SeriesTitleLinkMacros,
+    MacrosAPI
 ):
     """
     Provides pre-defined operations on an SQLite database.
