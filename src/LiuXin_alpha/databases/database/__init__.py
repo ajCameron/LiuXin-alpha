@@ -866,6 +866,31 @@ class Database(
         blank_row_dict = self.driver_wrapper.get_blank_row(table)
         return Row(database=self, row_dict=blank_row_dict)
 
+    # ------------------------------------------------------------------------------------------------------------------
+    # - TRIGGER HELPERS
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def get_triggers(self):
+        """Return a list of triggers currently defined on the database.
+
+        Delegates to DriverWrapper.get_triggers(), which is backend-specific.
+        """
+
+        return self.driver_wrapper.get_triggers()
+
+    def drop_triggers(self, triggers):
+        """Drop the named triggers.
+
+        `triggers` should be an iterable of trigger names.
+        """
+
+        return self.driver_wrapper.drop_triggers(triggers)
+
+    def drop_all_triggers(self):
+        """Drop all triggers currently defined on the database."""
+
+        return self.driver_wrapper.drop_all_triggers()
+
     #
     # ----------------------------------------------------------------------------------------------------------------------
     # ----------------------------------------------------------------------------------------------------------------------

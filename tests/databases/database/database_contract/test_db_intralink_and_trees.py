@@ -242,6 +242,9 @@ def test_intralink_rows_requires_same_table(open_db, pick_payload):
     for cand in sorted(open_db.driver_wrapper.get_tables_and_columns().keys()):
         if cand.startswith("sqlite_"):
             continue
+        # Skip read-only compatibility surfaces (views).
+        if open_db.driver_wrapper.get_relation_type(cand) == "view":
+            continue
         if cand != t.table and cand in open_db.driver_wrapper.main_tables:
             other_table = cand
             break

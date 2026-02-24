@@ -391,6 +391,72 @@ class DatabaseInterlinkRowsMixin:
         blank_link_row = self.driver_wrapper.get_blank_row(link_table)
         link_row[link_table_id] = blank_link_row[link_table_id]
 
+
+        # If priority wasn't explicitly set but this link table has a priority column with a non-NULL default,
+        # multiple links for the same primary row may collide with UNIQUE(primary_id, priority).
+        # In that case, auto-assign the next available priority for this primary (and type, if relevant).
+        if priority == "not_set":
+            if self._check_for_link_table_priority(link_table, primary_row_table, secondary_row_table):
+                priority_col = self.driver_wrapper.get_link_column(primary_row_table, secondary_row_table, "priority")
+                if priority_col is not None:
+                    blank_default = blank_link_row.get(priority_col, None)
+                    # If the DB default is NULL, UNIQUE constraints won't collide on it in SQLite (multiple NULLs allowed).
+                    if blank_default is not None:
+                        type_col = None
+                        if type is not None:
+                            try:
+                                type_col = self.driver_wrapper.get_link_column(
+                                    primary_row_table, secondary_row_table, "type"
+                                )
+                            except Exception:
+                                type_col = None
+
+                        blank_default_cmp = blank_default
+                        if isinstance(blank_default_cmp, str):
+                            try:
+                                blank_default_cmp = float(blank_default_cmp) if "." in blank_default_cmp else int(blank_default_cmp)
+                            except Exception:
+                                blank_default_cmp = blank_default
+
+                        where = "`{}` = ? AND `{}` = ?".format(primary_link_col, priority_col)
+                        vals = [primary_id, blank_default_cmp]
+                        if type is not None and type_col is not None:
+                            where += " AND `{}` = ?".format(type_col)
+                            vals.append(type)
+
+                        exists = self.driver_wrapper.get(
+                            "SELECT 1 FROM `{}` WHERE {} LIMIT 1;".format(link_table, where),
+                            vals,
+                            all=False,
+                        )
+                        if exists is not None:
+                            where2 = "`{}` = ?".format(primary_link_col)
+                            vals2 = [primary_id]
+                            if type is not None and type_col is not None:
+                                where2 += " AND `{}` = ?".format(type_col)
+                                vals2.append(type)
+
+                            max_row = self.driver_wrapper.get(
+                                "SELECT MAX(`{}`) FROM `{}` WHERE {};".format(priority_col, link_table, where2),
+                                vals2,
+                                all=False,
+                            )
+                            max_val = None
+                            if max_row is not None and len(max_row) > 0:
+                                max_val = max_row[0]
+
+                            try:
+                                if max_val is None:
+                                    next_val = 1
+                                else:
+                                    if isinstance(max_val, str):
+                                        max_val = float(max_val) if "." in max_val else int(max_val)
+                                    next_val = max_val + 1
+                            except Exception:
+                                next_val = 1
+
+                            link_row[priority_col] = next_val
+
         # Todo: This is pretty inefficient - try and tidy it up
         # Sync the new data back to the database
         link_row = Row(row_dict=link_row, database=self)
