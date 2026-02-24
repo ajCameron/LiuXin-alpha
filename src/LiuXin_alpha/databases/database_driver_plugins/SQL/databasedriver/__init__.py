@@ -402,6 +402,16 @@ class SQLBaseDriver:
 
         conn = self.get_connection()
         self._create_new_database(conn)
+
+        # Defensive: ensure FRBR constant tables are populated/locked.
+        # (Safe no-op on non-FRBR schemas.)
+        try:
+            from LiuXin_alpha.utils.language_tools import ensure_languages_seeded_and_locked
+
+            ensure_languages_seeded_and_locked(conn)
+        except Exception:
+            pass
+
         conn.commit()
         conn.close()
 

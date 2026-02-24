@@ -395,6 +395,15 @@ class DatabaseDriver(
         encoding = next(conn.execute("PRAGMA encoding"))[0]
         conn.create_collation("PYNOCASE", partial(pynocase, encoding=encoding))
 
+        # FRBR constants convenience: resolve language tokens to `languages.language_id`.
+        # Safe no-op on non-FRBR databases.
+        try:
+            from LiuXin_alpha.utils.language_tools import register_language_id_sql_function
+
+            register_language_id_sql_function(conn, function_name="LANGUAGE_ID", ensure_seeded=True)
+        except Exception:
+            pass
+
         return self._register_open_connection(conn)
 
     def last_modified(self):

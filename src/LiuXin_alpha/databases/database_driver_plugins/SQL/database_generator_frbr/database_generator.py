@@ -134,6 +134,33 @@ def emit_types_tables_sql(types_map: dict[str, set[str]]) -> list[str]:
     return stmts
 
 
+def _bcp47_common_variants() -> dict[str, list[str]]:
+    """Return a small curated set of common BCP-47 variants.
+
+    We store these as a convenience for UI filtering / quick lookups. The
+    canonicalisation path should still parse arbitrary BCP-47 tags by taking
+    their primary language subtag.
+    """
+    return {
+        # English
+        "en": ["en-GB", "en-US", "en-CA", "en-AU"],
+        # French
+        "fr": ["fr-FR", "fr-CA", "fr-BE", "fr-CH"],
+        # German
+        "de": ["de-DE", "de-AT", "de-CH"],
+        # Spanish
+        "es": ["es-ES", "es-MX", "es-AR"],
+        # Portuguese
+        "pt": ["pt-PT", "pt-BR"],
+        # Dutch
+        "nl": ["nl-NL", "nl-BE"],
+        # Chinese
+        "zh": ["zh-Hans", "zh-Hant", "zh-Hans-CN", "zh-Hant-TW"],
+        # Serbian
+        "sr": ["sr-Cyrl", "sr-Latn"],
+    }
+
+
 
 # Constraints on the interlink tables - DO NOT IMPORT - dynamically modified at run time
 
@@ -301,6 +328,9 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         # 2) Build the triggers
         self.create_main_triggers()
 
+        # 2.5) Seed constant tables (languages, etc.)
+        self.seed_constant_tables()
+
         # Sanity: ensure we can introspect tables after main DDL
         _ = self.direct_get_tables()
 
@@ -338,6 +368,123 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
         # 10) Set the version - so we can check the database and driver version used to build this database
         self.set_database_version()
+
+        # 11) Lock constant tables so they are stable reference data.
+        self.lock_constant_tables()
+
+
+    # ------------------------------------------------------------------
+    # Constant tables (seed + lock)
+    # ------------------------------------------------------------------
+
+    def seed_constant_tables(self) -> None:
+        """Seed constant reference tables.
+
+        Currently:
+        - languages: ISO-639 (1/2B/2T) + BCP47 base tags
+        """
+        self.seed_languages_table()
+
+
+    def seed_languages_table(self) -> None:
+        """Seed the locked `languages` constant table.
+
+        The source of truth for ISO-639-2 codes is bundled in
+        `LiuXin_alpha.utils.libraries.iso639`.
+        """
+        try:
+            tables = self.direct_get_tables()
+        except Exception:
+            tables = set()
+        if "languages" not in tables:
+            return
+
+        try:
+            from LiuXin_alpha.utils.libraries.iso639 import data as iso639_data
+        except Exception:
+            iso639_data = []  # pragma: no cover
+
+        variants_map = _bcp47_common_variants()
+
+        # Deterministic IDs: stable ordering by ISO-639-2/B.
+        rows: list[tuple] = []
+        for idx, entry in enumerate(sorted(iso639_data or [], key=lambda d: str(d.get("iso639_2_b") or ""))):
+            code_b = (entry.get("iso639_2_b") or "").strip().lower()
+            if not code_b:
+                continue
+
+            code_t_raw = (entry.get("iso639_2_t") or "").strip().lower()
+            code_t = code_t_raw if code_t_raw and code_t_raw != code_b else None
+
+            code_1_raw = (entry.get("iso639_1") or "").strip().lower()
+            code_1 = code_1_raw if code_1_raw else None
+
+            name = (entry.get("name") or "").strip()
+            if not name:
+                name = code_b
+
+            bcp47_primary = (code_1 or code_t or code_b).lower()
+
+            variants = variants_map.get(bcp47_primary)
+            variants_str = " ".join(sorted(set(variants))) if variants else None
+
+            # Keep legacy columns coherent.
+            # language_code == iso639_2_b (3-letter bibliographic)
+            rows.append(
+                (
+                    int(idx) + 1,
+                    name,
+                    code_b,
+                    code_1,
+                    code_b,
+                    code_t,
+                    bcp47_primary,
+                    variants_str,
+                )
+            )
+
+        if not rows:
+            return
+
+        self.conn.executemany(
+            """
+            INSERT OR IGNORE INTO languages (
+              language_id,
+              language,
+              language_code,
+              language_iso639_1,
+              language_iso639_2_b,
+              language_iso639_2_t,
+              language_bcp47_primary,
+              language_bcp47_variants
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            """.strip(),
+            rows,
+        )
+        self.conn.commit()
+
+
+    def lock_constant_tables(self) -> None:
+        """Lock constant tables (read-only) with triggers."""
+        self._lock_table_read_only("languages", message="languages is read-only")
+
+
+    def _lock_table_read_only(self, table: str, *, message: str) -> None:
+        """Prevent INSERT/UPDATE/DELETE on a table via ABORT triggers."""
+        msg = _sql_quote_literal(message)
+        for action in ("INSERT", "UPDATE", "DELETE"):
+            trig = f"block_{action.lower()}_on_{table}"
+            stmt = (
+                f"""
+                CREATE TRIGGER IF NOT EXISTS `{trig}`
+                BEFORE {action} ON `{table}`
+                BEGIN
+                    SELECT RAISE(ABORT, {msg});
+                END;
+                """
+            )
+            self.conn.execute(stmt)
+        self.conn.commit()
 
 
     # Todo: Add annotations table?

@@ -6,11 +6,15 @@
 CREATE TABLE IF NOT EXISTS `items` (
   `item_id` INTEGER PRIMARY KEY,
 
+  -- There is no name option here.
+  -- If it has a different name, then it's a different manifestation
+
   -- Relation to manifestation
   -- NOTE: LiuXin creates "blank" rows via get_blank_row(), inserting only the scratch column.
   -- Keeping this nullable avoids NOT NULL failures during that workflow; application logic can enforce it later.
   `item_manifestation_id` INTEGER NULL,
 
+  -- flags which control import
   `item_flags` TEXT NULL,
 
 

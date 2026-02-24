@@ -89,8 +89,11 @@ class ValueCastingMixin:
                 return int(value)
             if isinstance(value, int):
                 return int(value)
-            if isinstance(value, float) and value.is_integer():
-                return int(value)
+            # SQLite is dynamically typed: even an INTEGER-affinity column may
+            # legitimately contain REAL values (e.g. priority=2.25). Preserve
+            # non-integer floats rather than stringifying them.
+            if isinstance(value, float):
+                return int(value) if value.is_integer() else float(value)
 
             if isinstance(value, (bytes, bytearray, memoryview)):
                 s = force_unicode(value)
@@ -101,6 +104,13 @@ class ValueCastingMixin:
                             return int(s2)
                         except Exception:
                             pass
+                    # Preserve float-ish numeric strings in INTEGER columns
+                    # (SQLite allows this; callers often expect numeric back).
+                    if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2):
+                        try:
+                            return float(s2)
+                        except Exception:
+                            pass
                 return s
 
             if isinstance(value, str):
@@ -108,6 +118,11 @@ class ValueCastingMixin:
                 if re.fullmatch(r"[+-]?\d+", s2):
                     try:
                         return int(s2)
+                    except Exception:
+                        pass
+                if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2):
+                    try:
+                        return float(s2)
                     except Exception:
                         pass
                 return value

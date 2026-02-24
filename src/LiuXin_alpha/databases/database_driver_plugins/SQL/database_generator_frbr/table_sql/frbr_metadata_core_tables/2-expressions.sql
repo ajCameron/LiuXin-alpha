@@ -15,9 +15,11 @@ CREATE TABLE IF NOT EXISTS `expressions` (
   `expression_year` INTEGER NULL,
   `expression_is_preferred` INTEGER NULL,        -- 1 = preferred, 0 = not, NULL = unknown
 
+  -- Expression dates
   `expression_original_date` INTEGER NULL,
   `expression_original_copyright_date` TEXT NULL,
 
+  -- Expression flags
   `expression_flags` TEXT NULL,
 
   -- Language & mode

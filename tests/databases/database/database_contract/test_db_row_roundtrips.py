@@ -48,7 +48,7 @@ PREFERRED_MAIN_TABLES: tuple[str, ...] = (
     "tags",
     "subjects",
     "genres",
-    "languages",
+    # NOTE: `languages` is a locked constant table in the FRBR schema.
     # Useful fallbacks if schema evolves:
     "notes",
     "comments",
@@ -181,7 +181,7 @@ def primary_table_shape(open_db, _table_names_expected) -> TableShape:
 def secondary_table_shape(open_db) -> TableShape:
     """Pick a second table (different from the primary) to avoid single-table blind spots."""
     tables = list(open_db.get_tables())
-    for name in ("creators", "series", "publishers", "tags", "subjects", "genres", "languages"):
+    for name in ("creators", "series", "publishers", "tags", "subjects", "genres"):
         if name in tables:
             return _shape_for_table(open_db, name)
     return _shape_for_table(open_db, tables[0])

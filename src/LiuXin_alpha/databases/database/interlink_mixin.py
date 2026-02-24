@@ -1,4 +1,8 @@
 
+"""
+
+"""
+
 from copy import deepcopy
 from numbers import Number
 
@@ -396,6 +400,14 @@ class DatabaseInterlinkRowsMixin:
             self.delete(link_row)
             raise
 
+        # The Row instance created above may not include every link-table column (e.g. columns with DB defaults
+        # like priority). Many callers expect those defaults to be visible immediately, so reload from the DB.
+        try:
+            link_row.load_row_from_id(row_id=link_row.row_id, table=link_table)
+        except Exception:
+            # Best-effort only: if reload fails, still return the successfully-created link.
+            pass
+
         return link_row
 
     #
@@ -557,7 +569,7 @@ class DatabaseInterlinkRowsMixin:
         secondary_row_map = dict((int(r.row_id), r) for r in secondary_rows)
 
         # Add the rows in the order specified by the ordered_ids
-        ordered_ids = deepcopy(ordered_ids)
+        ordered_ids = [_ for _ in deepcopy(ordered_ids)]
         ordered_ids.reverse()
 
         for row_id in ordered_ids:

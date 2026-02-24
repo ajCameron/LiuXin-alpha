@@ -5,6 +5,147 @@ Tools for metadata handling.
 Very generic. Probably needs a better name.
 """
 
+from __future__ import annotations
+
+import re
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Optional
+
+
+def to_epoch_ms(
+    value: Any,
+    *,
+    assume_tz=timezone.utc,
+    now: Optional[datetime] = None,
+    clamp_range: bool = False,
+) -> int:
+    """
+    Convert "timestamp-like" inputs into an integer epoch milliseconds.
+
+    Accepted inputs:
+      - datetime / date
+      - int / float: epoch seconds, milliseconds, microseconds, nanoseconds (auto-guessed)
+      - str / bytes: numeric, ISO-8601-ish, and a few common datetime formats
+      - also supports extracting a long integer from strings like "/Date(1609459200000)/"
+
+    Heuristic for numeric magnitude (abs):
+      - >= 1e17  -> nanoseconds
+      - >= 1e14  -> microseconds
+      - >= 1e11  -> milliseconds
+      - else     -> seconds
+    """
+    if value is None:
+        raise TypeError("None is not a timestamp")
+    if isinstance(value, bool):
+        raise TypeError("bool is not a timestamp")
+
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    def dt_to_ms(dt: datetime) -> int:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=assume_tz)
+        dt_utc = dt.astimezone(timezone.utc)
+        return int(round(dt_utc.timestamp() * 1000))
+
+    # datetime / date
+    if isinstance(value, datetime):
+        out = dt_to_ms(value)
+        return _clamp_ms(out, now, clamp_range)
+    if isinstance(value, date):
+        dt = datetime(value.year, value.month, value.day, tzinfo=assume_tz)
+        out = dt_to_ms(dt)
+        return _clamp_ms(out, now, clamp_range)
+
+    # numbers
+    if isinstance(value, (int, float)):
+        v = float(value)
+        if v != v or v in (float("inf"), float("-inf")):
+            raise ValueError("NaN/inf is not a timestamp")
+
+        av = abs(v)
+        if av >= 1e17:          # nanoseconds
+            ms = v / 1e6
+        elif av >= 1e14:        # microseconds
+            ms = v / 1e3
+        elif av >= 1e11:        # milliseconds
+            ms = v
+        else:                   # seconds
+            ms = v * 1e3
+
+        out = int(round(ms))
+        return _clamp_ms(out, now, clamp_range)
+
+    # bytes -> str
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            value = value.decode("utf-8", "strict")
+        except Exception:
+            value = value.decode("utf-8", "replace")
+
+    # strings
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            raise ValueError("empty string is not a timestamp")
+
+        # numeric string (int/float)
+        if re.fullmatch(r"[-+]?\d+(\.\d+)?", s):
+            num = float(s) if "." in s else int(s)
+            return to_epoch_ms(num, assume_tz=assume_tz, now=now, clamp_range=clamp_range)
+
+        # extract a long integer (>= 9 digits) from wrappers like "/Date(1609459200000)/"
+        m = re.search(r"[-+]?\d{9,}", s)
+        if m and (s.startswith(("/Date(", "Date(")) or "Date(" in s):
+            try:
+                return to_epoch_ms(int(m.group(0)), assume_tz=assume_tz, now=now, clamp_range=clamp_range)
+            except Exception:
+                pass
+
+        # ISO-ish: support trailing Z
+        iso = s
+        if iso.endswith(("Z", "z")):
+            iso = iso[:-1] + "+00:00"
+        try:
+            dt = datetime.fromisoformat(iso)
+            out = dt_to_ms(dt)
+            return _clamp_ms(out, now, clamp_range)
+        except Exception:
+            pass
+
+        # common fallback formats
+        fmts = [
+            "%Y-%m-%d %H:%M:%S.%f%z",
+            "%Y-%m-%d %H:%M:%S%z",
+            "%Y-%m-%d %H:%M:%S.%f",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d",
+            "%d/%m/%Y %H:%M:%S",
+            "%d/%m/%Y",
+            "%m/%d/%Y %H:%M:%S",
+            "%m/%d/%Y",
+        ]
+        for fmt in fmts:
+            try:
+                dt = datetime.strptime(s, fmt)
+                out = dt_to_ms(dt)
+                return _clamp_ms(out, now, clamp_range)
+            except Exception:
+                continue
+
+        raise ValueError(f"Unrecognised timestamp string: {value!r}")
+
+    raise TypeError(f"Unsupported timestamp type: {type(value).__name__}")
+
+
+def _clamp_ms(ms: int, now: datetime, clamp_range: bool) -> int:
+    if not clamp_range:
+        return ms
+    # clamp to +/- 200 years around 'now' to defuse wildly-wrong unit guesses
+    lo = int(round((now - timedelta(days=365 * 200)).timestamp() * 1000))
+    hi = int(round((now + timedelta(days=365 * 200)).timestamp() * 1000))
+    return lo if ms < lo else hi if ms > hi else ms
+
 
 import re
 from copy import deepcopy

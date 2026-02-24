@@ -45,7 +45,12 @@ class TestDatabaseTmpDirInit:
 
                 assert test_db is not None
 
-                new_title_row = test_db.get_blank_row("titles")
+                new_work_row = test_db.get_blank_row("works")
 
-                new_title_row["title"] = "This is a test of the titles table"
-                new_title_row.sync()
+                new_work_row["work_title"] = "This is a test of the works table"
+                new_work_row.sync()
+
+                # titles is a read-only compatibility view projected from works
+                matches = test_db.search("titles", "title_id", int(new_work_row.row_id))
+                assert len(matches) == 1
+                assert matches[0]["title"] == "This is a test of the works table"

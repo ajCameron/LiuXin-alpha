@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 zip_project.py — zip up a project for upload, skipping common junk.
 

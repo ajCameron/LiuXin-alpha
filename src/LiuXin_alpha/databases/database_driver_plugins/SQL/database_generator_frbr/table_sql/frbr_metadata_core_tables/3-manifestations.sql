@@ -6,11 +6,12 @@
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `manifestations` (
 
-    `manifestation_id` INTEGER PRIMARY KEY,
-
-    `manifestation_flags` TEXT NULL,
+  `manifestation_id` INTEGER PRIMARY KEY,
 
   -- Relation to expressions is via `expression_manifestation_links` (many-to-many)
+
+  -- Title add details
+  `manifestation_subtitle` TEXT NULL,
 
   -- Carrier / format
   `manifestation_carrier_type` TEXT NULL,      -- 'print_book', 'ebook', 'audiobook', 'bluray_disc', ...
@@ -20,6 +21,9 @@ CREATE TABLE IF NOT EXISTS `manifestations` (
   `manifestation_edition_statement` TEXT NULL, -- "1st ed.", "Revised ed.", ...
   `manifestation_pub_year` INTEGER NULL,
   `manifestation_pub_date` TEXT NULL,          -- 'YYYY-MM-DD' if known
+
+  -- Flags
+  `manifestation_flags` TEXT NULL,
 
   -- Physical / technical characteristics (stable for the product)
   `manifestation_page_count` INTEGER NULL,

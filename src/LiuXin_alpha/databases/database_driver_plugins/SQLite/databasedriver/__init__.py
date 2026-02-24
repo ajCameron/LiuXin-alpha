@@ -362,6 +362,15 @@ class DatabaseDriver(
         encoding = next(conn.execute("PRAGMA encoding"))[0]
         conn.create_collation("PYNOCASE", partial(pynocase, encoding=encoding))
 
+        # FRBR constants convenience: resolve language tokens to `languages.language_id`.
+        # Safe no-op on non-FRBR databases.
+        try:
+            from LiuXin_alpha.utils.language_tools import register_language_id_sql_function
+
+            register_language_id_sql_function(conn, function_name="LANGUAGE_ID", ensure_seeded=True)
+        except Exception:
+            pass
+
         return self._register_open_connection(conn)
 
     def last_modified(self):
@@ -539,6 +548,15 @@ class DatabaseDriver(
 
         conn = self.get_connection()
         create_new_database(conn)
+
+        # Defensive: ensure languages constants are present/locked even if generator changes.
+        try:
+            from LiuXin_alpha.utils.language_tools import ensure_languages_seeded_and_locked
+
+            ensure_languages_seeded_and_locked(conn)
+        except Exception:
+            pass
+
         conn.commit()
         conn.close()
 

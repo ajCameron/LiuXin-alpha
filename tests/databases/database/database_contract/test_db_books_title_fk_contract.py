@@ -1,9 +1,10 @@
-"""Database contract: books/title FK pairing.
+"""Database contract: works -> titles compatibility projection.
 
-The schema declares `books.book_id` as a FOREIGN KEY to `titles.title_id`.
-That means creating a blank `books` row must also ensure a matching `titles` row exists.
+In the FRBR-first schema, `titles` is a *read-only* compatibility view projected from
+the insertable `works` table (see `titles_v` in the generator SQL).
 
-This is a regression guard for `Database.driver_wrapper.get_blank_row("books")`.
+Contract: inserting a blank `works` row must immediately be visible via the `titles`
+view with the same id (`titles.title_id == works.work_id`).
 """
 
 from __future__ import annotations
@@ -16,12 +17,12 @@ def _require_table(db, table: str) -> None:
         pytest.skip(f"Table {table!r} not present in provisioned contract DB")
 
 
-def test_get_blank_row_books_creates_matching_title(db) -> None:
-    _require_table(db, "books")
+def test_get_blank_row_works_creates_matching_title(db) -> None:
+    _require_table(db, "works")
     _require_table(db, "titles")
 
-    book = db.get_blank_row("books")
-    assert book.row_id is not None
+    work = db.get_blank_row("works")
+    assert work.row_id is not None
 
-    matches = db.search("titles", "title_id", int(book.row_id))
+    matches = db.search("titles", "title_id", int(work.row_id))
     assert len(matches) == 1

@@ -172,6 +172,25 @@ def _pick_interlink_shape(open_db) -> InterlinkShape:
 def _create_distinct_row(open_db, table: str, *, payload: str) -> Row:
     """Create a writable row and set a stable 'text-like' column to payload."""
     dw = open_db.driver_wrapper
+
+    # Some tables are intentionally read-only constants (e.g. `languages`).
+    # For contract tests, pick an existing row deterministically.
+    if table in {"languages"}:
+        import zlib
+
+        pk = dw.get_id_column(table)
+        count = int(dw.get_record_count(table) or 0)
+        assert count > 0, f"Expected seeded rows in read-only table {table!r}"
+
+        offset = (zlib.crc32(payload.encode("utf-8")) & 0xFFFFFFFF) % count
+        cur = dw.execute(f"SELECT {pk} FROM {table} ORDER BY {pk} LIMIT 1 OFFSET ?;", (int(offset),))
+        got = cur.fetchone()
+        assert got is not None
+        row_id = got[0]
+        row = open_db.get_row_from_id(table, row_id)
+        assert isinstance(row, Row)
+        return row
+
     row = open_db.get_blank_row(table)
     assert isinstance(row, Row)
 

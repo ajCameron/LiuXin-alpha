@@ -1,7 +1,7 @@
 {
   "add_formats_to_existing": false,
   "check_for_dupes_on_ctl": false,
-  "database_path": "C:\\Users\\Thane-Winterscale/library1.db",
+  "database_path": "/home/oai/library1.db",
   "filename_pattern": "(?P<title>.+) - (?P<author>[^_]+)",
   "input_format_order": [
     "EPUB",
@@ -21,7 +21,7 @@
     "PDF",
     "TXT"
   ],
-  "installation_uuid": "09b2beef-29b9-484e-ad18-ceeb20dd8bad",
+  "installation_uuid": "07e05060-0808-46f5-a266-4fb9ac5e04b3",
   "isbndb_com_key": "",
   "language": null,
   "library_path": null,
