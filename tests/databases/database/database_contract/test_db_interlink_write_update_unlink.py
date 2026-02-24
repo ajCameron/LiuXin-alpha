@@ -225,6 +225,53 @@ def _has_type_support(open_db, sh: InterlinkShape) -> bool:
     return sh.type_link_col in headings
 
 
+def _pick_type_registry_column(open_db, registry_table: str) -> str:
+    """Return the column name that stores the link type in a registry table."""
+    headings = list(open_db.driver_wrapper.get_column_headings(registry_table))
+    if "type" in headings:
+        return "type"
+    type_cols = [h for h in headings if h.endswith("_type") and not h.endswith("_id")]
+    if type_cols:
+        return type_cols[0]
+    non_id = [h for h in headings if not h.endswith("_id") and h != "id"]
+    return non_id[0] if non_id else headings[0]
+
+
+def _type_registry_for_interlink(open_db, link_table: str) -> tuple[str, str] | None:
+    """Return (registry_table, type_col) for this link table, or None if absent."""
+    dw = open_db.driver_wrapper
+    tables = set(dw.get_tables(force_refresh=True) or [])
+    types_table = f"{link_table}__types"
+    if types_table in tables:
+        return types_table, _pick_type_registry_column(open_db, types_table)
+    legacy_table = f"allowed_types__{link_table}"
+    if legacy_table in tables:
+        return legacy_table, _pick_type_registry_column(open_db, legacy_table)
+    return None
+
+
+def _ensure_interlink_type_registered(open_db, sh: InterlinkShape, link_type: str) -> None:
+    """If schema enforces allowed interlink types, ensure `link_type` is registered.
+
+    Some generated schemas use triggers checking membership in `{link_table}__types`
+    (or legacy `allowed_types__{link_table}`) tables. Production code may not seed
+    those registries, so contract tests do so explicitly.
+    """
+    if sh.type_link_col is None:
+        return
+
+    reg = _type_registry_for_interlink(open_db, sh.link_table)
+    if not reg:
+        return
+    registry_table, type_col = reg
+
+    canonical = str(link_type).strip()
+    open_db.driver_wrapper.execute(
+        f"INSERT OR IGNORE INTO `{registry_table}` (`{type_col}`) VALUES (?);",
+        (canonical,),
+    )
+
+
 def _pick_extra_link_column_base(open_db, sh: InterlinkShape) -> Optional[tuple[str, str]]:
     """Pick a link-table column we can set via **col_value_pairs.
 
@@ -371,6 +418,8 @@ def test_interlink_rows_type_column_roundtrips_when_supported(open_db):
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-type")
     s = _create_distinct_row(open_db, sh.secondary_table, payload="s-type")
     link_type = "βeta-نوع"  # Greek beta + Arabic
+
+    _ensure_interlink_type_registered(open_db, sh, link_type)
 
     link = open_db.interlink_rows(primary_row=p, secondary_row=s, priority="not_set", type=link_type)
     assert link[sh.type_link_col] == link_type
@@ -642,6 +691,9 @@ def test_unlink_all_type_filter_removes_only_matching_type_when_supported(open_d
     s_a2 = _create_distinct_row(open_db, sh.secondary_table, payload="s-a2")
     s_b = _create_distinct_row(open_db, sh.secondary_table, payload="s-b")
 
+    _ensure_interlink_type_registered(open_db, sh, "alpha")
+    _ensure_interlink_type_registered(open_db, sh, "beta")
+
     open_db.interlink_rows(primary_row=p, secondary_row=s_a1, priority="not_set", type="alpha")
     open_db.interlink_rows(primary_row=p, secondary_row=s_a2, priority="not_set", type="alpha")
     open_db.interlink_rows(primary_row=p, secondary_row=s_b, priority="not_set", type="beta")
@@ -659,6 +711,9 @@ def test_unlink_all_type_filter_can_handle_multiple_links_per_pair_when_possible
 
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-multi-pair")
     s = _create_distinct_row(open_db, sh.secondary_table, payload="s-multi-pair")
+
+    _ensure_interlink_type_registered(open_db, sh, "alpha")
+    _ensure_interlink_type_registered(open_db, sh, "beta")
 
     open_db.interlink_rows(primary_row=p, secondary_row=s, priority="not_set", type="alpha")
 

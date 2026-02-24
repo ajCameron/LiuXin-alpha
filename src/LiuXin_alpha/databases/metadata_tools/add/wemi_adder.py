@@ -274,17 +274,27 @@ class WEMIAdderMixin:
              item_flags: Optional[str] = None,
 
              # - Type of item
-             item_type: Optional[str],
+             item_type: Optional[str] = None,
 
              # - Location / inventory
-             item_location: Optional[str],
-             item_inventory_code: Optional[str],
-             item_source: Optional[str],
-             item_source_detail: Optional[str],
-             item_acquired_date: Optional[Union[datetime.datetime, str, int, float]],
-             item_acquired_price_minor: Optional[float],
-             item_lifecycle_status: Optional[str],
-             item_condition: Optional[str]
+             item_location: Optional[str] = None,
+             item_inventory_code: Optional[str] = None,
+
+             # - Item dates
+             item_original_date: Optional[str] = None,
+             item_original_copyright_date: Optional[str] = None,
+
+             # - Source / provenance (per-copy)
+             item_source: Optional[str] = None,
+             item_source_detail: Optional[str] = None,
+             item_source_path: Optional[str] = None,
+             item_source_name: Optional[str] = None,
+
+             # - Acquisition / lifecycle
+             item_acquired_date: Optional[Union[datetime.datetime, str, int, float]] = None,
+             item_acquired_price_minor: Optional[float] = None,
+             item_lifecycle_status: Optional[str] = None,
+             item_condition: Optional[str] = None
              ) -> RowAPI:
         """
         Add methods for the Item table.
@@ -305,7 +315,29 @@ class WEMIAdderMixin:
         item_new_row_dict = {"item_manifestation_id": item_manifestation_id}
 
         # - Flags to control operations of the system
+        item_new_row_dict["item_flags"] = item_flags
 
+        # - Type of item
+        item_new_row_dict["item_type"] = item_type
 
+        # - Location / inventory
+        item_new_row_dict["item_location"] = item_location
+        item_new_row_dict["item_inventory_code"] = item_inventory_code
 
+        # - Item dates
+        item_new_row_dict["item_original_date"] = item_original_date
+        item_new_row_dict["item_original_copyright_date"] = item_original_copyright_date
 
+        # - Source / provenance (per-copy)
+        item_new_row_dict["item_source"] = item_source
+        item_new_row_dict["item_source_detail"] = item_source_detail
+        item_new_row_dict["item_source_path"] = item_source_path
+        item_new_row_dict["item_source_name"] = item_source_name
+
+        # - Acquisition / lifecycle
+        item_new_row_dict["item_acquired_date"] = item_acquired_date
+        item_new_row_dict["item_acquired_price_minor"] = item_acquired_price_minor
+        item_new_row_dict["item_lifecycle_status"] = item_lifecycle_status
+        item_new_row_dict["item_condition"] = item_condition
+
+        return Row.from_idless_row_dict(self.db, row_dict=item_new_row_dict)

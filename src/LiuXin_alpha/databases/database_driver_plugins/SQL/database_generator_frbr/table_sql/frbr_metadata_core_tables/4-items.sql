@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `items` (
   `item_location` TEXT NULL,           -- shelf/box or logical location for digital
   `item_inventory_code` TEXT NULL,     -- barcode/internal code
 
+  -- Item dates
   `item_original_date` INTEGER NULL,
   `item_original_copyright_date` TEXT NULL,
 
@@ -37,9 +38,7 @@ CREATE TABLE IF NOT EXISTS `items` (
   -- Acquisition / lifecycle
   `item_acquired_date` TEXT NULL,      -- 'YYYY-MM-DD' or datetime
   `item_acquired_price_minor` INTEGER NULL,
-
   `item_lifecycle_status` TEXT NULL,   -- 'active', 'withdrawn', 'lost', 'replaced', ...
-
   `item_condition` TEXT NULL,          -- 'fine', 'good', 'worn', 'damaged', ...
 
   -- timestamps (epoch_ms)

@@ -171,10 +171,15 @@ def primary_table_shape(open_db, _table_names_expected) -> TableShape:
         pytest.fail(f"Unexpected schema: too many expected main tables missing: {missing!r}")
 
     for name in PREFERRED_MAIN_TABLES:
-        if name in tables:
+        if name in tables and not open_db.driver_wrapper.is_view(name):
             return _shape_for_table(open_db, name)
 
-    pytest.fail(f"No preferred main table found. Have: {sorted(tables)!r}")
+    # Fall back: pick any non-view relation so row-roundtrip tests can write.
+    non_views = [t for t in sorted(tables) if not open_db.driver_wrapper.is_view(t)]
+    if non_views:
+        return _shape_for_table(open_db, non_views[0])
+
+    pytest.fail(f"No writable table found (all relations appear to be views). Have: {sorted(tables)!r}")
 
 
 @pytest.fixture

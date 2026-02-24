@@ -17,9 +17,15 @@ from LiuXin_alpha.errors import InputIntegrityError, RowReadOnlyError
 def _choose_table_and_column(db) -> Tuple[str, str]:
     """Pick a real table and a non-id column we can safely interact with."""
 
-    tables = list(db.get_tables())
-    if not tables:
+    relations = list(db.get_tables())
+    if not relations:
         raise RuntimeError("Test database contains no tables")
+
+    # get_tables() may include views (e.g. FRBR/WEMI compatibility surfaces like `titles`).
+    # These tests need a writable table.
+    tables = [t for t in relations if not db.driver_wrapper.is_view(t)]
+    if not tables:
+        raise RuntimeError("Test database contains no writable tables (all relations appear to be views)")
 
     preferred = ["titles", "authors", "series", "books", "creators"]
     table = next((t for t in preferred if t in tables), tables[0])
@@ -67,6 +73,23 @@ def test_get_blank_row_invalid_table_raises_input_integrityerror(open_db):
         open_db.get_blank_row("no_such_table")
 
 
+
+def test_get_blank_row_view_raises_clear_input_error(open_db):
+    # Some schemas expose compatibility surfaces as read-only views (e.g. FRBR/WEMI `titles`).
+    candidates = ["titles", "books", "identifiers", "authors", "series", "creators"]
+    view_name = next(
+        (t for t in candidates if t in open_db.get_tables() and open_db.driver_wrapper.is_view(t)),
+        None,
+    )
+    if view_name is None:
+        pytest.skip("Schema contains no views to exercise get_blank_row() error surface")
+
+    with pytest.raises(InputIntegrityError) as e:
+        open_db.get_blank_row(view_name)
+
+    msg = str(e.value).lower()
+    assert "view" in msg
+    assert view_name.lower() in msg
 @pytest.mark.parametrize(
     "bad_column",
     [

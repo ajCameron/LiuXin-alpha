@@ -96,17 +96,127 @@ def _make_row(open_db, table: str, payload: str, *, parent_col: str | None = Non
     return row
 
 
-def _pick_link_type(open_db, table: str) -> str:
-    """Pick a link type that will satisfy preference restrictions if present."""
+def _pick_type_registry_column(open_db, registry_table: str) -> str:
+    """Return the column name that stores the link type in a registry table."""
+    headings = list(open_db.driver_wrapper.get_column_headings(registry_table))
+    if "type" in headings:
+        return "type"
+    # common legacy patterns: <something>_type
+    type_cols = [h for h in headings if h.endswith("_type") and not h.endswith("_id")]
+    if type_cols:
+        return type_cols[0]
+    # fall back to first non-id column, else first column
+    non_id = [h for h in headings if not h.endswith("_id") and h != "id"]
+    return non_id[0] if non_id else headings[0]
 
+
+def _type_registry_for_intralink(open_db, link_table: str) -> tuple[str, str] | None:
+    """Return (registry_table, type_col) for this link table, or None if absent."""
+    dw = open_db.driver_wrapper
+    tables = set(dw.get_tables(force_refresh=True) or [])
+    types_table = f"{link_table}__types"
+    if types_table in tables:
+        return types_table, _pick_type_registry_column(open_db, types_table)
+    legacy_table = f"allowed_types__{link_table}"
+    if legacy_table in tables:
+        return legacy_table, _pick_type_registry_column(open_db, legacy_table)
+    return None
+
+
+def _ensure_intralink_type_registered(open_db, table: str, link_type: str) -> None:
+    """If schema enforces allowed intralink types, ensure `link_type` is registered."""
+    wrapper = open_db.driver_wrapper
+    link_table = wrapper.check_for_intralink_table(table)
+    if not link_table:
+        return
+
+    reg = _type_registry_for_intralink(open_db, link_table)
+    if not reg:
+        return
+    registry_table, type_col = reg
+
+    # DB code tends to strip/lower link types; keep that stable for triggers.
+    canonical = str(link_type).strip().lower()
+    wrapper.execute(
+        f"INSERT OR IGNORE INTO `{registry_table}` (`{type_col}`) VALUES (?);",
+        (canonical,),
+    )
+
+
+def _pick_link_type(open_db, table: str) -> str:
+    """Pick a link type that will satisfy schema/type restrictions when present."""
+
+    wrapper = open_db.driver_wrapper
+    link_table = wrapper.check_for_intralink_table(table)
+    if link_table:
+        reg = _type_registry_for_intralink(open_db, link_table)
+        if reg:
+            registry_table, type_col = reg
+            rows = wrapper.get(
+                f"SELECT `{type_col}` FROM `{registry_table}` WHERE `{type_col}` IS NOT NULL ORDER BY `{type_col}`;"
+            )
+            types = [r[0] for r in rows if r and r[0] is not None]
+            if types:
+                chosen = str(types[0]).strip().lower()
+                # Ensure the canonicalised value exists (in case registry uses variants)
+                _ensure_intralink_type_registered(open_db, table, chosen)
+                return chosen
+
+            # Empty registry: seed a conventional default.
+            _ensure_intralink_type_registered(open_db, table, "related")
+            return "related"
+
+    # Legacy preference-based restriction.
     key = f"allowed_{table}_intralink_types"
     prefs = getattr(open_db, "preferences", {})
     if isinstance(prefs, dict) and key in prefs:
         allowed = prefs[key]
         if allowed:
-            # Database lower()s and strip()s link types.
-            return str(allowed[0]).strip().lower()
+            chosen = str(allowed[0]).strip().lower()
+            _ensure_intralink_type_registered(open_db, table, chosen)
+            return chosen
+
+    _ensure_intralink_type_registered(open_db, table, "related")
     return "related"
+
+
+def _pick_two_link_types(open_db, table: str) -> tuple[str, str]:
+    """Return two distinct valid intralink types for this table, seeding registries if needed."""
+    wrapper = open_db.driver_wrapper
+    link_table = wrapper.check_for_intralink_table(table)
+    if link_table:
+        reg = _type_registry_for_intralink(open_db, link_table)
+        if reg:
+            registry_table, type_col = reg
+            rows = wrapper.get(
+                f"SELECT `{type_col}` FROM `{registry_table}` WHERE `{type_col}` IS NOT NULL ORDER BY `{type_col}`;"
+            )
+            seen = set()
+            types: list[str] = []
+            for r in rows:
+                if not r or r[0] is None:
+                    continue
+                t = str(r[0]).strip().lower()
+                if t in seen:
+                    continue
+                seen.add(t)
+                types.append(t)
+
+            if len(types) >= 2:
+                return types[0], types[1]
+            if len(types) == 1:
+                t1 = types[0]
+                t2 = f"{t1}_alt"
+                _ensure_intralink_type_registered(open_db, table, t2)
+                return t1, t2
+
+            # Empty registry
+            for t in ("alpha", "beta"):
+                _ensure_intralink_type_registered(open_db, table, t)
+            return "alpha", "beta"
+
+    # No registry: just use conventional labels.
+    return "alpha", "beta"
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +326,7 @@ def test_get_intralink_row_errors_if_multiple_links_between_pair(open_db, pick_p
     dupe[t.primary_col] = r1.row_id
     dupe[t.secondary_col] = r2.row_id
     dupe[t.type_col] = link_type + "_alt"
+    _ensure_intralink_type_registered(open_db, t.table, dupe[t.type_col])
     try:
         dupe.sync()
     except Exception:
@@ -254,12 +365,16 @@ def test_get_intralink_rows_type_filter(open_db, pick_payload):
     b = _make_row(open_db, t.table, pick_payload(31))
     c = _make_row(open_db, t.table, pick_payload(32))
 
-    open_db.intralink_rows(primary_row=a, secondary_row=b, link_type="alpha")
-    open_db.intralink_rows(primary_row=a, secondary_row=c, link_type="beta")
+    t_a, t_b = _pick_two_link_types(open_db, t.table)
+    _ensure_intralink_type_registered(open_db, t.table, t_a)
+    _ensure_intralink_type_registered(open_db, t.table, t_b)
 
-    filtered = open_db.get_intralink_rows(row=a, primary=True, secondary=True, link_type_filter="alpha")
+    open_db.intralink_rows(primary_row=a, secondary_row=b, link_type=t_a)
+    open_db.intralink_rows(primary_row=a, secondary_row=c, link_type=t_b)
+
+    filtered = open_db.get_intralink_rows(row=a, primary=True, secondary=True, link_type_filter=t_a)
     assert filtered
-    assert all(str(r[t.type_col]).strip().lower() == "alpha" for r in filtered)
+    assert all(str(r[t.type_col]).strip().lower() == t_a for r in filtered)
 
 
 def test_get_intralinked_rows_argument_validation(open_db, pick_payload):

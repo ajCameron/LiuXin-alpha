@@ -131,6 +131,30 @@ class DriverWrapper(DatabaseDriverWrapperAPI, CustomColumnsDriverWrapperMixin):
         """
         return self.driver.direct_get_tables(force_refresh=force_refresh)
 
+    def get_relation_type(self, name: str) -> Optional[str]:
+        """Return the relation type for `name` (e.g. 'table' or 'view') if known.
+
+        SQLite-backed schemas increasingly use *views* as compatibility surfaces.
+        Attempting to create rows in a view fails at the database level; this helper
+        lets higher-level methods provide a clearer error earlier.
+        """
+        name = str(name)
+        try:
+            cur = self.execute(
+                "SELECT type FROM sqlite_master WHERE name = ? COLLATE NOCASE LIMIT 1;",
+                (name,),
+            )
+            for row in cur:
+                if row and row[0] is not None:
+                    return str(row[0]).strip().lower()
+        except Exception:
+            return None
+        return None
+
+    def is_view(self, name: str) -> bool:
+        """Return True iff `name` exists and is a SQLite view."""
+        return self.get_relation_type(name) == "view"
+
     def get_column_headings(self, table):
         """
         Gets the column headings for a table in the database.
@@ -668,6 +692,14 @@ class DriverWrapper(DatabaseDriverWrapperAPI, CustomColumnsDriverWrapperMixin):
         :param table: The table the row should be in.
         """
         table = str(table)
+
+        # Clearer error for schemas that expose compatibility surfaces as *views*.
+        # Views are read-only in SQLite unless backed by INSTEAD OF triggers.
+        rel_type = self.get_relation_type(table)
+        if rel_type == "view":
+            err_str = "get_blank_row cannot create a writable row for '{}' because it is a view (read-only).\n".format(table)
+            err_str += "Pick an underlying base table instead (or add INSTEAD OF triggers if you truly want writable views).\n"
+            raise InputIntegrityError(err_str)
 
         # using this as a key to find the row after it has been added to the table
         new_row_id = get_unique_id()
