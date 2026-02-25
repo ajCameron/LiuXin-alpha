@@ -84,6 +84,11 @@ def test_sorting_requires_same_store(store, loc_cls, tmp_path) -> None:
 
 @pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
 def test_pickle_roundtrip_when_store_is_picklable(store, loc_cls) -> None:
+    try:
+        pickle.dumps(store)
+    except Exception as exc:
+        pytest.skip(f"store is not picklable in this runtime: {exc!r}")
+
     loc = loc_cls("a", "b.txt", store=store)
     blob = pickle.dumps(loc)
     loc2 = pickle.loads(blob)

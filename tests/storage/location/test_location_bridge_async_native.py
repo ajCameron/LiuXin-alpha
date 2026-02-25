@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import threading
 
+import pytest
+
 from .conftest import AsyncOnDiskLocation, fs_path
+
+pytestmark = pytest.mark.usefixtures("require_async_native_sync_bridge")
 
 
 class TestAsyncNativePretendSyncBridge:

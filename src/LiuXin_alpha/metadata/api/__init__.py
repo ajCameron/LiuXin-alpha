@@ -172,3 +172,11 @@ class CalibreMetadataLike(Protocol):
 
     def get_identifiers(self) -> Mapping[str, str] | Mapping[str, IdentifierValues]: ...
 
+
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import (
+    WorkMetadataContainerAPI,
+    WorkMetadataContainerAPIFromWemiApi,
+    WorkRelationLink,
+    WorkStorageHints,
+)
+

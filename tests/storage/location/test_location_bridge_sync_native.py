@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_location import (
     OnDiskUnmanagedStoreLocation,
 )
 
 from .conftest import fs_path
+
+pytestmark = pytest.mark.usefixtures("require_asyncio_thread_bridge")
 
 
 class TestSyncNativePretendAsyncBridge:

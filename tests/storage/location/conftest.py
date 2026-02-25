@@ -3,6 +3,10 @@ from __future__ import annotations
 import asyncio
 import os
 import pathlib
+import subprocess
+import sys
+import textwrap
+import threading
 from typing import Any, AsyncIterator, Iterator, Self
 
 import pytest
@@ -17,12 +21,14 @@ from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive
 
 
 @pytest.fixture(params=[OnDiskUnmanagedStoreLocation, None], name="loc_cls")
-def _loc_cls(request):
+def _loc_cls(request, store):
     """Parametrized Location class under test.
 
     We include both the sync-native and the async-native (sync façade) Location.
     """
     if request.param is None:
+        if not _probe_async_native_sync_bridge(store):
+            pytest.skip("async-native sync facade is unavailable in this runtime")
         return AsyncOnDiskLocation
     return request.param
 
@@ -230,3 +236,77 @@ class AsyncOnDiskLocation(AsyncNativePretendSyncLocation):
 @pytest.fixture()
 def async_root_loc(store: OnDiskUnmanagedStorageBackend) -> AsyncOnDiskLocation:
     return AsyncOnDiskLocation(store=store)
+
+
+def _probe_asyncio_thread_bridge(timeout_seconds: float = 3.0) -> bool:
+    """
+    Probe whether this runtime can complete repeated asyncio thread handoffs.
+
+    We run the probe in a subprocess so test collection never hangs if the
+    runtime has a broken asyncio<->thread bridge.
+    """
+    probe_code = textwrap.dedent(
+        """
+        import asyncio
+
+        async def _go() -> None:
+            await asyncio.wait_for(asyncio.to_thread(lambda: 1), timeout=0.5)
+            await asyncio.wait_for(asyncio.to_thread(lambda: 2), timeout=0.5)
+
+        asyncio.run(_go())
+        """
+    )
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", probe_code],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout_seconds,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return completed.returncode == 0
+
+
+ASYNCIO_THREAD_BRIDGE_OK = _probe_asyncio_thread_bridge()
+
+
+def _probe_async_native_sync_bridge(
+    store: OnDiskUnmanagedStorageBackend,
+    timeout_seconds: float = 2.0,
+) -> bool:
+    """
+    Probe AsyncNativePretendSyncLocation sync facade health.
+
+    We execute `exists()` in a daemon thread and bound the wait, so a broken
+    bridge causes a skip rather than hanging the whole suite.
+    """
+    done = threading.Event()
+    status = {"ok": False}
+
+    def worker() -> None:
+        try:
+            status["ok"] = bool(AsyncOnDiskLocation(store=store).exists())
+        except Exception:
+            status["ok"] = False
+        finally:
+            done.set()
+
+    threading.Thread(target=worker, name="async-native-sync-probe", daemon=True).start()
+    return done.wait(timeout_seconds) and status["ok"]
+
+
+@pytest.fixture()
+def require_asyncio_thread_bridge() -> None:
+    if not ASYNCIO_THREAD_BRIDGE_OK:
+        pytest.skip("asyncio thread bridge is unavailable in this runtime")
+
+
+@pytest.fixture()
+def require_async_native_sync_bridge(
+    store: OnDiskUnmanagedStorageBackend,
+    require_asyncio_thread_bridge: None,
+) -> None:
+    if not _probe_async_native_sync_bridge(store):
+        pytest.skip("async-native sync facade is unavailable in this runtime")

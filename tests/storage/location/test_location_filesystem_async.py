@@ -10,6 +10,8 @@ from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive
 
 from .conftest import fs_path
 
+pytestmark = pytest.mark.usefixtures("require_asyncio_thread_bridge")
+
 
 class TestLocationFilesystemAsync:
     def test_derived_async_exists_is_file_is_dir(self, store) -> None:

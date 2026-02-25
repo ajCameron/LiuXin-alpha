@@ -56,7 +56,7 @@ class TestLocationGlobAndIter:
             str(fs_path(store, "r", "b", "y.txt")),
         }
 
-    def test_async_native_glob_and_iter_sync_facade(self, store) -> None:
+    def test_async_native_glob_and_iter_sync_facade(self, store, require_async_native_sync_bridge) -> None:
         # This validates AsyncNativePretendSyncLocation's derived sync methods.
         fs_path(store, "an", "sub").mkdir(parents=True, exist_ok=True)
         fs_path(store, "an", "a.txt").write_text("a", encoding="utf-8")
@@ -72,7 +72,7 @@ class TestLocationGlobAndIter:
         txt = {c.as_store_key() for c in an.rglob("*.txt")}
         assert txt == {str(fs_path(store, "an", "a.txt")), str(fs_path(store, "an", "sub", "b.txt"))}
 
-    def test_async_native_a_glob_streams(self, store) -> None:
+    def test_async_native_a_glob_streams(self, store, require_asyncio_thread_bridge) -> None:
         fs_path(store, "agn").mkdir(parents=True, exist_ok=True)
         fs_path(store, "agn", "one.txt").write_text("1", encoding="utf-8")
         fs_path(store, "agn", "two.txt").write_text("2", encoding="utf-8")

@@ -4,10 +4,4 @@ from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive
     OnDiskUnmanagedStoreLocation,
 )
 
-
-class OnDiskExistingManagedStoreLocation(OnDiskUnmanagedStoreLocation):
-    """
-    Existing-managed store location.
-
-    Reuses the proven local filesystem location implementation.
-    """
+__all__ = ["OnDiskUnmanagedStoreLocation"]
