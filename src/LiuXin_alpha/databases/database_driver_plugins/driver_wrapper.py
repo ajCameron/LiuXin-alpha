@@ -17,7 +17,7 @@ from LiuXin_alpha.utils.python_tools import smart_dictionary_merge, get_unique_i
 from LiuXin_alpha.databases.api import DatabaseDriverWrapperAPI, MacrosAPI
 
 
-class DriverWrapper(DatabaseDriverWrapperAPI, CustomColumnsDriverWrapperMixin):
+class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
     """
     Everything coming out of this class should be a row_dict.
     """

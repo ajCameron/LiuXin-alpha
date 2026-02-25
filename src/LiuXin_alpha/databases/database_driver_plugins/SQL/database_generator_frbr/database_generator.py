@@ -214,6 +214,8 @@ def get_main_table_sql_files() -> list[pathlib.Path]:
 
     # pathlib.Path.walk() is only available on Python 3.12+; use os.walk for compatibility.
     for root, dirs, files in os.walk(table_sql_folder):
+        dirs.sort()
+        files.sort()
 
         for file in files:
 
@@ -221,7 +223,13 @@ def get_main_table_sql_files() -> list[pathlib.Path]:
 
                 all_sql_files.append(pathlib.Path(root) / file)
 
-    return all_sql_files
+    # Ensure deterministic application order across platforms/filesystems.
+    return sorted(all_sql_files)
+
+
+def get_main_tables_sql_files() -> list[pathlib.Path]:
+    """Backward-compatible alias for older callers/tests."""
+    return get_main_table_sql_files()
 
 
 def get_trigger_sql_files() -> list[pathlib.Path]:
@@ -238,6 +246,8 @@ def get_trigger_sql_files() -> list[pathlib.Path]:
 
     # pathlib.Path.walk() is only available on Python 3.12+; use os.walk for compatibility.
     for root, dirs, files in os.walk(table_sql_folder):
+        dirs.sort()
+        files.sort()
 
         for file in files:
 
@@ -245,7 +255,8 @@ def get_trigger_sql_files() -> list[pathlib.Path]:
 
                 all_sql_files.append(pathlib.Path(root) / file)
 
-    return all_sql_files
+    # Ensure deterministic application order across platforms/filesystems.
+    return sorted(all_sql_files)
 
 
 
@@ -717,7 +728,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
           - left_table, right_table (required)
           - link_type (optional; defaults to top-level default_link_type or many_to_many)
           - requested_columns (optional; defaults to ["priority"])
-              - allowed: priority, primary, type, index, nullable, all
+              - allowed: priority, primary, type, origin, policy, data, index, nullable, all
               - "nullable" toggles whether the FK columns in the link table are nullable
           - allowed_types (optional; only meaningful if "type" is requested)
               - list of strings; if omitted, the type column is free-form text
@@ -826,7 +837,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "origin", "data", "index", "nullable", "all"}
+        allowed_req_cols = {"priority", "primary", "type", "origin", "policy", "data", "index", "nullable", "all"}
 
         # Build a set of unordered FK edges to warn about redundant interlinks
         fk_pairs: set[tuple[str, str]] = set()
@@ -890,9 +901,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                     lowered = [str(x).strip().lower() for x in requested_columns]
                     for rc in lowered:
                         if rc not in allowed_req_cols:
-                            # Permit bespoke per-link metadata columns as long as the name is safe.
-                            if not re.fullmatch(r"[a-z][a-z0-9_]*", rc):
-                                raise TypeError(f"Unknown requested_columns entry {rc!r} in interlink {idx}")
+                            raise TypeError(f"Unknown requested_columns entry {rc!r} in interlink {idx}")
                     if "nullable" in lowered:
                         nullable_fks = True
                         lowered = [x for x in lowered if x != "nullable"]
@@ -954,6 +963,18 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
                         requested_cols.add("type")
                 except Exception:
                     pass
+
+            # Strict guardrail: if non-exclusive M2M explicitly declares requested columns,
+            # `type` must be included by the user (or use requested_columns='all').
+            if link_type_canon == "many_to_many_non_exclusive" and requested_columns is not None:
+                has_type = requested_cols == "all" or (
+                    isinstance(requested_cols, (set, list, tuple)) and "type" in requested_cols
+                )
+                if not has_type:
+                    raise TypeError(
+                        "many_to_many_non_exclusive requires requested_columns to include 'type' "
+                        "(or set requested_columns='all')."
+                    )
 
 
             c_table1 = self.match_to_table_name(str(left))

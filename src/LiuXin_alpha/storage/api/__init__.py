@@ -1,28 +1,61 @@
-
 """
-Contains the fundamental APIs for the storage class.
-"""
+Public storage API surface.
 
-# Todo: Rules about what can be stored in which store?
+Import contracts from this package root to avoid deep import paths.
+"""
 
 from __future__ import annotations
 
+from .file_api import FileOpenerTypeMixin, FileStatus, SingleFileAPI
+from .location_api import (
+    AsyncNativePretendSyncLocation,
+    FileDescriptorOrPath,
+    StoreLocationMixinAPI,
+    StrOrBytesPath,
+    SyncNativePretendAsyncLocation,
+)
+from .modes_api import (
+    AsyncBinaryFile,
+    AsyncTextFile,
+    OpenBinaryMode,
+    OpenBinaryModeReading,
+    OpenBinaryModeUpdating,
+    OpenBinaryModeWriting,
+    OpenTextMode,
+    OpenTextModeReading,
+    OpenTextModeUpdating,
+    OpenTextModeWriting,
+)
+from .storage_api import (
+    StoreAPI,
+    StoreCheckStatus,
+    StoreStatus,
+    StorageAPI,
+    StorageManagerAPI,
+)
 
-
-
-# --- path-ish inputs ---
-
-
-# ----------------------------
-# Helpers: run async from sync
-# ----------------------------
-
-
-# ---------------------------------
-# Helpers: run sync work from async
-# ---------------------------------
-
-
-
-
-
+__all__ = [
+    "AsyncBinaryFile",
+    "AsyncNativePretendSyncLocation",
+    "AsyncTextFile",
+    "FileDescriptorOrPath",
+    "FileOpenerTypeMixin",
+    "FileStatus",
+    "OpenBinaryMode",
+    "OpenBinaryModeReading",
+    "OpenBinaryModeUpdating",
+    "OpenBinaryModeWriting",
+    "OpenTextMode",
+    "OpenTextModeReading",
+    "OpenTextModeUpdating",
+    "OpenTextModeWriting",
+    "SingleFileAPI",
+    "StorageAPI",
+    "StoreAPI",
+    "StoreCheckStatus",
+    "StoreStatus",
+    "StorageManagerAPI",
+    "StoreLocationMixinAPI",
+    "StrOrBytesPath",
+    "SyncNativePretendAsyncLocation",
+]

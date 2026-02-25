@@ -64,8 +64,10 @@ class DBPrefs(dict):
         :param raw:
         :return:
         """
-        if not isinstance(raw, unicode):
-            raw = raw.decode(preferred_encoding)
+        if isinstance(raw, bytes):
+            raw = raw.decode(preferred_encoding, errors="replace")
+        elif not isinstance(raw, str):
+            raw = str(raw)
         return json.loads(raw, object_hook=from_json)
 
     def to_raw(self, val):
@@ -97,33 +99,31 @@ class DBPrefs(dict):
         self.db.driver_wrapper.delete(target_table="preferences", column="preference_key", value=key)
 
     def __setitem__(self, key, val):
-        if not self.disable_setting:
-            raw = self.to_raw(val)
-            with self.db.lock:
+        if self.disable_setting:
+            super(DBPrefs, self).__setitem__(key, val)
+            return
 
-                try:
-                    dbrow = iter(
-                        self.db.driver_wrapper.search(
-                            table="preferences",
-                            column="preference_key",
-                            search_term=key,
-                        )
-                    ).next()
-                    dbraw = (dbrow["preference_id"], dbrow["preference_key"])
-                except StopIteration:
-                    dbrow = dict()
-                    dbraw = None
+        raw = self.to_raw(val)
+        with self.db.lock:
+            rows = self.db.driver_wrapper.search(
+                table="preferences",
+                column="preference_key",
+                search_term=key,
+            )
+            dbrow = next(iter(rows), None)
 
-                if dbraw is None or dbraw[1] != raw:
-                    if dbraw is None:
-                        dbrow = dict()
-                        dbrow["preference_key"] = key
-                        dbrow["preference_value"] = raw
-                        self.db.driver_wrapper.add_row(dbrow)
-                    else:
-                        dbrow["preference_value"] = raw
-                        self.db.driver_wrapper.update_row(dbrow)
-                    super(DBPrefs, self).__setitem__(key, val)
+            if dbrow is None:
+                dbrow = {"preference_key": key, "preference_value": raw}
+                self.db.driver_wrapper.add_row(dbrow)
+            else:
+                existing_raw = dbrow.get("preference_value")
+                if isinstance(existing_raw, bytes):
+                    existing_raw = existing_raw.decode(preferred_encoding, errors="replace")
+                if existing_raw != raw:
+                    dbrow["preference_value"] = raw
+                    self.db.driver_wrapper.update_row(dbrow)
+
+        super(DBPrefs, self).__setitem__(key, val)
 
     def set(self, key, val):
         self.__setitem__(key, val)
@@ -166,7 +166,7 @@ class DBPrefs(dict):
         """
         try:
             to_filename = os.path.join(library_path, "metadata_db_prefs_backup.json")
-            with open(to_filename, "wb") as f:
+            with open(to_filename, "w", encoding="utf-8") as f:
                 f.write(json.dumps(self, indent=2, default=to_json))
         except:
             import traceback
@@ -184,5 +184,5 @@ class DBPrefs(dict):
         if recreate_prefs:
             raise NotImplementedError("Not currently supported")
         from_filename = os.path.join(library_path, "metadata_db_prefs_backup.json")
-        with open(from_filename, "rb") as f:
+        with open(from_filename, "r", encoding="utf-8") as f:
             return json.load(f, object_hook=from_json)

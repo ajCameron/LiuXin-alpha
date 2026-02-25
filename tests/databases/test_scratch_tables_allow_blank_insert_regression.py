@@ -18,6 +18,14 @@ def test_all_scratch_tables_allow_blank_insert(provision_test_database) -> None:
 
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
+        # Constant tables can intentionally be write-locked by FRBR generator triggers.
+        read_only_tables = {
+            str(r[0]).replace("block_insert_on_", "", 1)
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'block_insert_on_%';"
+            ).fetchall()
+        }
+
         tables = [
             r[0]
             for r in conn.execute(
@@ -26,6 +34,8 @@ def test_all_scratch_tables_allow_blank_insert(provision_test_database) -> None:
         ]
 
         for table in tables:
+            if table in read_only_tables:
+                continue
             cols = conn.execute(f"PRAGMA table_info(`{table}`);").fetchall()
             scratch_cols = [str(c[1]) for c in cols if str(c[1]).endswith("_scratch")]
             if not scratch_cols:

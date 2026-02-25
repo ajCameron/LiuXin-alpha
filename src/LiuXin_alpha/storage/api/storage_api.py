@@ -1,305 +1,289 @@
-
 """
-Contains API elements for the actual storage classes.
-"""
+API contracts for stores and the top-level storage manager.
 
+The storage design is intentionally split:
+- `StoreAPI` models one concrete store (disk, remote HTTP, tape, etc.).
+- `StorageAPI` models the manager/front-end that orchestrates many stores.
+"""
 
 from __future__ import annotations
 
 import abc
 import dataclasses
 import pprint
-from typing import Optional, Iterator, Any
 
-# from LiuXin_alpha.storage.api.file_api import SingleFileAPI
-from LiuXin_alpha.utils.logging.api import EventLogAPI
+from typing import TYPE_CHECKING, Any, Iterator, Optional
+
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
+from LiuXin_alpha.utils.logging.api import EventLogAPI
 
-
-
-@dataclasses.dataclass
-class StorageBackendCheckStatus:
-    """
-    How did the store do when we were running self checks?
-    """
-    store_marker_file: bool
-
-    read: bool
-    write: bool
-
-    sundry: bool
+if TYPE_CHECKING:
+    from LiuXin_alpha.storage.api.file_api import SingleFileAPI
+    from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
 
 
 @dataclasses.dataclass
-class StorageBackendStatus:
+class StoreCheckStatus:
     """
-    What's happening with the given store?
-
-    Specific plugins may well include far more information as to the status of the store
-    (For example, conceivably a disc store could include full SMART data).
-    This is a minimum status report - not a maximum.
+    Outcome of store self-check probes.
     """
-    # - Store properties
-    name: str           # - Human readable name for the store (should be unique)
-    uuid: str           # - UUID for the store (definitely unique)
 
-    # - Store status
-    file_count: Optional[int]    # - How many LiuXin files the store _thinks_ it has
-                                 # - this can be quite an expensive operation - so can be None if not needed
-    store_free_space: int   # - Free space available for LiuXin use
-    # - NOTE - This should be a MINIMUM not a MAXIMUM
-    # -Some stores are under compression - so it's hard to know the TRUE total size
+    # Store identity/marker verification (where applicable).
+    store_marker_file: bool = False
+    # Read-path health.
+    read: bool = False
+    # Write-path health.
+    write: bool = False
+    # Additional backend-specific checks.
+    sundry: bool = False
 
-    check_status: StorageBackendCheckStatus  # - Result of checks being carried out on the storage backend.
-
-    checked: bool           # - Has the store passed self checks?
-
-    url: str                # - url to the store
-
-    good: str              # - Are we worried about this store?
-
-    event_log: EventLogAPI      # - query the status of this bit of the system
+    @property
+    def all_ok(self) -> bool:
+        """True when all core checks passed."""
+        return self.store_marker_file and self.read and self.write and self.sundry
 
 
-class StorageBackendAPI(abc.ABC):
+@dataclasses.dataclass
+class StoreStatus:
     """
-    Represents a file and metadata store on the system.
+    Snapshot status for a store.
 
-    Every store backend plugins should inherit from this class.
+    Concrete store plugins can enrich this via `details`.
     """
+
+    # Store identity.
+    name: str
+    uuid: str
+    url: str
+
+    # Capacity/accounting.
+    file_count: Optional[int] = None
+    store_free_space: Optional[int] = None
+
+    # Health.
+    check_status: StoreCheckStatus = dataclasses.field(default_factory=StoreCheckStatus)
+    checked: bool = False
+    good: bool | str = True
+
+    # Observability.
+    event_log: Optional[EventLogAPI] = None
+    details: dict[str, Any] = dataclasses.field(default_factory=dict)
+
+    @property
+    def online(self) -> bool:
+        """Best-effort online signal from health probes."""
+        return bool(self.checked or self.check_status.read or self.check_status.write)
+
+
+class StoreAPI(abc.ABC):
+    """
+    Contract for one physical/logical store.
+
+    A store is responsible for low-level storage operations. Policy decisions
+    (replication, store choice, cache strategy) belong in `StorageAPI`.
+    """
+
     _url: str
     _name: str
     _uuid: Optional[str]
 
     def __init__(self, url: str, name: Optional[str] = None, uuid: Optional[str] = None) -> None:
-        """
-        Initialize the store.
-
-        :param url:
-        """
         self.set_url(url)
         self._name = name if name is not None else self.url_to_name(url)
         self._uuid = uuid
 
     @abc.abstractmethod
     def url_to_name(self, url: str) -> str:
-        """
-        Generate a name from a URL.
+        """Generate a stable human-friendly name from a store URL."""
 
-        :param url:
-        :return:
+    @abc.abstractmethod
+    def startup(self) -> Optional[StoreStatus]:
+        """
+        Bring the store online.
+
+        Stores may return a status snapshot when startup is complete.
         """
 
     @abc.abstractmethod
-    def startup(self) -> StorageBackendStatus:
-        """
-        Preform store startup and report the status.
-
-        :return:
-        """
+    def self_test(self) -> StoreStatus:
+        """Run store health checks and return a status snapshot."""
 
     @abc.abstractmethod
-    def self_test(self) -> StorageBackendStatus:
-        """
-        Preform tests on the store.
+    def status(self) -> StoreStatus:
+        """Return current store status."""
 
-        :return:
-        """
+    @abc.abstractmethod
+    def file_exists(self, file_url: str) -> bool:
+        """Check whether a specific file URL exists inside this store."""
+
+    @abc.abstractmethod
+    def get_file(self, file_url: str) -> "SingleFileAPI":
+        """Return a file container for the given file URL."""
 
     @property
     def url(self) -> str:
-        """
-        Return the url of the store.
-        :return:
-        """
+        """Store root URL."""
         return self._url
 
     @url.setter
     def url(self, url: str) -> None:
-        """
-        Cannot directly set the url of a store.
-
-        :param url:
-        :return:
-        """
         raise AttributeError("Cannot directly set the url of a store.")
 
     def set_url(self, new_url: str) -> None:
-        """
-        Set the URL for the backend store.
-
-        :param new_url:
-        :return:
-        """
+        """Set store URL (intended for controlled migration/admin paths)."""
         self._url = new_url
 
     @property
     def name(self) -> str:
-        """
-        Human-readable name for this store.
-
-        :return:
-        """
+        """Human-readable store name."""
         return self._name
 
     @name.setter
     def name(self, name: str) -> None:
-        """
-        Cannot directly set the name of a store.
-
-        :param name:
-        :return:
-        """
         raise AttributeError("Cannot directly set the name of a store.")
 
     @property
-    def uuid(self) -> str:
-        """
-        The UUID for the given store.
-
-        :return:
-        """
+    def uuid(self) -> Optional[str]:
+        """Store UUID."""
         return self._uuid
 
     @uuid.setter
     def uuid(self, uuid: str) -> None:
-        """
-        Cannot directly set the uuid of a store.
-
-        :param uuid:
-        :return:
-        """
         raise AttributeError("Cannot directly set the uuid of a store.")
 
     @property
     def online(self) -> bool:
-        """
-        Is the store online or not?
-
-        :return:
-        """
+        """Best-effort online indicator."""
+        try:
+            return self.status().online
+        except Exception:
+            return False
 
     @property
     def checked(self) -> bool:
-        """
-        Have self checks been run on the store?
-
-        A store (probably) had to be online to be checked.
-        :return:
-        """
-
-    @abc.abstractmethod
-    def status(self) -> StorageBackendStatus:
-        """
-        The current status of the store.
-
-        Returns a dict of the status of the store.
-        How you display this information is up to you.
-        :return:
-        """
+        """Whether health checks have been run and passed policy gates."""
+        try:
+            return bool(self.status().checked)
+        except Exception:
+            return False
 
     def status_str(self) -> str:
-        """
-        A string rep of the stores' status - defaults to just the status dict.
-
-        :return:
-        """
+        """Pretty-printed status snapshot for logs/CLI."""
         return pprint.pformat(self.status())
 
-    @abc.abstractmethod
-    def file_exists(self, file_url: str) -> bool:
+    def location(self, *tokens: str) -> "StoreLocationMixinAPI":
         """
-        Does a given file actually exist in the store?
+        Resolve a store-relative location.
 
-        :param file_url:
-        :return:
+        Stores with path/location support should override this method.
         """
+        raise NotImplementedError("This store does not expose Location objects.")
 
-    @abc.abstractmethod
-    def get_file(self, file_url: str) -> "SingleFileAPI":
-        """
-        Return a single file from the store.
+    def add_file(
+        self,
+        file_bytes: bytes,
+        *,
+        metadata: Optional[MetadataContainerAPI] = None,
+    ) -> "SingleFileAPI":
+        """Store file bytes inside this store."""
+        raise PermissionError("This store does not support writing files.")
 
-        :return:
-        """
-
-
+    def delete_file(self, file_url: str) -> bool:
+        """Delete one file from this store."""
+        raise PermissionError("This store does not support file deletion.")
 
     def true_files(self) -> Iterator["SingleFileAPI"]:
         """
-        Represents files ACTUALLY in the store.
+        Iterate files physically present in this store.
 
-        It's often useful to have an accounting for the files ACTUALLY present - provide it.
-        :return:
+        Default implementation is empty and should be overridden by stores
+        that can enumerate files cheaply.
         """
+        return iter(())
 
-
+    def iter(self) -> Iterator["SingleFileAPI"]:
+        """Alias for `true_files()` for older calling sites."""
+        return self.true_files()
 
 
 class StorageAPI(abc.ABC):
     """
-    Provides management and frontend for actually working with the stores.
+    Contract for the storage manager/front-end.
 
-    There is probably only going to be one implementation of this class.
-    But presenting an API is good practice.
+    This is the user-facing storage API. It coordinates multiple stores and
+    hides physical placement details from callers.
     """
 
     @abc.abstractmethod
-    def add_storage_backend(self, new_store: StorageBackendAPI) -> None:
-        """
-        Manually add a new storage backend to the system.
+    def add_store(self, new_store: StoreAPI) -> None:
+        """Register a store with the manager."""
 
-        :param new_store:
-        :return:
+    @abc.abstractmethod
+    def remove_store(self, store_identifier: str) -> bool:
+        """Remove one store by UUID/name/url."""
+
+    @abc.abstractmethod
+    def get_store(self, store_identifier: str) -> StoreAPI:
+        """Resolve one store by UUID/name/url."""
+
+    @abc.abstractmethod
+    def iter_stores(self) -> Iterator[StoreAPI]:
+        """Iterate all registered stores."""
+
+    @abc.abstractmethod
+    def add_file(
+        self,
+        file_bytes: bytes,
+        metadata: Optional[MetadataContainerAPI] = None,
+        *,
+        preferred_store: Optional[str] = None,
+    ) -> "SingleFileAPI":
+        """
+        Store a file in managed storage.
+
+        The manager decides final placement unless `preferred_store` is supplied.
         """
 
     @abc.abstractmethod
-    def add_file(self,
-                 file_bytes: bytes,
-                 metadata: Optional[MetadataContainerAPI] = None) -> bool:
-        """
-        Add a file to storage.
-
-        :param file_bytes:
-        :param metadata: Some stores are metadata aware.
-                         This means that they, in some way, store the file and the metadata together
-                         This can be
-                         - some meaningful file name
-                         - directly stored as a json file
-                         It's up to the store. Separation of concerns and all!
-        :return:
-        """
+    def retrieve_file(
+        self,
+        file_url: Optional[str] = None,
+        metadata: Optional[MetadataContainerAPI] = None,
+        *,
+        preferred_store: Optional[str] = None,
+    ) -> "SingleFileAPI":
+        """Return a file handle/container for a stored file."""
 
     @abc.abstractmethod
-    def retrieve_file(self,
-                      file_url: Optional[str],
-                      metadata: Optional[MetadataContainerAPI]) -> "SingleFileAPI":
-        """
-        Retrieve and return a file in the form of a container providing the SingleFileAPI.
-
-        :param file_url:
-        :param metadata:
-        :return:
-        """
+    def retrieve_folder(
+        self,
+        folder_key: str,
+        *,
+        preferred_store: Optional[str] = None,
+    ) -> "StoreLocationMixinAPI":
+        """Return a virtual folder location for the requested folder key."""
 
     @abc.abstractmethod
-    def delete_file(self,
-                    file_url: Optional[str] = None,
-                    metadata: Optional[MetadataContainerAPI] = None,
-                    file_container: Optional["SingleFileAPI"] = None) -> bool:
-        """
-        Delete a file in a store.
-
-        :param file_url:
-        :param metadata:
-        :param file_container:
-        :return:
-        """
+    def delete_file(
+        self,
+        file_url: Optional[str] = None,
+        metadata: Optional[MetadataContainerAPI] = None,
+        file_container: Optional["SingleFileAPI"] = None,
+    ) -> bool:
+        """Delete a stored file by URL, metadata lookup, or existing file container."""
 
     @abc.abstractmethod
     def iter(self) -> Iterator["SingleFileAPI"]:
-        """
-        Iterate over all files in storage.
+        """Iterate files visible to the manager."""
 
-        :return:
-        """
+
+# `StorageManagerAPI` is the intent-revealing name used in the docs.
+StorageManagerAPI = StorageAPI
+
+__all__ = [
+    "StoreAPI",
+    "StoreCheckStatus",
+    "StoreStatus",
+    "StorageAPI",
+    "StorageManagerAPI",
+]

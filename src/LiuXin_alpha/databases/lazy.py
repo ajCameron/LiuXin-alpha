@@ -120,6 +120,7 @@ sa = object.__setattr__
 def simple_getter(field, default_value=None):
     """
     Returns a function which serves as a simplified retrieval method for a given field.
+
     :param field:
     :param default_value:
     :return:

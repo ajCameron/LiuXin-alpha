@@ -9,6 +9,7 @@ import fnmatch
 import os
 import re
 import time
+import warnings
 from collections import defaultdict
 
 from LiuXin_alpha.constants.file_extensions import BOOK_EXTENSIONS
@@ -200,7 +201,7 @@ class ListdirFn(Protocol):
 
 def find_books_in_directory(
     dirpath: Union[str, os.PathLike[str]],
-    single_book_per_directory: bool,
+    single_book_per_directory: bool = False,
     compiled_rules: tuple[Callable[[str], bool], bool] = (),
     listdir_impl: ListdirFn = listdir,
     single_fmt: bool = False,
@@ -212,12 +213,21 @@ def find_books_in_directory(
     Each list corresponds to a book.
     :param dirpath: THe directory to search the folder in.
     :param single_book_per_directory: If True then each directory is considered to have one and only one book in it.
+                                      Defaults to False so discovery keeps each stem as a distinct candidate.
     :param compiled_rules: Rules to be applied to files in the directory during the impor phase.
     :param listdir_impl: The implementation of listdir to be used during the search
-    :param single_fmt: If True, then yields a single instance of each format - otherwise yields a list of formats of
-                       each type.
+    :param single_fmt: Deprecated and ignored. All discovered files are retained.
     :return one_type_fmt_list: Yields a list of all the files of a particular fmt in the given dir
     """
+    if single_fmt:
+        warnings.warn(
+            "find_books_in_directory(single_fmt=True) is deprecated and ignored; "
+            "all discovered files are retained.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        single_fmt = False
+
     dirpath = os.path.abspath(dirpath)
     if single_book_per_directory:
 
@@ -251,10 +261,10 @@ def find_books_in_directory(
                 key, ext = splitext(path)
                 if allow_path(path, ext, compiled_rules):
                     book_path = icu_lower(key) if isinstance(key, unicode) else key.lower()
-                    if book_path in books:
-                        books[book_path][ext].append(path)
-                    else:
-                        books[book_path][ext] = [path]
+                    # Keep one list per extension for each discovered book key.
+                    # setdefault avoids a KeyError when we see a *new* extension
+                    # for a book key that is already present.
+                    books[book_path].setdefault(ext, []).append(path)
 
         for formats in itervalues(books):
             if formats_ok(formats):
@@ -340,7 +350,7 @@ def import_book_directory_multiple(
 def recursive_import(
     db,
     root: Union[str, os.PathLike[str]],
-    single_book_per_directory: bool = True,
+    single_book_per_directory: bool = False,
     callback: Optional[Callable[[str, ], None]] = None,
     added_ids: set[int] = None,
     compiled_rules: tuple[Callable[[str], bool], bool] = (),
@@ -349,7 +359,8 @@ def recursive_import(
     Recursively import every book in an entire directory structure.
     :param db: The database to work with
     :param root: The root of the tree to walk down
-    :param single_book_per_directory: Should each book map to a single dictionary?
+    :param single_book_per_directory: Should each directory map to a single book candidate?
+                                      Defaults to False to keep all discovered files.
     :param callback: Callback function to report progress
     :param added_ids: A set of the ids which have already been added to the database
     :param compiled_rules: Rules to include/exclude certain file types

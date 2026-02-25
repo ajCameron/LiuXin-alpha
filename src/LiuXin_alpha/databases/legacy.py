@@ -502,7 +502,7 @@ class LibraryDatabase(object):
         return book_ids[0]
 
     @staticmethod
-    def find_books_in_directory(dirpath, single_book_per_directory, compiled_rules=()):
+    def find_books_in_directory(dirpath, single_book_per_directory=False, compiled_rules=()):
         """
         Iterates through a directory tree, finding all the books in it to later add.
         :param dirpath:
@@ -549,7 +549,7 @@ class LibraryDatabase(object):
     def recursive_import(
         self,
         root,
-        single_book_per_directory=True,
+        single_book_per_directory=False,
         callback=None,
         added_ids=None,
         compiled_rules=(),

@@ -12,7 +12,15 @@ import re
 from urllib.parse import urlparse
 from collections import namedtuple
 
-from lxml import etree
+try:
+    from lxml import etree
+    _HAS_LXML = True
+except Exception:
+    # Fallback for lightweight/runtime-constrained environments where lxml is unavailable.
+    # Keep this minimal and compatible with the small subset used in this module.
+    import xml.etree.ElementTree as etree
+
+    _HAS_LXML = False
 
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union, Literal, Iterator, TypeVar, Type
 
@@ -31,8 +39,10 @@ __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
 __docformat__ = "restructuredtext en"
 
 
-
-PARSER = etree.XMLParser(recover=True, no_network=True)
+if _HAS_LXML:
+    PARSER = etree.XMLParser(recover=True, no_network=True)
+else:
+    PARSER = etree.XMLParser()
 
 OPFVersion = namedtuple("OPFVersion", "major minor patch")
 
@@ -762,8 +772,13 @@ def ensure_unique(template, existing):
 
 
 def create_manifest_item(root, href_template, id_template, media_type=None):
-    all_ids = frozenset(root.xpath("//*/@id"))
-    all_hrefs = frozenset(root.xpath("//*/@href"))
+    if hasattr(root, "xpath"):
+        all_ids = frozenset(root.xpath("//*/@id"))
+        all_hrefs = frozenset(root.xpath("//*/@href"))
+    else:
+        # xml.etree fallback: gather attribute values by walking descendants.
+        all_ids = frozenset(e.get("id") for e in root.iter() if e.get("id"))
+        all_hrefs = frozenset(e.get("href") for e in root.iter() if e.get("href"))
     href = ensure_unique(href_template, all_hrefs)
     item_id = ensure_unique(id_template, all_ids)
     manifest = root.find(OPF("manifest"))

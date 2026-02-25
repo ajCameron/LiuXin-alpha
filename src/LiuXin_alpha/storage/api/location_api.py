@@ -7,7 +7,7 @@ import threading
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
 
-from LiuXin_alpha.storage.api.storage_api import StorageBackendAPI
+from LiuXin_alpha.storage.api.storage_api import StoreAPI
 
 from os import PathLike
 from typing import TypeAlias, Any, Iterator, Self, AsyncIterator, overload, TextIO, BinaryIO, IO, cast, Callable, TypeVar
@@ -30,9 +30,9 @@ class StoreLocationMixinAPI(ABC):
 
     _tokens: list[str]
 
-    _store: StorageBackendAPI
+    _store: StoreAPI
 
-    def __init__(self, *args: str, store: StorageBackendAPI) -> None:
+    def __init__(self, *args: str, store: StoreAPI) -> None:
         """
         Startup the class - including any tokens for the location.
 
@@ -60,12 +60,12 @@ class StoreLocationMixinAPI(ABC):
     # ---- Core backend plumbing ----
 
     @property
-    def store(self) -> StorageBackendAPI:
+    def store(self) -> StoreAPI:
         """Backend handle (client/session/repo/etc.)."""
         return self._store
 
     @store.setter
-    def store(self, store: StorageBackendAPI) -> None:
+    def store(self, store: StoreAPI) -> None:
         """
         Refuses to update the store.
 

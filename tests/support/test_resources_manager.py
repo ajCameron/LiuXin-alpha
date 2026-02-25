@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import re
+import sqlite3
 import shutil
 import time
 from dataclasses import dataclass
@@ -432,7 +433,7 @@ class BuiltinSpecDatabaseProvider:
 
 
 def default_test_database_specs() -> Dict[str, TestDatabaseSpec]:
-    return {
+    specs: Dict[str, TestDatabaseSpec] = {
         "test_db_0": TestDatabaseSpec(
             name="test_db_0",
             builder=_build_test_db_0_minimal,
@@ -441,12 +442,12 @@ def default_test_database_specs() -> Dict[str, TestDatabaseSpec]:
         "test_db_2": TestDatabaseSpec(
             name="test_db_2",
             builder=_build_test_db_2_small,
-            description="Derived from the bundled test_db_1 CSV fixture but pruned to a single title.",
+            description="Minimal FRBR-native fixture with exactly one title/book projection.",
         ),
         "test_db_3": TestDatabaseSpec(
             name="test_db_3",
             builder=_build_test_db_3_formats_fixture,
-            description="Derived from test_db_1; generates lots of folder/file rows for format/link coverage.",
+            description="FRBR-native format fixture: deterministic high-volume folders/files + link rows.",
         ),
         "test_db_13": TestDatabaseSpec(
             name="test_db_13",
@@ -454,6 +455,76 @@ def default_test_database_specs() -> Dict[str, TestDatabaseSpec]:
             description="Schema + helper tables only (keeps required null rows).",
         ),
     }
+
+    # Cover the full historical `test_db_0..test_db_25` range with FRBR-native
+    # synthetic fixtures. More specialised DBs above keep explicit builders.
+    for db_num in range(26):
+        name = f"test_db_{db_num}"
+        if name in specs:
+            continue
+
+        profile = _legacy_test_db_profiles().get(name, {"books": 12, "folders": 0, "files": 0})
+        books = int(profile.get("books", 12))
+        folders = int(profile.get("folders", 0))
+        files = int(profile.get("files", 0))
+
+        specs[name] = TestDatabaseSpec(
+            name=name,
+            builder=_make_profiled_builder(
+                db_name=name,
+                books=books,
+                folders=folders,
+                files=files,
+            ),
+            description=(
+                f"Synthetic FRBR-native fixture for {name}: "
+                f"{books} books, {folders} folders, {files} files."
+            ),
+        )
+
+    return specs
+
+
+def _legacy_test_db_profiles() -> Dict[str, Dict[str, int]]:
+    """Profiles for synthetic re-implementations of legacy test DB names."""
+
+    return {
+        "test_db_1": {"books": 25, "folders": 0, "files": 0},
+        "test_db_4": {"books": 40, "folders": 0, "files": 0},
+        "test_db_5": {"books": 40, "folders": 120, "files": 360},
+        "test_db_6": {"books": 20, "folders": 0, "files": 0},
+        "test_db_7": {"books": 6, "folders": 0, "files": 0},
+        "test_db_8": {"books": 6, "folders": 0, "files": 0},
+        "test_db_9": {"books": 17, "folders": 0, "files": 0},
+        "test_db_10": {"books": 20, "folders": 0, "files": 0},
+        "test_db_11": {"books": 20, "folders": 40, "files": 120},
+        "test_db_12": {"books": 21, "folders": 0, "files": 0},
+        "test_db_14": {"books": 10, "folders": 0, "files": 0},
+        "test_db_15": {"books": 20, "folders": 0, "files": 0},
+        "test_db_16": {"books": 1, "folders": 0, "files": 0},
+        "test_db_17": {"books": 10, "folders": 0, "files": 0},
+        "test_db_18": {"books": 30, "folders": 0, "files": 0},
+        "test_db_19": {"books": 30, "folders": 0, "files": 0},
+        "test_db_20": {"books": 60, "folders": 0, "files": 0},
+        "test_db_21": {"books": 30, "folders": 0, "files": 0},
+        "test_db_22": {"books": 30, "folders": 0, "files": 0},
+        "test_db_23": {"books": 30, "folders": 0, "files": 0},
+        "test_db_24": {"books": 30, "folders": 0, "files": 0},
+        "test_db_25": {"books": 30, "folders": 0, "files": 0},
+    }
+
+
+def _make_profiled_builder(*, db_name: str, books: int, folders: int, files: int) -> Builder:
+    def _builder(db_path: Path) -> None:
+        _build_profiled_test_db(
+            db_path=db_path,
+            db_name=db_name,
+            books=books,
+            folders=folders,
+            files=files,
+        )
+
+    return _builder
 
 
 def _bundled_test_db_1_csv_dir() -> Path:
@@ -516,12 +587,20 @@ def _load_csv_fixture_into_db(conn, *, csv_dir: Path) -> None:
                 return v
         return v
 
+    # Ensure pragma changes are effective (sqlite ignores foreign_keys toggles mid-transaction).
+    conn.commit()
     # Disable FK enforcement during bulk load for speed and to avoid ordering issues.
     conn.execute("PRAGMA foreign_keys=OFF;")
 
     for csv_path in sorted(csv_dir.glob("*.csv")):
         table = csv_path.stem
         if not _table_exists(conn, table):
+            continue
+        if conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=? LIMIT 1;",
+            (f"block_insert_on_{table}",),
+        ).fetchone():
+            # FRBR constant tables (for now: `languages`) are seeded/locked by generator triggers.
             continue
 
         with csv_path.open("r", newline="", encoding="utf-8") as fh:
@@ -557,47 +636,36 @@ def _load_csv_fixture_into_db(conn, *, csv_dir: Path) -> None:
 
 
 def _build_test_db_2_small(db_path: Path) -> None:
-    """Create a small, rich test DB (historical test_db_2).
-
-    This is derived from the bundled test_db_1 CSV fixture by importing all
-    rows and then deleting all titles except title_id=1.
-    """
-
-    import sqlite3
-
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
-        create_new_database,
+    """Create a small FRBR-native test DB with exactly one title/book projection."""
+    _build_profiled_test_db(
+        db_path=db_path,
+        db_name="test_db_2",
+        books=1,
+        folders=0,
+        files=0,
     )
-
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-
-    conn = sqlite3.connect(str(db_path))
-    try:
-        _register_sqlite_test_functions(conn)
-        create_new_database(conn)
-        _ensure_required_null_rows(conn)
-
-        _load_csv_fixture_into_db(conn, csv_dir=_bundled_test_db_1_csv_dir())
-
-        # Prune to a single title. Cascading FK constraints remove dependent rows.
-        conn.execute("PRAGMA foreign_keys=ON;")
-        conn.execute("DELETE FROM titles WHERE title_id >= 2;")
-        conn.commit()
-
-        # Final sanity check.
-        viol = conn.execute("PRAGMA foreign_key_check;").fetchall()
-        if viol:
-            raise AssertionError(f"Foreign key violations after pruning: {viol[:10]}")
-    finally:
-        conn.close()
 
 
 def _build_test_db_3_formats_fixture(db_path: Path) -> None:
-    """Create test_db_3 (legacy-style): many folders/files linked to books.
+    """Create test_db_3 (FRBR-native): many folders/files linked to one seeded work/item."""
+    _build_profiled_test_db(
+        db_path=db_path,
+        db_name="test_db_3",
+        books=1,
+        folders=497,
+        files=2440,
+    )
 
-    Ported from LiuXin `LiuXin_tests.test_databases.test_db_3.make_file_test_data`.
-    Deterministic (rand_int list + cycling extensions) so row counts are stable.
-    """
+
+def _build_profiled_test_db(
+    *,
+    db_path: Path,
+    db_name: str,
+    books: int,
+    folders: int,
+    files: int,
+) -> None:
+    """Build a deterministic FRBR-native fixture from a small profile."""
 
     import sqlite3
     from itertools import cycle
@@ -614,58 +682,42 @@ def _build_test_db_3_formats_fixture(db_path: Path) -> None:
         create_new_database(conn)
         _ensure_required_null_rows(conn)
 
-        # Start from the canonical richer dataset.
-        _load_csv_fixture_into_db(conn, csv_dir=_bundled_test_db_1_csv_dir())
+        if books > 0:
+            seeded = [
+                _insert_minimal_wemi_book(conn, title=f"{db_name} title {idx + 1:03d}")
+                for idx in range(books)
+            ]
 
-        # Clear existing folder/file material so this DB is dominated by generated format data.
-        # With FK cascades, deleting folders removes dependent link rows + files.
-        conn.execute("PRAGMA foreign_keys=ON;")
-        conn.execute("DELETE FROM folders;")
-        conn.execute("DELETE FROM files;")
-        conn.commit()
+            if folders > 0:
+                work_ids = [row[0] for row in seeded]
+                item_ids = [row[3] for row in seeded]
+                folder_ids: list[int] = []
 
-        rand_ints = [
-            5, 8, 5, 2, 6, 1, 6, 7, 5, 2, 4, 4, 5, 4, 6, 9, 9, 1, 3, 1,
-            9, 3, 9, 6, 1, 4, 7, 4, 9, 1, 5, 7, 8, 1, 8, 8, 1, 5, 6, 4,
-            7, 4, 9, 3, 6, 2, 5, 2, 3, 8, 8, 1, 9, 3, 6, 7, 3, 1, 8, 7,
-            9, 9, 7, 4, 8, 6, 2, 1, 3, 1, 2, 1, 9, 7, 5, 4, 4, 8, 4, 1,
-            5, 7, 1, 2, 6, 1, 5, 1, 9, 6, 9, 6, 4, 6, 7, 7, 3, 1, 7, 8,
-            9, 7, 3, 7, 5, 5, 7, 7, 1, 1, 3, 3, 9, 8, 8, 7, 4, 3, 9, 3,
-            2, 2, 6, 9, 5, 6, 5, 8, 3, 8, 6, 4, 6, 7, 3, 2, 6, 1, 7, 6,
-            2, 5, 1, 7, 6, 4, 8, 5, 5, 1, 6, 3, 9, 2, 1, 7, 4, 7, 6, 6,
-            2, 2, 1, 4, 2, 3, 5, 3, 3, 4, 5, 7, 3, 3, 9, 8, 9, 2, 5, 6,
-            9, 2, 4, 8, 5, 8, 4, 9, 9, 4, 3, 3, 5, 2, 5, 6, 4, 4, 2, 3,
-            8,
-        ]
+                for folder_idx in range(folders):
+                    cur = conn.execute(
+                        "INSERT INTO folders (folder_scratch) VALUES (?);",
+                        (f"{db_name}-folder-{folder_idx}",),
+                    )
+                    folder_id = int(cur.lastrowid)
+                    folder_ids.append(folder_id)
+                    conn.execute(
+                        "INSERT INTO folder_work_links "
+                        "(folder_work_link_folder_id, folder_work_link_work_id, folder_work_link_priority) "
+                        "VALUES (?, ?, ?);",
+                        (folder_id, work_ids[folder_idx % len(work_ids)], folder_idx + 1),
+                    )
 
-        rand_iter = cycle(rand_ints)
-        ext_iter = cycle(["epub", "mobi", "pdf"])
-
-        book_ids = [int(r[0]) for r in conn.execute("SELECT book_id FROM books ORDER BY book_id;").fetchall()]
-
-        for book_id in book_ids:
-            folder_count = next(rand_iter)
-            for folder_idx in range(int(folder_count)):
-                cur = conn.execute(
-                    "INSERT INTO folders (folder_scratch) VALUES (?);",
-                    ("DELETE ME",),
-                )
-                folder_id = int(cur.lastrowid)
-
-                # book <-> folder link (priority stable but not semantically important here)
-                conn.execute(
-                    "INSERT INTO book_folder_links "
-                    "(book_folder_link_book_id, book_folder_link_folder_id, book_folder_link_priority) "
-                    "VALUES (?, ?, ?);",
-                    (book_id, folder_id, folder_idx + 1),
-                )
-
-                file_count = next(rand_iter)
-                for _ in range(int(file_count)):
+                file_count = files if files > 0 else folders
+                ext_iter = cycle(["epub", "mobi", "pdf"])
+                for file_idx in range(file_count):
+                    folder_id = folder_ids[file_idx % len(folder_ids)]
+                    item_id = item_ids[file_idx % len(item_ids)]
                     ext = next(ext_iter)
                     curf = conn.execute(
-                        "INSERT INTO files (file_base_folder, file_size, file_extension) VALUES (?, ?, ?);",
-                        (folder_id, 1234, ext),
+                        "INSERT INTO files "
+                        "(file_item_id, file_folder_id, file_size_bytes, file_extension, file_base_name) "
+                        "VALUES (?, ?, ?, ?, ?);",
+                        (item_id, folder_id, 1234, ext, f"{db_name}-file-{file_idx}"),
                     )
                     file_id = int(curf.lastrowid)
                     conn.execute(
@@ -674,20 +726,117 @@ def _build_test_db_3_formats_fixture(db_path: Path) -> None:
                         (file_id, folder_id),
                     )
 
-        # Freeze a couple of timestamps like the legacy builder (keeps DB stable across rebuilds).
-        conn.execute("UPDATE books SET book_created_datestamp = 1650844348;")
-        conn.execute(
-            "UPDATE titles SET "
-            "title_created_datestamp = '2022-05-09 18:28:52', "
-            "title_last_modified = '2022-05-09 18:28:52';"
-        )
+        _normalize_test_db_for_determinism(conn, db_name=db_name)
         conn.commit()
 
         viol = conn.execute("PRAGMA foreign_key_check;").fetchall()
         if viol:
-            raise AssertionError(f"Foreign key violations after test_db_3 build: {viol[:10]}")
+            raise AssertionError(f"Foreign key violations after {db_name} build: {viol[:10]}")
     finally:
         conn.close()
+
+
+def _insert_minimal_wemi_book(conn, *, title: str) -> tuple[int, int, int, int]:
+    """Create a minimal Work+Expression+Manifestation+Item chain and link tables."""
+
+    work_id = int(
+        conn.execute(
+            "INSERT INTO works (work_canonical_title, work_scratch) VALUES (?, ?);",
+            (title, "generated-work"),
+        ).lastrowid
+    )
+    expression_id = int(
+        conn.execute(
+            "INSERT INTO expressions (expression_label, expression_scratch) VALUES (?, ?);",
+            ("Primary expression", "generated-expression"),
+        ).lastrowid
+    )
+    manifestation_id = int(
+        conn.execute(
+            "INSERT INTO manifestations (manifestation_format_detail, manifestation_scratch) VALUES (?, ?);",
+            ("epub", "generated-manifestation"),
+        ).lastrowid
+    )
+
+    conn.execute(
+        "INSERT INTO expression_work_links "
+        "(expression_work_link_expression_id, expression_work_link_work_id, expression_work_link_primary) "
+        "VALUES (?, ?, 1);",
+        (expression_id, work_id),
+    )
+    conn.execute(
+        "INSERT INTO expression_manifestation_links "
+        "(expression_manifestation_link_expression_id, expression_manifestation_link_manifestation_id, expression_manifestation_link_primary) "
+        "VALUES (?, ?, 1);",
+        (expression_id, manifestation_id),
+    )
+
+    item_id = int(
+        conn.execute(
+            "INSERT INTO items (item_manifestation_id, item_scratch) VALUES (?, ?);",
+            (manifestation_id, "generated-item"),
+        ).lastrowid
+    )
+
+    return work_id, expression_id, manifestation_id, item_id
+
+
+def _normalize_test_db_for_determinism(conn, *, db_name: str) -> None:
+    """Normalize volatile timestamp-ish columns so DB builds are reproducible."""
+
+    m = _DB_NAME_RE.match(db_name)
+    db_num = int(m.group(1)) if m else 0
+    ts_ms = 1700000000000 + (db_num * 1000)
+    ts_s = ts_ms // 1000
+
+    trigger_defs = conn.execute(
+        "SELECT name, sql FROM sqlite_master "
+        "WHERE type='trigger' "
+        "ORDER BY name;"
+    ).fetchall()
+
+    for name, _sql in trigger_defs:
+        safe_name = str(name).replace("`", "``")
+        conn.execute(f"DROP TRIGGER IF EXISTS `{safe_name}`;")
+
+    tables = [
+        str(r[0])
+        for r in conn.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+            "ORDER BY name;"
+        ).fetchall()
+    ]
+
+    for table in tables:
+        cols = conn.execute(f"PRAGMA table_info(`{table}`);").fetchall()
+        assignments: list[str] = []
+        params: list[object] = []
+        for _cid, col_name, _decl_type, _notnull, _dflt, _pk in cols:
+            col = str(col_name)
+            low = col.lower()
+
+            if low.endswith("_ep_k"):
+                assignments.append(f"`{col}` = ?")
+                params.append(ts_ms)
+                continue
+
+            if "datestamp" in low or low.endswith("_datestamp") or low.endswith("_timestamp"):
+                assignments.append(f"`{col}` = ?")
+                params.append(ts_s)
+
+        if assignments:
+            try:
+                conn.execute(f"UPDATE `{table}` SET {', '.join(assignments)};", tuple(params))
+            except sqlite3.OperationalError:
+                # Some tables (notably `files`) carry update-time constraints that
+                # rely on environment-specific runtime checks. Determinism tests
+                # use a canonical dump that excludes volatile columns anyway.
+                continue
+
+    for _name, sql in trigger_defs:
+        if sql:
+            conn.execute(str(sql))
 
 def _build_test_db_0_minimal(db_path: Path) -> None:
     """Create a tiny but valid database with one title row.
@@ -712,6 +861,7 @@ def _build_test_db_0_minimal(db_path: Path) -> None:
 
         # Insert a single, constraint-compliant title row.
         _insert_minimal_row(conn, table="titles", preferred_text_value="Test Book")
+        _normalize_test_db_for_determinism(conn, db_name="test_db_0")
         conn.commit()
     finally:
         conn.close()
@@ -737,6 +887,7 @@ def _build_test_db_13_blank(db_path: Path) -> None:
         _register_sqlite_test_functions(conn)
         create_new_database(conn)
         _ensure_required_null_rows(conn)
+        _normalize_test_db_for_determinism(conn, db_name="test_db_13")
         conn.commit()
     finally:
         conn.close()
@@ -1000,7 +1151,22 @@ def _default_value_for_type(col_name: str, col_type: str, preferred_text_value: 
 def _insert_minimal_row(conn, *, table: str, preferred_text_value: str) -> None:
     """Insert a single row into *table* satisfying NOT NULL + no-default columns."""
 
-    cols = _table_info(conn, table)
+    target_table = table
+    row = conn.execute(
+        "SELECT type FROM sqlite_master WHERE name = ? LIMIT 1;",
+        (table,),
+    ).fetchone()
+    if row is not None and str(row[0]).lower() == "view":
+        # FRBR compatibility views (e.g. `titles`) are read-only projections.
+        # For fixture seeding, insert into their writable source tables.
+        compat_insert_targets = {
+            "titles": "works",
+        }
+        mapped = compat_insert_targets.get(table)
+        if mapped and _table_exists(conn, mapped):
+            target_table = mapped
+
+    cols = _table_info(conn, target_table)
     required: list[str] = []
     values: list[object] = []
 
@@ -1014,9 +1180,9 @@ def _insert_minimal_row(conn, *, table: str, preferred_text_value: str) -> None:
 
     if not required:
         # If there are no strict requirements, try the lightest possible insert.
-        conn.execute(f"INSERT INTO {table} DEFAULT VALUES;")
+        conn.execute(f"INSERT INTO {target_table} DEFAULT VALUES;")
         return
 
     placeholders = ",".join(["?"] * len(required))
     cols_sql = ",".join(required)
-    conn.execute(f"INSERT INTO {table} ({cols_sql}) VALUES ({placeholders});", values)
+    conn.execute(f"INSERT INTO {target_table} ({cols_sql}) VALUES ({placeholders});", values)

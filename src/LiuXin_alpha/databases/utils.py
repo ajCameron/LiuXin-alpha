@@ -12,8 +12,6 @@ from six import string_types
 
 from LiuXin_alpha.constants import preferred_encoding
 
-from LiuXin_alpha.metadata.ebook_metadata_tools import get_title_sort_pat
-
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower
 from LiuXin_alpha.utils.localization import trans as _
@@ -65,6 +63,17 @@ def force_to_bool(val: Any) -> Optional[bool]:
 _fuzzy_title_patterns = None
 
 
+def _safe_title_sort_pat() -> str:
+    """Import get_title_sort_pat lazily to avoid hard import-time dependency chains."""
+    try:
+        from LiuXin_alpha.metadata.ebook_metadata_tools import get_title_sort_pat
+
+        return get_title_sort_pat()
+    except Exception:
+        # Conservative fallback: common leading-article strip used for fuzzy matching.
+        return r"^(a|an|the)\s+"
+
+
 def fuzzy_title_patterns():
     """
     Create and return fuzzy patterns
@@ -80,7 +89,7 @@ def fuzzy_title_patterns():
             )
             for pat, repl in [
                 (r'[\[\](){}<>\'";,:#]', ""),
-                (get_title_sort_pat(), ""),
+                (_safe_title_sort_pat(), ""),
                 (r"[-._]", " "),
                 (r"\s+", " "),
             ]

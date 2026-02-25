@@ -1,53 +1,69 @@
 
 import datetime
 
-from LiuXin_alpha.databases.row import Row
+from typing import Optional, Union
 
 from LiuXin_alpha.databases.api import RowAPI
-
+from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort, to_epoch_ms
-
 from LiuXin_alpha.utils.language_tools import best_effort_language_id
-
-from typing import Optional, Union
 
 
 class WEMIAdderMixin:
     """
     Add methods for the basic WEMI classes.
     """
-    def work(self,
-             *,
-             # - Titles and sorting
-             work_title: str,
-             work_canonical_title: Optional[str] = None,
-             work_sort_title: Optional[str] = None,
-             work_creator_sort: Optional[str] = None,
+    @staticmethod
+    def _coerce_epoch_ms(value: Optional[Union[int, float, datetime.date, datetime.datetime, str]]) -> Optional[int]:
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, (float, datetime.datetime, datetime.date, str)):
+            try:
+                return int(to_epoch_ms(value))
+            except Exception:
+                return None
+        return None
 
-             # - Core Identity
-             work_type: Optional[str] = None,
-             work_medium: Optional[str] = None,
+    @staticmethod
+    def _coerce_iso_date(value: Optional[Union[datetime.date, datetime.datetime, str]]) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, datetime.datetime):
+            return value.date().isoformat()
+        if isinstance(value, datetime.date):
+            return value.isoformat()
+        return str(value)
 
-             # - Flags for sorting e.t.c
-             work_flags: Optional[str] = None,
-
-             # - Original context
-             work_original_language: Optional[Union[str, int]] = None,
-             work_original_date: Optional[str] = None,
-             work_original_copyright_date: Optional[str] = None,
-
-             # - Work metadata and references
-             work_wikipedia_link: Optional[str] = None,
-
-             # - High-level classification
-             work_is_fiction: Optional[int] = None,
-             work_audience: Optional[str] = None,
-             work_completion_status: Optional[str] = None,
-
-             # - Concept-level provenance / notes
-             work_discovery_note: Optional[str] = None,
-             work_created_timestamp: Optional[Union[int, float, datetime.datetime, str]] = None,
-             ) -> RowAPI:
+    def work(
+        self,
+        *,
+        # - Titles and sorting
+        work_title: str,
+        work_canonical_title: Optional[str] = None,
+        work_sort_title: Optional[str] = None,
+        work_creator_sort: Optional[str] = None,
+        # - Core Identity
+        work_type: Optional[str] = None,
+        work_medium: Optional[str] = None,
+        # - Flags for sorting e.t.c
+        work_flags: Optional[str] = None,
+        # - Original context
+        work_original_language: Optional[Union[str, int]] = None,
+        work_original_date: Optional[Union[int, float, datetime.date, datetime.datetime, str]] = None,
+        work_original_year: Optional[int] = None,
+        work_original_copyright_date: Optional[Union[datetime.date, datetime.datetime, str]] = None,
+        # - Work metadata and references
+        work_wikipedia_link: Optional[str] = None,
+        # - High-level classification
+        work_is_fiction: Optional[int] = None,
+        work_audience: Optional[str] = None,
+        work_completion_status: Optional[str] = None,
+        # - Concept-level provenance / notes
+        work_discovery_note: Optional[str] = None,
+        work_created_timestamp: Optional[Union[int, float, datetime.datetime, str]] = None,
+    ) -> RowAPI:
         """
         Add methods for the Work entry of the WEMI tables.
 
@@ -81,7 +97,7 @@ class WEMIAdderMixin:
         if work_sort_title is not None:
             new_row_dict["work_sort_title"] = work_sort_title
         else:
-            new_row_dict["work_sort_title"] = title_sort(work_sort_title)
+            new_row_dict["work_sort_title"] = title_sort(work_title)
         new_row_dict["work_creator_sort"] = work_creator_sort
 
         new_row_dict["work_type"] = work_type
@@ -92,11 +108,12 @@ class WEMIAdderMixin:
 
         # - Original context
         if work_original_language is not None:
-            new_row_dict["work_original_language"] = best_effort_language_id(self.db, work_original_language)
+            new_row_dict["work_original_language_id"] = best_effort_language_id(self.db, work_original_language)
         else:
-            new_row_dict["work_original_language"] = None
-        new_row_dict["work_original_date"] = work_original_date
-        new_row_dict["work_original_copyright_date"] = work_original_copyright_date
+            new_row_dict["work_original_language_id"] = None
+        new_row_dict["work_original_date"] = self._coerce_epoch_ms(work_original_date)
+        new_row_dict["work_original_year"] = work_original_year
+        new_row_dict["work_original_copyright_date"] = self._coerce_iso_date(work_original_copyright_date)
 
         # - Work metadata and references
         new_row_dict["work_wikipedia_link"] = work_wikipedia_link
@@ -108,43 +125,41 @@ class WEMIAdderMixin:
 
         # - Concept-level provenance / notes
         new_row_dict["work_discovery_note"] = work_discovery_note
-        new_row_dict["work_created_timestamp"] = work_created_timestamp
+        created_epk = self._coerce_epoch_ms(work_created_timestamp)
+        if created_epk is not None:
+            new_row_dict["work_created_timestamp_ep_k"] = created_epk
+            new_row_dict["work_modified_timestamp_ep_k"] = created_epk
 
-        return Row.from_idless_row_dict(self.db, new_row_dict)
+        return Row.from_idless_row_dict(self.db, new_row_dict, table="works")
 
-    def expression(self,
-                   *,
-                   # -Titles (generally formed from Work title; override only when truly different)
-                   expression_subtitle: Optional[str],
-                   expression_title_override: Optional[str] = None,
-
-                   # - Core identity
-                   expression_type: Optional[str] = None,
-                   expression_label: Optional[str] = None,
-                   expression_year: Optional[int] = None,
-                   expression_is_preferred: Optional[int] = None,
-
-                    # - Expression dates
-                   expression_original_date: Optional[datetime.datetime] = None,
-                   expression_original_copyright_date: Optional[datetime.datetime] = None,
-
-                    # - Expression flags
-                   expression_flags: Optional[str] = None,
-
-                   # - Language & mode
-                   expression_language: Optional[Union[str, int]] = None,
-                   expression_mode: Optional[str] = None,
-
-                   # - Text-centric details
-                   expression_wordcount: Optional[int] = None,
-                   expression_fiction_length_category: Optional[int] = None,
-
-                   # - AV centric details
-                   expression_cut_type: Optional[str] = None,
-                   expression_nominal_duration_seconds: Optional[int] = None,
-                   expression_status: Optional[str] = None,
-                   expression_origin_note: Optional[str] = None,
-                   ) -> RowAPI:
+    def expression(
+        self,
+        *,
+        # -Titles (generally formed from Work title; override only when truly different)
+        expression_subtitle: Optional[str] = None,
+        expression_title_override: Optional[str] = None,
+        # - Core identity
+        expression_type: Optional[str] = None,
+        expression_label: Optional[str] = None,
+        expression_year: Optional[int] = None,
+        expression_is_preferred: Optional[int] = None,
+        # - Expression dates
+        expression_original_date: Optional[Union[int, float, datetime.date, datetime.datetime, str]] = None,
+        expression_original_copyright_date: Optional[Union[datetime.date, datetime.datetime, str]] = None,
+        # - Expression flags
+        expression_flags: Optional[str] = None,
+        # - Language & mode
+        expression_language: Optional[Union[str, int]] = None,
+        expression_mode: Optional[str] = None,
+        # - Text-centric details
+        expression_wordcount: Optional[int] = None,
+        expression_fiction_length_category: Optional[int] = None,
+        # - AV centric details
+        expression_cut_type: Optional[str] = None,
+        expression_nominal_duration_seconds: Optional[int] = None,
+        expression_status: Optional[str] = None,
+        expression_origin_note: Optional[str] = None,
+    ) -> RowAPI:
         """
         Add methods for the Expression table.
 
@@ -176,14 +191,19 @@ class WEMIAdderMixin:
         new_row_dict["expression_is_preferred"] = expression_is_preferred
 
         # - Expression dates
-        new_row_dict["expression_original_date"] = expression_original_date
-        new_row_dict["expression_original_copyright_date"] = expression_original_copyright_date
+        new_row_dict["expression_original_date"] = self._coerce_epoch_ms(expression_original_date)
+        new_row_dict["expression_original_copyright_date"] = self._coerce_iso_date(
+            expression_original_copyright_date
+        )
 
         # - Expression flags
         new_row_dict["expression_flags"] = expression_flags
 
         # - Language & mode
-        new_row_dict["expression_language"] = expression_language
+        if expression_language is not None:
+            new_row_dict["expression_language_id"] = best_effort_language_id(self.db, expression_language)
+        else:
+            new_row_dict["expression_language_id"] = None
         new_row_dict["expression_mode"] = expression_mode
 
         # - Text-centric details
@@ -196,33 +216,30 @@ class WEMIAdderMixin:
         new_row_dict["expression_status"] = expression_status
         new_row_dict["expression_origin_note"] = expression_origin_note
 
-        return Row.from_idless_row_dict(database=self.db, row_dict=new_row_dict)
+        return Row.from_idless_row_dict(database=self.db, row_dict=new_row_dict, table="expressions")
 
-    def manifestation(self,
-                      *,
-                      # - Title details
-                      manifestation_subtitle: Optional[str],
-
-                      # - Carrier / format
-                      manifestation_carrier_type: Optional[str] = None,
-                      manifestation_format_detail: Optional[str] = None,
-
-                      # - Edition / publication info
-                      manifestation_edition_statement: Optional[str] = None,
-                      manifestation_pub_year: Optional[int] = None,
-                      manifestation_pub_date: Optional[Union[datetime.datetime, str, int, float]] = None,
-
-                      # - Flags
-                      manifestation_flags: Optional[str] = None,
-
-                      # - Physical / technical characteristics (stable for the product)
-                      manifestation_page_count: Optional[int] = None,
-                      manifestation_runtime_minutes: Optional[int] = None,
-                      manifestation_region_code: Optional[str],
-
-                      # - Status / notes
-                      manifestation_status: Optional[str],
-                      manifestation_note: Optional[str]) -> RowAPI:
+    def manifestation(
+        self,
+        *,
+        # - Title details
+        manifestation_subtitle: Optional[str] = None,
+        # - Carrier / format
+        manifestation_carrier_type: Optional[str] = None,
+        manifestation_format_detail: Optional[str] = None,
+        # - Edition / publication info
+        manifestation_edition_statement: Optional[str] = None,
+        manifestation_pub_year: Optional[int] = None,
+        manifestation_pub_date: Optional[Union[datetime.date, datetime.datetime, str]] = None,
+        # - Flags
+        manifestation_flags: Optional[str] = None,
+        # - Physical / technical characteristics (stable for the product)
+        manifestation_page_count: Optional[int] = None,
+        manifestation_runtime_minutes: Optional[int] = None,
+        manifestation_region_code: Optional[str] = None,
+        # - Status / notes
+        manifestation_status: Optional[str] = None,
+        manifestation_note: Optional[str] = None,
+    ) -> RowAPI:
         """
         Add methods for the Manifestation table.
 
@@ -250,7 +267,7 @@ class WEMIAdderMixin:
         # - Edition / publication info
         new_manifestation_row["manifestation_edition_statement"] = manifestation_edition_statement
         new_manifestation_row["manifestation_pub_year"] = manifestation_pub_year
-        new_manifestation_row["manifestation_pub_date"] = manifestation_pub_date
+        new_manifestation_row["manifestation_pub_date"] = self._coerce_iso_date(manifestation_pub_date)
 
         # - Flags
         new_manifestation_row["manifestation_flags"] = manifestation_flags
@@ -264,38 +281,33 @@ class WEMIAdderMixin:
         new_manifestation_row["manifestation_status"] = manifestation_status
         new_manifestation_row["manifestation_note"] = manifestation_note
 
-        return Row.from_idless_row_dict(database=self.db, row_dict=new_manifestation_row)
+        return Row.from_idless_row_dict(database=self.db, row_dict=new_manifestation_row, table="manifestations")
 
-    def item(self,
-             # - Relation to manifestation
-             item_manifestation_id: Optional[str] = None,
-
-             # - Flags to control operations of the system
-             item_flags: Optional[str] = None,
-
-             # - Type of item
-             item_type: Optional[str] = None,
-
-             # - Location / inventory
-             item_location: Optional[str] = None,
-             item_inventory_code: Optional[str] = None,
-
-             # - Item dates
-             item_original_date: Optional[str] = None,
-             item_original_copyright_date: Optional[str] = None,
-
-             # - Source / provenance (per-copy)
-             item_source: Optional[str] = None,
-             item_source_detail: Optional[str] = None,
-             item_source_path: Optional[str] = None,
-             item_source_name: Optional[str] = None,
-
-             # - Acquisition / lifecycle
-             item_acquired_date: Optional[Union[datetime.datetime, str, int, float]] = None,
-             item_acquired_price_minor: Optional[float] = None,
-             item_lifecycle_status: Optional[str] = None,
-             item_condition: Optional[str] = None
-             ) -> RowAPI:
+    def item(
+        self,
+        # - Relation to manifestation
+        item_manifestation_id: Optional[Union[str, int]] = None,
+        # - Flags to control operations of the system
+        item_flags: Optional[str] = None,
+        # - Type of item
+        item_type: Optional[str] = None,
+        # - Location / inventory
+        item_location: Optional[str] = None,
+        item_inventory_code: Optional[str] = None,
+        # - Item dates
+        item_original_date: Optional[Union[int, float, datetime.date, datetime.datetime, str]] = None,
+        item_original_copyright_date: Optional[Union[datetime.date, datetime.datetime, str]] = None,
+        # - Source / provenance (per-copy)
+        item_source: Optional[str] = None,
+        item_source_detail: Optional[str] = None,
+        item_source_path: Optional[str] = None,
+        item_source_name: Optional[str] = None,
+        # - Acquisition / lifecycle
+        item_acquired_date: Optional[Union[datetime.date, datetime.datetime, str]] = None,
+        item_acquired_price_minor: Optional[float] = None,
+        item_lifecycle_status: Optional[str] = None,
+        item_condition: Optional[str] = None,
+    ) -> RowAPI:
         """
         Add methods for the Item table.
 
@@ -325,8 +337,8 @@ class WEMIAdderMixin:
         item_new_row_dict["item_inventory_code"] = item_inventory_code
 
         # - Item dates
-        item_new_row_dict["item_original_date"] = item_original_date
-        item_new_row_dict["item_original_copyright_date"] = item_original_copyright_date
+        item_new_row_dict["item_original_date"] = self._coerce_epoch_ms(item_original_date)
+        item_new_row_dict["item_original_copyright_date"] = self._coerce_iso_date(item_original_copyright_date)
 
         # - Source / provenance (per-copy)
         item_new_row_dict["item_source"] = item_source
@@ -335,9 +347,9 @@ class WEMIAdderMixin:
         item_new_row_dict["item_source_name"] = item_source_name
 
         # - Acquisition / lifecycle
-        item_new_row_dict["item_acquired_date"] = item_acquired_date
+        item_new_row_dict["item_acquired_date"] = self._coerce_iso_date(item_acquired_date)
         item_new_row_dict["item_acquired_price_minor"] = item_acquired_price_minor
         item_new_row_dict["item_lifecycle_status"] = item_lifecycle_status
         item_new_row_dict["item_condition"] = item_condition
 
-        return Row.from_idless_row_dict(self.db, row_dict=item_new_row_dict)
+        return Row.from_idless_row_dict(self.db, row_dict=item_new_row_dict, table="items")

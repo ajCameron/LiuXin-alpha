@@ -1,22 +1,30 @@
+"""
+API contracts for file containers exposed by storage backends.
+"""
+
 from __future__ import annotations
 
 import abc
 import dataclasses
-from io import TextIOWrapper, FileIO, BufferedRandom, BufferedWriter, BufferedReader
 
-from typing import Literal, overload, Optional, BinaryIO, IO, Any, TypeVar
+from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
+from typing import Any, BinaryIO, IO, Literal, Optional, overload
 
-from LiuXin_alpha.storage.api.modes_api import OpenTextMode, OpenBinaryModeUpdating, OpenBinaryModeWriting, \
-    OpenBinaryModeReading, OpenBinaryMode, _Opener
 from LiuXin_alpha.storage.api.location_api import FileDescriptorOrPath
+from LiuXin_alpha.storage.api.modes_api import (
+    OpenBinaryMode,
+    OpenBinaryModeReading,
+    OpenBinaryModeUpdating,
+    OpenBinaryModeWriting,
+    OpenTextMode,
+    _Opener,
+)
 from LiuXin_alpha.storage.single_file import SingleFileStatus
-
-T = TypeVar("T")
 
 
 class FileOpenerTypeMixin(abc.ABC):
     """
-    When mixed in, provides a
+    Typed mirror of Python's built-in `open` signatures.
     """
 
     @overload
@@ -32,7 +40,6 @@ class FileOpenerTypeMixin(abc.ABC):
         opener: _Opener | None = None,
     ) -> TextIOWrapper: ...
 
-    # Unbuffered binary mode: returns FileIO
     @overload
     def open(
         self,
@@ -46,14 +53,13 @@ class FileOpenerTypeMixin(abc.ABC):
         opener: _Opener | None = None,
     ) -> FileIO: ...
 
-    # Buffered binary mode (buffering -1 or 1): narrower returns
     @overload
     def open(
         self,
         file: FileDescriptorOrPath,
         mode: OpenBinaryModeUpdating,
         buffering: Literal[-1, 1] = -1,
-        encoding: Optional[None] = None,
+        encoding: None = None,
         errors: None = None,
         newline: None = None,
         closefd: bool = True,
@@ -86,7 +92,6 @@ class FileOpenerTypeMixin(abc.ABC):
         opener: _Opener | None = None,
     ) -> BufferedReader: ...
 
-    # Buffering can’t be determined precisely: fall back to BinaryIO
     @overload
     def open(
         self,
@@ -100,7 +105,6 @@ class FileOpenerTypeMixin(abc.ABC):
         opener: _Opener | None = None,
     ) -> BinaryIO: ...
 
-    # “Anything else” fallback
     @overload
     def open(
         self,
@@ -116,119 +120,100 @@ class FileOpenerTypeMixin(abc.ABC):
 
     def open(self, file: FileDescriptorOrPath, mode: str = "r", **kwargs: Any) -> IO[Any]:
         import builtins
+
         return builtins.open(file, mode, **kwargs)
 
 
-class SingleFileAPI(FileOpenerTypeMixin):
+class SingleFileAPI(FileOpenerTypeMixin, abc.ABC):
     """
-    Container representing a single file in a single store.
+    Container representing one file in one backend store.
     """
-    file_status: SingleFileStatus  # - Status for the file on the system
 
-    store: str                      # - Which store is the file in?
-    file_url: str                   # - url to this instance of the file
+    file_status: Optional[SingleFileStatus]
+    store: Optional[str]
+    file_url: str
 
-    binary: Optional[bytes] = None      # - Binary bits of the file
+    binary: Optional[bytes] = None
+    loaded: bool = False
 
-    loaded: bool = False        # - Has the file actually been loaded into this dataclass?
-
-    def __init__(self, file_url: str, file_status: Optional[SingleFileStatus]) -> None:
-        """
-        Initializes a single file.
-
-        :param file_url:
-        """
+    def __init__(
+        self,
+        file_url: str,
+        file_status: Optional[SingleFileStatus] = None,
+        *,
+        store: Optional[str] = None,
+    ) -> None:
         self.file_url = file_url
         self.file_status = file_status
+        self.store = store
+
+    def _required_status(self, *, refresh: bool = False) -> SingleFileStatus:
+        if refresh or self.file_status is None:
+            self.file_status = self.recheck_status()
+        if self.file_status is None:
+            raise AttributeError("SingleFileAPI has no available status for {!r}".format(self.file_url))
+        return self.file_status
+
+    @property
+    def status(self) -> Optional[SingleFileStatus]:
+        """Alias retained for older call sites."""
+        return self.file_status
+
+    @property
+    def uuid(self) -> Optional[str]:
+        status = self.file_status
+        return None if status is None else status.uuid
+
+    @property
+    def cached_size(self) -> Optional[int]:
+        status = self.file_status
+        return None if status is None else status.size
+
+    @property
+    def cached_hash(self) -> Optional[str]:
+        status = self.file_status
+        return None if status is None else status.hash
+
+    @property
+    def size(self) -> int:
+        return self._required_status(refresh=True).size
+
+    @property
+    def hash(self) -> str:
+        return self._required_status(refresh=True).hash
+
+    @property
+    def url(self) -> str:
+        status = self.file_status
+        if status is not None:
+            return status.url
+        return self.file_url
 
     @abc.abstractmethod
     def recheck_status(self) -> SingleFileStatus:
         """
-        If we suspect something has changed, then we must regenerate status.
-
-        :return:
+        Refresh and return file status.
         """
 
-    @property
-    def uuid(self) -> Optional[str]:
-        """
-        Return the uuid for the file stored in the status.
-
-        This should be (mostly) static for the file.
-        :return:
-        """
-        return self.status.uuid
-
-    @property
-    def cached_size(self) -> int:
-        """
-        Return the cached size for the individual file.
-
-        :return:
-        """
-        return self.status.size
-
-    @property
-    def cached_hash(self) -> str:
-        """
-        Return the cached hash of the file.
-        :return:
-        """
-        return self.status.hash
-
-    @property
-    def size(self) -> int:
-        """
-        Go and check the actual size of the file.
-
-        :return:
-        """
-        return self.status.size
-
-    @property
-    def hash(self) -> str:
-        """
-        Go and check the actual hash of the file.
-
-        :return:
-        """
-        return self.status.hash
-
-    @property
-    def url(self) -> str:
-        """
-        Return the URL of the file.
-
-        :return:
-        """
-        return self.status.url
-
+    @abc.abstractmethod
     def as_string(self) -> str:
         """
-        Return the file as a string - this can be a memory and time intensive operation.
-
-        :return:
+        Return the file payload as text.
         """
 
+    @abc.abstractmethod
     def as_bytes(self) -> bytes:
         """
-        Return the file as bytes.
-
-        :return:
+        Return the file payload as bytes.
         """
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class FileStatus:
     """
-    Status for a file on the system - includes LiuXin wide metadata
+    LiuXin-level status overlay for one logical file.
     """
 
-    copies: str         # - Number of copies the system has access to?
-    protected: bool     # - Does the system consider the file to be protected?
-
-
-
-
-
+    copies: int = 0
+    protected: bool = False
 

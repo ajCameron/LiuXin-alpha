@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, Optional, Sequence
 
-from LiuXin_alpha.storage.api.storage_api import StorageBackendAPI, StorageBackendStatus, StorageBackendCheckStatus
+from LiuXin_alpha.storage.api.storage_api import StoreAPI, StoreCheckStatus, StoreStatus
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 from LiuXin_alpha.utils.logging.event_logs.in_memory_list import InMemoryEventLog
 
@@ -19,7 +19,7 @@ class RcloneBackendOptions:
     timeout_s: float | None = 60.0
 
 
-class RcloneHttpReadOnlyStorageBackend(StorageBackendAPI):
+class RcloneHttpReadOnlyStorageBackend(StoreAPI):
     """Read-only StorageBackend powered by `rclone`'s HTTP remote.
 
     `url` is an rclone filesystem (fs) string, e.g.
@@ -55,8 +55,8 @@ class RcloneHttpReadOnlyStorageBackend(StorageBackendAPI):
             timeout_s=self.options.timeout_s,
         )
 
-    def self_test(self) -> StorageBackendStatus:
-        cs = StorageBackendCheckStatus()
+    def self_test(self) -> StoreStatus:
+        cs = StoreCheckStatus()
         cs.store_marker_file = True
         cs.read = False
         cs.write = False
@@ -82,7 +82,7 @@ class RcloneHttpReadOnlyStorageBackend(StorageBackendAPI):
             good = "unhealthy"
 
         # No robust free-space for HTTP remotes (rclone about unsupported).
-        return StorageBackendStatus(
+        return StoreStatus(
             name=self.name,
             uuid=self.uuid or self.name,
             file_count=None,
@@ -94,7 +94,7 @@ class RcloneHttpReadOnlyStorageBackend(StorageBackendAPI):
             event_log=self._event_log,
         )
 
-    def status(self) -> StorageBackendStatus:
+    def status(self) -> StoreStatus:
         return self.self_test()
 
     def file_exists(self, file_url: str) -> bool:
@@ -117,9 +117,6 @@ class RcloneHttpReadOnlyStorageBackend(StorageBackendAPI):
 
     def get_file(self, file_url: str) -> RcloneHttpReadOnlySingleFile:
         return RcloneHttpReadOnlySingleFile(file_url=file_url, store=self)
-
-    def add_storage_backend(self, *args: Any, **kwargs: Any) -> None:
-        raise PermissionError("HTTP backend is read-only")
 
     def add_file(self, *args: Any, **kwargs: Any) -> None:
         raise PermissionError("HTTP backend is read-only")
