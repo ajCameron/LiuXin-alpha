@@ -1,60 +1,31 @@
-name: Test Suite
+name: Tests
 
 on:
   push:
+  pull_request:
   workflow_dispatch:
-
-concurrency:
-  group: test-suite-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   tests:
-    name: Run pytest
+    name: Pytest
     runs-on: ubuntu-latest
-    timeout-minutes: 45
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
-      - name: Install dependencies
-        shell: bash
+      - name: Install from pyproject.toml
         run: |
           python -m pip install --upgrade pip
-
-          if [[ -f requirements.txt ]]; then
-            python -m pip install -r requirements.txt
-          fi
-
-          if [[ -f requirements-dev.txt ]]; then
-            python -m pip install -r requirements-dev.txt
-          fi
-
-          if [[ -f pyproject.toml ]]; then
-            python - <<'PY'
-import pathlib
-import subprocess
-import sys
-import tomllib
-
-pyproject = pathlib.Path("pyproject.toml")
-data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-deps = data.get("project", {}).get("dependencies", [])
-if deps:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", *deps])
-PY
-          fi
-
-          python -m pip install pytest
+          python -m pip install ".[test]"
 
       - name: Run tests
         env:
           PYTHONPATH: src
-        run: |
-          pytest -q tests
+        run: pytest -q tests
