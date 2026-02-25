@@ -9,7 +9,7 @@ import warnings
 from functools import partial
 from bisect import bisect
 
-from six import iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 from lxml.etree import (
     ElementBase,
     XMLParser,

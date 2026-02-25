@@ -1,9 +1,9 @@
 import traceback
 from collections import OrderedDict
 
-from six import iterkeys
-from six import itervalues
-from six import iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 from LiuXin_alpha.preferences import preferences as tweaks
 from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower

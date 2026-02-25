@@ -6,7 +6,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 from collections import defaultdict
 from threading import Lock
 
-from six import iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 from LiuXin_alpha.customize.cache.base_tables import ONE_ONE, ONE_MANY, MANY_ONE, MANY_MANY, null
 from LiuXin_alpha.customize.cache.base_field import BaseField

@@ -13,7 +13,7 @@ from xml.dom import SyntaxErr
 import cssutils
 from cssutils.css import Property
 from lxml import etree
-from six import string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin.file_formats.oeb.base import (
     XHTML,

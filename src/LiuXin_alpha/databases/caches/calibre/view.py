@@ -8,9 +8,9 @@ import weakref
 from functools import partial
 from builtins import map as imap
 
-from six import iteritems
-from six import iterkeys
-from six import itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import itervalues
 
 from LiuXin_alpha.utils.python_tools import uniq
 

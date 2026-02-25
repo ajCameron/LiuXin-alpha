@@ -8,7 +8,7 @@ from collections import namedtuple
 
 from typing import Optional, Any, Iterable, Union
 
-from six import string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.constants import preferred_encoding
 

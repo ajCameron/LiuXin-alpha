@@ -18,7 +18,7 @@ from LiuXin.utils.localization import _
 from LiuXin.utils.logger import default_log
 from LiuXin.utils.ptempfiles import TemporaryDirectory
 from LiuXin.databases.caches.calibre.cache import CalibreCache
-from six import iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"

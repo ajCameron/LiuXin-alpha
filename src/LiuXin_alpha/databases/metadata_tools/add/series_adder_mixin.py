@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
 
-from six import string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError

@@ -11,7 +11,7 @@ from collections import defaultdict, Counter
 from copy import deepcopy
 from threading import Lock
 
-from six import iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import iterkeys
 
 # Todo: These should be stored in base.tables
 from LiuXin_alpha.customize.cache.base_tables import (

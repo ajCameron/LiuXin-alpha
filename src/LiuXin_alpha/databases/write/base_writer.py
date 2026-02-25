@@ -3,7 +3,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 import pprint
 from copy import deepcopy
 
-from six import string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.databases.adaptors import get_adapter
 from LiuXin_alpha.errors import DatabaseIntegrityError

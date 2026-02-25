@@ -4,7 +4,7 @@ import datetime
 
 from typing import Any, Iterable, Optional, Sequence, Union
 
-from six import string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.databases.api import RowAPI
 from LiuXin_alpha.databases.row import Row

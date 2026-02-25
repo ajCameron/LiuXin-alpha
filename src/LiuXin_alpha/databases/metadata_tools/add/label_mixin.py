@@ -12,8 +12,8 @@ import re
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
 
-import six
-from six import string_types
+import LiuXin_alpha.utils.libraries.liuxin_six as six
+from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.metadata.constants import CREATOR_TYPES, EXTERNAL_EBOOK_ID_SCHEMA, INTERNAL_EBOOK_ID_SCHEMA
 

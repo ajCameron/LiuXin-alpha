@@ -34,7 +34,7 @@ from LiuXin.utils.logger import default_log
 from LiuXin.utils.search_query_parser import set_saved_searches
 from LiuXin.databases.caches.calibre.view import CalibreView
 from LiuXin_alpha.metadata import validate_identifier
-from six import iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 from LiuXin.databases.utils import cleanup_tags
 

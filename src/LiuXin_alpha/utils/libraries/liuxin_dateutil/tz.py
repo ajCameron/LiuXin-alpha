@@ -34,10 +34,7 @@ __all__ = [
     "gettz",
 ]
 
-try:
-    from six import string_types, PY3
-except ImportError:
-    from LiuXin.utils.six.six import string_types, PY3
+from LiuXin_alpha.utils.libraries.liuxin_six import string_types, PY3
 
 try:
     try:

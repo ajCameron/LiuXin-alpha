@@ -13,8 +13,8 @@ import time
 from copy import deepcopy
 
 # Todo: Replace all references to six with references to LiuXin_six
-import six
-from six import iteritems
+import LiuXin_alpha.utils.libraries.liuxin_six as six
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 from LiuXin_alpha.utils.logging import default_log
 

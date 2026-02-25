@@ -4,7 +4,7 @@ import sqlite3
 import types
 from typing import Optional, Union, Any, Iterable
 
-from six import iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 

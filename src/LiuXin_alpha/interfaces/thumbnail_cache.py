@@ -7,7 +7,7 @@ import sys
 from collections import OrderedDict
 from threading import Lock
 
-from six import iteritems, itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, itervalues
 
 from LiuXin_alpha.constants import cache_dir
 from LiuXin_alpha.databases.utils import CacheError, Entry
