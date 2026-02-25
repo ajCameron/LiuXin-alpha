@@ -19,8 +19,7 @@ import functools
 from urllib.parse import unquote, urlparse
 from collections import Counter
 
-from lxml import etree
-from lxml.builder import ElementMaker
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 
 from typing import Union, Optional
 

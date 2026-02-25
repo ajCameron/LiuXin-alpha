@@ -9,7 +9,7 @@ import re
 from collections import defaultdict, namedtuple
 from functools import wraps
 
-from lxml import etree
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 from LiuXin_alpha.file_formats.oeb.base import OPF2_NSMAP, OPF, DC
 

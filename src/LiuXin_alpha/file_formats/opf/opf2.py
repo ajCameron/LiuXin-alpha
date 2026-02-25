@@ -17,7 +17,7 @@ import uuid
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
 
-from lxml import etree
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 
 from LiuXin_alpha.file_formats.utils import escape_xpath_attr
 
@@ -2081,7 +2081,6 @@ class OPFCreator(calibreMetadata):
         self.guide.set_basedir(self.base_path)
 
         # Actual rendering
-        from lxml.builder import ElementMaker
         from LiuXin.file_formats.oeb.base import OPF2_NS, DC11_NS, CALIBRE_NS
 
         DNS = OPF2_NS + "___xx___"
@@ -2252,7 +2251,6 @@ def metadata_to_opf(mi, as_string=True, default_lang=None):
     :param default_lang:
     :return:
     """
-    from lxml import etree
     import textwrap
     from LiuXin.file_formats.oeb.base import OPF, DC
 
@@ -2603,7 +2601,6 @@ def calibre_metadata_to_opf(mi, as_string=True, default_lang=None):
     :param default_lang:
     :return:
     """
-    from lxml import etree
     import textwrap
     from LiuXin.file_formats.oeb.base import OPF, DC
 

@@ -5,7 +5,16 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import re
 
-from lxml import etree, html
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+
+try:
+    from lxml import html  # type: ignore
+except Exception:  # pragma: no cover - runtime without lxml
+    class _MissingLxmlHtml:
+        def __getattr__(self, name):
+            raise ImportError("lxml.html is unavailable in this runtime")
+
+    html = _MissingLxmlHtml()
 
 from LiuXin_alpha.file_formats.chardet import xml_to_unicode, strip_encoding_declarations
 

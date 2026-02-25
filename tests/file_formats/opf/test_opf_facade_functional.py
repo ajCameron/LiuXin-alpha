@@ -12,6 +12,8 @@ import io
 from typing import Any, Optional, Union
 
 import pytest
+
+pytest.importorskip("lxml")
 from lxml import etree
 
 DC_NS = "http://purl.org/dc/elements/1.1/"

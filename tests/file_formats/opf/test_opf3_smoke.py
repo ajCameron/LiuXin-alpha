@@ -7,6 +7,9 @@ Uses the legacy alias shim so import succeeds even before cleanup.
 from __future__ import annotations
 
 import importlib
+import pytest
+
+pytest.importorskip("lxml")
 from lxml import etree
 
 DC_NS = "http://purl.org/dc/elements/1.1/"

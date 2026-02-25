@@ -9,8 +9,7 @@ import functools
 from urllib.parse import unquote
 from collections import Counter
 
-from lxml import etree
-from lxml.builder import ElementMaker
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 
 # Todo: Check the imports - do they point to the right version of BS e.t.c
 from LiuXin.constants import __appname__, __version__

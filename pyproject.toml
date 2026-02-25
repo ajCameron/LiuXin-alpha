@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "liuxin-alpha"
+version = "0.0.0"
+description = "LiuXin alpha codebase"
+requires-python = ">=3.12"
+dependencies = [
+  "lxml>=5.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=7.4",
+]

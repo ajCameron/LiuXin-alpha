@@ -36,6 +36,21 @@ jobs:
             python -m pip install -r requirements-dev.txt
           fi
 
+          if [[ -f pyproject.toml ]]; then
+            python - <<'PY'
+import pathlib
+import subprocess
+import sys
+import tomllib
+
+pyproject = pathlib.Path("pyproject.toml")
+data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+deps = data.get("project", {}).get("dependencies", [])
+if deps:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", *deps])
+PY
+          fi
+
           python -m pip install pytest
 
       - name: Run tests

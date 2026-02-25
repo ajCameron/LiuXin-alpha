@@ -4,7 +4,7 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from lxml import etree
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 from LiuXin_alpha.file_formats.opf.opf2 import OPF, pretty_print
 from LiuXin_alpha.file_formats.opf.opf3 import apply_metadata, read_metadata

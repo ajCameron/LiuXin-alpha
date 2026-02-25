@@ -27,7 +27,7 @@ import json
 import copy
 from urllib.parse import unquote, urlparse
 
-from lxml import etree
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 
 from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 
@@ -1538,7 +1538,6 @@ class OPFCreator(Metadata):
         self.guide.set_basedir(self.base_path)
 
         # Actual rendering
-        from lxml.builder import ElementMaker
         from LiuXin.file_formats.oeb.base import OPF2_NS, DC11_NS, CALIBRE_NS
 
         DNS = OPF2_NS + "___xx___"
@@ -1668,7 +1667,6 @@ def metadata_to_opf(mi, as_string=True, default_lang=None):
     :param default_lang:
     :return:
     """
-    from lxml import etree
     import textwrap
     from LiuXin.file_formats.oeb.base import OPF, DC
 

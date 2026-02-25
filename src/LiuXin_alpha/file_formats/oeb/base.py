@@ -13,7 +13,16 @@ from collections import defaultdict
 from itertools import count
 from urllib.parse import unquote
 
-from lxml import etree, html
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+
+try:
+    from lxml import html  # type: ignore
+except Exception:  # pragma: no cover - runtime without lxml
+    class _MissingLxmlHtml:
+        def __getattr__(self, name):
+            raise ImportError("lxml.html is unavailable in this runtime")
+
+    html = _MissingLxmlHtml()
 
 from LiuXin_alpha.file_formats.conversion.preprocess import CSSPreProcessor
 from LiuXin_alpha.file_formats.oeb.parse_utils import (
