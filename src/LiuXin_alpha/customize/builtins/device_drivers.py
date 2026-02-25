@@ -1,8 +1,8 @@
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logger import default_log
 
 # Order here is non-alphabetical to more closely match add order
 try:
-    from LiuXin.devices.hanlin.driver import HANLINV3, HANLINV5, BOOX, SPECTRA
+    from LiuXin_alpha.devices.hanlin.driver import HANLINV3, HANLINV5, BOOX, SPECTRA
 except Exception as e:
     HANLINV3 = None
     HANLINV5 = None
@@ -15,7 +15,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.blackberry.driver import BLACKBERRY, PLAYBOOK
+    from LiuXin_alpha.devices.blackberry.driver import BLACKBERRY, PLAYBOOK
 except Exception as e:
     BLACKBERRY = None
     PLAYBOOK = None
@@ -26,7 +26,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.cybook.driver import CYBOOK, ORIZON, MUSE
+    from LiuXin_alpha.devices.cybook.driver import CYBOOK, ORIZON, MUSE
 except Exception as e:
     CYBOOK = None
     ORIZON = None
@@ -38,7 +38,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.eb600.driver import (
+    from LiuXin_alpha.devices.eb600.driver import (
         EB600,
         COOL_ER,
         SHINEBOOK,
@@ -92,7 +92,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.iliad.driver import ILIAD
+    from LiuXin_alpha.devices.iliad.driver import ILIAD
 except Exception as e:
     ILIAD = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("ILIAD")
@@ -102,7 +102,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.irexdr.driver import IREXDR1000, IREXDR800
+    from LiuXin_alpha.devices.irexdr.driver import IREXDR1000, IREXDR800
 except Exception as e:
     IREXDR1000 = None
     IREXDR800 = None
@@ -113,7 +113,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.jetbook.driver import (
+    from LiuXin_alpha.devices.jetbook.driver import (
         JETBOOK,
         MIBUK,
         JETBOOK_MINI,
@@ -131,7 +131,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.kindle.driver import KINDLE, KINDLE2, KINDLE_DX, KINDLE_FIRE
+    from LiuXin_alpha.devices.kindle.driver import KINDLE, KINDLE2, KINDLE_DX, KINDLE_FIRE
 except Exception as e:
     KINDLE = None
     KINDLE2 = None
@@ -144,7 +144,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.apple.driver import ITUNES
+    from LiuXin_alpha.devices.apple.driver import ITUNES
 except Exception as e:
     ITUNES = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("ITUNES")
@@ -154,7 +154,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.nook.driver import NOOK, NOOK_COLOR
+    from LiuXin_alpha.devices.nook.driver import NOOK, NOOK_COLOR
 except Exception as e:
     NOOK = None
     NOOK_COLOR = None
@@ -165,7 +165,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.prs505.driver import PRS505
+    from LiuXin_alpha.devices.prs505.driver import PRS505
 except Exception as e:
     PRS505 = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("PRS505")
@@ -175,7 +175,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.prst1.driver import PRST1
+    from LiuXin_alpha.devices.prst1.driver import PRST1
 except Exception as e:
     PRST1 = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("PRST1")
@@ -185,7 +185,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.user_defined.driver import USER_DEFINED
+    from LiuXin_alpha.devices.user_defined.driver import USER_DEFINED
 except Exception as e:
     USER_DEFINED = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("USER_DEFINED")
@@ -195,7 +195,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.android.driver import ANDROID, S60, WEBOS
+    from LiuXin_alpha.devices.android.driver import ANDROID, S60, WEBOS
 except Exception as e:
     ANDROID = None
     S60 = None
@@ -207,7 +207,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.nokia.driver import N770, N810, E71X, E52
+    from LiuXin_alpha.devices.nokia.driver import N770, N810, E71X, E52
 except Exception as e:
     N770 = None
     N810 = None
@@ -220,7 +220,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.eslick.driver import ESLICK, EBK52
+    from LiuXin_alpha.devices.eslick.driver import ESLICK, EBK52
 except Exception as e:
     ESLICK = None
     EBK52 = None
@@ -231,7 +231,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.nuut2.driver import NUUT2
+    from LiuXin_alpha.devices.nuut2.driver import NUUT2
 except Exception as e:
     NUUT2 = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("NUUT2")
@@ -241,7 +241,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.iriver.driver import IRIVER_STORY
+    from LiuXin_alpha.devices.iriver.driver import IRIVER_STORY
 except Exception as e:
     IRIVER_STORY = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("IRIVER_STORY")
@@ -251,7 +251,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.binatone.driver import README
+    from LiuXin_alpha.devices.binatone.driver import README
 except Exception as e:
     README = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("README")
@@ -261,7 +261,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.hanvon.driver import (
+    from LiuXin_alpha.devices.hanvon.driver import (
         N516,
         EB511,
         ALEX,
@@ -291,7 +291,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.edge.driver import EDGE
+    from LiuXin_alpha.devices.edge.driver import EDGE
 except Exception as e:
     EDGE = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("EDGE")
@@ -301,7 +301,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.teclast.driver import (
+    from LiuXin_alpha.devices.teclast.driver import (
         TECLAST_K3,
         NEWSMY,
         IPAPYRUS,
@@ -333,7 +333,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.sne.driver import SNE
+    from LiuXin_alpha.devices.sne.driver import SNE
 except Exception as e:
     SNE = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("SNE")
@@ -343,7 +343,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.misc import (
+    from LiuXin_alpha.devices.misc import (
         PALMPRE,
         AVANT,
         SWEEX,
@@ -397,7 +397,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.folder_device.driver import FOLDER_DEVICE_FOR_CONFIG
+    from LiuXin_alpha.devices.folder_device.driver import FOLDER_DEVICE_FOR_CONFIG
 except Exception as e:
     FOLDER_DEVICE_FOR_CONFIG = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("FOLDER_DEVICE_FOR_CONFIG")
@@ -407,7 +407,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.kobo.driver import KOBO, KOBOTOUCH
+    from LiuXin_alpha.devices.kobo.driver import KOBO, KOBOTOUCH
 except Exception as e:
     KOBO = None
     KOBOTOUCH = None
@@ -418,7 +418,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.bambook.driver import BAMBOOK
+    from LiuXin_alpha.devices.bambook.driver import BAMBOOK
 except Exception as e:
     BAMBOOK = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("BAMBOOK")
@@ -428,7 +428,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.boeye.driver import BOEYE_BEX, BOEYE_BDX
+    from LiuXin_alpha.devices.boeye.driver import BOEYE_BEX, BOEYE_BDX
 except Exception as e:
     BOEYE_BEX = None
     BOEYE_BDX = None
@@ -439,7 +439,7 @@ else:
     default_log.info(info_str)
 
 try:
-    from LiuXin.devices.smart_device_app.driver import SMART_DEVICE_APP
+    from LiuXin_alpha.devices.smart_device_app.driver import SMART_DEVICE_APP
 except Exception as e:
     SMART_DEVICE_APP = None
     debug_str = "Device driver plugin couldn't be loaded - {}".format("SMART_DEVICE_APP")
@@ -448,7 +448,7 @@ else:
     info_str = "Device driver plugin was loaded successfully - {}".format("SMART_DEVICE_APP")
     default_log.info(info_str)
 
-from LiuXin.devices.mtp.driver import MTP_DEVICE
+from LiuXin_alpha.devices.mtp.driver import MTP_DEVICE
 
 plugins = []
 

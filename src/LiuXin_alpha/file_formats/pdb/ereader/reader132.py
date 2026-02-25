@@ -9,14 +9,14 @@ import re
 import struct
 import zlib
 
-from LiuXin.file_formats import DRMError
-from LiuXin.file_formats.pdb.ereader import EreaderError
-from LiuXin.file_formats.pdb.formatreader import FormatReader
+from LiuXin_alpha.file_formats import DRMError
+from LiuXin_alpha.file_formats.pdb.ereader import EreaderError
+from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
-from LiuXin.file_formats.opf.opf2 import OPFCreator
+from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -73,7 +73,7 @@ class Reader132(FormatReader):
             else:
                 raise EreaderError("Unknown book compression %i." % self.header_record.compression)
 
-        from LiuXin.metadata.file_sources.pdb import get_metadata
+        from LiuXin_alpha.metadata.file_sources.pdb import get_metadata
 
         self.mi = get_metadata(stream, False)
 
@@ -82,7 +82,7 @@ class Reader132(FormatReader):
 
     def decompress_text(self, number):
         if self.header_record.compression == 2:
-            from LiuXin.utils.calibre.ebooks.compression.palmdoc import decompress_doc
+            from LiuXin_alpha.utils.calibre.ebooks.compression.palmdoc import decompress_doc
 
             return decompress_doc(self.section_data(number)).decode(
                 "cp1252" if self.encoding is None else self.encoding, "replace"
@@ -117,11 +117,11 @@ class Reader132(FormatReader):
         return self.decompress_text(number)
 
     def extract_content(self, output_dir):
-        from LiuXin.file_formats.pml.pmlconverter import (
+        from LiuXin_alpha.file_formats.pml.pmlconverter import (
             footnote_to_html,
             sidebar_to_html,
         )
-        from LiuXin.file_formats.pml.pmlconverter import PML_HTMLizer
+        from LiuXin_alpha.file_formats.pml.pmlconverter import PML_HTMLizer
 
         output_dir = os.path.abspath(output_dir)
 

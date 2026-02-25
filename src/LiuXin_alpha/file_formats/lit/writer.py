@@ -12,14 +12,14 @@ from urllib import unquote as urlunquote
 
 from lxml import etree
 
-import LiuXin
+import LiuXin_alpha
 
-import LiuXin.file_formats.lit.maps as maps
-import LiuXin.file_formats.lit.mssha1 as mssha1
+import LiuXin_alpha.file_formats.lit.maps as maps
+import LiuXin_alpha.file_formats.lit.mssha1 as mssha1
 
-from LiuXin.file_formats.lit.lzx import Compressor
-from LiuXin.file_formats.lit.reader import DirectoryEntry
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.lit.lzx import Compressor
+from LiuXin_alpha.file_formats.lit.reader import DirectoryEntry
+from LiuXin_alpha.file_formats.oeb.base import (
     OEB_DOCS,
     XHTML_MIME,
     OEB_STYLES,
@@ -28,19 +28,19 @@ from LiuXin.file_formats.oeb.base import (
     XML_NS,
     XML,
 )
-from LiuXin.file_formats.oeb.base import prefixname, urlnormalize
-from LiuXin.file_formats.oeb.stylizer import Stylizer
+from LiuXin_alpha.file_formats.oeb.base import prefixname, urlnormalize
+from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
-from LiuXin.utils.plugins import plugins
+from LiuXin_alpha.utils.plugins import plugins
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_cmp
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_unichar
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cmp
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unichar
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
 
 
 __license__ = "GPL v3"

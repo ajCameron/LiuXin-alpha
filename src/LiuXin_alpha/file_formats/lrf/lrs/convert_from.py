@@ -8,8 +8,8 @@ import logging
 import os
 import sys
 
-from LiuXin.file_formats.chardet import xml_to_unicode
-from LiuXin.file_formats.lrf.pylrs.pylrs import (
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import (
     Book,
     PageStyle,
     TextStyle,
@@ -40,13 +40,13 @@ from LiuXin.file_formats.lrf.pylrs.pylrs import (
     RuledLine,
 )
 
-from LiuXin.utils.libraries.BeautifulSoup import BeautifulStoneSoup, NavigableString, CData, Tag
-from LiuXin.utils.calibre import setup_cli_handlers
-from LiuXin.utils.config import OptionParser
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulStoneSoup, NavigableString, CData, Tag
+from LiuXin_alpha.utils.calibre import setup_cli_handlers
+from LiuXin_alpha.utils.config import OptionParser
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatbility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"

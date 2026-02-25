@@ -31,28 +31,28 @@ from lxml.html.builder import (
     H1,
 )
 
-from LiuXin.file_formats.docx.cleanup import cleanup_markup
-from LiuXin.file_formats.docx.container import DOCX, fromstring
-from LiuXin.file_formats.docx.fields import Fields
-from LiuXin.file_formats.docx.fonts import Fonts
-from LiuXin.file_formats.docx.footnotes import Footnotes
-from LiuXin.file_formats.docx.images import Images
-from LiuXin.file_formats.docx.names import XML, generate_anchor
-from LiuXin.file_formats.docx.numbering import Numbering
-from LiuXin.file_formats.docx.styles import Styles, inherit, PageProperties
-from LiuXin.file_formats.docx.tables import Tables
-from LiuXin.file_formats.docx.theme import Theme
-from LiuXin.file_formats.docx.toc import create_toc
-from LiuXin.file_formats.docx.settings import Settings
-from LiuXin.file_formats.opf.opf2 import OPFCreator
+from LiuXin_alpha.file_formats.docx.cleanup import cleanup_markup
+from LiuXin_alpha.file_formats.docx.container import DOCX, fromstring
+from LiuXin_alpha.file_formats.docx.fields import Fields
+from LiuXin_alpha.file_formats.docx.fonts import Fonts
+from LiuXin_alpha.file_formats.docx.footnotes import Footnotes
+from LiuXin_alpha.file_formats.docx.images import Images
+from LiuXin_alpha.file_formats.docx.names import XML, generate_anchor
+from LiuXin_alpha.file_formats.docx.numbering import Numbering
+from LiuXin_alpha.file_formats.docx.styles import Styles, inherit, PageProperties
+from LiuXin_alpha.file_formats.docx.tables import Tables
+from LiuXin_alpha.file_formats.docx.theme import Theme
+from LiuXin_alpha.file_formats.docx.toc import create_toc
+from LiuXin_alpha.file_formats.docx.settings import Settings
+from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
-from LiuXin.utils.calibre import guess_type
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.localization import canonicalize_lang, lang_as_iso639_1
+from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import canonicalize_lang, lang_as_iso639_1
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -854,7 +854,7 @@ class Convert(object):
 
 if __name__ == "__main__":
     import shutil
-    from LiuXin.utils.logger import default_log
+    from LiuXin_alpha.utils.logger import default_log
 
     default_log.filter_level = default_log.DEBUG
     dest_dir = os.path.join(os.getcwdu(), "docx_input")

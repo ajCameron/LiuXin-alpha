@@ -42,7 +42,7 @@ try:
     except ImportError:
         wrn_str = "Attempt to use builtin dateutil failed. Falling back to inbuilt version."
         print(wrn_str)
-        from LiuXin.utils.liuxin_dateutil.tzwin import tzwin, tzwinlocal
+        from LiuXin_alpha.utils.liuxin_dateutil.tzwin import tzwin, tzwinlocal
 except (ImportError, OSError):
     wrn_str = "Attempt to fall back to inbuolt version of dateutil failed. For some reason."
     print(wrn_str)

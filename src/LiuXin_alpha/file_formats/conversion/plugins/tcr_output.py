@@ -2,9 +2,9 @@
 
 import os
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -37,8 +37,8 @@ class TCROutput(OutputFormatPlugin):
         :return:
         """
         log.info("Writing TCR file...")
-        from LiuXin.file_formats.txt.txtml import TXTMLizer
-        from LiuXin.file_formats.compression.tcr import compress
+        from LiuXin_alpha.file_formats.txt.txtml import TXTMLizer
+        from LiuXin_alpha.file_formats.compression.tcr import compress
 
         close = False
         if not hasattr(output_path, "write"):

@@ -5,13 +5,13 @@ import json
 import traceback
 from datetime import datetime, time
 
-from LiuXin.constants import filesystem_encoding, preferred_encoding
+from LiuXin_alpha.constants import filesystem_encoding, preferred_encoding
 
-from LiuXin.library.field_metadata import FieldMetadata
+from LiuXin_alpha.library.field_metadata import FieldMetadata
 
-from LiuXin.metadata.book import SERIALIZABLE_FIELDS
+from LiuXin_alpha.metadata.book import SERIALIZABLE_FIELDS
 
-from LiuXin.utils.calibre import isbytestring
+from LiuXin_alpha.utils.calibre import isbytestring
 
 """
 Created on 4 Jun 2010
@@ -21,7 +21,7 @@ Created on 4 Jun 2010
 # Translate datetimes to and from strings. The string form is the datetime in
 # UTC. The returned date is also UTC
 def string_to_datetime(src):
-    from LiuXin.utils.date import parse_date
+    from LiuXin_alpha.utils.date import parse_date
 
     if src != "None":
         try:
@@ -32,7 +32,7 @@ def string_to_datetime(src):
 
 
 def datetime_to_string(dateval):
-    from LiuXin.utils.date import isoformat, UNDEFINED_DATE, local_tz
+    from LiuXin_alpha.utils.date import isoformat, UNDEFINED_DATE, local_tz
 
     if dateval is None:
         return "None"
@@ -51,7 +51,7 @@ def encode_thumbnail(thumbnail):
     :param thumbnail:
     :return:
     """
-    from LiuXin.utils.magick import Image
+    from LiuXin_alpha.utils.magick import Image
 
     if thumbnail is None:
         return None

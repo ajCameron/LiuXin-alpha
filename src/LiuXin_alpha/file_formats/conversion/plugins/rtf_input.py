@@ -5,13 +5,13 @@ import glob
 import re
 import textwrap
 
-from LiuXin.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.resources import P
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.resources import P
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -65,7 +65,7 @@ class RTFInput(InputFormatPlugin):
     }
 
     def generate_xml(self, stream):
-        from LiuXin.file_formats.rtf2xml.ParseRtf import ParseRtf
+        from LiuXin_alpha.file_formats.rtf2xml.ParseRtf import ParseRtf
 
         ofile = "dataxml.xml"
         run_lev, debug_dir, indent_out = 1, None, 0
@@ -120,7 +120,7 @@ class RTFInput(InputFormatPlugin):
 
     def extract_images(self, picts):
 
-        from LiuXin.utils.imghdr import what
+        from LiuXin_alpha.utils.imghdr import what
 
         self.log("Extracting images...")
 
@@ -174,7 +174,7 @@ class RTFInput(InputFormatPlugin):
         if self.opts.ignore_wmf:
             os.remove(name)
             return "__REMOVE_ME__"
-        from LiuXin.file_formats import calibre_cover
+        from LiuXin_alpha.file_formats import calibre_cover
 
         if self.default_img is None:
             self.default_img = calibre_cover(
@@ -189,7 +189,7 @@ class RTFInput(InputFormatPlugin):
         return name
 
     def rasterize_wmf(self, name):
-        from LiuXin.utils.wmf.parse import wmf_unwrap
+        from LiuXin_alpha.utils.wmf.parse import wmf_unwrap
 
         with open(name, "rb") as f:
             data = f.read()
@@ -258,10 +258,10 @@ class RTFInput(InputFormatPlugin):
     def convert(self, stream, options, file_ext, log, accelerators):
 
         from lxml import etree
-        from LiuXin.metadata.meta import get_metadata
-        from LiuXin.file_formats.opf.opf2 import OPFCreator
-        from LiuXin.file_formats.rtf2xml.ParseRtf import RtfInvalidCodeException
-        from LiuXin.file_formats.rtf.input import InlineClass
+        from LiuXin_alpha.metadata.meta import get_metadata
+        from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
+        from LiuXin_alpha.file_formats.rtf2xml.ParseRtf import RtfInvalidCodeException
+        from LiuXin_alpha.file_formats.rtf.input import InlineClass
 
         self.opts = options
         self.log = log

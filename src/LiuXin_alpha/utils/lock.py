@@ -230,7 +230,7 @@ def test_exclusive_file(path=None):
             except LockError:
                 pass
             # Try different process lock
-            from LiuXin.utils.ipc.simple_worker import fork_job
+            from LiuXin_alpha.utils.ipc.simple_worker import fork_job
 
             err = fork_job("calibre.utils.lock", "test_exclusive_file", (f,))["result"]
             if err is not None:

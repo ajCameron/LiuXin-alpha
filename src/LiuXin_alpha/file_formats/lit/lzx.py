@@ -4,7 +4,7 @@ from __future__ import with_statement
 LZX compression/decompression wrapper.
 """
 
-from LiuXin.utils.plugins import plugins
+from LiuXin_alpha.utils.plugins import plugins
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"

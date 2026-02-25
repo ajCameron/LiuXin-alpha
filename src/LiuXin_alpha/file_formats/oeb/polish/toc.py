@@ -11,7 +11,7 @@ from operator import itemgetter
 from lxml import etree
 from lxml.builder import ElementMaker
 
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.oeb.base import (
     XPath,
     uuid_id,
     xml2text,
@@ -22,22 +22,22 @@ from LiuXin.file_formats.oeb.base import (
     XHTML_NS,
     serialize,
 )
-from LiuXin.file_formats.oeb.polish.errors import MalformedMarkup
-from LiuXin.file_formats.oeb.polish.utils import guess_type
-from LiuXin.file_formats.oeb.polish.opf import set_guide_item, get_book_language
-from LiuXin.file_formats.oeb.polish.pretty import pretty_html_tree
+from LiuXin_alpha.file_formats.oeb.polish.errors import MalformedMarkup
+from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
+from LiuXin_alpha.file_formats.oeb.polish.opf import set_guide_item, get_book_language
+from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_html_tree
 
-from LiuXin.utils.calibre import __version__
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin.utils.localization import get_lang, canonicalize_lang, lang_as_iso639_1
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.resources import P
-from LiuXin.utils.translations.dynamic import translate
+from LiuXin_alpha.utils.calibre import __version__
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.localization import get_lang, canonicalize_lang, lang_as_iso639_1
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.resources import P
+from LiuXin_alpha.utils.translations.dynamic import translate
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

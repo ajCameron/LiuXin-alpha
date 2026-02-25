@@ -28,8 +28,8 @@ from __future__ import print_function
 
 from xml.sax import handler
 
-from LiuXin.file_formats.odf.element import Element
-from LiuXin.file_formats.odf.namespaces import OFFICENS
+from LiuXin_alpha.file_formats.odf.element import Element
+from LiuXin_alpha.file_formats.odf.namespaces import OFFICENS
 
 
 #

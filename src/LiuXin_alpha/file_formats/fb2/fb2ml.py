@@ -11,16 +11,16 @@ from base64 import b64encode
 from datetime import datetime
 from lxml import etree
 
-from LiuXin.file_formats.oeb.base import urlnormalize
+from LiuXin_alpha.file_formats.oeb.base import urlnormalize
 
-from LiuXin.utils.calibre import prepare_string_for_xml
-from LiuXin.utils.calibre.constants import __appname__, __version__
-from LiuXin.utils.localization import lang_as_iso639_1
-from LiuXin.utils.wrappers.magick import Image
+from LiuXin_alpha.utils.calibre import prepare_string_for_xml
+from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.utils.localization import lang_as_iso639_1
+from LiuXin_alpha.utils.wrappers.magick import Image
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -111,7 +111,7 @@ class FB2MLizer(object):
         return text
 
     def fb2_header(self):
-        from LiuXin.file_formats.oeb.base import OPF
+        from LiuXin_alpha.file_formats.oeb.base import OPF
 
         metadata = dict()
         metadata["title"] = self.oeb_book.metadata.title[0].value
@@ -264,7 +264,7 @@ class FB2MLizer(object):
         Retrieve the cover from the OEB and store it in the header.
         :return:
         """
-        from LiuXin.file_formats.oeb.base import OEB_RASTER_IMAGES
+        from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
         cover_href = None
 
@@ -314,8 +314,8 @@ class FB2MLizer(object):
         return ""
 
     def get_text(self):
-        from LiuXin.file_formats.oeb.base import XHTML
-        from LiuXin.file_formats.oeb.stylizer import Stylizer
+        from LiuXin_alpha.file_formats.oeb.base import XHTML
+        from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
         text = ["<body>"]
 
@@ -352,7 +352,7 @@ class FB2MLizer(object):
         """
         This function uses the self.image_hrefs dictionary mapping. It is populated by the dump_text function.
         """
-        from LiuXin.file_formats.oeb.base import OEB_RASTER_IMAGES
+        from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
         images = []
         for item in self.oeb_book.manifest:
@@ -452,7 +452,7 @@ class FB2MLizer(object):
         if tag_stack is None:
             tag_stack = []
 
-        from LiuXin.file_formats.oeb.base import XHTML_NS, barename, namespace
+        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
 
         elem = elem_tree
 

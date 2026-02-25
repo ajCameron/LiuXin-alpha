@@ -5,14 +5,14 @@ import struct
 import zlib
 from urllib.parse import unquote as urlunquote
 
-from LiuXin.file_formats.opf.opf2 import OPFCreator
-from LiuXin.file_formats.rb import HEADER
-from LiuXin.file_formats.rb import RocketBookError
+from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
+from LiuXin_alpha.file_formats.rb import HEADER
+from LiuXin_alpha.file_formats.rb import RocketBookError
 
-from LiuXin.metadata.file_sources.rb import get_metadata
+from LiuXin_alpha.metadata.file_sources.rb import get_metadata
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"

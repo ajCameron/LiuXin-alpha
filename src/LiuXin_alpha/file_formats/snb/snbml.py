@@ -8,8 +8,8 @@ import os
 import re
 from lxml import etree
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Li Fanxi <lifanxi@freemindworld.com>"
@@ -86,8 +86,8 @@ class SNBMLizer(object):
                     body.append(entity)
 
     def mlize(self):
-        from LiuXin.file_formats.oeb.base import XHTML
-        from LiuXin.file_formats.oeb.stylizer import Stylizer
+        from LiuXin_alpha.file_formats.oeb.base import XHTML
+        from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
         output = [""]
         stylizer = Stylizer(
@@ -217,7 +217,7 @@ class SNBMLizer(object):
         return text
 
     def dump_text(self, subitems, elem, stylizer, end="", pre=False, li=""):
-        from LiuXin.file_formats.oeb.base import XHTML_NS, barename, namespace
+        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
 
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:
             p = elem.getparent()

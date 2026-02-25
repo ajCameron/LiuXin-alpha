@@ -7,14 +7,14 @@ import struct
 import zlib
 from collections import OrderedDict
 
-from LiuXin.file_formats.compression.palmdoc import decompress_doc
-from LiuXin.file_formats.pdb.formatreader import FormatReader
+from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
+from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_unichar
-from LiuXin.utils.wrappers.magick import Image, create_canvas
-from LiuXin.utils.ptempfiles import TemporaryFile
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unichar
+from LiuXin_alpha.utils.wrappers.magick import Image, create_canvas
+from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 
 __license__ = "GPL v3"
 __copyright__ = "20011, John Schember <john@nachtimwald.com>"
@@ -351,7 +351,7 @@ class Reader(FormatReader):
             self.owner_id = mdata_section.owner_id
 
         # Get the metadata (tile, author, ...) with the metadata reader.
-        from LiuXin.utils.calibre.ebooks.metadata.pdb import get_metadata
+        from LiuXin_alpha.utils.calibre.ebooks.metadata.pdb import get_metadata
 
         self.mi = get_metadata(stream, False)
 
@@ -455,7 +455,7 @@ class Reader(FormatReader):
                     self.log.error("Failed to write composite image with uid %s: %s" % (uid, e))
 
         # Run the HTML through the html processing plugin.
-        from LiuXin.utils.calibre.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.utils.calibre.customize.ui import plugin_for_input_format
 
         html_input = plugin_for_input_format("html")
         for opt in html_input.options:
@@ -485,7 +485,7 @@ class Reader(FormatReader):
                 raise NotImplementedError
             return zlib.decompress(data)
         elif self.header_record.compression == 1:
-            from LiuXin.utils.calibre.ebooks.compression.palmdoc import decompress_doc
+            from LiuXin_alpha.utils.calibre.ebooks.compression.palmdoc import decompress_doc
 
             return decompress_doc(data)
 

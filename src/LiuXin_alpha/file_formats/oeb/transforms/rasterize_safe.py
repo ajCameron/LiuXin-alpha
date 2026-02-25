@@ -7,8 +7,8 @@ import wand.color
 import wand.image
 from wand.api import library
 
-from LiuXin.file_formats.oeb.base import xml2str
-from LiuXin.file_formats.oeb.transforms.rasterize import SVGRasterizer
+from LiuXin_alpha.file_formats.oeb.base import xml2str
+from LiuXin_alpha.file_formats.oeb.transforms.rasterize import SVGRasterizer
 
 
 # Todo: Get access to micorsoft word and make a docx file with a bunch of svgs in it. To test this mess.

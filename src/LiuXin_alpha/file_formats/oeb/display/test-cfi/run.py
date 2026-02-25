@@ -12,13 +12,13 @@ __docformat__ = "restructuredtext en"
 
 # Todo: What does init_calibre do?
 try:
-    from LiuXin.utils.serve_coffee import serve
+    from LiuXin_alpha.utils.serve_coffee import serve
 except ImportError:
     import init_calibre
 
     if False:
         init_calibre, serve
-    from LiuXin.utils.serve_coffee import serve
+    from LiuXin_alpha.utils.serve_coffee import serve
 
 
 def run_devel_server():

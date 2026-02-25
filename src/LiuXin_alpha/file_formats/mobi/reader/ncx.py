@@ -5,16 +5,16 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import os
 
-from LiuXin.file_formats.mobi.reader.headers import NULL_INDEX
-from LiuXin.file_formats.mobi.reader.index import read_index
+from LiuXin_alpha.file_formats.mobi.reader.headers import NULL_INDEX
+from LiuXin_alpha.file_formats.mobi.reader.index import read_index
 
-from LiuXin.metadata.toc import TOC
+from LiuXin_alpha.metadata.toc import TOC
 
-from LiuXin.utils.calibre import replace_entities
+from LiuXin_alpha.utils.calibre import replace_entities
 
 # Py2/Py3 compatibility
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

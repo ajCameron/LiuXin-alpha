@@ -7,16 +7,16 @@ import struct
 import datetime
 import os
 
-from LiuXin.file_formats.mobi.debug import format_bytes
-from LiuXin.file_formats.mobi.langcodes import main_language, sub_language
-from LiuXin.file_formats.mobi.reader.headers import NULL_INDEX
-from LiuXin.file_formats.mobi.utils import get_trailing_data
+from LiuXin_alpha.file_formats.mobi.debug import format_bytes
+from LiuXin_alpha.file_formats.mobi.langcodes import main_language, sub_language
+from LiuXin_alpha.file_formats.mobi.reader.headers import NULL_INDEX
+from LiuXin_alpha.file_formats.mobi.utils import get_trailing_data
 
-from LiuXin.utils.date import utc_tz
+from LiuXin_alpha.utils.date import utc_tz
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -595,7 +595,7 @@ class MOBIFile(object):
         self.mobi8_header = mh8
 
         if "huff" in self.mobi_header.compression.lower():
-            from LiuXin.utils.calibre.ebooks.mobi.huffcdic import HuffReader
+            from LiuXin_alpha.utils.calibre.ebooks.mobi.huffcdic import HuffReader
 
             def huffit(off, cnt):
                 huffman_record_nums = list(memory_range(off, off + cnt))
@@ -611,7 +611,7 @@ class MOBIFile(object):
                 self.huffman_record_nums, d6 = huffit(mh.huffman_record_offset, mh.huffman_record_count)
                 d8 = d6
         elif "palmdoc" in self.mobi_header.compression.lower():
-            from LiuXin.utils.calibre.ebooks.compression.palmdoc import decompress_doc
+            from LiuXin_alpha.utils.calibre.ebooks.compression.palmdoc import decompress_doc
 
             d8 = d6 = decompress_doc
         else:

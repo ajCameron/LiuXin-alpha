@@ -33,7 +33,7 @@ from LiuXin_alpha.constants import preferred_encoding
 from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
 try:
-    from LiuXin.customize.ui import run_plugins_on_import
+    from LiuXin_alpha.customize.ui import run_plugins_on_import
 except ImportError:
 
     def run_plugins_on_import(file):
@@ -41,7 +41,7 @@ except ImportError:
 
 
 try:
-    from LiuXin.customize.ui import run_plugins_on_postimport
+    from LiuXin_alpha.customize.ui import run_plugins_on_postimport
 except ImportError:
 
     def run_plugins_on_postimport(file):
@@ -3635,9 +3635,9 @@ class CalibreCache(BaseCalibreCache):
         :return:
         """
         field = self.fields["formats"]
-        from LiuXin.file_formats.opf.opf2 import pretty_print
-        from LiuXin.customize.ui import apply_null_metadata
-        from LiuXin.metadata.meta import set_metadata
+        from LiuXin_alpha.file_formats.opf.opf2 import pretty_print
+        from LiuXin_alpha.customize.ui import apply_null_metadata
+        from LiuXin_alpha.metadata.meta import set_metadata
 
         if only_fmts:
             only_fmts = {f.lower() for f in only_fmts}
@@ -3825,7 +3825,7 @@ def loc_from_formats_field(formats_field, book_id, fmt):
 
 # Todo: This needs to actually be written and tested for a calibre library
 def import_library(library_key, importer, library_path, progress=None, abort=None):
-    from LiuXin.databases.backend import DB
+    from LiuXin_alpha.databases.backend import DB
 
     metadata = importer.metadata[library_key]
     total = metadata["total"]

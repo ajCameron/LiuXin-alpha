@@ -8,11 +8,11 @@ import zlib
 from datetime import datetime
 from io import BytesIO
 
-from LiuXin.utils.calibre.constants import ispy3
+from LiuXin_alpha.utils.calibre.constants import ispy3
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.plugins import plugins
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.plugins import plugins
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"

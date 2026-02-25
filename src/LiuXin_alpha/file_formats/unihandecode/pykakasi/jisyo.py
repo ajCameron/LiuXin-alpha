@@ -5,8 +5,8 @@
 import marshal
 from zlib import decompress
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_pickle as cPickle
-from LiuXin.utils.resources import P
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_pickle as cPickle
+from LiuXin_alpha.utils.resources import P
 
 
 class jisyo(object):

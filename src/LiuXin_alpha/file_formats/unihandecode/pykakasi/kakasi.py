@@ -21,9 +21,9 @@
 # *
 # */
 
-from LiuXin.file_formats.unihandecode.pykakasi.j2h import J2H
-from LiuXin.file_formats.unihandecode.pykakasi.h2a import H2a
-from LiuXin.file_formats.unihandecode.pykakasi.k2a import K2a
+from LiuXin_alpha.file_formats.unihandecode.pykakasi.j2h import J2H
+from LiuXin_alpha.file_formats.unihandecode.pykakasi.h2a import H2a
+from LiuXin_alpha.file_formats.unihandecode.pykakasi.k2a import K2a
 
 
 class kakasi(object):

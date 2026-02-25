@@ -128,7 +128,7 @@ def js_name_to_path(name, ext=".coffee"):
 
 
 def _compile_coffeescript(name):
-    from LiuXin.utils.serve_coffee import compile_coffeescript
+    from LiuXin_alpha.utils.serve_coffee import compile_coffeescript
 
     src = js_name_to_path(name)
     with open(src, "rb") as f:

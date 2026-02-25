@@ -20,9 +20,9 @@ from LiuXin_tests.test_databases import test_data_folder
 from LiuXin_tests.test_fsms import TestFSMBuilderFromExistingDB
 from LiuXin_tests.test_setup.constants import test_asset_version
 
-from LiuXin.utils.file_ops.file_ops import ensure_folder
-from LiuXin.utils.file_ops.file_ops import get_folders
-from LiuXin.utils.file_ops.file_ops import get_files
+from LiuXin_alpha.utils.file_ops.file_ops import ensure_folder
+from LiuXin_alpha.utils.file_ops.file_ops import get_folders
+from LiuXin_alpha.utils.file_ops.file_ops import get_files
 
 
 def build_all_test_databases(

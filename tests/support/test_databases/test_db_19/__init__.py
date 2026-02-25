@@ -1,6 +1,6 @@
 import tqdm
 
-from LiuXin.exceptions import DatabaseIntegrityError
+from LiuXin_alpha.exceptions import DatabaseIntegrityError
 
 from LiuXin_tests.test_databases.test_db_4 import TestDB4Builder
 

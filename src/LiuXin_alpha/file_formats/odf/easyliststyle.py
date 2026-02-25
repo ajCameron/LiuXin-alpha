@@ -21,8 +21,8 @@
 
 import re
 
-from LiuXin.file_formats.odf.style import Style, TextProperties, ListLevelProperties
-from LiuXin.file_formats.odf.text import (
+from LiuXin_alpha.file_formats.odf.style import Style, TextProperties, ListLevelProperties
+from LiuXin_alpha.file_formats.odf.text import (
     ListStyle,
     ListLevelStyleNumber,
     ListLevelStyleBullet,

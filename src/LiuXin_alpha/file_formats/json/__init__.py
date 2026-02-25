@@ -5,8 +5,8 @@
 import base64
 import datetime
 
-from LiuXin.utils.date import parse_date
-from LiuXin.utils.date import isoformat
+from LiuXin_alpha.utils.date import parse_date
+from LiuXin_alpha.utils.date import isoformat
 
 __author__ = "Cameron"
 

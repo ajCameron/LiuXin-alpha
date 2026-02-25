@@ -6,11 +6,11 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 from collections import defaultdict
 from uuid import uuid4
 
-from LiuXin.file_formats.oeb.base import OEB_STYLES
-from LiuXin.file_formats.oeb.transforms.subset import find_font_face_rules
+from LiuXin_alpha.file_formats.oeb.base import OEB_STYLES
+from LiuXin_alpha.file_formats.oeb.transforms.subset import find_font_face_rules
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"

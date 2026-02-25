@@ -2,11 +2,11 @@
 
 import os
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.file_formats.pdb import PDBError, get_writer, ALL_FORMAT_WRITERS
+from LiuXin_alpha.file_formats.pdb import PDBError, get_writer, ALL_FORMAT_WRITERS
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"

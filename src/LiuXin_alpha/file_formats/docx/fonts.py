@@ -6,15 +6,15 @@ import os
 import re
 from collections import namedtuple
 
-from LiuXin.file_formats.docx.block_styles import binary_property, inherit
+from LiuXin_alpha.file_formats.docx.block_styles import binary_property, inherit
 
-from LiuXin.utils.filenames import ascii_filename
-from LiuXin.utils.fonts.scanner import font_scanner, NoFonts
-from LiuXin.utils.fonts.utils import panose_to_css_generic_family, is_truetype_font
+from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.fonts.scanner import font_scanner, NoFonts
+from LiuXin_alpha.utils.fonts.utils import panose_to_css_generic_family, is_truetype_font
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -11,7 +11,7 @@ class EasyMeta(object):
 
     def __iter__(self):
 
-        from LiuXin.file_formats.oeb.base import namespace, barename, DC11_NS
+        from LiuXin_alpha.file_formats.oeb.base import namespace, barename, DC11_NS
 
         DC11_NS = "http://purl.org/dc/elements/1.1/"
 

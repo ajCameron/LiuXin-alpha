@@ -135,13 +135,13 @@ def entity_to_unicode(match, exceptions=[], encoding="cp1252", result_exceptions
             return check(bytes(bytearray((num,))).decode(encoding))
         except UnicodeDecodeError:
             return check(my_unichr(num))
-    from LiuXin.file_formats.html_entities import html5_entities
+    from LiuXin_alpha.file_formats.html_entities import html5_entities
 
     try:
         return check(html5_entities[ent])
     except KeyError:
         pass
-    from LiuXin.utils.calibre_utils.calibre_polyglot.html_entities import name2codepoint
+    from LiuXin_alpha.utils.calibre_utils.calibre_polyglot.html_entities import name2codepoint
 
     try:
         return check(my_unichr(name2codepoint[ent]))

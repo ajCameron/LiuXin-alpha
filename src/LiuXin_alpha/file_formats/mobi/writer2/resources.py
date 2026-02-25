@@ -3,20 +3,20 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin.file_formats import generate_masthead
-from LiuXin.file_formats.mobi import MAX_THUMB_DIMEN, MAX_THUMB_SIZE
-from LiuXin.file_formats.mobi.utils import (
+from LiuXin_alpha.file_formats import generate_masthead
+from LiuXin_alpha.file_formats.mobi import MAX_THUMB_DIMEN, MAX_THUMB_SIZE
+from LiuXin_alpha.file_formats.mobi.utils import (
     rescale_image,
     mobify_image,
     write_font_record,
 )
-from LiuXin.file_formats.oeb.base import OEB_RASTER_IMAGES
+from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
-from LiuXin.utils.imghdr import what
+from LiuXin_alpha.utils.imghdr import what
 
 # Py2/Py3 compatibility
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

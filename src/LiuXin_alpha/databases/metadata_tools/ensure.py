@@ -136,7 +136,7 @@ class Ensure(object):
                 ("candidate_rows", candidate_rows),
             )
             # Try and fix the problem using the maintenance bot
-            from LiuXin.databases.maintenance_bot import fix_duplicates
+            from LiuXin_alpha.databases.maintenance_bot import fix_duplicates
 
             fix_duplicates(self.db, table="genres", column="genre", comparison=standardize_genre)
             candidate_rows = self.db.search(table="genres", column="genre", search_term=genre)

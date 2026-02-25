@@ -7,13 +7,13 @@ import random
 import time
 from struct import pack
 
-from LiuXin.file_formats import normalize
-from LiuXin.file_formats.compression.palmdoc import compress_doc
-from LiuXin.file_formats.mobi.langcodes import iana2mobi
-from LiuXin.file_formats.mobi.writer2 import PALMDOC, UNCOMPRESSED
-from LiuXin.file_formats.mobi.writer2.indexer import Indexer
-from LiuXin.file_formats.mobi.writer2.serializer import Serializer
-from LiuXin.file_formats.mobi.utils import (
+from LiuXin_alpha.file_formats import normalize
+from LiuXin_alpha.file_formats.compression.palmdoc import compress_doc
+from LiuXin_alpha.file_formats.mobi.langcodes import iana2mobi
+from LiuXin_alpha.file_formats.mobi.writer2 import PALMDOC, UNCOMPRESSED
+from LiuXin_alpha.file_formats.mobi.writer2.indexer import Indexer
+from LiuXin_alpha.file_formats.mobi.writer2.serializer import Serializer
+from LiuXin_alpha.file_formats.mobi.utils import (
     encint,
     encode_trailing_data,
     align_block,
@@ -22,13 +22,13 @@ from LiuXin.file_formats.mobi.utils import (
     create_text_record,
 )
 
-from LiuXin.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.filenames import ascii_filename
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -226,7 +226,7 @@ class MobiWriter(object):
                 # header as well
                 bt = 0x103 if self.indexer.is_flat_periodical else 0x101
 
-        from LiuXin.file_formats.mobi.writer8.exth import build_exth
+        from LiuXin_alpha.file_formats.mobi.writer8.exth import build_exth
 
         exth = build_exth(
             metadata,
@@ -408,8 +408,8 @@ class MobiWriter(object):
     # }}}
 
     def generate_joint_record0(self):  # {{{
-        from LiuXin.file_formats.mobi.writer8.mobi import MOBIHeader, HEADER_FIELDS
-        from LiuXin.file_formats.mobi.writer8.exth import build_exth
+        from LiuXin_alpha.file_formats.mobi.writer8.mobi import MOBIHeader, HEADER_FIELDS
+        from LiuXin_alpha.file_formats.mobi.writer8.exth import build_exth
 
         # Insert resource records
         first_image_record = None

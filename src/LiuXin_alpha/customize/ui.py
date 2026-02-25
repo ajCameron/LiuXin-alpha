@@ -15,9 +15,9 @@ from collections import defaultdict
 
 from typing import Union, Optional, Iterator, Iterable, Any, BinaryIO, Callable, Type
 
-from LiuXin.constants import VERBOSE_DEBUG as DEBUG
+from LiuXin_alpha.constants import VERBOSE_DEBUG as DEBUG
 
-from LiuXin.customize import (
+from LiuXin_alpha.customize import (
     Archive,
     CatalogPlugin,
     FileTypePlugin,
@@ -35,28 +35,28 @@ from LiuXin.customize import (
     LibraryClosedPlugin,
     Plugin,
 )
-from LiuXin.customize.builtins import plugins as builtin_plugins
-from LiuXin.customize.builtins.standardization import CreatorStandardize
-from LiuXin.customize.builtins.standardization import TitlePhashHandler
-from LiuXin.customize.builtins.standardization import BaseNameGenerator
-from LiuXin.customize.conversion import InputFormatPlugin, OutputFormatPlugin
-from LiuXin.customize.profiles import InputProfile, OutputProfile
-from LiuXin.customize.zipplugin import loader
-from LiuXin.customize.archives import get_compressor_plugins
+from LiuXin_alpha.customize.builtins import plugins as builtin_plugins
+from LiuXin_alpha.customize.builtins.standardization import CreatorStandardize
+from LiuXin_alpha.customize.builtins.standardization import TitlePhashHandler
+from LiuXin_alpha.customize.builtins.standardization import BaseNameGenerator
+from LiuXin_alpha.customize.conversion import InputFormatPlugin, OutputFormatPlugin
+from LiuXin_alpha.customize.profiles import InputProfile, OutputProfile
+from LiuXin_alpha.customize.zipplugin import loader
+from LiuXin_alpha.customize.archives import get_compressor_plugins
 
-from LiuXin.databases.database import Database
+from LiuXin_alpha.databases.database import Database
 
-from LiuXin.devices.interface import DevicePlugin
+from LiuXin_alpha.devices.interface import DevicePlugin
 
-from LiuXin.metadata.metadata import MetaData as MetaInformation
-from LiuXin.metadata.web_sources.base import Source
+from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
+from LiuXin_alpha.metadata.web_sources.base import Source
 
-from LiuXin.utils.config.config_base import make_config_dir, Config, ConfigProxy, plugin_dir
-from LiuXin.utils.config.config_tools import OptionParser
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.config.config_base import make_config_dir, Config, ConfigProxy, plugin_dir
+from LiuXin_alpha.utils.config.config_tools import OptionParser
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 from past.builtins import basestring
 
@@ -688,7 +688,7 @@ def set_file_type_metadata(
                         break
                     except:
                         if report_error is None:
-                            from LiuXin import prints
+                            from LiuXin_alpha import prints
 
                             prints(
                                 "Failed to set metadata for the",
@@ -1250,9 +1250,9 @@ def build_plugin(path: str) -> None:
     :param path:
     :return:
     """
-    from LiuXin import prints
-    from LiuXin.utils.calibre.ptempfile import PersistentTemporaryFile
-    from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_STORED
+    from LiuXin_alpha import prints
+    from LiuXin_alpha.utils.calibre.ptempfile import PersistentTemporaryFile
+    from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_STORED
 
     path = type("")(path)
     names = frozenset(os.listdir(path))

@@ -9,7 +9,7 @@ from copy import deepcopy, copy
 
 from lxml import etree
 
-from LiuXin.utils.calibre import guess_type
+from LiuXin_alpha.utils.calibre import guess_type
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -1535,7 +1535,7 @@ class BuiltinCurrentLibraryName(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals):
-        from LiuXin.utils.calibre.library import current_library_name
+        from LiuXin_alpha.utils.calibre.library import current_library_name
 
         return current_library_name()
 
@@ -1552,7 +1552,7 @@ class BuiltinCurrentLibraryPath(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals):
-        from LiuXin.utils.calibre.library import current_library_path
+        from LiuXin_alpha.utils.calibre.library import current_library_path
 
         return current_library_path()
 
@@ -1630,7 +1630,7 @@ class BuiltinTransliterate(BuiltinFormatterFunction):
     ).format("Фёдор Миха́йлович Достоевский", "Fiodor Mikhailovich Dostoievskii")
 
     def evaluate(self, formatter, kwargs, mi, locals, source):
-        from LiuXin.utils.calibre.utils.filenames import ascii_text
+        from LiuXin_alpha.utils.calibre.utils.filenames import ascii_text
 
         return ascii_text(source)
 
@@ -1782,9 +1782,9 @@ def compile_user_function(name, doc, arg_count, eval_func):
     func = "    " + "\n    ".join([tabs.sub(replace_func, line) for line in eval_func.splitlines()])
     prog = (
         """
-from LiuXin.utils.calibre.utils.formatter_functions import FormatterUserFunction
-from LiuXin.utils.localization import _
-from LiuXin.utils.calibre.utils.formatter_functions import formatter_functions
+from LiuXin_alpha.utils.calibre.utils.formatter_functions import FormatterUserFunction
+from LiuXin_alpha.utils.localization import _
+from LiuXin_alpha.utils.calibre.utils.formatter_functions import formatter_functions
 class UserFunction(FormatterUserFunction):
 """
         + func

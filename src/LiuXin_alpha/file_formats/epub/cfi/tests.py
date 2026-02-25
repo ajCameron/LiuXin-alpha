@@ -5,12 +5,12 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import unittest
 
-from LiuXin.file_formats.epub.cfi.parse import parser, cfi_sort_key
+from LiuXin_alpha.file_formats.epub.cfi.parse import parser, cfi_sort_key
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"

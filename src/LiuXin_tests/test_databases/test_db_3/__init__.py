@@ -12,7 +12,7 @@ from itertools import cycle
 
 from clint.textui import puts, colored
 
-from LiuXin.databases.row import Row
+from LiuXin_alpha.databases.row import Row
 
 from LiuXin_tests.test_databases import TestDatabaseBuilder
 from LiuXin_tests.test_databases.test_db_1 import test_db_1_folder

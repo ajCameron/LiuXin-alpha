@@ -4,7 +4,7 @@ import os
 
 from LiuXin_tests.test_data.test_db_1 import build_test_db
 
-from LiuXin.utils.ptempfiles import get_scratch_folder
+from LiuXin_alpha.utils.ptempfiles import get_scratch_folder
 
 scratch_db_path = os.path.join(get_scratch_folder(), "test_scratch_db.db")
 

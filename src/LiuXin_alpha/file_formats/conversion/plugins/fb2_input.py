@@ -7,16 +7,16 @@ Convert .fb2 files to .lrf
 import os
 import re
 
-from LiuXin.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.calibre import guess_type
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.resources import P
+from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.resources import P
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Anatoly Shipitsin <norguhtar at gmail.com>"
@@ -51,10 +51,10 @@ class FB2Input(InputFormatPlugin):
 
         from lxml import etree
 
-        from LiuXin.metadata.meta import get_metadata
-        from LiuXin.file_formats.chardet import xml_to_unicode
-        from LiuXin.file_formats.oeb.base import XLINK_NS, XHTML_NS, RECOVER_PARSER
-        from LiuXin.file_formats.opf.opf2 import OPFCreator
+        from LiuXin_alpha.metadata.meta import get_metadata
+        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+        from LiuXin_alpha.file_formats.oeb.base import XLINK_NS, XHTML_NS, RECOVER_PARSER
+        from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
         self.log = log
 
@@ -185,7 +185,7 @@ class FB2Input(InputFormatPlugin):
         :return:
         """
 
-        from LiuXin.file_formats.fb2 import base64_decode
+        from LiuXin_alpha.file_formats.fb2 import base64_decode
 
         self.binary_map = {}
         for elem in doc.xpath("./*"):

@@ -250,7 +250,7 @@ def load_ensured_folders():
         target_file_lines = target_file.readlines()
 
     # Processing the strings into lists - return the list of lists of strings
-    from LiuXin.utils.general_ops.io_ops import safe_parse_string_list
+    from LiuXin_alpha.utils.general_ops.io_ops import safe_parse_string_list
 
     rtn_list = []
     for line in target_file_lines:

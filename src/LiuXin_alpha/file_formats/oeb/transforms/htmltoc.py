@@ -4,12 +4,12 @@ from __future__ import with_statement
 HTML-TOC-adding transform.
 """
 
-from LiuXin.file_formats.oeb.base import element, XPath
-from LiuXin.file_formats.oeb.base import XML, XHTML, XHTML_NS
-from LiuXin.file_formats.oeb.base import XHTML_MIME, CSS_MIME
+from LiuXin_alpha.file_formats.oeb.base import element, XPath
+from LiuXin_alpha.file_formats.oeb.base import XML, XHTML, XHTML_NS
+from LiuXin_alpha.file_formats.oeb.base import XHTML_MIME, CSS_MIME
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.localization import delayed_trans as __
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import delayed_trans as __
 
 
 __license__ = "GPL v3"
@@ -75,7 +75,7 @@ class HTMLTOCAdder(object):
 
         if "toc" in oeb.guide:
             # Ensure toc pointed to in <guide> is in spine
-            from LiuXin.file_formats.oeb.base import urlnormalize
+            from LiuXin_alpha.file_formats.oeb.base import urlnormalize
 
             href = urlnormalize(oeb.guide["toc"].href)
             if href in oeb.manifest.hrefs:

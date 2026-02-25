@@ -4,14 +4,14 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import os
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = "2011, John Schember <john@nachtimwald.com>"
@@ -64,25 +64,25 @@ class HTMLZOutput(OutputFormatPlugin):
 
         from lxml import etree
 
-        from LiuXin.file_formats.oeb.base import OEB_IMAGES, SVG_MIME
-        from LiuXin.file_formats.opf.opf2 import OPF, metadata_to_opf
+        from LiuXin_alpha.file_formats.oeb.base import OEB_IMAGES, SVG_MIME
+        from LiuXin_alpha.file_formats.opf.opf2 import OPF, metadata_to_opf
 
-        from LiuXin.utils.filenames import ascii_filename
-        from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.filenames import ascii_filename
+        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
         # HTML
         if opts.htmlz_css_type == "inline":
-            from LiuXin.file_formats.htmlz.oeb2html import OEB2HTMLInlineCSSizer
+            from LiuXin_alpha.file_formats.htmlz.oeb2html import OEB2HTMLInlineCSSizer
 
             oeb2htmlizer = OEB2HTMLInlineCSSizer
 
         elif opts.htmlz_css_type == "tag":
-            from LiuXin.file_formats.htmlz.oeb2html import OEB2HTMLNoCSSizer
+            from LiuXin_alpha.file_formats.htmlz.oeb2html import OEB2HTMLNoCSSizer
 
             oeb2htmlizer = OEB2HTMLNoCSSizer
 
         else:
-            from LiuXin.file_formats.htmlz.oeb2html import OEB2HTMLClassCSSizer
+            from LiuXin_alpha.file_formats.htmlz.oeb2html import OEB2HTMLClassCSSizer
 
             oeb2htmlizer = OEB2HTMLClassCSSizer
 
@@ -94,7 +94,7 @@ class HTMLZOutput(OutputFormatPlugin):
             fname = "index"
 
             if opts.htmlz_title_filename:
-                from LiuXin.utils.filenames import shorten_components_to
+                from LiuXin_alpha.utils.filenames import shorten_components_to
 
                 fname = shorten_components_to(100, (ascii_filename(six_unicode(oeb_book.metadata.title[0])),))[0]
 
@@ -129,7 +129,7 @@ class HTMLZOutput(OutputFormatPlugin):
                     term = oeb_book.metadata.cover[0].term
                     cover_data = oeb_book.guide[term].item.data
                 if cover_data:
-                    from LiuXin.utils.calibre.utils.magick.draw import (
+                    from LiuXin_alpha.utils.calibre.utils.magick.draw import (
                         save_cover_data_to,
                     )
 

@@ -4,9 +4,9 @@ import glob
 import shutil
 import os
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -22,7 +22,7 @@ class PMLInput(InputFormatPlugin):
     file_types = {"pml", "pmlz"}
 
     def process_pml(self, pml_path, html_path, close_all=False):
-        from LiuXin.file_formats.pml.pmlconverter import PML_HTMLizer
+        from LiuXin_alpha.file_formats.pml.pmlconverter import PML_HTMLizer
 
         pclose = False
         hclose = False
@@ -90,9 +90,9 @@ class PMLInput(InputFormatPlugin):
         return images
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        from LiuXin.metadata.toc import TOC
-        from LiuXin.file_formats.opf.opf2 import OPFCreator
-        from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.metadata.toc import TOC
+        from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
+        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
         self.options = options
         self.log = log
@@ -130,7 +130,7 @@ class PMLInput(InputFormatPlugin):
         for item in pages + images:
             manifest_items.append((item, None))
 
-        from LiuXin.metadata.meta import get_metadata
+        from LiuXin_alpha.metadata.meta import get_metadata
 
         log.debug("Reading metadata from input file...")
         mi = get_metadata(stream, "pml")

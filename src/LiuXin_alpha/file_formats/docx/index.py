@@ -7,11 +7,11 @@ from operator import itemgetter
 
 from lxml import etree
 
-from LiuXin.utils.icu import partition_by_first_letter, sort_key
+from LiuXin_alpha.utils.icu import partition_by_first_letter, sort_key
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritmes
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritmes
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"

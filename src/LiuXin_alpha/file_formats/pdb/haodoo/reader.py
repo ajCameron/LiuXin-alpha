@@ -7,13 +7,13 @@ Read content from Haodoo.net pdb file.
 import struct
 import os
 
-from LiuXin.file_formats.pdb.formatreader import FormatReader
-from LiuXin.file_formats.txt.processor import opf_writer, HTML_TEMPLATE
+from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
+from LiuXin_alpha.file_formats.txt.processor import opf_writer, HTML_TEMPLATE
 
-from LiuXin.metadata.metadata import MetaData as MetaInformation
+from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
 
-from LiuXin.utils.calibre import prepare_string_for_xml
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.calibre import prepare_string_for_xml
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kan-Ru Chen <kanru@kanru.info>"

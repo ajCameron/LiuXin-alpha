@@ -7,20 +7,20 @@ import struct
 
 from collections import OrderedDict, namedtuple
 
-from LiuXin.file_formats.mobi.reader.headers import NULL_INDEX
-from LiuXin.file_formats.mobi.reader.index import (
+from LiuXin_alpha.file_formats.mobi.reader.headers import NULL_INDEX
+from LiuXin_alpha.file_formats.mobi.reader.index import (
     CNCX,
     parse_indx_header,
     parse_tagx_section,
     parse_index_record,
     INDEX_HEADER_FIELDS,
 )
-from LiuXin.file_formats.mobi.reader.ncx import tag_fieldname_map, default_entry
+from LiuXin_alpha.file_formats.mobi.reader.ncx import tag_fieldname_map, default_entry
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 
 __license__ = "GPL v3"

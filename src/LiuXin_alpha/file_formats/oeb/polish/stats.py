@@ -11,23 +11,23 @@ from urllib import unquote
 from collections import defaultdict
 
 # Todo: Include this in utils
-import LiuXin.utils.regex as regex
+import LiuXin_alpha.utils.regex as regex
 
 from cssutils import CSSParser
 from PyQt5.Qt import pyqtProperty, QEventLoop, Qt, QSize, QTimer, pyqtSlot
 from PyQt5.QtWebKitWidgets import QWebPage, QWebView
 
-from LiuXin.constants import iswindows
+from LiuXin_alpha.constants import iswindows
 
-from LiuXin.file_formats.oeb.display.webview import load_html
+from LiuXin_alpha.file_formats.oeb.display.webview import load_html
 
-from LiuXin.interfaces.gui2 import must_use_qt
+from LiuXin_alpha.interfaces.gui2 import must_use_qt
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.localization import icu_lower
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.localization import icu_lower
 
 
 __license__ = "GPL v3"
@@ -202,7 +202,7 @@ class Page(QWebPage):  # {{{
     def load_js(self):
         self.longjs_counter = 0
         if self.js is None:
-            from LiuXin.utils.resources import compiled_coffeescript
+            from LiuXin_alpha.utils.resources import compiled_coffeescript
 
             self.js = compiled_coffeescript("file_formats.oeb.display.utils")
             self.js += compiled_coffeescript("file_formats.oeb.polish.font_stats")
@@ -425,8 +425,8 @@ class StatsCollector(object):
 
 
 if __name__ == "__main__":
-    from LiuXin.file_formats.oeb.polish.container import get_container
-    from LiuXin.utils.logger import default_log
+    from LiuXin_alpha.file_formats.oeb.polish.container import get_container
+    from LiuXin_alpha.utils.logger import default_log
 
     default_log.filter_level = default_log.DEBUG
     ebook = get_container(sys.argv[-1], default_log)

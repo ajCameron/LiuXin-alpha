@@ -60,7 +60,7 @@ def test_missing_key_uses_default_and_upgrades_file(
     It should return the inbuilt default and the INI should be upgraded to include the missing key.
     """
     if module_kind == "liuxin":
-        pytest.importorskip("LiuXin")
+        pytest.importorskip("LiuXin_alpha")
 
     prefs_path = tmp_path / "LiuXin_prefs_file.ini"
 
@@ -94,7 +94,7 @@ def test_unknown_options_are_preserved(
 ):
     """Unknown keys in the on-disk file should survive an upgrade pass."""
     if module_kind == "liuxin":
-        pytest.importorskip("LiuXin")
+        pytest.importorskip("LiuXin_alpha")
 
     prefs_path = tmp_path / "LiuXin_prefs_file.ini"
 
@@ -129,7 +129,7 @@ def test_fresh_install_creates_complete_file(
 ):
     """If no INI exists, a full defaults file should be created and include key defaults."""
     if module_kind == "liuxin":
-        pytest.importorskip("LiuXin")
+        pytest.importorskip("LiuXin_alpha")
 
     prefs_path = tmp_path / "LiuXin_prefs_file.ini"
     if prefs_path.exists():

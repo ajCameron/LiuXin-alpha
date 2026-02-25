@@ -6,11 +6,11 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 from struct import unpack_from, error
 
 try:
-    from LiuXin.utils.magick.draw import identify_data
+    from LiuXin_alpha.utils.magick.draw import identify_data
 except (ImportError, RuntimeError) as e:
     # C++ based plugins probably haven't been compiled
     pass
-from LiuXin.utils.imghdr import what
+from LiuXin_alpha.utils.imghdr import what
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"

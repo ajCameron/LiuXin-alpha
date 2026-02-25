@@ -2,9 +2,9 @@
 
 import os
 
-from LiuXin.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -41,9 +41,9 @@ class PDFInput(InputFormatPlugin):
     }
 
     def convert_new(self, stream, accelerators):
-        from LiuXin.file_formats.pdf.pdftohtml import pdftohtml
+        from LiuXin_alpha.file_formats.pdf.pdftohtml import pdftohtml
         from utils.libraries.cleantext import clean_ascii_chars
-        from LiuXin.file_formats.pdf.reflow import PDFDocument
+        from LiuXin_alpha.file_formats.pdf.reflow import PDFDocument
 
         pdftohtml(os.getcwdu(), stream.name, self.opts.no_images, as_xml=True)
         with open("index.xml", "rb") as f:
@@ -61,8 +61,8 @@ class PDFInput(InputFormatPlugin):
         :param accelerators: Are not currently used
         :return:
         """
-        from LiuXin.file_formats.opf.opf2 import OPFCreator
-        from LiuXin.file_formats.pdf.pdftohtml import pdftohtml
+        from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
+        from LiuXin_alpha.file_formats.pdf.pdftohtml import pdftohtml
 
         log.debug("Converting file to html...")
         # The main html file will be named index.html
@@ -71,7 +71,7 @@ class PDFInput(InputFormatPlugin):
             return self.convert_new(stream, accelerators)
         pdftohtml(os.getcwdu(), stream.name, options.no_images)
 
-        from LiuXin.metadata.meta import get_metadata
+        from LiuXin_alpha.metadata.meta import get_metadata
 
         log.debug("Retrieving document metadata...")
         mi = get_metadata(stream, "pdf")

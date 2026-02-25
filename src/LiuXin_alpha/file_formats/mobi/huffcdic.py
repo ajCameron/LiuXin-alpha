@@ -10,7 +10,7 @@ and igorsk.
 
 import struct
 
-from LiuXin.file_formats.mobi import MobiError
+from LiuXin_alpha.file_formats.mobi import MobiError
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -325,7 +325,7 @@ def get_title_sort_pat(lang=None):
     if ans is not None:
         return ans
     q = lang
-    from LiuXin.utils.localization import canonicalize_lang, get_lang
+    from LiuXin_alpha.utils.localization import canonicalize_lang, get_lang
 
     if lang is None:
         q = tweaks["default_language_for_title_sort"]

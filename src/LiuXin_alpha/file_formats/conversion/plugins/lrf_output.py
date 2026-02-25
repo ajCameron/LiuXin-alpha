@@ -6,13 +6,13 @@ from __future__ import with_statement
 import os
 import sys
 
-from LiuXin.customize.conversion import OptionRecommendation
-from LiuXin.customize.conversion import OutputFormatPlugin
+from LiuXin_alpha.customize.conversion import OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -59,7 +59,7 @@ class LRFOptions(object):
         self.use_spine = True
         self.font_delta = 0
         self.ignore_colors = False
-        from LiuXin.file_formats.lrf import PRS500_PROFILE
+        from LiuXin_alpha.file_formats.lrf import PRS500_PROFILE
 
         self.profile = PRS500_PROFILE
         self.link_levels = sys.maxint
@@ -181,13 +181,13 @@ class LRFOutput(OutputFormatPlugin):
     def convert_images(self, pages, opts, wide):
 
         from uuid import uuid4
-        from LiuXin.file_formats.lrf.pylrs.pylrs import (
+        from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import (
             Book,
             BookSetting,
             ImageStream,
             ImageBlock,
         )
-        from LiuXin.utils.calibre.constants import __appname__, __version__
+        from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
 
         width, height = (784, 1012) if wide else (584, 754)
 
@@ -225,7 +225,7 @@ class LRFOutput(OutputFormatPlugin):
         book.renderLrf(open(opts.output, "wb"))
 
     def flatten_toc(self):
-        from LiuXin.file_formats.oeb.base import TOC
+        from LiuXin_alpha.file_formats.oeb.base import TOC
 
         nroot = TOC()
         for x in self.oeb.toc.iterdescendants():
@@ -243,16 +243,16 @@ class LRFOutput(OutputFormatPlugin):
 
         self.flatten_toc()
 
-        from LiuXin.utils.ptempfiles import TemporaryDirectory
+        from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
         with TemporaryDirectory("_lrf_output") as tdir:
 
-            from LiuXin.customize.ui import plugin_for_output_format
+            from LiuXin_alpha.customize.ui import plugin_for_output_format
 
             oeb_output = plugin_for_output_format("oeb")
             oeb_output.convert(oeb_book, tdir, input_plugin, opts, log)
             opf = [x for x in os.listdir(tdir) if x.endswith(".opf")][0]
 
-            from LiuXin.file_formats.lrf.html.convert_from import process_file
+            from LiuXin_alpha.file_formats.lrf.html.convert_from import process_file
 
             process_file(os.path.join(tdir, opf), lrf_opts, self.log)

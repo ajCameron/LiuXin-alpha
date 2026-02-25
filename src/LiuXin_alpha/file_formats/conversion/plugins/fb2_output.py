@@ -2,9 +2,9 @@
 
 import os
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -175,9 +175,9 @@ class FB2Output(OutputFormatPlugin):
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
 
-        from LiuXin.file_formats.fb2.fb2ml import FB2MLizer
-        from LiuXin.file_formats.oeb.transforms.jacket import linearize_jacket
-        from LiuXin.file_formats.oeb.transforms.rasterize import (
+        from LiuXin_alpha.file_formats.fb2.fb2ml import FB2MLizer
+        from LiuXin_alpha.file_formats.oeb.transforms.jacket import linearize_jacket
+        from LiuXin_alpha.file_formats.oeb.transforms.rasterize import (
             SVGRasterizer,
             Unavailable,
         )

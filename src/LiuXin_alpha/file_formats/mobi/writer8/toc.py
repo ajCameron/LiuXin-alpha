@@ -5,7 +5,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 from lxml import etree
 
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.oeb.base import (
     urlnormalize,
     XPath,
     XHTML_NS,
@@ -13,7 +13,7 @@ from LiuXin.file_formats.oeb.base import (
     XHTML_MIME,
 )
 
-from LiuXin.utils.localization import delayed_trans as __
+from LiuXin_alpha.utils.localization import delayed_trans as __
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -16,7 +16,7 @@
 import sys
 import os
 
-from LiuXin.file_formats.rtf2xml import (
+from LiuXin_alpha.file_formats.rtf2xml import (
     headings_to_sections,
     line_endings,
     footnote,
@@ -54,9 +54,9 @@ from LiuXin.file_formats.rtf2xml import (
     group_styles,
     inline,
 )
-from LiuXin.file_formats.rtf2xml.old_rtf import OldRtf
+from LiuXin_alpha.file_formats.rtf2xml.old_rtf import OldRtf
 
-from LiuXin.file_formats.rtf2xml import open_for_read, open_for_write
+from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 """
 Here is an example script using the ParseRTF module directly

@@ -12,7 +12,7 @@
 #########################################################################
 import sys
 import os
-from LiuXin.file_formats.rtf2xml import open_for_read, open_for_write
+from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 # , codecs
 

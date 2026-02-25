@@ -3,7 +3,7 @@
 
 from __future__ import with_statement
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -19,15 +19,15 @@ class LITInput(InputFormatPlugin):
 
     def convert(self, stream, options, file_ext, log, accelerators):
 
-        from LiuXin.file_formats.lit.reader import LitReader
-        from LiuXin.file_formats.conversion.plumber import create_oebbook
+        from LiuXin_alpha.file_formats.lit.reader import LitReader
+        from LiuXin_alpha.file_formats.conversion.plumber import create_oebbook
 
         self.log = log
         return create_oebbook(log, stream, options, reader=LitReader)
 
     def postprocess_book(self, oeb, opts, log):
 
-        from LiuXin.file_formats.oeb.base import XHTML_NS, XPath, XHTML
+        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, XPath, XHTML
 
         for item in oeb.spine:
             root = item.data
@@ -45,11 +45,11 @@ class LITInput(InputFormatPlugin):
                     pre = body[0]
                     import copy
                     from lxml import etree
-                    from LiuXin.file_formats.txt.processor import (
+                    from LiuXin_alpha.file_formats.txt.processor import (
                         convert_basic,
                         separate_paragraphs_single_line,
                     )
-                    from LiuXin.file_formats.chardet import xml_to_unicode
+                    from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 
                     html = separate_paragraphs_single_line(pre.text)
                     html = convert_basic(html).replace("<html>", '<html xmlns="%s">' % XHTML_NS)

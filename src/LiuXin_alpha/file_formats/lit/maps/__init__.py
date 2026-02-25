@@ -2,8 +2,8 @@
 Microsoft LIT tag and attribute tables.
 """
 
-from LiuXin.file_formats.lit.maps.opf import MAP as OPF_MAP
-from LiuXin.file_formats.lit.maps.html import MAP as HTML_MAP
+from LiuXin_alpha.file_formats.lit.maps.opf import MAP as OPF_MAP
+from LiuXin_alpha.file_formats.lit.maps.html import MAP as HTML_MAP
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"

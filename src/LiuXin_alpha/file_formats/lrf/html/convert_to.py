@@ -4,17 +4,17 @@ import logging
 import os
 import sys
 
-from LiuXin.exceptions import ConversionError
+from LiuXin_alpha.exceptions import ConversionError
 
-from LiuXin.file_formats.lrf.meta import get_metadata
-from LiuXin.file_formats.lrf.lrfparser import LRFDocument
-from LiuXin.file_formats.lrf.objects import PageAttr, BlockAttr, TextAttr
-from LiuXin.file_formats.lrf.pylrs.pylrs import TextStyle
+from LiuXin_alpha.file_formats.lrf.meta import get_metadata
+from LiuXin_alpha.file_formats.lrf.lrfparser import LRFDocument
+from LiuXin_alpha.file_formats.lrf.objects import PageAttr, BlockAttr, TextAttr
+from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import TextStyle
 
-from LiuXin.file_formats.opf.opf2 import OPFCreator
+from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
-from LiuXin.utils.calibre import setup_cli_handlers
-from LiuXin.utils.config import OptionParser
+from LiuXin_alpha.utils.calibre import setup_cli_handlers
+from LiuXin_alpha.utils.config import OptionParser
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"

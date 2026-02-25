@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -18,7 +18,7 @@ class TCRInput(InputFormatPlugin):
     file_types = {"tcr"}
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        from LiuXin.file_formats.compression.tcr import decompress
+        from LiuXin_alpha.file_formats.compression.tcr import decompress
 
         log.info("Decompressing text...")
         raw_txt = decompress(stream)
@@ -26,7 +26,7 @@ class TCRInput(InputFormatPlugin):
         log.info("Converting text to OEB...")
         stream = six_cStringIO(raw_txt)
 
-        from LiuXin.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         txt_plugin = plugin_for_input_format("txt")
         for opt in txt_plugin.options:

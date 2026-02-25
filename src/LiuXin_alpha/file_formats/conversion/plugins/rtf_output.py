@@ -2,7 +2,7 @@
 
 import os
 
-from LiuXin.customize.conversion import OutputFormatPlugin
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -25,7 +25,7 @@ class RTFOutput(OutputFormatPlugin):
         :param log:
         :return:
         """
-        from LiuXin.file_formats.rtf.rtfml import RTFMLizer
+        from LiuXin_alpha.file_formats.rtf.rtfml import RTFMLizer
 
         log.info("Converting to rtf...")
 

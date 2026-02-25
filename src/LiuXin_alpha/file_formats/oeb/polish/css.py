@@ -11,23 +11,23 @@ from cssselect.xpath import XPathExpr, is_safe_name
 from cssselect.parser import SelectorSyntaxError
 from cssutils.css import CSSRule
 
-from LiuXin.file_formats.oeb.base import OEB_STYLES, OEB_DOCS, XPNSMAP, XHTML_NS
-from LiuXin.file_formats.oeb.normalize_css import normalize_filter_css, normalizers
-from LiuXin.file_formats.oeb.polish.pretty import pretty_script_or_style
-from LiuXin.file_formats.oeb.stylizer import (
+from LiuXin_alpha.file_formats.oeb.base import OEB_STYLES, OEB_DOCS, XPNSMAP, XHTML_NS
+from LiuXin_alpha.file_formats.oeb.normalize_css import normalize_filter_css, normalizers
+from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_script_or_style
+from LiuXin_alpha.file_formats.oeb.stylizer import (
     MIN_SPACE_RE,
     is_non_whitespace,
     xpath_lower_case,
     fix_namespace,
 )
 
-from LiuXin.utils.calibre import force_unicode
-from LiuXin.utils.icu import lower as icu_lower
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import force_unicode
+from LiuXin_alpha.utils.icu import lower as icu_lower
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"

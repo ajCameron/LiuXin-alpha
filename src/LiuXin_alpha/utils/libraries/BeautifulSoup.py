@@ -1123,7 +1123,7 @@ class BeautifulStoneSoup(Tag, SGMLParser):
         else:
             # Changed detection by Kovid
             # Re-written for LiuXin
-            import LiuXin.utils.calibre_chardet as chardet
+            import LiuXin_alpha.utils.calibre_chardet as chardet
 
             markup, self.originalEncoding = chardet.xml_to_unicode(markup)
         if markup:

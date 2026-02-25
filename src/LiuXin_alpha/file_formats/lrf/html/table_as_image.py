@@ -21,7 +21,7 @@ from PyQt5.Qt import (
 from PyQt5.QtWebKitWidgets import QWebPage
 
 # Py2.Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -117,7 +117,7 @@ def render_table(soup, table, css, base_dir, width, height, dpi, factor=1.0):
 
 
 def do_render(html, base_dir, width, height, dpi, factor):
-    from LiuXin.interfaces.gui2 import is_ok_to_use_qt
+    from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
 
     if not is_ok_to_use_qt():
         raise Exception("Not OK to use Qt")

@@ -10,15 +10,15 @@ import posixpath
 from urlparse import urlparse
 from collections import Counter, defaultdict
 
-from LiuXin.file_formats.chardet import strip_encoding_declarations
+from LiuXin_alpha.file_formats.chardet import strip_encoding_declarations
 
-from LiuXin.utils.calibre import sanitize_file_name_unicode
+from LiuXin_alpha.utils.calibre import sanitize_file_name_unicode
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -103,7 +103,7 @@ def replace_links(container, link_map, frag_map=lambda name, frag: frag, replace
 
 
 def smarten_punctuation(container, report):
-    from LiuXin.file_formats.conversion.preprocess import smarten_punctuation
+    from LiuXin_alpha.file_formats.conversion.preprocess import smarten_punctuation
 
     smartened = False
     for path in container.spine_items:
@@ -187,9 +187,9 @@ def replace_file(container, name, path, basename, force_mt=None):
 
 def mt_to_category(container, mt):
 
-    from LiuXin.file_formats.oeb.polish.utils import guess_type
-    from LiuXin.file_formats.oeb.polish.container import OEB_FONTS
-    from LiuXin.file_formats.oeb.base import OEB_DOCS, OEB_STYLES
+    from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
+    from LiuXin_alpha.file_formats.oeb.polish.container import OEB_FONTS
+    from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, OEB_STYLES
 
     if mt in OEB_DOCS:
         category = "text"
@@ -217,7 +217,7 @@ def get_recommended_folders(container, names):
     :return:
     """
 
-    from LiuXin.file_formats.oeb.polish.utils import guess_type
+    from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
 
     counts = defaultdict(Counter)
     for name, mt in iteritems(container.mime_map):

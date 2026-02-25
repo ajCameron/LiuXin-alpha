@@ -8,7 +8,7 @@ __copyright__ = "2011, Anthon van der Neut <A.van.der.Neut@ruamel.eu>"
 # __docformat__ = 'restructuredtext en'
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 # Todo: Why is this here? Try and get working as a pure python bzzdec alterenative
 
@@ -959,7 +959,7 @@ class BZZDecoder:
 # for testing
 def main():
     import sys
-    from LiuXin.utils.plugins import plugins
+    from LiuXin_alpha.utils.plugins import plugins
 
     raw = file(sys.argv[1], "rb").read()
     d = plugins["bzzdec"][0]

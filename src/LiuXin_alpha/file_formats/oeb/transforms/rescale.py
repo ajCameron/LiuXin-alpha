@@ -3,7 +3,7 @@
 
 from __future__ import with_statement
 
-from LiuXin.utils.calibre import fit_image
+from LiuXin_alpha.utils.calibre import fit_image
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -23,7 +23,7 @@ class RescaleImages(object):
         self.rescale()
 
     def rescale(self):
-        from LiuXin.utils.magick.draw import Image
+        from LiuXin_alpha.utils.magick.draw import Image
 
         is_image_collection = getattr(self.opts, "is_image_collection", False)
 
@@ -59,7 +59,7 @@ class RescaleImages(object):
                         # ImageMagick inverts colors if you just set the colorspace
                         # to rgb. See for example: https://bugs.launchpad.net/bugs/1246710
                         from PyQt5.Qt import QImage
-                        from LiuXin.interfaces.gui2 import pixmap_to_data
+                        from LiuXin_alpha.interfaces.gui2 import pixmap_to_data
 
                         qimg = QImage()
                         qimg.loadFromData(raw)

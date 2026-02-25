@@ -8,21 +8,21 @@ import textwrap
 from lxml import etree
 from lxml.builder import ElementMaker
 
-from LiuXin.file_formats.docx.names import DOCXNamespace
+from LiuXin_alpha.file_formats.docx.names import DOCXNamespace
 
 from LiuXin_alpha.metadata import authors_to_string
 
-from LiuXin.utils.calibre import guess_type
-from LiuXin.utils.calibre.constants import numeric_version, __appname__
-from LiuXin.utils.date import utcnow
-from LiuXin.utils.localization import canonicalize_lang, lang_as_iso639_1
-from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.calibre.constants import numeric_version, __appname__
+from LiuXin_alpha.utils.date import utcnow
+from LiuXin_alpha.utils.localization import canonicalize_lang, lang_as_iso639_1
+from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 try:
-    from LiuXin.file_formats.pdf.render.common import PAPER_SIZES
+    from LiuXin_alpha.file_formats.pdf.render.common import PAPER_SIZES
 except (KeyError, ImportError):
     # If the PDF paper sizes cannot be imported for some reason fall back to these
     # Sizes {{{

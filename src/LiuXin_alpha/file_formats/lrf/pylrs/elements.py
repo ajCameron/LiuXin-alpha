@@ -1,8 +1,8 @@
 """ elements.py -- replacements and helpers for ElementTree """
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 class ElementWriter(object):

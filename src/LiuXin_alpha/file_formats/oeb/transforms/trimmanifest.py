@@ -4,10 +4,10 @@ from __future__ import with_statement
 OPF manifest trimming transform.
 """
 
-from LiuXin.file_formats.oeb.base import CSS_MIME, OEB_DOCS
-from LiuXin.file_formats.oeb.base import urlnormalize, iterlinks
+from LiuXin_alpha.file_formats.oeb.base import CSS_MIME, OEB_DOCS
+from LiuXin_alpha.file_formats.oeb.base import urlnormalize, iterlinks
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"

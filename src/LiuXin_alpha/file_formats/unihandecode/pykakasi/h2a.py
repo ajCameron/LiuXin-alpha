@@ -21,7 +21,7 @@
 # *
 # */
 
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 
 class H2a(object):

@@ -2,10 +2,10 @@
 
 import os
 
-from LiuXin.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.calibre import _ent_pat, walk, xml_entity_to_unicode
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import _ent_pat, walk, xml_entity_to_unicode
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -101,9 +101,9 @@ class TXTInput(InputFormatPlugin):
 
         import codecs
 
-        from LiuXin.file_formats.chardet import detect
-        from LiuXin.file_formats.conversion.preprocess import DocAnalysis, Dehyphenator
-        from LiuXin.file_formats.txt.processor import (
+        from LiuXin_alpha.file_formats.chardet import detect
+        from LiuXin_alpha.file_formats.conversion.preprocess import DocAnalysis, Dehyphenator
+        from LiuXin_alpha.file_formats.txt.processor import (
             convert_basic,
             convert_markdown,
             separate_paragraphs_single_line,
@@ -118,7 +118,7 @@ class TXTInput(InputFormatPlugin):
             separate_hard_scene_breaks,
         )
 
-        from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
         self.log = log
         txt = ""
@@ -222,7 +222,7 @@ class TXTInput(InputFormatPlugin):
             txt = separate_paragraphs_print_formatted(txt)
             txt = block_to_single_line(txt)
         elif options.paragraph_type == "unformatted":
-            from LiuXin.file_formats.conversion.utils import HeuristicProcessor
+            from LiuXin_alpha.file_formats.conversion.utils import HeuristicProcessor
 
             # unwrap lines based on punctuation
             docanalysis = DocAnalysis("txt", txt)
@@ -272,7 +272,7 @@ class TXTInput(InputFormatPlugin):
             html = convert_basic(txt, epub_split_size_kb=flow_size)
 
         # Run the HTMLized text through the html processing plugin.
-        from LiuXin.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         html_input = plugin_for_input_format("html")
         # Use the default encoding from the html input package
@@ -300,8 +300,8 @@ class TXTInput(InputFormatPlugin):
         os.remove(htmlfile.name)
 
         # Set metadata from file.
-        from LiuXin.customize.ui import get_file_type_metadata
-        from LiuXin.file_formats.oeb.transforms.metadata import (
+        from LiuXin_alpha.customize.ui import get_file_type_metadata
+        from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
             meta_info_to_oeb_metadata,
         )
 

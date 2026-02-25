@@ -24,11 +24,11 @@
 import sys
 import zipfile
 
-from LiuXin.file_formats.odf.text import UserFieldDecl
-from LiuXin.file_formats.odf.namespaces import OFFICENS
-from LiuXin.file_formats.odf.opendocument import load
+from LiuXin_alpha.file_formats.odf.text import UserFieldDecl
+from LiuXin_alpha.file_formats.odf.namespaces import OFFICENS
+from LiuXin_alpha.file_formats.odf.opendocument import load
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 
 OUTENCODING = "utf-8"
 

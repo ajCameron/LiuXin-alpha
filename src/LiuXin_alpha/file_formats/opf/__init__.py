@@ -72,7 +72,7 @@ pretty_print = PrettyPrint()
 
 
 def _pretty_print(root):
-    from LiuXin.file_formats.oeb.polish.pretty import pretty_opf, pretty_xml_tree
+    from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_opf, pretty_xml_tree
 
     pretty_opf(root)
     pretty_xml_tree(root)
@@ -538,8 +538,8 @@ def serialize_user_metadata(metadata_elem, all_user_metadata, tail="\n" + (" " *
     :param tail: Tail for the metadata element
     :return:
     """
-    from LiuXin.metadata.book.json_codec import object_to_unicode, encode_is_multiple
-    from LiuXin.utils.config.config_tools import to_json
+    from LiuXin_alpha.metadata.book.json_codec import object_to_unicode, encode_is_multiple
+    from LiuXin_alpha.utils.config.config_tools import to_json
 
     for name, fm in all_user_metadata.items():
         try:
@@ -563,7 +563,7 @@ def serialize_user_metadata(metadata_elem, all_user_metadata, tail="\n" + (" " *
 def dump_dict(cats):
     if not cats:
         cats = {}
-    from LiuXin.metadata.book.json_codec import object_to_unicode
+    from LiuXin_alpha.metadata.book.json_codec import object_to_unicode
 
     return json.dumps(object_to_unicode(cats), ensure_ascii=False, skipkeys=True)
 
@@ -690,8 +690,8 @@ class OPF(object):  # {{{
     def read_user_metadata(self):
         self._user_metadata_ = {}
         temp = Metadata("x", ["x"])
-        from LiuXin.utils.config.config_tools import from_json
-        from LiuXin.file_formats.metadata.book.json_codec import decode_is_multiple
+        from LiuXin_alpha.utils.config.config_tools import from_json
+        from LiuXin_alpha.file_formats.metadata.book.json_codec import decode_is_multiple
 
         elems = self.root.xpath('//*[name() = "meta" and starts-with(@name,' '"calibre:user_metadata:") and @content]')
         for elem in elems:
@@ -1538,7 +1538,7 @@ class OPFCreator(Metadata):
         self.guide.set_basedir(self.base_path)
 
         # Actual rendering
-        from LiuXin.file_formats.oeb.base import OPF2_NS, DC11_NS, CALIBRE_NS
+        from LiuXin_alpha.file_formats.oeb.base import OPF2_NS, DC11_NS, CALIBRE_NS
 
         DNS = OPF2_NS + "___xx___"
         E = ElementMaker(namespace=DNS, nsmap={None: DNS})
@@ -1612,7 +1612,7 @@ class OPFCreator(Metadata):
         if self.publication_type is not None:
             a(CAL_ELEM("calibre:publication_type", self.publication_type))
         if self.user_categories:
-            from LiuXin.file_formats.metadata.book.json_codec import object_to_unicode
+            from LiuXin_alpha.file_formats.metadata.book.json_codec import object_to_unicode
 
             a(
                 CAL_ELEM(
@@ -1668,7 +1668,7 @@ def metadata_to_opf(mi, as_string=True, default_lang=None):
     :return:
     """
     import textwrap
-    from LiuXin.file_formats.oeb.base import OPF, DC
+    from LiuXin_alpha.file_formats.oeb.base import OPF, DC
 
     if not mi.application_id:
         mi.application_id = str(uuid.uuid4())
@@ -1788,7 +1788,7 @@ def metadata_to_opf(mi, as_string=True, default_lang=None):
 
 def test_m2o():
 
-    from LiuXin.utils.date import now as nowf
+    from LiuXin_alpha.utils.date import now as nowf
 
     mi = MetaInformation("test & title", ['a"1', "a'2"])
     mi.title_sort = "a'\"b"

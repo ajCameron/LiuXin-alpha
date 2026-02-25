@@ -12,7 +12,7 @@ import re
 from functools import partial
 from lxml import html
 
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.oeb.base import (
     XHTML,
     XHTML_NS,
     barename,
@@ -22,14 +22,14 @@ from LiuXin.file_formats.oeb.base import (
     rewrite_links,
     urlnormalize,
 )
-from LiuXin.file_formats.oeb.stylizer import Stylizer
+from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
-from LiuXin.utils.calibre import prepare_string_for_xml
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.calibre import prepare_string_for_xml
+from LiuXin_alpha.utils.logger import default_log
 
 # Py2/Py3 compatibility
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
 
 __license__ = "GPL 3"
 __copyright__ = "2011, John Schember <john@nachtimwald.com>"

@@ -23,7 +23,7 @@ Currently it contains the legal child elements of a given element.
 To be used for validation check in the API
 """
 
-from LiuXin.file_formats.odf.namespaces import *
+from LiuXin_alpha.file_formats.odf.namespaces import *
 
 # The following code is generated from the RelaxNG schema with this notice:
 

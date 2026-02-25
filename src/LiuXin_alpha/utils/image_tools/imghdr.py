@@ -5,8 +5,8 @@
 from __future__ import unicode_literals, division, absolute_import, print_function
 from struct import unpack, error
 import os
-from LiuXin.utils.speedups import ReadOnlyFileBuffer
-from LiuXin.utils.file_ops.file_ops import local_open as lopen
+from LiuXin_alpha.utils.speedups import ReadOnlyFileBuffer
+from LiuXin_alpha.utils.file_ops.file_ops import local_open as lopen
 
 from past.builtins import basestring
 

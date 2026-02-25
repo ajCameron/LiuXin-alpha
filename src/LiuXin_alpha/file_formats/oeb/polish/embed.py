@@ -7,18 +7,18 @@ import sys
 
 from lxml import etree
 
-from LiuXin.file_formats.oeb.base import XHTML
-from LiuXin.file_formats.oeb.polish.stats import normalize_font_properties
+from LiuXin_alpha.file_formats.oeb.base import XHTML
+from LiuXin_alpha.file_formats.oeb.polish.stats import normalize_font_properties
 
-from LiuXin import prints
-from LiuXin.utils.filenames import ascii_filename
-from LiuXin.utils.icu import lower as icu_lower
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha import prints
+from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.icu import lower as icu_lower
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -56,7 +56,7 @@ def embed_font(container, font, all_font_rules, report, warned):
     if not isinstance(ff, six_string_types):
         ff = ff[0]
     if rule is None:
-        from LiuXin.utils.fonts.scanner import font_scanner, NoFonts
+        from LiuXin_alpha.utils.fonts.scanner import font_scanner, NoFonts
 
         if ff in warned:
             return
@@ -173,10 +173,10 @@ def embed_all_fonts(container, stats, report):
 
 if __name__ == "__main__":
 
-    from LiuXin.file_formats.oeb.polish.container import get_container
-    from LiuXin.file_formats.oeb.polish.stats import StatsCollector
+    from LiuXin_alpha.file_formats.oeb.polish.container import get_container
+    from LiuXin_alpha.file_formats.oeb.polish.stats import StatsCollector
 
-    from LiuXin.utils.logger import default_log
+    from LiuXin_alpha.utils.logger import default_log
 
     default_log.filter_level = default_log.DEBUG
     inbook = sys.argv[-1]

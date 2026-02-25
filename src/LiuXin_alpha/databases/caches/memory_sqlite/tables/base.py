@@ -1,8 +1,8 @@
 from __future__ import unicode_literals
 
-from LiuXin.databases.caches.base.tables import BaseTable
+from LiuXin_alpha.databases.caches.base.tables import BaseTable
 
-from LiuXin.exceptions import DatabaseIntegrityError
+from LiuXin_alpha.exceptions import DatabaseIntegrityError
 
 null = object()
 

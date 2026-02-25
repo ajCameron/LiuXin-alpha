@@ -7,11 +7,11 @@ Read content from ereader pdb file with a 116 and 202 byte header created by Mak
 import os
 import struct
 
-from LiuXin.file_formats.opf.opf2 import OPFCreator
-from LiuXin.file_formats.pdb.formatreader import FormatReader
-from LiuXin.file_formats.pdb.ereader import EreaderError
+from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
+from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
+from LiuXin_alpha.file_formats.pdb.ereader import EreaderError
 
-from LiuXin.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.calibre import CurrentDir
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -49,7 +49,7 @@ class Reader202(FormatReader):
         if self.header_record.version not in (2, 4):
             raise EreaderError("Unknown book version %i." % self.header_record.version)
 
-        from LiuXin.metadata.file_sources.pdb import get_metadata
+        from LiuXin_alpha.metadata.file_sources.pdb import get_metadata
 
         self.mi = get_metadata(stream, False)
 
@@ -57,7 +57,7 @@ class Reader202(FormatReader):
         return self.sections[number]
 
     def decompress_text(self, number):
-        from LiuXin.file_formats.compression.palmdoc import decompress_doc
+        from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 
         return decompress_doc("".join([chr(ord(x) ^ 0xA5) for x in self.section_data(number)])).decode(
             "cp1252" if self.encoding is None else self.encoding, "replace"
@@ -88,7 +88,7 @@ class Reader202(FormatReader):
         return self.decompress_text(number)
 
     def extract_content(self, output_dir):
-        from LiuXin.file_formats.pml.pmlconverter import pml_to_html
+        from LiuXin_alpha.file_formats.pml.pmlconverter import pml_to_html
 
         output_dir = os.path.abspath(output_dir)
 

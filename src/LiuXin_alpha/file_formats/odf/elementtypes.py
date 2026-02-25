@@ -19,7 +19,7 @@
 # Contributor(s):
 #
 
-from LiuXin.file_formats.odf.namespaces import *
+from LiuXin_alpha.file_formats.odf.namespaces import *
 
 # Inline element don't cause a box
 # They are analogous to the HTML elements SPAN, B, I etc.

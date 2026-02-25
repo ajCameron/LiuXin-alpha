@@ -40,7 +40,7 @@ LocalHeader = namedtuple(
 
 def decode_arcname(name):
     if isinstance(name, bytes):
-        from LiuXin.file_formats.chardet import detect
+        from LiuXin_alpha.file_formats.chardet import detect
 
         try:
             name = name.decode("utf-8")
@@ -295,7 +295,7 @@ class LocalZipFile(object):
         if extra_replacements is None:
             extra_replacements = {}
 
-        from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile, ZipInfo
+        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile, ZipInfo
 
         replacements = {name: datastream}
         replacements.update(extra_replacements)

@@ -8,8 +8,8 @@ import zlib
 import bz2
 import os
 
-from LiuXin.utils.calibre import guess_type
-from LiuXin.utils.lx_libraries.liuxin_six import six_cmp
+from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cmp
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Li Fanxi <lifanxi@freemindworld.com>"

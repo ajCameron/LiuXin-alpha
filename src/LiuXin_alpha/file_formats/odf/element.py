@@ -24,11 +24,11 @@
 
 import xml.dom
 from xml.dom.minicompat import defproperty, EmptyNodeList
-from LiuXin.file_formats.odf.namespaces import nsdict
-from LiuXin.file_formats.odf import grammar
-from LiuXin.file_formats.odf.attrconverters import AttrConverters
+from LiuXin_alpha.file_formats.odf.namespaces import nsdict
+from LiuXin_alpha.file_formats.odf import grammar
+from LiuXin_alpha.file_formats.odf.attrconverters import AttrConverters
 
-from LiuXin.utils.calibre_utils.calibre_polyglot.builtins import unicode_type
+from LiuXin_alpha.utils.calibre_utils.calibre_polyglot.builtins import unicode_type
 
 # The following code is pasted form xml.sax.saxutils
 # Tt makes it possible to run the code without the xml sax package installed

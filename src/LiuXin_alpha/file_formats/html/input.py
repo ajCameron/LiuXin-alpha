@@ -13,16 +13,16 @@ import re
 import sys
 import errno as gerrno
 
-from LiuXin.constants import iswindows
+from LiuXin_alpha.constants import iswindows
 
-from LiuXin.file_formats.oeb.base import urlunquote
+from LiuXin_alpha.file_formats.oeb.base import urlunquote
 
-from LiuXin.utils.calibre import unicode_path, as_unicode, replace_entities
-from LiuXin.utils.calibre_utils.calibre_chardet import detect_xml_encoding
+from LiuXin_alpha.utils.calibre import unicode_path, as_unicode, replace_entities
+from LiuXin_alpha.utils.calibre_utils.calibre_chardet import detect_xml_encoding
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlunparse as urlunparse
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlunparse as urlunparse
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

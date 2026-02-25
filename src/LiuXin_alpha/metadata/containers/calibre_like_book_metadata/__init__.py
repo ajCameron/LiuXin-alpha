@@ -730,7 +730,7 @@ class CalibreLikeLiuXinBookMetaData(
         :param val: default to None
         :return:
         """
-        from LiuXin.utils.general_ops.human_readable import fmt_num
+        from LiuXin_alpha.utils.general_ops.human_readable import fmt_num
 
         if val is None:
             try:

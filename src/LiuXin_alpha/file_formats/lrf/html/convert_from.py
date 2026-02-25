@@ -27,15 +27,15 @@ try:
 except ImportError:
     import Image as PILImage
 
-from LiuXin.devices.interface import DevicePlugin as Device
+from LiuXin_alpha.devices.interface import DevicePlugin as Device
 
-from LiuXin.exceptions import ConversionError
+from LiuXin_alpha.exceptions import ConversionError
 
-from LiuXin.file_formats.chardet import xml_to_unicode
-from LiuXin.file_formats.lrf import Book
-from LiuXin.file_formats.lrf.html.color_map import lrs_color
-from LiuXin.file_formats.lrf.html.table import Table
-from LiuXin.file_formats.lrf.pylrs.pylrs import (
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.lrf import Book
+from LiuXin_alpha.file_formats.lrf.html.color_map import lrs_color
+from LiuXin_alpha.file_formats.lrf.html.table import Table
+from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import (
     Paragraph,
     CR,
     Italic,
@@ -56,9 +56,9 @@ from LiuXin.file_formats.lrf.pylrs.pylrs import (
     Sub,
     EmpLine,
 )
-from LiuXin.file_formats.lrf.pylrs.pylrs import Span
+from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import Span
 
-from LiuXin.utils.libraries.BeautifulSoup import (
+from LiuXin_alpha.utils.libraries.BeautifulSoup import (
     BeautifulSoup,
     Comment,
     Tag,
@@ -66,15 +66,15 @@ from LiuXin.utils.libraries.BeautifulSoup import (
     Declaration,
     ProcessingInstruction,
 )
-from LiuXin.utils.calibre import filename_to_utf8, fit_image, preferred_encoding, entity_to_unicode
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.file_ops.file_ops import load_file
-from LiuXin.utils.ptempfiles import PersistentTemporaryFile
-from LiuXin.constants import __appname__
+from LiuXin_alpha.utils.calibre import filename_to_utf8, fit_image, preferred_encoding, entity_to_unicode
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.file_ops.file_ops import load_file
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
+from LiuXin_alpha.constants import __appname__
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -1872,7 +1872,7 @@ class HTMLConverter(object):
             elif tagname == "table" and not self.ignore_tables and not self.in_table:
                 if self.render_tables_as_images:
                     print("Rendering table...")
-                    from LiuXin.file_formats.lrf.html.table_as_image import render_table
+                    from LiuXin_alpha.file_formats.lrf.html.table_as_image import render_table
 
                     pheight = int(self.current_page.pageStyle.attrs["textheight"])
                     pwidth = int(self.current_page.pageStyle.attrs["textwidth"])
@@ -2123,7 +2123,7 @@ def try_opf(path, options, logger):
         return
 
     dirpath = os.path.dirname(os.path.abspath(opf))
-    from LiuXin.file_formats.opf.opf2 import OPF as OPF2
+    from LiuXin_alpha.file_formats.opf.opf2 import OPF as OPF2
 
     # The OPF class reads the entire file into memory before manipulating it - so this should be fine
     with open(opf, "rb") as opf_bin_file:

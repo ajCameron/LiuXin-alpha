@@ -12,23 +12,23 @@ from urllib import unquote as urlunquote
 
 from lxml import etree
 
-from LiuXin.file_formats import DRMError
-from LiuXin.file_formats.lit import LitError
-from LiuXin.file_formats.lit.maps import OPF_MAP, HTML_MAP
-import LiuXin.file_formats.lit.mssha1 as mssha1
-from LiuXin.file_formats.oeb.base import urlnormalize, xpath
-from LiuXin.file_formats.oeb.reader import OEBReader
+from LiuXin_alpha.file_formats import DRMError
+from LiuXin_alpha.file_formats.lit import LitError
+from LiuXin_alpha.file_formats.lit.maps import OPF_MAP, HTML_MAP
+import LiuXin_alpha.file_formats.lit.mssha1 as mssha1
+from LiuXin_alpha.file_formats.oeb.base import urlnormalize, xpath
+from LiuXin_alpha.file_formats.oeb.reader import OEBReader
 
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.plugins import plugins
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.plugins import plugins
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
-from LiuXin.utils.lx_libraries.liuxin_six import six_unichar
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unichar
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net> and Marshall T. Vandegrift <llasram@gmail.com>"

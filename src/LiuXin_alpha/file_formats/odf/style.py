@@ -18,8 +18,8 @@
 # Contributor(s):
 #
 
-from LiuXin.file_formats.odf.namespaces import STYLENS
-from LiuXin.file_formats.odf.element import Element
+from LiuXin_alpha.file_formats.odf.namespaces import STYLENS
+from LiuXin_alpha.file_formats.odf.element import Element
 
 
 def StyleElement(**args):

@@ -5,7 +5,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 from io import BytesIO
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
 __license__ = "GPL 3"
 __copyright__ = "2011, Anthon van der Neut <anthon@mnt.org>"
@@ -21,10 +21,10 @@ class DJVUInput(InputFormatPlugin):
 
     def convert(self, stream, options, file_ext, log, accelerators):
 
-        from LiuXin.file_formats.txt.processor import convert_basic
+        from LiuXin_alpha.file_formats.txt.processor import convert_basic
 
         stdout = BytesIO()
-        from LiuXin.file_formats.djvu.djvu import DJVUFile
+        from LiuXin_alpha.file_formats.djvu.djvu import DJVUFile
 
         x = DJVUFile(stream)
         x.get_text(stdout)
@@ -32,7 +32,7 @@ class DJVUInput(InputFormatPlugin):
         html = convert_basic(stdout.getvalue().replace(b"\n", b" ").replace(b"\037", b"\n\n"))
 
         # Run the HTMLized text through the html processing plugin.
-        from LiuXin.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         html_input = plugin_for_input_format("html")
         for opt in html_input.options:
@@ -57,8 +57,8 @@ class DJVUInput(InputFormatPlugin):
         os.remove(htmlfile.name)
 
         # Set metadata from file.
-        from LiuXin.customize.ui import get_file_type_metadata
-        from LiuXin.file_formats.oeb.transforms.metadata import (
+        from LiuXin_alpha.customize.ui import get_file_type_metadata
+        from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
             meta_info_to_oeb_metadata,
         )
 

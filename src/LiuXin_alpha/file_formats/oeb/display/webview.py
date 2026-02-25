@@ -5,10 +5,10 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import re
 
-from LiuXin.utils.calibre import guess_type
+from LiuXin_alpha.utils.calibre import guess_type
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

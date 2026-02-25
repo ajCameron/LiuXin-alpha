@@ -7,9 +7,9 @@ import os
 import shutil
 import sys
 
-from LiuXin.file_formats.mobi.debug.headers import MOBIFile
-from LiuXin.file_formats.mobi.debug.mobi6 import inspect_mobi as inspect_mobi6
-from LiuXin.file_formats.mobi.debug.mobi8 import inspect_mobi as inspect_mobi8
+from LiuXin_alpha.file_formats.mobi.debug.headers import MOBIFile
+from LiuXin_alpha.file_formats.mobi.debug.mobi6 import inspect_mobi as inspect_mobi6
+from LiuXin_alpha.file_formats.mobi.debug.mobi8 import inspect_mobi as inspect_mobi8
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

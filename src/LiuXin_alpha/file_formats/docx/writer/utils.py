@@ -8,7 +8,7 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 try:
     from tinycss.color3 import parse_color_string
 except ImportError:
-    from LiuXin.utils.tinycss_lx.color3 import parse_color_string
+    from LiuXin_alpha.utils.tinycss_lx.color3 import parse_color_string
 
 
 def int_or_zero(raw):

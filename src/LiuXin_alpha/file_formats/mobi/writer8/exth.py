@@ -7,19 +7,19 @@ import re
 from struct import pack
 from io import BytesIO
 
-from LiuXin.constants import iswindows, isosx
+from LiuXin_alpha.constants import iswindows, isosx
 
-from LiuXin.file_formats.mobi.utils import utf8_text, to_base
+from LiuXin_alpha.file_formats.mobi.utils import utf8_text, to_base
 
 from LiuXin_alpha.metadata import authors_to_sort_string
 
-from LiuXin.utils.date import utcnow
-from LiuXin.utils.localization import lang_as_iso639_1
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.date import utcnow
+from LiuXin_alpha.utils.localization import lang_as_iso639_1
+from LiuXin_alpha.utils.logger import default_log
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"
@@ -134,7 +134,7 @@ def build_exth(
 
     # Write UUID as ASIN
     uuid = None
-    from LiuXin.file_formats.oeb.base import OPF
+    from LiuXin_alpha.file_formats.oeb.base import OPF
 
     for x in metadata["identifier"]:
         if x.get(OPF("scheme"), None).lower() == "uuid" or six_unicode(x).startswith("urn:uuid:"):

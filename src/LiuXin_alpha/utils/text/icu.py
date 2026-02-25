@@ -35,7 +35,7 @@ is_narrow_build = sys.maxunicode < 0x10FFFF
 
 icu_loaded = False
 try:
-    import LiuXin.utils.compiled_extensions.linux.icu as _icu
+    import LiuXin_alpha.utils.compiled_extensions.linux.icu as _icu
 
     print("icu module loaded")
     icu_loaded = True
@@ -455,6 +455,6 @@ def safe_lower(x):
 
 
 if __name__ == "__main__":
-    from LiuXin.utils.calibre.utils.icu_test import run
+    from LiuXin_alpha.utils.calibre.utils.icu_test import run
 
     run(verbosity=4)

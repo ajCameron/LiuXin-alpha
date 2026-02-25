@@ -5,10 +5,10 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import re
 
-from LiuXin.file_formats.docx.index import process_index, polish_index_markup
+from LiuXin_alpha.file_formats.docx.index import process_index, polish_index_markup
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

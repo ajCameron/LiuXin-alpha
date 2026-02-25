@@ -4,9 +4,9 @@ import os
 import re
 from itertools import cycle
 
-from LiuXin.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logger import default_log
 
 __license__ = "GPL 3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -139,7 +139,7 @@ class EPUBInput(InputFormatPlugin):
         # entry will be used by the epub output plugin, the raster cover entry
         # by other output plugins.
 
-        from LiuXin.file_formats.oeb.base import OPF
+        from LiuXin_alpha.file_formats.oeb.base import OPF
 
         # Search for a raster cover identified in the OPF
         raster_cover = opf.raster_cover
@@ -149,7 +149,7 @@ class EPUBInput(InputFormatPlugin):
             guide_elem.set("href", raster_cover)
         else:
             # Render the titlepage to create a raster cover
-            from LiuXin.file_formats import render_html_svg_workaround
+            from LiuXin_alpha.file_formats import render_html_svg_workaround
 
             guide_elem.set("href", "calibre_raster_cover.jpg")
             t = etree.SubElement(
@@ -210,10 +210,10 @@ class EPUBInput(InputFormatPlugin):
         :param accelerators:
         :return:
         """
-        from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
-        from LiuXin.utils.calibre import walk
-        from LiuXin.file_formats import DRMError
-        from LiuXin.file_formats.opf.opf2 import OPF
+        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.calibre import walk
+        from LiuXin_alpha.file_formats import DRMError
+        from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
         try:
             zf = ZipFile(stream)
@@ -225,7 +225,7 @@ class EPUBInput(InputFormatPlugin):
             err_str = default_log.log_exception(info_str, e, "INFO")
             assert True is False, err_str
 
-            from LiuXin.utils.decompression.localunzip import extractall
+            from LiuXin_alpha.utils.decompression.localunzip import extractall
 
             stream.seek(0)
             extractall(stream)

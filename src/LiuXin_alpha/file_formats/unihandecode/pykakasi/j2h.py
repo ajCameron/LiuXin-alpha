@@ -23,9 +23,9 @@
 
 import re
 
-from LiuXin.file_formats.unihandecode.pykakasi.jisyo import jisyo
+from LiuXin_alpha.file_formats.unihandecode.pykakasi.jisyo import jisyo
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 
 class J2H(object):

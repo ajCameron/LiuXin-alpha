@@ -3,7 +3,7 @@
 
 from __future__ import with_statement
 
-from LiuXin.customize.conversion import OutputFormatPlugin
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -18,11 +18,11 @@ class LITOutput(OutputFormatPlugin):
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
 
-        from LiuXin.file_formats.lit.writer import LitWriter
-        from LiuXin.file_formats.oeb.transforms.htmltoc import HTMLTOCAdder
-        from LiuXin.file_formats.oeb.transforms.manglecase import CaseMangler
-        from LiuXin.file_formats.oeb.transforms.rasterize import SVGRasterizer
-        from LiuXin.file_formats.oeb.transforms.split import Split
+        from LiuXin_alpha.file_formats.lit.writer import LitWriter
+        from LiuXin_alpha.file_formats.oeb.transforms.htmltoc import HTMLTOCAdder
+        from LiuXin_alpha.file_formats.oeb.transforms.manglecase import CaseMangler
+        from LiuXin_alpha.file_formats.oeb.transforms.rasterize import SVGRasterizer
+        from LiuXin_alpha.file_formats.oeb.transforms.split import Split
 
         self.log, self.opts, self.oeb = log, opts, oeb_book
 

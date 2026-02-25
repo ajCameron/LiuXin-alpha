@@ -10,13 +10,13 @@ from xml.sax.saxutils import escape
 
 from lxml import etree
 
-from LiuXin.utils.calibre.constants import ispy3
+from LiuXin_alpha.utils.calibre.constants import ispy3
 
-from LiuXin.file_formats.mobi.utils import to_base
-from LiuXin.file_formats.oeb.base import XHTML_NS, extract
+from LiuXin_alpha.file_formats.mobi.utils import to_base
+from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, extract
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

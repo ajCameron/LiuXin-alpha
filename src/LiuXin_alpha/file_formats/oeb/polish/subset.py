@@ -6,19 +6,19 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 import sys
 
-from LiuXin.file_formats.oeb.base import OEB_STYLES, OEB_DOCS, XPath
-from LiuXin.file_formats.oeb.polish.container import OEB_FONTS
-from LiuXin.file_formats.oeb.polish.utils import guess_type
+from LiuXin_alpha.file_formats.oeb.base import OEB_STYLES, OEB_DOCS, XPath
+from LiuXin_alpha.file_formats.oeb.polish.container import OEB_FONTS
+from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
 
-from LiuXin.utils.calibre import as_unicode
-from LiuXin import prints
-from LiuXin.utils.fonts.sfnt.subset import subset
-from LiuXin.utils.fonts.sfnt.errors import UnsupportedFont
-from LiuXin.utils.fonts.utils import get_font_names
+from LiuXin_alpha.utils.calibre import as_unicode
+from LiuXin_alpha import prints
+from LiuXin_alpha.utils.fonts.sfnt.subset import subset
+from LiuXin_alpha.utils.fonts.sfnt.errors import UnsupportedFont
+from LiuXin_alpha.utils.fonts.utils import get_font_names
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -108,10 +108,10 @@ def subset_all_fonts(container, font_stats, report):
 
 if __name__ == "__main__":
 
-    from LiuXin.file_formats.oeb.polish.container import get_container
-    from LiuXin.file_formats.oeb.polish.stats import StatsCollector
+    from LiuXin_alpha.file_formats.oeb.polish.container import get_container
+    from LiuXin_alpha.file_formats.oeb.polish.stats import StatsCollector
 
-    from LiuXin.utils.logger import default_log
+    from LiuXin_alpha.utils.logger import default_log
 
     default_log.filter_level = default_log.DEBUG
     inbook = sys.argv[-1]

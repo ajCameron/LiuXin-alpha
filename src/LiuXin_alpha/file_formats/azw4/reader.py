@@ -9,7 +9,7 @@ azw4 is essentially a PDF stuffed into a MOBI container.
 import os
 import re
 
-from LiuXin.file_formats.pdb.formatreader import FormatReader
+from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
 __license__ = "GPL v3"
 __copyright__ = "2011, John Schember <john@nachtimwald.com>"
@@ -38,7 +38,7 @@ class Reader(FormatReader):
         pdf.write(data)
         pdf.close()
 
-        from LiuXin.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         pdf_plugin = plugin_for_input_format("pdf")
         for opt in pdf_plugin.options:

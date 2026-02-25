@@ -12,8 +12,8 @@ import sys
 import re
 from io import BytesIO
 
-from LiuXin.utils.calibre import force_unicode
-from LiuXin.constants import filesystem_encoding, isosx
+from LiuXin_alpha.utils.calibre import force_unicode
+from LiuXin_alpha.constants import filesystem_encoding, isosx
 
 
 class UNRARError(Exception):
@@ -93,7 +93,7 @@ class RARStream(object):
 
 
 def RARFile(stream, get_comment=False):
-    from LiuXin.utils.plugins import plugins
+    from LiuXin_alpha.utils.plugins import plugins
 
     unrar, err = plugins["unrar"]
     if not plugins.plugin_okay("unrar"):
@@ -254,7 +254,7 @@ def test_basic():
     if data != tdata:
         raise ValueError("Some data was not read correctly")
 
-    from LiuXin.utils.mem import memory
+    from LiuXin_alpha.utils.mem import memory
     import gc
 
     del f

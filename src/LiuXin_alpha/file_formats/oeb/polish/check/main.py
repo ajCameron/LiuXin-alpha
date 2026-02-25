@@ -3,18 +3,18 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin.file_formats.oeb.base import OEB_DOCS, OEB_STYLES
-from LiuXin.file_formats.oeb.polish.cover import is_raster_image
-from LiuXin.file_formats.oeb.polish.check.base import run_checkers, WARN
-from LiuXin.file_formats.oeb.polish.check.images import check_raster_images
-from LiuXin.file_formats.oeb.polish.check.fonts import check_fonts
-from LiuXin.file_formats.oeb.polish.check.links import (
+from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, OEB_STYLES
+from LiuXin_alpha.file_formats.oeb.polish.cover import is_raster_image
+from LiuXin_alpha.file_formats.oeb.polish.check.base import run_checkers, WARN
+from LiuXin_alpha.file_formats.oeb.polish.check.images import check_raster_images
+from LiuXin_alpha.file_formats.oeb.polish.check.fonts import check_fonts
+from LiuXin_alpha.file_formats.oeb.polish.check.links import (
     check_links,
     check_mimetypes,
     check_link_destinations,
 )
-from LiuXin.file_formats.oeb.polish.check.opf import check_opf
-from LiuXin.file_formats.oeb.polish.check.parsing import (
+from LiuXin_alpha.file_formats.oeb.polish.check.opf import check_opf
+from LiuXin_alpha.file_formats.oeb.polish.check.parsing import (
     check_filenames,
     check_xml_parsing,
     check_css_parsing,
@@ -24,12 +24,12 @@ from LiuXin.file_formats.oeb.polish.check.parsing import (
     EmptyFile,
     check_encoding_declarations,
 )
-from LiuXin.file_formats.oeb.polish.utils import guess_type
+from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
 
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

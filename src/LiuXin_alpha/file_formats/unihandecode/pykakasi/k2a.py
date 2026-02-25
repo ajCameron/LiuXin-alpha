@@ -21,7 +21,7 @@
 # *
 # */
 
-from LiuXin.file_formats.unihandecode.pykakasi.jisyo import jisyo
+from LiuXin_alpha.file_formats.unihandecode.pykakasi.jisyo import jisyo
 
 
 class K2a(object):

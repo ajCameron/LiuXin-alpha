@@ -6,20 +6,20 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import glob
 import os
 
-from LiuXin.customize.ui import plugin_for_input_format, plugin_for_output_format
+from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
 
-from LiuXin.exceptions import DRMError
+from LiuXin_alpha.exceptions import DRMError
 
-from LiuXin.file_formats.conversion.plumber import Plumber, create_oebbook
-from LiuXin.file_formats.mobi import MobiError
-from LiuXin.file_formats.mobi.reader.headers import MetadataHeader
-from LiuXin.file_formats.mobi.reader.mobi6 import MobiReader
-from LiuXin.file_formats.mobi.reader.mobi8 import Mobi8Reader
+from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
+from LiuXin_alpha.file_formats.mobi import MobiError
+from LiuXin_alpha.file_formats.mobi.reader.headers import MetadataHeader
+from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
+from LiuXin_alpha.file_formats.mobi.reader.mobi8 import Mobi8Reader
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.ipc.simple_worker import fork_job
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.ipc.simple_worker import fork_job
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

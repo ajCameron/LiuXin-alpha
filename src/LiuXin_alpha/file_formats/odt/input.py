@@ -11,17 +11,17 @@ from lxml import etree
 from cssutils import CSSParser
 from cssutils.css import CSSRule
 
-from LiuXin.file_formats.odf.draw import Frame as odFrame, Image as odImage
-from LiuXin.file_formats.odf.namespaces import TEXTNS as odTEXTNS
-from LiuXin.file_formats.odf.odf2xhtml import ODF2XHTML
-from LiuXin.file_formats.odf.opendocument import load as odLoad
-from LiuXin.file_formats.oeb.base import _css_logger
+from LiuXin_alpha.file_formats.odf.draw import Frame as odFrame, Image as odImage
+from LiuXin_alpha.file_formats.odf.namespaces import TEXTNS as odTEXTNS
+from LiuXin_alpha.file_formats.odf.odf2xhtml import ODF2XHTML
+from LiuXin_alpha.file_formats.odf.opendocument import load as odLoad
+from LiuXin_alpha.file_formats.oeb.base import _css_logger
 
-from LiuXin.utils.calibre import CurrentDir, walk
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import CurrentDir, walk
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -81,7 +81,7 @@ class Extract(ODF2XHTML):
                     return rule
 
     def epubify_markup(self, root, log):
-        from LiuXin.file_formats.oeb.base import XPath, XHTML
+        from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML
 
         # Fix empty title tags
         for t in XPath("//h:title")(root):
@@ -262,11 +262,11 @@ class Extract(ODF2XHTML):
         self._walknode(self.document.topnode)
 
     def __call__(self, stream, odir, log):
-        from LiuXin.file_formats.opf.opf2 import OPFCreator
+        from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
-        from LiuXin.metadata.file_sources.odt import get_metadata
+        from LiuXin_alpha.metadata.file_sources.odt import get_metadata
 
-        from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
         if not os.path.exists(odir):
             os.makedirs(odir)

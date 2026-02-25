@@ -2,10 +2,10 @@
 
 import os
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
-from LiuXin.utils.filenames import ascii_filename
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Li Fanxi <lifanxi@freemindworld.com>"
@@ -43,8 +43,8 @@ class SNBInput(InputFormatPlugin):
         import uuid
         from lxml import etree
 
-        from LiuXin.file_formats.oeb.base import DirContainer
-        from LiuXin.file_formats.snb.snbfile import SNBFile
+        from LiuXin_alpha.file_formats.oeb.base import DirContainer
+        from LiuXin_alpha.file_formats.snb.snbfile import SNBFile
 
         log.debug("Parsing SNB file...")
         snb_file = SNBFile()
@@ -56,7 +56,7 @@ class SNBInput(InputFormatPlugin):
             log.debug("Invaild SNB file")
             raise ValueError("Invalid SNB file")
         log.debug("Handle meta data ...")
-        from LiuXin.file_formats.conversion.plumber import create_oebbook
+        from LiuXin_alpha.file_formats.conversion.plumber import create_oebbook
 
         oeb = create_oebbook(log, None, options, encoding=options.input_encoding, populate=False)
         meta = snb_file.GetFileStream("snbf/book.snbf")

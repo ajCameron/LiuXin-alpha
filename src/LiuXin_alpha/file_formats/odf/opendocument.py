@@ -25,16 +25,16 @@ import mimetypes
 
 from xml.sax.xmlreader import InputSource
 
-from LiuXin.file_formats.odf.namespaces import *
-import LiuXin.file_formats.odf.manifest as manifest
-import LiuXin.file_formats.odf.meta as meta
-from LiuXin.file_formats.odf.office import *
-import LiuXin.file_formats.odf.element as element
-from LiuXin.file_formats.odf.attrconverters import make_NCName
-from LiuXin.file_formats.odf.odfmanifest import manifestlist
+from LiuXin_alpha.file_formats.odf.namespaces import *
+import LiuXin_alpha.file_formats.odf.manifest as manifest
+import LiuXin_alpha.file_formats.odf.meta as meta
+from LiuXin_alpha.file_formats.odf.office import *
+import LiuXin_alpha.file_formats.odf.element as element
+from LiuXin_alpha.file_formats.odf.attrconverters import make_NCName
+from LiuXin_alpha.file_formats.odf.odfmanifest import manifestlist
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO as StringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO as StringIO
 
 __doc__ = """Use OpenDocument to generate your documents."""
 __version__ = TOOLSVERSION
@@ -361,7 +361,7 @@ class OpenDocument:
         The thumbnail in the library is big, so this is pretty useless.
         """
         if filecontent is None:
-            from LiuXin.file_formats.odf import thumbnail
+            from LiuXin_alpha.file_formats.odf import thumbnail
 
             self.thumbnail = thumbnail.thumbnail()
         else:
@@ -610,7 +610,7 @@ def OpenDocumentTextMaster():
 
 
 def __loadxmlparts(z, manifest, doc, objectpath):
-    from LiuXin.file_formats.odf.load import LoadParser
+    from LiuXin_alpha.file_formats.odf.load import LoadParser
     from xml.sax import make_parser, handler
 
     for xmlfile in (

@@ -17,22 +17,22 @@ from io import BytesIO
 from lxml import etree
 from cssutils import replaceUrls, getUrls
 
-from LiuXin.customize.ui import plugin_for_input_format, plugin_for_output_format
+from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
 
-from LiuXin.file_formats.chardet import xml_to_unicode
-from LiuXin.file_formats.conversion.plugins.epub_input import (
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.conversion.plugins.epub_input import (
     ADOBE_OBFUSCATION,
     IDPF_OBFUSCATION,
     decrypt_font_data,
 )
-from LiuXin.file_formats.conversion.preprocess import (
+from LiuXin_alpha.file_formats.conversion.preprocess import (
     HTMLPreProcessor,
     CSSPreProcessor as cssp,
 )
-from LiuXin.file_formats.mobi import MobiError
-from LiuXin.file_formats.mobi.reader.headers import MetadataHeader
-from LiuXin.file_formats.mobi.tweak import set_cover
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.mobi import MobiError
+from LiuXin_alpha.file_formats.mobi.reader.headers import MetadataHeader
+from LiuXin_alpha.file_formats.mobi.tweak import set_cover
+from LiuXin_alpha.file_formats.oeb.base import (
     serialize,
     OEB_DOCS,
     OEB_STYLES,
@@ -46,31 +46,31 @@ from LiuXin.file_formats.oeb.base import (
     urlquote,
     urlunquote,
 )
-from LiuXin.file_formats.oeb.polish.errors import InvalidBook, DRMError
-from LiuXin.file_formats.oeb.polish.parsing import parse as parse_html_tweak
-from LiuXin.file_formats.oeb.polish.utils import (
+from LiuXin_alpha.file_formats.oeb.polish.errors import InvalidBook, DRMError
+from LiuXin_alpha.file_formats.oeb.polish.parsing import parse as parse_html_tweak
+from LiuXin_alpha.file_formats.oeb.polish.utils import (
     PositionFinder,
     CommentFinder,
     guess_type,
     parse_css,
 )
-from LiuXin.file_formats.oeb.parse_utils import NotHTML, parse_html, RECOVER_PARSER
+from LiuXin_alpha.file_formats.oeb.parse_utils import NotHTML, parse_html, RECOVER_PARSER
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.filenames import nlinks_file, hardlink_file
-from LiuXin.utils.ipc.simple_worker import fork_job, WorkerError
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.ptempfiles import (
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.filenames import nlinks_file, hardlink_file
+from LiuXin_alpha.utils.ipc.simple_worker import fork_job, WorkerError
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.ptempfiles import (
     PersistentTemporaryDirectory,
     PersistentTemporaryFile,
 )
-from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_zip
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_zip
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -368,7 +368,7 @@ class Container(object):  # {{{
         if current_name == self.opf_name:
             self.opf_name = new_name
         if os.path.dirname(old_path) != os.path.dirname(new_path):
-            from LiuXin.file_formats.oeb.polish.replace import LinkRebaser
+            from LiuXin_alpha.file_formats.oeb.polish.replace import LinkRebaser
 
             repl = LinkRebaser(self, current_name, new_name)
             self.replace_links(new_name, repl)
@@ -713,7 +713,7 @@ class Container(object):  # {{{
         so use it sparingly
         :return:
         """
-        from LiuXin.file_formats.opf.opf2 import OPF as O
+        from LiuXin_alpha.file_formats.opf.opf2 import OPF as O
 
         mi = self.serialize_item(self.opf_name)
         return O(BytesIO(mi), basedir=self.opf_dir, unquote_urls=False, populate_spine=False).to_book_metadata()
@@ -1192,7 +1192,7 @@ class EpubContainer(Container):
                     "EPUB appears to be invalid ZIP file, trying a more forgiving ZIP parser",
                     " exception messahe: {}".format(e.message),
                 )
-                from LiuXin.utils.decompression.localunzip import extractall
+                from LiuXin_alpha.utils.decompression.localunzip import extractall
 
                 stream.seek(0)
                 extractall(stream, path=tdir)
@@ -1351,7 +1351,7 @@ class EpubContainer(Container):
                 f.write(decrypt_font_data(key, data, alg))
         if outpath is None:
             outpath = self.pathtoepub
-        from LiuXin.file_formats.tweak import zip_rebuilder
+        from LiuXin_alpha.file_formats.tweak import zip_rebuilder
 
         with open(join(self.root, "mimetype"), "wb") as f:
             f.write(guess_type("a.epub"))
@@ -1378,8 +1378,8 @@ class InvalidMobi(InvalidBook):
 
 
 def do_explode(path, dest):
-    from LiuXin.file_formats.mobi.reader.mobi6 import MobiReader
-    from LiuXin.file_formats.mobi.reader.mobi8 import Mobi8Reader
+    from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
+    from LiuXin_alpha.file_formats.mobi.reader.mobi8 import Mobi8Reader
 
     with open(path, "rb") as stream:
         mr = MobiReader(stream, default_log, None, None)
@@ -1393,7 +1393,7 @@ def do_explode(path, dest):
 
 
 def opf_to_azw3(opf, outpath, container):
-    from LiuXin.file_formats.conversion.plumber import Plumber, create_oebbook
+    from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
 
     class Item(Manifest.Item):
         def _parse_css(self, data):

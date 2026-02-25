@@ -6,16 +6,16 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import sys
 from collections import defaultdict
 
-from LiuXin.file_formats.oeb.base import barename
-from LiuXin.file_formats.oeb.polish.container import OPF_NAMESPACES, get_container
-from LiuXin.file_formats.oeb.polish.toc import find_existing_toc
+from LiuXin_alpha.file_formats.oeb.base import barename
+from LiuXin_alpha.file_formats.oeb.polish.container import OPF_NAMESPACES, get_container
+from LiuXin_alpha.file_formats.oeb.polish.toc import find_existing_toc
 
-from LiuXin.utils.spell.break_iterator import split_into_words, index_of
-from LiuXin.utils.spell.dictionary import parse_lang_code
+from LiuXin_alpha.utils.spell.break_iterator import split_into_words, index_of
+from LiuXin_alpha.utils.spell.dictionary import parse_lang_code
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -280,7 +280,7 @@ def replace_word(container, new_word, locations, locale):
 
 if __name__ == "__main__":
     import pprint
-    from LiuXin.interfaces.gui2.tweak_book import set_book_locale, dictionaries
+    from LiuXin_alpha.interfaces.gui2.tweak_book import set_book_locale, dictionaries
 
     main_container = get_container(sys.argv[-1], tweak_mode=True)
     set_book_locale(main_container.mi.language)

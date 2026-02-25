@@ -12,9 +12,9 @@
 #########################################################################
 import os
 
-from LiuXin.file_formats.rtf2xml import copy
-from LiuXin.utils.ptempfiles import better_mktemp
-from LiuXin.file_formats.rtf2xml import open_for_read, open_for_write
+from LiuXin_alpha.file_formats.rtf2xml import copy
+from LiuXin_alpha.utils.ptempfiles import better_mktemp
+from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 """
 Simply write the list of strings after style table

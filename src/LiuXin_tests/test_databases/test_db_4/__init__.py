@@ -11,21 +11,21 @@ from itertools import cycle
 
 from clint.textui import puts, colored
 
-from LiuXin.folder_stores.folderstore import FolderStore
-from LiuXin.folder_stores.folderstoremanager import FolderStoreManager
+from LiuXin_alpha.folder_stores.folderstore import FolderStore
+from LiuXin_alpha.folder_stores.folderstoremanager import FolderStoreManager
 
-from LiuXin.library.library import Library
+from LiuXin_alpha.library.library import Library
 
-from LiuXin.metadata.constants import CREATOR_CATEGORIES
-from LiuXin.metadata.constants import RATING_TYPES
-from LiuXin.metadata.constants import ALL_ID_TYPES
+from LiuXin_alpha.metadata.constants import CREATOR_CATEGORIES
+from LiuXin_alpha.metadata.constants import RATING_TYPES
+from LiuXin_alpha.metadata.constants import ALL_ID_TYPES
 
 from LiuXin_tests.test_objects import TestObjectsHandler
 from LiuXin_tests.test_databases import TestDatabaseBuilder
 from LiuXin_tests.test_utils.test_utils import BasicMetadataFramework
 
-from LiuXin.utils.ptempfiles import get_ramdisk
-from LiuXin.utils.ptempfiles import ScratchFolderManager
+from LiuXin_alpha.utils.ptempfiles import get_ramdisk
+from LiuXin_alpha.utils.ptempfiles import ScratchFolderManager
 from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
 
 # Todo: There has to be code around here somewhere to write a database out to csv - find it and use it

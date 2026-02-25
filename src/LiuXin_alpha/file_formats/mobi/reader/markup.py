@@ -6,10 +6,10 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 import re
 
-from LiuXin.file_formats.chardet import strip_encoding_declarations
+from LiuXin_alpha.file_formats.chardet import strip_encoding_declarations
 
 # Py2/Py3 compatability
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

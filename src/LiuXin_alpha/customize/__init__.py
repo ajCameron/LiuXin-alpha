@@ -571,7 +571,7 @@ class CatalogPlugin(Plugin):  # {{{
 
             # Validate requested_fields
             if requested_fields - all_fields:
-                from LiuXin.utils.calibre.library import current_library_name
+                from LiuXin_alpha.utils.calibre.library import current_library_name
 
                 invalid_fields = sorted(list(requested_fields - all_fields))
                 err_str = "invalid --fields specified: %s" % ", ".join(invalid_fields)

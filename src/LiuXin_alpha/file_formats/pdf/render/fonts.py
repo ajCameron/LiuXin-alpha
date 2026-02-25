@@ -9,7 +9,7 @@ from collections import Counter, OrderedDict
 from itertools import izip, groupby
 from operator import itemgetter
 
-from LiuXin.file_formats.pdf.render.common import (
+from LiuXin_alpha.file_formats.pdf.render.common import (
     Array,
     String,
     Stream,
@@ -17,11 +17,11 @@ from LiuXin.file_formats.pdf.render.common import (
     Name,
 )
 
-from LiuXin.utils.calibre import as_unicode
-from LiuXin.utils.fonts.sfnt.subset import pdf_subset, UnsupportedFont, NoGlyphs
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.calibre import as_unicode
+from LiuXin_alpha.utils.fonts.sfnt.subset import pdf_subset, UnsupportedFont, NoGlyphs
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"

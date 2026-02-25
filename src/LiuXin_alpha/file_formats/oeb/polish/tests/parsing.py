@@ -7,16 +7,16 @@ from functools import partial
 
 from lxml import etree
 
-from LiuXin.file_formats.oeb.polish.tests.base import BaseTest
-from LiuXin.file_formats.oeb.polish.parsing import parse_html5 as parse
-from LiuXin.file_formats.oeb.base import XPath, XHTML_NS, SVG_NS, XLINK_NS
-from LiuXin.file_formats.oeb.parse_utils import html5_parse
+from LiuXin_alpha.file_formats.oeb.polish.tests.base import BaseTest
+from LiuXin_alpha.file_formats.oeb.polish.parsing import parse_html5 as parse
+from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML_NS, SVG_NS, XLINK_NS
+from LiuXin_alpha.file_formats.oeb.parse_utils import html5_parse
 
-from LiuXin.utils.liuxin_html5lib.constants import cdataElements, rcdataElements
+from LiuXin_alpha.utils.liuxin_html5lib.constants import cdataElements, rcdataElements
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -248,9 +248,9 @@ def timing():
     import sys
     import time
 
-    from LiuXin.file_formats.chardet import xml_to_unicode
+    from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 
-    from LiuXin.utils.liuxin_html5lib import parse as vanilla
+    from LiuXin_alpha.utils.liuxin_html5lib import parse as vanilla
 
     filename = sys.argv[-1]
     with open(filename, "rb") as f:

@@ -14,8 +14,8 @@ A Humane Web Text Generator
 import re
 import uuid
 
-from LiuXin.utils.libraries.smartypants import smartyPants
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse
+from LiuXin_alpha.utils.libraries.smartypants import smartyPants
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse
 
 urlparse = six_urlparse
 

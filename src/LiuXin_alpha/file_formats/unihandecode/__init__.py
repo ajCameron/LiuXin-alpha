@@ -29,19 +29,19 @@ class Unihandecoder(object):
         self.preferred_encoding = encoding
         lang = lang.lower()
         if lang[:2] == "ja":
-            from LiuXin.file_formats.unihandecode.jadecoder import Jadecoder
+            from LiuXin_alpha.file_formats.unihandecode.jadecoder import Jadecoder
 
             self.decoder = Jadecoder()
         elif lang[:2] == "kr" or lang == "korean":
-            from LiuXin.file_formats.unihandecode.krdecoder import Krdecoder
+            from LiuXin_alpha.file_formats.unihandecode.krdecoder import Krdecoder
 
             self.decoder = Krdecoder()
         elif lang[:2] == "vn" or lang == "vietnum":
-            from LiuXin.file_formats.unihandecode.vndecoder import Vndecoder
+            from LiuXin_alpha.file_formats.unihandecode.vndecoder import Vndecoder
 
             self.decoder = Vndecoder()
         else:  # zh and others
-            from LiuXin.file_formats.unihandecode.unidecoder import Unidecoder
+            from LiuXin_alpha.file_formats.unihandecode.unidecoder import Unidecoder
 
             self.decoder = Unidecoder()
 

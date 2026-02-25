@@ -10,15 +10,15 @@ from collections import defaultdict
 from lxml.etree import tostring
 from lxml.html import fragment_fromstring, document_fromstring, tostring as htostring
 
-from LiuXin.file_formats.readability.cleaners import html_cleaner, clean_attributes
-from LiuXin.file_formats.readability.htmls import (
+from LiuXin_alpha.file_formats.readability.cleaners import html_cleaner, clean_attributes
+from LiuXin_alpha.file_formats.readability.htmls import (
     build_doc,
     get_body,
     get_title,
     shorten_title,
 )
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 def tounicode(tree_or_node, **kwargs):
@@ -509,7 +509,7 @@ class Document:
 
 
 def option_parser():
-    from LiuXin.utils.config.config_tools import OptionParser
+    from LiuXin_alpha.utils.config.config_tools import OptionParser
 
     parser = OptionParser(usage="%prog: [options] file")
     parser.add_option(
@@ -533,7 +533,7 @@ def option_parser():
 
 
 def main():
-    from LiuXin.utils.logger import default_log
+    from LiuXin_alpha.utils.logger import default_log
 
     parser = option_parser()
     options, args = parser.parse_args()

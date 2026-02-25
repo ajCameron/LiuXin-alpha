@@ -3,7 +3,7 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin.file_formats.oeb.base import XPath
+from LiuXin_alpha.file_formats.oeb.base import XPath
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -4,10 +4,10 @@
 Read content from ereader pdb file.
 """
 
-from LiuXin.file_formats.pdb.ereader import EreaderError
-from LiuXin.file_formats.pdb.ereader.reader132 import Reader132
-from LiuXin.file_formats.pdb.ereader.reader202 import Reader202
-from LiuXin.file_formats.pdb.formatreader import FormatReader
+from LiuXin_alpha.file_formats.pdb.ereader import EreaderError
+from LiuXin_alpha.file_formats.pdb.ereader.reader132 import Reader132
+from LiuXin_alpha.file_formats.pdb.ereader.reader202 import Reader202
+from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"

@@ -3,11 +3,11 @@ This package contains logic to read and write LRF files.
 The LRF file format is documented at U{http://www.sven.de/librie/Librie/LrfFormat}.
 """
 
-from LiuXin.exceptions import ConversionError
+from LiuXin_alpha.exceptions import ConversionError
 
-from LiuXin.file_formats.lrf.pylrs.pylrs import Book as _Book
-from LiuXin.file_formats.lrf.pylrs.pylrs import TextBlock, Header, TextStyle, BlockStyle
-from LiuXin.file_formats.lrf.fonts import FONT_FILE_MAP
+from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import Book as _Book
+from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import TextBlock, Header, TextStyle, BlockStyle
+from LiuXin_alpha.file_formats.lrf.fonts import FONT_FILE_MAP
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -40,7 +40,7 @@ class PRS500_PROFILE(object):
 
 
 def find_custom_fonts(options, logger):
-    from LiuXin.utils.fonts.scanner import font_scanner
+    from LiuXin_alpha.utils.fonts.scanner import font_scanner
 
     fonts = {"serif": None, "sans": None, "mono": None}
 

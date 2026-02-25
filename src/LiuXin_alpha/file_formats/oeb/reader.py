@@ -14,7 +14,7 @@ from itertools import izip
 
 from lxml import etree
 
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.oeb.base import (
     OPF1_NS,
     OPF2_NS,
     OPF2_NSMAP,
@@ -24,7 +24,7 @@ from LiuXin.file_formats.oeb.base import (
     xml2text,
     XHTML_MIME,
 )
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.oeb.base import (
     OEB_DOCS,
     OEB_STYLES,
     OEB_IMAGES,
@@ -33,13 +33,13 @@ from LiuXin.file_formats.oeb.base import (
     NCX_MIME,
     SVG_MIME,
 )
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.oeb.base import (
     XMLDECL_RE,
     COLLAPSE_RE,
     MS_COVER_TYPE,
     iterlinks,
 )
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.oeb.base import (
     namespace,
     barename,
     XPath,
@@ -50,21 +50,21 @@ from LiuXin.file_formats.oeb.base import (
     OEBBook,
     DirContainer,
 )
-from LiuXin.file_formats.oeb.writer import OEBWriter
+from LiuXin_alpha.file_formats.oeb.writer import OEBWriter
 
-from LiuXin.utils.calibre.constants import __appname__, __version__
-from LiuXin.utils.calibre import guess_type, xml_replace_entities
+from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.utils.calibre import guess_type, xml_replace_entities
 from utils.libraries.cleantext import clean_xml_chars
-from LiuXin.utils.localization import get_lang
-from LiuXin.utils.localization import delayed_trans as __
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.localization import get_lang
+from LiuXin_alpha.utils.localization import delayed_trans as __
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py3 comparability layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_unquote as urlunquote
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unquote as urlunquote
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
@@ -179,7 +179,7 @@ class OEBReader(object):
                     opf = etree.fromstring(data)
                     self.logger.warn("OPF contains invalid tours section")
                 except etree.XMLSyntaxError:
-                    from LiuXin.file_formats.oeb.parse_utils import RECOVER_PARSER
+                    from LiuXin_alpha.file_formats.oeb.parse_utils import RECOVER_PARSER
 
                     opf = etree.fromstring(data, parser=RECOVER_PARSER)
                     self.logger.warn("OPF contains invalid markup, trying to parse it anyway")
@@ -192,10 +192,10 @@ class OEBReader(object):
 
     def _metadata_from_opf(self, opf):
 
-        from LiuXin.file_formats.oeb.transforms.metadata import (
+        from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
             meta_info_to_oeb_metadata,
         )
-        from LiuXin.file_formats.opf.opf2 import OPF
+        from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
         stream = six_cStringIO(etree.tostring(opf, xml_declaration=True, encoding="utf-8"))
         mi = OPF(stream).to_book_metadata()
@@ -689,7 +689,7 @@ class OEBReader(object):
         return
 
     def _cover_from_html(self, hcover):
-        from LiuXin.file_formats import render_html_svg_workaround
+        from LiuXin_alpha.file_formats import render_html_svg_workaround
 
         with TemporaryDirectory("_html_cover") as tdir:
             writer = OEBWriter()

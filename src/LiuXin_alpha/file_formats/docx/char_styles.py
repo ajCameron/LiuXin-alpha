@@ -5,7 +5,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 from collections import OrderedDict
 
-from LiuXin.file_formats.docx.block_styles import (
+from LiuXin_alpha.file_formats.docx.block_styles import (
     inherit,
     simple_color,
     LINE_STYLES,
@@ -102,7 +102,7 @@ def read_lang(parent, dest, XPath, get):
         except (ValueError, TypeError):
             ans = val
         else:
-            from LiuXin.file_formats.docx.lcid import lcid
+            from LiuXin_alpha.file_formats.docx.lcid import lcid
 
             val = lcid.get(code, None)
             if val:

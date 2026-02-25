@@ -4,8 +4,8 @@ import os
 
 from clint.textui import puts, colored
 
-from LiuXin.folder_stores.folderstore import FolderStore
-from LiuXin.folder_stores.folderstoremanager import FolderStoreManager
+from LiuXin_alpha.folder_stores.folderstore import FolderStore
+from LiuXin_alpha.folder_stores.folderstoremanager import FolderStoreManager
 
 from LiuXin_tests.test_databases import load_data
 from LiuXin_tests.test_databases.test_db_10 import add_complex_series_to_db
@@ -14,8 +14,8 @@ from LiuXin_tests.test_objects import TestObjectsHandler
 from LiuXin_tests.test_utils.test_utils import DatabaseValidator
 
 # Todo: Really need a means to kill ramdisks and remove all the entries in them
-from LiuXin.utils.ptempfiles import ScratchFolderManager
-from LiuXin.utils.ptempfiles import get_ramdisk
+from LiuXin_alpha.utils.ptempfiles import ScratchFolderManager
+from LiuXin_alpha.utils.ptempfiles import get_ramdisk
 
 __folder__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 

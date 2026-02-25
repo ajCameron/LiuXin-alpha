@@ -24,7 +24,7 @@ from typing import Union, Any, Optional
 from past.builtins import basestring
 
 
-from LiuXin.customize import (
+from LiuXin_alpha.customize import (
     Plugin,
     numeric_version,
     platform,
@@ -33,8 +33,8 @@ from LiuXin.customize import (
 )
 
 
-from LiuXin.utils.calibre import as_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode, dict_itervalues
+from LiuXin_alpha.utils.calibre import as_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode, dict_itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -96,7 +96,7 @@ def load_translations(namespace: dict[str, Any], zfp: str) -> None:
     if trans is None:
         return
     if trans is null:
-        from LiuXin.utils.localization import get_lang
+        from LiuXin_alpha.utils.localization import get_lang
 
         lang = get_lang()
         if not lang or lang == "en":  # performance optimization
@@ -362,8 +362,8 @@ sys.meta_path.insert(0, loader)
 
 if __name__ == "__main__":
     from tempfile import NamedTemporaryFile
-    from LiuXin.customize.ui import add_plugin
-    from LiuXin.utils.calibre import CurrentDir
+    from LiuXin_alpha.customize.ui import add_plugin
+    from LiuXin_alpha.utils.calibre import CurrentDir
 
     path = sys.argv[-1]
     with NamedTemporaryFile(suffix=".zip") as f:

@@ -3,9 +3,9 @@ from __future__ import with_statement
 import os
 import re
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.calibre import CurrentDir
 
 __license__ = "GPL 3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -24,13 +24,13 @@ class OEBOutput(OutputFormatPlugin):
 
         from urllib import unquote
         from lxml import etree
-        from LiuXin.file_formats.oeb.base import (
+        from LiuXin_alpha.file_formats.oeb.base import (
             OPF_MIME,
             NCX_MIME,
             PAGE_MAP_MIME,
             OEB_STYLES,
         )
-        from LiuXin.file_formats.oeb.normalize_css import condense_sheet
+        from LiuXin_alpha.file_formats.oeb.normalize_css import condense_sheet
 
         self.log, self.opts = log, opts
         if not os.path.exists(output_path):
@@ -97,7 +97,7 @@ class OEBOutput(OutputFormatPlugin):
                 if len(manifest_item) == 1 and manifest_item[0].get("media-type", "").startswith("image/"):
                     self.log.warn('The cover image has an id != "cover". Renaming to work around bug in Nook Color')
 
-                    from LiuXin.file_formats.oeb.base import uuid_id
+                    from LiuXin_alpha.file_formats.oeb.base import uuid_id
 
                     newid = uuid_id()
 
@@ -124,7 +124,7 @@ class OEBOutput(OutputFormatPlugin):
     # }}}
 
     def migrate_lang_code(self, root):  # {{{
-        from LiuXin.utils.localization import lang_as_iso639_1
+        from LiuXin_alpha.utils.localization import lang_as_iso639_1
 
         for lang in root.xpath('//*[local-name() = "language"]'):
             clc = lang_as_iso639_1(lang.text)

@@ -8,16 +8,16 @@ import codecs
 import os
 import re
 
-from LiuXin.constants import iswindows, filesystem_encoding
+from LiuXin_alpha.constants import iswindows, filesystem_encoding
 
-from LiuXin.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 
-from LiuXin.metadata.toc import TOC
+from LiuXin_alpha.metadata.toc import TOC
 
-from LiuXin.utils.libraries.BeautifulSoup import BeautifulSoup, NavigableString
-from LiuXin.utils.calibre import guess_type as guess_mimetype
-from LiuXin.utils.libraries.chm import CHMFile
-from LiuXin.utils.libraries.chm import (
+from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup, NavigableString
+from LiuXin_alpha.utils.calibre import guess_type as guess_mimetype
+from LiuXin_alpha.utils.libraries.chm import CHMFile
+from LiuXin_alpha.utils.libraries.chm import (
     CHM_RESOLVE_SUCCESS,
     CHM_ENUMERATE_NORMAL,
     chm_enumerate,
@@ -202,7 +202,7 @@ class CHMReader(CHMFile):
                     break
 
         if self.hhc_path == ".hhc" and self.hhc_path not in files:
-            from LiuXin.utils.calibre import walk
+            from LiuXin_alpha.utils.calibre import walk
 
             for x in walk(output_dir):
                 if os.path.basename(x).lower() in (

@@ -8,8 +8,8 @@ from __future__ import print_function
 import struct
 import sys
 
-from LiuXin.file_formats.pdb.ereader import EreaderError
-from LiuXin.file_formats.pdb.header import PdbHeaderReader
+from LiuXin_alpha.file_formats.pdb.ereader import EreaderError
+from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"

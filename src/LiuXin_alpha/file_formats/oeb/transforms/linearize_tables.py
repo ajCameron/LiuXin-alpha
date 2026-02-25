@@ -3,7 +3,7 @@
 
 from __future__ import with_statement
 
-from LiuXin.file_formats.oeb.base import OEB_DOCS, XPath, XHTML
+from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, XPath, XHTML
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

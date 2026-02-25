@@ -10,14 +10,14 @@ import subprocess
 import shutil
 import unicodedata
 
-from LiuXin.constants import iswindows, __appname__
+from LiuXin_alpha.constants import iswindows, __appname__
 
-from LiuXin.utils.calibre import as_unicode, walk
-from LiuXin import prints
-from LiuXin.utils.ipc.simple_worker import WorkerError
-from LiuXin.utils.decompression.libunzip import extract as zipextract
-from LiuXin.utils.ptempfiles import TemporaryDirectory, TemporaryFile
-from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
+from LiuXin_alpha.utils.calibre import as_unicode, walk
+from LiuXin_alpha import prints
+from LiuXin_alpha.utils.ipc.simple_worker import WorkerError
+from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory, TemporaryFile
+from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -54,7 +54,7 @@ def ask_cli_question(msg):
 
 
 def mobi_exploder(path, tdir, question=lambda x: True):
-    from LiuXin.utils.calibre.ebooks.mobi.tweak import explode, BadFormat
+    from LiuXin_alpha.utils.calibre.ebooks.mobi.tweak import explode, BadFormat
 
     try:
         return explode(path, tdir, question=question)
@@ -91,7 +91,7 @@ def get_tools(fmt):
     fmt = fmt.lower()
 
     if fmt in {"mobi", "azw", "azw3"}:
-        from LiuXin.utils.calibre.ebooks.mobi.tweak import rebuild
+        from LiuXin_alpha.utils.calibre.ebooks.mobi.tweak import rebuild
 
         ans = mobi_exploder, rebuild
     elif fmt in {"epub", "htmlz"}:

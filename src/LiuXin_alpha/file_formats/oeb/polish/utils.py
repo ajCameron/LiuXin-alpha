@@ -7,12 +7,12 @@ import re
 import os
 from bisect import bisect
 
-from LiuXin.utils.calibre import (
+from LiuXin_alpha.utils.calibre import (
     guess_type as _guess_type,
     prepare_string_for_xml,
     replace_entities,
 )
-from LiuXin.utils.icu import upper as icu_upper
+from LiuXin_alpha.utils.icu import upper as icu_upper
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -32,7 +32,7 @@ def setup_cssutils_serialization(tab_width=2):
 
 
 def actual_case_for_name(container, name):
-    from LiuXin.utils.filenames import samefile
+    from LiuXin_alpha.utils.filenames import samefile
 
     if not container.exists(name):
         raise ValueError("Cannot get actual case for %s as it does not exist" % name)
@@ -107,7 +107,7 @@ class CommentFinder(object):
 
 
 def link_stylesheets(container, names, sheets, remove=False, mtype="text/css"):
-    from LiuXin.file_formats.oeb.base import XPath, XHTML
+    from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML
 
     changed_names = set()
     snames = set(sheets)
@@ -190,7 +190,7 @@ def parse_css(
 
         log_level = logging.WARNING
     from cssutils import CSSParser, log
-    from LiuXin.file_formats.oeb.base import _css_logger
+    from LiuXin_alpha.file_formats.oeb.base import _css_logger
 
     log.setLevel(log_level)
     log.raiseExceptions = False

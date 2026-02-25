@@ -10,23 +10,23 @@ from collections import OrderedDict, defaultdict
 
 from lxml import html
 
-from LiuXin.file_formats.mobi.debug import format_bytes
-from LiuXin.file_formats.mobi.debug.headers import TextRecord
-from LiuXin.file_formats.mobi.reader.headers import NULL_INDEX
-from LiuXin.file_formats.mobi.reader.index import parse_index_record, parse_tagx_section
-from LiuXin.file_formats.mobi.utils import (
+from LiuXin_alpha.file_formats.mobi.debug import format_bytes
+from LiuXin_alpha.file_formats.mobi.debug.headers import TextRecord
+from LiuXin_alpha.file_formats.mobi.reader.headers import NULL_INDEX
+from LiuXin_alpha.file_formats.mobi.reader.index import parse_index_record, parse_tagx_section
+from LiuXin_alpha.file_formats.mobi.utils import (
     decode_hex_number,
     decint,
     decode_tbs,
     read_font_record,
 )
 
-from LiuXin.utils.imghdr import what
+from LiuXin_alpha.utils.imghdr import what
 
 # Py2/Py3 compatability
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"

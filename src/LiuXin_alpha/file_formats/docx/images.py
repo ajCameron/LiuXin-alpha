@@ -7,17 +7,17 @@ import os
 
 from lxml.html.builder import IMG, HR
 
-from LiuXin.constants import iswindows
+from LiuXin_alpha.constants import iswindows
 
-from LiuXin.file_formats.docx.names import barename
+from LiuXin_alpha.file_formats.docx.names import barename
 
-from LiuXin.utils.filenames import ascii_filename
-from LiuXin.utils.img import resize_to_fit, image_to_data
-from LiuXin.utils.imghdr import what
+from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.img import resize_to_fit, image_to_data
+from LiuXin_alpha.utils.imghdr import what
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -140,7 +140,7 @@ class Images(object):
         if ext == "emf":
             # For an example, see: https://bugs.launchpad.net/bugs/1224849
             self.log("Found an EMF image: %s, trying to extract embedded raster image" % fname)
-            from LiuXin.utils.wmf.emf import emf_unwrap
+            from LiuXin_alpha.utils.wmf.emf import emf_unwrap
 
             try:
                 raw = emf_unwrap(raw)

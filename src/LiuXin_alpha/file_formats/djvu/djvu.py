@@ -11,9 +11,9 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import sys
 import struct
 
-from LiuXin.file_formats.djvu.djvubzzdec import BZZDecoder
+from LiuXin_alpha.file_formats.djvu.djvubzzdec import BZZDecoder
 
-from LiuXin.utils.plugins import plugins
+from LiuXin_alpha.utils.plugins import plugins
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Anthon van der Neut <A.van.der.Neut@ruamel.eu>"

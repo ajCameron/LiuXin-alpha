@@ -7,16 +7,16 @@ Read content from txt file.
 import os
 import re
 
-from LiuXin.file_formats.conversion.preprocess import DocAnalysis
+from LiuXin_alpha.file_formats.conversion.preprocess import DocAnalysis
 
-from LiuXin.file_formats.opf.opf2 import OPFCreator
+from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
-from LiuXin.utils.calibre import prepare_string_for_xml, isbytestring
-from LiuXin.utils.libraries.cleantext import clean_ascii_chars
+from LiuXin_alpha.utils.calibre import prepare_string_for_xml, isbytestring
+from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
 
 # Py2/Py3 compatibility
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_long
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_long
 
 
 __license__ = "GPL v3"
@@ -118,8 +118,8 @@ def convert_basic(txt, title="", epub_split_size_kb=0):
 
 
 def convert_markdown(txt, title="", extensions=("footnotes", "tables", "toc")):
-    from LiuXin.utils.calibre.ebooks.conversion.plugins.txt_input import MD_EXTENSIONS
-    from LiuXin.utils.calibre.ebooks.markdown import Markdown
+    from LiuXin_alpha.utils.calibre.ebooks.conversion.plugins.txt_input import MD_EXTENSIONS
+    from LiuXin_alpha.utils.calibre.ebooks.markdown import Markdown
 
     extensions = [x.lower() for x in extensions if x.lower() in MD_EXTENSIONS]
     md = Markdown(extensions, safe_mode=False)
@@ -127,7 +127,7 @@ def convert_markdown(txt, title="", extensions=("footnotes", "tables", "toc")):
 
 
 def convert_textile(txt, title=""):
-    from LiuXin.utils.calibre.ebooks.textile import textile
+    from LiuXin_alpha.utils.calibre.ebooks.textile import textile
 
     html = textile(txt, encoding="utf-8")
     return HTML_TEMPLATE % (title, html)

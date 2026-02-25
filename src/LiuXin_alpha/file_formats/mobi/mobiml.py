@@ -9,17 +9,17 @@ import copy
 
 from lxml import etree
 
-from LiuXin.file_formats.oeb.base import namespace, barename
-from LiuXin.file_formats.oeb.base import XHTML, XHTML_NS, urlnormalize
-from LiuXin.file_formats.oeb.stylizer import Stylizer
-from LiuXin.file_formats.oeb.transforms.flatcss import KeyMapper
-from LiuXin.file_formats.mobi.utils import convert_color_for_font_tag
+from LiuXin_alpha.file_formats.oeb.base import namespace, barename
+from LiuXin_alpha.file_formats.oeb.base import XHTML, XHTML_NS, urlnormalize
+from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
+from LiuXin_alpha.file_formats.oeb.transforms.flatcss import KeyMapper
+from LiuXin_alpha.file_formats.mobi.utils import convert_color_for_font_tag
 
-from LiuXin.utils.magick.draw import identify_data
+from LiuXin_alpha.utils.magick.draw import identify_data
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.cam>"

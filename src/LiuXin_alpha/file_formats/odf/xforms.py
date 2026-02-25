@@ -18,8 +18,8 @@
 # Contributor(s):
 #
 
-from LiuXin.file_formats.odf.namespaces import XFORMSNS
-from LiuXin.file_formats.odf.element import Element
+from LiuXin_alpha.file_formats.odf.namespaces import XFORMSNS
+from LiuXin_alpha.file_formats.odf.element import Element
 
 # ODF 1.0 section 11.2
 # XForms is designed to be embedded in another XML format.

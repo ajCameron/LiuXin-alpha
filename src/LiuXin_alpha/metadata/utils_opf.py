@@ -11,14 +11,14 @@ from builtins import map
 
 from lxml import etree
 
-from LiuXin.utils.calibre_utils.calibre_chardet import xml_to_unicode
+from LiuXin_alpha.utils.calibre_utils.calibre_chardet import xml_to_unicode
 
-from LiuXin.file_formats.oeb.base import OPF
+from LiuXin_alpha.file_formats.oeb.base import OPF
 
-from LiuXin.file_formats.oeb.polish.utils import guess_type
+from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
 
-from LiuXin.utils.spell import parse_lang_code
-from LiuXin.utils.localization import lang_as_iso639_1
+from LiuXin_alpha.utils.spell import parse_lang_code
+from LiuXin_alpha.utils.localization import lang_as_iso639_1
 
 PARSER = etree.XMLParser(recover=True, no_network=True)
 
@@ -129,7 +129,7 @@ def create_manifest_item(root, href_template, id_template, media_type=None):
 
 
 def pretty_print_opf(root):
-    from LiuXin.file_formats.oeb.polish.pretty import pretty_opf, pretty_xml_tree
+    from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_opf, pretty_xml_tree
 
     pretty_opf(root)
     pretty_xml_tree(root)

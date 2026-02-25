@@ -7,7 +7,7 @@ import regex
 import sys
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_map, six_zip
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map, six_zip
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -6,9 +6,9 @@ Read content from palmdoc pdb file.
 
 import struct
 
-from LiuXin.file_formats.pdb.formatreader import FormatReader
+from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -47,7 +47,7 @@ class Reader(FormatReader):
         if self.header_record.compression == 1:
             return self.section_data(number)
         if self.header_record.compression == 2 or self.header_record.compression == 258:
-            from LiuXin.file_formats.compression.palmdoc import decompress_doc
+            from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 
             return decompress_doc(self.section_data(number))
         return ""
@@ -68,7 +68,7 @@ class Reader(FormatReader):
         self.log.info("Converting text to OEB...")
         stream = six_cStringIO(raw_txt)
 
-        from LiuXin.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         txt_plugin = plugin_for_input_format("txt")
         for opt in txt_plugin.options:

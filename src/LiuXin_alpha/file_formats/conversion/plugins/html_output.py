@@ -7,12 +7,12 @@ import shutil
 from functools import partial
 from os.path import dirname, abspath, relpath as _relpath, exists, basename
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import PersistentTemporaryDirectory
-from LiuXin.utils.resources import P
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
+from LiuXin_alpha.utils.resources import P
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Fabian Grassl <fg@jusmeum.de>"
@@ -67,7 +67,7 @@ class HTMLOutput(OutputFormatPlugin):
         from lxml import etree
         from urllib import unquote
 
-        from LiuXin.file_formats.oeb.base import element
+        from LiuXin_alpha.file_formats.oeb.base import element
 
         with CurrentDir(output_dir):
 
@@ -110,10 +110,10 @@ class HTMLOutput(OutputFormatPlugin):
         from urllib import unquote
 
         from lxml import etree
-        from LiuXin.utils.liuxin_templite import Templite
+        from LiuXin_alpha.utils.liuxin_templite import Templite
 
-        from LiuXin.file_formats.html.meta import EasyMeta
-        from LiuXin.utils import calibre_zipfile
+        from LiuXin_alpha.file_formats.html.meta import EasyMeta
+        from LiuXin_alpha.utils import calibre_zipfile
 
         # read template files
         if opts.template_html_index is not None:

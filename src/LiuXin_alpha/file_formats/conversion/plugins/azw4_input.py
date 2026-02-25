@@ -2,7 +2,7 @@
 
 import os
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
 __license__ = "GPL v3"
 __copyright__ = "2011, John Schember <john@nachtimwald.com>"
@@ -20,8 +20,8 @@ class AZW4Input(InputFormatPlugin):
     file_types = {"azw4"}
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        from LiuXin.file_formats.pdb.header import PdbHeaderReader
-        from LiuXin.file_formats.azw4.reader import Reader
+        from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
+        from LiuXin_alpha.file_formats.azw4.reader import Reader
 
         header = PdbHeaderReader(stream)
         reader = Reader(header, stream, log, options)

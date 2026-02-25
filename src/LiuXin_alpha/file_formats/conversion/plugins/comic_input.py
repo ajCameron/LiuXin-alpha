@@ -5,11 +5,11 @@ import os
 import shutil
 import textwrap
 
-from LiuXin.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import PersistentTemporaryDirectory
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -156,7 +156,7 @@ class ComicInput(InputFormatPlugin):
         :param stream:
         :return:
         """
-        from LiuXin.utils.libunzip import extract as zipextract
+        from LiuXin_alpha.utils.libunzip import extract as zipextract
 
         tdir = PersistentTemporaryDirectory("_comic_collection")
         zipextract(stream, tdir)
@@ -194,7 +194,7 @@ class ComicInput(InputFormatPlugin):
 
     def get_pages(self, comic, tdir2):
 
-        from LiuXin.file_formats.comic.input import (
+        from LiuXin_alpha.file_formats.comic.input import (
             extract_comic,
             process_pages,
             find_pages,
@@ -228,8 +228,8 @@ class ComicInput(InputFormatPlugin):
 
     def convert(self, stream, options, file_ext, log, accelerators):
         from LiuXin_alpha.metadata import calibreMetaInformation as MetaInformation
-        from LiuXin.file_formats.opf.opf2 import OPFCreator
-        from LiuXin.metadata.toc import TOC
+        from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
+        from LiuXin_alpha.metadata.toc import TOC
 
         self.opts, self.log = options, log
         if file_ext == "cbc":
@@ -299,7 +299,7 @@ class ComicInput(InputFormatPlugin):
         :param pages:
         :return:
         """
-        from LiuXin.file_formats.oeb.base import XHTML_NS
+        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS
 
         wrappers = []
         WRAPPER = textwrap.dedent(

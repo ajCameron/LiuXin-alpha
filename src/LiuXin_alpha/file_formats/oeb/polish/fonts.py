@@ -5,11 +5,11 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import re
 
-from LiuXin.file_formats.oeb.polish.container import OEB_STYLES, OEB_DOCS
-from LiuXin.file_formats.oeb.normalize_css import normalize_font
+from LiuXin_alpha.file_formats.oeb.polish.container import OEB_STYLES, OEB_DOCS
+from LiuXin_alpha.file_formats.oeb.normalize_css import normalize_font
 
 # Py2/Py3 compatiblity layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"

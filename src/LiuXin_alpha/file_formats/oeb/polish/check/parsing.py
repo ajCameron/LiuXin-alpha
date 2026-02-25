@@ -7,24 +7,24 @@ import re
 import cssutils
 from lxml.etree import XMLParser, fromstring, XMLSyntaxError
 
-from LiuXin.file_formats.chardet import (
+from LiuXin_alpha.file_formats.chardet import (
     replace_encoding_declarations,
     find_declared_encoding,
 )
-from LiuXin.file_formats.html_entities import html5_entities
-from LiuXin.file_formats.oeb.polish.pretty import (
+from LiuXin_alpha.file_formats.html_entities import html5_entities
+from LiuXin_alpha.file_formats.oeb.polish.pretty import (
     pretty_script_or_style as fix_style_tag,
 )
-from LiuXin.file_formats.oeb.polish.utils import PositionFinder, guess_type
-from LiuXin.file_formats.oeb.polish.check.base import BaseError, WARN, ERROR, INFO
-from LiuXin.file_formats.oeb.base import OEB_DOCS, XHTML_NS, urlquote, URL_SAFE
+from LiuXin_alpha.file_formats.oeb.polish.utils import PositionFinder, guess_type
+from LiuXin_alpha.file_formats.oeb.polish.check.base import BaseError, WARN, ERROR, INFO
+from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, XHTML_NS, urlquote, URL_SAFE
 
-from LiuXin.utils.calibre import force_unicode, human_readable, prepare_string_for_xml
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import force_unicode, human_readable, prepare_string_for_xml
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -114,7 +114,7 @@ class NamedEntities(BaseError):
 
     def __call__(self, container):
         changed = False
-        from LiuXin.file_formats.oeb.polish.check.main import XML_TYPES
+        from LiuXin_alpha.file_formats.oeb.polish.check.main import XML_TYPES
 
         check_types = XML_TYPES | OEB_DOCS
         for name, mt in iteritems(container.mime_map):
@@ -133,7 +133,7 @@ class EscapedName(BaseError):
     level = WARN
 
     def __init__(self, name):
-        from LiuXin.utils.filenames import ascii_filename
+        from LiuXin_alpha.utils.filenames import ascii_filename
 
         BaseError.__init__(self, _("Filename contains unsafe characters"), name)
         qname = urlquote(name)
@@ -153,7 +153,7 @@ class EscapedName(BaseError):
         self.INDIVIDUAL_FIX = _("Rename the file {0} to {1}").format(name, self.sname)
 
     def __call__(self, container):
-        from LiuXin.file_formats.oeb.polish.replace import rename_files
+        from LiuXin_alpha.file_formats.oeb.polish.replace import rename_files
 
         all_names = set(container.name_path_map)
         bn, ext = self.sname.rpartition(".")[0::2]

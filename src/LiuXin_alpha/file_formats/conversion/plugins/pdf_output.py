@@ -7,16 +7,16 @@ Convert OEB ebook format to PDF.
 import glob
 import os
 
-from LiuXin.constants import iswindows, islinux
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.constants import iswindows, islinux
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.icu import upper as icu_upper
-from LiuXin.utils.icu import lower as icu_lower
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.icu import upper as icu_upper
+from LiuXin_alpha.utils.icu import lower as icu_lower
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -55,8 +55,8 @@ PAPER_SIZES = [
 
 class PDFMetadata(object):  # {{{
     def __init__(self, mi=None):
-        from LiuXin.utils.calibre import force_unicode
-        from LiuXin.metadata.ebook_metadata_tools import authors_to_string
+        from LiuXin_alpha.utils.calibre import force_unicode
+        from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
 
         self.title = _("Unknown")
         self.author = _("Unknown")
@@ -228,8 +228,8 @@ class PDFOutput(OutputFormatPlugin):
 
         from lxml import etree
 
-        from LiuXin.interfaces.gui2 import must_use_qt, load_builtin_fonts
-        from LiuXin.file_formats.oeb.base import OPF, OPF2_NS
+        from LiuXin_alpha.interfaces.gui2 import must_use_qt, load_builtin_fonts
+        from LiuXin_alpha.file_formats.oeb.base import OPF, OPF2_NS
 
         log.info("Converting OEB to PDF...")
 
@@ -246,7 +246,7 @@ class PDFOutput(OutputFormatPlugin):
             nsmap={None: OPF2_NS},
         )
 
-        from LiuXin.file_formats.opf.opf2 import OPF
+        from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
         self.oeb.metadata.to_opf2(package)
         self.metadata = OPF(BytesIO(etree.tostring(package))).to_book_metadata()
@@ -265,7 +265,7 @@ class PDFOutput(OutputFormatPlugin):
         :param images:
         :return:
         """
-        from LiuXin.file_formats.pdf.writer import ImagePDFWriter
+        from LiuXin_alpha.file_formats.pdf.writer import ImagePDFWriter
 
         self.write(ImagePDFWriter, images, None)
 
@@ -283,8 +283,8 @@ class PDFOutput(OutputFormatPlugin):
         Qt's directwrite text backend is not mature.
         Also make sure all fonts are embeddable.
         """
-        from LiuXin.file_formats.oeb.base import urlnormalize
-        from LiuXin.utils.fonts.utils import remove_embed_restriction
+        from LiuXin_alpha.file_formats.oeb.base import urlnormalize
+        from LiuXin_alpha.utils.fonts.utils import remove_embed_restriction
         from PyQt5.Qt import QByteArray, QRawFont
 
         font_warnings = set()
@@ -330,15 +330,15 @@ class PDFOutput(OutputFormatPlugin):
                 item.data.cssRules.pop(i)
 
     def convert_text(self, oeb_book):
-        from LiuXin.file_formats.opf.opf2 import OPF
+        from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
         if self.opts.old_pdf_engine:
-            from LiuXin.file_formats.pdf.writer import PDFWriter
+            from LiuXin_alpha.file_formats.pdf.writer import PDFWriter
 
             # PDFWriter  # To make pyflakes shut up
         else:
             self.log.warn("New PDFWriter does not currently work - falling back on the old one")
-            from LiuXin.file_formats.pdf.writer import PDFWriter
+            from LiuXin_alpha.file_formats.pdf.writer import PDFWriter
 
         self.log.debug("Serializing oeb input to disk for processing...")
         self.get_cover_data()
@@ -346,7 +346,7 @@ class PDFOutput(OutputFormatPlugin):
         self.handle_embedded_fonts()
 
         with TemporaryDirectory("_pdf_out") as oeb_dir:
-            from LiuXin.customize.ui import plugin_for_output_format
+            from LiuXin_alpha.customize.ui import plugin_for_output_format
 
             oeb_output = plugin_for_output_format("oeb")
             oeb_output.convert(oeb_book, oeb_dir, self.input_plugin, self.opts, self.log)
@@ -407,7 +407,7 @@ class PDFOutput(OutputFormatPlugin):
         :param stylizer:
         :return:
         """
-        from LiuXin.file_formats.oeb.base import XHTML
+        from LiuXin_alpha.file_formats.oeb.base import XHTML
         import itertools
         import string
 

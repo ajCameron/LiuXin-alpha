@@ -4,13 +4,13 @@
 import re
 from math import ceil
 
-from LiuXin.file_formats.conversion.preprocess import DocAnalysis, Dehyphenator
+from LiuXin_alpha.file_formats.conversion.preprocess import DocAnalysis, Dehyphenator
 
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.libraries.wordcount import get_wordcount_obj
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.libraries.wordcount import get_wordcount_obj
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -61,7 +61,7 @@ class HeuristicProcessor(object):
         return '<meta name="generator" content="ABBYY FineReader' in src[:1000]
 
     def chapter_head(self, match):
-        from LiuXin.utils.html2text import html2text
+        from LiuXin_alpha.utils.html2text import html2text
 
         chap = match.group("chap")
         title = match.group("title")
@@ -598,7 +598,7 @@ class HeuristicProcessor(object):
         return content
 
     def txt_process(self, match):
-        from LiuXin.file_formats.txt.processor import (
+        from LiuXin_alpha.file_formats.txt.processor import (
             convert_basic,
             separate_paragraphs_single_line,
         )
@@ -614,7 +614,7 @@ class HeuristicProcessor(object):
             self.log.debug("Running Text Processing")
             outerhtml = re.compile(r".*?(?<=<pre>)(?P<text>.*?)</pre>", re.IGNORECASE | re.DOTALL)
             html = outerhtml.sub(self.txt_process, html)
-            from LiuXin.file_formats.conversion.preprocess import convert_entities
+            from LiuXin_alpha.file_formats.conversion.preprocess import convert_entities
 
             html = re.sub(r"&(\S+?);", convert_entities, html)
         else:
@@ -933,7 +933,7 @@ class HeuristicProcessor(object):
                 scene_break = self.scene_break_open + replacement_break + "</p>"
 
             else:
-                from LiuXin.utils.html2text import html2text
+                from LiuXin_alpha.utils.html2text import html2text
 
                 replacement_break = html2text(replacement_break)
                 replacement_break = re.sub("\s", "&nbsp;", replacement_break)

@@ -23,15 +23,15 @@ from PyQt5.Qt import (
 from PyQt5.QtWebKit import QWebSettings
 from PyQt5.QtWebKitWidgets import QWebView, QWebPage
 
-from LiuXin.file_formats.oeb.display.webview import load_html
-from LiuXin.file_formats.pdf.pageoptions import unit, paper_size
-from LiuXin.file_formats.pdf.outline_writer import Outline
+from LiuXin_alpha.file_formats.oeb.display.webview import load_html
+from LiuXin_alpha.file_formats.pdf.pageoptions import unit, paper_size
+from LiuXin_alpha.file_formats.pdf.outline_writer import Outline
 
-from LiuXin.utils.calibre import __appname__, __version__, fit_image, isosx
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.ptempfiles import PersistentTemporaryDirectory
-from LiuXin.utils.ptempfiles import PersistentTemporaryFile
+from LiuXin_alpha.utils.calibre import __appname__, __version__, fit_image, isosx
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -53,7 +53,7 @@ def get_custom_size(opts):
 
 
 def get_pdf_printer(opts, for_comic=False, output_file_name=None):  # {{{
-    from LiuXin.interfaces.gui2 import must_use_qt
+    from LiuXin_alpha.interfaces.gui2 import must_use_qt
 
     must_use_qt()
 
@@ -162,8 +162,8 @@ class Page(QWebPage):  # {{{
 
 class PDFWriter(QObject):  # {{{
     def __init__(self, opts, log, cover_data=None, toc=None):
-        from LiuXin.interfaces.gui2 import must_use_qt
-        from LiuXin.utils.podofo import get_podofo
+        from LiuXin_alpha.interfaces.gui2 import must_use_qt
+        from LiuXin_alpha.utils.podofo import get_podofo
 
         must_use_qt()
         QObject.__init__(self)
@@ -264,7 +264,7 @@ class PDFWriter(QObject):  # {{{
 
     def do_paged_render(self):
         if self.paged_js is None:
-            from LiuXin.utils.resources import compiled_coffeescript
+            from LiuXin_alpha.utils.resources import compiled_coffeescript
 
             self.paged_js = compiled_coffeescript("ebooks.oeb.display.utils")
             self.paged_js += compiled_coffeescript("ebooks.oeb.display.indexing")
@@ -378,7 +378,7 @@ class ImagePDFWriter(object):  # {{{
         self.log = log
 
     def dump(self, items, out_stream, pdf_metadata):
-        from LiuXin.utils.podofo import get_podofo
+        from LiuXin_alpha.utils.podofo import get_podofo
 
         f = PersistentTemporaryFile("_comic2pdf.pdf")
         f.close()

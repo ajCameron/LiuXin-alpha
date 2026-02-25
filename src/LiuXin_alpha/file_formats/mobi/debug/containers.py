@@ -5,7 +5,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 from struct import unpack_from
 
-from LiuXin.file_formats.mobi.debug.headers import EXTHHeader
+from LiuXin_alpha.file_formats.mobi.debug.headers import EXTHHeader
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -667,7 +667,7 @@ def calibreMetaInformation(title, authors=(_("Unknown"),)):
     :param authors: List of strings or []
     :return:
     """
-    from LiuXin.metadata.book.base import calibreMetadata
+    from LiuXin_alpha.metadata.book.base import calibreMetadata
 
     mi = None
     if hasattr(title, "title") and hasattr(title, "authors"):
@@ -791,7 +791,7 @@ def create_manifest_item(root, href_template, id_template, media_type=None):
 
 
 def pretty_print_opf(root):
-    from LiuXin.file_formats.oeb.polish.pretty import pretty_opf, pretty_xml_tree
+    from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_opf, pretty_xml_tree
 
     pretty_opf(root)
     pretty_xml_tree(root)

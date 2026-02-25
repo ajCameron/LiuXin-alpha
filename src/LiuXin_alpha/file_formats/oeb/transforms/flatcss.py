@@ -15,7 +15,7 @@ from cssutils.css import Property
 from lxml import etree
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.oeb.base import (
     XHTML,
     XHTML_NS,
     CSS_MIME,
@@ -24,15 +24,15 @@ from LiuXin.file_formats.oeb.base import (
     barename,
     XPath,
 )
-from LiuXin.file_formats.oeb.stylizer import Stylizer
+from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
-from LiuXin.utils.calibre import guess_type
-from LiuXin.utils.filenames import ascii_filename, ascii_text
-from LiuXin.utils.icu import numeric_sort_key
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.filenames import ascii_filename, ascii_text
+from LiuXin_alpha.utils.icu import numeric_sort_key
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
@@ -198,7 +198,7 @@ class CSSFlattener(object):
                     "Failed to parse filter_css, ignoring" + " -exception message: {}".format(e.message)
                 )
             else:
-                from LiuXin.file_formats.oeb.normalize_css import normalize_filter_css
+                from LiuXin_alpha.file_formats.oeb.normalize_css import normalize_filter_css
 
                 self.filter_css = frozenset(normalize_filter_css(self.filter_css))
                 self.oeb.log.debug("Filtering CSS properties: %s" % ", ".join(self.filter_css))
@@ -223,8 +223,8 @@ class CSSFlattener(object):
         body_font_family = None
         if not family:
             return body_font_family, efi
-        from LiuXin.utils.fonts.scanner import font_scanner
-        from LiuXin.utils.fonts.utils import panose_to_css_generic_family
+        from LiuXin_alpha.utils.fonts.scanner import font_scanner
+        from LiuXin_alpha.utils.fonts.utils import panose_to_css_generic_family
 
         faces = font_scanner.fonts_for_family(family)
         if not faces:

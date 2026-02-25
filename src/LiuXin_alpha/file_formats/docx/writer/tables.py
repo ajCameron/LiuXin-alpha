@@ -5,15 +5,15 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 from collections import namedtuple
 
-from LiuXin.file_formats.docx.writer.styles import (
+from LiuXin_alpha.file_formats.docx.writer.styles import (
     read_css_block_borders as rcbb,
     border_edges,
 )
-from LiuXin.file_formats.docx.writer.utils import convert_color
+from LiuXin_alpha.file_formats.docx.writer.utils import convert_color
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"

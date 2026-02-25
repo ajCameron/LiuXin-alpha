@@ -5,11 +5,11 @@ from __future__ import with_statement
 
 import os
 
-from LiuXin.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.calibre import walk
-from LiuXin.utils.calibre.constants import numeric_version
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import walk
+from LiuXin_alpha.utils.calibre.constants import numeric_version
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -89,13 +89,13 @@ class RecipeInput(InputFormatPlugin):
         :return:
         """
 
-        from LiuXin.utils.web.feeds.recipes import compile_recipe
+        from LiuXin_alpha.utils.web.feeds.recipes import compile_recipe
 
         options.output_profile.flow_size = 0
         recipe = None
         if file_ext == "downloaded_recipe":
 
-            from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+            from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
             zf = ZipFile(recipe_or_file, "r")
             zf.extractall()
@@ -113,7 +113,7 @@ class RecipeInput(InputFormatPlugin):
                 recipe = compile_recipe(self.recipe_source)
                 log("Using custom recipe")
             else:
-                from LiuXin.utils.web.feeds.recipes.collection import (
+                from LiuXin_alpha.utils.web.feeds.recipes.collection import (
                     get_builtin_recipe_by_title,
                     get_builtin_recipe_titles,
                 )
@@ -179,7 +179,7 @@ class RecipeInput(InputFormatPlugin):
 
     def specialize(self, oeb, opts, log, output_fmt):
         if opts.no_inline_navbars:
-            from LiuXin.file_formats.oeb.base import XPath
+            from LiuXin_alpha.file_formats.oeb.base import XPath
 
             for item in oeb.spine:
                 for div in XPath('//h:div[contains(@class, "calibre_navbar")]')(item.data):

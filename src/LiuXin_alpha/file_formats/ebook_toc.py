@@ -12,16 +12,16 @@ from collections import Counter
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 
 # Todo: Check the imports - do they point to the right version of BS e.t.c
-from LiuXin.constants import __appname__, __version__
+from LiuXin_alpha.constants import __appname__, __version__
 
-from LiuXin.file_formats.BeautifulSoup import BeautifulSoup
-from LiuXin.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.BeautifulSoup import BeautifulSoup
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 
-from LiuXin.utils.libraries.cleantext import clean_xml_chars
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode as six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode as six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid at kovidgoyal.net>"

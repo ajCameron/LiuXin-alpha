@@ -6,7 +6,7 @@ Microsoft LIT OPF tag and attribute tables, copied from ConvertLIT.
 """
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 TAGS = [
     None,

@@ -6,11 +6,11 @@ Transform OEB content into RB compatible markup.
 
 import re
 
-from LiuXin.file_formats.rb import unique_name
+from LiuXin_alpha.file_formats.rb import unique_name
 
-from LiuXin.utils.calibre import prepare_string_for_xml
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import prepare_string_for_xml
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.localization import trans as _
 
 
 __license__ = "GPL 3"
@@ -85,8 +85,8 @@ class RBMLizer(object):
         return output
 
     def get_cover_page(self):
-        from LiuXin.file_formats.oeb.stylizer import Stylizer
-        from LiuXin.file_formats.oeb.base import XHTML
+        from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
+        from LiuXin_alpha.file_formats.oeb.base import XHTML
 
         output = ""
         if "cover" in self.oeb_book.guide:
@@ -121,8 +121,8 @@ class RBMLizer(object):
         return "".join(toc)
 
     def get_text(self):
-        from LiuXin.file_formats.oeb.stylizer import Stylizer
-        from LiuXin.file_formats.oeb.base import XHTML
+        from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
+        from LiuXin_alpha.file_formats.oeb.base import XHTML
 
         output = [""]
         for item in self.oeb_book.spine:
@@ -152,7 +152,7 @@ class RBMLizer(object):
         return text
 
     def dump_text(self, elem, stylizer, page, tag_stack=[]):
-        from LiuXin.file_formats.oeb.base import XHTML_NS, barename, namespace
+        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
 
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:
             p = elem.getparent()

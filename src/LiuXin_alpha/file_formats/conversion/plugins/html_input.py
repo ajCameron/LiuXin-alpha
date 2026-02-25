@@ -9,17 +9,17 @@ import tempfile
 from functools import partial
 from past.builtins import unicode
 
-from LiuXin.constants import islinux, isbsd
+from LiuXin_alpha.constants import islinux, isbsd
 
-from LiuXin.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.metadata import MetaData
 
-from LiuXin.utils.filenames import ascii_filename
-from LiuXin.utils.imghdr import what
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.localization import get_lang
-from LiuXin.utils.lx_libraries.liuxin_six import six_zip as izip
+from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.imghdr import what
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import get_lang
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_zip as izip
 
 
 __license__ = "GPL v3"
@@ -88,7 +88,7 @@ class HTMLInput(InputFormatPlugin):
         if file_ext != "opf":
             if options.dont_package:
                 raise ValueError("The --dont-package option is not supported for an HTML input file")
-            from LiuXin.metadata.file_sources.html import get_metadata
+            from LiuXin_alpha.metadata.file_sources.html import get_metadata
 
             mi = get_metadata(stream)
             # We need calibre metadata
@@ -97,7 +97,7 @@ class HTMLInput(InputFormatPlugin):
 
             if fname:
                 # Todo: Merge with from_string LX metadata extractor
-                from LiuXin.metadata.meta import metadata_from_filename
+                from LiuXin_alpha.metadata.meta import metadata_from_filename
 
                 fmi = metadata_from_filename(fname)
                 if isinstance(fmi, MetaData):
@@ -108,7 +108,7 @@ class HTMLInput(InputFormatPlugin):
             return oeb
 
         # If the file cannot be found then run the full conversion method - which can deal with just a stream
-        from LiuXin.file_formats.conversion.plumber import create_oebbook
+        from LiuXin_alpha.file_formats.conversion.plumber import create_oebbook
 
         return create_oebbook(log, stream.name, options, encoding=options.input_encoding)
 
@@ -134,9 +134,9 @@ class HTMLInput(InputFormatPlugin):
         import uuid
         import cssutils
         import logging
-        from LiuXin.file_formats.conversion.plumber import create_oebbook
-        from LiuXin.file_formats.html.input import get_filelist
-        from LiuXin.file_formats.oeb.base import (
+        from LiuXin_alpha.file_formats.conversion.plumber import create_oebbook
+        from LiuXin_alpha.file_formats.html.input import get_filelist
+        from LiuXin_alpha.file_formats.oeb.base import (
             DirContainer,
             rewrite_links,
             urlnormalize,
@@ -145,14 +145,14 @@ class HTMLInput(InputFormatPlugin):
             OEB_STYLES,
             xpath,
         )
-        from LiuXin.file_formats.oeb.transforms.metadata import (
+        from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
             meta_info_to_oeb_metadata,
         )
 
         from LiuXin_alpha.metadata import string_to_authors
 
-        from LiuXin.utils.calibre import guess_type
-        from LiuXin.utils.localization import canonicalize_lang
+        from LiuXin_alpha.utils.calibre import guess_type
+        from LiuXin_alpha.utils.localization import canonicalize_lang
 
         cssutils.log.setLevel(logging.WARN)
         self.OEB_STYLES = OEB_STYLES
@@ -261,7 +261,7 @@ class HTMLInput(InputFormatPlugin):
 
     def link_to_local_path(self, link_, base=None):
 
-        from LiuXin.file_formats.html.input import Link
+        from LiuXin_alpha.file_formats.html.input import Link
 
         if not isinstance(link_, unicode):
             try:

@@ -6,15 +6,15 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 import sys
 
-from LiuXin.file_formats.conversion.plumber import Plumber
-from LiuXin.file_formats.epub import initialize_container
-from LiuXin.file_formats.oeb.polish.container import Container, OEB_DOCS, OEB_STYLES
+from LiuXin_alpha.file_formats.conversion.plumber import Plumber
+from LiuXin_alpha.file_formats.epub import initialize_container
+from LiuXin_alpha.file_formats.oeb.polish.container import Container, OEB_DOCS, OEB_STYLES
 
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -60,7 +60,7 @@ def import_book_as_epub(srcpath, destpath, log=default_log):
             pathtoopf = plumber.input_plugin(inf, plumber.opts, plumber.input_fmt, log, {}, tdir)
 
         if hasattr(pathtoopf, "manifest"):
-            from LiuXin.file_formats.oeb.iterator.book import write_oebbook
+            from LiuXin_alpha.file_formats.oeb.iterator.book import write_oebbook
 
             pathtoopf = write_oebbook(pathtoopf, tdir)
 

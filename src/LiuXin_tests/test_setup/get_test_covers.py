@@ -6,15 +6,15 @@ import time
 
 from clint.textui import puts, colored
 
-from LiuXin.paths import LiuXin_data_folder
+from LiuXin_alpha.paths import LiuXin_data_folder
 
-from LiuXin.databases.database import Database
+from LiuXin_alpha.databases.database import Database
 
-from LiuXin.metadata.web_sources.amazon import Amazon
+from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
 from LiuXin_tests.test_databases import file_load_test_database_backup
 
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logger import default_log
 
 
 # Use the amazon metadata downloader to build a test set of covers

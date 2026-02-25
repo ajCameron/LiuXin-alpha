@@ -6,15 +6,15 @@ CSS case-mangling transform.
 
 from lxml import etree
 
-from LiuXin.file_formats.oeb.base import XHTML, XHTML_NS
-from LiuXin.file_formats.oeb.base import CSS_MIME
-from LiuXin.file_formats.oeb.base import namespace
-from LiuXin.file_formats.oeb.stylizer import Stylizer
+from LiuXin_alpha.file_formats.oeb.base import XHTML, XHTML_NS
+from LiuXin_alpha.file_formats.oeb.base import CSS_MIME
+from LiuXin_alpha.file_formats.oeb.base import namespace
+from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
-from LiuXin.utils.icu import lower as icu_lower
-from LiuXin.utils.icu import title_case as icu_title
-from LiuXin.utils.icu import upper as icu_upper
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.icu import lower as icu_lower
+from LiuXin_alpha.utils.icu import title_case as icu_title
+from LiuXin_alpha.utils.icu import upper as icu_upper
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"

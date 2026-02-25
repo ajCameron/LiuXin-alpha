@@ -11,15 +11,15 @@ import codecs
 import re
 
 from LiuXin_alpha.metadata import calibreMetaInformation
-from LiuXin.metadata.ebook_metadata_tools import string_to_authors
-from LiuXin.metadata.metadata import MetaData as MetaInformation
+from LiuXin_alpha.metadata.ebook_metadata_tools import string_to_authors
+from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
 
-from LiuXin.utils.libraries.BeautifulSoup import BeautifulSoup
-from LiuXin.utils.calibre import force_unicode
-from LiuXin.utils.calibre_chardet import xml_to_unicode
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.ptempfiles import TemporaryFile
+from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
+from LiuXin_alpha.utils.calibre import force_unicode
+from LiuXin_alpha.utils.calibre_chardet import xml_to_unicode
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -142,7 +142,7 @@ def _get_cover(soup, rdr):
                 ans = None
         if ans is not None:
             from PIL import Image
-            from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
+            from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
             buf = six_cStringIO()
             try:
@@ -201,7 +201,7 @@ def get_metadata(stream):
     with TemporaryFile("_chm_metadata.chm") as fname:
         with open(fname, "wb") as f:
             f.write(stream.read())
-        from LiuXin.file_formats.chm.reader import CHMReader
+        from LiuXin_alpha.file_formats.chm.reader import CHMReader
 
         rdr = CHMReader(fname, default_log)
         return get_metadata_from_reader(rdr)

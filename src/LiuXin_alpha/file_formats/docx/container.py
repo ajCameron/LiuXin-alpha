@@ -10,22 +10,22 @@ import sys
 
 from lxml import etree
 
-from LiuXin.file_formats.docx import InvalidDOCX
-from LiuXin.file_formats.docx.names import DOCXNamespace
-from LiuXin.file_formats.oeb.parse_utils import RECOVER_PARSER
+from LiuXin_alpha.file_formats.docx import InvalidDOCX
+from LiuXin_alpha.file_formats.docx.names import DOCXNamespace
+from LiuXin_alpha.file_formats.oeb.parse_utils import RECOVER_PARSER
 
-from LiuXin.metadata.ebook_metadata_tools import string_to_authors
-from LiuXin.metadata.metadata import MetaData as Metadata
-from LiuXin.metadata.ebook_metadata_tools import authors_to_sort_string
+from LiuXin_alpha.metadata.ebook_metadata_tools import string_to_authors
+from LiuXin_alpha.metadata.metadata import MetaData as Metadata
+from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_sort_string
 
-from LiuXin.utils.calibre import walk, guess_type
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.localization import canonicalize_lang
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.ptempfiles import PersistentTemporaryDirectory
-from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+from LiuXin_alpha.utils.calibre import walk, guess_type
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import canonicalize_lang
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
+from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -140,7 +140,7 @@ class DOCX(object):
             zf.extractall(self.tdir)
         except:
             self.log.exception("DOCX appears to be invalid ZIP file, trying a more forgiving ZIP parser")
-            from LiuXin.utils.decompression.localunzip import extractall
+            from LiuXin_alpha.utils.decompression.localunzip import extractall
 
             stream.seek(0)
             extractall(stream, self.tdir)

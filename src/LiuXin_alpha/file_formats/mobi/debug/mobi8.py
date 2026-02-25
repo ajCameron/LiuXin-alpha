@@ -9,25 +9,25 @@ import sys
 import textwrap
 from itertools import izip
 
-from LiuXin.file_formats.mobi.debug.containers import ContainerHeader
-from LiuXin.file_formats.mobi.debug.headers import TextRecord
-from LiuXin.file_formats.mobi.debug.index import (
+from LiuXin_alpha.file_formats.mobi.debug.containers import ContainerHeader
+from LiuXin_alpha.file_formats.mobi.debug.headers import TextRecord
+from LiuXin_alpha.file_formats.mobi.debug.index import (
     SKELIndex,
     SECTIndex,
     NCXIndex,
     GuideIndex,
 )
-from LiuXin.file_formats.mobi.utils import read_font_record, decode_tbs, RECORD_SIZE
-from LiuXin.file_formats.mobi.debug import format_bytes
-from LiuXin.file_formats.mobi.reader.headers import NULL_INDEX
+from LiuXin_alpha.file_formats.mobi.utils import read_font_record, decode_tbs, RECORD_SIZE
+from LiuXin_alpha.file_formats.mobi.debug import format_bytes
+from LiuXin_alpha.file_formats.mobi.reader.headers import NULL_INDEX
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.imghdr import what
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.imghdr import what
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -243,7 +243,7 @@ class MOBIFile(object):
             self.resource_map.append(("%s/%06d%s.%s" % (prefix, resource_index, suffix, ext), payload))
 
     def read_tbs(self):
-        from LiuXin.file_formats.mobi.writer8.tbs import (
+        from LiuXin_alpha.file_formats.mobi.writer8.tbs import (
             Entry,
             DOC,
             collect_indexing_data,

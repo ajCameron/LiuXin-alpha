@@ -9,18 +9,18 @@ from collections import defaultdict
 import cssutils
 from lxml import etree
 
-from LiuXin.file_formats.oeb.base import XPath, CSS_MIME, XHTML
-from LiuXin.file_formats.oeb.transforms.subset import (
+from LiuXin_alpha.file_formats.oeb.base import XPath, CSS_MIME, XHTML
+from LiuXin_alpha.file_formats.oeb.transforms.subset import (
     get_font_properties,
     find_font_face_rules,
     elem_style,
 )
 
-from LiuXin.utils.calibre import guess_type
-from LiuXin.utils.filenames import ascii_filename
-from LiuXin.utils.fonts.scanner import font_scanner, NoFonts
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.fonts.scanner import font_scanner, NoFonts
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"

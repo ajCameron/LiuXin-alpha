@@ -7,13 +7,13 @@ from collections import namedtuple
 from io import BytesIO
 from struct import pack
 
-from LiuXin.file_formats.mobi.writer8.header import Header
-from LiuXin.file_formats.mobi.utils import CNCX, encint, align_block
+from LiuXin_alpha.file_formats.mobi.writer8.header import Header
+from LiuXin_alpha.file_formats.mobi.utils import CNCX, encint, align_block
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
-from LiuXin.utils.lx_libraries.liuxin_six import six_zip
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_zip
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -474,6 +474,6 @@ if __name__ == "__main__":
     subprocess.call(["kindlegen", "index.epub"])  # kindlegen exit code is not 0 as we dont have a cover
     subprocess.check_call(["calibre-debug", "index.mobi"])
 
-    from LiuXin.utils.calibre.gui2.tweak_book.diff.main import main
+    from LiuXin_alpha.utils.calibre.gui2.tweak_book.diff.main import main
 
     main(["cdiff", "decompiled_index/mobi8/ncx.record", "x/ncx.record"])

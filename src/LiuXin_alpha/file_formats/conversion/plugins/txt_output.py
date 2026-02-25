@@ -3,10 +3,10 @@
 import os
 import shutil
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import TemporaryDirectory, TemporaryFile
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory, TemporaryFile
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -115,16 +115,16 @@ class TXTOutput(OutputFormatPlugin):
     }
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
-        from LiuXin.file_formats.txt.newlines import specified_newlines, TxtNewlines
-        from LiuXin.file_formats.txt.txtml import TXTMLizer
+        from LiuXin_alpha.file_formats.txt.newlines import specified_newlines, TxtNewlines
+        from LiuXin_alpha.file_formats.txt.txtml import TXTMLizer
         from utils.libraries.cleantext import clean_ascii_chars
 
         if opts.txt_output_formatting.lower() == "markdown":
-            from LiuXin.file_formats.txt.markdownml import MarkdownMLizer
+            from LiuXin_alpha.file_formats.txt.markdownml import MarkdownMLizer
 
             self.writer = MarkdownMLizer(log)
         elif opts.txt_output_formatting.lower() == "textile":
-            from LiuXin.file_formats.txt.textileml import TextileMLizer
+            from LiuXin_alpha.file_formats.txt.textileml import TextileMLizer
 
             self.writer = TextileMLizer(log)
         else:
@@ -162,8 +162,8 @@ class TXTZOutput(TXTOutput):
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
 
         from lxml import etree
-        from LiuXin.file_formats.oeb.base import OEB_IMAGES
-        from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.file_formats.oeb.base import OEB_IMAGES
+        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
         with TemporaryDirectory("_txtz_output") as tdir:
             # TXT

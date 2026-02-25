@@ -10,14 +10,14 @@ import zlib
 from collections import OrderedDict
 from io import BytesIO
 
-from LiuXin.file_formats import normalize
+from LiuXin_alpha.file_formats import normalize
 
-from LiuXin.utils.imghdr import what
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.imghdr import what
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log
 
 try:
-    from LiuXin.utils.wrappers.magick.draw import Image, save_cover_data_to, thumbnail
+    from LiuXin_alpha.utils.wrappers.magick.draw import Image, save_cover_data_to, thumbnail
 except (ImportError, RuntimeError) as e:
     wrn_str = (
         "Unable to import from Magick.\n"
@@ -25,15 +25,15 @@ except (ImportError, RuntimeError) as e:
         "falling back.\n"
     )
     default_log.warn(wrn_str)
-    from LiuXin.utils.magick_fallback.draw import Image, save_cover_data_to, thumbnail
+    from LiuXin_alpha.utils.magick_fallback.draw import Image, save_cover_data_to, thumbnail
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 # Accessing inbuilt tinycss
-from LiuXin.utils.lx_libraries.liuxin_tinycss.color3 import parse_color_string
+from LiuXin_alpha.utils.lx_libraries.liuxin_tinycss.color3 import parse_color_string
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"

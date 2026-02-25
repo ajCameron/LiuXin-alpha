@@ -11,24 +11,24 @@ from string import Formatter
 
 from lxml import etree
 
-from LiuXin.constants import iswindows
+from LiuXin_alpha.constants import iswindows
 
-from LiuXin.file_formats.BeautifulSoup import BeautifulSoup
-from LiuXin.file_formats.chardet import strip_encoding_declarations
-from LiuXin.file_formats.oeb.base import XPath, XHTML_NS, XHTML, xml2text, urldefrag
+from LiuXin_alpha.file_formats.BeautifulSoup import BeautifulSoup
+from LiuXin_alpha.file_formats.chardet import strip_encoding_declarations
+from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML_NS, XHTML, xml2text, urldefrag
 
-from LiuXin.library.comments import comments_to_html
+from LiuXin_alpha.library.comments import comments_to_html
 
 from LiuXin_alpha.metadata import fmt_sidx
 
-from LiuXin.utils.calibre import guess_type, strftime
-from LiuXin.utils.date import is_date_undefined
-from LiuXin.utils.icu import sort_key
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.resources import P
+from LiuXin_alpha.utils.calibre import guess_type, strftime
+from LiuXin_alpha.utils.date import is_date_undefined
+from LiuXin_alpha.utils.icu import sort_key
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.resources import P
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -313,7 +313,7 @@ def render_jacket(
 
         return strip_encoding_declarations(soup.renderContents("utf-8").decode("utf-8"))
 
-    from LiuXin.file_formats.oeb.base import RECOVER_PARSER
+    from LiuXin_alpha.file_formats.oeb.base import RECOVER_PARSER
 
     try:
         root = etree.fromstring(generate_html(comments), parser=RECOVER_PARSER)
@@ -339,7 +339,7 @@ def render_jacket(
             for child in body:
                 fw.append(child)
             body.append(fw)
-    from LiuXin.file_formats.oeb.polish.pretty import pretty_html_tree
+    from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_html_tree
 
     pretty_html_tree(None, root)
     return root

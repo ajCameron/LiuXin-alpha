@@ -9,18 +9,18 @@ import os
 from optparse import OptionGroup, Option
 from collections import OrderedDict
 
-from LiuXin.customize.conversion import OptionRecommendation
+from LiuXin_alpha.customize.conversion import OptionRecommendation
 
-from LiuXin.file_formats.conversion import ConversionUserFeedBack
+from LiuXin_alpha.file_formats.conversion import ConversionUserFeedBack
 
-from LiuXin.utils.calibre import patheq
-from LiuXin.utils.config.config_tools import OptionParser
-from LiuXin.utils.localization import localize_user_manual_link
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log as Log
+from LiuXin_alpha.utils.calibre import patheq
+from LiuXin_alpha.utils.config.config_tools import OptionParser
+from LiuXin_alpha.utils.localization import localize_user_manual_link
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log as Log
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL 3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -363,13 +363,13 @@ class ProgressBar(object):
 
 def create_option_parser(args, log):
     if "--version" in args:
-        from LiuXin.utils.calibre.constants import __appname__, __version__, __author__
+        from LiuXin_alpha.utils.calibre.constants import __appname__, __version__, __author__
 
         log(os.path.basename(args[0]), "(" + __appname__, __version__ + ")")
         log("Created by:", __author__)
         raise SystemExit(0)
     if "--list-recipes" in args:
-        from LiuXin.utils.web.feeds.recipes.collection import get_builtin_recipe_titles
+        from LiuXin_alpha.utils.web.feeds.recipes.collection import get_builtin_recipe_titles
 
         log("Available recipes:")
         titles = sorted(get_builtin_recipe_titles())
@@ -388,7 +388,7 @@ def create_option_parser(args, log):
 
     usr_input, output = check_command_line_options(parser, args, log)
 
-    from LiuXin.file_formats.conversion.plumber import Plumber
+    from LiuXin_alpha.file_formats.conversion.plumber import Plumber
 
     reporter = ProgressBar(log)
     if patheq(usr_input, output):

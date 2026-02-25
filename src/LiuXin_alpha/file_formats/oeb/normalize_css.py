@@ -12,8 +12,8 @@ except ImportError:
 from cssutils import profile as cssprofiles, CSSParser
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_zip
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_zip
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

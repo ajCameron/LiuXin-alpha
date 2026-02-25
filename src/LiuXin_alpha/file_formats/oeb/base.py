@@ -1247,7 +1247,7 @@ class Manifest(object):
 
             self.oeb.log.debug("Converting", self.href, "...")
 
-            from LiuXin.file_formats.txt.processor import convert_markdown
+            from LiuXin_alpha.file_formats.txt.processor import convert_markdown
 
             title = self.oeb.metadata.title
             if title:
@@ -1344,7 +1344,7 @@ class Manifest(object):
             """
             if isinstance(self._data, (str, bytes)):
                 if memory is None:
-                    from LiuXin.utils.ptempfiles import PersistentTemporaryFile
+                    from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
                     pt = PersistentTemporaryFile(suffix="_oeb_base_mem_unloader.img")
                     with pt:

@@ -8,7 +8,7 @@ try:
 except ImportError:
     import ImageFont
 
-from LiuXin.utils.resources import P
+from LiuXin_alpha.utils.resources import P
 
 """
 Default fonts used in the PRS500

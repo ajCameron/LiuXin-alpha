@@ -7,17 +7,17 @@ import os
 import shutil
 import re
 
-from LiuXin.constants import filesystem_encoding
+from LiuXin_alpha.constants import filesystem_encoding
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import TemporaryDirectory
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.logger import default_log
 
 # Py2/ Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"
@@ -153,7 +153,7 @@ class EPUBOutput(OutputFormatPlugin):
     recommendations = {("pretty_print", True, OptionRecommendation.HIGH)}
 
     def workaround_webkit_quirks(self):  # {{{
-        from LiuXin.file_formats.oeb.base import XPath
+        from LiuXin_alpha.file_formats.oeb.base import XPath
 
         for x in self.oeb.spine:
             root = x.data
@@ -175,7 +175,7 @@ class EPUBOutput(OutputFormatPlugin):
         Upgrade markup to comply with XHTML 1.1 where possible
         :return:
         """
-        from LiuXin.file_formats.oeb.base import XPath, XML
+        from LiuXin_alpha.file_formats.oeb.base import XPath, XML
 
         for x in self.oeb.spine:
             root = x.data
@@ -209,7 +209,7 @@ class EPUBOutput(OutputFormatPlugin):
         self.log, self.opts, self.oeb = log, opts, oeb_book
 
         if self.opts.epub_inline_toc:
-            from LiuXin.file_formats.mobi.writer8.toc import TOCAdder
+            from LiuXin_alpha.file_formats.mobi.writer8.toc import TOCAdder
 
             opts.mobi_toc_at_start = not opts.epub_toc_at_end
             opts.mobi_passthrough = False
@@ -222,11 +222,11 @@ class EPUBOutput(OutputFormatPlugin):
             )
 
         if self.opts.epub_flatten:
-            from LiuXin.file_formats.oeb.transforms.filenames import FlatFilenames
+            from LiuXin_alpha.file_formats.oeb.transforms.filenames import FlatFilenames
 
             FlatFilenames()(oeb_book, opts)
         else:
-            from LiuXin.file_formats.oeb.transforms.filenames import UniqueFilenames
+            from LiuXin_alpha.file_formats.oeb.transforms.filenames import UniqueFilenames
 
             UniqueFilenames()(oeb_book, opts)
 
@@ -234,11 +234,11 @@ class EPUBOutput(OutputFormatPlugin):
         self.workaround_webkit_quirks()
         self.upshift_markup()
 
-        from LiuXin.file_formats.oeb.transforms.rescale import RescaleImages
+        from LiuXin_alpha.file_formats.oeb.transforms.rescale import RescaleImages
 
         RescaleImages(check_colorspaces=True)(oeb_book, opts)
 
-        from LiuXin.file_formats.oeb.transforms.split import Split
+        from LiuXin_alpha.file_formats.oeb.transforms.split import Split
 
         split = Split(
             not self.opts.dont_split_on_page_breaks,
@@ -247,7 +247,7 @@ class EPUBOutput(OutputFormatPlugin):
         split(self.oeb, self.opts)
 
         self.log.info("About to load CoverManager")
-        from LiuXin.file_formats.oeb.transforms.cover import CoverManager
+        from LiuXin_alpha.file_formats.oeb.transforms.cover import CoverManager
 
         cm = CoverManager(
             no_default_cover=self.opts.no_default_epub_cover,
@@ -265,7 +265,7 @@ class EPUBOutput(OutputFormatPlugin):
             first = iter(self.oeb.spine).next()
             self.oeb.toc.add(_("Start"), first.href)
 
-        from LiuXin.file_formats.oeb.base import OPF
+        from LiuXin_alpha.file_formats.oeb.base import OPF
 
         identifiers = oeb_book.metadata["identifier"]
         uuid = None
@@ -291,13 +291,13 @@ class EPUBOutput(OutputFormatPlugin):
                     x.content = "urn:uuid:" + uuid
 
         with TemporaryDirectory("_epub_output") as tdir:
-            from LiuXin.customize.ui import plugin_for_output_format
+            from LiuXin_alpha.customize.ui import plugin_for_output_format
 
             metadata_xml = None
             extra_entries = []
             if self.is_periodical:
                 if self.opts.output_profile.epub_periodical_format == "sony":
-                    from LiuXin.file_formats.epub.periodical import sony_metadata
+                    from LiuXin_alpha.file_formats.epub.periodical import sony_metadata
 
                     metadata_xml, atom_xml = sony_metadata(oeb_book)
                     extra_entries = [("atom.xml", "application/atom+xml", atom_xml)]
@@ -309,7 +309,7 @@ class EPUBOutput(OutputFormatPlugin):
             if encrypted_fonts:
                 encryption = self.encrypt_fonts(encrypted_fonts, tdir, uuid)
 
-            from LiuXin.file_formats.epub import initialize_container
+            from LiuXin_alpha.file_formats.epub import initialize_container
 
             with initialize_container(output_path, os.path.basename(opf), extra_entries=extra_entries) as epub:
                 epub.add_dir(tdir)
@@ -318,7 +318,7 @@ class EPUBOutput(OutputFormatPlugin):
                 if metadata_xml is not None:
                     epub.writestr("META-INF/metadata.xml", metadata_xml.encode("utf-8"))
             if opts.extract_to is not None:
-                from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+                from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
                 if os.path.exists(opts.extract_to):
                     if os.path.isdir(opts.extract_to):
@@ -409,7 +409,7 @@ class EPUBOutput(OutputFormatPlugin):
         """
         Perform various markup transforms to get the output to render correctly in the quirky ADE.
         """
-        from LiuXin.file_formats.oeb.base import XPath, XHTML, barename, urlunquote
+        from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML, barename, urlunquote
 
         stylesheet = self.oeb.manifest.main_stylesheet
 
@@ -554,8 +554,8 @@ class EPUBOutput(OutputFormatPlugin):
         """
         Perform toc link transforms to alleviate slow loading.
         """
-        from LiuXin.file_formats.oeb.base import urldefrag, XPath
-        from LiuXin.file_formats.oeb.polish.toc import item_at_top
+        from LiuXin_alpha.file_formats.oeb.base import urldefrag, XPath
+        from LiuXin_alpha.file_formats.oeb.polish.toc import item_at_top
 
         def frag_is_at_top(root, frag):
             elem = XPath('//*[@id="%s" or @name="%s"]' % (frag, frag))(root)

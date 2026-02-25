@@ -7,21 +7,21 @@ from operator import attrgetter
 
 from lxml import etree
 
-from LiuXin.file_formats import parse_css_length
-from LiuXin.file_formats.docx.writer.utils import convert_color, int_or_zero
+from LiuXin_alpha.file_formats import parse_css_length
+from LiuXin_alpha.file_formats.docx.writer.utils import convert_color, int_or_zero
 
-from LiuXin.utils.localization import lang_as_iso639_1
+from LiuXin_alpha.utils.localization import lang_as_iso639_1
 
 try:
     from tinycss.css21 import CSS21Parser
 except ImportError:
-    from LiuXin.utils.tinycss_lx.css21 import CSS21Parser
+    from LiuXin_alpha.utils.tinycss_lx.css21 import CSS21Parser
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"

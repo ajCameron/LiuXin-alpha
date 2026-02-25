@@ -6,13 +6,13 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import textwrap
 from collections import OrderedDict, Counter
 
-from LiuXin.file_formats.docx.block_styles import ParagraphStyle, inherit, twips
-from LiuXin.file_formats.docx.char_styles import RunStyle
-from LiuXin.file_formats.docx.tables import TableStyle
+from LiuXin_alpha.file_formats.docx.block_styles import ParagraphStyle, inherit, twips
+from LiuXin_alpha.file_formats.docx.char_styles import RunStyle
+from LiuXin_alpha.file_formats.docx.tables import TableStyle
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

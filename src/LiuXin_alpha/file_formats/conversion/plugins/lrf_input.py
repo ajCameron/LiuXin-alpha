@@ -6,9 +6,9 @@ from __future__ import with_statement
 import os
 import sys
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
-from LiuXin.utils.resources import P
+from LiuXin_alpha.utils.resources import P
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -33,7 +33,7 @@ class LRFInput(InputFormatPlugin):
         :return:
         """
         from lxml import etree
-        from LiuXin.file_formats.lrf.input import (
+        from LiuXin_alpha.file_formats.lrf.input import (
             MediaType,
             Styles,
             TextBlock,
@@ -44,7 +44,7 @@ class LRFInput(InputFormatPlugin):
 
         self.log = log
         self.log("Generating XML")
-        from LiuXin.file_formats.lrf.lrfparser import LRFDocument
+        from LiuXin_alpha.file_formats.lrf.lrfparser import LRFDocument
 
         d = LRFDocument(stream)
         d.parse()

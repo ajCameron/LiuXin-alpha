@@ -13,12 +13,12 @@
 import os
 import re
 
-from LiuXin.file_formats.rtf2xml import copy
-from LiuXin.file_formats.rtf2xml import open_for_read, open_for_write
+from LiuXin_alpha.file_formats.rtf2xml import copy
+from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
-from LiuXin.utils.calibre_utils.calibre_polyglot.builtins import codepoint_to_chr
-from LiuXin.utils.mreplace import MReplace
-from LiuXin.utils.ptempfiles import better_mktemp
+from LiuXin_alpha.utils.calibre_utils.calibre_polyglot.builtins import codepoint_to_chr
+from LiuXin_alpha.utils.mreplace import MReplace
+from LiuXin_alpha.utils.ptempfiles import better_mktemp
 
 
 class Tokenize:

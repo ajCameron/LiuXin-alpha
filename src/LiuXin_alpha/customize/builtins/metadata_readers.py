@@ -8,19 +8,19 @@ The builtin ones bundled with LiuXin are imported here.
 import os
 import functools
 
-from LiuXin.customize import MetadataReaderPlugin
+from LiuXin_alpha.customize import MetadataReaderPlugin
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log
 
 file_type_plugins: list[type[MetadataReaderPlugin]] = []
 
 
 # Todo: Make sure finalize is being called from every method
 try:
-    from LiuXin.utils.decompression.unrar import extract_first_alphabetically as comic_extract_first
-    from LiuXin.utils.libunzip import extract_member as comic_extract_member
-    from LiuXin.metadata.file_sources.archive import get_comic_metadata
+    from LiuXin_alpha.utils.decompression.unrar import extract_first_alphabetically as comic_extract_first
+    from LiuXin_alpha.utils.libunzip import extract_member as comic_extract_member
+    from LiuXin_alpha.metadata.file_sources.archive import get_comic_metadata
 except ImportError as e:
     info_str = "Unable to define ComicMetadataReader - required functions cannot be imported"
     default_log.log_exception(info_str, e, "INFO")
@@ -49,14 +49,14 @@ else:
                 elif id_.startswith(b"PK"):
                     ftype = "cbz"
             if ftype == "cbr":
-                from LiuXin.utils.decompression.unrar import (
+                from LiuXin_alpha.utils.decompression.unrar import (
                     extract_first_alphabetically as extract_first,
                 )
             else:
-                from LiuXin.utils.libunzip import extract_member
+                from LiuXin_alpha.utils.libunzip import extract_member
 
                 extract_first = functools.partial(extract_member, sort_alphabetically=True)
-            from LiuXin.metadata.metadata import MetaInformation
+            from LiuXin_alpha.metadata.metadata import MetaInformation
 
             ret = extract_first(stream)
             mi = MetaInformation(None, None)
@@ -79,7 +79,7 @@ else:
 
 
 try:
-    from LiuXin.file_formats.chm.metadata import get_metadata as chm_get_metadata
+    from LiuXin_alpha.file_formats.chm.metadata import get_metadata as chm_get_metadata
 except ImportError as e:
     info_str = "Unable to import get_metadata from LiuXin.metadata.file_sources.chm"
     default_log.log_exception(info_str, e, "INFO")
@@ -99,7 +99,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.docx import get_metadata as docx_get_metadata
+    from LiuXin_alpha.metadata.file_sources.docx import get_metadata as docx_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize DocXMetadataReader - necessary functions couldn't be imported from "
@@ -125,9 +125,9 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.epub import get_metadata_inplace
-    from LiuXin.metadata.file_sources.epub import get_metadata as epub_get_metadata
-    from LiuXin.metadata.file_sources.epub import (
+    from LiuXin_alpha.metadata.file_sources.epub import get_metadata_inplace
+    from LiuXin_alpha.metadata.file_sources.epub import get_metadata as epub_get_metadata
+    from LiuXin_alpha.metadata.file_sources.epub import (
         get_quick_metadata as epub_quick_get_metadata,
     )
 except Exception as e:
@@ -152,7 +152,7 @@ else:
             return epub_get_metadata(stream, calibre_metadata=False)
 
         def get_metadata_inplace(self, file_path, ftype):
-            from LiuXin.metadata.file_sources.epub import get_metadata_inplace
+            from LiuXin_alpha.metadata.file_sources.epub import get_metadata_inplace
 
             return get_metadata_inplace(file_path)
 
@@ -160,7 +160,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.fb2 import get_metadata as fb2_get_metadata
+    from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata as fb2_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize FB2MetadataReader - necessary functions couldn't be imported from "
@@ -183,7 +183,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.html import get_metadata as html_get_metadata
+    from LiuXin_alpha.metadata.file_sources.html import get_metadata as html_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize HTMLMetadataReader - necessary functions couldn't be imported from "
@@ -205,7 +205,7 @@ else:
     file_type_plugins += [HTMLMetadataReader]
 
 try:
-    from LiuXin.metadata.file_sources.extz import get_metadata as extz_get_metadata
+    from LiuXin_alpha.metadata.file_sources.extz import get_metadata as extz_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize EXTZMetadataReader - necessary functions couldn't be imported from "
@@ -229,7 +229,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.imp import get_metadata as imp_get_metadata
+    from LiuXin_alpha.metadata.file_sources.imp import get_metadata as imp_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize IMPMetadataReader - necessary functions couldn't be imported from "
@@ -253,7 +253,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.lit import get_metadata as lit_get_metadata
+    from LiuXin_alpha.metadata.file_sources.lit import get_metadata as lit_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize LITMetadataReader - necessary functions couldn't be imported from "
@@ -276,7 +276,7 @@ else:
 
 
 try:
-    from LiuXin.file_formats.lrf.meta import get_metadata as lrf_get_metadata
+    from LiuXin_alpha.file_formats.lrf.meta import get_metadata as lrf_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize LRFMetadataReader - necessary functions couldn't be imported from "
@@ -304,7 +304,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.lrx import get_metadata as lrx_get_metadata
+    from LiuXin_alpha.metadata.file_sources.lrx import get_metadata as lrx_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize LRXMetadataReader - necessary functions couldn't be imported from "
@@ -327,8 +327,8 @@ else:
 
 # Todo: Make sure that all file extensions are added to the constants
 try:
-    from LiuXin.metadata.file_sources.mobi import get_metadata as mobi_get_metadata
-    from LiuXin.metadata.file_sources.mobi import (
+    from LiuXin_alpha.metadata.file_sources.mobi import get_metadata as mobi_get_metadata
+    from LiuXin_alpha.metadata.file_sources.mobi import (
         get_metadata_inplace as mobi_get_metadata_inplace,
     )
 except Exception as e:
@@ -356,7 +356,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.odt import get_metadata as odt_get_metadata
+    from LiuXin_alpha.metadata.file_sources.odt import get_metadata as odt_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize ODTMetadataReader - necessary functions couldn't be imported from "
@@ -382,7 +382,7 @@ else:
     file_type_plugins += [ODTMetadataReader]
 
 try:
-    from LiuXin.file_formats.opf.opf2 import OPF
+    from LiuXin_alpha.file_formats.opf.opf2 import OPF
 except Exception as e:
     debug_str = (
         "Unable to initialize OPFMetadataReader - necessary functions couldn't be imported from "
@@ -405,7 +405,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.pdb import get_metadata as pdb_get_metadata
+    from LiuXin_alpha.metadata.file_sources.pdb import get_metadata as pdb_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize PDBXMetadataReader - necessary functions couldn't be imported from "
@@ -431,11 +431,11 @@ else:
     file_type_plugins += [PDBMetadataReader]
 
 try:
-    from LiuXin.metadata.file_sources.pdf import get_metadata as pdf_get_metadata
-    from LiuXin.metadata.file_sources.pdf import (
+    from LiuXin_alpha.metadata.file_sources.pdf import get_metadata as pdf_get_metadata
+    from LiuXin_alpha.metadata.file_sources.pdf import (
         get_metadata_inplace as pdf_get_metadata_inplace,
     )
-    from LiuXin.metadata.file_sources.pdf import (
+    from LiuXin_alpha.metadata.file_sources.pdf import (
         get_quick_metadata as pdf_get_quick_metadata,
     )
 except Exception as e:
@@ -467,7 +467,7 @@ else:
 
 # Todo: Add a call to finalize everywhere
 try:
-    from LiuXin.metadata.file_sources.pml import get_metadata as pml_get_metadata
+    from LiuXin_alpha.metadata.file_sources.pml import get_metadata as pml_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize PDBXMetadataReader - necessary functions couldn't be imported from "
@@ -491,7 +491,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.rar import get_metadata as rar_get_metadata
+    from LiuXin_alpha.metadata.file_sources.rar import get_metadata as rar_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize RARXMetadataReader - necessary functions couldn't be imported from "
@@ -514,7 +514,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.rb import get_metadata as rb_get_metadata
+    from LiuXin_alpha.metadata.file_sources.rb import get_metadata as rb_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize RBMetadataReader - necessary functions couldn't be imported from "
@@ -541,7 +541,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.rtf import get_metadata as rtf_get_metadata
+    from LiuXin_alpha.metadata.file_sources.rtf import get_metadata as rtf_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize RBMetadataReader - necessary functions couldn't be imported from "
@@ -567,7 +567,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.snb import get_metadata as snb_get_metadata
+    from LiuXin_alpha.metadata.file_sources.snb import get_metadata as snb_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize SNBMetadataReader - necessary functions couldn't be imported from "
@@ -591,7 +591,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.topaz import get_metadata as topaz_get_metadata
+    from LiuXin_alpha.metadata.file_sources.topaz import get_metadata as topaz_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize TOPAZMetadataReader - necessary functions couldn't be imported from "
@@ -614,7 +614,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.txt import get_metadata as txt_get_metadata
+    from LiuXin_alpha.metadata.file_sources.txt import get_metadata as txt_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize TXTMetadataReader - necessary functions couldn't be imported from "
@@ -641,7 +641,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.extz import get_metadata as extz_get_metadata
+    from LiuXin_alpha.metadata.file_sources.extz import get_metadata as extz_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize TXTZMetadataReader - necessary functions couldn't be imported from "
@@ -665,7 +665,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.zip import get_metadata as zip_get_metadata
+    from LiuXin_alpha.metadata.file_sources.zip import get_metadata as zip_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize ZipMetadataReader - necessary functions couldn't be imported from "

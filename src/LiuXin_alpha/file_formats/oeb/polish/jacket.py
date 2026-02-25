@@ -3,12 +3,12 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin.customize.ui import output_profiles
+from LiuXin_alpha.customize.ui import output_profiles
 
-from LiuXin.file_formats.conversion.config import load_defaults
-from LiuXin.file_formats.oeb.base import XPath, OPF
-from LiuXin.file_formats.oeb.polish.cover import find_cover_page
-from LiuXin.file_formats.oeb.transforms.jacket import (
+from LiuXin_alpha.file_formats.conversion.config import load_defaults
+from LiuXin_alpha.file_formats.oeb.base import XPath, OPF
+from LiuXin_alpha.file_formats.oeb.polish.cover import find_cover_page
+from LiuXin_alpha.file_formats.oeb.transforms.jacket import (
     render_jacket as render,
     referenced_images,
 )

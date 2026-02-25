@@ -20,53 +20,53 @@ from LiuXin_alpha.utils.logging import default_log
 
 from LiuXin_alpha.utils.which_os import iswindows
 
-from LiuXin.databases.caches.calibre.cache import CalibreCache
+from LiuXin_alpha.databases.caches.calibre.cache import CalibreCache
 
-from LiuXin.databases.dbprefs import DBPrefs
-from LiuXin.databases.metadata_tools.add import Add
-from LiuXin.databases.metadata_tools.ensure import Ensure
-from LiuXin.databases.metadata_tools.apply import Apply
-from LiuXin.databases.metadata_tools.intralinker import Intralinker
+from LiuXin_alpha.databases.dbprefs import DBPrefs
+from LiuXin_alpha.databases.metadata_tools.add import Add
+from LiuXin_alpha.databases.metadata_tools.ensure import Ensure
+from LiuXin_alpha.databases.metadata_tools.apply import Apply
+from LiuXin_alpha.databases.metadata_tools.intralinker import Intralinker
 
-from LiuXin.databases.database import Database
+from LiuXin_alpha.databases.database import Database
 
-from LiuXin.databases.field_metadata import FieldMetadata
+from LiuXin_alpha.databases.field_metadata import FieldMetadata
 
-from LiuXin.databases.custom_columns import CustomColumns
+from LiuXin_alpha.databases.custom_columns import CustomColumns
 
 
-from LiuXin.exceptions import FolderStoreError
-from LiuXin.exceptions import NoSuchFormat
+from LiuXin_alpha.exceptions import FolderStoreError
+from LiuXin_alpha.exceptions import NoSuchFormat
 
 default_log.info("Exception imports complete.")
 
 
-from LiuXin.folder_stores.cover_caches.on_disk import CoverCache
+from LiuXin_alpha.folder_stores.cover_caches.on_disk import CoverCache
 
 default_log.info("CoverCache import completed")
-from LiuXin.folder_stores.folderstoremanager import FolderStoreManager
+from LiuXin_alpha.folder_stores.folderstoremanager import FolderStoreManager
 
 default_log.info("FolderStoreManager import completed")
-from LiuXin.folder_stores.location import Location
+from LiuXin_alpha.folder_stores.location import Location
 
 default_log.info("Location import completed")
 
 
-from LiuXin.metadata.ebook_metadata_tools import author_to_author_sort
+from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort
 
-from LiuXin.utils.calibre import isbytestring, filesystem_encoding, force_unicode
-from LiuXin.utils.calibre.calibre_emulation import tweaks
-from LiuXin.utils.config.config_tools import to_json, from_json, prefs
-from LiuXin.utils.file_ops.file_ops import local_open as lopen
-from LiuXin.utils.filenames import samefile, hardlink_file
-from LiuXin.utils.icu import sort_key, lower as icu_lower
-from LiuXin.utils.lx_libraries.liuxin_six import force_cmp
-from LiuXin.utils.lx_libraries.liuxin_six import six_pickle
-from LiuXin.utils.lx_libraries.liuxin_six import six_buffer
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import isbytestring, filesystem_encoding, force_unicode
+from LiuXin_alpha.utils.calibre.calibre_emulation import tweaks
+from LiuXin_alpha.utils.config.config_tools import to_json, from_json, prefs
+from LiuXin_alpha.utils.file_ops.file_ops import local_open as lopen
+from LiuXin_alpha.utils.filenames import samefile, hardlink_file
+from LiuXin_alpha.utils.icu import sort_key, lower as icu_lower
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import force_cmp
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_pickle
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_buffer
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 default_log.info("LiuXin.databases.backend - import finished")
 

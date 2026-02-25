@@ -11,7 +11,7 @@
 from __future__ import print_function
 
 # Todo: Make py3 compatible
-import LiuXin.file_formats.markupbase as markupbase
+import LiuXin_alpha.file_formats.markupbase as markupbase
 import re
 
 from past.builtins import unichr

@@ -15,13 +15,13 @@ try:
 except ImportError:
     import Image
 
-from LiuXin.file_formats.pdb.formatwriter import FormatWriter
-from LiuXin.file_formats.pdb.header import PdbHeaderBuilder
-from LiuXin.file_formats.pml.pmlml import PMLMLizer
+from LiuXin_alpha.file_formats.pdb.formatwriter import FormatWriter
+from LiuXin_alpha.file_formats.pdb.header import PdbHeaderBuilder
+from LiuXin_alpha.file_formats.pml.pmlml import PMLMLizer
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -137,7 +137,7 @@ class Writer(FormatWriter):
         62-...: Raw image data in 8 bit PNG format.
         """
         images = []
-        from LiuXin.file_formats.oeb.base import OEB_RASTER_IMAGES
+        from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
         for item in manifest:
             if item.media_type in OEB_RASTER_IMAGES and item.href in image_hrefs.keys():

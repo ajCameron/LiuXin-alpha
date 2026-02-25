@@ -2,7 +2,7 @@ from __future__ import with_statement
 
 import os
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
 __license__ = "GPL 3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -22,7 +22,7 @@ class MOBIInput(InputFormatPlugin):
         self.is_kf8 = False
         self.mobi_is_joint = False
 
-        from LiuXin.file_formats.mobi.reader.mobi6 import MobiReader
+        from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
         from lxml import html
 
         parse_cache = {}
@@ -46,7 +46,7 @@ class MOBIInput(InputFormatPlugin):
             log("Found KF8 MOBI of type %r" % mr.kf8_type)
             if mr.kf8_type == "joint":
                 self.mobi_is_joint = True
-            from LiuXin.file_formats.mobi.reader.mobi8 import Mobi8Reader
+            from LiuXin_alpha.file_formats.mobi.reader.mobi8 import Mobi8Reader
 
             mr = Mobi8Reader(mr, log)
             opf = os.path.abspath(mr())
@@ -60,7 +60,7 @@ class MOBIInput(InputFormatPlugin):
                 raw = raw.encode("utf-8")
             with open("debug-raw.html", "wb") as debug_raw_html_file:
                 debug_raw_html_file.write(raw)
-        from LiuXin.file_formats.oeb.base import close_self_closing_tags
+        from LiuXin_alpha.file_formats.oeb.base import close_self_closing_tags
 
         for f, root in parse_cache.items():
             raw = html.tostring(root, encoding="utf-8", method="xml", include_meta_content_type=False)

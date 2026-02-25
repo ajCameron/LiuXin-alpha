@@ -24,14 +24,14 @@ from PyQt5.Qt import (
     QTransform,
 )
 
-from LiuXin.constants import iswindows, get_version
+from LiuXin_alpha.constants import iswindows, get_version
 
-from LiuXin.preferences import preferences as tweaks
+from LiuXin_alpha.preferences import preferences as tweaks
 
-from LiuXin.utils.calibre import fit_image, force_unicode
-from LiuXin.utils.filenames import atomic_rename
-from LiuXin.utils.file_ops.file_ops import local_open as lopen
-from LiuXin.utils.plugins import plugins
+from LiuXin_alpha.utils.calibre import fit_image, force_unicode
+from LiuXin_alpha.utils.filenames import atomic_rename
+from LiuXin_alpha.utils.file_ops.file_ops import local_open as lopen
+from LiuXin_alpha.utils.plugins import plugins
 
 from past.builtins import basestring
 
@@ -69,7 +69,7 @@ def get_exe_path(name):
     :param name:
     :return:
     """
-    from LiuXin.file_formats.pdf.pdftohtml import PDFTOHTML
+    from LiuXin_alpha.file_formats.pdf.pdftohtml import PDFTOHTML
 
     base = os.path.dirname(PDFTOHTML)
     if iswindows:

@@ -31,27 +31,27 @@ from PyQt5.Qt import (
 )
 
 from LiuXin_alpha.metadata import fmt_sidx
-from LiuXin.metadata.book.base import calibreMetadata as Metadata
-from LiuXin.metadata.book.formatter import SafeFormat
+from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
+from LiuXin_alpha.metadata.book.formatter import SafeFormat
 
 
-from LiuXin.interfaces.gui2 import config
+from LiuXin_alpha.interfaces.gui2 import config
 
 
-from LiuXin.utils.calibre import force_unicode, fit_image
-from LiuXin.utils.calibre.constants import __appname__, __version__
-from LiuXin.utils.libraries.cleantext import clean_ascii_chars, clean_xml_chars
-from LiuXin.utils.config.config_tools import JSONConfig
+from LiuXin_alpha.utils.calibre import force_unicode, fit_image
+from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars, clean_xml_chars
+from LiuXin_alpha.utils.config.config_tools import JSONConfig
 
 # Py2/Py3 comparability elements
-from LiuXin.utils.lx_libraries.liuxin_six import six_map as map
-from LiuXin.utils.lx_libraries.liuxin_six import six_zip as zip
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map as map
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_zip as zip
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
 
-from LiuXin.utils.resources import I
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.resources import I
+from LiuXin_alpha.utils.localization import trans as _
 
 
 __license__ = "GPL v3"
@@ -608,15 +608,15 @@ def load_styles(prefs, respect_disabled=True):
 
 
 def init_environment():
-    from LiuXin.interfaces.gui2 import load_builtin_fonts
-    from LiuXin.interfaces.gui2 import ensure_app
+    from LiuXin_alpha.interfaces.gui2 import load_builtin_fonts
+    from LiuXin_alpha.interfaces.gui2 import ensure_app
 
     ensure_app()
     load_builtin_fonts()
 
 
 def generate_cover(mi, prefs=None, as_qimage=False):
-    from LiuXin.interfaces.gui2 import pixmap_to_data
+    from LiuXin_alpha.interfaces.gui2 import pixmap_to_data
 
     init_environment()
     prefs = prefs or cprefs
@@ -686,7 +686,7 @@ def create_cover(title, authors, series=None, series_index=1, prefs=None, as_qim
 
 
 def calibre_cover2(title, author_string="", series_string="", prefs=None, as_qimage=False):
-    from LiuXin.interfaces.gui2 import pixmap_to_data
+    from LiuXin_alpha.interfaces.gui2 import pixmap_to_data
 
     init_environment()
     title, subtitle, footer = (
@@ -753,7 +753,7 @@ def scale_cover(prefs, scale):
 
 
 def generate_masthead(title, output_path=None, width=600, height=60, as_qimage=False, font_family=None):
-    from LiuXin.interfaces.gui2 import pixmap_to_data
+    from LiuXin_alpha.interfaces.gui2 import pixmap_to_data
 
     init_environment()
     font_family = font_family or cprefs["title_font_family"] or "Liberation Serif"

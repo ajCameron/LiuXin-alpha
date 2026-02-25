@@ -6,21 +6,21 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 from collections import defaultdict
 
-from LiuXin.file_formats.oeb.base import OEB_DOCS, OEB_STYLES
-from LiuXin.file_formats.oeb.polish.check.base import BaseError, WARN, INFO
-from LiuXin.file_formats.oeb.polish.container import OEB_FONTS
-from LiuXin.file_formats.oeb.polish.utils import (
+from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, OEB_STYLES
+from LiuXin_alpha.file_formats.oeb.polish.check.base import BaseError, WARN, INFO
+from LiuXin_alpha.file_formats.oeb.polish.container import OEB_FONTS
+from LiuXin_alpha.file_formats.oeb.polish.utils import (
     guess_type,
     actual_case_for_name,
     corrected_case_for_name,
 )
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -222,7 +222,7 @@ class MimetypeMismatch(BaseError):
     def __call__(self, container):
         changed = False
         if self.change_ext_to is not None:
-            from LiuXin.file_formats.oeb.polish.replace import rename_files
+            from LiuXin_alpha.file_formats.oeb.polish.replace import rename_files
 
             new_name = self.file_name.rpartition(".")[0] + "." + self.change_ext_to
             c = 0

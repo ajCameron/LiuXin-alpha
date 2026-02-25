@@ -113,7 +113,7 @@ def node_depth(node):
 
 
 def fix_self_closing_cdata_tags(data):
-    from LiuXin.utils.liuxin_html5lib.constants import cdataElements, rcdataElements
+    from LiuXin_alpha.utils.liuxin_html5lib.constants import cdataElements, rcdataElements
 
     return re.sub(
         r"<\s*(%s)\s*[^>]*/\s*>" % ("|".join(cdataElements | rcdataElements)),
@@ -127,7 +127,7 @@ def html5_parse(data, max_nesting_depth=100):
     import warnings
 
     # Seems to require a specific version of the library - embedding it for sanity
-    import LiuXin.utils.liuxin_html5lib as html5lib
+    import LiuXin_alpha.utils.liuxin_html5lib as html5lib
 
     # HTML5 parsing algorithm idiocy: http://code.google.com/p/html5lib/issues/detail?id=195
     data = fix_self_closing_cdata_tags(data)
@@ -229,7 +229,7 @@ def _html4_parse(data, prefer_soup=False):
     :return:
     """
     if prefer_soup:
-        from LiuXin.utils.libraries.soupparser import fromstring
+        from LiuXin_alpha.utils.libraries.soupparser import fromstring
 
         data = fromstring(data)
     else:
@@ -293,7 +293,7 @@ def parse_html(
     :return:
     """
     if log is None:
-        from LiuXin.utils.logger import default_log
+        from LiuXin_alpha.utils.logger import default_log
 
         log = default_log
 

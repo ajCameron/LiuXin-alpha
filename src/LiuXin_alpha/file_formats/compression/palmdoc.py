@@ -5,14 +5,14 @@ from __future__ import print_function
 
 from struct import pack
 
-from LiuXin.utils.libraries.KindleUnpack.lib.mobi_uncompress import PalmdocReader
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.libraries.mobi_python.mobi.lz77 import uncompress_lz77
-from LiuXin.utils.plugins import plugins
+from LiuXin_alpha.utils.libraries.KindleUnpack.lib.mobi_uncompress import PalmdocReader
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.libraries.mobi_python.mobi.lz77 import uncompress_lz77
+from LiuXin_alpha.utils.plugins import plugins
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"

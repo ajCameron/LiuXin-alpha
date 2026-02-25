@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import os
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.localization import _
+from LiuXin_alpha.utils.localization import _
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -26,7 +26,7 @@ class RBOutput(OutputFormatPlugin):
     }
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
-        from LiuXin.file_formats.rb.writer import RBWriter
+        from LiuXin_alpha.file_formats.rb.writer import RBWriter
 
         close = False
         if not hasattr(output_path, "write"):

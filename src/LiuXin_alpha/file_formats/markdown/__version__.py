@@ -1,4 +1,4 @@
-from LiuXin.utils.localization import _
+from LiuXin_alpha.utils.localization import _
 
 #
 # markdown/__version__.py

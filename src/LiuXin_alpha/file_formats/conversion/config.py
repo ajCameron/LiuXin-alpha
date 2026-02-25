@@ -5,11 +5,11 @@ from __future__ import with_statement
 
 import os
 
-from LiuXin.customize.conversion import OptionRecommendation
+from LiuXin_alpha.customize.conversion import OptionRecommendation
 
-from LiuXin.utils.calibre import sanitize_file_name
-from LiuXin.utils.config.config_tools import config_dir
-from LiuXin.utils.lock import ExclusiveFile
+from LiuXin_alpha.utils.calibre import sanitize_file_name
+from LiuXin_alpha.utils.config.config_tools import config_dir
+from LiuXin_alpha.utils.lock import ExclusiveFile
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

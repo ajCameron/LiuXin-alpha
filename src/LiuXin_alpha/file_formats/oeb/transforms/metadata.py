@@ -6,14 +6,14 @@ from __future__ import with_statement
 import os
 import re
 
-from LiuXin.metadata.book.base import calibreMetadata
+from LiuXin_alpha.metadata.book.base import calibreMetadata
 
-from LiuXin.utils.date import isoformat, now
-from LiuXin.utils.calibre import guess_type
+from LiuXin_alpha.utils.date import isoformat, now
+from LiuXin_alpha.utils.calibre import guess_type
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -33,7 +33,7 @@ def meta_info_to_oeb_metadata(mi, m, log, override_input_metadata=False):
     """
     assert isinstance(mi, calibreMetadata), "meta_info_to_oeb_metadata can only work on calibreMetadata"
 
-    from LiuXin.file_formats.oeb.base import OPF
+    from LiuXin_alpha.file_formats.oeb.base import OPF
 
     if not mi.is_null("title"):
         m.clear("title")
@@ -187,7 +187,7 @@ class MergeMetadata(object):
     def remove_old_cover(self, cover_item):
 
         from lxml import etree
-        from LiuXin.file_formats.oeb.base import XPath
+        from LiuXin_alpha.file_formats.oeb.base import XPath
 
         self.oeb.manifest.remove(cover_item)
 

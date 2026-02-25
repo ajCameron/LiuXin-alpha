@@ -8,17 +8,17 @@ import re
 import os
 
 
-from LiuXin.file_formats.oeb.base import OPF, OEB_DOCS, XPath, XLINK, xml2text
-from LiuXin.file_formats.oeb.polish.replace import (
+from LiuXin_alpha.file_formats.oeb.base import OPF, OEB_DOCS, XPath, XLINK, xml2text
+from LiuXin_alpha.file_formats.oeb.polish.replace import (
     replace_links,
     get_recommended_folders,
 )
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.magick.draw import identify, identify_data
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.magick.draw import identify, identify_data
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -340,8 +340,8 @@ def create_epub_cover(container, cover_path, existing_image, options=None):
     :param options:
     :return:
     """
-    from LiuXin.file_formats.conversion.config import load_defaults
-    from LiuXin.file_formats.oeb.transforms.cover import CoverManager
+    from LiuXin_alpha.file_formats.conversion.config import load_defaults
+    from LiuXin_alpha.file_formats.oeb.transforms.cover import CoverManager
 
     ext = cover_path.rpartition(".")[-1].lower()
     cname, tname = "cover." + ext, "titlepage.xhtml"
@@ -401,7 +401,7 @@ def create_epub_cover(container, cover_path, existing_image, options=None):
     # We have to make sure the raster cover item has id="cover" for the moron
     # that wrote the Nook firmware
     if raster_cover_item.get("id") != "cover":
-        from LiuXin.file_formats.oeb.base import uuid_id
+        from LiuXin_alpha.file_formats.oeb.base import uuid_id
 
         newid = uuid_id()
         for item in container.opf_xpath('//*[@id="cover"]'):

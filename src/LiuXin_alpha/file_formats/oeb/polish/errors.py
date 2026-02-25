@@ -3,9 +3,9 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin.file_formats import DRMError as _DRMError
+from LiuXin_alpha.file_formats import DRMError as _DRMError
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

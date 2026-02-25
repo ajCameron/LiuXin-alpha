@@ -6,17 +6,17 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import base64
 
-from LiuXin.constants import preferred_encoding
+from LiuXin_alpha.constants import preferred_encoding
 
-from LiuXin.metadata.book import SERIALIZABLE_FIELDS
-from LiuXin.metadata.book.base import calibreMetadata as Metadata
+from LiuXin_alpha.metadata.book import SERIALIZABLE_FIELDS
+from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
 
-from LiuXin.utils.imghdr import what
-from LiuXin.utils.file_ops.file_ops import local_open as lopen
+from LiuXin_alpha.utils.imghdr import what
+from LiuXin_alpha.utils.file_ops.file_ops import local_open as lopen
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 def ensure_unicode(obj, enc=preferred_encoding):

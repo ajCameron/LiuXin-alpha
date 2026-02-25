@@ -13,8 +13,8 @@ import cssutils
 from cssutils.css import CSSRule
 from lxml import etree
 
-from LiuXin.file_formats.compression.palmdoc import compress_doc
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.compression.palmdoc import compress_doc
+from LiuXin_alpha.file_formats.oeb.base import (
     OEB_DOCS,
     OEB_STYLES,
     SVG_MIME,
@@ -23,31 +23,31 @@ from LiuXin.file_formats.oeb.base import (
     XHTML,
     urlnormalize,
 )
-from LiuXin.file_formats.oeb.normalize_css import condense_sheet
-from LiuXin.file_formats.oeb.parse_utils import barename
-from LiuXin.file_formats.mobi.writer8.skeleton import Chunker, aid_able_tags, to_href
-from LiuXin.file_formats.mobi.writer8.index import (
+from LiuXin_alpha.file_formats.oeb.normalize_css import condense_sheet
+from LiuXin_alpha.file_formats.oeb.parse_utils import barename
+from LiuXin_alpha.file_formats.mobi.writer8.skeleton import Chunker, aid_able_tags, to_href
+from LiuXin_alpha.file_formats.mobi.writer8.index import (
     NCXIndex,
     SkelIndex,
     ChunkIndex,
     GuideIndex,
     NonLinearNCXIndex,
 )
-from LiuXin.file_formats.mobi.writer8.mobi import KF8Book
-from LiuXin.file_formats.mobi.writer8.tbs import apply_trailing_byte_sequences
-from LiuXin.file_formats.mobi.writer8.toc import TOCAdder
-from LiuXin.file_formats.mobi.utils import (
+from LiuXin_alpha.file_formats.mobi.writer8.mobi import KF8Book
+from LiuXin_alpha.file_formats.mobi.writer8.tbs import apply_trailing_byte_sequences
+from LiuXin_alpha.file_formats.mobi.writer8.toc import TOCAdder
+from LiuXin_alpha.file_formats.mobi.utils import (
     create_text_record,
     to_base,
     is_guide_ref_start,
 )
 
-from LiuXin.utils.calibre import isbytestring, force_unicode
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import isbytestring, force_unicode
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"

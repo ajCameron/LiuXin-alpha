@@ -27,7 +27,7 @@ from xml.sax import make_parser, handler
 from xml.sax.xmlreader import InputSource
 import xml.sax.saxutils
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO as StringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO as StringIO
 
 
 MANIFESTNS = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"

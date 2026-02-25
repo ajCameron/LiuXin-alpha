@@ -21,24 +21,24 @@ except ImportError:
 from lxml import html, etree
 
 from LiuXin_alpha.metadata import calibreMetaInformation as MetaInformation
-from LiuXin.metadata.toc import TOC
+from LiuXin_alpha.metadata.toc import TOC
 
-from LiuXin.file_formats import DRMError, unit_convert
-from LiuXin.file_formats.chardet import ENCODING_PATS
-from LiuXin.file_formats.compression.palmdoc import decompress_doc
-from LiuXin.file_formats.mobi import MobiError
-from LiuXin.file_formats.mobi.huffcdic import HuffReader
-from LiuXin.file_formats.mobi.reader.headers import BookHeader
-from LiuXin.file_formats.opf.opf2 import OPFCreator, OPF
+from LiuXin_alpha.file_formats import DRMError, unit_convert
+from LiuXin_alpha.file_formats.chardet import ENCODING_PATS
+from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
+from LiuXin_alpha.file_formats.mobi import MobiError
+from LiuXin_alpha.file_formats.mobi.huffcdic import HuffReader
+from LiuXin_alpha.file_formats.mobi.reader.headers import BookHeader
+from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator, OPF
 
-from LiuXin.utils.calibre import xml_entity_to_unicode, entity_to_unicode
-from LiuXin.utils.libraries.cleantext import clean_ascii_chars
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import xml_entity_to_unicode, entity_to_unicode
+from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 comparability
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
 
 __license__ = "GPL v3"
@@ -213,7 +213,7 @@ class MobiReader(object):
             root = html.fromstring(self.processed_html)
 
         if root.xpath("descendant::p/descendant::p"):
-            from LiuXin.utils.libraries.soupparser import fromstring
+            from LiuXin_alpha.utils.libraries.soupparser import fromstring
 
             self.log.warning("Malformed markup, parsing using BeautifulSoup")
             try:

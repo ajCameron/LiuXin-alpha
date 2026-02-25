@@ -3,12 +3,12 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin.file_formats.oeb.polish.check.base import BaseError, WARN
-from LiuXin.file_formats.oeb.polish.check.parsing import EmptyFile
+from LiuXin_alpha.file_formats.oeb.polish.check.base import BaseError, WARN
+from LiuXin_alpha.file_formats.oeb.polish.check.parsing import EmptyFile
 
-from LiuXin.utils.calibre import as_unicode
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.magick import Image
+from LiuXin_alpha.utils.calibre import as_unicode
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.magick import Image
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -37,7 +37,7 @@ class CMYKImage(BaseError):
 
     def __call__(self, container):
         from PyQt5.Qt import QImage
-        from LiuXin.interfaces.gui2 import pixmap_to_data
+        from LiuXin_alpha.interfaces.gui2 import pixmap_to_data
 
         ext = container.mime_map[self.name].split("/")[-1].upper()
         if ext == "JPG":

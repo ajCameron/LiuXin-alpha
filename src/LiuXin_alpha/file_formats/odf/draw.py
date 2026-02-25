@@ -18,8 +18,8 @@
 # Contributor(s):
 #
 
-from LiuXin.file_formats.odf.namespaces import DRAWNS, STYLENS, PRESENTATIONNS
-from LiuXin.file_formats.odf.element import Element
+from LiuXin_alpha.file_formats.odf.namespaces import DRAWNS, STYLENS, PRESENTATIONNS
+from LiuXin_alpha.file_formats.odf.element import Element
 
 
 def StyleRefElement(stylename=None, classnames=None, **args):

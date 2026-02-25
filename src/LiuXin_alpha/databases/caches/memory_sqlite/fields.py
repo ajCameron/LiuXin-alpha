@@ -16,10 +16,10 @@ from LiuXin_alpha.customize.cache.base_field import BaseField
 from LiuXin_alpha.utils.localization import trans as _
 
 
-from LiuXin.databases.caches.base.fields import BaseField
-from LiuXin.databases.caches.base.fields import BaseOneToOneField
-from LiuXin.databases.caches.base.fields import BaseCompositeField
-from LiuXin.databases.caches.base.fields import BaseOnDeviceField
+from LiuXin_alpha.databases.caches.base.fields import BaseField
+from LiuXin_alpha.databases.caches.base.fields import BaseOneToOneField
+from LiuXin_alpha.databases.caches.base.fields import BaseCompositeField
+from LiuXin_alpha.databases.caches.base.fields import BaseOnDeviceField
 
 
 class SQLiteField(BaseField):

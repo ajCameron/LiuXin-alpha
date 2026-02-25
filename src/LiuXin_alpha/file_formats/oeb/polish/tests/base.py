@@ -7,24 +7,24 @@ import os
 import shutil
 import unittest
 
-import LiuXin.file_formats.oeb.polish.container as pc
+import LiuXin_alpha.file_formats.oeb.polish.container as pc
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.ptempfiles import TemporaryDirectory
-from LiuXin.utils.ptempfiles import PersistentTemporaryDirectory
-from LiuXin.utils.logger import DevNull
-from LiuXin.utils.resources import I
-from LiuXin.utils.resources import P
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
+from LiuXin_alpha.utils.logger import DevNull
+from LiuXin_alpha.utils.resources import I
+from LiuXin_alpha.utils.resources import P
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def get_cache():
-    from LiuXin.utils.calibre.constants import cache_dir
+    from LiuXin_alpha.utils.calibre.constants import cache_dir
 
     cache = os.path.join(cache_dir(), "polish-test")
     if not os.path.exists(cache):
@@ -46,7 +46,7 @@ def needs_recompile(obj, srcs):
 
 
 def build_book(src, dest, args=()):
-    from LiuXin.file_formats.conversion.cli import main
+    from LiuXin_alpha.file_formats.conversion.cli import main
 
     main(["ebook-convert", src, dest] + list(args))
 

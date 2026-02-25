@@ -6,11 +6,11 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import struct
 from collections import OrderedDict, namedtuple
 
-from LiuXin.file_formats.mobi.utils import decint, count_set_bits, decode_string
+from LiuXin_alpha.file_formats.mobi.utils import decint, count_set_bits, decode_string
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

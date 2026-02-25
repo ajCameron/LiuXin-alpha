@@ -6,20 +6,20 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import re
 from collections import Counter
 
-from LiuXin.file_formats.docx.writer.container import create_skeleton, page_size
-from LiuXin.file_formats.docx.writer.fonts import FontsManager
-from LiuXin.file_formats.docx.writer.images import ImagesManager
-from LiuXin.file_formats.docx.writer.links import LinksManager
-from LiuXin.file_formats.docx.writer.lists import ListsManager
-from LiuXin.file_formats.docx.writer.styles import StylesManager, FloatSpec
-from LiuXin.file_formats.docx.writer.tables import Table
-from LiuXin.file_formats.oeb.base import XPath, barename
-from LiuXin.file_formats.oeb.stylizer import Stylizer as Sz, Style as St
+from LiuXin_alpha.file_formats.docx.writer.container import create_skeleton, page_size
+from LiuXin_alpha.file_formats.docx.writer.fonts import FontsManager
+from LiuXin_alpha.file_formats.docx.writer.images import ImagesManager
+from LiuXin_alpha.file_formats.docx.writer.links import LinksManager
+from LiuXin_alpha.file_formats.docx.writer.lists import ListsManager
+from LiuXin_alpha.file_formats.docx.writer.styles import StylesManager, FloatSpec
+from LiuXin_alpha.file_formats.docx.writer.tables import Table
+from LiuXin_alpha.file_formats.oeb.base import XPath, barename
+from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer as Sz, Style as St
 
-from LiuXin.utils.localization import lang_as_iso639_1
+from LiuXin_alpha.utils.localization import lang_as_iso639_1
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -466,7 +466,7 @@ class Convert(object):
         self.cover_img = None
 
     def __call__(self):
-        from LiuXin.file_formats.oeb.transforms.rasterize import SVGRasterizer
+        from LiuXin_alpha.file_formats.oeb.transforms.rasterize import SVGRasterizer
 
         self.svg_rasterizer = SVGRasterizer(base_css=self.base_css)
         self.svg_rasterizer(self.oeb, self.opts)

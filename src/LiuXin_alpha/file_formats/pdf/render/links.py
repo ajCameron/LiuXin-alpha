@@ -5,7 +5,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import os
 
-from LiuXin.file_formats.pdf.render.common import (
+from LiuXin_alpha.file_formats.pdf.render.common import (
     Array,
     Name,
     Dictionary,
@@ -13,10 +13,10 @@ from LiuXin.file_formats.pdf.render.common import (
     UTF16String,
 )
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin.utils.lx_libraries.liuxin_six import six_unquote as unquote
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unquote as unquote
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"

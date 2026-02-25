@@ -23,16 +23,16 @@ from PyQt5.Qt import (
     QSvgRenderer,
 )
 
-from LiuXin.file_formats.oeb.base import XHTML, XLINK
-from LiuXin.file_formats.oeb.base import SVG_MIME, PNG_MIME
-from LiuXin.file_formats.oeb.base import xml2str, xpath
-from LiuXin.file_formats.oeb.base import urlnormalize
-from LiuXin.file_formats.oeb.stylizer import Stylizer
+from LiuXin_alpha.file_formats.oeb.base import XHTML, XLINK
+from LiuXin_alpha.file_formats.oeb.base import SVG_MIME, PNG_MIME
+from LiuXin_alpha.file_formats.oeb.base import xml2str, xpath
+from LiuXin_alpha.file_formats.oeb.base import urlnormalize
+from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
-from LiuXin.utils.imghdr import what
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
-from LiuXin.utils.ptempfiles import PersistentTemporaryFile
+from LiuXin_alpha.utils.imghdr import what
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
@@ -48,7 +48,7 @@ class Unavailable(Exception):
 # Todo: Check safe to use qt by spinning it off into a different threas - see if it crashes
 class SVGRasterizer(object):
     def __init__(self):
-        from LiuXin.interfaces.gui2 import must_use_qt
+        from LiuXin_alpha.interfaces.gui2 import must_use_qt
 
         must_use_qt()
 

@@ -11,7 +11,7 @@ import re
 try:
     import zipfile
 except ImportError:
-    from LiuXin.utils import calibre_zipfile as zipfile
+    from LiuXin_alpha.utils import calibre_zipfile as zipfile
 
 
 def update(

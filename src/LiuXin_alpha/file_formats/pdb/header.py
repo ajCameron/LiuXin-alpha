@@ -7,7 +7,7 @@ import re
 import struct
 import time
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_long
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_long
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"

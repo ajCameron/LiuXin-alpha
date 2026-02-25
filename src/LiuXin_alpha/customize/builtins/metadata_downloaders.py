@@ -6,7 +6,7 @@ Or you could feed one of them the title, and it'd get the cover.
 """
 
 
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logger import default_log
 
 web_md_plugins = []
 
@@ -14,7 +14,7 @@ web_md_plugins = []
 # So will not be loaded here.
 try:
     default_log.info("About to attempt to load GoogleBooks web_sources")
-    from LiuXin.metadata.web_sources.google import GoogleBooks
+    from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.google", "GoogleBooks")
     default_log.log_exception(debug_str, e, "DEBUG")
@@ -25,7 +25,7 @@ else:
     web_md_plugins += [GoogleBooks]
 
 try:
-    from LiuXin.metadata.web_sources.google_images import GoogleImages
+    from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.google_images", "GoogleImages")
     default_log.log_exception(debug_str, e, "DEBUG")
@@ -36,7 +36,7 @@ else:
     web_md_plugins += [GoogleImages]
 
 try:
-    from LiuXin.metadata.web_sources.amazon import Amazon
+    from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.amazon", "Amazon")
     default_log.log_exception(debug_str, e, "DEBUG")
@@ -45,7 +45,7 @@ else:
     web_md_plugins += [Amazon]
 
 try:
-    from LiuXin.metadata.web_sources.edelweiss import Edelweiss
+    from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.edelweiss", "Edelweiss")
     default_log.log_exception(debug_str, e, "DEBUG")
@@ -56,7 +56,7 @@ else:
     web_md_plugins += [Edelweiss]
 
 try:
-    from LiuXin.metadata.web_sources.openlibrary import OpenLibrary
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.openlibrary", "OpenLibrary")
     default_log.log_exception(debug_str, e, "DEBUG")
@@ -67,7 +67,7 @@ else:
     web_md_plugins += [OpenLibrary]
 
 try:
-    from LiuXin.metadata.web_sources.isbndb import ISBNDB
+    from LiuXin_alpha.metadata.web_sources.isbndb import ISBNDB
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.isbndb", "ISBNDB")
     default_log.log_exception(debug_str, e, "DEBUG")
@@ -76,7 +76,7 @@ else:
     web_md_plugins += [ISBNDB]
 
 try:
-    from LiuXin.metadata.web_sources.overdrive import OverDrive
+    from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.overdrive", "OverDrive")
     default_log.log_exception(debug_str, e, "DEBUG")
@@ -87,7 +87,7 @@ else:
     web_md_plugins += [OverDrive]
 
 try:
-    from LiuXin.metadata.web_sources.douban import Douban
+    from LiuXin_alpha.metadata.web_sources.douban import Douban
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.douban", "Douban")
     default_log.log_exception(debug_str, e, "DEBUG")
@@ -96,7 +96,7 @@ else:
     web_md_plugins += [Douban]
 
 try:
-    from LiuXin.metadata.web_sources.ozon import Ozon
+    from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.ozon", "Ozon")
     default_log.log_exception(debug_str, e, "DEBUG")
@@ -105,7 +105,7 @@ else:
     web_md_plugins += [Ozon]
 
 try:
-    from LiuXin.metadata.web_sources.big_book_search import BigBookSearch
+    from LiuXin_alpha.metadata.web_sources.big_book_search import BigBookSearch
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.big_book_search", "BigBookSearch")
     default_log.log_exception(debug_str, e, "DEBUG")

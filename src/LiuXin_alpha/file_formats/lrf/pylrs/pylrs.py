@@ -46,14 +46,14 @@ from xml.sax.saxutils import escape
 from datetime import date
 
 try:
-    from LiuXin.file_formats.lrf.pylrs.elements import Element, SubElement
+    from LiuXin_alpha.file_formats.lrf.pylrs.elements import Element, SubElement
 
     # Element, SubElement  # To make pyflakes shut up
 except ImportError:
     from xml.etree.ElementTree import Element, SubElement
 
-from LiuXin.file_formats.lrf.pylrs.elements import ElementWriter
-from LiuXin.file_formats.lrf.pylrs.pylrf import (
+from LiuXin_alpha.file_formats.lrf.pylrs.elements import ElementWriter
+from LiuXin_alpha.file_formats.lrf.pylrs.pylrf import (
     LrfWriter,
     LrfObject,
     LrfTag,
@@ -68,14 +68,14 @@ from LiuXin.file_formats.lrf.pylrs.pylrf import (
     STREAM_FORCE_COMPRESSED,
 )
 
-from LiuXin.constants import __appname__, __version__
+from LiuXin_alpha.constants import __appname__, __version__
 
-from LiuXin.utils.calibre import entity_to_unicode
-from LiuXin.utils.date import isoformat
+from LiuXin_alpha.utils.calibre import entity_to_unicode
+from LiuXin_alpha.utils.date import isoformat
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 from past.builtins import basestring
 

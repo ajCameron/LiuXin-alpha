@@ -7,12 +7,12 @@ Writer content to ztxt pdb file.
 import struct
 import zlib
 
-from LiuXin.file_formats.pdb.formatwriter import FormatWriter
-from LiuXin.file_formats.pdb.header import PdbHeaderBuilder
-from LiuXin.file_formats.txt.txtml import TXTMLizer
-from LiuXin.file_formats.txt.newlines import TxtNewlines, specified_newlines
+from LiuXin_alpha.file_formats.pdb.formatwriter import FormatWriter
+from LiuXin_alpha.file_formats.pdb.header import PdbHeaderBuilder
+from LiuXin_alpha.file_formats.txt.txtml import TXTMLizer
+from LiuXin_alpha.file_formats.txt.newlines import TxtNewlines, specified_newlines
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"

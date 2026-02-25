@@ -10,26 +10,26 @@ import time
 from collections import namedtuple
 from functools import partial
 
-from LiuXin.file_formats.oeb.polish.container import get_container
-from LiuXin.file_formats.oeb.polish.cover import set_cover
-from LiuXin.file_formats.oeb.polish.embed import embed_all_fonts
-from LiuXin.file_formats.oeb.polish.jacket import (
+from LiuXin_alpha.file_formats.oeb.polish.container import get_container
+from LiuXin_alpha.file_formats.oeb.polish.cover import set_cover
+from LiuXin_alpha.file_formats.oeb.polish.embed import embed_all_fonts
+from LiuXin_alpha.file_formats.oeb.polish.jacket import (
     replace_jacket,
     add_or_replace_jacket,
     find_existing_jacket,
     remove_jacket,
 )
-from LiuXin.file_formats.oeb.polish.replace import smarten_punctuation
-from LiuXin.file_formats.oeb.polish.stats import StatsCollector
-from LiuXin.file_formats.oeb.polish.subset import subset_all_fonts
+from LiuXin_alpha.file_formats.oeb.polish.replace import smarten_punctuation
+from LiuXin_alpha.file_formats.oeb.polish.stats import StatsCollector
+from LiuXin_alpha.file_formats.oeb.polish.subset import subset_all_fonts
 
 # Todo: Investigate what's going on here
-from LiuXin.file_formats.oeb.polish.css import remove_unused_css
+from LiuXin_alpha.file_formats.oeb.polish.css import remove_unused_css
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import Log
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import Log
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -144,8 +144,8 @@ CLI_HELP = {x: hfix(x, re.sub("<.*?>", "", y)) for x, y in iteritems(HELP)}
 
 
 def update_metadata(ebook, new_opf):
-    from LiuXin.file_formats.opf.opf2 import OPF
-    from LiuXin.metadata.file_sources.epub import update_metadata
+    from LiuXin_alpha.file_formats.opf.opf2 import OPF
+    from LiuXin_alpha.metadata.file_sources.epub import update_metadata
 
     opfpath = ebook.name_to_abspath(ebook.opf_name)
     with ebook.open(ebook.opf_name, "r+b") as stream, open(new_opf, "rb") as ns:
@@ -288,7 +288,7 @@ def tweak_polish(container, actions, customization=None):
 
 
 def option_parser():
-    from LiuXin.utils.config.config_tools import OptionParser
+    from LiuXin_alpha.utils.config.config_tools import OptionParser
 
     usage = "%prog [options] input_file [output_file]\n\n" + re.sub(r"<.*?>", "", CLI_HELP["about"])
     parser = OptionParser(usage=usage)

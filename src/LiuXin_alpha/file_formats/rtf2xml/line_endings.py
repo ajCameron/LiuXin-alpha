@@ -12,9 +12,9 @@
 #########################################################################
 import os
 
-from LiuXin.file_formats.rtf2xml import copy
-from LiuXin.utils.calibre_utils.calibre_cleantext import clean_ascii_chars
-from LiuXin.utils.ptempfiles import better_mktemp
+from LiuXin_alpha.file_formats.rtf2xml import copy
+from LiuXin_alpha.utils.calibre_utils.calibre_cleantext import clean_ascii_chars
+from LiuXin_alpha.utils.ptempfiles import better_mktemp
 
 
 class FixLineEndings:

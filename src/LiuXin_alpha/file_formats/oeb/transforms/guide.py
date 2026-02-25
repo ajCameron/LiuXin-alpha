@@ -3,7 +3,7 @@
 
 from __future__ import with_statement
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_cmp
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cmp
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

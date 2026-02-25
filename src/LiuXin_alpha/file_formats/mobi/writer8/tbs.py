@@ -6,11 +6,11 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 from collections import namedtuple, OrderedDict
 from operator import attrgetter
 
-from LiuXin.file_formats.mobi.utils import encode_trailing_data, encode_tbs
+from LiuXin_alpha.file_formats.mobi.utils import encode_trailing_data, encode_tbs
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

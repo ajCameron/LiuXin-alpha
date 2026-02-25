@@ -6,26 +6,26 @@ API for the builtin plugins included directly in LiuXin's code.
 
 # Todo: Make sure all MD extractors can cope with a file or path being passed in
 
-from LiuXin.file_formats.html.to_zip import HTML2ZIP
+from LiuXin_alpha.file_formats.html.to_zip import HTML2ZIP
 
-from LiuXin.customize.builtins.conversion import get_input_plugins
-from LiuXin.customize.builtins.conversion import get_output_plugins
-from LiuXin.customize.builtins.device_drivers import get_device_driver_plugins
-from LiuXin.customize.builtins.on_import import get_file_type_plugins
-from LiuXin.customize.builtins.metadata_downloaders import get_web_md_plugins
-from LiuXin.customize.builtins.metadata_readers import get_metadata_reader_plugins
-from LiuXin.customize.builtins.metadata_writers import get_metadata_set_plugins
-from LiuXin.customize.profiles import input_profiles, output_profiles
+from LiuXin_alpha.customize.builtins.conversion import get_input_plugins
+from LiuXin_alpha.customize.builtins.conversion import get_output_plugins
+from LiuXin_alpha.customize.builtins.device_drivers import get_device_driver_plugins
+from LiuXin_alpha.customize.builtins.on_import import get_file_type_plugins
+from LiuXin_alpha.customize.builtins.metadata_downloaders import get_web_md_plugins
+from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+from LiuXin_alpha.customize.builtins.metadata_writers import get_metadata_set_plugins
+from LiuXin_alpha.customize.profiles import input_profiles, output_profiles
 
-from LiuXin.library.catalogs.csv_xml import CSV_XML
-from LiuXin.library.catalogs.bibtex import BIBTEX
-from LiuXin.library.catalogs.epub_mobi import EPUB_MOBI
+from LiuXin_alpha.library.catalogs.csv_xml import CSV_XML
+from LiuXin_alpha.library.catalogs.bibtex import BIBTEX
+from LiuXin_alpha.library.catalogs.epub_mobi import EPUB_MOBI
 
-from LiuXin.metadata.file_sources.archive import ArchiveExtract, get_comic_metadata
-from LiuXin.metadata.liuxin_plugins.md_synthesizer import SynthesisMDInputTransform
-from LiuXin.metadata.liuxin_plugins.isbn_extractor import ISBNMDInputTransform
+from LiuXin_alpha.metadata.file_sources.archive import ArchiveExtract, get_comic_metadata
+from LiuXin_alpha.metadata.liuxin_plugins.md_synthesizer import SynthesisMDInputTransform
+from LiuXin_alpha.metadata.liuxin_plugins.isbn_extractor import ISBNMDInputTransform
 
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.logger import default_log
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         import init_calibre  # noqa
 
         def doit():
-            import LiuXin.utils.calibre.customize.builtins as b
+            import LiuXin_alpha.utils.calibre.customize.builtins as b
         def show_stats():
             from pstats import Stats
             s = Stats('/tmp/calibre_stats')
@@ -193,7 +193,7 @@ if __name__ == "__main__":
         from __future__ import print_function
         import time, sys, init_calibre
         st = time.time()
-        import LiuXin.utils.calibre.customize.builtins
+        import LiuXin_alpha.utils.calibre.customize.builtins
         t = time.time() - st
         ret = 0
 

@@ -8,7 +8,7 @@ __author__ = "Cameron"
 
 from copy import deepcopy
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 class DecompressException(Exception):

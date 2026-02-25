@@ -8,11 +8,11 @@ import zlib
 import codecs
 import os
 
-from LiuXin.file_formats.lrf.pylrs.pylrfopt import tagListOptimizer
+from LiuXin_alpha.file_formats.lrf.pylrs.pylrfopt import tagListOptimizer
 
 # Py2/Py3 compatibility
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
 PYLRF_VERSION = "1.0"
 

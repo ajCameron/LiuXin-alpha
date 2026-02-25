@@ -8,9 +8,9 @@ import re
 from lxml import etree
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -75,8 +75,8 @@ class TXTMLizer(object):
         return self.mlize_spine()
 
     def mlize_spine(self):
-        from LiuXin.file_formats.oeb.base import XHTML
-        from LiuXin.file_formats.oeb.stylizer import Stylizer
+        from LiuXin_alpha.file_formats.oeb.base import XHTML
+        from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
         output = [""]
         output.append(self.get_toc())
@@ -206,7 +206,7 @@ class TXTMLizer(object):
         :param page:
         :return:
         """
-        from LiuXin.file_formats.oeb.base import XHTML_NS, barename, namespace
+        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
 
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:
             p = elem.getparent()

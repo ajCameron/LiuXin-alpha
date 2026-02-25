@@ -10,21 +10,21 @@ import os
 from functools import partial
 from binascii import hexlify
 
-from LiuXin.constants import filesystem_encoding
+from LiuXin_alpha.constants import filesystem_encoding
 
-from LiuXin.library.comments import comments_to_html
+from LiuXin_alpha.library.comments import comments_to_html
 
 from LiuXin_alpha.metadata import fmt_sidx
-from LiuXin.metadata.web_sources.identify import urls_from_identifiers
+from LiuXin_alpha.metadata.web_sources.identify import urls_from_identifiers
 
-from LiuXin.utils.calibre import prepare_string_for_xml, force_unicode
-from LiuXin.utils.date import is_date_undefined
-from LiuXin.utils.formatter import EvalFormatter
-from LiuXin.utils.icu import sort_key
-from LiuXin.utils.localization import _
-from LiuXin.utils.localization import calibre_langcode_to_name
+from LiuXin_alpha.utils.calibre import prepare_string_for_xml, force_unicode
+from LiuXin_alpha.utils.date import is_date_undefined
+from LiuXin_alpha.utils.formatter import EvalFormatter
+from LiuXin_alpha.utils.icu import sort_key
+from LiuXin_alpha.utils.localization import _
+from LiuXin_alpha.utils.localization import calibre_langcode_to_name
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 default_sort = (
     "title",

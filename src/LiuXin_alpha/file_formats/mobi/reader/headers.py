@@ -7,19 +7,19 @@ import os
 import re
 import struct
 
-from LiuXin.file_formats.mobi import MobiError
-from LiuXin.file_formats.mobi.langcodes import main_language, sub_language, mobi2iana
+from LiuXin_alpha.file_formats.mobi import MobiError
+from LiuXin_alpha.file_formats.mobi.langcodes import main_language, sub_language, mobi2iana
 
 from LiuXin_alpha.metadata import calibreMetaInformation
-from LiuXin.metadata.ebook_metadata_tools import check_isbn
+from LiuXin_alpha.metadata.ebook_metadata_tools import check_isbn
 
-from LiuXin.utils.calibre import replace_entities
-from LiuXin.utils.calibre.calibre_emulation import parse_date
-from LiuXin.utils.calibre.tweaks import tweaks
-from LiuXin.utils.libraries.cleantext import clean_ascii_chars, clean_xml_chars
-from LiuXin.utils.libraries.iso639.iso639_tools import canonicalize_lang
+from LiuXin_alpha.utils.calibre import replace_entities
+from LiuXin_alpha.utils.calibre.calibre_emulation import parse_date
+from LiuXin_alpha.utils.calibre.tweaks import tweaks
+from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars, clean_xml_chars
+from LiuXin_alpha.utils.libraries.iso639.iso639_tools import canonicalize_lang
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

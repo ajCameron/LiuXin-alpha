@@ -12,8 +12,8 @@
 #########################################################################
 import sys, os
 
-from LiuXin.file_formats.rtf2xml import copy
-from LiuXin.file_formats.rtf2xml import open_for_read, open_for_write
+from LiuXin_alpha.file_formats.rtf2xml import copy
+from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 
 class Preamble:

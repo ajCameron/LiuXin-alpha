@@ -2,9 +2,9 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin.file_formats.oeb.base import OEB_DOCS, XPath, barename
+from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, XPath, barename
 
-from LiuXin.utils.libraries.unsmarten import unsmarten_text
+from LiuXin_alpha.utils.libraries.unsmarten import unsmarten_text
 
 __license__ = "GPL 3"
 __copyright__ = "2011, John Schember <john@nachtimwald.com>"

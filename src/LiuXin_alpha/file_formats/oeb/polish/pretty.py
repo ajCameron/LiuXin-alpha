@@ -6,9 +6,9 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import textwrap
 from itertools import imap
 
-from LiuXin.utils.calibre import force_unicode
+from LiuXin_alpha.utils.calibre import force_unicode
 
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.oeb.base import (
     serialize,
     OEB_DOCS,
     barename,
@@ -17,13 +17,13 @@ from LiuXin.file_formats.oeb.base import (
     XHTML,
     SVG,
 )
-from LiuXin.file_formats.oeb.polish.container import OPF_NAMESPACES
-from LiuXin.file_formats.oeb.polish.utils import guess_type
+from LiuXin_alpha.file_formats.oeb.polish.container import OPF_NAMESPACES
+from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
 
-from LiuXin.utils.icu import sort_key
+from LiuXin_alpha.utils.icu import sort_key
 
 # Py2/Py3 emulation layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -5,15 +5,15 @@ from copy import deepcopy
 
 import zipfile
 
-import LiuXin.utils.file_ops as file_ops
+import LiuXin_alpha.utils.file_ops as file_ops
 
-from LiuXin.constants import BOOK_EXTENSIONS_DOTTED
-from LiuXin.constants import RAR_BOOK_FILE_CONTENTS
-from LiuXin.constants import RAR_BOOK_FILE_CONTENTS_DOTTED
+from LiuXin_alpha.constants import BOOK_EXTENSIONS_DOTTED
+from LiuXin_alpha.constants import RAR_BOOK_FILE_CONTENTS
+from LiuXin_alpha.constants import RAR_BOOK_FILE_CONTENTS_DOTTED
 
-from LiuXin.utils.file_ops.file_properties import get_file_ext
+from LiuXin_alpha.utils.file_ops.file_properties import get_file_ext
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __author__ = "Cameron"
 

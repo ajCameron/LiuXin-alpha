@@ -6,9 +6,9 @@ import re
 import unicodedata
 from collections import defaultdict
 
-from LiuXin.file_formats.mobi.mobiml import MBP_NS
-from LiuXin.file_formats.mobi.utils import is_guide_ref_start
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.mobi.mobiml import MBP_NS
+from LiuXin_alpha.file_formats.mobi.utils import is_guide_ref_start
+from LiuXin_alpha.file_formats.oeb.base import (
     OEB_DOCS,
     XHTML,
     XHTML_NS,
@@ -19,9 +19,9 @@ from LiuXin.file_formats.oeb.base import (
 )
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"

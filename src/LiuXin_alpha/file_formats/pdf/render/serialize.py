@@ -9,7 +9,7 @@ from past.builtins import long
 
 from PyQt5.Qt import QBuffer, QByteArray, QImage, Qt, QColor, qRgba, QPainter
 
-from LiuXin.file_formats.pdf.render.common import (
+from LiuXin_alpha.file_formats.pdf.render.common import (
     Reference,
     EOL,
     serialize,
@@ -20,13 +20,13 @@ from LiuXin.file_formats.pdf.render.common import (
     Array,
     fmtnum,
 )
-from LiuXin.file_formats.pdf.render.fonts import FontManager
-from LiuXin.file_formats.pdf.render.links import Links
+from LiuXin_alpha.file_formats.pdf.render.fonts import FontManager
+from LiuXin_alpha.file_formats.pdf.render.links import Links
 
-from LiuXin.utils.calibre.constants import __appname__, __version__
-from LiuXin.utils.date import utcnow
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.utils.date import utcnow
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -258,7 +258,7 @@ class Image(Stream):
 class Metadata(Stream):
     def __init__(self, mi):
         Stream.__init__(self)
-        from LiuXin.metadata.xmp import metadata_to_xmp_packet
+        from LiuXin_alpha.metadata.xmp import metadata_to_xmp_packet
 
         self.write(metadata_to_xmp_packet(mi))
 

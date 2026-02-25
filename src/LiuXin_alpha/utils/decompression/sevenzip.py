@@ -11,17 +11,17 @@ import re
 from subprocess import Popen, PIPE
 from copy import deepcopy
 
-from LiuXin.constants import iswindows, islinux
-from LiuXin.constants import VERBOSE_DEBUG
+from LiuXin_alpha.constants import iswindows, islinux
+from LiuXin_alpha.constants import VERBOSE_DEBUG
 
-from LiuXin.utils.ptempfiles import get_scratch_folder
-from LiuXin.utils.decompression import DecompressException
-from LiuXin.utils.decompression import Archive
-from LiuXin.utils.os_ops import split_file_true_name_ext
-from LiuXin.utils.general_ops.python_tools import scan_index_for_regex
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.ptempfiles import get_scratch_folder
+from LiuXin_alpha.utils.decompression import DecompressException
+from LiuXin_alpha.utils.decompression import Archive
+from LiuXin_alpha.utils.os_ops import split_file_true_name_ext
+from LiuXin_alpha.utils.general_ops.python_tools import scan_index_for_regex
+from LiuXin_alpha.utils.logger import default_log
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __author__ = "Cameron"
 

@@ -5,12 +5,12 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import os
 
-from LiuXin.utils.file_ops.file_ops import local_open as lopen
+from LiuXin_alpha.utils.file_ops.file_ops import local_open as lopen
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -191,7 +191,7 @@ def cleanup_markup(log, root, styles, dest_dir, detect_cover, XPath):
             img = img[0]
             path = os.path.join(dest_dir, img.get("src"))
             if os.path.exists(path) and before_count(root, img, limit=10) < 5:
-                from LiuXin.utils.imghdr import identify
+                from LiuXin_alpha.utils.imghdr import identify
 
                 try:
                     with lopen(path, "rb") as imf:

@@ -7,13 +7,13 @@ import glob
 import os
 import textwrap
 
-from LiuXin.customize import FileTypePlugin
+from LiuXin_alpha.customize import FileTypePlugin
 
-from LiuXin.utils.calibre.constants import numeric_version
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre.constants import numeric_version
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -43,10 +43,10 @@ every time you add an HTML file to the library.\
     on_import = True
 
     def run(self, htmlfile):
-        from LiuXin.utils.calibre.ptempfile import TemporaryDirectory
-        from LiuXin.interfaces.gui2.convert.gui_conversion import gui_convert
-        from LiuXin.customize.conversion import OptionRecommendation
-        from LiuXin.file_formats.epub import initialize_container
+        from LiuXin_alpha.utils.calibre.ptempfile import TemporaryDirectory
+        from LiuXin_alpha.interfaces.gui2.convert.gui_conversion import gui_convert
+        from LiuXin_alpha.customize.conversion import OptionRecommendation
+        from LiuXin_alpha.file_formats.epub import initialize_container
 
         with TemporaryDirectory("_plugin_html2zip") as tdir:
             recs = [("debug_pipeline", tdir, OptionRecommendation.HIGH)]
@@ -103,7 +103,7 @@ every time you add an HTML file to the library.\
         button_box.accepted.connect(config_dialog.accept)
         button_box.rejected.connect(config_dialog.reject)
         config_dialog.setWindowTitle(_("Customize") + " " + self.name)
-        from LiuXin.customize.ui import plugin_customization, customize_plugin
+        from LiuXin_alpha.customize.ui import plugin_customization, customize_plugin
 
         help_text = self.customization_help(gui=True)
         help_text = QLabel(help_text, config_dialog)

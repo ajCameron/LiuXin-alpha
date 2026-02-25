@@ -6,19 +6,19 @@ Transform OEB content into Textile formatted plain text
 import re
 from functools import partial
 
-from LiuXin.file_formats import unit_convert
-from LiuXin.file_formats.htmlz.oeb2html import OEB2HTML
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats import unit_convert
+from LiuXin_alpha.file_formats.htmlz.oeb2html import OEB2HTML
+from LiuXin_alpha.file_formats.oeb.base import (
     XHTML,
     XHTML_NS,
     barename,
     namespace,
     rewrite_links,
 )
-from LiuXin.file_formats.oeb.stylizer import Stylizer
-from LiuXin.file_formats.textile.unsmarten import unsmarten
+from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
+from LiuXin_alpha.file_formats.textile.unsmarten import unsmarten
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 
 __license__ = "GPL 3"
 __copyright__ = "2011, Leigh Parry <leighparry@blueyonder.co.uk>"

@@ -4,10 +4,10 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import os
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
-from LiuXin.utils.calibre import guess_type
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL 3"
 __copyright__ = "2011, John Schember <john@nachtimwald.com>"
@@ -31,9 +31,9 @@ class HTMLZInput(InputFormatPlugin):
         :param accelerators:
         :return:
         """
-        from LiuXin.file_formats.chardet import xml_to_unicode
-        from LiuXin.file_formats.opf.opf2 import OPF
-        from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+        from LiuXin_alpha.file_formats.opf.opf2 import OPF
+        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
         self.log = log
         top_levels = []
@@ -91,7 +91,7 @@ class HTMLZInput(InputFormatPlugin):
         html = html.decode(ienc, "replace")
 
         # Run the HTML through the html processing plugin.
-        from LiuXin.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         html_input = plugin_for_input_format("html")
         for opt in html_input.options:
@@ -115,8 +115,8 @@ class HTMLZInput(InputFormatPlugin):
         os.remove(htmlfile.name)
 
         # Set metadata from file.
-        from LiuXin.customize.ui import get_file_type_metadata
-        from LiuXin.file_formats.oeb.transforms.metadata import (
+        from LiuXin_alpha.customize.ui import get_file_type_metadata
+        from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
             meta_info_to_oeb_metadata,
         )
 

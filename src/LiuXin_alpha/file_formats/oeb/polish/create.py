@@ -8,29 +8,29 @@ import sys
 
 from lxml import etree
 
-from LiuXin.utils.calibre import prepare_string_for_xml, CurrentDir
+from LiuXin_alpha.utils.calibre import prepare_string_for_xml, CurrentDir
 
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 from LiuXin_alpha.metadata import authors_to_string
 
-from LiuXin.file_formats.oeb.base import serialize
-from LiuXin.file_formats.opf.opf2 import metadata_to_opf
-from LiuXin.file_formats.oeb.polish.parsing import parse
-from LiuXin.file_formats.oeb.polish.container import (
+from LiuXin_alpha.file_formats.oeb.base import serialize
+from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf
+from LiuXin_alpha.file_formats.oeb.polish.parsing import parse
+from LiuXin_alpha.file_formats.oeb.polish.container import (
     OPF_NAMESPACES,
     opf_to_azw3,
     Container,
 )
-from LiuXin.file_formats.oeb.polish.utils import guess_type
-from LiuXin.file_formats.oeb.polish.pretty import pretty_xml_tree, pretty_html_tree
-from LiuXin.file_formats.oeb.polish.toc import TOC, create_ncx
+from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
+from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_xml_tree, pretty_html_tree
+from LiuXin_alpha.file_formats.oeb.polish.toc import TOC, create_ncx
 
-from LiuXin.utils.localization import lang_as_iso639_1
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import DevNull
-from LiuXin.utils.resources import P
-from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_STORED
+from LiuXin_alpha.utils.localization import lang_as_iso639_1
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import DevNull
+from LiuXin_alpha.utils.resources import P
+from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_STORED
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -136,7 +136,7 @@ def create_book(
 
 
 if __name__ == "__main__":
-    from LiuXin.metadata.book.base import calibreMetadata as Metadata
+    from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
 
     test_mi = Metadata("Test book", authors=("Kovid Goyal",))
     test_path = sys.argv[-1]

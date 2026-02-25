@@ -3,11 +3,11 @@ import re
 from lxml.html import tostring
 import lxml.html
 
-from LiuXin.file_formats.chardet import xml_to_unicode
-from LiuXin.file_formats.readability.cleaners import normalize_spaces, clean_attributes
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.readability.cleaners import normalize_spaces, clean_attributes
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 def build_doc(page):

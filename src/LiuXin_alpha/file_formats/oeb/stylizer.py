@@ -27,15 +27,15 @@ from cssutils.css import CSSStyleRule, CSSPageRule, CSSFontFaceRule, cssproperti
 from lxml import etree
 from xml.dom import SyntaxErr as CSSSyntaxError
 
-from LiuXin.file_formats import unit_convert
-from LiuXin.file_formats.oeb.base import XHTML, XHTML_NS, CSS_MIME, OEB_STYLES, XPNSMAP, xpath, urlnormalize
-from LiuXin.file_formats.oeb.normalize_css import DEFAULTS, normalizers
+from LiuXin_alpha.file_formats import unit_convert
+from LiuXin_alpha.file_formats.oeb.base import XHTML, XHTML_NS, CSS_MIME, OEB_STYLES, XPNSMAP, xpath, urlnormalize
+from LiuXin_alpha.file_formats.oeb.normalize_css import DEFAULTS, normalizers
 
-from LiuXin.utils.calibre import force_unicode
-from LiuXin.utils.resources import P
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.calibre import force_unicode
+from LiuXin_alpha.utils.resources import P
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
@@ -242,7 +242,7 @@ class Stylizer(object):
         if self.profile is None:
             # Use the default profile. This should really be using opts.output_profile,
             # but I don't want to risk changing it, as doing so might well have hard to debug font size effects.
-            from LiuXin.customize.ui import output_profiles
+            from LiuXin_alpha.customize.ui import output_profiles
 
             for x in output_profiles():
                 if x.short_name == "default":

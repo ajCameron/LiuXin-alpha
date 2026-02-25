@@ -8,8 +8,8 @@ import re
 from itertools import count
 from lxml.etree import XPath
 
-from LiuXin.file_formats.oeb.base import XHTML_NS
-from LiuXin.file_formats.oeb.base import OEBBook
+from LiuXin_alpha.file_formats.oeb.base import XHTML_NS
+from LiuXin_alpha.file_formats.oeb.base import OEBBook
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"

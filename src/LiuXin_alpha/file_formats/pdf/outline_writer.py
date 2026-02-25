@@ -6,7 +6,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 from collections import defaultdict
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -18,8 +18,8 @@
 # Contributor(s):
 #
 
-from LiuXin.file_formats.odf.namespaces import MATHNS
-from LiuXin.file_formats.odf.element import Element
+from LiuXin_alpha.file_formats.odf.namespaces import MATHNS
+from LiuXin_alpha.file_formats.odf.element import Element
 
 # ODF 1.0 section 12.5
 # Mathematical content is represented by MathML 2.0

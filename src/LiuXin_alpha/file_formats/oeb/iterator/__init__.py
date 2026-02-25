@@ -8,7 +8,7 @@ import re
 import sys
 
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -21,7 +21,7 @@ def is_supported(path):
     :param path:
     :return:
     """
-    from LiuXin.customize.ui import available_input_formats
+    from LiuXin_alpha.customize.ui import available_input_formats
 
     ext = os.path.splitext(path)[1].replace(".", "").lower()
     ext = re.sub(r"(x{0,1})htm(l{0,1})", "html", ext)
@@ -40,7 +40,7 @@ def EbookIterator(*args, **kwargs):
     :param kwargs:
     :return:
     """
-    from LiuXin.file_formats.oeb.iterator.book import EbookIterator
+    from LiuXin_alpha.file_formats.oeb.iterator.book import EbookIterator
 
     return EbookIterator(*args, **kwargs)
 
@@ -52,12 +52,12 @@ def get_preprocess_html(path_to_ebook, output=None):
     :param output:
     :return:
     """
-    from LiuXin.file_formats.conversion.plumber import (
+    from LiuXin_alpha.file_formats.conversion.plumber import (
         set_regex_wizard_callback,
         Plumber,
     )
-    from LiuXin.utils.logger import DevNull
-    from LiuXin.utils.ptempfiles import TemporaryDirectory
+    from LiuXin_alpha.utils.logger import DevNull
+    from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
     raw = {}
     set_regex_wizard_callback(raw.__setitem__)

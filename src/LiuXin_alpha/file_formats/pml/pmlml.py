@@ -8,11 +8,11 @@ import re
 
 from lxml import etree
 
-from LiuXin.file_formats.pdb.ereader import image_name
-from LiuXin.file_formats.pml import unipmlcode
+from LiuXin_alpha.file_formats.pdb.ereader import image_name
+from LiuXin_alpha.file_formats.pml import unipmlcode
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -117,8 +117,8 @@ class PMLMLizer(object):
         return output
 
     def get_cover_page(self):
-        from LiuXin.file_formats.oeb.stylizer import Stylizer
-        from LiuXin.file_formats.oeb.base import XHTML
+        from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
+        from LiuXin_alpha.file_formats.oeb.base import XHTML
 
         output = ""
         if "cover" in self.oeb_book.guide:
@@ -140,8 +140,8 @@ class PMLMLizer(object):
         return output
 
     def get_text(self):
-        from LiuXin.file_formats.oeb.stylizer import Stylizer
-        from LiuXin.file_formats.oeb.base import XHTML
+        from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
+        from LiuXin_alpha.file_formats.oeb.base import XHTML
 
         text = [""]
         for item in self.oeb_book.spine:
@@ -253,7 +253,7 @@ class PMLMLizer(object):
         return text
 
     def dump_text(self, elem, stylizer, page, tag_stack=None):
-        from LiuXin.file_formats.oeb.base import XHTML_NS, barename, namespace
+        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
 
         if tag_stack is None:
             tag_stack = []

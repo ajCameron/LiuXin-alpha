@@ -11,13 +11,13 @@ except ImportError:
     import Image
 
 
-from LiuXin.constants import __appname__, __version__
+from LiuXin_alpha.constants import __appname__, __version__
 
-from LiuXin.file_formats.rb import HEADER
-from LiuXin.file_formats.rb import unique_name
-from LiuXin.file_formats.rb.rbml import RBMLizer
+from LiuXin_alpha.file_formats.rb import HEADER
+from LiuXin_alpha.file_formats.rb import unique_name
+from LiuXin_alpha.file_formats.rb.rbml import RBMLizer
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -119,7 +119,7 @@ class RBWriter(object):
         return size, pages
 
     def _images(self, manifest):
-        from LiuXin.file_formats.oeb.base import OEB_RASTER_IMAGES
+        from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
         images = []
         used_names = []

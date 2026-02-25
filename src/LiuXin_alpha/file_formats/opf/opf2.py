@@ -690,8 +690,8 @@ class TitleSortField(MetadataField):
 
 
 def serialize_user_metadata(metadata_elem, all_user_metadata, tail="\n" + (" " * 8)):
-    from LiuXin.metadata.book.json_codec import object_to_unicode, encode_is_multiple
-    from LiuXin.utils.config.config_tools import to_json
+    from LiuXin_alpha.metadata.book.json_codec import object_to_unicode, encode_is_multiple
+    from LiuXin_alpha.utils.config.config_tools import to_json
 
     for name, fm in all_user_metadata.items():
         try:
@@ -720,7 +720,7 @@ def dump_dict(cats):
     """
     if not cats:
         cats = {}
-    from LiuXin.metadata.book.json_codec import object_to_unicode
+    from LiuXin_alpha.metadata.book.json_codec import object_to_unicode
 
     return json.dumps(object_to_unicode(cats), ensure_ascii=False, skipkeys=True)
 
@@ -999,8 +999,8 @@ class OPF(object):  # {{{
         Parse the file and read user information back out.
         :return:
         """
-        from LiuXin.utils.config.config_tools import from_json
-        from LiuXin.metadata.book.json_codec import decode_is_multiple
+        from LiuXin_alpha.utils.config.config_tools import from_json
+        from LiuXin_alpha.metadata.book.json_codec import decode_is_multiple
 
         self._user_metadata_ = {}
         temp = calibreMetadata("x", ["x"])
@@ -1031,7 +1031,7 @@ class OPF(object):  # {{{
         """
         # If the opf tree is of a version greater than 3, use the parser for that version
         if self.package_version >= 3.0:
-            from LiuXin.file_formats.opf.opf3 import read_metadata
+            from LiuXin_alpha.file_formats.opf.opf3 import read_metadata
 
             if calibre:
                 return read_metadata(self.root, calibre_md_rtn=True)
@@ -2081,7 +2081,7 @@ class OPFCreator(calibreMetadata):
         self.guide.set_basedir(self.base_path)
 
         # Actual rendering
-        from LiuXin.file_formats.oeb.base import OPF2_NS, DC11_NS, CALIBRE_NS
+        from LiuXin_alpha.file_formats.oeb.base import OPF2_NS, DC11_NS, CALIBRE_NS
 
         DNS = OPF2_NS + "___xx___"
 
@@ -2188,7 +2188,7 @@ class OPFCreator(calibreMetadata):
             a(CAL_ELEM("calibre:publication_type", self.publication_type))
 
         if self.user_categories:
-            from LiuXin.metadata.book.json_codec import object_to_unicode
+            from LiuXin_alpha.metadata.book.json_codec import object_to_unicode
 
             a(
                 CAL_ELEM(
@@ -2252,7 +2252,7 @@ def metadata_to_opf(mi, as_string=True, default_lang=None):
     :return:
     """
     import textwrap
-    from LiuXin.file_formats.oeb.base import OPF, DC
+    from LiuXin_alpha.file_formats.oeb.base import OPF, DC
 
     # Use a direct copy of the calibreMetadata method to dump a calibre metadata object.
     if isinstance(mi, calibreMetadata):
@@ -2602,7 +2602,7 @@ def calibre_metadata_to_opf(mi, as_string=True, default_lang=None):
     :return:
     """
     import textwrap
-    from LiuXin.file_formats.oeb.base import OPF, DC
+    from LiuXin_alpha.file_formats.oeb.base import OPF, DC
 
     if not mi.application_id:
         mi.application_id = str(uuid.uuid4())

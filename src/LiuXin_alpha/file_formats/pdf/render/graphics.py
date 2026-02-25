@@ -8,15 +8,15 @@ from collections import namedtuple
 
 from PyQt5.Qt import QBrush, QPen, Qt, QPointF, QTransform, QPaintEngine, QImage
 
-from LiuXin.file_formats.pdf.render.common import (
+from LiuXin_alpha.file_formats.pdf.render.common import (
     Name,
     Array,
     fmtnum,
     Stream,
     Dictionary,
 )
-from LiuXin.file_formats.pdf.render.serialize import Path
-from LiuXin.file_formats.pdf.render.gradients import LinearGradientPattern
+from LiuXin_alpha.file_formats.pdf.render.serialize import Path
+from LiuXin_alpha.file_formats.pdf.render.gradients import LinearGradientPattern
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"

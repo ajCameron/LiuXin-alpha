@@ -27,9 +27,9 @@ the appropriate <text:s>, <text:tab>, or <text:line-break>
 elements.  This module takes care of that problem.
 """
 
-from LiuXin.file_formats.odf.element import Node
-import LiuXin.file_formats.odf.opendocument
-from LiuXin.file_formats.odf.text import S, LineBreak, Tab
+from LiuXin_alpha.file_formats.odf.element import Node
+import LiuXin_alpha.file_formats.odf.opendocument
+from LiuXin_alpha.file_formats.odf.text import S, LineBreak, Tab
 
 
 class WhitespaceText(object):

@@ -141,7 +141,7 @@ class HTMLRenderer(object):
 
 
 def return_raster_image(path):
-    from LiuXin.utils.imghdr import what
+    from LiuXin_alpha.utils.imghdr import what
 
     if os.access(path, os.R_OK):
         with open(path, "rb") as f:
@@ -152,7 +152,7 @@ def return_raster_image(path):
 
 def extract_cover_from_embedded_svg(html, base, log):
     from lxml import etree
-    from LiuXin.file_formats.oeb.base import XPath, SVG, XLINK
+    from LiuXin_alpha.file_formats.oeb.base import XPath, SVG, XLINK
 
     root = etree.fromstring(html)
 
@@ -173,7 +173,7 @@ def extract_calibre_cover(raw, base, log):
     :param log:
     :return:
     """
-    from LiuXin.file_formats.BeautifulSoup import BeautifulSoup
+    from LiuXin_alpha.file_formats.BeautifulSoup import BeautifulSoup
 
     soup = BeautifulSoup(raw)
     matches = soup.find(name=["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "font", "br"])
@@ -209,7 +209,7 @@ def render_html_svg_workaround(path_to_html, log, width=590, height=750):
     :param height: The height of the output
     :return:
     """
-    from LiuXin.file_formats.oeb.base import SVG_NS
+    from LiuXin_alpha.file_formats.oeb.base import SVG_NS
 
     raw = open(path_to_html, "rb").read()
     data = None
@@ -230,12 +230,12 @@ def render_html_svg_workaround(path_to_html, log, width=590, height=750):
     # Todo: Install https://github.com/AdamN/python-webkit2png as a fallback for when PyQt isn't installed at all
     if data is None:
 
-        from LiuXin.interfaces.gui2 import is_ok_to_use_qt
+        from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
 
         if is_ok_to_use_qt():
             data = render_html_data(path_to_html, width, height)
         else:
-            from LiuXin.utils.calibre.utils.ipc.simple_worker import fork_job, WorkerError
+            from LiuXin_alpha.utils.calibre.utils.ipc.simple_worker import fork_job, WorkerError
 
             try:
                 result = fork_job("calibre.ebooks", "render_html_data", (path_to_html, width, height), no_output=True)
@@ -256,7 +256,7 @@ def render_html_data(path_to_html, width, height):
 def render_html(path_to_html, width=590, height=750, as_xhtml=True):
     from PyQt5.QtWebKitWidgets import QWebPage
     from PyQt5.Qt import QEventLoop, QPalette, Qt, QUrl, QSize
-    from LiuXin.interfaces.gui2 import is_ok_to_use_qt
+    from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
 
     if not is_ok_to_use_qt():
         return None
@@ -336,20 +336,20 @@ def calibre_cover(
     series_string = normalize(series_string)
 
     # Import resources
-    from LiuXin.utils.wrappers.magick.draw import create_cover_page, TextLine
+    from LiuXin_alpha.utils.wrappers.magick.draw import create_cover_page, TextLine
     import regex
 
     # Determine how the text is going to appear
     pat = regex.compile(r"\p{Cf}+", flags=regex.VERSION1)  # remove non-printing chars like the soft hyphen
     text = pat.sub("", title + author_string + (series_string or ""))
     font_path = P("fonts/liberation/LiberationSerif-Bold.ttf")
-    from LiuXin.utils.fonts.utils import get_font_for_text
+    from LiuXin_alpha.utils.fonts.utils import get_font_for_text
 
     font = open(font_path, "rb").read()
     c = get_font_for_text(text, font)
     cleanup = False
     if c is not None and c != font:
-        from LiuXin.utils.ptempfiles import PersistentTemporaryFile
+        from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
         pt = PersistentTemporaryFile(".ttf")
         pt.write(c)
@@ -419,11 +419,11 @@ def unit_convert(value, base, font, dpi, body_font_size=12):
 
 
 def generate_masthead(title, output_path=None, width=600, height=60):
-    from LiuXin.file_formats.conversion.config import load_defaults
+    from LiuXin_alpha.file_formats.conversion.config import load_defaults
 
     recs = load_defaults("mobi_output")
     masthead_font_family = recs.get("masthead_font", None)
-    from LiuXin.file_formats.covers import generate_masthead
+    from LiuXin_alpha.file_formats.covers import generate_masthead
 
     return generate_masthead(
         title, output_path=output_path, width=width, height=height, font_family=masthead_font_family

@@ -18,8 +18,8 @@ from lxml import etree
 
 from cssselect import HTMLTranslator
 
-from LiuXin.file_formats.epub import rules
-from LiuXin.file_formats.oeb.base import (
+from LiuXin_alpha.file_formats.epub import rules
+from LiuXin_alpha.file_formats.oeb.base import (
     OEB_STYLES,
     XPNSMAP as NAMESPACES,
     urldefrag,
@@ -28,13 +28,13 @@ from LiuXin.file_formats.oeb.base import (
     XHTML,
     urlnormalize,
 )
-from LiuXin.file_formats.oeb.polish.split import do_split
+from LiuXin_alpha.file_formats.oeb.polish.split import do_split
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.localization import trans as _
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -100,7 +100,7 @@ class Split(object):
 
     def find_page_breaks(self, item):
         if self.page_break_selectors is None:
-            from LiuXin.file_formats.oeb.stylizer import fix_namespace
+            from LiuXin_alpha.file_formats.oeb.stylizer import fix_namespace
 
             css_to_xpath = HTMLTranslator().css_to_xpath
             self.page_break_selectors = set([])

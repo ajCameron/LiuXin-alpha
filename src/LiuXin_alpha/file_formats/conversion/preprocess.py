@@ -76,9 +76,9 @@ def wrap_lines(match):
 def smarten_punctuation(html, log):
 
     from uuid import uuid4
-    from LiuXin.utils.libraries.smartypants import smartyPants
-    from LiuXin.file_formats.chardet import substitute_entites
-    from LiuXin.file_formats.conversion.utils import HeuristicProcessor
+    from LiuXin_alpha.utils.libraries.smartypants import smartyPants
+    from LiuXin_alpha.file_formats.chardet import substitute_entites
+    from LiuXin_alpha.file_formats.conversion.utils import HeuristicProcessor
 
     preprocessor = HeuristicProcessor(log=log)
     start = "calibre-smartypants-" + str(uuid4())
@@ -356,7 +356,7 @@ class CSSPreProcessor(object):
         return start + end
 
     def __call__(self, data, add_namespace=False):
-        from LiuXin.file_formats.oeb.base import XHTML_CSS_NAMESPACE
+        from LiuXin_alpha.file_formats.oeb.base import XHTML_CSS_NAMESPACE
 
         data = self.MS_PAT.sub(self.ms_sub, data)
         if not add_namespace:
@@ -742,7 +742,7 @@ class HTMLPreProcessor(object):
             html = dehyphenator(html, "html", length)
 
         if is_pdftohtml:
-            from LiuXin.file_formats.conversion.utils import HeuristicProcessor
+            from LiuXin_alpha.file_formats.conversion.utils import HeuristicProcessor
 
             pdf_markup = HeuristicProcessor(self.extra_opts, None)
             totalwords = 0
@@ -760,8 +760,8 @@ class HTMLPreProcessor(object):
         html = XMLDECL_RE.sub("", html)
 
         if getattr(self.extra_opts, "asciiize", False):
-            from LiuXin.utils.localization import get_udc
-            from LiuXin.utils.libraries.mreplace import MReplace
+            from LiuXin_alpha.utils.localization import get_udc
+            from LiuXin_alpha.utils.libraries.mreplace import MReplace
 
             unihandecoder = get_udc()
             mr = MReplace(data={"«": "&lt;" * 3, "»": "&gt;" * 3})
@@ -769,7 +769,7 @@ class HTMLPreProcessor(object):
             html = unihandecoder.decode(html)
 
         if getattr(self.extra_opts, "enable_heuristics", False):
-            from LiuXin.file_formats.conversion.utils import HeuristicProcessor
+            from LiuXin_alpha.file_formats.conversion.utils import HeuristicProcessor
 
             preprocessor = HeuristicProcessor(self.extra_opts, self.log)
             html = preprocessor(html)
@@ -782,7 +782,7 @@ class HTMLPreProcessor(object):
         except AttributeError:
             unsupported_unicode_chars = ""
         if unsupported_unicode_chars:
-            from LiuXin.utils.localization import get_udc
+            from LiuXin_alpha.utils.localization import get_udc
 
             unihandecoder = get_udc()
             for char in unsupported_unicode_chars:

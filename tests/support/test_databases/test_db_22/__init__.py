@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from LiuXin.exceptions import DatabaseIntegrityError
+from LiuXin_alpha.exceptions import DatabaseIntegrityError
 
 from LiuXin_tests.test_databases.test_db_21 import TestDB21Builer
 

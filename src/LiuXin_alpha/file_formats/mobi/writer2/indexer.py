@@ -6,7 +6,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 from collections import OrderedDict, defaultdict
 from struct import pack
 
-from LiuXin.file_formats.mobi.utils import (
+from LiuXin_alpha.file_formats.mobi.utils import (
     encint,
     encode_number_as_hex,
     encode_tbs,
@@ -15,16 +15,16 @@ from LiuXin.file_formats.mobi.utils import (
     CNCX as CNCX_,
 )
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/ Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
-from LiuXin.utils.lx_libraries.liuxin_six import six_filter
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_filter
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
 
 __license__ = "GPL v3"

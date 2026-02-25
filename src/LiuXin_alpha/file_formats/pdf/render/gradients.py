@@ -10,10 +10,10 @@ from collections import namedtuple
 import sip
 from PyQt5.Qt import QLinearGradient, QPointF
 
-from LiuXin.file_formats.pdf.render.common import Name, Array, Dictionary
+from LiuXin_alpha.file_formats.pdf.render.common import Name, Array, Dictionary
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

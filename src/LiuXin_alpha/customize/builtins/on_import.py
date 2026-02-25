@@ -11,12 +11,12 @@ import glob
 
 from typing import Type
 
-from LiuXin.customize import FileTypePlugin
+from LiuXin_alpha.customize import FileTypePlugin
 
-from LiuXin.utils.calibre import guess_type
-from LiuXin.utils.calibre.constants import numeric_version
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.calibre.constants import numeric_version
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log
 
 
 file_type_plugins: list[Type[FileTypePlugin]] = []
@@ -74,9 +74,9 @@ else:
 default_log.info("About to try importing the components for TXT2TXTZ")
 # Tests all the required imports - if they work, import the plugin and add the now supported plugins
 try:
-    from LiuXin.metadata.file_sources.txt import get_metadata
-    from LiuXin.file_formats.oeb.base import OEB_IMAGES
-    from LiuXin.file_formats.opf.opf2 import metadata_to_opf
+    from LiuXin_alpha.metadata.file_sources.txt import get_metadata
+    from LiuXin_alpha.file_formats.oeb.base import OEB_IMAGES
+    from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf
 except ImportError as e:
     wrn_str = (
         "Couldn't import the required plugins to support TXT2TXZ - Automatic txt & text conversion to txtz is "

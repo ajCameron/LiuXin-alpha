@@ -5,8 +5,8 @@ import os
 import re
 import sys
 
-from LiuXin.file_formats.lrf.meta import LRFMetaFile
-from LiuXin.file_formats.lrf.objects import (
+from LiuXin_alpha.file_formats.lrf.meta import LRFMetaFile
+from LiuXin_alpha.file_formats.lrf.objects import (
     get_object,
     PageTree,
     StyleObject,
@@ -17,13 +17,13 @@ from LiuXin.file_formats.lrf.objects import (
     ruby_tags,
 )
 
-from LiuXin.utils.calibre import setup_cli_handlers
-from LiuXin.utils.config.config_tools import OptionParser
-from LiuXin.utils.filenames import ascii_filename
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import setup_cli_handlers
+from LiuXin_alpha.utils.config.config_tools import OptionParser
+from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"

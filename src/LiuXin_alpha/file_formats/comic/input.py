@@ -11,17 +11,17 @@ from queue import Empty
 
 from past.builtins import unicode
 
-from LiuXin.constants import filesystem_encoding
+from LiuXin_alpha.constants import filesystem_encoding
 
-from LiuXin.utils.calibre_utils.calibre_init_functions import extract
-from LiuXin.utils.calibre import walk
-from LiuXin import prints
-from LiuXin.utils.icu import numeric_sort_key
-from LiuXin.utils.ipc.job import ParallelJob
-from LiuXin.utils.ipc.server import Server
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.ptempfiles import PersistentTemporaryDirectory
+from LiuXin_alpha.utils.calibre_utils.calibre_init_functions import extract
+from LiuXin_alpha.utils.calibre import walk
+from LiuXin_alpha import prints
+from LiuXin_alpha.utils.icu import numeric_sort_key
+from LiuXin_alpha.utils.ipc.job import ParallelJob
+from LiuXin_alpha.utils.ipc.server import Server
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -101,7 +101,7 @@ class PageProcessor(list):  # {{{
         self.render()
 
     def render(self):
-        from LiuXin.utils.wrappers.magick import Image
+        from LiuXin_alpha.utils.wrappers.magick import Image
 
         img = Image()
         img.open(self.path_to_page)
@@ -123,7 +123,7 @@ class PageProcessor(list):  # {{{
         self.process_pages()
 
     def process_pages(self):
-        from LiuXin.utils.wrappers.magick import PixelWand
+        from LiuXin_alpha.utils.wrappers.magick import PixelWand
 
         for i, wand in enumerate(self.pages):
             pw = PixelWand()

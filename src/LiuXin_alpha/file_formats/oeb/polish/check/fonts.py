@@ -5,21 +5,21 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 from cssutils.css import CSSRule
 
-from LiuXin.file_formats.oeb.base import OEB_DOCS, OEB_STYLES
-from LiuXin.file_formats.oeb.polish.check.base import BaseError, WARN
-from LiuXin.file_formats.oeb.polish.container import OEB_FONTS
-from LiuXin.file_formats.oeb.polish.fonts import change_font_family_value
-from LiuXin.file_formats.oeb.polish.pretty import pretty_script_or_style
+from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, OEB_STYLES
+from LiuXin_alpha.file_formats.oeb.polish.check.base import BaseError, WARN
+from LiuXin_alpha.file_formats.oeb.polish.container import OEB_FONTS
+from LiuXin_alpha.file_formats.oeb.polish.fonts import change_font_family_value
+from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_script_or_style
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.calibre import force_unicode
-from LiuXin.utils.fonts.utils import get_all_font_names
-from LiuXin.utils.fonts.utils import is_font_embeddable
-from LiuXin.utils.fonts.utils import UnsupportedFont
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import force_unicode
+from LiuXin_alpha.utils.fonts.utils import get_all_font_names
+from LiuXin_alpha.utils.fonts.utils import is_font_embeddable
+from LiuXin_alpha.utils.fonts.utils import UnsupportedFont
 
 # Py2/Py3 comparability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

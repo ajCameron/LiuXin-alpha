@@ -3,7 +3,7 @@
 from struct import pack
 
 # Todo: Test and make sure this hack actually works
-from LiuXin.utils.libraries.iso639.iso639_tools import lang_as_iso639_1
+from LiuXin_alpha.utils.libraries.iso639.iso639_tools import lang_as_iso639_1
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"

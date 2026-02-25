@@ -5,9 +5,9 @@ import textwrap
 from lxml import etree
 from urllib.parse import unquote
 
-from LiuXin.utils.calibre import guess_type
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.wrappers.magick.draw import identify_data
+from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.wrappers.magick.draw import identify_data
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -101,7 +101,7 @@ class CoverManager(object):
         title = six_unicode(m.title[0])
         authors = [six_unicode(x) for x in m.creator if x.role == "aut"]
         try:
-            from LiuXin.file_formats.covers import create_cover
+            from LiuXin_alpha.file_formats.covers import create_cover
 
             series = series_index = None
             if m.series:
@@ -118,7 +118,7 @@ class CoverManager(object):
         return None
 
     def inspect_cover(self, href):
-        from LiuXin.file_formats.oeb.base import urlnormalize
+        from LiuXin_alpha.file_formats.oeb.base import urlnormalize
 
         for x in self.oeb.manifest:
             if x.href == urlnormalize(href):
@@ -130,7 +130,7 @@ class CoverManager(object):
         return None, None
 
     def insert_cover(self):
-        from LiuXin.file_formats.oeb.base import urldefrag
+        from LiuXin_alpha.file_formats.oeb.base import urldefrag
 
         g, m = self.oeb.guide, self.oeb.manifest
         item = None

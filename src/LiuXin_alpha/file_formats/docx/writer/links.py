@@ -6,11 +6,11 @@ import posixpath
 import re
 from uuid import uuid4
 
-from LiuXin.utils.filenames import ascii_text
-from LiuXin.utils.localization import delayed_trans as __
+from LiuXin_alpha.utils.filenames import ascii_text
+from LiuXin_alpha.utils.localization import delayed_trans as __
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
 
 __license__ = "GPL v3"
 __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"

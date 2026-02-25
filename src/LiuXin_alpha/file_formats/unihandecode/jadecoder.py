@@ -16,10 +16,10 @@ Copyright (c) 2010 Hiroshi Miura
 
 import re
 
-from LiuXin.file_formats.unihandecode.unidecoder import Unidecoder
-from LiuXin.file_formats.unihandecode.unicodepoints import CODEPOINTS
-from LiuXin.file_formats.unihandecode.jacodepoints import CODEPOINTS as JACODES
-from LiuXin.file_formats.unihandecode.pykakasi.kakasi import kakasi
+from LiuXin_alpha.file_formats.unihandecode.unidecoder import Unidecoder
+from LiuXin_alpha.file_formats.unihandecode.unicodepoints import CODEPOINTS
+from LiuXin_alpha.file_formats.unihandecode.jacodepoints import CODEPOINTS as JACODES
+from LiuXin_alpha.file_formats.unihandecode.pykakasi.kakasi import kakasi
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Hiroshi Miura <miurahr@linux.com>"

@@ -12,14 +12,14 @@ from functools import partial
 
 from clint.textui import puts, colored
 
-from LiuXin.paths import LiuXin_data_folder
+from LiuXin_alpha.paths import LiuXin_data_folder
 
 from LiuXin_tests.test_fsms import test_data_folder
 
-from LiuXin.utils.file_ops.file_ops import ensure_folder
-from LiuXin.utils.file_ops.file_ops import get_folders
-from LiuXin.utils.file_ops.file_ops import get_files
-from LiuXin.utils.terminal import safe_terminal_info_print
+from LiuXin_alpha.utils.file_ops.file_ops import ensure_folder
+from LiuXin_alpha.utils.file_ops.file_ops import get_folders
+from LiuXin_alpha.utils.file_ops.file_ops import get_files
+from LiuXin_alpha.utils.terminal import safe_terminal_info_print
 
 
 # Todo: Check build in LiuXin_data/test_folder_store_managers - everything should point there

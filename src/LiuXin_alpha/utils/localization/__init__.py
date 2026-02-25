@@ -101,13 +101,13 @@ def available_translations():
 
 
 def get_system_locale():
-    from LiuXin.constants import iswindows, isosx
-    from LiuXin.utils.plugins import plugins
+    from LiuXin_alpha.constants import iswindows, isosx
+    from LiuXin_alpha.utils.plugins import plugins
 
     lang = None
     if iswindows:
         try:
-            from LiuXin.utils.calibre.constants import get_windows_user_locale_name
+            from LiuXin_alpha.utils.calibre.constants import get_windows_user_locale_name
 
             lang = get_windows_user_locale_name()
             lang = lang.strip()
@@ -145,7 +145,7 @@ def get_lang():
     :return lang: Default is 'en'. This should be returned even if something goes wrong.
     """
     # from LiuXin.utils.calibre.utils.config_base import prefs
-    from LiuXin.preferences import preferences as prefs
+    from LiuXin_alpha.preferences import preferences as prefs
 
     lang = prefs["language"]
     lang = os.environ.get("CALIBRE_OVERRIDE_LANG", lang)
@@ -303,7 +303,7 @@ def set_translators():
     # Now that we have installed a translator, we have to retranslate the help
     # for the global prefs object as it was instantiated in get_lang(), before
     # the translator was installed.
-    from LiuXin.utils.calibre.utils.config_base import prefs
+    from LiuXin_alpha.utils.calibre.utils.config_base import prefs
 
     prefs.retranslate_help()
 
@@ -535,7 +535,7 @@ def lang_as_iso639_1(name_or_code):
         try:
             iso639 = _load_iso639()
         except IOError:
-            from LiuXin.utils.libraries.iso639.iso639_tools import (
+            from LiuXin_alpha.utils.libraries.iso639.iso639_tools import (
                 canonicalize_lang as fallback_canonicalize_lang,
             )
 
@@ -549,7 +549,7 @@ _udc = None
 def get_udc():
     global _udc
     if _udc is None:
-        from LiuXin.file_formats.unihandecode import Unihandecoder
+        from LiuXin_alpha.file_formats.unihandecode import Unihandecoder
 
         _udc = Unihandecoder(lang=get_lang())
     return _udc

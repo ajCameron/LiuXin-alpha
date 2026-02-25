@@ -6,10 +6,10 @@ Directory output OEBBook writer.
 
 import os
 
-from LiuXin.file_formats.oeb.base import DirContainer, OEBError
-from LiuXin.file_formats.oeb.base import OPF_MIME, xml2str
+from LiuXin_alpha.file_formats.oeb.base import DirContainer, OEBError
+from LiuXin_alpha.file_formats.oeb.base import OPF_MIME, xml2str
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"

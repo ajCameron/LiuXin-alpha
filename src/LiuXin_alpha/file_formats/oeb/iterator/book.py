@@ -12,20 +12,20 @@ import math
 import re
 from functools import partial
 
-from LiuXin.file_formats.oeb.base import urlparse, urlunquote
-from LiuXin.file_formats.oeb.iterator.bookmarks import BookmarksMixin
-from LiuXin.file_formats.oeb.iterator.spine import SpineItem, create_indexing_data
-from LiuXin.file_formats.oeb.transforms.cover import CoverManager
-from LiuXin.file_formats.opf.opf2 import OPF
+from LiuXin_alpha.file_formats.oeb.base import urlparse, urlunquote
+from LiuXin_alpha.file_formats.oeb.iterator.bookmarks import BookmarksMixin
+from LiuXin_alpha.file_formats.oeb.iterator.spine import SpineItem, create_indexing_data
+from LiuXin_alpha.file_formats.oeb.transforms.cover import CoverManager
+from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
-from LiuXin.utils.calibre import (
+from LiuXin_alpha.utils.calibre import (
     guess_type,
     prepare_string_for_xml,
     xml_replace_entities,
 )
-from LiuXin.utils.config.config_tools import DynamicConfig
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.config.config_tools import DynamicConfig
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 
 __license__ = "GPL v3"
@@ -49,8 +49,8 @@ class FakeOpts(object):
 
 
 def write_oebbook(oeb, path):
-    from LiuXin.file_formats.oeb.writer import OEBWriter
-    from LiuXin.utils.calibre import walk
+    from LiuXin_alpha.file_formats.oeb.writer import OEBWriter
+    from LiuXin_alpha.utils.calibre import walk
 
     w = OEBWriter()
     w(oeb, path)
@@ -107,7 +107,7 @@ class EbookIterator(BookmarksMixin):
         :param read_links:
         :return:
         """
-        from LiuXin.file_formats.conversion.plumber import Plumber, create_oebbook
+        from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
 
         self.delete_on_exit = []
         self._tdir = TemporaryDirectory("_ebook_iter")

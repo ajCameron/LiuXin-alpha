@@ -541,7 +541,7 @@ def make_test_database_backup(base_data=False, override_dst_name=None):
     # Shutdown the live database - needed to allow a clean move
     del live_database
 
-    from LiuXin.constants import LiuXin_data_folder
+    from LiuXin_alpha.constants import LiuXin_data_folder
     import os
     import shutil
 
@@ -655,8 +655,8 @@ def file_load_named_database(database_name="test_db_1.test_db", scratch=True, ov
     """
     import os
     import shutil
-    from LiuXin.constants import LiuXin_data_folder
-    from LiuXin.constants import LiuXin_default_database
+    from LiuXin_alpha.constants import LiuXin_data_folder
+    from LiuXin_alpha.constants import LiuXin_default_database
 
     test_db_backup_path = os.path.join(LiuXin_data_folder, "test_databases", database_name)
 
@@ -690,8 +690,8 @@ def file_load_test_database_with_file_data(scratch=False):
     info_str = "About to copy the test database with the file data"
     puts(colored.green(info_str))
 
-    from LiuXin.constants import LiuXin_default_database
-    from LiuXin.constants import LiuXin_data_folder
+    from LiuXin_alpha.constants import LiuXin_default_database
+    from LiuXin_alpha.constants import LiuXin_data_folder
     import os
     import shutil
 
@@ -706,7 +706,7 @@ def file_load_test_database_with_file_data(scratch=False):
                 puts(colored.yellow("DatabasePing was not found to delete - continuing"))
         final_db_path = deepcopy(LiuXin_default_database)
     else:
-        from LiuXin.utils.ptempfiles import get_scratch_folder
+        from LiuXin_alpha.utils.ptempfiles import get_scratch_folder
 
         db_scratch_folder = get_scratch_folder()
         final_db_path = os.path.join(db_scratch_folder, "scratch_database.db")
@@ -1799,7 +1799,7 @@ def generate_test_db(
         authors = [lx_random.choice(all_authors) for i in memory_range(authors)]
         tags = lx_random.randint(0, max_tags)
         tags = [lx_random.choice(all_tags) for i in memory_range(tags)]
-        from LiuXin.metadata.book.base import calibreMetadata as Metadata
+        from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
 
         mi = Metadata(title, authors)
         mi.tags = tags

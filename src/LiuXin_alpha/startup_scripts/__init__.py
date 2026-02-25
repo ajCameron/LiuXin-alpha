@@ -162,8 +162,8 @@ def startup():
 
 
 def test_lopen():
-    from LiuXin.utils.calibre.ptempfile import TemporaryDirectory
-    from LiuXin.utils.calibre import CurrentDir
+    from LiuXin_alpha.utils.calibre.ptempfile import TemporaryDirectory
+    from LiuXin_alpha.utils.calibre import CurrentDir
 
     n = "f\xe4llen"
 

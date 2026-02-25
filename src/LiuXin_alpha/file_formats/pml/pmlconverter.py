@@ -8,10 +8,10 @@ import os
 import re
 from copy import deepcopy
 
-from LiuXin.metadata.toc import TOC
+from LiuXin_alpha.metadata.toc import TOC
 
-from LiuXin.utils.calibre_utils.calibre_init_functions import my_unichr, prepare_string_for_xml
-from LiuXin.utils.lx_libraries.liuxin_six import six_basic_StringIO
+from LiuXin_alpha.utils.calibre_utils.calibre_init_functions import my_unichr, prepare_string_for_xml
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_basic_StringIO
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"

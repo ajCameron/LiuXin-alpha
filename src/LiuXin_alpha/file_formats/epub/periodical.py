@@ -4,13 +4,13 @@
 from uuid import uuid4
 import time
 
-from LiuXin.utils.calibre import strftime, prepare_string_for_xml as xml
-from LiuXin.utils.calibre.constants import __appname__, __version__
-from LiuXin.utils.date import parse_date
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import strftime, prepare_string_for_xml as xml
+from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.utils.date import parse_date
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -129,7 +129,7 @@ def sony_metadata(oeb):
     if False and toc.depth() < 3:
         # Single section periodical
         # Disabled since I prefer the current behavior
-        from LiuXin.file_formats.oeb.base import TOC
+        from LiuXin_alpha.file_formats.oeb.base import TOC
 
         section = TOC(klass="section", title=_("All articles"), href=oeb.spine[2].href)
         for x in toc:

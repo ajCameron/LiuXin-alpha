@@ -18,8 +18,8 @@
 # Contributor(s):
 #
 
-from LiuXin.file_formats.odf.element import Element
-from LiuXin.file_formats.odf.namespaces import SCRIPTNS
+from LiuXin_alpha.file_formats.odf.element import Element
+from LiuXin_alpha.file_formats.odf.namespaces import SCRIPTNS
 
 # ODF 1.0 section 12.4.1
 # The <script:event-listener> element binds an event to a macro.

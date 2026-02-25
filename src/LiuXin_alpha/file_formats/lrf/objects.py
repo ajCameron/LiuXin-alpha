@@ -6,15 +6,15 @@ import re
 import struct
 import zlib
 
-from LiuXin.file_formats.lrf import LRFParseError, PRS500_PROFILE
-from LiuXin.file_formats.lrf.tags import Tag
+from LiuXin_alpha.file_formats.lrf import LRFParseError, PRS500_PROFILE
+from LiuXin_alpha.file_formats.lrf.tags import Tag
 
-from LiuXin.utils.calibre import entity_to_unicode, prepare_string_for_xml
+from LiuXin_alpha.utils.calibre import entity_to_unicode, prepare_string_for_xml
 
 # Py2/Py3 compatbility
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"

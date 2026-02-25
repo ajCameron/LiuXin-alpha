@@ -9,26 +9,26 @@ from functools import partial
 
 from past.builtins import unicode
 
-from LiuXin.customize.conversion import OptionRecommendation, DummyReporter
+from LiuXin_alpha.customize.conversion import OptionRecommendation, DummyReporter
 
-from LiuXin.file_formats.conversion.preprocess import HTMLPreProcessor
+from LiuXin_alpha.file_formats.conversion.preprocess import HTMLPreProcessor
 
 # Todo: This is probably a function for the decompression utils
-from LiuXin.utils.calibre_utils.calibre_init_functions import extract
-from LiuXin.utils.calibre import walk, isbytestring, filesystem_encoding, get_types_map
+from LiuXin_alpha.utils.calibre_utils.calibre_init_functions import extract
+from LiuXin_alpha.utils.calibre import walk, isbytestring, filesystem_encoding, get_types_map
 
 # Todo: Reset all version numbers to 0.1.0
-from LiuXin.utils.calibre.constants import __version__
-from LiuXin.utils.date import parse_date
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import PersistentTemporaryDirectory
-from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.calibre.constants import __version__
+from LiuXin_alpha.utils.date import parse_date
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
+from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+from LiuXin_alpha.utils.logger import default_log
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_cmp
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cmp
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 
 __license__ = "GPL 3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -58,7 +58,7 @@ various stages of conversion. The stages are:
 
 
 def supported_input_formats():
-    from LiuXin.customize.ui import available_input_formats
+    from LiuXin_alpha.customize.ui import available_input_formats
 
     fmts = available_input_formats()
     for x in ("zip", "rar", "oebzip"):
@@ -126,16 +126,16 @@ class Plumber(object):
         :param input: Path to input file.
         :param output: Path to output file/directory
         """
-        from LiuXin.customize.ui import input_profiles, output_profiles
-        from LiuXin.customize.ui import (
+        from LiuXin_alpha.customize.ui import input_profiles, output_profiles
+        from LiuXin_alpha.customize.ui import (
             plugin_for_input_format,
             plugin_for_output_format,
         )
-        from LiuXin.customize.ui import (
+        from LiuXin_alpha.customize.ui import (
             available_input_formats,
             available_output_formats,
         )
-        from LiuXin.customize.ui import run_plugins_on_preprocess
+        from LiuXin_alpha.customize.ui import run_plugins_on_preprocess
 
         if isbytestring(input):
             input = input.decode(filesystem_encoding)
@@ -1028,7 +1028,7 @@ class Plumber(object):
             self.merge_plugin_recommendations()
 
     def unarchive(self, path, tdir):
-        from LiuXin.customize.ui import available_input_formats
+        from LiuXin_alpha.customize.ui import available_input_formats
 
         extract(path, tdir)
         files = list(walk(tdir))
@@ -1138,9 +1138,9 @@ class Plumber(object):
         """
         from PIL import Image
 
-        from LiuXin import browser
-        from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-        from LiuXin.utils.calibre.ptempfile import PersistentTemporaryFile
+        from LiuXin_alpha import browser
+        from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+        from LiuXin_alpha.utils.calibre.ptempfile import PersistentTemporaryFile
 
         self.log("Downloading cover from %r" % url)
         br = browser()
@@ -1158,7 +1158,7 @@ class Plumber(object):
         metadata from a specified OPF file.
         """
         from LiuXin_alpha.metadata import calibreMetaInformation as MetaInformation
-        from LiuXin.file_formats.opf.opf2 import OPF
+        from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
         mi = MetaInformation(None, [])
         if self.opts.read_metadata_from_opf is not None:
@@ -1183,7 +1183,7 @@ class Plumber(object):
         """
         Setup the `self.opts` object.
         """
-        from LiuXin.customize.ui import input_profiles, output_profiles
+        from LiuXin_alpha.customize.ui import input_profiles, output_profiles
 
         self.opts = OptionValues()
         for group in (
@@ -1238,7 +1238,7 @@ class Plumber(object):
             pass
 
     def dump_oeb(self, oeb, out_dir):
-        from LiuXin.file_formats.oeb.writer import OEBWriter
+        from LiuXin_alpha.file_formats.oeb.writer import OEBWriter
 
         w = OEBWriter(pretty_print=self.opts.pretty_print)
         w(oeb, out_dir)
@@ -1294,7 +1294,7 @@ class Plumber(object):
                     shutil.rmtree(x)
 
         # 1) - Run any preprocess plugins
-        from LiuXin.customize.ui import run_plugins_on_preprocess
+        from LiuXin_alpha.customize.ui import run_plugins_on_preprocess
 
         self.input = run_plugins_on_preprocess(self.input)
         self.flush()
@@ -1368,7 +1368,7 @@ class Plumber(object):
         self.oeb.plumber_output_format = self.output_fmt or ""
 
         # Clean up guide, leaving only known values.
-        from LiuXin.file_formats.oeb.transforms.guide import Clean
+        from LiuXin_alpha.file_formats.oeb.transforms.guide import Clean
 
         Clean()(self.oeb, self.opts)
         pr(0.1)
@@ -1378,7 +1378,7 @@ class Plumber(object):
         self.opts.dest = self.opts.output_profile
 
         # Merge in the user metadata, including the cover
-        from LiuXin.file_formats.oeb.transforms.metadata import MergeMetadata
+        from LiuXin_alpha.file_formats.oeb.transforms.metadata import MergeMetadata
 
         MergeMetadata()(
             self.oeb,
@@ -1390,7 +1390,7 @@ class Plumber(object):
         self.flush()
 
         # Add in structure (table of contents, reading order)
-        from LiuXin.file_formats.oeb.transforms.structure import DetectStructure
+        from LiuXin_alpha.file_formats.oeb.transforms.structure import DetectStructure
 
         DetectStructure()(self.oeb, self.opts)
         pr(0.35)
@@ -1420,7 +1420,7 @@ class Plumber(object):
 
         # The Jacket contains the cover, synopsis e.t.c of the book. Setting it from the supplied user_metadata object
         # user_metadata should be a calibreMetadata object.
-        from LiuXin.file_formats.oeb.transforms.jacket import Jacket
+        from LiuXin_alpha.file_formats.oeb.transforms.jacket import Jacket
 
         Jacket()(self.oeb, self.opts, self.user_metadata)
         pr(0.4)
@@ -1449,14 +1449,14 @@ class Plumber(object):
             "mobi",
             "lrf",
         ):
-            from LiuXin.file_formats.oeb.transforms.linearize_tables import (
+            from LiuXin_alpha.file_formats.oeb.transforms.linearize_tables import (
                 LinearizeTables,
             )
 
             LinearizeTables()(self.oeb, self.opts)
 
         if self.opts.unsmarten_punctuation:
-            from LiuXin.file_formats.oeb.transforms.unsmarten import (
+            from LiuXin_alpha.file_formats.oeb.transforms.unsmarten import (
                 UnsmartenPunctuation,
             )
 
@@ -1468,7 +1468,7 @@ class Plumber(object):
         )
 
         # Flattening CSS and remapping font sizes...
-        from LiuXin.file_formats.oeb.transforms.flatcss import CSSFlattener
+        from LiuXin_alpha.file_formats.oeb.transforms.flatcss import CSSFlattener
 
         flattener = CSSFlattener(
             fbase=fbase,
@@ -1484,7 +1484,7 @@ class Plumber(object):
         self.opts.insert_blank_line = oibl
         self.opts.remove_paragraph_spacing = orps
 
-        from LiuXin.file_formats.oeb.transforms.page_margin import (
+        from LiuXin_alpha.file_formats.oeb.transforms.page_margin import (
             RemoveFakeMargins,
             RemoveAdobeMargins,
         )
@@ -1493,19 +1493,19 @@ class Plumber(object):
         RemoveAdobeMargins()(self.oeb, self.log, self.opts)
 
         if self.opts.embed_all_fonts:
-            from LiuXin.file_formats.oeb.transforms.embed_fonts import EmbedFonts
+            from LiuXin_alpha.file_formats.oeb.transforms.embed_fonts import EmbedFonts
 
             EmbedFonts()(self.oeb, self.log, self.opts)
 
         if self.opts.subset_embedded_fonts and self.output_plugin.file_type != "pdf":
-            from LiuXin.file_formats.oeb.transforms.subset import SubsetFonts
+            from LiuXin_alpha.file_formats.oeb.transforms.subset import SubsetFonts
 
             SubsetFonts()(self.oeb, self.log, self.opts)
 
         pr(0.9)
         self.flush()
 
-        from LiuXin.file_formats.oeb.transforms.trimmanifest import ManifestTrimmer
+        from LiuXin_alpha.file_formats.oeb.transforms.trimmanifest import ManifestTrimmer
 
         self.log.info("Cleaning up manifest...")
         trimmer = ManifestTrimmer()
@@ -1533,7 +1533,7 @@ class Plumber(object):
         self.ui_reporter(1.0)
 
         # 5) Run any post process plugins
-        from LiuXin.customize.ui import run_plugins_on_postprocess
+        from LiuXin_alpha.customize.ui import run_plugins_on_postprocess
 
         run_plugins_on_postprocess(self.output, self.output_fmt)
 
@@ -1574,7 +1574,7 @@ def create_oebbook(
     :param specialize:
     :return:
     """
-    from LiuXin.file_formats.oeb.base import OEBBook
+    from LiuXin_alpha.file_formats.oeb.base import OEBBook
 
     html_preprocessor = HTMLPreProcessor(log, opts, regex_wizard_callback=regex_wizard_callback)
     if not encoding:
@@ -1588,7 +1588,7 @@ def create_oebbook(
     # Read OEB Book into OEBBook
     log("Parsing all content...")
     if reader is None:
-        from LiuXin.file_formats.oeb.reader import OEBReader
+        from LiuXin_alpha.file_formats.oeb.reader import OEBReader
 
         reader = OEBReader
 

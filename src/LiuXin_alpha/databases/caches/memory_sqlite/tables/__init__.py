@@ -1,29 +1,29 @@
 import uuid
 
-from LiuXin.databases.drivers.SQLite.macros import SQLiteDatabaseMacros
+from LiuXin_alpha.databases.drivers.SQLite.macros import SQLiteDatabaseMacros
 
 # - one_to_one
-from LiuXin.databases.caches.base.tables import BaseTable
-from LiuXin.databases.caches.base.tables import BaseOneToOneTable
-from LiuXin.databases.caches.base.tables import BasePathTable
-from LiuXin.databases.caches.base.tables import BaseSizeTable
-from LiuXin.databases.caches.base.tables import BaseUUIDTable
-from LiuXin.databases.caches.base.tables import BaseCompositeTable
+from LiuXin_alpha.databases.caches.base.tables import BaseTable
+from LiuXin_alpha.databases.caches.base.tables import BaseOneToOneTable
+from LiuXin_alpha.databases.caches.base.tables import BasePathTable
+from LiuXin_alpha.databases.caches.base.tables import BaseSizeTable
+from LiuXin_alpha.databases.caches.base.tables import BaseUUIDTable
+from LiuXin_alpha.databases.caches.base.tables import BaseCompositeTable
 
 # - many_to_one
-from LiuXin.databases.caches.base.tables import BaseManyToOneTable
+from LiuXin_alpha.databases.caches.base.tables import BaseManyToOneTable
 
 # - many_to_many
-from LiuXin.databases.caches.base.tables import BaseManyToManyTable
-from LiuXin.databases.caches.base.tables import BaseTypedManyToManyTable
-from LiuXin.databases.caches.base.tables import BaseCreatorsTable
-from LiuXin.databases.caches.base.tables import BaseFormatsTable
+from LiuXin_alpha.databases.caches.base.tables import BaseManyToManyTable
+from LiuXin_alpha.databases.caches.base.tables import BaseTypedManyToManyTable
+from LiuXin_alpha.databases.caches.base.tables import BaseCreatorsTable
+from LiuXin_alpha.databases.caches.base.tables import BaseFormatsTable
 
-from LiuXin.utils.calibre import isbytestring, force_unicode
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.calibre import isbytestring, force_unicode
+from LiuXin_alpha.utils.logger import default_log
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import iteritems
 
 
 # Todo: Need to use this error instead of the standard db errors

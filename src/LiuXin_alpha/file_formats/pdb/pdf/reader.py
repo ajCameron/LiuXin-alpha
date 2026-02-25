@@ -4,10 +4,10 @@
 Read content from palmdoc pdb file.
 """
 
-from LiuXin.file_formats.pdb.formatreader import FormatReader
+from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.ptempfiles import PersistentTemporaryFile
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
 __license__ = "GPL v3"
 __copyright__ = "2010, John Schember <john@nachtimwald.com>"
@@ -31,7 +31,7 @@ class Reader(FormatReader):
             pdf.write(self.header.section_data(x))
         pdf.close()
 
-        from LiuXin.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         pdf_plugin = plugin_for_input_format("pdf")
         for opt in pdf_plugin.options:

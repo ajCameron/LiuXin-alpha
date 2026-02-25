@@ -7,12 +7,12 @@ CHM File decoding support
 
 import os
 
-from LiuXin.constants import filesystem_encoding
+from LiuXin_alpha.constants import filesystem_encoding
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>, and Alex Bramley <a.bramley at gmail.com>."
@@ -26,7 +26,7 @@ class CHMInput(InputFormatPlugin):
     file_types = {"chm"}
 
     def _chmtohtml(self, output_dir, chm_path, no_images, log, debug_dump=False):
-        from LiuXin.file_formats.chm.reader import CHMReader
+        from LiuXin_alpha.file_formats.chm.reader import CHMReader
 
         log.debug("Opening CHM file")
         rdr = CHMReader(chm_path, log, input_encoding=self.opts.input_encoding)
@@ -45,8 +45,8 @@ class CHMInput(InputFormatPlugin):
         :param accelerators:
         :return:
         """
-        from LiuXin.file_formats.chm.metadata import get_metadata_from_reader
-        from LiuXin.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.file_formats.chm.metadata import get_metadata_from_reader
+        from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         self.opts = options
 
@@ -99,7 +99,7 @@ class CHMInput(InputFormatPlugin):
         :param item:
         :return:
         """
-        from LiuXin.file_formats.oeb.base import TOC, XPath
+        from LiuXin_alpha.file_formats.oeb.base import TOC, XPath
 
         dx = XPath("./h:div")
         ax = XPath("./h:a[1]")
@@ -125,7 +125,7 @@ class CHMInput(InputFormatPlugin):
         :param mi:
         :return:
         """
-        from LiuXin.file_formats.conversion.plugins.html_input import HTMLInput
+        from LiuXin_alpha.file_formats.conversion.plugins.html_input import HTMLInput
 
         opts.breadth_first = True
         htmlinput = HTMLInput(None)
@@ -136,8 +136,8 @@ class CHMInput(InputFormatPlugin):
 
         from lxml import html
         from urllib import unquote as _unquote
-        from LiuXin.file_formats.oeb.base import urlquote
-        from LiuXin.file_formats.chardet import xml_to_unicode
+        from LiuXin_alpha.file_formats.oeb.base import urlquote
+        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 
         hhcdata = self._read_file(hhcpath)
         hhcdata = hhcdata.decode(encoding)
@@ -205,7 +205,7 @@ class CHMInput(InputFormatPlugin):
         return data
 
     def add_node(self, node, toc, ancestor_map):
-        from LiuXin.file_formats.chm.reader import match_string
+        from LiuXin_alpha.file_formats.chm.reader import match_string
 
         if match_string(node.attrib["type"], "text/sitemap"):
             p = node.xpath("ancestor::ul[1]/ancestor::li[1]/object[1]")
@@ -221,7 +221,7 @@ class CHMInput(InputFormatPlugin):
             ancestor_map[node] = child
 
     def _process_nodes(self, root):
-        from LiuXin.file_formats.oeb.base import TOC
+        from LiuXin_alpha.file_formats.oeb.base import TOC
 
         toc = TOC()
         ancestor_map = {}

@@ -8,13 +8,13 @@ import uuid
 from collections import OrderedDict, Counter
 from lxml import etree
 
-from LiuXin.file_formats import ConversionError
-from LiuXin.file_formats.oeb.base import XPNSMAP, TOC, XHTML, xml2text, barename
+from LiuXin_alpha.file_formats import ConversionError
+from LiuXin_alpha.file_formats.oeb.base import XPNSMAP, TOC, XHTML, xml2text, barename
 
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -8,10 +8,10 @@ from collections import OrderedDict
 from io import BytesIO
 from struct import pack
 
-from LiuXin.file_formats.mobi.utils import align_block
+from LiuXin_alpha.file_formats.mobi.utils import align_block
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

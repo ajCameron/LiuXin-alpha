@@ -8,10 +8,10 @@ import os
 
 from lxml import etree
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_cmp
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cmp
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -287,7 +287,7 @@ def import_book_directory(db,
     :param compiled_rules:
     :return:
     """
-    from LiuXin.metadata.meta import metadata_from_formats
+    from LiuXin_alpha.metadata.meta import metadata_from_formats
 
     dirpath = os.path.abspath(dirpath)
     formats = None
@@ -327,7 +327,7 @@ def import_book_directory_multiple(
     :param compiled_rules:
     :return:
     """
-    from LiuXin.metadata.meta import metadata_from_formats
+    from LiuXin_alpha.metadata.meta import metadata_from_formats
 
     duplicates = []
     for formats in find_books_in_directory(dirpath, False):
@@ -404,9 +404,9 @@ def add_catalog(cache, path, title, dbapi=None) -> tuple[int, bool]:
     :param dbapi:
     :return:
     """
-    from LiuXin.metadata.book.base import calibreMetadata as Metadata
-    from LiuXin.metadata.meta import get_metadata
-    from LiuXin.utils.date import utcnow
+    from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
+    from LiuXin_alpha.metadata.meta import get_metadata
+    from LiuXin_alpha.utils.date import utcnow
 
     fmt = os.path.splitext(path)[1][1:].lower()
     new_book_added = False
@@ -452,8 +452,8 @@ def add_news(cache, path, arg, dbapi=None) -> int:
     :param dbapi:
     :return:
     """
-    from LiuXin.metadata.meta import get_metadata
-    from LiuXin.utils.date import utcnow
+    from LiuXin_alpha.metadata.meta import get_metadata
+    from LiuXin_alpha.utils.date import utcnow
 
     fmt = os.path.splitext(getattr(path, "name", path))[1][1:].lower()
     stream = path if hasattr(path, "read") else lopen(path, "rb")

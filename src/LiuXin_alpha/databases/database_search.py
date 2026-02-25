@@ -11,23 +11,23 @@ import sys
 import codecs
 from copy import deepcopy
 
-from LiuXin.paths import LiuXin_data_sources
-from LiuXin.utils.general_ops.io_ops import select_from_options
-from LiuXin.utils.general_ops.io_ops import LiuXin_print
-from LiuXin.utils.general_ops.io_ops import LiuXin_debug_print
+from LiuXin_alpha.paths import LiuXin_data_sources
+from LiuXin_alpha.utils.general_ops.io_ops import select_from_options
+from LiuXin_alpha.utils.general_ops.io_ops import LiuXin_print
+from LiuXin_alpha.utils.general_ops.io_ops import LiuXin_debug_print
 
 VERBOSE_DEBUG = True
-from LiuXin.databases.database import Database
-from LiuXin.databases.row import Row
-from LiuXin.databases.SQLite.databasedriver import DatabaseDriver
-from LiuXin.utils.search_query_parser import SearchQueryParser
-from LiuXin.utils.general_ops.language_tools import plural_singular_mapper
+from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.databases.SQLite.databasedriver import DatabaseDriver
+from LiuXin_alpha.utils.search_query_parser import SearchQueryParser
+from LiuXin_alpha.utils.general_ops.language_tools import plural_singular_mapper
 
-from LiuXin.exceptions import LogicalError
-from LiuXin.exceptions import InputIntegrityError
-from LiuXin.exceptions import DatabaseIntegrityError
+from LiuXin_alpha.exceptions import LogicalError
+from LiuXin_alpha.exceptions import InputIntegrityError
+from LiuXin_alpha.exceptions import DatabaseIntegrityError
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 
 class DatabaseSearch(object):

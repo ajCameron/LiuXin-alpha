@@ -3,14 +3,14 @@
 import os
 import string
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.calibre.constants import __appname__, __version__
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Li Fanxi <lifanxi@freemindworld.com>"
@@ -76,13 +76,13 @@ class SNBOutput(OutputFormatPlugin):
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
 
         from lxml import etree
-        from LiuXin.file_formats.snb.snbfile import SNBFile
-        from LiuXin.file_formats.snb.snbml import SNBMLizer, ProcessFileName
+        from LiuXin_alpha.file_formats.snb.snbfile import SNBFile
+        from LiuXin_alpha.file_formats.snb.snbml import SNBMLizer, ProcessFileName
 
         self.opts = opts
         # from LiuXin.file_formats.oeb.transforms.rasterize import SVGRasterizer, Unavailable
-        from LiuXin.file_formats.oeb.transforms.rasterize import Unavailable
-        from LiuXin.file_formats.oeb.transforms.rasterize_safe import (
+        from LiuXin_alpha.file_formats.oeb.transforms.rasterize import Unavailable
+        from LiuXin_alpha.file_formats.oeb.transforms.rasterize_safe import (
             SVGRasterizerSafe as SVGRasterizer,
         )
 
@@ -207,7 +207,7 @@ class SNBOutput(OutputFormatPlugin):
             merge_last = False
             last_name = None
             for item in s:
-                from LiuXin.file_formats.oeb.base import OEB_DOCS, OEB_IMAGES
+                from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, OEB_IMAGES
 
                 if m.hrefs[item.href].media_type in OEB_DOCS:
                     if item.href not in output_files:
@@ -258,7 +258,7 @@ class SNBOutput(OutputFormatPlugin):
             snb_file.Output(output_path)
 
     def HandleImage(self, imageData, imagePath):
-        from LiuXin.utils.magick import Image
+        from LiuXin_alpha.utils.magick import Image
 
         img = Image()
         # Todo: Instead of just failing, write an image indicating failure
@@ -289,11 +289,11 @@ class SNBOutput(OutputFormatPlugin):
 
 if __name__ == "__main__":
 
-    from LiuXin.customize.profiles import HanlinV3Output
+    from LiuXin_alpha.customize.profiles import HanlinV3Output
 
-    from LiuXin.file_formats.oeb.reader import OEBReader
-    from LiuXin.file_formats.oeb.base import OEBBook
-    from LiuXin.file_formats.conversion.preprocess import HTMLPreProcessor
+    from LiuXin_alpha.file_formats.oeb.reader import OEBReader
+    from LiuXin_alpha.file_formats.oeb.base import OEBBook
+    from LiuXin_alpha.file_formats.conversion.preprocess import HTMLPreProcessor
 
     class OptionValues(object):
         pass
@@ -302,7 +302,7 @@ if __name__ == "__main__":
     opts.output_profile = HanlinV3Output(None)
 
     html_preprocessor = HTMLPreProcessor(None, None, opts)
-    from LiuXin.utils.logger import default_log
+    from LiuXin_alpha.utils.logger import default_log
 
     oeb = OEBBook(default_log, html_preprocessor)
     reader = OEBReader

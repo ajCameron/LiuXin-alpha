@@ -9,13 +9,13 @@ from functools import partial
 
 from lxml.html.builder import OL, UL, SPAN
 
-from LiuXin.file_formats.docx.block_styles import ParagraphStyle
-from LiuXin.file_formats.docx.char_styles import RunStyle, inherit
+from LiuXin_alpha.file_formats.docx.block_styles import ParagraphStyle
+from LiuXin_alpha.file_formats.docx.char_styles import RunStyle, inherit
 
 from LiuXin_alpha.metadata import roman
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

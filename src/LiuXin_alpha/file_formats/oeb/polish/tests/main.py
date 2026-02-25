@@ -22,6 +22,6 @@ def find_tests():
 
 # Todo: Fix
 if __name__ == "__main__":
-    from LiuXin.utils.calibre.db.tests.main import run_tests
+    from LiuXin_alpha.utils.calibre.db.tests.main import run_tests
 
     run_tests(find_tests=find_tests)

@@ -4,8 +4,8 @@ import math
 import sys
 import re
 
-from LiuXin.file_formats.lrf.fonts import get_font
-from LiuXin.file_formats.lrf.pylrs.pylrs import (
+from LiuXin_alpha.file_formats.lrf.fonts import get_font
+from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import (
     TextBlock,
     Text,
     CR,
@@ -17,8 +17,8 @@ from LiuXin.file_formats.lrf.pylrs.pylrs import (
 )
 
 # P2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -29,7 +29,7 @@ def ceil(num):
 
 
 def print_xml(elem):
-    from LiuXin.utils.calibre.ebooks.lrf.pylrs.pylrs import ElementWriter
+    from LiuXin_alpha.utils.calibre.ebooks.lrf.pylrs.pylrs import ElementWriter
 
     elem = elem.toElement("utf8")
     ew = ElementWriter(elem, sourceEncoding="utf8")

@@ -14,7 +14,7 @@
 Gets options for main part of script
 """
 import sys, os
-from LiuXin.file_formats.rtf2xml import options_trem, configure_txt
+from LiuXin_alpha.file_formats.rtf2xml import options_trem, configure_txt
 
 
 class GetOptions:

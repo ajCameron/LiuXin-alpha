@@ -20,10 +20,10 @@
 import re
 import types
 
-from LiuXin.file_formats.odf.namespaces import *
+from LiuXin_alpha.file_formats.odf.namespaces import *
 
 # Py2/Py3 interface layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 pattern_color = re.compile(r"#[0-9a-fA-F]{6}")
 pattern_vector3D = re.compile(r"\([ ]*-?([0-9]+(\.[0-9]*)?|\.[0-9]+)([ ]+-?([0-9]+(\.[0-9]*)?|\.[0-9]+)){2}[ ]*\)")

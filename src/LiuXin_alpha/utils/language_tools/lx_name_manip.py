@@ -38,7 +38,7 @@ def smart_truncate(file_name_ext, length_limit=20):
     if length_limit < 10:
         return False
 
-    from LiuXin.utils.file_ops.file_properties import get_file_name
+    from LiuXin_alpha.utils.file_ops.file_properties import get_file_name
 
     file_name = get_file_name(file_name_ext)
     file_ext = os.path.splitext(file_name_ext)[1]

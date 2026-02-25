@@ -9,15 +9,15 @@ import traceback
 from operator import itemgetter
 from threading import Thread
 
-from LiuXin.constants import filesystem_encoding
-from LiuXin.databases.backend import DB, DBPrefs
-from LiuXin.file_formats.opf.opf2 import OPF
-from LiuXin.utils.calibre import isbytestring
-from LiuXin.utils.date import utcfromtimestamp
-from LiuXin.utils.localization import _
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.ptempfiles import TemporaryDirectory
-from LiuXin.databases.caches.calibre.cache import CalibreCache
+from LiuXin_alpha.constants import filesystem_encoding
+from LiuXin_alpha.databases.backend import DB, DBPrefs
+from LiuXin_alpha.file_formats.opf.opf2 import OPF
+from LiuXin_alpha.utils.calibre import isbytestring
+from LiuXin_alpha.utils.date import utcfromtimestamp
+from LiuXin_alpha.utils.localization import _
+from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.databases.caches.calibre.cache import CalibreCache
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 __license__ = "GPL v3"

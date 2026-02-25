@@ -56,7 +56,7 @@ Codepages as to RTF 1.9.1:
     57011	Punjabi
 """
 import re
-from LiuXin.file_formats.rtf2xml import open_for_read
+from LiuXin_alpha.file_formats.rtf2xml import open_for_read
 
 
 class DefaultEncoding:

@@ -23,13 +23,13 @@ import xml.dom.minidom as dom
 from LiuXin_alpha.metadata import authors_to_string
 from LiuXin_alpha.metadata import calibreMetaInformation
 from LiuXin_alpha.metadata import string_to_authors
-from LiuXin.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.metadata import MetaData
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -702,7 +702,7 @@ class LRFMetaFile(object):
             self._file.seek(pos)
 
     def get_objects_by_type(self, type):
-        from LiuXin.file_formats.lrf.tags import Tag
+        from LiuXin_alpha.file_formats.lrf.tags import Tag
 
         objects = []
         for id, offset, size in self._objects():
@@ -715,7 +715,7 @@ class LRFMetaFile(object):
         return objects
 
     def get_object_by_id(self, tid):
-        from LiuXin.file_formats.lrf.tags import Tag
+        from LiuXin_alpha.file_formats.lrf.tags import Tag
 
         for id, offset, size in self._objects():
             self._file.seek(offset)
@@ -728,7 +728,7 @@ class LRFMetaFile(object):
 
     @safe
     def get_cover(self):
-        from LiuXin.file_formats.lrf.objects import get_object
+        from LiuXin_alpha.file_formats.lrf.objects import get_object
 
         for id, offset, size in self.get_objects_by_type(0x0C):
             image = get_object(None, self._file, id, offset, size, self.xor_key)
@@ -739,8 +739,8 @@ class LRFMetaFile(object):
 
 
 def option_parser():
-    from LiuXin.utils.config import OptionParser
-    from LiuXin.utils.calibre.constants import __appname__, __version__
+    from LiuXin_alpha.utils.config import OptionParser
+    from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
 
     parser = OptionParser(
         usage=_(

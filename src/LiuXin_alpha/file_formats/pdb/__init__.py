@@ -14,12 +14,12 @@ FORMAT_READERS = None
 
 def _import_readers():
     global FORMAT_READERS
-    from LiuXin.file_formats.pdb.ereader.reader import Reader as Ereader_Reader
-    from LiuXin.file_formats.pdb.palmdoc.reader import Reader as Palmdoc_Reader
-    from LiuXin.file_formats.pdb.ztxt.reader import Reader as ZTXT_Reader
-    from LiuXin.file_formats.pdb.pdf.reader import Reader as PDF_Reader
-    from LiuXin.file_formats.pdb.plucker.reader import Reader as Plucker_Reader
-    from LiuXin.file_formats.pdb.haodoo.reader import Reader as Haodoo_Reader
+    from LiuXin_alpha.file_formats.pdb.ereader.reader import Reader as Ereader_Reader
+    from LiuXin_alpha.file_formats.pdb.palmdoc.reader import Reader as Palmdoc_Reader
+    from LiuXin_alpha.file_formats.pdb.ztxt.reader import Reader as ZTXT_Reader
+    from LiuXin_alpha.file_formats.pdb.pdf.reader import Reader as PDF_Reader
+    from LiuXin_alpha.file_formats.pdb.plucker.reader import Reader as Plucker_Reader
+    from LiuXin_alpha.file_formats.pdb.haodoo.reader import Reader as Haodoo_Reader
 
     FORMAT_READERS = {
         "PNPdPPrs": Ereader_Reader,
@@ -39,9 +39,9 @@ FORMAT_WRITERS = None
 
 def _import_writers():
     global FORMAT_WRITERS
-    from LiuXin.file_formats.pdb.palmdoc.writer import Writer as Palmdoc_Writer
-    from LiuXin.file_formats.pdb.ztxt.writer import Writer as ZTXT_Writer
-    from LiuXin.file_formats.pdb.ereader.writer import Writer as Ereader_Writer
+    from LiuXin_alpha.file_formats.pdb.palmdoc.writer import Writer as Palmdoc_Writer
+    from LiuXin_alpha.file_formats.pdb.ztxt.writer import Writer as ZTXT_Writer
+    from LiuXin_alpha.file_formats.pdb.ereader.writer import Writer as Ereader_Writer
 
     FORMAT_WRITERS = {
         "doc": Palmdoc_Writer,

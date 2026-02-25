@@ -7,7 +7,7 @@ from contextlib import closing
 from functools import partial
 from multiprocessing.pool import ThreadPool
 
-from LiuXin.utils.calibre import detect_ncpus as cpu_count
+from LiuXin_alpha.utils.calibre import detect_ncpus as cpu_count
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -4,17 +4,17 @@ Meatdata Writers are responsible for writing metadata back to ebook files.
 The builtin ones bundled with LiuXin are imported here.
 """
 
-from LiuXin.customize import MetadataWriterPlugin
+from LiuXin_alpha.customize import MetadataWriterPlugin
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logger import default_log
 
 plugins: list[type[MetadataWriterPlugin]] = []
 
 # Note: Always open a stream as rb+ to allow read-write before passing into one of these classes
 
 try:
-    from LiuXin.metadata.file_sources.docx import set_metadata as docx_set_metadata
+    from LiuXin_alpha.metadata.file_sources.docx import set_metadata as docx_set_metadata
 except Exception as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.metadata.file_sources.docx - DOCXMetadataWriter cannot be "
@@ -39,7 +39,7 @@ else:
 
 # Todo: Merge epub_old into epub
 try:
-    from LiuXin.metadata.file_sources.epub import set_metadata as epub_set_metadata
+    from LiuXin_alpha.metadata.file_sources.epub import set_metadata as epub_set_metadata
 except Exception as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.metadata.file_sources.epub - EPUBMetadataWriter cannot be "
@@ -62,7 +62,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.fb2 import set_metadata as fb2_set_metadata
+    from LiuXin_alpha.metadata.file_sources.fb2 import set_metadata as fb2_set_metadata
 except Exception as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.file_formats.metadata.fb2 - FB2MetadataWriter cannot be " "initialized."
@@ -84,7 +84,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.extz import set_metadata as extz_set_metadata
+    from LiuXin_alpha.metadata.file_sources.extz import set_metadata as extz_set_metadata
 except Exception as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.file_formats.metadata.extz - FB2MetadataWriter cannot be "
@@ -109,7 +109,7 @@ else:
 
 # Todo: Move into metadata.file_sources
 try:
-    from LiuXin.file_formats.lrf.meta import set_metadata as lrf_set_metadata
+    from LiuXin_alpha.file_formats.lrf.meta import set_metadata as lrf_set_metadata
 except Exception as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.file_formats.lrf.meta - LRFMetadataWriter cannot be " "initialized."
@@ -131,7 +131,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.mobi import set_metadata as mobi_set_metadata
+    from LiuXin_alpha.metadata.file_sources.mobi import set_metadata as mobi_set_metadata
 except RuntimeError as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.metadata.file_sources.mobi_old - MOBIMetadataWriter "
@@ -161,7 +161,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.pdb import set_metadata as set_pdb_metadata
+    from LiuXin_alpha.metadata.file_sources.pdb import set_metadata as set_pdb_metadata
 except RuntimeError as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.metadata.file_sources.pdb - PDBMetadataWriter "
@@ -190,7 +190,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.pdf import set_metadata as pdf_set_metadata
+    from LiuXin_alpha.metadata.file_sources.pdf import set_metadata as pdf_set_metadata
 except Exception as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.file_formats.metadata.pdf - PDFMetadataWriter cannot be " "initialized."
@@ -222,7 +222,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.rtf import set_metadata as rtf_set_metadata
+    from LiuXin_alpha.metadata.file_sources.rtf import set_metadata as rtf_set_metadata
 except Exception as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.file_formats.metadata.rt - RTFMetadataWriter cannot be " "initialized."
@@ -244,7 +244,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.topaz import set_metadata as topaz_set_metadata
+    from LiuXin_alpha.metadata.file_sources.topaz import set_metadata as topaz_set_metadata
 except Exception as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.file_formats.metadata.topaz - TOPAZMetadataWriter cannot be "
@@ -268,7 +268,7 @@ else:
 
 
 try:
-    from LiuXin.metadata.file_sources.extz import set_metadata as extz_set_metadata
+    from LiuXin_alpha.metadata.file_sources.extz import set_metadata as extz_set_metadata
 except Exception as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.file_formats.metadata.extz - TXTZMetadataWriter cannot be "

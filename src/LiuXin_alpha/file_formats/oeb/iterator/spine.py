@@ -11,13 +11,13 @@ from operator import attrgetter
 
 from past.builtins import unicode
 
-from LiuXin.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 
-from LiuXin.utils.calibre import guess_type, replace_entities
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.calibre import guess_type, replace_entities
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

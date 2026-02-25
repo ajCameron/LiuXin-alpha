@@ -10,13 +10,13 @@ import subprocess
 import sys
 from functools import partial
 
-from LiuXin.constants import isosx, iswindows, islinux, isbsd, filesystem_encoding
+from LiuXin_alpha.constants import isosx, iswindows, islinux, isbsd, filesystem_encoding
 
-from LiuXin.file_formats import ConversionError, DRMError
+from LiuXin_alpha.file_formats import ConversionError, DRMError
 
-from LiuXin.utils.calibre import CurrentDir
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import PersistentTemporaryFile
+from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
 __license__ = "GPL 3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>, " "2009, John Schember <john@nachtimwald.com>"
@@ -134,7 +134,7 @@ def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
 
 
 def flip_image(img, flip):
-    from LiuXin.utils.calibre.utils.magick import Image
+    from LiuXin_alpha.utils.calibre.utils.magick import Image
 
     im = Image()
     im.open(img)

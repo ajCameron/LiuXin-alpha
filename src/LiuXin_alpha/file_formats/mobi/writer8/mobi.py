@@ -7,16 +7,16 @@ import random
 import time
 from struct import pack
 
-from LiuXin.file_formats.mobi.langcodes import iana2mobi
-from LiuXin.file_formats.mobi.writer2 import PALMDOC, UNCOMPRESSED
-from LiuXin.file_formats.mobi.writer8.exth import build_exth
-from LiuXin.file_formats.mobi.writer8.header import Header
-from LiuXin.file_formats.mobi.utils import RECORD_SIZE, utf8_text
+from LiuXin_alpha.file_formats.mobi.langcodes import iana2mobi
+from LiuXin_alpha.file_formats.mobi.writer2 import PALMDOC, UNCOMPRESSED
+from LiuXin_alpha.file_formats.mobi.writer8.exth import build_exth
+from LiuXin_alpha.file_formats.mobi.writer8.header import Header
+from LiuXin_alpha.file_formats.mobi.utils import RECORD_SIZE, utf8_text
 
-from LiuXin.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.filenames import ascii_filename
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

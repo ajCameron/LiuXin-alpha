@@ -12,9 +12,9 @@ from past.builtins import unicode
 
 from LiuXin_alpha.metadata import authors_to_string
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin.utils.wrappers.magick.draw import save_cover_data_to, identify_data
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.wrappers.magick.draw import save_cover_data_to, identify_data
 
 
 __license__ = "GPL 3"
@@ -103,8 +103,8 @@ class RTFMLizer(object):
         return self.mlize_spine()
 
     def mlize_spine(self):
-        from LiuXin.file_formats.oeb.base import XHTML
-        from LiuXin.file_formats.oeb.stylizer import Stylizer
+        from LiuXin_alpha.file_formats.oeb.base import XHTML
+        from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
         output = self.header()
         if "titlepage" in self.oeb_book.guide:
@@ -168,7 +168,7 @@ class RTFMLizer(object):
         return " }"
 
     def insert_images(self, text):
-        from LiuXin.file_formats.oeb.base import OEB_RASTER_IMAGES
+        from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
         for item in self.oeb_book.manifest:
             if item.media_type in OEB_RASTER_IMAGES:
@@ -230,7 +230,7 @@ class RTFMLizer(object):
         :param tag_stack:
         :return:
         """
-        from LiuXin.file_formats.oeb.base import XHTML_NS, namespace, barename, urlnormalize
+        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, namespace, barename, urlnormalize
 
         if tag_stack is None:
             tag_stack = []

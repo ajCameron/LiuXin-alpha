@@ -6,25 +6,25 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 import subprocess
 
-from LiuXin.file_formats.oeb.polish.container import (
+from LiuXin_alpha.file_formats.oeb.polish.container import (
     get_container as _gc,
     clone_container,
     OCF_NS,
 )
-from LiuXin.file_formats.oeb.polish.replace import rename_files
-from LiuXin.file_formats.oeb.polish.split import split, merge
-from LiuXin.file_formats.oeb.polish.tests.base import (
+from LiuXin_alpha.file_formats.oeb.polish.replace import rename_files
+from LiuXin_alpha.file_formats.oeb.polish.split import split, merge
+from LiuXin_alpha.file_formats.oeb.polish.tests.base import (
     BaseTest,
     get_simple_book,
     get_split_book,
 )
 
-from LiuXin.utils.filenames import nlinks_file
-from LiuXin.utils.ptempfiles import TemporaryFile
+from LiuXin_alpha.utils.filenames import nlinks_file
+from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 
 # Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -237,7 +237,7 @@ class ContainerTests(BaseTest):
         Test getting the actual case for files from names on case insensitive filesystems
         :return:
         """
-        from LiuXin.file_formats.oeb.polish.utils import (
+        from LiuXin_alpha.file_formats.oeb.polish.utils import (
             actual_case_for_name,
             corrected_case_for_name,
         )

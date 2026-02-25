@@ -4,7 +4,7 @@ from __future__ import with_statement
 Conversion to EPUB
 """
 
-from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_STORED
+from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_STORED
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"

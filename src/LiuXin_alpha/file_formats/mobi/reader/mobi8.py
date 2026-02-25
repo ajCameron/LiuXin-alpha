@@ -11,23 +11,23 @@ from itertools import repeat, izip
 
 from lxml import etree
 
-from LiuXin.file_formats.opf import OPFCreator
-from LiuXin.file_formats.opf import Guide
-from LiuXin.file_formats.mobi.reader.headers import NULL_INDEX
-from LiuXin.file_formats.mobi.reader.index import read_index
-from LiuXin.file_formats.mobi.reader.ncx import read_ncx, build_toc
-from LiuXin.file_formats.mobi.reader.markup import expand_mobi8_markup
-from LiuXin.file_formats.mobi.reader.containers import Container, find_imgtype
-from LiuXin.file_formats.mobi.utils import read_font_record
-from LiuXin.file_formats.oeb.parse_utils import parse_html
-from LiuXin.file_formats.oeb.base import XPath, XHTML, xml2text
+from LiuXin_alpha.file_formats.opf import OPFCreator
+from LiuXin_alpha.file_formats.opf import Guide
+from LiuXin_alpha.file_formats.mobi.reader.headers import NULL_INDEX
+from LiuXin_alpha.file_formats.mobi.reader.index import read_index
+from LiuXin_alpha.file_formats.mobi.reader.ncx import read_ncx, build_toc
+from LiuXin_alpha.file_formats.mobi.reader.markup import expand_mobi8_markup
+from LiuXin_alpha.file_formats.mobi.reader.containers import Container, find_imgtype
+from LiuXin_alpha.file_formats.mobi.utils import read_font_record
+from LiuXin_alpha.file_formats.oeb.parse_utils import parse_html
+from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML, xml2text
 
-from LiuXin.metadata.toc import TOC
+from LiuXin_alpha.metadata.toc import TOC
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -421,7 +421,7 @@ class Mobi8Reader(object):
         return build_toc(index_entries)
 
     def extract_resources(self, sections):
-        from LiuXin.file_formats.mobi.writer2.resources import PLACEHOLDER_GIF
+        from LiuXin_alpha.file_formats.mobi.writer2.resources import PLACEHOLDER_GIF
 
         resource_map = []
         container = None

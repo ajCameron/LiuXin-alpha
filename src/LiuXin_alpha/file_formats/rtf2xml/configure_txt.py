@@ -1,6 +1,6 @@
 import os
 import sys
-from LiuXin.file_formats.rtf2xml import open_for_read
+from LiuXin_alpha.file_formats.rtf2xml import open_for_read
 
 
 class Configure:

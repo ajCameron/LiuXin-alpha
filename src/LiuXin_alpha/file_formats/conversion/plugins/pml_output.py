@@ -2,14 +2,14 @@
 
 import os
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -49,8 +49,8 @@ class PMLOutput(OutputFormatPlugin):
     }
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
-        from LiuXin.file_formats.pml.pmlml import PMLMLizer
-        from LiuXin.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.file_formats.pml.pmlml import PMLMLizer
+        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
 
         with TemporaryDirectory("_pmlz_output") as tdir:
             pmlmlizer = PMLMLizer(log)
@@ -83,7 +83,7 @@ class PMLOutput(OutputFormatPlugin):
         except ImportError:
             import Image
 
-        from LiuXin.file_formats.oeb.base import OEB_RASTER_IMAGES
+        from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
         for item in manifest:
             if item.media_type in OEB_RASTER_IMAGES and item.href in image_hrefs.keys():

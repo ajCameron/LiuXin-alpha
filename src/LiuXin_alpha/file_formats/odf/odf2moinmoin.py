@@ -21,8 +21,8 @@
 #
 
 import sys, zipfile, xml.dom.minidom
-from LiuXin.file_formats.odf.namespaces import nsdict
-from LiuXin.file_formats.odf.elementtypes import *
+from LiuXin_alpha.file_formats.odf.namespaces import nsdict
+from LiuXin_alpha.file_formats.odf.elementtypes import *
 
 IGNORED_TAGS = [
     "draw:a" "draw:g",

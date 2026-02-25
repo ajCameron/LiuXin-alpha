@@ -12,10 +12,10 @@
 #########################################################################
 import os, re
 
-from LiuXin.file_formats.rtf2xml import copy, check_brackets
-from LiuXin.utils.ptempfiles import better_mktemp
+from LiuXin_alpha.file_formats.rtf2xml import copy, check_brackets
+from LiuXin_alpha.utils.ptempfiles import better_mktemp
 
-from LiuXin.file_formats.rtf2xml import open_for_read, open_for_write
+from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 
 class ProcessTokens:

@@ -5,9 +5,9 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 from lxml import etree
 
-from LiuXin.file_formats.oeb.polish.container import OPF_NAMESPACES
+from LiuXin_alpha.file_formats.oeb.polish.container import OPF_NAMESPACES
 
-from LiuXin.utils.localization import canonicalize_lang
+from LiuXin_alpha.utils.localization import canonicalize_lang
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"

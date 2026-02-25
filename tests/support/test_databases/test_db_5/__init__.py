@@ -7,10 +7,10 @@ from itertools import cycle
 
 from clint.textui import puts, colored
 
-from LiuXin.paths import LiuXin_data_folder
+from LiuXin_alpha.paths import LiuXin_data_folder
 
-from LiuXin.databases.database import Database
-from LiuXin.databases.row import Row
+from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.databases.row import Row
 
 from LiuXin_tests.test_databases import file_load_test_database_backup
 from LiuXin_tests.test_databases import TestDatabaseBuilder

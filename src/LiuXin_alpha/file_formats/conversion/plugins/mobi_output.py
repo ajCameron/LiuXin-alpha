@@ -3,12 +3,12 @@
 
 from __future__ import with_statement
 
-from LiuXin.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -22,7 +22,7 @@ def remove_html_cover(oeb, log):
     :param log:
     :return:
     """
-    from LiuXin.file_formats.oeb.base import OEB_DOCS
+    from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS
 
     if not oeb.metadata.cover or "cover" not in oeb.guide:
         return
@@ -45,7 +45,7 @@ def remove_html_cover(oeb, log):
 
 def extract_mobi(output_path, opts):
     if opts.extract_to is not None:
-        from LiuXin.file_formats.mobi.debug.main import inspect_mobi
+        from LiuXin_alpha.file_formats.mobi.debug.main import inspect_mobi
 
         ddir = opts.extract_to
         inspect_mobi(output_path, ddir=ddir)
@@ -168,7 +168,7 @@ class MOBIOutput(OutputFormatPlugin):
     def check_for_masthead(self):
         found = "masthead" in self.oeb.guide
         if not found:
-            from LiuXin.file_formats import generate_masthead
+            from LiuXin_alpha.file_formats import generate_masthead
 
             self.oeb.log.debug("No masthead found in manifest, generating default mastheadImage...")
             raw = generate_masthead(six_unicode(self.oeb.metadata["title"][0]))
@@ -179,7 +179,7 @@ class MOBIOutput(OutputFormatPlugin):
             self.oeb.log.debug("Using mastheadImage supplied in manifest...")
 
     def periodicalize_toc(self):
-        from LiuXin.file_formats.oeb.base import TOC
+        from LiuXin_alpha.file_formats.oeb.base import TOC
 
         toc = self.oeb.toc
         if not toc or len(self.oeb.spine) < 3:
@@ -250,7 +250,7 @@ class MOBIOutput(OutputFormatPlugin):
         :param log:
         :return:
         """
-        from LiuXin.file_formats.mobi.writer2.resources import Resources
+        from LiuXin_alpha.file_formats.mobi.writer2.resources import Resources
 
         self.log, self.opts, self.oeb = log, opts, oeb_book
 
@@ -265,7 +265,7 @@ class MOBIOutput(OutputFormatPlugin):
 
         if create_kf8:
             # Split on pagebreaks so that the resulting KF8 is faster to load
-            from LiuXin.file_formats.oeb.transforms.split import Split
+            from LiuXin_alpha.file_formats.oeb.transforms.split import Split
 
             Split()(self.oeb, self.opts)
 
@@ -279,18 +279,18 @@ class MOBIOutput(OutputFormatPlugin):
         self.write_mobi(input_plugin, output_path, kf8, resources)
 
     def create_kf8(self, resources, for_joint=False):
-        from LiuXin.file_formats.mobi.writer8.main import create_kf8_book
+        from LiuXin_alpha.file_formats.mobi.writer8.main import create_kf8_book
 
         return create_kf8_book(self.oeb, self.opts, resources, for_joint=for_joint)
 
     def write_mobi(self, input_plugin, output_path, kf8, resources):
 
-        from LiuXin.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.customize.ui import plugin_for_input_format
 
-        from LiuXin.file_formats.oeb.transforms.htmltoc import HTMLTOCAdder
-        from LiuXin.file_formats.mobi.mobiml import MobiMLizer
-        from LiuXin.file_formats.oeb.transforms.manglecase import CaseMangler
-        from LiuXin.file_formats.oeb.transforms.rasterize import (
+        from LiuXin_alpha.file_formats.oeb.transforms.htmltoc import HTMLTOCAdder
+        from LiuXin_alpha.file_formats.mobi.mobiml import MobiMLizer
+        from LiuXin_alpha.file_formats.oeb.transforms.manglecase import CaseMangler
+        from LiuXin_alpha.file_formats.oeb.transforms.rasterize import (
             SVGRasterizer,
             Unavailable,
         )
@@ -317,7 +317,7 @@ class MOBIOutput(OutputFormatPlugin):
         mobimlizer = MobiMLizer(ignore_tables=opts.linearize_tables)
         mobimlizer(oeb, opts)
         write_page_breaks_after_item = input_plugin is not plugin_for_input_format("cbz")
-        from LiuXin.file_formats.mobi.writer2.main import MobiWriter
+        from LiuXin_alpha.file_formats.mobi.writer2.main import MobiWriter
 
         writer = MobiWriter(
             opts,
@@ -329,14 +329,14 @@ class MOBIOutput(OutputFormatPlugin):
         extract_mobi(output_path, opts)
 
     def specialize_css_for_output(self, log, opts, item, stylizer):
-        from LiuXin.file_formats.mobi.writer8.cleanup import CSSCleanup
+        from LiuXin_alpha.file_formats.mobi.writer8.cleanup import CSSCleanup
 
         CSSCleanup(log, opts)(item, stylizer)
 
     def workaround_fire_bugs(self, jacket):
         # The idiotic Fire crashes when trying to render the table used to
         # layout the jacket
-        from LiuXin.file_formats.oeb.base import XHTML
+        from LiuXin_alpha.file_formats.oeb.base import XHTML
 
         for table in jacket.data.xpath('//*[local-name()="table"]'):
             table.tag = XHTML("div")
@@ -409,8 +409,8 @@ class AZW3Output(OutputFormatPlugin):
     }
 
     def convert(self, oeb, output_path, input_plugin, opts, log):
-        from LiuXin.file_formats.mobi.writer2.resources import Resources
-        from LiuXin.file_formats.mobi.writer8.main import create_kf8_book
+        from LiuXin_alpha.file_formats.mobi.writer2.resources import Resources
+        from LiuXin_alpha.file_formats.mobi.writer8.main import create_kf8_book
 
         self.oeb, self.opts, self.log = oeb, opts, log
         opts.mobi_periodical = self.is_periodical
@@ -427,7 +427,7 @@ class AZW3Output(OutputFormatPlugin):
             remove_html_cover(self.oeb, self.log)
 
             # Split on pagebreaks so that the resulting KF8 is faster to load
-            from LiuXin.file_formats.oeb.transforms.split import Split
+            from LiuXin_alpha.file_formats.oeb.transforms.split import Split
 
             Split()(self.oeb, self.opts)
 
@@ -437,6 +437,6 @@ class AZW3Output(OutputFormatPlugin):
         extract_mobi(output_path, opts)
 
     def specialize_css_for_output(self, log, opts, item, stylizer):
-        from LiuXin.file_formats.mobi.writer8.cleanup import CSSCleanup
+        from LiuXin_alpha.file_formats.mobi.writer8.cleanup import CSSCleanup
 
         CSSCleanup(log, opts)(item, stylizer)

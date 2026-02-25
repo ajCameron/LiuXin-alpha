@@ -3,9 +3,9 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin.utils.localization import trans as _
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -34,6 +34,6 @@ class DOCXInput(InputFormatPlugin):
     recommendations = {("page_breaks_before", "/", OptionRecommendation.MED)}
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        from LiuXin.file_formats.docx.to_html import Convert
+        from LiuXin_alpha.file_formats.docx.to_html import Convert
 
         return Convert(stream, detect_cover=not options.docx_no_cover, log=log)()

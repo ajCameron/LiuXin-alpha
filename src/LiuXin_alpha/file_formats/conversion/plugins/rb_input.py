@@ -2,7 +2,7 @@
 
 import os
 
-from LiuXin.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -17,7 +17,7 @@ class RBInput(InputFormatPlugin):
     file_types = {"rb"}
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        from LiuXin.file_formats.rb.reader import Reader
+        from LiuXin_alpha.file_formats.rb.reader import Reader
 
         reader = Reader(stream, log, options.input_encoding)
         opf = reader.extract_content(os.getcwdu())
