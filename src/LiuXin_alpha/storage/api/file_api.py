@@ -198,7 +198,7 @@ class SingleFileAPI(FileOpenerTypeMixin, abc.ABC):
     @abc.abstractmethod
     def as_string(self) -> str:
         """
-        Return the file payload as text.
+        Return the file payload as a string.
         """
 
     @abc.abstractmethod

@@ -6,8 +6,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  tests:
-    name: Pytest
+  smoke:
+    if: github.event_name == 'push'
+    name: Smoke Tests (push)
     runs-on: ubuntu-latest
 
     steps:
@@ -25,7 +26,40 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ".[test]"
 
-      - name: Run tests
+      - name: Run smoke tests
+        env:
+          PYTHONPATH: src
+        shell: bash
+        run: |
+          mapfile -d '' SMOKE_FILES < <(find tests -type f -name '*smoke*.py' -print0 | sort -z)
+          if (( ${#SMOKE_FILES[@]} == 0 )); then
+            echo "No smoke tests found (expected at least one *smoke*.py file)."
+            exit 1
+          fi
+          echo "Running ${#SMOKE_FILES[@]} smoke test files"
+          pytest -q --maxfail=1 "${SMOKE_FILES[@]}"
+
+  full:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: Full Test Suite (PR)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install from pyproject.toml
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]"
+
+      - name: Run full test suite
         env:
           PYTHONPATH: src
         run: pytest -q tests

@@ -1,3 +1,8 @@
+
+"""
+API (ABC) for a generic location object - representing a location inside a store.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +28,8 @@ FileDescriptorOrPath: TypeAlias = int | str | bytes | PathLike[str] | PathLike[b
 class StoreLocationMixinAPI(ABC):
     """
     ABC mixin for a Path-like object backed by a "store" (local pack, S3, HTTP, etc.).
+
+    An API with extra steps, so an ABC.
 
     Intended usage:
         class MyStorePath(StorePathMixin, pathlib.PurePosixPath): ...
@@ -146,6 +153,12 @@ class StoreLocationMixinAPI(ABC):
         return tuple(out)
 
     def joinpath(self, *other: StrOrBytesPath) -> Self:
+        """
+        Join on the given path to the current location.
+
+        :param other:
+        :return:
+        """
         tokens: list[str] = list(self._tokens)
         for o in other:
             s = os.fspath(o).decode() if isinstance(o, (bytes, bytearray)) else str(os.fspath(o))
