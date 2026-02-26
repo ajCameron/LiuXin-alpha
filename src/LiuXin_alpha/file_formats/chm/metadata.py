@@ -1,24 +1,19 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import with_statement
+from __future__ import annotations
 
-"""
-CHM document support.
-"""
+"""CHM metadata extraction support."""
 
 import codecs
+import io
 import re
 
-from LiuXin_alpha.metadata import calibreMetaInformation
-from LiuXin_alpha.metadata.ebook_metadata_tools import string_to_authors
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
-
-from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.metadata.utils import calibreMetaInformation, string_to_authors
 from LiuXin_alpha.utils.calibre import force_unicode
-from LiuXin_alpha.utils.calibre_chardet import xml_to_unicode
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 
 __license__ = "GPL v3"
@@ -30,39 +25,35 @@ def _clean(s):
     return s.replace("\u00a0", " ")
 
 
-def _detag(tag):
-    tag_str = ""
-    if tag is None:
-        return tag_str
-    for elem in tag:
-        if hasattr(elem, "contents"):
-            tag_str += _detag(elem)
-        else:
-            tag_str += _clean(elem)
-    return tag_str
+def _text_content(elem):
+    return "".join(elem.itertext()).strip() if elem is not None else ""
 
 
 def _metadata_from_table(soup, searchfor):
-    td = soup.find("td", text=re.compile(searchfor, flags=re.I))
-    if td is None:
-        return None
-    td = td.parent
-    # there appears to be multiple ways of structuring the metadata
-    # on the home page. cue some nasty special-case hacks...
-    if re.match(r"^\s*" + searchfor + r"\s*$", td.renderContents(None), flags=re.I):
-        meta = _detag(td.findNextSibling("td"))
-        return re.sub("^:", "", meta).strip()
-    else:
-        meta = _detag(td)
-        return re.sub(r"^[^:]+:", "", meta).strip()
+    for td in soup.xpath("//td"):
+        td_text = _clean(_text_content(td))
+        if not re.search(searchfor, td_text, flags=re.I):
+            continue
+
+        row = td.getparent()
+        if row is not None:
+            tds = row.xpath("./td")
+            if len(tds) >= 2:
+                label = _clean(_text_content(tds[0]))
+                value = _clean(_text_content(tds[1]))
+                if re.match(r"^\s*" + searchfor + r"\s*$", label, flags=re.I):
+                    return re.sub(r"^:", "", value).strip()
+
+        return re.sub(r"^[^:]+:", "", td_text).strip()
+    return None
 
 
 def _metadata_from_span(soup, searchfor):
-    span = soup.find("span", {"class": re.compile(searchfor, flags=re.I)})
-    if span is None:
-        return None
-    # this metadata might need some cleaning up still :/
-    return _detag(span.renderContents(None).strip())
+    for span in soup.xpath("//span[@class]"):
+        klass = span.attrib.get("class", "")
+        if re.search(searchfor, klass, flags=re.I):
+            return _clean(_text_content(span))
+    return None
 
 
 def _get_authors(soup):
@@ -85,12 +76,12 @@ def _get_comments(soup):
     date = _metadata_from_span(soup, "cwdate") or _metadata_from_table(soup, "pub date")
     pages = _metadata_from_span(soup, "pages") or _metadata_from_table(soup, "pages")
     try:
-        # date span can have copyright symbols in it...
+        if date is None or pages is None:
+            return None
         date = date.replace("\u00a9", "").strip()
-        # and pages often comes as '(\d+ pages)'
         pages = re.search(r"\d+", pages).group(0)
-        return "Published %s, %s pages." % (date, pages)
-    except:
+        return f"Published {date}, {pages} pages."
+    except Exception:
         pass
     return None
 
@@ -98,88 +89,80 @@ def _get_comments(soup):
 def _get_cover(soup, rdr):
     ans = None
     try:
-        ans = soup.find("img", alt=re.compile("cover", flags=re.I))["src"]
-    except TypeError:
-        # Todo: Implement this algorithm (which is kinda genius - in it's own twisted way) for docx cover detection
-        # And take account of the possibility that banner adds will screw with it royally
-        # meeehh, no handy alt-tag goodness, try some hackery
-        # the basic idea behind this is that in general, the cover image
-        # has a height:width ratio of ~1.25, whereas most of the nav
-        # buttons are decidedly less than that.
-        # what we do in this is work out that ratio, take 1.25 off it and
-        # save the absolute value when we sort by this value, the smallest
-        # one is most likely to be the cover image, hopefully.
-        r = {}
-        for img in soup("img"):
+        for img in soup.xpath("//img[@alt][@src]"):
+            if re.search(r"cover", img.attrib.get("alt", ""), flags=re.I):
+                ans = img.attrib.get("src")
+                break
+    except Exception:
+        ans = None
+    if ans is None:
+        ratios = {}
+        for img in soup.xpath("//img[@src]"):
             try:
-                r[
-                    abs(
-                        float(re.search(r"[0-9.]+", img["height"]).group())
-                        / float(re.search(r"[0-9.]+", img["width"]).group())
-                        - 1.25
-                    )
-                ] = img["src"]
-            except KeyError:
-                # interestingly, occasionally the only image without height
-                # or width attrs is the cover...
-                r[0] = img["src"]
-            except:
-                # Probably invalid width, height aattributes, ignore
+                ratio = abs(
+                    float(re.search(r"[0-9.]+", img.attrib.get("height", "")).group())
+                    / float(re.search(r"[0-9.]+", img.attrib.get("width", "")).group())
+                    - 1.25
+                )
+                ratios[ratio] = img.attrib.get("src")
+            except Exception:
+                if img.attrib.get("src"):
+                    ratios.setdefault(0, img.attrib.get("src"))
                 continue
-        l = r.keys()
-        l.sort()
-        if l:
-            ans = r[l[0]]
-    # this link comes from the internal html, which is in a subdir
+        if ratios:
+            ans = ratios[sorted(ratios.keys())[0]]
+
     if ans is not None:
         try:
             ans = rdr.GetFile(ans)
-        except:
+        except Exception:
             ans = rdr.root + "/" + ans
             try:
                 ans = rdr.GetFile(ans)
-            except:
+            except Exception:
                 ans = None
-        if ans is not None:
-            from PIL import Image
-            from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
-            buf = six_cStringIO()
+        if ans is not None:
             try:
-                Image.open(six_cStringIO(ans)).convert("RGB").save(buf, "JPEG")
+                from PIL import Image
+
+                buf = io.BytesIO()
+                Image.open(io.BytesIO(ans)).convert("RGB").save(buf, "JPEG")
                 ans = buf.getvalue()
-            except:
+            except Exception:
                 ans = None
+
     return ans
 
 
 def get_metadata_from_reader(rdr, calibre=False):
-    """
-    Get metadata from a CHM file reader instance.
-    :param rdr:
-    :param calibre: If True will return the resulting metadata as a calibreMetadata object.
-    :return:
-    """
-    raw = rdr.GetFile(rdr.home)
-    home = BeautifulSoup(xml_to_unicode(raw, strip_encoding_pats=True, resolve_entities=True)[0])
+    """Get metadata from a CHM reader instance."""
+    try:
+        raw = rdr.get_home()
+    except Exception:
+        raw = rdr.GetFile(rdr.home)
 
-    title = rdr.title
+    from lxml import html
+
+    home_raw = xml_to_unicode(raw, strip_encoding_pats=True, resolve_entities=True)[0]
+    home = html.fromstring(home_raw)
+
+    title = getattr(rdr, "title", _("Unknown"))
 
     try:
         x = rdr.GetEncoding()
+        if isinstance(x, bytes):
+            x = x.decode("ascii")
         codecs.lookup(x)
         enc = x
     except Exception as e:
-        wrn_str = "Attempt to read encoding failed.\n"
-        default_log.log_exception(message=wrn_str, exception=e)
+        default_log.log_exception(message="Attempt to read CHM encoding failed.", exception=e, level="INFO")
         enc = "cp1252"
 
     title = force_unicode(title, enc)
     authors = _get_authors(home)
-    if not calibre:
-        mi = MetaInformation(title, authors)
-    else:
-        mi = calibreMetaInformation(title, authors)
+    mi = calibreMetaInformation(title, authors)
+
     publisher = _get_publisher(home)
     if publisher:
         mi.publisher = publisher
@@ -201,6 +184,7 @@ def get_metadata(stream):
     with TemporaryFile("_chm_metadata.chm") as fname:
         with open(fname, "wb") as f:
             f.write(stream.read())
+
         from LiuXin_alpha.file_formats.chm.reader import CHMReader
 
         rdr = CHMReader(fname, default_log)

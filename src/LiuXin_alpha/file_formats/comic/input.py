@@ -1,26 +1,19 @@
-from __future__ import with_statement
+"""Comic archive extraction and page raster processing helpers."""
 
-"""
-Based on ideas from comiclrf created by FangornUK.
-"""
+from __future__ import annotations
 
 import os
+import re
+import shutil
 import traceback
-import time
-from queue import Empty
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from types import SimpleNamespace
 
-from past.builtins import unicode
-
-from LiuXin_alpha.constants import filesystem_encoding
-
-from LiuXin_alpha.utils.calibre_utils.calibre_init_functions import extract
-from LiuXin_alpha.utils.calibre import walk
 from LiuXin_alpha import prints
-from LiuXin_alpha.utils.icu import numeric_sort_key
-from LiuXin_alpha.utils.ipc.job import ParallelJob
-from LiuXin_alpha.utils.ipc.server import Server
+from LiuXin_alpha.utils.calibre import walk
+from LiuXin_alpha.utils.decompression.archives import extract
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 
 __license__ = "GPL v3"
@@ -32,16 +25,90 @@ __docformat__ = "restructuredtext en"
 MAX_SCREEN_SIZE = 3000
 
 
-def extract_comic(path_to_comic_file):
-    """
-    Un-archive the comic file.
-    :param path_to_comic_file: The ... path to the comic file
-    """
-    tdir = PersistentTemporaryDirectory(suffix="_comic_extract")
+def _pillow_modules():
+    try:
+        from PIL import Image, ImageChops, ImageFilter, ImageOps
 
-    if not isinstance(tdir, unicode):
-        # Needed in case the zip file has wrongly encoded unicode file/dir names
-        tdir = tdir.decode(filesystem_encoding)
+        return Image, ImageChops, ImageFilter, ImageOps
+    except Exception:
+        return None
+
+
+def _safe_bool(opts, name: str, default: bool = False) -> bool:
+    return bool(getattr(opts, name, default))
+
+
+def _safe_int(value, default: int) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return int(default)
+
+
+def _numeric_sort_key(value: str):
+    return [int(chunk) if chunk.isdigit() else chunk.lower() for chunk in re.split(r"(\d+)", str(value))]
+
+
+def _parse_screen_size(opts, fallback_width: int, fallback_height: int) -> tuple[int, int]:
+    profile = getattr(opts, "output_profile", None)
+    if profile is not None and getattr(profile, "comic_screen_size", None):
+        width, height = profile.comic_screen_size
+    else:
+        width, height = fallback_width, fallback_height
+
+    custom = getattr(opts, "comic_image_size", None)
+    if custom:
+        try:
+            width, height = map(int, [x.strip() for x in str(custom).split("x")])
+        except Exception as e:
+            default_log.log_exception(
+                message="Unable to parse comic_image_size; falling back to output profile size",
+                exception=e,
+                level="INFO",
+            )
+
+    return _safe_int(width, fallback_width), _safe_int(height, fallback_height)
+
+
+def _trim_uniform_border(image, image_chops_module):
+    # Simple, robust trim: compare against a flat image made from the corner pixel.
+    try:
+        bg = image.copy()
+        corner = image.getpixel((0, 0))
+        bg.paste(corner, [0, 0, image.size[0], image.size[1]])
+        diff = image_chops_module.difference(image, bg)
+        box = diff.getbbox()
+        if box:
+            return image.crop(box)
+    except Exception:
+        pass
+    return image
+
+
+def _fit_size(width: int, height: int, max_width: int, max_height: int) -> tuple[int, int]:
+    if width <= 0 or height <= 0:
+        return max(1, max_width), max(1, max_height)
+    ratio = min(float(max_width) / float(width), float(max_height) / float(height))
+    return max(1, int(width * ratio)), max(1, int(height * ratio))
+
+
+def _resample_lanczos(Image):
+    resampling = getattr(Image, "Resampling", None)
+    if resampling is not None and hasattr(resampling, "LANCZOS"):
+        return resampling.LANCZOS
+    return getattr(Image, "LANCZOS", 1)
+
+
+def _adaptive_palette(Image):
+    palette = getattr(Image, "Palette", None)
+    if palette is not None and hasattr(palette, "ADAPTIVE"):
+        return palette.ADAPTIVE
+    return getattr(Image, "ADAPTIVE", 0)
+
+
+def extract_comic(path_to_comic_file):
+    """Unarchive a comic file to a persistent temp folder."""
+    tdir = PersistentTemporaryDirectory(suffix="_comic_extract")
 
     extract(path_to_comic_file, tdir)
     for x in walk(tdir):
@@ -53,11 +120,7 @@ def extract_comic(path_to_comic_file):
 
 
 def find_pages(dir, sort_on_mtime=False, verbose=False):
-    """
-    Find valid comic pages in a previously un-archived comic.
-    :param dir: Directory in which extracted comic lives
-    :param sort_on_mtime: If True sort pages based on their last modified time. Otherwise, sort alphabetically.
-    """
+    """Find image pages in an extracted comic folder."""
     extensions = {"jpeg", "jpg", "gif", "png", "webp"}
     pages = []
     for datum in os.walk(dir):
@@ -65,34 +128,34 @@ def find_pages(dir, sort_on_mtime=False, verbose=False):
             path = os.path.abspath(os.path.join(datum[0], name))
             if "__MACOSX" in path:
                 continue
-            for ext in extensions:
-                if path.lower().endswith("." + ext):
-                    pages.append(path)
-                    break
+            if path.rpartition(".")[-1].lower() in extensions:
+                pages.append(path)
+
     sep_counts = {x.replace(os.sep, "/").count("/") for x in pages}
-    # Use the full path to sort unless the files are in folders of different
-    # levels, in which case simply use the filenames.
+    # Use the full path to sort unless files are in folder trees of varying depth.
     basename = os.path.basename if len(sep_counts) > 1 else lambda x: x
     if sort_on_mtime:
         key = lambda x: os.stat(x).st_mtime
     else:
-        key = lambda x: numeric_sort_key(basename(x))
+        key = lambda x: _numeric_sort_key(basename(x))
 
     pages.sort(key=key)
     if verbose:
         prints("Found comic pages...")
-        prints("\t" + "\n\t".join([os.path.relpath(p, dir) for p in pages]))
+        if pages:
+            try:
+                base = os.path.commonpath(pages)
+            except Exception:
+                base = dir
+            prints("\t" + "\n\t".join([os.path.relpath(p, base) for p in pages]))
     return pages
 
 
 class PageProcessor(list):  # {{{
-    """
-    Contains the actual image rendering logic. See :method:`render` and
-    :method:`process_pages`.
-    """
+    """Render and transform a single source page into one or more output pages."""
 
     def __init__(self, path_to_page, dest, opts, num):
-        list.__init__(self)
+        super().__init__()
         self.path_to_page = path_to_page
         self.opts = opts
         self.num = num
@@ -100,124 +163,135 @@ class PageProcessor(list):  # {{{
         self.rotate = False
         self.render()
 
-    def render(self):
-        from LiuXin_alpha.utils.wrappers.magick import Image
+    def _render_passthrough(self):
+        output_ext = str(getattr(self.opts, "output_format", "png")).lower()
+        output_ext = "jpg" if output_ext in {"jpg", "jpeg"} else output_ext
+        if output_ext not in {"png", "jpg", "gif", "webp"}:
+            output_ext = "png"
 
-        img = Image()
-        img.open(self.path_to_page)
+        if self.num == 0:
+            thumb_path = os.path.join(self.dest, f"thumbnail.{output_ext}")
+            try:
+                shutil.copyfile(self.path_to_page, thumb_path)
+            except Exception:
+                pass
+
+        dest = os.path.join(self.dest, f"{self.num}_0.{output_ext}")
+        shutil.copyfile(self.path_to_page, dest)
+        self.append(dest)
+
+    def render(self):
+        mods = _pillow_modules()
+        if mods is None:
+            self._render_passthrough()
+            return
+
+        Image, _ImageChops, _ImageFilter, _ImageOps = mods
+
+        img = Image.open(self.path_to_page)
+        img.load()
         width, height = img.size
         if self.num == 0:  # First image so create a thumbnail from it
-            thumb = img.clone
-            thumb.thumbnail(60, 80)
-            thumb.save(os.path.join(self.dest, "thumbnail.png"))
+            thumb = img.copy()
+            thumb.thumbnail((60, 80))
+            thumb.save(os.path.join(self.dest, "thumbnail.png"), format="PNG")
+
         self.pages = [img]
         if width > height:
-            if self.opts.landscape:
+            if _safe_bool(self.opts, "landscape"):
                 self.rotate = True
             else:
-                split1, split2 = img.clone, img.clone
                 half = int(width / 2)
-                split1.crop(half - 1, height, 0, 0)
-                split2.crop(half - 1, height, half, 0)
-                self.pages = [split2, split1] if self.opts.right2left else [split1, split2]
+                split1 = img.crop((0, 0, max(1, half - 1), height))
+                split2 = img.crop((half, 0, width, height))
+                self.pages = [split2, split1] if _safe_bool(self.opts, "right2left") else [split1, split2]
+
         self.process_pages()
 
     def process_pages(self):
-        from LiuXin_alpha.utils.wrappers.magick import PixelWand
+        mods = _pillow_modules()
+        if mods is None:
+            self._render_passthrough()
+            return
 
-        for i, wand in enumerate(self.pages):
-            pw = PixelWand()
-            pw.color = "#ffffff"
+        Image, ImageChops, ImageFilter, ImageOps = mods
+        lanczos = _resample_lanczos(Image)
+        adaptive = _adaptive_palette(Image)
 
-            wand.set_border_color(pw)
+        for i, image in enumerate(self.pages):
+            wand = image.copy()
             if self.rotate:
-                wand.rotate(pw, -90)
+                wand = wand.rotate(-90, expand=True, fillcolor="#ffffff")
 
-            if not self.opts.disable_trim:
-                wand.trim(25 * 65535 / 100)
+            if not _safe_bool(self.opts, "disable_trim"):
+                wand = _trim_uniform_border(wand, ImageChops)
 
-            wand.set_page(0, 0, 0, 0)  # Clear page after trim, like a "+repage"
-
-            # Do the Photoshop "Auto Levels" equivalent
-            if not self.opts.dont_normalize:
-                wand.normalize()
+            # Approximate ImageMagick normalize with Pillow autocontrast.
+            if not _safe_bool(self.opts, "dont_normalize"):
+                wand = ImageOps.autocontrast(wand)
 
             sizex, sizey = wand.size
+            scrwidth, scrheight = _parse_screen_size(self.opts, sizex, sizey)
 
-            SCRWIDTH, SCRHEIGHT = self.opts.output_profile.comic_screen_size
-
-            try:
-                if self.opts.comic_image_size:
-                    SCRWIDTH, SCRHEIGHT = map(int, [x.strip() for x in self.opts.comic_image_size.split("x")])
-            except Exception as e:
-                info_str = "Wasn't able to properly transform an image while processing a comic.\n"
-                default_log.log_exception(message=info_str, exception=e, level="INFO")
-
-            if self.opts.keep_aspect_ratio:
-                # Preserve the aspect ratio by adding border
-                aspect = float(sizex) / float(sizey)
-                if aspect <= (float(SCRWIDTH) / float(SCRHEIGHT)):
-                    newsizey = SCRHEIGHT
-                    newsizex = int(newsizey * aspect)
-                    deltax = (SCRWIDTH - newsizex) / 2
-                    deltay = 0
-                else:
-                    newsizex = SCRWIDTH
-                    newsizey = int(newsizex / aspect)
-                    deltax = 0
-                    deltay = (SCRHEIGHT - newsizey) / 2
+            if _safe_bool(self.opts, "keep_aspect_ratio"):
+                newsizex, newsizey = _fit_size(sizex, sizey, scrwidth, scrheight)
                 if newsizex < MAX_SCREEN_SIZE and newsizey < MAX_SCREEN_SIZE:
-                    # Too large and resizing fails, so better
-                    # to leave it as original size
-                    wand.size = (newsizex, newsizey)
-                    wand.set_border_color(pw)
-                    wand.add_border(pw, deltax, deltay)
-            elif self.opts.wide:
-                # Keep aspect and Use device height as scaled image width so landscape mode is clean
-                aspect = float(sizex) / float(sizey)
-                screen_aspect = float(SCRWIDTH) / float(SCRHEIGHT)
-                # Get dimensions of the landscape mode screen
-                # Add 25px back to height for the battery bar.
-                wscreenx = SCRHEIGHT + 25
-                wscreeny = int(wscreenx / screen_aspect)
-                if aspect <= screen_aspect:
-                    newsizey = wscreeny
-                    newsizex = int(newsizey * aspect)
-                    deltax = (wscreenx - newsizex) / 2
-                    deltay = 0
-                else:
-                    newsizex = wscreenx
-                    newsizey = int(newsizex / aspect)
-                    deltax = 0
-                    deltay = (wscreeny - newsizey) / 2
+                    resized = wand.resize((newsizex, newsizey), resample=lanczos)
+                    base_mode = "L" if resized.mode == "L" else "RGB"
+                    canvas_color = 255 if base_mode == "L" else (255, 255, 255)
+                    canvas = Image.new(base_mode, (scrwidth, scrheight), canvas_color)
+                    if resized.mode != base_mode:
+                        resized = resized.convert(base_mode)
+                    deltax = int((scrwidth - newsizex) / 2)
+                    deltay = int((scrheight - newsizey) / 2)
+                    canvas.paste(resized, (deltax, deltay))
+                    wand = canvas
+
+            elif _safe_bool(self.opts, "wide"):
+                screen_aspect = float(scrwidth) / float(max(1, scrheight))
+                wscreenx = scrheight + 25
+                wscreeny = int(float(wscreenx) / screen_aspect)
+                newsizex, newsizey = _fit_size(sizex, sizey, wscreenx, wscreeny)
                 if newsizex < MAX_SCREEN_SIZE and newsizey < MAX_SCREEN_SIZE:
-                    # Too large and resizing fails, so better
-                    # to leave it as original size
-                    wand.size = (newsizex, newsizey)
-                    wand.set_border_color(pw)
-                    wand.add_border(pw, deltax, deltay)
+                    resized = wand.resize((newsizex, newsizey), resample=lanczos)
+                    base_mode = "L" if resized.mode == "L" else "RGB"
+                    canvas_color = 255 if base_mode == "L" else (255, 255, 255)
+                    canvas = Image.new(base_mode, (wscreenx, wscreeny), canvas_color)
+                    if resized.mode != base_mode:
+                        resized = resized.convert(base_mode)
+                    deltax = int((wscreenx - newsizex) / 2)
+                    deltay = int((wscreeny - newsizey) / 2)
+                    canvas.paste(resized, (deltax, deltay))
+                    wand = canvas
+
             else:
-                if SCRWIDTH < MAX_SCREEN_SIZE and SCRHEIGHT < MAX_SCREEN_SIZE:
-                    wand.size = (SCRWIDTH, SCRHEIGHT)
+                if scrwidth < MAX_SCREEN_SIZE and scrheight < MAX_SCREEN_SIZE:
+                    wand = wand.resize((scrwidth, scrheight), resample=lanczos)
 
-            if not self.opts.dont_sharpen:
-                wand.sharpen(0.0, 1.0)
+            if not _safe_bool(self.opts, "dont_sharpen"):
+                wand = wand.filter(ImageFilter.UnsharpMask(radius=2, percent=120, threshold=3))
 
-            if not self.opts.dont_grayscale:
-                wand.type = "GrayscaleType"
+            if not _safe_bool(self.opts, "dont_grayscale"):
+                wand = ImageOps.grayscale(wand)
 
-            if self.opts.despeckle:
-                wand.despeckle()
+            if _safe_bool(self.opts, "despeckle"):
+                wand = wand.filter(ImageFilter.MedianFilter(size=3))
 
-            wand.quantize(self.opts.colors)
-            dest = "%d_%d.%s" % (self.num, i, self.opts.output_format)
-            dest = os.path.join(self.dest, dest)
-            if dest.lower().endswith(".png"):
-                dest += "8"
-            wand.save(dest)
-            if dest.endswith("8"):
-                dest = dest[:-1]
-                os.rename(dest + "8", dest)
+            colors = _safe_int(getattr(self.opts, "colors", 256), 256)
+            if 0 < colors <= 256:
+                if wand.mode not in {"RGB", "RGBA", "L"}:
+                    wand = wand.convert("RGB")
+                wand = wand.convert("P", palette=adaptive, colors=colors)
+
+            output_ext = str(getattr(self.opts, "output_format", "png")).lower()
+            output_ext = "jpg" if output_ext in {"jpg", "jpeg"} else "png"
+            dest = os.path.join(self.dest, f"{self.num}_{i}.{output_ext}")
+            if output_ext == "jpg":
+                if wand.mode not in {"RGB", "L"}:
+                    wand = wand.convert("RGB")
+                wand.save(dest, format="JPEG", quality=90)
+            else:
+                wand.save(dest, format="PNG")
             self.append(dest)
 
 
@@ -225,15 +299,7 @@ class PageProcessor(list):  # {{{
 
 
 def render_pages(tasks, dest, opts, notification=lambda x, y: x):
-    """
-    Entry point for the job reader_server.
-
-    :param tasks:
-    :param dest:
-    :param opts:
-    :param notification:
-    :return:
-    """
+    """Render all tasks; used by process_pages()."""
     failures, pages = [], []
     for num, path in tasks:
         try:
@@ -242,8 +308,8 @@ def render_pages(tasks, dest, opts, notification=lambda x, y: x):
         except Exception as e:
             failures.append(path)
             msg = _("Failed %s") % path
-            default_log.log_exception(msg, e, level="DEBUG")
-            if opts.verbose:
+            default_log.log_exception(message=msg, exception=e, level="DEBUG")
+            if getattr(opts, "verbose", False):
                 msg += "\n" + traceback.format_exc()
         prints(msg)
         notification(0.5, msg)
@@ -253,50 +319,137 @@ def render_pages(tasks, dest, opts, notification=lambda x, y: x):
 
 class Progress:
     def __init__(self, total, update):
-        self.total = total
+        self.total = max(1, int(total))
         self.update = update
         self.done = 0
 
     def __call__(self, percent, msg=""):
         self.done += 1
-        # msg = msg%os.path.basename(job.args[0])
         self.update(float(self.done) / self.total, msg)
 
 
-def process_pages(pages, opts, update, tdir):
-    """
-    Render all identified comic pages.
-    """
-    progress = Progress(len(pages), update)
-    server = Server()
-    jobs = []
-    tasks = [(p, os.path.join(tdir, os.path.basename(p))) for p in pages]
-    tasks = server.split(pages)
-    for task in tasks:
-        jobs.append(ParallelJob("render_pages", "", progress, args=[task, tdir, opts]))
-        server.add_job(jobs[-1])
-    while True:
-        time.sleep(1)
-        running = False
-        for job in jobs:
-            while True:
-                try:
-                    x = job.notifications.get_nowait()
-                    progress(*x)
-                except Empty:
-                    break
-            job.update()
-            if not job.is_finished:
-                running = True
-        if not running:
-            break
-    server.close()
-    ans, failures = [], []
+def _opts_to_payload(opts):
+    profile = getattr(opts, "output_profile", None)
+    screen_size = getattr(profile, "comic_screen_size", None)
+    if screen_size is not None:
+        try:
+            screen_size = (int(screen_size[0]), int(screen_size[1]))
+        except Exception:
+            screen_size = None
 
-    for job in jobs:
-        if job.failed or job.result is None:
-            raise Exception(_("Failed to process comic: \n\n%s") % job.log_file.read())
-        pages, failures_ = job.result
-        ans += pages
-        failures += failures_
-    return ans, failures
+    return {
+        "landscape": _safe_bool(opts, "landscape"),
+        "right2left": _safe_bool(opts, "right2left"),
+        "disable_trim": _safe_bool(opts, "disable_trim"),
+        "dont_normalize": _safe_bool(opts, "dont_normalize"),
+        "comic_image_size": getattr(opts, "comic_image_size", None),
+        "keep_aspect_ratio": _safe_bool(opts, "keep_aspect_ratio"),
+        "wide": _safe_bool(opts, "wide"),
+        "dont_sharpen": _safe_bool(opts, "dont_sharpen"),
+        "dont_grayscale": _safe_bool(opts, "dont_grayscale"),
+        "despeckle": _safe_bool(opts, "despeckle"),
+        "colors": _safe_int(getattr(opts, "colors", 256), 256),
+        "output_format": str(getattr(opts, "output_format", "png")),
+        "verbose": _safe_bool(opts, "verbose"),
+        "comic_screen_size": screen_size,
+    }
+
+
+def _opts_from_payload(payload):
+    payload = dict(payload or {})
+    screen_size = payload.pop("comic_screen_size", None)
+    output_profile = None
+    if screen_size is not None:
+        output_profile = SimpleNamespace(comic_screen_size=tuple(screen_size))
+    return SimpleNamespace(output_profile=output_profile, **payload)
+
+
+def _render_pages_job(tasks, dest, opts_payload):
+    opts = _opts_from_payload(opts_payload)
+    return render_pages(tasks, dest, opts)
+
+
+def _task_chunks(tasks, size):
+    size = max(1, int(size))
+    return [tasks[i : i + size] for i in range(0, len(tasks), size)]
+
+
+def process_pages(pages, opts, update, tdir):
+    """Render all identified comic pages."""
+    progress = Progress(len(pages), update)
+    tasks = list(enumerate(pages))
+    if len(tasks) < 2:
+        return render_pages(tasks, tdir, opts, notification=progress)
+
+    backend = str(getattr(opts, "comic_job_backend", os.environ.get("LIUXIN_COMIC_JOB_BACKEND", "process"))).lower()
+    if backend in {"", "auto", "default"}:
+        backend = "process"
+
+    try:
+        workers = int(getattr(opts, "comic_job_workers", 0) or 0)
+    except Exception:
+        workers = 0
+    if workers <= 0:
+        workers = min(os.cpu_count() or 1, 4)
+    workers = max(1, min(workers, len(tasks)))
+
+    if backend == "serial" or workers <= 1:
+        return render_pages(tasks, tdir, opts, notification=progress)
+
+    try:
+        chunk_size = int(getattr(opts, "comic_job_chunk_size", 0) or 0)
+    except Exception:
+        chunk_size = 0
+    if chunk_size <= 0:
+        chunk_size = max(1, (len(tasks) + workers - 1) // workers)
+
+    chunks = _task_chunks(tasks, chunk_size)
+    payload = _opts_to_payload(opts)
+    timeout = _safe_int(getattr(opts, "comic_job_timeout", 300), 300)
+
+    from LiuXin_alpha.utils.ipc.simple_worker import WorkerError, fork_job
+
+    all_pages = {}
+    all_failures = {}
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(
+                fork_job,
+                "LiuXin_alpha.file_formats.comic.input",
+                "_render_pages_job",
+                args=(chunk, tdir, payload),
+                no_output=True,
+                timeout=timeout,
+                backend=backend,
+            ): idx
+            for idx, chunk in enumerate(chunks)
+        }
+
+        for fut in as_completed(futures):
+            idx = futures[fut]
+            chunk = chunks[idx]
+            try:
+                result = fut.result()["result"]
+            except WorkerError as err:
+                message = err.orig_tb or str(err)
+                raise Exception(_("Failed to process comic: \n\n%s") % message)
+            except Exception:
+                raise Exception(_("Failed to process comic: \n\n%s") % traceback.format_exc())
+
+            if not result or len(result) != 2:
+                raise Exception(_("Failed to process comic: worker returned invalid result"))
+
+            rendered_pages, failures = result
+            all_pages[idx] = list(rendered_pages or ())
+            all_failures[idx] = list(failures or ())
+
+            msg = _("Rendered %d pages") % len(chunk)
+            for _task in chunk:
+                progress(1.0, msg)
+
+    ordered_pages = []
+    ordered_failures = []
+    for idx in range(len(chunks)):
+        ordered_pages.extend(all_pages.get(idx, ()))
+        ordered_failures.extend(all_failures.get(idx, ()))
+    return ordered_pages, ordered_failures

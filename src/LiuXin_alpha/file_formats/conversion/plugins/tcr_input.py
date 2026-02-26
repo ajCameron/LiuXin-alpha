@@ -22,6 +22,9 @@ class TCRInput(InputFormatPlugin):
 
         log.info("Decompressing text...")
         raw_txt = decompress(stream)
+        if isinstance(raw_txt, bytes):
+            input_encoding = getattr(options, "input_encoding", None) or "utf-8"
+            raw_txt = raw_txt.decode(input_encoding, "replace")
 
         log.info("Converting text to OEB...")
         stream = six_cStringIO(raw_txt)
@@ -30,7 +33,7 @@ class TCRInput(InputFormatPlugin):
 
         txt_plugin = plugin_for_input_format("txt")
         for opt in txt_plugin.options:
-            if not hasattr(self.options, opt.option.name):
+            if not hasattr(options, opt.option.name):
                 setattr(options, opt.option.name, opt.recommended_value)
 
         stream.seek(0)

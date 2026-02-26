@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import annotations
 
 import codecs
 import os
@@ -156,7 +156,7 @@ class ComicInput(InputFormatPlugin):
         :param stream:
         :return:
         """
-        from LiuXin_alpha.utils.libunzip import extract as zipextract
+        from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
 
         tdir = PersistentTemporaryDirectory("_comic_collection")
         zipextract(stream, tdir)
@@ -226,17 +226,52 @@ class ComicInput(InputFormatPlugin):
     def get_images(self):
         return self._images
 
+    def _stream_to_path(self, stream, tdir, ext_hint):
+        stream_name = getattr(stream, "name", None)
+        if stream_name and os.path.exists(stream_name):
+            return os.path.abspath(stream_name)
+
+        input_name = os.path.join(tdir, f"input.{ext_hint}")
+        pos = None
+        if hasattr(stream, "tell"):
+            try:
+                pos = stream.tell()
+            except Exception:
+                pos = None
+        try:
+            if hasattr(stream, "seek"):
+                stream.seek(0)
+        except Exception:
+            pass
+
+        with open(input_name, "wb") as out:
+            out.write(stream.read())
+
+        if pos is not None:
+            try:
+                stream.seek(pos)
+            except Exception:
+                pass
+
+        return os.path.abspath(input_name)
+
     def convert(self, stream, options, file_ext, log, accelerators):
-        from LiuXin_alpha.metadata import calibreMetaInformation as MetaInformation
+        from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
-        from LiuXin_alpha.metadata.toc import TOC
+        from LiuXin_alpha.file_formats.toc import TOC
 
         self.opts, self.log = options, log
+        stream_name = getattr(stream, "name", f"comic_input.{file_ext}")
         if file_ext == "cbc":
             comics_ = self.get_comics_from_collection(stream)
         else:
-            comics_ = [["Comic", os.path.abspath(stream.name)]]
-        stream.close()
+            tdir = PersistentTemporaryDirectory("_comic_input")
+            stream_path = self._stream_to_path(stream, tdir, file_ext)
+            comics_ = [["Comic", stream_path]]
+        try:
+            stream.close()
+        except Exception:
+            pass
         comics = []
         for i, x in enumerate(comics_):
             title, fname = x
@@ -251,10 +286,10 @@ class ComicInput(InputFormatPlugin):
             comics.append((title, pages, wrappers))
 
         if not comics:
-            raise ValueError("No comic pages found in %s" % stream.name)
+            raise ValueError("No comic pages found in %s" % stream_name)
 
-        mi = MetaInformation(os.path.basename(stream.name).rpartition(".")[0], [_("Unknown")])
-        opf = OPFCreator(os.getcwdu(), mi)
+        mi = MetaInformation(os.path.basename(stream_name).rpartition(".")[0], [_("Unknown")])
+        opf = OPFCreator(os.getcwd(), mi)
         entries = []
 
         def href(local_x):

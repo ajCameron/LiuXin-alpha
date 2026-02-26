@@ -94,7 +94,7 @@ def explode(path, dest, question=lambda x: True):
             ):
                 return None
 
-    return fork_job("calibre.ebooks.mobi.tweak", "do_explode", args=(path, dest), no_output=True)["result"]
+    return fork_job("LiuXin_alpha.file_formats.mobi.tweak", "do_explode", args=(path, dest), no_output=True)["result"]
 
 
 def set_cover(oeb):
@@ -142,4 +142,4 @@ def rebuild(src_dir, dest_path):
     # For debugging, uncomment the following two lines
     # def fork_job(a, b, args=None, no_output=True):
     #     do_rebuild(*args)
-    fork_job("calibre.ebooks.mobi.tweak", "do_rebuild", args=(opf, dest_path), no_output=True)
+    fork_job("LiuXin_alpha.file_formats.mobi.tweak", "do_rebuild", args=(opf, dest_path), no_output=True)

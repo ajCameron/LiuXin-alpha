@@ -1,16 +1,11 @@
-"""
-CHM File decoding support
-"""
-# CHM (microsoft Compiled HtMl help) documents are encrypted, compressed collection of HTML with bundled resources and
-# images
-# Input thus functions by decypt/decompress followed by parsing them as you would HTML.
+"""CHM conversion plugin."""
+
+from __future__ import annotations
 
 import os
-
-from LiuXin_alpha.constants import filesystem_encoding
+from urllib.parse import unquote_to_bytes
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
-
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
@@ -19,7 +14,6 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>, and Alex Bramley <
 
 
 class CHMInput(InputFormatPlugin):
-
     name = "CHM Input"
     author = "Kovid Goyal and Alex Bramley"
     description = "Convert CHM files to OEB"
@@ -30,75 +24,86 @@ class CHMInput(InputFormatPlugin):
 
         log.debug("Opening CHM file")
         rdr = CHMReader(chm_path, log, input_encoding=self.opts.input_encoding)
-        log.debug("Extracting CHM to %s" % output_dir)
+        log.debug(f"Extracting CHM to {output_dir}")
         rdr.extract_content(output_dir, debug_dump=debug_dump)
         self._chm_reader = rdr
         return rdr.hhc_path
 
+    def _stream_to_path(self, stream, tdir):
+        stream_name = getattr(stream, "name", None)
+        if stream_name and os.path.exists(stream_name):
+            return stream_name
+
+        temp_input = os.path.join(tdir, "input.chm")
+        with open(temp_input, "wb") as out:
+            out.write(stream.read())
+        return temp_input
+
     def convert(self, stream, options, file_ext, log, accelerators):
-        """
-        Convert a chm file to an OEB file ready for output.
-        :param stream:
-        :param options:
-        :param file_ext:
-        :param log:
-        :param accelerators:
-        :return:
-        """
-        from LiuXin_alpha.file_formats.chm.metadata import get_metadata_from_reader
+        """Convert a CHM stream into an OEBBook."""
         from LiuXin_alpha.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.file_formats.chm.metadata import get_metadata_from_reader
+        from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
         self.opts = options
 
         log.debug("Processing CHM...")
         with TemporaryDirectory("_chm2oeb") as tdir:
-            if not isinstance(tdir, unicode):
-                tdir = tdir.decode(filesystem_encoding)
-            html_input = plugin_for_input_format("html")
-            for opt in html_input.options:
-                setattr(options, opt.option.name, opt.recommended_value)
-            no_images = False  # options.no_images
-            chm_name = stream.name
-            # chm_data = stream.read()
+            tdir = os.fspath(tdir)
 
-            # closing stream so CHM can be opened by external library
-            stream.close()
-            log.debug("tdir=%s" % tdir)
-            log.debug("stream.name=%s" % stream.name)
+            html_input = plugin_for_input_format("html")
+            if html_input is None:
+                raise RuntimeError("No input plugin registered for 'html'")
+            for opt in getattr(html_input, "options", ()):  # pragma: no branch
+                opt_obj = getattr(opt, "option", None)
+                opt_name = getattr(opt_obj, "name", None)
+                if opt_name and not hasattr(options, opt_name):
+                    setattr(options, opt_name, getattr(opt, "recommended_value", None))
+
+            chm_name = self._stream_to_path(stream, tdir)
+            try:
+                stream.close()
+            except Exception:
+                pass
+
             debug_dump = False
-            odi = options.debug_pipeline
+            odi = getattr(options, "debug_pipeline", None)
             if odi:
                 debug_dump = os.path.join(odi, "input")
-            mainname = self._chmtohtml(tdir, chm_name, no_images, log, debug_dump=debug_dump)
+
+            mainname = self._chmtohtml(tdir, chm_name, no_images=False, log=log, debug_dump=debug_dump)
             mainpath = os.path.join(tdir, mainname)
 
-            metadata = get_metadata_from_reader(self._chm_reader, calibre=True)
+            try:
+                metadata = get_metadata_from_reader(self._chm_reader, calibre=True)
+            except Exception:
+                log.exception("Failed to read CHM metadata, using filename fallback")
+                metadata = calibreMetaInformation(os.path.basename(chm_name), [_("Unknown")])
+
             encoding = self._chm_reader.get_encoding() or options.input_encoding or "cp1252"
-            self._chm_reader.CloseCHM()
-            # print tdir, mainpath
-            # from calibre import ipython
-            # ipython()
 
             options.debug_pipeline = None
             options.input_encoding = "utf-8"
-            uenc = encoding
-            if os.path.abspath(mainpath) in self._chm_reader.re_encoded_files:
-                uenc = "utf-8"
-            htmlpath, toc = self._create_html_root(mainpath, log, uenc)
-            oeb = self._create_oebbook_html(htmlpath, tdir, options, log, metadata)
-            options.debug_pipeline = odi
+            try:
+                uenc = encoding
+                if os.path.abspath(mainpath) in self._chm_reader.re_encoded_files:
+                    uenc = "utf-8"
+
+                htmlpath, toc = self._create_html_root(mainpath, log, uenc)
+                oeb = self._create_oebbook_html(htmlpath, tdir, options, log, metadata)
+            finally:
+                self._chm_reader.CloseCHM()
+                options.debug_pipeline = odi
+
             if toc.count() > 1:
                 oeb.toc = self.parse_html_toc(oeb.spine[0])
                 oeb.manifest.remove(oeb.spine[0])
                 oeb.auto_generated_toc = False
+
         return oeb
 
     def parse_html_toc(self, item):
-        """
-        Parse an html document into a tree.
-        :param item:
-        :return:
-        """
+        """Parse an HTML document into an OEB TOC tree."""
         from LiuXin_alpha.file_formats.oeb.base import TOC, XPath
 
         dx = XPath("./h:div")
@@ -106,117 +111,124 @@ class CHMInput(InputFormatPlugin):
 
         def do_node(parent, div):
             for child in dx(div):
-                a = ax(child)[0]
-                c = parent.add(a.text, a.attrib["href"])
+                links = ax(child)
+                if not links:
+                    continue
+                a = links[0]
+                c = parent.add(a.text, a.attrib.get("href", ""))
                 do_node(c, child)
 
         toc = TOC()
-        root = XPath("//h:div[1]")(item.data)[0]
-        do_node(toc, root)
+        roots = XPath("//h:div[1]")(item.data)
+        if roots:
+            do_node(toc, roots[0])
         return toc
 
     def _create_oebbook_html(self, htmlpath, basedir, opts, log, mi):
-        """
-        Use HTMLInput plugin to generate book
-        :param htmlpath:
-        :param basedir:
-        :param opts:
-        :param log:
-        :param mi:
-        :return:
-        """
+        """Use HTMLInput plugin to generate an OEBBook."""
         from LiuXin_alpha.file_formats.conversion.plugins.html_input import HTMLInput
 
         opts.breadth_first = True
+        if hasattr(opts, "max_levels"):
+            opts.max_levels = max(getattr(opts, "max_levels", 5), 30)
+        if hasattr(opts, "correct_case_mismatches"):
+            opts.correct_case_mismatches = True
+
         htmlinput = HTMLInput(None)
         oeb = htmlinput.create_oebbook(htmlpath, basedir, opts, log, mi)
         return oeb
 
     def _create_html_root(self, hhcpath, log, encoding):
-
         from lxml import html
-        from urllib import unquote as _unquote
-        from LiuXin_alpha.file_formats.oeb.base import urlquote
-        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 
-        hhcdata = self._read_file(hhcpath)
-        hhcdata = hhcdata.decode(encoding)
+        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+        from LiuXin_alpha.file_formats.oeb.base import TOC, urlquote
+
+        try:
+            hhcdata = self._read_file(hhcpath)
+        except FileNotFoundError:
+            log.warning("No HHC file found in CHM, using default topic")
+            fallback = os.path.join(os.path.dirname(hhcpath), self._chm_reader.relpath_to_first_html_file())
+            return fallback, TOC()
+
+        hhcdata = hhcdata.decode(encoding, errors="replace")
         hhcdata = xml_to_unicode(hhcdata, verbose=True, strip_encoding_pats=True, resolve_entities=True)[0]
         hhcroot = html.fromstring(hhcdata)
         toc = self._process_nodes(hhcroot)
-        # print "============================="
-        # print "Printing hhcroot"
-        # print etree.tostring(hhcroot, pretty_print=True)
-        # print "============================="
-        log.debug("Found %d section nodes" % toc.count())
+
+        log.debug(f"Found {toc.count()} section nodes")
         htmlpath = os.path.splitext(hhcpath)[0] + ".html"
         base = os.path.dirname(os.path.abspath(htmlpath))
 
-        def unquote(x):
-            if isinstance(x, unicode):
-                x = x.encode("utf-8")
-            return _unquote(x).decode("utf-8")
+        def unquote(text):
+            raw = text if isinstance(text, bytes) else text.encode("utf-8")
+            return unquote_to_bytes(raw).decode("utf-8", errors="replace")
 
-        def unquote_path(x):
-            y = unquote(x)
-            if not os.path.exists(os.path.join(base, x)) and os.path.exists(os.path.join(base, y)):
-                x = y
-            return x
+        def unquote_path(path):
+            raw, frag = (path.split("#", 1) + [""])[:2]
+            if frag:
+                frag = "#" + frag
+            decoded = unquote(raw)
+            if not os.path.exists(os.path.join(base, raw)) and os.path.exists(os.path.join(base, decoded)):
+                raw = decoded
+            return raw, frag
 
-        def donode(item, parent, base, subpath):
+        def donode(item, parent, base_dir, subpath):
             for child in item:
                 title = child.title
                 if not title:
                     continue
-                raw = unquote_path(child.href or "")
+
+                raw, frag = unquote_path(child.href or "")
                 rsrcname = os.path.basename(raw)
                 rsrcpath = os.path.join(subpath, rsrcname)
-                if not os.path.exists(os.path.join(base, rsrcpath)) and os.path.exists(os.path.join(base, raw)):
+                if not os.path.exists(os.path.join(base_dir, rsrcpath)) and os.path.exists(os.path.join(base_dir, raw)):
                     rsrcpath = raw
 
                 if "%" not in rsrcpath:
                     rsrcpath = urlquote(rsrcpath)
                 if not raw:
                     rsrcpath = ""
-                c = DIV(A(title, href=rsrcpath))
-                donode(child, c, base, subpath)
+
+                c = DIV(A(title, href=rsrcpath + frag))
+                donode(child, c, base_dir, subpath)
                 parent.append(c)
 
         with open(htmlpath, "wb") as f:
             if toc.count() > 1:
-                from lxml.html.builder import HTML, BODY, DIV, A
+                from lxml.html.builder import A, BODY, DIV, HTML
 
                 path0 = toc[0].href
-                path0 = unquote_path(path0)
+                path0 = unquote_path(path0)[0]
                 subpath = os.path.dirname(path0)
-                base = os.path.dirname(f.name)
+                base_dir = os.path.dirname(f.name)
                 root = DIV()
-                donode(toc, root, base, subpath)
+                donode(toc, root, base_dir, subpath)
                 raw = html.tostring(HTML(BODY(root)), encoding="utf-8", pretty_print=True)
                 f.write(raw)
             else:
+                if isinstance(hhcdata, str):
+                    hhcdata = hhcdata.encode("utf-8")
                 f.write(hhcdata)
         return htmlpath, toc
 
     def _read_file(self, name):
-        f = open(name, "rb")
-        data = f.read()
-        f.close()
-        return data
+        with open(name, "rb") as f:
+            return f.read()
 
     def add_node(self, node, toc, ancestor_map):
         from LiuXin_alpha.file_formats.chm.reader import match_string
 
-        if match_string(node.attrib["type"], "text/sitemap"):
+        if match_string(node.attrib.get("type", ""), "text/sitemap"):
             p = node.xpath("ancestor::ul[1]/ancestor::li[1]/object[1]")
             parent = p[0] if p else None
             toc = ancestor_map.get(parent, toc)
             title = href = ""
             for param in node.xpath("./param"):
-                if match_string(param.attrib["name"], "name"):
-                    title = param.attrib["value"]
-                elif match_string(param.attrib["name"], "local"):
-                    href = param.attrib["value"]
+                if match_string(param.attrib.get("name", ""), "name"):
+                    title = param.attrib.get("value", "")
+                elif match_string(param.attrib.get("name", ""), "local"):
+                    href = param.attrib.get("value", "")
             child = toc.add(title or _("Unknown"), href)
             ancestor_map[node] = child
 

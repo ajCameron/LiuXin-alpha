@@ -1,128 +1,119 @@
-from __future__ import print_function
+"""Helpers for identifying compressed ebook archives."""
+
+from __future__ import annotations
 
 import os
-from copy import deepcopy
-
 import zipfile
+from collections import Counter
 
-import LiuXin_alpha.utils.file_ops as file_ops
+from LiuXin_alpha.constants.file_extensions import (
+    BOOK_EXTENSIONS_DOTTED,
+    RAR_BOOK_FILE_CONTENTS,
+    RAR_BOOK_FILE_CONTENTS_DOTTED,
+)
+from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.storage.local.file_properties import get_file_ext
 
-from LiuXin_alpha.constants import BOOK_EXTENSIONS_DOTTED
-from LiuXin_alpha.constants import RAR_BOOK_FILE_CONTENTS
-from LiuXin_alpha.constants import RAR_BOOK_FILE_CONTENTS_DOTTED
+try:
+    import rarfile as _rarfile  # type: ignore
+except Exception:
+    try:
+        from LiuXin_alpha.utils.decompression.rarfile import rarfile as _rarfile  # type: ignore
+    except Exception:
+        _rarfile = None
 
-from LiuXin_alpha.utils.file_ops.file_properties import get_file_ext
-
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
 __author__ = "Cameron"
 
 
-# Takes a list of files. Tries to work out if it's a compressed book, or a compressed collection of other files
+def _count_file_types(file_names):
+    """Count lower-cased extensions (with leading dot)."""
+    counter = Counter()
+    for name in file_names:
+        _base, ext = os.path.splitext(str(name))
+        if ext:
+            counter[ext.lower()] += 1
+    return counter
+
+
 def is_ebook(list_of_names):
-    """
-    Takes the list of names which has been copied out of a file.
-    Tries to work out if it corresponds to a compressed book or a compressed collection of other files.
-    :param list_of_names:
-    :return: True/False
-    """
-    list_of_names = deepcopy(list_of_names)
-    if is_comic(list_of_names):
-        return True
-    else:
-        for name in list_of_names:
-            name, ext = os.path.splitext(name)
-            if len(ext) > 0:
-                ext = ext[1:]
-                if ext not in RAR_BOOK_FILE_CONTENTS:
-                    return False
-        else:
-            return True
-
-
-# Imported from calibre.ebooks.metadata.archive import is_comic
-def is_comic(list_of_names):
-    """
-    Takes a list of file names. Determines if they are all images.
-    If all files in a directory are images, it's probably a comic.
-    :param list_of_names: List of names in a directory
-    :return: True/False
-    """
-    extensions = set(
-        [
-            x.rpartition(".")[-1].lower()
-            for x in list_of_names
-            if "." in x and x.lower().rpartition("/")[-1] != "thumbs.db"
-        ]
-    )
-    comic_extensions = {"jpg", "jpeg", "png"}
-    return len(extensions - comic_extensions) == 0
-
-
-# Analyses (where possible) a compressed file and returns if it's a book (i.e. a compressed collection of html and other
-#  resources)
-def is_file_book(file_path):
-    """
-    Examines the file and tries to determine if it's a single book or not.
-    :param file_path:
-    :return:
-    """
-
-    ext = get_file_ext(file_path)
-
-    if ext in BOOK_EXTENSIONS_DOTTED:
-        return True
-
-    if (ext == ".zip") and (is_zip_archive_book(file_path)):
-        return True
-    elif (ext == ".rar") and (is_zip_archive_book(file_path)):
-        return True
-    else:
+    """Return True if filenames look like a single ebook archive."""
+    names = [str(x) for x in list_of_names]
+    if not names:
         return False
 
+    if is_comic(names):
+        return True
 
-def is_zip_archive_book(file_path):
-    """
-    Takes a file_path to a zip file. Guesses as to if it's a single book or if it needs unpacking.
-    :param file_path:
-    :return:
-    """
-    file_path_local = file_path  # making a local copy, just in case
-
-    with zipfile.ZipFile(file_path, "r") as myzip:
-        files = myzip.namelist()
-
-    extensions = file_ops.count_file_types(files)
-
-    for extension in iter(extensions):
-        if extension not in RAR_BOOK_FILE_CONTENTS_DOTTED:
+    allowed = {x.lower() for x in RAR_BOOK_FILE_CONTENTS}
+    for name in names:
+        _base, ext = os.path.splitext(name)
+        if not ext:
+            continue
+        if ext[1:].lower() not in allowed:
             return False
-
     return True
 
 
+def is_comic(list_of_names):
+    """Return True when all relevant files are comic image types."""
+    names = [str(x) for x in list_of_names]
+    extensions = {
+        x.rpartition(".")[-1].lower()
+        for x in names
+        if "." in x and x.lower().rpartition("/")[-1] != "thumbs.db"
+    }
+    comic_extensions = {"jpg", "jpeg", "png", "webp", "gif"}
+    return bool(extensions) and len(extensions - comic_extensions) == 0
+
+
+def is_file_book(file_path):
+    """Return True if the path is a book file or a book-like archive."""
+    ext = get_file_ext(file_path).lower()
+
+    if ext == ".zip":
+        return is_zip_archive_book(file_path)
+    if ext == ".rar":
+        return is_rar_archive_book(file_path)
+
+    return ext in {x.lower() for x in BOOK_EXTENSIONS_DOTTED}
+
+
+def is_zip_archive_book(file_path):
+    """Heuristic: a zip archive is an ebook when all contents are ebook resources."""
+    try:
+        with zipfile.ZipFile(file_path, "r") as myzip:
+            files = myzip.namelist()
+    except Exception:
+        return False
+
+    if not files:
+        return False
+
+    extensions = _count_file_types(files)
+    allowed = {x.lower() for x in RAR_BOOK_FILE_CONTENTS_DOTTED}
+    return all(ext in allowed for ext in extensions)
+
+
 def is_rar_archive_book(file_path):
-    """
-    Takes a file_path to a rar file. Guesses as to if it's a single book or if it needs unpacking.
-    :param file_path:
-    :return:
-    """
-    files = []  # creating a index to store the files
+    """Heuristic: a rar archive is an ebook when all contents are ebook resources."""
+    if _rarfile is None:
+        return False
 
     try:
-        myrar = rarfile.RarFile(file_path)
-
-        for item in myrar.infolist():
-            files.append(item.filename)
-
-        extensions = file_ops.count_file_types(files)
-
-        for extension in iter(extensions):
-            if extension not in RAR_BOOK_FILE_CONTENTS_DOTTED:
-                return False
-
-        return True
-    except:
-        error_message = "Error parsing file. " + six_unicode(file_path)
-        print(error_message)
+        with _rarfile.RarFile(file_path) as archive:  # type: ignore[attr-defined]
+            files = [item.filename for item in archive.infolist()]
+    except Exception as err:
+        default_log.log_exception(
+            message=f"Error parsing rar archive: {file_path}",
+            exception=err,
+            level="INFO",
+        )
         return False
+
+    if not files:
+        return False
+
+    extensions = _count_file_types(files)
+    allowed = {x.lower() for x in RAR_BOOK_FILE_CONTENTS_DOTTED}
+    return all(ext in allowed for ext in extensions)

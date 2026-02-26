@@ -1,96 +1,76 @@
-#!/usr/bin/env  python
+#!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import print_function
+"""PalmDOC compression/decompression helpers."""
+
+from __future__ import annotations
 
 from struct import pack
+from typing import Any
 
-from LiuXin_alpha.utils.libraries.KindleUnpack.lib.mobi_uncompress import PalmdocReader
-from LiuXin_alpha.utils.logger import default_log
-from LiuXin_alpha.utils.libraries.mobi_python.mobi.lz77 import uncompress_lz77
+from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.plugins import plugins
 
-# Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_BytesIO
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
-# Tries to load the plugin from the plugins store - if this fails falls back to the slower pure python method
-c_import = False
-if plugins.plugin_okay("cPalmdoc"):
-    cPalmdoc, cPalmdoc_err = plugins["cPalmdoc"]
-    c_import = True
-else:
-    err_str = default_log.info("cPalmdoc couldn't be loaded - falling back to pure Python implementation.")
+
+def _as_bytes(data: Any) -> bytes:
+    if data is None:
+        return b""
+    if isinstance(data, bytes):
+        return data
+    if isinstance(data, bytearray):
+        return bytes(data)
+    if isinstance(data, memoryview):
+        return data.tobytes()
+    if isinstance(data, str):
+        # Keep Py2-era behavior where text often represented raw 0..255 bytes.
+        return data.encode("latin-1", "replace")
+    raise TypeError(f"Expected bytes-like data, got {type(data)!r}")
+
+
+def _load_cpalmdoc():
+    if plugins.plugin_okay("cPalmdoc"):
+        module, _err = plugins["cPalmdoc"]
+        if module is not None:
+            return module
+
+    default_log.info("cPalmdoc plugin unavailable, using bundled Python fallback.")
+    from LiuXin_alpha.utils.plugins.fallbacks import cPalmdoc
+
+    return cPalmdoc
+
+
+_CPALMDOC = _load_cpalmdoc()
 
 
 def decompress_doc(data):
-    """
-    Takes a stream of data. Decompresses it. Either using an algorithm in cPalmdoc, or using a Python implementation if
-    that isn't available.
-    :param data: The data string to be decompressed
-    :return decompressed_data:
-    """
-    if not c_import:
-        return uncompress_lz77(data)
-    else:
-        return cPalmdoc.decompress(data)
+    """Decompress PalmDOC data into raw bytes."""
+    return _CPALMDOC.decompress(_as_bytes(data))
 
 
 def compress_doc(data):
-    if not data:
-        return ""
-    if not c_import:
-        return py_compress_doc(data)
-    else:
-        return cPalmdoc.compress(data)
-
-
-def test():
-    tests = [
-        "abc\x03\x04\x05\x06ms",  # Test binary writing
-        "a b c \xfed ",  # Test encoding of spaces
-        "0123456789axyz2bxyz2cdfgfo9iuyerh",
-        "0123456789asd0123456789asd|yyzzxxffhhjjkk",
-        (
-            "ciewacnaq eiu743 r787q 0w%  ; sa fd\xef\ffdxosac wocjp acoiecowei "
-            "owaic jociowapjcivcjpoivjporeivjpoavca; p9aw8743y6r74%$^$^%8 "
-        ),
-    ]
-
-    for test in tests:
-        print("Test:", repr(test))
-        print("\tTesting compression...")
-        if cPalmdoc:
-            print("cPalmdoc has loaded.")
-        good = py_compress_doc(test)
-        x = compress_doc(test)
-        print("\t\tgood:", repr(good))
-        print("\t\tx   :", repr(x))
-        assert x == good
-        print("\tTesting decompression...")
-        print("\t\t", repr(decompress_doc(x)))
-        assert decompress_doc(x) == test
-        print()
+    """Compress raw bytes into PalmDOC format."""
+    payload = _as_bytes(data)
+    if not payload:
+        return b""
+    return _CPALMDOC.compress(payload)
 
 
 def py_compress_doc(data):
-    """
-    Python implementation of the lz77 algorithm.
-    This will be incredibly slow.
-    :param data:
-    :return:
-    """
-    out = six_cStringIO()
+    """Pure-python PalmDOC compressor (reference implementation)."""
+    data = _as_bytes(data)
+    out = six_BytesIO()
     i = 0
     ldata = len(data)
     while i < ldata:
         if i > 10 and (ldata - i) > 10:
-            chunk = ""
+            chunk = b""
             match = -1
-            for j in memory_range(10, 2, -1):
+            for j in range(10, 2, -1):
                 chunk = data[i : i + j]
                 try:
                     match = data.rindex(chunk, 0, i)
@@ -106,28 +86,51 @@ def py_compress_doc(data):
                 out.write(pack(">H", code))
                 i += n
                 continue
-        ch = data[i]
-        och = ord(ch)
+
+        ch = data[i : i + 1]
+        och = ch[0]
         i += 1
-        if ch == " " and (i + 1) < ldata:
-            onch = ord(data[i])
-            if onch >= 0x40 and onch < 0x80:
+
+        if ch == b" " and (i + 1) < ldata:
+            onch = data[i : i + 1][0]
+            if 0x40 <= onch < 0x80:
                 out.write(pack(">B", onch ^ 0x80))
                 i += 1
                 continue
-        if och == 0 or (och > 8 and och < 0x80):
+
+        if och == 0 or (8 < och < 0x80):
             out.write(ch)
         else:
             j = i
             binseq = [ch]
             while j < ldata and len(binseq) < 8:
-                ch = data[j]
-                och = ord(ch)
-                if och == 0 or (och > 8 and och < 0x80):
+                ch = data[j : j + 1]
+                och = ch[0]
+                if och == 0 or (8 < och < 0x80):
                     break
                 binseq.append(ch)
                 j += 1
             out.write(pack(">B", len(binseq)))
-            out.write("".join(binseq))
+            out.write(b"".join(binseq))
             i += len(binseq) - 1
+
     return out.getvalue()
+
+
+def test():
+    tests = [
+        b"abc\x03\x04\x05\x06ms",
+        b"a b c \xfed ",
+        b"0123456789axyz2bxyz2cdfgfo9iuyerh",
+        b"0123456789asd0123456789asd|yyzzxxffhhjjkk",
+        (
+            b"ciewacnaq eiu743 r787q 0w%  ; sa fd\xef\ffdxosac wocjp acoiecowei "
+            b"owaic jociowapjcivcjpoivjporeivjpoavca; p9aw8743y6r74%$^$^%8 "
+        ),
+    ]
+
+    for case in tests:
+        good = py_compress_doc(case)
+        actual = compress_doc(case)
+        assert actual == good
+        assert decompress_doc(actual) == case

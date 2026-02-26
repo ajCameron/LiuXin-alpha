@@ -174,7 +174,12 @@ def render_html_svg_workaround(path_to_html, log, width=590, height=750):
 
             if fork_job is not None:
                 try:
-                    result = fork_job("calibre.ebooks", "render_html_data", (path_to_html, width, height), no_output=True)
+                    result = fork_job(
+                        "LiuXin_alpha.file_formats.utils",
+                        "render_html_data",
+                        (path_to_html, width, height),
+                        no_output=True,
+                    )
                     data = result["result"]
                 except WorkerError as err:
                     prints(err.orig_tb)

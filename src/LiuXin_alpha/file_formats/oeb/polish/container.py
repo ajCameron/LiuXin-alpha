@@ -1532,7 +1532,7 @@ class AZW3Container(Container):
 
         try:
             opf_path, obfuscated_fonts = fork_job(
-                "calibre.ebooks.oeb.polish.container",
+                "LiuXin_alpha.file_formats.oeb.polish.container",
                 "do_explode",
                 args=(pathtoazw3, tdir),
                 no_output=True,

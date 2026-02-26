@@ -1,27 +1,16 @@
-from __future__ import with_statement
+"""CHM file decoding support."""
 
-"""
-CHM File decoding support
-"""
+from __future__ import annotations
 
 import codecs
 import os
-import re
+import struct
 
-from LiuXin_alpha.constants import iswindows, filesystem_encoding
-
+from LiuXin_alpha.constants import iswindows
 from LiuXin_alpha.file_formats.chardet import xml_to_unicode
-
-from LiuXin_alpha.metadata.toc import TOC
-
-from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup, NavigableString
+from LiuXin_alpha.file_formats.toc import TOC
 from LiuXin_alpha.utils.calibre import guess_type as guess_mimetype
-from LiuXin_alpha.utils.libraries.chm import CHMFile
-from LiuXin_alpha.utils.libraries.chm import (
-    CHM_RESOLVE_SUCCESS,
-    CHM_ENUMERATE_NORMAL,
-    chm_enumerate,
-)
+from LiuXin_alpha.utils.libraries.chm import CHM_ENUMERATE_NORMAL, CHM_RESOLVE_SUCCESS, CHMError, CHMFile, chm_enumerate
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>, and Alex Bramley <a.bramley at gmail.com>."
@@ -34,88 +23,151 @@ def match_string(s1, s2_already_lowered):
     return False
 
 
-def check_all_prev_empty(tag):
-    if tag is None:
-        return True
-    if tag.__class__ == NavigableString and not check_empty(tag):
-        return False
-    return check_all_prev_empty(tag.previousSibling)
-
-
-def check_empty(s, rex=re.compile(r"\S")):
-    return rex.search(s) is None
-
-
-class CHMError(Exception):
-    pass
-
-
 class CHMReader(CHMFile):
-    def __init__(self, input, log, input_encoding=None):
-        CHMFile.__init__(self)
-        if isinstance(input, unicode):
-            input = input.encode(filesystem_encoding)
-        if not self.LoadCHM(input):
-            raise CHMError("Unable to open CHM file '%s'" % (input,))
+    def __init__(self, input_path, log, input_encoding=None):
+        super().__init__()
+        if not self.LoadCHM(input_path):
+            raise CHMError(f"Unable to open CHM file {input_path!r}")
+
         self.log = log
         self.input_encoding = input_encoding
-        self._sourcechm = input
+        self._sourcechm = input_path
         self._contents = None
         self._playorder = 0
         self._metadata = False
         self._extracted = False
         self.re_encoded_files = set()
 
-        # location of '.hhc' file, which is the CHM TOC.
-        if self.topics is None:
-            self.root, ext = os.path.splitext(self.home.lstrip("/"))
-            self.hhc_path = self.root + ".hhc"
-        else:
-            self.root, ext = os.path.splitext(self.topics.lstrip("/"))
-            self.hhc_path = self.root + ".hhc"
+        self.get_encodings()
+        if self.home:
+            self.home = self.decode_hhp_filename(self.home) or self.home
+        if self.topics:
+            self.topics = self.decode_hhp_filename(self.topics) or self.topics
 
-    def _parse_toc(self, ul, basedir=os.getcwdu()):
+        base = self.topics or self.home or "/"
+        self.root = os.path.splitext(base.lstrip("/"))[0]
+        self.hhc_path = self.root + ".hhc"
+
+    def _log_exception(self, message, exception=None, level="INFO"):
+        if hasattr(self.log, "log_exception"):
+            self.log.log_exception(message=message, exception=exception, level=level)
+            return
+        if hasattr(self.log, "exception"):
+            self.log.exception(message)
+            return
+        if hasattr(self.log, "warn"):
+            self.log.warn(message)
+            return
+        if hasattr(self.log, "warning"):
+            self.log.warning(message)
+
+    def relpath_to_first_html_file(self):
+        data = self.GetFile("/#SYSTEM")
+        pos = 4
+        while pos + 4 <= len(data):
+            code, length_of_data = struct.unpack_from("<HH", data, pos)
+            pos += 4
+            if code == 2:
+                default_topic = data[pos : pos + length_of_data].rstrip(b"\0")
+                break
+            pos += length_of_data
+        else:
+            raise CHMError("No default topic found in CHM file that has no HHC ToC either")
+        default_topic = self.decode_hhp_filename(b"/" + default_topic)
+        return default_topic[1:]
+
+    def decode_hhp_filename(self, path):
+        if isinstance(path, str):
+            return path
+        for enc in (self.encoding_from_system_file, self.encoding_from_lcid, "cp1252", "cp1251", "latin1", "utf-8"):
+            if enc:
+                try:
+                    q = path.decode(enc)
+                except UnicodeDecodeError:
+                    continue
+                res, _ = self.ResolveObject(q)
+                if res == CHM_RESOLVE_SUCCESS:
+                    return q
+        return path.decode("latin1", errors="replace")
+
+    def get_encodings(self):
+        self.encoding_from_system_file = self.encoding_from_lcid = None
+
+        q = self.GetEncoding()
+        if q:
+            try:
+                if isinstance(q, bytes):
+                    q = q.decode("ascii")
+                codecs.lookup(q)
+                self.encoding_from_system_file = q
+            except Exception:
+                pass
+
+        lcid = self.GetLCID()
+        if lcid is not None:
+            q = lcid[0]
+            if q:
+                try:
+                    if isinstance(q, bytes):
+                        q = q.decode("ascii")
+                    codecs.lookup(q)
+                    self.encoding_from_lcid = q
+                except Exception:
+                    pass
+
+    def get_encoding(self):
+        return self.encoding_from_system_file or self.encoding_from_lcid or "cp1252"
+
+    def _parse_toc(self, ul, basedir=os.getcwd()):
         toc = TOC(play_order=self._playorder, base_path=basedir, text="")
         self._playorder += 1
         for li in ul("li", recursive=False):
-            href = li.object("param", {"name": "Local"})[0]["value"]
+            try:
+                href = li.object("param", {"name": "Local"})[0]["value"]
+                name = self._deentity(li.object("param", {"name": "Name"})[0]["value"])
+            except Exception:
+                continue
             if href.count("#"):
-                href, frag = href.split("#")
+                href, frag = href.split("#", 1)
             else:
                 frag = None
-            name = self._deentity(li.object("param", {"name": "Name"})[0]["value"])
-            # print "========>", name
             toc.add_item(href, frag, name, play_order=self._playorder)
             self._playorder += 1
             if li.ul:
                 child = self._parse_toc(li.ul)
                 child.parent = toc
                 toc.append(child)
-        # print toc
         return toc
 
+    def ResolveObject(self, path):
+        if not isinstance(path, bytes):
+            path = path.encode("utf-8")
+        return CHMFile.ResolveObject(self, path)
+
+    def file_exists(self, path):
+        res, _ui = self.ResolveObject(path)
+        return res == CHM_RESOLVE_SUCCESS
+
     def GetFile(self, path):
-        # have to have abs paths for ResolveObject, but Contents() deliberately
-        # makes them relative. So we don't have to worry, re-add the leading /.
-        # note this path refers to the internal CHM structure
-        if path[0] != "/":
+        if isinstance(path, bytes):
+            path = path.decode("utf-8", errors="replace")
+        if not path.startswith("/"):
             path = "/" + path
+
         res, ui = self.ResolveObject(path)
         if res != CHM_RESOLVE_SUCCESS:
-            raise CHMError("Unable to locate '%s' within CHM file '%s'" % (path, self.filename))
+            raise CHMError(f"Unable to locate {path!r} within CHM file {self.filename!r}")
+
         size, data = self.RetrieveObject(ui)
         if size == 0:
-            raise CHMError("'%s' is zero bytes in length!" % (path,))
+            raise CHMError(f"{path!r} is zero bytes in length!")
         return data
 
-    def ExtractFiles(self, output_dir=os.getcwdu(), debug_dump=False):
-        """
-        Extract all files from the .chm container.
-        :param output_dir:
-        :param debug_dump:
-        :return:
-        """
-        html_files = set([])
+    def get_home(self):
+        return self.GetFile(self.home)
+
+    def ExtractFiles(self, output_dir=os.getcwd(), debug_dump=False):
+        html_files = set()
 
         try:
             x = self.get_encoding()
@@ -123,207 +175,192 @@ class CHMReader(CHMFile):
             enc = x
         except Exception as e:
             enc = "cp1252"
-            self.log.log_exception(
-                message="Failed to get encoding from a chm file.\n",
-                exception=e,
-                level="INFO",
-            )
+            self._log_exception(message="Failed to get encoding from a CHM file.", exception=e, level="INFO")
 
         for path in self.Contents():
-
-            fpath = path
-            if not isinstance(path, unicode):
-                fpath = path.decode(enc)
+            fpath = path.decode(enc, errors="replace") if isinstance(path, bytes) else path
             lpath = os.path.join(output_dir, fpath)
             self._ensure_dir(lpath)
 
             try:
                 data = self.GetFile(path)
             except Exception as e:
-                self.log.log_exception(
-                    message="Failed to extract %s from CHM, ignoring" % path,
+                self._log_exception(
+                    message=f"Failed to extract {path!r} from CHM, ignoring",
                     exception=e,
                     level="WARN",
                 )
                 continue
 
-            if lpath.find(";") != -1:
-                # fix file names with ";<junk>" at the end, see _reformat()
-                lpath = lpath.split(";")[0]
+            if ";" in lpath:
+                lpath = lpath.split(";", 1)[0]
+
             try:
                 with open(lpath, "wb") as f:
                     f.write(data)
                 try:
-                    if "html" in guess_mimetype(path)[0]:
+                    mt = guess_mimetype(fpath)[0] or ""
+                    if "html" in mt:
                         html_files.add(lpath)
                 except Exception as e:
-                    self.log.log_exception(
-                        message="Error in chm file extraction",
-                        exception=e,
-                        level="INFO",
-                    )
+                    self._log_exception(message="Error in CHM extraction metadata phase", exception=e, level="INFO")
             except Exception as e:
                 if iswindows and len(lpath) > 250:
-                    self.log.warn("%r filename too long, skipping" % path)
+                    if hasattr(self.log, "warn"):
+                        self.log.warn(f"{path!r} filename too long, skipping")
+                    elif hasattr(self.log, "warning"):
+                        self.log.warning(f"{path!r} filename too long, skipping")
                     continue
-                self.log.log_exception(
-                    message="Unable to open output path for writing",
-                    exception=e,
-                    level="CRITICAL",
-                )
+                self._log_exception(message="Unable to open output path for writing", exception=e, level="CRITICAL")
                 raise
 
         if debug_dump:
-            # Todo: Add copytree functionality to the logging module
             import shutil
 
             shutil.copytree(output_dir, os.path.join(debug_dump, "debug_dump"))
+
         for lpath in html_files:
             with open(lpath, "r+b") as f:
                 data = f.read()
                 data = self._reformat(data, lpath)
-                if isinstance(data, unicode):
+                if isinstance(data, str):
                     data = data.encode("utf-8")
                 f.seek(0)
                 f.truncate()
                 f.write(data)
 
         self._extracted = True
-        files = [y for y in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, y))]
-        if self.hhc_path not in files:
-            for f in files:
-                if f.lower() == self.hhc_path.lower():
+
+        relative_files = []
+        for root, _dirs, files in os.walk(output_dir):
+            for fname in files:
+                full = os.path.join(root, fname)
+                relative_files.append(os.path.relpath(full, output_dir).replace(os.sep, "/"))
+
+        if self.hhc_path not in relative_files:
+            lowered = {f.lower(): f for f in relative_files}
+            match = lowered.get(self.hhc_path.lower())
+            if match:
+                self.hhc_path = match
+
+        if self.hhc_path not in relative_files and relative_files:
+            for f in relative_files:
+                if f.rpartition(".")[-1].lower() in {"html", "htm", "xhtm", "xhtml"}:
                     self.hhc_path = f
                     break
-        if self.hhc_path not in files and files:
-            for f in files:
-                if f.partition(".")[-1].lower() in {"html", "htm", "xhtm", "xhtml"}:
+
+        if self.hhc_path == ".hhc" and self.hhc_path not in relative_files:
+            for f in relative_files:
+                name = os.path.basename(f).lower()
+                if name in ("index.htm", "index.html", "contents.htm", "contents.html"):
                     self.hhc_path = f
                     break
 
-        if self.hhc_path == ".hhc" and self.hhc_path not in files:
-            from LiuXin_alpha.utils.calibre import walk
-
-            for x in walk(output_dir):
-                if os.path.basename(x).lower() in (
-                    "index.htm",
-                    "index.html",
-                    "contents.htm",
-                    "contents.html",
-                ):
-                    self.hhc_path = os.path.relpath(x, output_dir)
-                    break
-
-        if self.hhc_path not in files and files:
-            self.hhc_path = files[0]
+        if self.hhc_path not in relative_files and relative_files:
+            self.hhc_path = relative_files[0]
 
     def _reformat(self, data, htmlpath):
+        from lxml import html
 
-        if self.input_encoding:
-            data = data.decode(self.input_encoding)
+        if self.input_encoding and isinstance(data, bytes):
+            data = data.decode(self.input_encoding, errors="replace")
+
         try:
-            data = xml_to_unicode(data, strip_encoding_pats=True)[0]
-            soup = BeautifulSoup(data)
-        except ValueError as e:
-            # hit some strange encoding problems...
-            self.log.log_exception(
-                message="Unable to parse html for cleaning, leaving it",
+            normalized = xml_to_unicode(data, strip_encoding_pats=True)[0]
+            root = html.fromstring(normalized)
+        except Exception as e:
+            self._log_exception(
+                message="Unable to parse html for cleaning, leaving source as-is",
                 exception=e,
                 level="INFO",
             )
             return data
 
-        # nuke javascript...
-        [s.extract() for s in soup("script")]
-        # See if everything is inside a <head> tag
-        # https://bugs.launchpad.net/bugs/1273512
-        body = soup.find("body")
-        if body is not None and body.parent.name == "head":
-            html = soup.find("html")
-            html.insert(len(html), body)
+        for script in root.xpath("//script"):
+            parent = script.getparent()
+            if parent is not None:
+                parent.remove(script)
 
-        # remove forward and back nav bars from the top/bottom of each page
-        # cos they really fuck with the flow of things and generally waste space
-        # since we can't use [a,b] syntax to select arbitrary items from a list
-        # we'll have to do this manually...
-        # only remove the tables, if they have an image with an alt attribute
-        # containing prev, next or team
-        t = soup("table")
-        if t:
-            if t[0].previousSibling is None or t[0].previousSibling.previousSibling is None:
-                try:
-                    alt = t[0].img["alt"].lower()
-                    if alt.find("prev") != -1 or alt.find("next") != -1 or alt.find("team") != -1:
-                        t[0].extract()
-                except:
-                    pass
-            if t[-1].nextSibling is None or t[-1].nextSibling.nextSibling is None:
-                try:
-                    alt = t[-1].img["alt"].lower()
-                    if alt.find("prev") != -1 or alt.find("next") != -1 or alt.find("team") != -1:
-                        t[-1].extract()
-                except:
-                    pass
-        # for some very odd reason each page's content appears to be in a table
-        # too. and this table has sub-tables for random asides... grr.
+        body_nodes = root.xpath("//body")
+        body = body_nodes[0] if body_nodes else root
 
-        # remove br at top of page if present after nav bars removed
-        br = soup("br")
-        if br:
-            if check_all_prev_empty(br[0].previousSibling):
-                br[0].extract()
+        def nav_table_candidate(table):
+            try:
+                alt = "".join(table.xpath(".//img[1]/@alt")).lower()
+            except Exception:
+                alt = ""
+            return any(x in alt for x in ("prev", "next", "team"))
 
-        # some images seem to be broken in some chm's :/
+        top_tables = body.xpath("./table")
+        if top_tables:
+            if nav_table_candidate(top_tables[0]):
+                body.remove(top_tables[0])
+            top_tables = body.xpath("./table")
+            if top_tables and nav_table_candidate(top_tables[-1]):
+                body.remove(top_tables[-1])
+
+        first_elements = body.xpath("./*")
+        if first_elements and first_elements[0].tag.lower() == "br":
+            body.remove(first_elements[0])
+
         base = os.path.dirname(htmlpath)
-        for img in soup("img", src=True):
-            src = img["src"]
+        for img in root.xpath("//img[@src]"):
+            src = img.get("src", "")
             ipath = os.path.join(base, *src.split("/"))
             if os.path.exists(ipath):
                 continue
-            src = src.split(";")[0]
+            src = src.split(";", 1)[0]
             if not src:
                 continue
             ipath = os.path.join(base, *src.split("/"))
             if not os.path.exists(ipath):
                 while src.startswith("../"):
                     src = src[3:]
-            img["src"] = src
+            img.set("src", src)
+
         try:
-            # if there is only a single table with a single element
-            # in the body, replace it by the contents of this single element
-            tables = soup.body.findAll("table", recursive=False)
-            if tables and len(tables) == 1:
-                trs = tables[0].findAll("tr", recursive=False)
-                if trs and len(trs) == 1:
-                    tds = trs[0].findAll("td", recursive=False)
-                    if tds and len(tds) == 1:
-                        td_contents = tds[0].contents
-                        table_idx = soup.body.contents.index(tables[0])
-                        tables[0].extract()
-                        while td_contents:
-                            soup.body.insert(table_idx, td_contents.pop())
-        except:
+            tables = body.xpath("./table")
+            if len(tables) == 1:
+                rows = tables[0].xpath("./tr")
+                if len(rows) == 1:
+                    cells = rows[0].xpath("./td")
+                    if len(cells) == 1:
+                        table = tables[0]
+                        td = cells[0]
+                        insert_at = body.index(table)
+                        text = (td.text or "").strip()
+                        if text:
+                            p = html.Element("p")
+                            p.text = text
+                            body.insert(insert_at, p)
+                            insert_at += 1
+                        for child in list(td):
+                            td.remove(child)
+                            body.insert(insert_at, child)
+                            insert_at += 1
+                        body.remove(table)
+        except Exception:
             pass
 
-        # do not prettify, it would reformat the <pre> tags!
         try:
-            ans = str(soup)
+            ans = html.tostring(root, encoding="unicode", method="html")
             self.re_encoded_files.add(os.path.abspath(htmlpath))
             return ans
-        except RuntimeError:
-            return data
+        except Exception:
+            return normalized
 
     def Contents(self):
         if self._contents is not None:
             return self._contents
+
         paths = []
 
-        def get_paths(chm, ui, ctx):
-            # skip directories
-            # note this path refers to the internal CHM structure
-            if ui.path[-1] != "/":
-                # and make paths relative
-                paths.append(ui.path.lstrip("/"))
+        def get_paths(_chm, ui, _ctx):
+            path = ui.path
+            if isinstance(path, bytes):
+                path = path.decode("utf-8", errors="replace")
+            if path and path[-1] != "/":
+                paths.append(path.lstrip("/"))
 
         chm_enumerate(self.file, CHM_ENUMERATE_NORMAL, get_paths, None)
         self._contents = paths
@@ -331,8 +368,8 @@ class CHMReader(CHMFile):
 
     def _ensure_dir(self, path):
         local_dir = os.path.dirname(path)
-        if not os.path.isdir(local_dir):
-            os.makedirs(local_dir)
+        if local_dir and not os.path.isdir(local_dir):
+            os.makedirs(local_dir, exist_ok=True)
 
-    def extract_content(self, output_dir=os.getcwdu(), debug_dump=False):
+    def extract_content(self, output_dir=os.getcwd(), debug_dump=False):
         self.ExtractFiles(output_dir=output_dir, debug_dump=debug_dump)
