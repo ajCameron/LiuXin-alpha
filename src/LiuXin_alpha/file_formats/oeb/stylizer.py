@@ -33,9 +33,9 @@ from LiuXin_alpha.file_formats.oeb.normalize_css import DEFAULTS, normalizers
 
 from LiuXin_alpha.utils.calibre import force_unicode
 from LiuXin_alpha.utils.resources import P
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"

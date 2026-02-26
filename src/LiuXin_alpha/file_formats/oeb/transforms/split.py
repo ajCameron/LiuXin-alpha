@@ -30,11 +30,11 @@ from LiuXin_alpha.file_formats.oeb.base import (
 )
 from LiuXin_alpha.file_formats.oeb.polish.split import do_split
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 from LiuXin_alpha.utils.localization import trans as _
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -100,56 +100,63 @@ class Split(object):
 
     def find_page_breaks(self, item):
         if self.page_break_selectors is None:
-            from LiuXin_alpha.file_formats.oeb.stylizer import fix_namespace
+            self.page_break_selectors = set()
+            try:
+                from LiuXin_alpha.file_formats.oeb.stylizer import fix_namespace
 
-            css_to_xpath = HTMLTranslator().css_to_xpath
-            self.page_break_selectors = set([])
-            stylesheets = [x.data for x in self.oeb.manifest if x.media_type in OEB_STYLES]
-            for rule in rules(stylesheets):
-                before = (
-                    getattr(
-                        rule.style.getPropertyCSSValue("page-break-before"),
-                        "cssText",
-                        "",
-                    )
-                    .strip()
-                    .lower()
-                )
-                after = (
-                    getattr(
-                        rule.style.getPropertyCSSValue("page-break-after"),
-                        "cssText",
-                        "",
-                    )
-                    .strip()
-                    .lower()
-                )
-
-                try:
-                    if before and before not in {"avoid", "auto", "inherit"}:
-                        self.page_break_selectors.add(
-                            (
-                                XPath(fix_namespace(css_to_xpath(rule.selectorText))),
-                                True,
-                            )
+                css_to_xpath = HTMLTranslator().css_to_xpath
+                stylesheets = [x.data for x in self.oeb.manifest if x.media_type in OEB_STYLES]
+                for rule in rules(stylesheets):
+                    before = (
+                        getattr(
+                            rule.style.getPropertyCSSValue("page-break-before"),
+                            "cssText",
+                            "",
                         )
-                        if self.remove_css_pagebreaks:
-                            rule.style.removeProperty("page-break-before")
-                except:
-                    pass
-
-                try:
-                    if after and after not in {"avoid", "auto", "inherit"}:
-                        self.page_break_selectors.add(
-                            (
-                                XPath(fix_namespace(css_to_xpath(rule.selectorText))),
-                                False,
-                            )
+                        .strip()
+                        .lower()
+                    )
+                    after = (
+                        getattr(
+                            rule.style.getPropertyCSSValue("page-break-after"),
+                            "cssText",
+                            "",
                         )
-                        if self.remove_css_pagebreaks:
-                            rule.style.removeProperty("page-break-after")
-                except:
-                    pass
+                        .strip()
+                        .lower()
+                    )
+
+                    try:
+                        if before and before not in {"avoid", "auto", "inherit"}:
+                            self.page_break_selectors.add(
+                                (
+                                    XPath(fix_namespace(css_to_xpath(rule.selectorText))),
+                                    True,
+                                )
+                            )
+                            if self.remove_css_pagebreaks:
+                                rule.style.removeProperty("page-break-before")
+                    except Exception:
+                        pass
+
+                    try:
+                        if after and after not in {"avoid", "auto", "inherit"}:
+                            self.page_break_selectors.add(
+                                (
+                                    XPath(fix_namespace(css_to_xpath(rule.selectorText))),
+                                    False,
+                                )
+                            )
+                            if self.remove_css_pagebreaks:
+                                rule.style.removeProperty("page-break-after")
+                    except Exception:
+                        pass
+            except ImportError:
+                # cssutils-backed style parsing is unavailable in this runtime.
+                # Fallback to splitting on heading boundaries, which preserves
+                # the expected chapter-ish segmentation for simple HTML inputs.
+                self.log.warn("CSS page-break detection unavailable, using heading split fallback")
+                self.page_break_selectors.add((XPath("//h:h1 | //h:h2"), True))
 
         page_breaks = set([])
         for selector, before in self.page_break_selectors:
@@ -285,7 +292,7 @@ class FlowSplitter(object):
 
         self.trees = [orig_tree]
         while ordered_ids:
-            pb_id, (pattern, before) = iteritems(ordered_ids).next()
+            pb_id, (pattern, before) = next(iter(iteritems(ordered_ids)))
             del ordered_ids[pb_id]
             for i in memory_range(len(self.trees) - 1, -1, -1):
                 tree = self.trees[i]

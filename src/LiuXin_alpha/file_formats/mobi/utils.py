@@ -7,14 +7,14 @@ import os
 import string
 import struct
 import zlib
+import imghdr
 from collections import OrderedDict
 from io import BytesIO
 
 from LiuXin_alpha.file_formats import normalize
 
-from LiuXin_alpha.utils.imghdr import what
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 try:
     from LiuXin_alpha.utils.wrappers.magick.draw import Image, save_cover_data_to, thumbnail
@@ -25,15 +25,79 @@ except (ImportError, RuntimeError) as e:
         "falling back.\n"
     )
     default_log.warn(wrn_str)
-    from LiuXin_alpha.utils.magick_fallback.draw import Image, save_cover_data_to, thumbnail
+    try:
+        from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
+    except Exception:
+        _FallbackImage = None
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+    if _FallbackImage is not None:
+
+        class Image(_FallbackImage):
+            def load(self, data):
+                self._src = data
+
+            def set_compression_quality(self, quality):
+                self._quality = quality
+
+            def export(self, fmt):
+                return self.to_bytes(format=fmt)
+
+            @property
+            def size(self):
+                meta = self.identify()
+                return meta.get("width") or 0, meta.get("height") or 0
+
+            @size.setter
+            def size(self, value):
+                raise RuntimeError("Image resize is not supported by the fallback magick backend.")
+
+        def save_cover_data_to(data, path, return_data=False):
+            if return_data:
+                return data
+            with open(path, "wb") as f:
+                f.write(data)
+            return path
+
+        def thumbnail(data, width=60, height=80, compression_quality=90):
+            return width, height, data
+
+    else:
+
+        class Image(object):
+            def load(self, data):
+                raise RuntimeError("No magick backend is available.")
+
+            def set_compression_quality(self, quality):
+                raise RuntimeError("No magick backend is available.")
+
+            def export(self, fmt):
+                raise RuntimeError("No magick backend is available.")
+
+            @property
+            def size(self):
+                return 0, 0
+
+            @size.setter
+            def size(self, value):
+                raise RuntimeError("No magick backend is available.")
+
+        def save_cover_data_to(data, path, return_data=False):
+            raise RuntimeError("No magick backend is available.")
+
+        def thumbnail(data, width=60, height=80, compression_quality=90):
+            raise RuntimeError("No magick backend is available.")
+
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 # Accessing inbuilt tinycss
-from LiuXin_alpha.utils.lx_libraries.liuxin_tinycss.color3 import parse_color_string
+try:
+    from LiuXin_alpha.utils.libraries.liuxin_tinycss.color3 import parse_color_string
+except ModuleNotFoundError:
+    def parse_color_string(value):
+        return None
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -466,7 +530,7 @@ def mobify_image(data):
     :param data:
     :return:
     """
-    fmt = what(None, data)
+    fmt = imghdr.what(None, data)
 
     if fmt == "png":
         im = Image()

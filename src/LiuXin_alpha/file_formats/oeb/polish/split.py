@@ -15,11 +15,11 @@ from LiuXin_alpha.file_formats.oeb.polish.toc import node_from_loc
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

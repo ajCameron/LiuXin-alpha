@@ -7,8 +7,8 @@ from lxml import etree
 
 from LiuXin_alpha.file_formats.oeb.base import rewrite_links, urlnormalize
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -10,12 +10,28 @@ from LiuXin_alpha.file_formats.oeb.base import barename
 from LiuXin_alpha.file_formats.oeb.polish.container import OPF_NAMESPACES, get_container
 from LiuXin_alpha.file_formats.oeb.polish.toc import find_existing_toc
 
-from LiuXin_alpha.utils.spell.break_iterator import split_into_words, index_of
-from LiuXin_alpha.utils.spell.dictionary import parse_lang_code
+try:
+    from LiuXin_alpha.utils.spell.break_iterator import index_of, split_into_words
+    from LiuXin_alpha.utils.spell.dictionary import parse_lang_code
+except ModuleNotFoundError:
+    class _FallbackLocale(object):
+        def __init__(self, langcode):
+            self.langcode = langcode
+
+    def split_into_words(text, lang):
+        return str(text).split()
+
+    def index_of(word, text, lang=None):
+        return str(text).find(str(word))
+
+    def parse_lang_code(code):
+        if not code:
+            code = "eng"
+        return _FallbackLocale(str(code).split("-")[0].lower())
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -6,29 +6,28 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 import shutil
 import unittest
+import glob
 
 import LiuXin_alpha.file_formats.oeb.polish.container as pc
 
-from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.storage.local import CurrentDir
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
-from LiuXin_alpha.utils.logger import DevNull
 from LiuXin_alpha.utils.resources import I
 from LiuXin_alpha.utils.resources import P
 
 # Py2/Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def get_cache():
-    from LiuXin_alpha.utils.calibre.constants import cache_dir
+    from LiuXin_alpha.constants import cache_dir
 
     cache = os.path.join(cache_dir(), "polish-test")
-    if not os.path.exists(cache):
-        os.mkdir(cache)
+    os.makedirs(cache, exist_ok=True)
     return cache
 
 
@@ -53,10 +52,30 @@ def build_book(src, dest, args=()):
 
 def add_resources(raw, rmap):
     for placeholder, path in iteritems(rmap):
+        if not path:
+            raise RuntimeError("Missing required polish test resource for placeholder: %s" % placeholder)
         fname = os.path.basename(path)
         shutil.copy2(path, ".")
         raw = raw.replace(placeholder, fname)
     return raw
+
+
+def _existing_path(*paths):
+    for path in paths:
+        if path and os.path.exists(path):
+            return path
+    return None
+
+
+def _find_any_ttf_font():
+    for pattern in (
+        "/usr/share/fonts/**/*.ttf",
+        "/usr/local/share/fonts/**/*.ttf",
+    ):
+        matches = glob.glob(pattern, recursive=True)
+        if matches:
+            return matches[0]
+    return None
 
 
 def get_simple_book(fmt="epub"):
@@ -70,8 +89,16 @@ def get_simple_book(fmt="epub"):
                 raw = add_resources(
                     raw,
                     {
-                        "LMONOI": P("fonts/liberation/LiberationMono-Italic.ttf"),
-                        "LMONOR": P("fonts/liberation/LiberationMono-Regular.ttf"),
+                        "LMONOI": _existing_path(
+                            P("fonts/liberation/LiberationMono-Italic.ttf"),
+                            P("fonts/liberation2/LiberationMono-Italic.ttf"),
+                            _find_any_ttf_font(),
+                        ),
+                        "LMONOR": _existing_path(
+                            P("fonts/liberation/LiberationMono-Regular.ttf"),
+                            P("fonts/liberation2/LiberationMono-Regular.ttf"),
+                            _find_any_ttf_font(),
+                        ),
                         "IMAGE1": I("marked.png"),
                         "IMAGE2": I("textures/light_wood.png"),
                     },
@@ -116,6 +143,14 @@ def get_split_book(fmt="epub"):
         finally:
             os.remove(x)
     return ans
+
+
+class DevNull(object):
+    def __call__(self, *args, **kwargs):
+        return None
+
+    def __getattr__(self, name):
+        return self
 
 
 devnull = DevNull()

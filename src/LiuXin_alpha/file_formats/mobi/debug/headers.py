@@ -6,21 +6,62 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import struct
 import datetime
 import os
+from collections import OrderedDict
 
 from LiuXin_alpha.file_formats.mobi.debug import format_bytes
 from LiuXin_alpha.file_formats.mobi.langcodes import main_language, sub_language
 from LiuXin_alpha.file_formats.mobi.reader.headers import NULL_INDEX
-from LiuXin_alpha.file_formats.mobi.utils import get_trailing_data
 
 from LiuXin_alpha.utils.date import utc_tz
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
+
+
+def _decint(raw, forward=True):
+    val = 0
+    byts = bytearray()
+    src = bytearray(raw)
+    if not forward:
+        src.reverse()
+    for bnum in src:
+        byts.append(bnum & 0b01111111)
+        if bnum & 0b10000000:
+            break
+    if not forward:
+        byts.reverse()
+    for byte in byts:
+        val <<= 7
+        val |= byte
+
+    return val, len(byts)
+
+
+def get_trailing_data(record, extra_data_flags):
+    data = OrderedDict()
+    flags = extra_data_flags >> 1
+
+    num = 0
+    while flags:
+        num += 1
+        if flags & 0b1:
+            sz, consumed = _decint(record, forward=False)
+            if sz > consumed:
+                data[num] = record[-sz:-consumed]
+            record = record[:-sz]
+        flags >>= 1
+    if extra_data_flags & 0b1:
+        sz = (record[-1] & 0b11) + 1
+        consumed = 1
+        if sz > consumed:
+            data[0] = record[-sz:-consumed]
+        record = record[:-sz]
+    return data, record
 
 
 # PalmDB {{{
@@ -595,7 +636,7 @@ class MOBIFile(object):
         self.mobi8_header = mh8
 
         if "huff" in self.mobi_header.compression.lower():
-            from LiuXin_alpha.utils.calibre.ebooks.mobi.huffcdic import HuffReader
+            from LiuXin_alpha.file_formats.mobi.huffcdic import HuffReader
 
             def huffit(off, cnt):
                 huffman_record_nums = list(memory_range(off, off + cnt))
@@ -611,7 +652,7 @@ class MOBIFile(object):
                 self.huffman_record_nums, d6 = huffit(mh.huffman_record_offset, mh.huffman_record_count)
                 d8 = d6
         elif "palmdoc" in self.mobi_header.compression.lower():
-            from LiuXin_alpha.utils.calibre.ebooks.compression.palmdoc import decompress_doc
+            from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 
             d8 = d6 = decompress_doc
         else:

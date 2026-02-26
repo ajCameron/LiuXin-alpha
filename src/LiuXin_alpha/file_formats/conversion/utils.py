@@ -6,11 +6,11 @@ from math import ceil
 
 from LiuXin_alpha.file_formats.conversion.preprocess import DocAnalysis, Dehyphenator
 
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.wordcount import get_wordcount_obj
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"

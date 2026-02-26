@@ -15,10 +15,24 @@ from LiuXin_alpha.file_formats.oeb.polish.replace import (
 )
 
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.magick.draw import identify, identify_data
+
+try:
+    from LiuXin_alpha.utils.magick.draw import identify, identify_data
+except ModuleNotFoundError:
+    from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
+
+    def identify(path):
+        with _FallbackImage(path) as img:
+            meta = img.identify()
+        return meta.get("width", -1), meta.get("height", -1), meta.get("format")
+
+    def identify_data(data):
+        with _FallbackImage(data) as img:
+            meta = img.identify()
+        return meta.get("width", -1), meta.get("height", -1), meta.get("format")
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

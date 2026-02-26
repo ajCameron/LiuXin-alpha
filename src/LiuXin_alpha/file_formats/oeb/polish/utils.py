@@ -7,12 +7,9 @@ import re
 import os
 from bisect import bisect
 
-from LiuXin_alpha.utils.calibre import (
-    guess_type as _guess_type,
-    prepare_string_for_xml,
-    replace_entities,
-)
-from LiuXin_alpha.utils.icu import upper as icu_upper
+from LiuXin_alpha.utils.mine_types import guess_type as _guess_type
+from LiuXin_alpha.utils.text.xml_utils import prepare_string_for_xml, replace_entities
+from LiuXin_alpha.utils.language_tools.icu import upper as icu_upper
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -23,7 +20,10 @@ def guess_type(x):
 
 
 def setup_cssutils_serialization(tab_width=2):
-    import cssutils
+    try:
+        import cssutils
+    except ModuleNotFoundError:
+        return
 
     prefs = cssutils.ser.prefs
     prefs.indent = tab_width * " "
@@ -32,7 +32,7 @@ def setup_cssutils_serialization(tab_width=2):
 
 
 def actual_case_for_name(container, name):
-    from LiuXin_alpha.utils.filenames import samefile
+    from LiuXin_alpha.utils.storage.local.filenames import samefile
 
     if not container.exists(name):
         raise ValueError("Cannot get actual case for %s as it does not exist" % name)
@@ -177,6 +177,42 @@ def lead_text(top_elem, num_words=10):
     return " ".join(words[:num_words])
 
 
+class SimpleCSSRule(object):
+    CHARSET_RULE = 2
+    STYLE_RULE = 1
+
+    def __init__(self, css_text):
+        self.cssText = css_text
+        stripped = css_text.lstrip().lower()
+        self.type = self.CHARSET_RULE if stripped.startswith("@charset") else self.STYLE_RULE
+
+
+class SimpleCSSStyleSheet(object):
+    def __init__(self, text=""):
+        self.cssRules = []
+        self.cssText = ""
+        self.set_css_text(text)
+
+    def _parse_rules(self, text):
+        matches = re.findall(r"@charset\s+[^;]+;|[^{}]+{[^{}]*}", text, flags=re.I | re.S)
+        if not matches:
+            stripped = text.strip()
+            matches = [stripped] if stripped else []
+        return [SimpleCSSRule(x.strip()) for x in matches if x.strip()]
+
+    def set_css_text(self, text):
+        self.cssText = text or ""
+        self.cssRules = self._parse_rules(self.cssText)
+
+    def add(self, rule):
+        self.cssRules.append(SimpleCSSRule(getattr(rule, "cssText", str(rule))))
+        self.cssText = "\n".join(r.cssText for r in self.cssRules)
+
+    def deleteRule(self, index):
+        del self.cssRules[index]
+        self.cssText = "\n".join(r.cssText for r in self.cssRules)
+
+
 def parse_css(
     data,
     fname="<string>",
@@ -189,16 +225,19 @@ def parse_css(
         import logging
 
         log_level = logging.WARNING
-    from cssutils import CSSParser, log
-    from LiuXin_alpha.file_formats.oeb.base import _css_logger
-
-    log.setLevel(log_level)
-    log.raiseExceptions = False
     data = data or ""
     if isinstance(data, bytes):
         data = data.decode("utf-8") if decode is None else decode(data)
     if css_preprocessor is not None:
         data = css_preprocessor(data)
+    try:
+        from cssutils import CSSParser, log
+        from LiuXin_alpha.file_formats.oeb.base import _css_logger
+    except ModuleNotFoundError:
+        # Lightweight fallback for environments without cssutils.
+        return SimpleCSSStyleSheet(data)
+    log.setLevel(log_level)
+    log.raiseExceptions = False
     # fetcher is a set to a lmabda function - We dont care about @import rules
     parser = CSSParser(loglevel=log_level, fetcher=lambda x: (None, None), log=_css_logger)
     if is_declaration:

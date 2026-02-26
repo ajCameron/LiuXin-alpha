@@ -12,11 +12,11 @@ import glob
 from typing import Type
 
 from LiuXin_alpha.customize import FileTypePlugin
+from LiuXin_alpha.customize import numeric_version
 
-from LiuXin_alpha.utils.calibre import guess_type
-from LiuXin_alpha.utils.calibre.constants import numeric_version
+from LiuXin_alpha.utils.mine_types import guess_type
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 
 file_type_plugins: list[Type[FileTypePlugin]] = []

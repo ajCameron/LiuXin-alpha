@@ -8,11 +8,12 @@ import sys
 
 from lxml import etree
 
-from LiuXin_alpha.utils.calibre import prepare_string_for_xml, CurrentDir
+from LiuXin_alpha.utils.text.xml_utils import prepare_string_for_xml
 
+from LiuXin_alpha.utils.storage.local import CurrentDir
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
-from LiuXin_alpha.metadata import authors_to_string
+from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
 
 from LiuXin_alpha.file_formats.oeb.base import serialize
 from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf
@@ -28,9 +29,16 @@ from LiuXin_alpha.file_formats.oeb.polish.toc import TOC, create_ncx
 
 from LiuXin_alpha.utils.localization import lang_as_iso639_1
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import DevNull
 from LiuXin_alpha.utils.resources import P
-from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_STORED
+from LiuXin_alpha.utils.libraries.calibre_zipfile import ZIP_STORED, ZipFile
+
+
+class DevNull(object):
+    def __call__(self, *args, **kwargs):
+        return None
+
+    def __getattr__(self, name):
+        return self
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

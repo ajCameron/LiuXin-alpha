@@ -31,18 +31,9 @@ from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
     adjustMathMLAttributes,
 )
 
-try:
-    unicode
-
-    def with_metaclass(meta, *bases):
-        """Create a base class with a metaclass."""
-        return meta(b"NewBase", bases, {})
-
-except NameError:
-
-    def with_metaclass(meta, *bases):
-        """Create a base class with a metaclass."""
-        return meta("NewBase", bases, {})
+def with_metaclass(meta, *bases):
+    """Create a base class with a metaclass."""
+    return meta("NewBase", bases, {})
 
 
 def parse(doc, treebuilder="etree", encoding=None, namespaceHTMLElements=True):
@@ -3038,8 +3029,8 @@ def getPhases(debug):
 
 
 def adjust_attributes(token, replacements):
-    if token["data"].viewkeys() & replacements.viewkeys():
-        token["data"] = OrderedDict((replacements.get(k, k), v) for k, v in token["data"].iteritems())
+    if set(token["data"]) & set(replacements):
+        token["data"] = OrderedDict((replacements.get(k, k), v) for k, v in token["data"].items())
 
 
 class ParseError(Exception):

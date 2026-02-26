@@ -10,16 +10,16 @@ from lxml.builder import ElementMaker
 
 from LiuXin_alpha.file_formats.docx.names import DOCXNamespace
 
-from LiuXin_alpha.metadata import authors_to_string
+from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
 
-from LiuXin_alpha.utils.calibre import guess_type
-from LiuXin_alpha.utils.calibre.constants import numeric_version, __appname__
+from LiuXin_alpha.utils.mine_types import guess_type
+from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version, __appname__
 from LiuXin_alpha.utils.date import utcnow
 from LiuXin_alpha.utils.localization import canonicalize_lang, lang_as_iso639_1
-from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 try:
     from LiuXin_alpha.file_formats.pdf.render.common import PAPER_SIZES

@@ -20,15 +20,17 @@ from LiuXin_alpha.file_formats.chardet import xml_to_unicode, strip_encoding_dec
 
 from LiuXin_alpha.constants import filesystem_encoding, force_unicode
 
-from LiuXin_alpha.constants import force_unicode
-
 from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
 
 from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import namespaces as html5_namespaces
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types, dict_iteritems as iteritems, dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    six_string_types,
+    dict_iteritems as iteritems,
+    dict_itervalues as itervalues,
+)
 
 
 __license__ = "GPL v3"
@@ -84,7 +86,8 @@ def merge_multiple_html_heads_and_bodies(root, log=None):
     for b in bodies:
         for x in b:
             body.append(x)
-    map(root.append, (head, body))
+    root.append(head)
+    root.append(body)
     if log is not None:
         log.warn("Merging multiple <head> and <body> sections")
     return root
@@ -113,7 +116,7 @@ def node_depth(node):
 
 
 def fix_self_closing_cdata_tags(data):
-    from LiuXin_alpha.utils.liuxin_html5lib.constants import cdataElements, rcdataElements
+    from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import cdataElements, rcdataElements
 
     return re.sub(
         r"<\s*(%s)\s*[^>]*/\s*>" % ("|".join(cdataElements | rcdataElements)),
@@ -127,7 +130,7 @@ def html5_parse(data, max_nesting_depth=100):
     import warnings
 
     # Seems to require a specific version of the library - embedding it for sanity
-    import LiuXin_alpha.utils.liuxin_html5lib as html5lib
+    import LiuXin_alpha.utils.libraries.liuxin_html5lib as html5lib
 
     # HTML5 parsing algorithm idiocy: http://code.google.com/p/html5lib/issues/detail?id=195
     data = fix_self_closing_cdata_tags(data)
@@ -137,13 +140,13 @@ def html5_parse(data, max_nesting_depth=100):
         try:
             data = html5lib.parse(data, treebuilder="lxml").getroot()
         except ValueError:
-            from utils.libraries.cleantext import clean_xml_chars
+            from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
             data = html5lib.parse(clean_xml_chars(data), treebuilder="lxml").getroot()
 
     # Check that the asinine HTML 5 algorithm did not result in a tree with insane nesting depths
     for x in data.iterdescendants():
-        if isinstance(x.tag, six_string_types) and len(x) is 0:  # Leaf node
+        if isinstance(x.tag, six_string_types) and len(x) == 0:  # Leaf node
             depth = node_depth(x)
             if depth > max_nesting_depth:
                 raise ValueError("liuxin_html5lib resulted in a tree with nesting depth > %d" % max_nesting_depth)
@@ -153,7 +156,7 @@ def html5_parse(data, max_nesting_depth=100):
     xmlns_declaration = "{%s}" % XMLNS_NS
     non_html5_namespaces = {}
     seen_namespaces = set()
-    for elem in tuple(data.iter(tag=etree.Element)):
+    for elem in tuple(data.iter()):
         elem.attrib.pop("xmlns", None)
         # Set lang correctly
         xl = elem.attrib.pop("xmlU0003Alang", None)
@@ -182,6 +185,8 @@ def html5_parse(data, max_nesting_depth=100):
                 p.insert(idx, elem)
                 remapped_namespaces = {ns: namespaces[ns] for ns in set(namespaces) - set(elem.nsmap)}
 
+        if not isinstance(elem.tag, six_string_types):
+            continue
         b = barename(elem.tag)
         idx = b.find("U0003A")
         if idx > -1:
@@ -238,7 +243,7 @@ def _html4_parse(data, prefer_soup=False):
     for elem in data.iter(tag=etree.Comment):
         if elem.text:
             elem.text = elem.text.strip("-")
-    data = etree.tostring(data, encoding=unicode)
+    data = etree.tostring(data, encoding="unicode")
 
     # Setting huge_tree=True causes crashes in windows with large files
     parser = etree.XMLParser(no_network=True)
@@ -293,13 +298,13 @@ def parse_html(
     :return:
     """
     if log is None:
-        from LiuXin_alpha.utils.logger import default_log
+        from LiuXin_alpha.utils.logging import default_log
 
         log = default_log
 
     filename = force_unicode(filename, enc=filesystem_encoding)
 
-    if not isinstance(data, unicode):
+    if not isinstance(data, six_string_types):
         if decoder is not None:
             data = decoder(data)
         else:
@@ -358,7 +363,7 @@ def parse_html(
             try:
                 data = html5_parse(data)
             except Exception as e:
-                log.exception("HTML 5 parsing failed, falling back to older parsers - {}".format(e.message))
+                log.exception("HTML 5 parsing failed, falling back to older parsers - %s", str(e))
                 data = _html4_parse(data)
 
     if has_html4_doctype or data.tag == "HTML":
@@ -382,7 +387,7 @@ def parse_html(
         has_body = False
         for child in list(data):
             # This might screw up with python 3
-            if isinstance(child.tag, (unicode, str)) and barename(child.tag) == "body":
+            if isinstance(child.tag, six_string_types) and barename(child.tag) == "body":
                 has_body = True
                 break
         parent = nroot
@@ -399,9 +404,9 @@ def parse_html(
 
     # Force into the XHTML namespace
     if not namespace(data.tag):
-        log.warn("Forcing", filename, "into XHTML namespace")
+        log.warn("Forcing %s into XHTML namespace", filename)
         data.attrib["xmlns"] = XHTML_NS
-        data = etree.tostring(data, encoding=unicode)
+        data = etree.tostring(data, encoding="unicode")
 
         try:
             data = etree.fromstring(data, parser=parser)
@@ -474,7 +479,7 @@ def parse_html(
             etree.SubElement(data, XHTML("body"))
 
     # Remove microsoft office markup
-    r = [x for x in data.iterdescendants(etree.Element) if "microsoft-com" in x.tag]
+    r = [x for x in data.iterdescendants() if isinstance(x.tag, six_string_types) and "microsoft-com" in x.tag]
     for x in r:
         x.tag = XHTML("span")
 

@@ -6,13 +6,16 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 from contextlib import closing
 from functools import partial
 from multiprocessing.pool import ThreadPool
-
-from LiuXin_alpha.utils.calibre import detect_ncpus as cpu_count
+import os
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 DEBUG, INFO, WARN, ERROR, CRITICAL = range(5)
+
+
+def cpu_count():
+    return os.cpu_count() or 1
 
 
 class BaseError(object):

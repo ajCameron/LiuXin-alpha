@@ -13,14 +13,14 @@ def extract(path, dir):
 
         extractor = rarextract
     elif id_.startswith(b"PK"):
-        from LiuXin_alpha.utils.libunzip import extract as zipextract
+        from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
 
         extractor = zipextract
     if extractor is None:
         # Fallback to file extension
         ext = os.path.splitext(path)[1][1:].lower()
         if ext in ["zip", "cbz", "epub", "oebzip"]:
-            from LiuXin_alpha.utils.libunzip import extract as zipextract
+            from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
 
             extractor = zipextract
         elif ext in ["cbr", "rar"]:

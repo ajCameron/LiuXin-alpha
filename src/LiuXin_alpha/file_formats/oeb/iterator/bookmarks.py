@@ -6,8 +6,8 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 from io import BytesIO
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import safe_replace
 
 __license__ = "GPL v3"

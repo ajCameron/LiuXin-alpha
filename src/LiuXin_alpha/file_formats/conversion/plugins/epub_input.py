@@ -6,7 +6,7 @@ from itertools import cycle
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 __license__ = "GPL 3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

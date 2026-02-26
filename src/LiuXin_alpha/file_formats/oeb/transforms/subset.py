@@ -8,10 +8,10 @@ from collections import defaultdict
 from LiuXin_alpha.file_formats.oeb.base import urlnormalize
 
 from LiuXin_alpha.utils.fonts.sfnt.subset import subset, NoGlyphs, UnsupportedFont
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"

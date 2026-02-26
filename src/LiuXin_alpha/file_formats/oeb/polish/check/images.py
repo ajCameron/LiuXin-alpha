@@ -6,9 +6,32 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 from LiuXin_alpha.file_formats.oeb.polish.check.base import BaseError, WARN
 from LiuXin_alpha.file_formats.oeb.polish.check.parsing import EmptyFile
 
-from LiuXin_alpha.utils.calibre import as_unicode
+from LiuXin_alpha.utils.text import as_unicode
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.magick import Image
+
+try:
+    from LiuXin_alpha.utils.magick import Image
+except Exception:
+    try:
+        from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
+    except Exception:
+        _FallbackImage = None
+
+    if _FallbackImage is not None:
+        class Image(_FallbackImage):
+            def __init__(self):
+                super(Image, self).__init__(b"")
+                self.colorspace = "RGBColorspace"
+
+            def load(self, data):
+                self._src = data
+                return self
+    else:
+        class Image(object):
+            colorspace = "RGBColorspace"
+
+            def load(self, data):
+                return self
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -65,7 +88,7 @@ def check_raster_images(name, mt, raw):
     try:
         i.load(raw)
     except Exception as e:
-        errors.append(InvalidImage(as_unicode(e.message), name))
+        errors.append(InvalidImage(as_unicode(str(e)), name))
     else:
         if i.colorspace == "CMYKColorspace":
             errors.append(CMYKImage(_("Image is in the CMYK colorspace"), name))

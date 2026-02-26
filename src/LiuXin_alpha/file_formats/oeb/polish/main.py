@@ -7,6 +7,7 @@ import re
 import sys
 import os
 import time
+import logging
 from collections import namedtuple
 from functools import partial
 
@@ -26,14 +27,54 @@ from LiuXin_alpha.file_formats.oeb.polish.subset import subset_all_fonts
 # Todo: Investigate what's going on here
 from LiuXin_alpha.file_formats.oeb.polish.css import remove_unused_css
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import Log
+from LiuXin_alpha.utils.logging import get_compat_logger
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
+
+
+class Log(object):
+    DEBUG = logging.DEBUG
+    INFO = logging.INFO
+    WARN = logging.WARNING
+    WARNING = logging.WARNING
+    ERROR = logging.ERROR
+
+    def __init__(self, level=logging.INFO):
+        self._logger = get_compat_logger("LiuXin_alpha.oeb.polish")
+        self.filter_level = level
+        self._logger.setLevel(level)
+
+    def _emit(self, level, *args):
+        if not args:
+            msg = ""
+        else:
+            msg = " ".join(str(x) for x in args)
+        self._logger.log(level, msg)
+
+    def __call__(self, *args):
+        self._emit(self.INFO, *args)
+
+    def debug(self, *args):
+        self._emit(self.DEBUG, *args)
+
+    def info(self, *args):
+        self._emit(self.INFO, *args)
+
+    def warn(self, *args):
+        self._emit(self.WARN, *args)
+
+    warning = warn
+
+    def error(self, *args):
+        self._emit(self.ERROR, *args)
+
+    def exception(self, *args):
+        self._logger.exception(" ".join(str(x) for x in args))
 
 
 ALL_OPTS = {

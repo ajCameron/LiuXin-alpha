@@ -10,12 +10,12 @@ import struct
 from LiuXin_alpha.file_formats.mobi import MobiError
 from LiuXin_alpha.file_formats.mobi.langcodes import main_language, sub_language, mobi2iana
 
-from LiuXin_alpha.metadata import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import calibreMetaInformation
 from LiuXin_alpha.metadata.ebook_metadata_tools import check_isbn
 
-from LiuXin_alpha.utils.calibre import replace_entities
-from LiuXin_alpha.utils.calibre.calibre_emulation import parse_date
-from LiuXin_alpha.utils.calibre.tweaks import tweaks
+from LiuXin_alpha.utils.text.xml_utils import replace_entities
+from LiuXin_alpha.utils.date import parse_date
+from LiuXin_alpha.utils.config.config_base import tweaks
 from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars, clean_xml_chars
 from LiuXin_alpha.utils.libraries.iso639.iso639_tools import canonicalize_lang
 

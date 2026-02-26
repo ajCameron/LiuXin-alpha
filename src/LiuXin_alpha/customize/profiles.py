@@ -4,7 +4,7 @@ from __future__ import with_statement
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.customize import Plugin as BasePlugin
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_zip as izip
+from LiuXin_alpha.utils.libraries.liuxin_six import six_zip as izip
 
 
 __license__ = "GPL 3"

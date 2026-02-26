@@ -23,28 +23,29 @@ _filename_sanitize = re.compile(r'[\xae\0\\|\?\*<":>\+/]')
 _filename_sanitize_unicode = frozenset(["\\", "|", "?", "*", "<", '"', ":", ">", "+", "/"] + list(map(chr, range(32))))
 
 
-def sanitize_file_name(name: str, substitute: str = "_", as_unicode: bool = False) -> bytes:
+def sanitize_file_name(name: str, substitute: str = "_", as_unicode: bool = False) -> str:
     """
     Sanitize the filename `name`. All invalid characters are replaced by `substitute`.
 
     The set of invalid characters is the union of the invalid characters in Windows, OS X and Linux.
     Also removes leading and trailing whitespace.
     **WARNING:** This function also replaces path separators, so only pass file names and not full paths to it.
-    *NOTE:* This function always returns byte strings, not unicode objects. The byte strings
-    are encoded in the filesystem encoding of the platform, or UTF-8.
+    *NOTE:* In this Python 3 port this returns text (`str`), not bytes.
     :param name:
     :param substitute:
     :param as_unicode:
     :return:
     """
-    if isinstance(name, str):
-        name = name.encode(filesystem_encoding, "ignore")
+    if isinstance(name, bytes):
+        name = name.decode(filesystem_encoding, "replace")
+    else:
+        name = str(name)
     one = _filename_sanitize.sub(substitute, name)
     one = re.sub(r"\s", " ", one).strip()
     bname, ext = os.path.splitext(one)
     one = re.sub(r"^\.+$", "_", bname)
     if as_unicode:
-        one = one.encode(filesystem_encoding)
+        return one
     one = one.replace("..", substitute)
     one += ext
 
@@ -110,12 +111,13 @@ def ascii_text(orig: str) -> str:
     """
     udc = get_udc()
     try:
-        ascii = udc.decode(orig)
-    except:
-        if isinstance(orig, str):
-            orig = orig.encode("ascii", "replace")
-        ascii = orig.decode(preferred_encoding, "replace").encode("ascii", "replace")
-    return ascii
+        text = udc.decode(orig)
+    except Exception:
+        if isinstance(orig, bytes):
+            text = orig.decode(preferred_encoding, "replace")
+        else:
+            text = str(orig)
+    return text.encode("ascii", "replace").decode("ascii")
 
 
 def ascii_filename(orig: str, substitute: str = "_") -> Union[str, bytes]:

@@ -13,14 +13,13 @@ from LiuXin_alpha.customize.conversion import OptionRecommendation
 
 from LiuXin_alpha.file_formats.conversion import ConversionUserFeedBack
 
-from LiuXin_alpha.utils.calibre import patheq
 from LiuXin_alpha.utils.config.config_tools import OptionParser
 from LiuXin_alpha.utils.localization import localize_user_manual_link
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log as Log
+from LiuXin_alpha.utils.logging import default_log as Log
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL 3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -75,6 +74,10 @@ HEURISTIC_OPTIONS = [
 DEFAULT_TRUE_OPTIONS = HEURISTIC_OPTIONS + ["remove_fake_margins"]
 
 
+def patheq(path_a, path_b):
+    return os.path.normcase(os.path.abspath(path_a)) == os.path.normcase(os.path.abspath(path_b))
+
+
 def print_help(parser, log):
     parser.print_help()
 
@@ -108,7 +111,8 @@ def option_recommendation_to_cli_option(add_option, rec):
     opt = rec.option
     switches = ["-" + opt.short_switch] if opt.short_switch else []
     switches.append("--" + opt.long_switch)
-    attrs = dict(dest=opt.name, help=opt.help, choices=opt.choices, default=rec.recommended_value)
+    help_text = getattr(opt, "help", None) or getattr(opt, "option_help", None)
+    attrs = dict(dest=opt.name, help=help_text, choices=opt.choices, default=rec.recommended_value)
     if isinstance(rec.recommended_value, type(True)):
         attrs["action"] = "store_false" if rec.recommended_value else "store_true"
     else:

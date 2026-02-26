@@ -13,18 +13,51 @@ import unicodedata
 import uuid
 from collections import defaultdict
 from io import BytesIO
+from itertools import cycle
 
 from lxml import etree
-from cssutils import replaceUrls, getUrls
 
-from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
+try:
+    from cssutils import replaceUrls, getUrls
+except ModuleNotFoundError:
+    # cssutils is optional; provide a regex-based fallback.
+    def _css_text(sheet):
+        text = getattr(sheet, "cssText", sheet)
+        if isinstance(text, bytes):
+            text = text.decode("utf-8", "replace")
+        return text or ""
+
+    def _set_css_text(sheet, text):
+        if hasattr(sheet, "set_css_text"):
+            sheet.set_css_text(text)
+        elif hasattr(sheet, "cssText"):
+            sheet.cssText = text
+        return sheet
+
+    def getUrls(sheet):
+        from LiuXin_alpha.file_formats.oeb.base import itercsslinks
+
+        text = _css_text(sheet)
+        for link, _ in itercsslinks(text):
+            yield link
+
+    def replaceUrls(sheet, repl_func):
+        from LiuXin_alpha.file_formats.oeb.base import itercsslinks
+
+        text = _css_text(sheet)
+        links = list(itercsslinks(text))
+        for link, pos in reversed(links):
+            new_link = repl_func(link.strip())
+            if new_link == link:
+                continue
+            if new_link is None:
+                new_link = ""
+            if isinstance(new_link, bytes):
+                new_link = new_link.decode("utf-8", "replace")
+            text = text[:pos] + new_link + text[pos + len(link) :]
+        return _set_css_text(sheet, text)
 
 from LiuXin_alpha.file_formats.chardet import xml_to_unicode
-from LiuXin_alpha.file_formats.conversion.plugins.epub_input import (
-    ADOBE_OBFUSCATION,
-    IDPF_OBFUSCATION,
-    decrypt_font_data,
-)
 from LiuXin_alpha.file_formats.conversion.preprocess import (
     HTMLPreProcessor,
     CSSPreProcessor as cssp,
@@ -56,21 +89,31 @@ from LiuXin_alpha.file_formats.oeb.polish.utils import (
 )
 from LiuXin_alpha.file_formats.oeb.parse_utils import NotHTML, parse_html, RECOVER_PARSER
 
-from LiuXin_alpha.utils.calibre import CurrentDir
-from LiuXin_alpha.utils.filenames import nlinks_file, hardlink_file
-from LiuXin_alpha.utils.ipc.simple_worker import fork_job, WorkerError
+from LiuXin_alpha.utils.storage.local import CurrentDir
+from LiuXin_alpha.utils.storage.local.filenames import nlinks_file, hardlink_file
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import (
     PersistentTemporaryDirectory,
     PersistentTemporaryFile,
 )
-from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
 # Py2/Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_zip
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_zip
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
+
+try:
+    from LiuXin_alpha.utils.ipc.simple_worker import fork_job, WorkerError
+except ModuleNotFoundError:
+    class WorkerError(RuntimeError):
+        def __init__(self, message, orig_tb=None):
+            super().__init__(message)
+            self.orig_tb = orig_tb
+
+    def fork_job(*args, **kwargs):
+        raise RuntimeError("LiuXin_alpha.utils.ipc.simple_worker is not available in this port.")
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -88,6 +131,17 @@ OEB_FONTS = {
     "application/x-font-otf",
 }
 OPF_NAMESPACES = {"opf": OPF2_NS, "dc": DC11_NS}
+ADOBE_OBFUSCATION = "http://ns.adobe.com/pdf/enc#RC"
+IDPF_OBFUSCATION = "http://www.idpf.org/2008/embedding"
+
+
+def decrypt_font_data(key, data, algorithm):
+    is_adobe = algorithm == ADOBE_OBFUSCATION
+    crypt_len = 1024 if is_adobe else 1040
+    crypt = bytearray(data[:crypt_len])
+    key_iter = cycle(bytearray(key))
+    decrypted = bytes(bytearray(x ^ next(key_iter) for x in crypt))
+    return decrypted + data[crypt_len:]
 
 
 class CSSPreProcessor(cssp):
@@ -547,7 +601,7 @@ class Container(object):  # {{{
         def fix_data(d):
             return d.replace("\r\n", "\n").replace("\r", "\n")
 
-        if isinstance(data, unicode):
+        if isinstance(data, str):
             return fix_data(data)
         bom_enc = None
         if data[:4] in {b"\0\0\xfe\xff", b"\xff\xfe\0\0"}:
@@ -1190,7 +1244,7 @@ class EpubContainer(Container):
             except Exception as e:
                 log.exception(
                     "EPUB appears to be invalid ZIP file, trying a more forgiving ZIP parser",
-                    " exception messahe: {}".format(e.message),
+                    " exception messahe: {}".format(str(e)),
                 )
                 from LiuXin_alpha.utils.decompression.localunzip import extractall
 
@@ -1250,15 +1304,18 @@ class EpubContainer(Container):
                     cr.set("URI", self.name_to_href(new_name))
                     self.dirty("META-INF/encryption.xml")
 
+    @property
     def names_that_need_not_be_manifested(self):
         return super(EpubContainer, self).names_that_need_not_be_manifested | {"META-INF/" + x for x in self.META_INF}
 
     def ok_to_be_unmanifested(self, name):
         return name in self.names_that_need_not_be_manifested or name.startswith("META-INF/")
 
+    @property
     def names_that_must_not_be_removed(self):
         return super(EpubContainer, self).names_that_must_not_be_removed | {"META-INF/container.xml"}
 
+    @property
     def names_that_must_not_be_changed(self):
         return super(EpubContainer, self).names_that_must_not_be_changed | {"META-INF/" + x for x in self.META_INF}
 
@@ -1328,7 +1385,7 @@ class EpubContainer(Container):
                     self.log.exception("Failed to parse obfuscation key")
                     key = None
 
-        for font, alg in fonts.iteritems():
+        for font, alg in fonts.items():
             tkey = key if alg == ADOBE_OBFUSCATION else idpf_key
             if not tkey:
                 raise ObfuscationKeyMissing("Failed to find obfuscation key")
@@ -1354,9 +1411,9 @@ class EpubContainer(Container):
         from LiuXin_alpha.file_formats.tweak import zip_rebuilder
 
         with open(join(self.root, "mimetype"), "wb") as f:
-            f.write(guess_type("a.epub"))
+            f.write(guess_type("a.epub").encode("utf-8"))
         zip_rebuilder(self.root, outpath)
-        for name, data in restore_fonts.iteritems():
+        for name, data in restore_fonts.items():
             with self.open(name, "wb") as f:
                 f.write(data)
 
@@ -1393,6 +1450,7 @@ def do_explode(path, dest):
 
 
 def opf_to_azw3(opf, outpath, container):
+    from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
     from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
 
     class Item(Manifest.Item):
@@ -1505,6 +1563,7 @@ class AZW3Container(Container):
     def path_to_ebook(self, val):
         self.pathtoazw3 = val
 
+    @property
     def names_that_must_not_be_changed(self):
         return set(self.name_path_map)
 

@@ -46,19 +46,36 @@ from LiuXin_alpha.customize.archives import get_compressor_plugins
 
 from LiuXin_alpha.databases.database import Database
 
-from LiuXin_alpha.devices.interface import DevicePlugin
+try:
+    from LiuXin_alpha.devices.interface import DevicePlugin
+except ModuleNotFoundError:
+    class DevicePlugin(object):
+        pass
 
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
-from LiuXin_alpha.metadata.web_sources.base import Source
+try:
+    from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
+except ModuleNotFoundError:
+    from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+        CalibreLikeLiuXinBookMetaData as MetaInformation,
+    )
+
+try:
+    from LiuXin_alpha.metadata.web_sources.base import Source
+except ModuleNotFoundError:
+    class Source(object):
+        pass
 
 from LiuXin_alpha.utils.config.config_base import make_config_dir, Config, ConfigProxy, plugin_dir
 from LiuXin_alpha.utils.config.config_tools import OptionParser
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
-from past.builtins import basestring
+try:
+    from past.builtins import basestring
+except ModuleNotFoundError:
+    basestring = str
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"

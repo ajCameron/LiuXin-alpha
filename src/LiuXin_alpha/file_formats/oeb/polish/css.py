@@ -9,25 +9,49 @@ from lxml import etree
 from cssselect import HTMLTranslator, parse
 from cssselect.xpath import XPathExpr, is_safe_name
 from cssselect.parser import SelectorSyntaxError
-from cssutils.css import CSSRule
+
+try:
+    from cssutils.css import CSSRule
+except ModuleNotFoundError:
+    class CSSRule(object):
+        IMPORT_RULE = 3
+        STYLE_RULE = 1
 
 from LiuXin_alpha.file_formats.oeb.base import OEB_STYLES, OEB_DOCS, XPNSMAP, XHTML_NS
-from LiuXin_alpha.file_formats.oeb.normalize_css import normalize_filter_css, normalizers
-from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_script_or_style
-from LiuXin_alpha.file_formats.oeb.stylizer import (
-    MIN_SPACE_RE,
-    is_non_whitespace,
-    xpath_lower_case,
-    fix_namespace,
-)
+try:
+    from LiuXin_alpha.file_formats.oeb.normalize_css import normalize_filter_css, normalizers
+except Exception:
+    def normalize_filter_css(props):
+        return props
 
-from LiuXin_alpha.utils.calibre import force_unicode
-from LiuXin_alpha.utils.icu import lower as icu_lower
+    normalizers = {}
+from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_script_or_style
+try:
+    from LiuXin_alpha.file_formats.oeb.stylizer import (
+        MIN_SPACE_RE,
+        fix_namespace,
+        is_non_whitespace,
+        xpath_lower_case,
+    )
+except Exception:
+    MIN_SPACE_RE = re.compile(r"\s*([>+~])\s*")
+
+    def is_non_whitespace(text):
+        return bool(str(text).strip())
+
+    def xpath_lower_case(text):
+        return text
+
+    def fix_namespace(selector):
+        return selector
+
+from LiuXin_alpha.utils.text import as_unicode as force_unicode
+from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"

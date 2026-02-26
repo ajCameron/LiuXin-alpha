@@ -11,7 +11,7 @@ import functools
 from LiuXin_alpha.customize import MetadataReaderPlugin
 
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 file_type_plugins: list[type[MetadataReaderPlugin]] = []
 

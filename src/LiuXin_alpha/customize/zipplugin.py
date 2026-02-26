@@ -11,7 +11,22 @@ import posixpath
 import importlib
 import threading
 import re
-import imp
+try:
+    import imp
+except ModuleNotFoundError:
+    import importlib
+    import types
+
+    class _ImpCompat(object):
+        @staticmethod
+        def new_module(name):
+            return types.ModuleType(name)
+
+        @staticmethod
+        def reload(module):
+            return importlib.reload(module)
+
+    imp = _ImpCompat()
 import sys
 from collections import OrderedDict
 from functools import partial
@@ -21,7 +36,10 @@ from types import ModuleType
 
 from typing import Union, Any, Optional
 
-from past.builtins import basestring
+try:
+    from past.builtins import basestring
+except ModuleNotFoundError:
+    basestring = str
 
 
 from LiuXin_alpha.customize import (
@@ -33,8 +51,8 @@ from LiuXin_alpha.customize import (
 )
 
 
-from LiuXin_alpha.utils.calibre import as_unicode
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode, dict_itervalues
+from LiuXin_alpha.constants import as_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, dict_itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -363,7 +381,7 @@ sys.meta_path.insert(0, loader)
 if __name__ == "__main__":
     from tempfile import NamedTemporaryFile
     from LiuXin_alpha.customize.ui import add_plugin
-    from LiuXin_alpha.utils.calibre import CurrentDir
+    from LiuXin_alpha.utils.storage.local import CurrentDir
 
     path = sys.argv[-1]
     with NamedTemporaryFile(suffix=".zip") as f:

@@ -24,7 +24,7 @@ from LiuXin_alpha.utils.calibre import (
     xml_replace_entities,
 )
 from LiuXin_alpha.utils.config.config_tools import DynamicConfig
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 

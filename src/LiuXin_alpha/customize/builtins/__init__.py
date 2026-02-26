@@ -6,26 +6,55 @@ API for the builtin plugins included directly in LiuXin's code.
 
 # Todo: Make sure all MD extractors can cope with a file or path being passed in
 
-from LiuXin_alpha.file_formats.html.to_zip import HTML2ZIP
+from LiuXin_alpha.utils.logging import default_log
+
+try:
+    from LiuXin_alpha.file_formats.html.to_zip import HTML2ZIP
+except Exception as e:
+    default_log.log_exception("Failed to import HTML2ZIP", e, "DEBUG")
+    HTML2ZIP = None
 
 from LiuXin_alpha.customize.builtins.conversion import get_input_plugins
 from LiuXin_alpha.customize.builtins.conversion import get_output_plugins
-from LiuXin_alpha.customize.builtins.device_drivers import get_device_driver_plugins
+try:
+    from LiuXin_alpha.customize.builtins.device_drivers import get_device_driver_plugins
+except Exception as e:
+    default_log.log_exception("Failed to import device driver plugins", e, "DEBUG")
+
+    def get_device_driver_plugins():
+        return []
+
 from LiuXin_alpha.customize.builtins.on_import import get_file_type_plugins
 from LiuXin_alpha.customize.builtins.metadata_downloaders import get_web_md_plugins
 from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 from LiuXin_alpha.customize.builtins.metadata_writers import get_metadata_set_plugins
-from LiuXin_alpha.customize.profiles import input_profiles, output_profiles
+try:
+    from LiuXin_alpha.customize.profiles import input_profiles, output_profiles
+except Exception as e:
+    default_log.log_exception("Failed to import profiles", e, "DEBUG")
+    input_profiles, output_profiles = [], []
 
-from LiuXin_alpha.library.catalogs.csv_xml import CSV_XML
-from LiuXin_alpha.library.catalogs.bibtex import BIBTEX
-from LiuXin_alpha.library.catalogs.epub_mobi import EPUB_MOBI
+try:
+    from LiuXin_alpha.library.catalogs.csv_xml import CSV_XML
+    from LiuXin_alpha.library.catalogs.bibtex import BIBTEX
+    from LiuXin_alpha.library.catalogs.epub_mobi import EPUB_MOBI
+except Exception as e:
+    default_log.log_exception("Failed to import catalog plugins", e, "DEBUG")
+    CSV_XML = BIBTEX = EPUB_MOBI = None
 
-from LiuXin_alpha.metadata.file_sources.archive import ArchiveExtract, get_comic_metadata
-from LiuXin_alpha.metadata.liuxin_plugins.md_synthesizer import SynthesisMDInputTransform
-from LiuXin_alpha.metadata.liuxin_plugins.isbn_extractor import ISBNMDInputTransform
+try:
+    from LiuXin_alpha.metadata.file_sources.archive import ArchiveExtract, get_comic_metadata
+except Exception as e:
+    default_log.log_exception("Failed to import archive metadata plugins", e, "DEBUG")
+    ArchiveExtract = None
+    get_comic_metadata = None
 
-from LiuXin_alpha.utils.logger import default_log
+try:
+    from LiuXin_alpha.metadata.liuxin_plugins.md_synthesizer import SynthesisMDInputTransform
+    from LiuXin_alpha.metadata.liuxin_plugins.isbn_extractor import ISBNMDInputTransform
+except Exception as e:
+    default_log.log_exception("Failed to import metadata transform plugins", e, "DEBUG")
+    SynthesisMDInputTransform = ISBNMDInputTransform = None
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -38,7 +67,9 @@ plugins = []
 # To archive plugins {{{
 
 plugins += get_file_type_plugins()
-plugins += [HTML2ZIP, ArchiveExtract]
+for optional_plugin in (HTML2ZIP, ArchiveExtract):
+    if optional_plugin is not None:
+        plugins.append(optional_plugin)
 
 # }}}
 
@@ -72,12 +103,14 @@ plugins += get_output_plugins()
 
 # Catalog plugins {{{
 
-plugins += [CSV_XML, BIBTEX, EPUB_MOBI]
+for optional_plugin in (CSV_XML, BIBTEX, EPUB_MOBI):
+    if optional_plugin is not None:
+        plugins.append(optional_plugin)
 # }}}
 
 # Profiles {{{
 
-plugins += input_profiles + output_profiles
+plugins += list(input_profiles) + list(output_profiles)
 # }}}
 
 # Device driver plugins {{{
@@ -135,7 +168,9 @@ default_log.info("Finishing get_web_md_plugins")
 # - METADATA SYNTHESIS PLUGINS START HERE
 # ------------------------------------------------
 
-plugins += [SynthesisMDInputTransform, ISBNMDInputTransform]
+for optional_plugin in (SynthesisMDInputTransform, ISBNMDInputTransform):
+    if optional_plugin is not None:
+        plugins.append(optional_plugin)
 
 default_log.info("")
 

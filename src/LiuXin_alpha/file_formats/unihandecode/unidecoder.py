@@ -59,7 +59,7 @@ import re
 from LiuXin_alpha.file_formats.unihandecode.unicodepoints import CODEPOINTS
 from LiuXin_alpha.file_formats.unihandecode.zhcodepoints import CODEPOINTS as HANCODES
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Hiroshi Miura <miurahr@linux.com>"

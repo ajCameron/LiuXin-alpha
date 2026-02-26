@@ -60,11 +60,11 @@ from LiuXin_alpha.utils.localization import delayed_trans as __
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py3 comparability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unquote as urlunquote
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unquote as urlunquote
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"

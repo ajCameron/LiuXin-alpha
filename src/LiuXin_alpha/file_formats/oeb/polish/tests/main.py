@@ -22,6 +22,7 @@ def find_tests():
 
 # Todo: Fix
 if __name__ == "__main__":
-    from LiuXin_alpha.utils.calibre.db.tests.main import run_tests
-
-    run_tests(find_tests=find_tests)
+    suite = find_tests()
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+    raise SystemExit(0 if result.wasSuccessful() else 1)

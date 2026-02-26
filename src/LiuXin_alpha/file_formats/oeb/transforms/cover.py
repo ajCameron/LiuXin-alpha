@@ -6,8 +6,17 @@ from lxml import etree
 from urllib.parse import unquote
 
 from LiuXin_alpha.utils.calibre import guess_type
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.wrappers.magick.draw import identify_data
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+try:
+    from LiuXin_alpha.utils.magick.draw import identify_data
+except ModuleNotFoundError:
+    from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
+
+    def identify_data(data):
+        with _FallbackImage(data) as img:
+            meta = img.identify()
+        return meta.get("width", -1), meta.get("height", -1), meta.get("format")
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"

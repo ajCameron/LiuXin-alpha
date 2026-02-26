@@ -16,7 +16,7 @@ from typing import Any, TYPE_CHECKING, Union, Optional, BinaryIO
 from LiuXin_alpha.constants import get_os_type
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.folder_stores.location import Location
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 # Todo: Merge with the base class from LiuXin.folder_stores.drivers

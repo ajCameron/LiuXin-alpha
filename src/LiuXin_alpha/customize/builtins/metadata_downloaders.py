@@ -6,7 +6,7 @@ Or you could feed one of them the title, and it'd get the cover.
 """
 
 
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 web_md_plugins = []
 

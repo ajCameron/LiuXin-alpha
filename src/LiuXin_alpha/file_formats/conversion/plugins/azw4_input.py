@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
@@ -11,7 +13,7 @@ __docformat__ = "restructuredtext en"
 
 class AZW4Input(InputFormatPlugin):
     """
-    AZW4 files are Amazon's print replica ebook format - DJVU for kindle.
+    AZW4 files are Amazon's print replica ebook format.
     """
 
     name = "AZW4 Input"
@@ -20,11 +22,8 @@ class AZW4Input(InputFormatPlugin):
     file_types = {"azw4"}
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
         from LiuXin_alpha.file_formats.azw4.reader import Reader
 
-        header = PdbHeaderReader(stream)
-        reader = Reader(header, stream, log, options)
-        opf = reader.extract_content(os.getcwdu())
-
-        return opf
+        # AZW4 handling is byte-pattern based and does not need the PDB header.
+        reader = Reader(None, stream, log, options)
+        return reader.extract_content(os.getcwd())

@@ -77,7 +77,10 @@ from LiuXin_alpha.utils.date import isoformat
 from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
 from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
 
-from past.builtins import basestring
+try:
+    from past.builtins import basestring
+except ModuleNotFoundError:
+    basestring = str
 
 
 DEFAULT_SOURCE_ENCODING = "cp1252"  # defualt is us-windows character set

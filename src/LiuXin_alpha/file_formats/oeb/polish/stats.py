@@ -7,26 +7,50 @@ import json
 import logging
 import os
 import sys
-from urllib import unquote
+from urllib.parse import unquote
 from collections import defaultdict
 
 # Todo: Include this in utils
-import LiuXin_alpha.utils.regex as regex
+try:
+    import LiuXin_alpha.utils.regex as regex
+except ModuleNotFoundError:
+    try:
+        import regex  # type: ignore[no-redef]
+    except ModuleNotFoundError:
+        import re as regex  # type: ignore[no-redef]
 
-from cssutils import CSSParser
-from PyQt5.Qt import pyqtProperty, QEventLoop, Qt, QSize, QTimer, pyqtSlot
-from PyQt5.QtWebKitWidgets import QWebPage, QWebView
+try:
+    from cssutils import CSSParser
+except ModuleNotFoundError:
+    CSSParser = None
+
+try:
+    from PyQt5.Qt import pyqtProperty, QEventLoop, Qt, QSize, QTimer, pyqtSlot
+    from PyQt5.QtWebKitWidgets import QWebPage, QWebView
+except ModuleNotFoundError:
+    QEventLoop = Qt = QSize = QTimer = None
+
+    def pyqtProperty(*args, **kwargs):
+        return property(kwargs.get("fget"), kwargs.get("fset"))
+
+    def pyqtSlot(*args, **kwargs):
+        def deco(func):
+            return func
+
+        return deco
+
+    class QWebPage(object):
+        pass
+
+    class QWebView(object):
+        pass
 
 from LiuXin_alpha.constants import iswindows
 
-from LiuXin_alpha.file_formats.oeb.display.webview import load_html
-
-from LiuXin_alpha.interfaces.gui2 import must_use_qt
-
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.localization import icu_lower
 
 
@@ -223,14 +247,26 @@ class Page(QWebPage):  # {{{
 
 class StatsCollector(object):
     def __init__(self, container, do_embed=False):
+        if CSSParser is None:
+            raise ModuleNotFoundError("cssutils is required for oeb polish font statistics.")
+        if QEventLoop is None:
+            raise ModuleNotFoundError("PyQt5 is required for oeb polish font statistics.")
         self.container = container
         self.log = self.logger = container.log
         self.do_embed = do_embed
+        from LiuXin_alpha.file_formats.oeb.display.webview import load_html
+        from LiuXin_alpha.interfaces.gui2 import must_use_qt
+
+        self._load_html = load_html
         must_use_qt()
         self.parser = CSSParser(loglevel=logging.CRITICAL, log=logging.getLogger("calibre.css"))
-        self.first_letter_pat = regex.compile(
-            r"^[\p{Ps}\p{Ps}\p{Pe}\p{Pi}\p{Pf}\p{Po}]+", regex.VERSION1 | regex.UNICODE
-        )
+        try:
+            self.first_letter_pat = regex.compile(
+                r"^[\p{Ps}\p{Ps}\p{Pe}\p{Pi}\p{Pf}\p{Po}]+",
+                getattr(regex, "VERSION1", 0) | getattr(regex, "UNICODE", 0),
+            )
+        except Exception:
+            self.first_letter_pat = regex.compile(r"^[\\W_]+")
 
         self.loop = QEventLoop()
         self.view = QWebView()
@@ -267,13 +303,13 @@ class StatsCollector(object):
             else:
                 self.render_next()
         except Exception as e:
-            self.log_exception("Rendering failed", " - exception message: {}".format(e.message))
+            self.log_exception("Rendering failed", " - exception message: {}".format(e))
             self.loop.exit(1)
 
     def render_next(self):
         item = six_unicode(self.render_queue.pop(0))
         self.current_item = item
-        load_html(item, self.view)
+        self._load_html(item, self.view)
 
     def collect(self, ok):
         if not ok:
@@ -286,7 +322,7 @@ class StatsCollector(object):
         except Exception as e:
             self.log_exception(
                 "Failed to collect font stats from: %s" % self.container.relpath(self.current_item),
-                " - exception message: {}".format(e.message),
+                " - exception message: {}".format(e),
             )
             self.loop.exit(1)
             return
@@ -426,7 +462,7 @@ class StatsCollector(object):
 
 if __name__ == "__main__":
     from LiuXin_alpha.file_formats.oeb.polish.container import get_container
-    from LiuXin_alpha.utils.logger import default_log
+    from LiuXin_alpha.utils.logging import default_log
 
     default_log.filter_level = default_log.DEBUG
     ebook = get_container(sys.argv[-1], default_log)

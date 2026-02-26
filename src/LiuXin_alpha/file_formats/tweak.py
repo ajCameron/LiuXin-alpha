@@ -14,10 +14,16 @@ from LiuXin_alpha.constants import iswindows, __appname__
 
 from LiuXin_alpha.utils.calibre import as_unicode, walk
 from LiuXin_alpha import prints
-from LiuXin_alpha.utils.ipc.simple_worker import WorkerError
+try:
+    from LiuXin_alpha.utils.ipc.simple_worker import WorkerError
+except ModuleNotFoundError:
+    class WorkerError(RuntimeError):
+        def __init__(self, message, orig_tb=None):
+            super().__init__(message)
+            self.orig_tb = orig_tb
 from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory, TemporaryFile
-from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
+from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

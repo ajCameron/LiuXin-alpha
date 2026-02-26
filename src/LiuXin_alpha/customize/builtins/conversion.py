@@ -2,7 +2,7 @@
 Front end for the builtin conversion plugins.
 """
 
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 # ----------------------------------------------------------------------------------------------------------------------
 #

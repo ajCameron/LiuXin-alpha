@@ -6,20 +6,21 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import glob
 import os
 
-from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
+from LiuXin_alpha.file_formats import DRMError
 
-from LiuXin_alpha.exceptions import DRMError
-
-from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
 from LiuXin_alpha.file_formats.mobi import MobiError
 from LiuXin_alpha.file_formats.mobi.reader.headers import MetadataHeader
-from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
-from LiuXin_alpha.file_formats.mobi.reader.mobi8 import Mobi8Reader
 
-from LiuXin_alpha.utils.calibre import CurrentDir
-from LiuXin_alpha.utils.ipc.simple_worker import fork_job
+from LiuXin_alpha.utils.storage.local import CurrentDir
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
+
+try:
+    from LiuXin_alpha.utils.ipc.simple_worker import fork_job
+except ModuleNotFoundError:
+    # IPC worker module is not ported yet; keep import-time compatibility.
+    def fork_job(*args, **kwargs):
+        raise RuntimeError("LiuXin_alpha.utils.ipc.simple_worker is not available in this port.")
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -31,6 +32,9 @@ class BadFormat(ValueError):
 
 
 def do_explode(path, dest):
+    from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
+    from LiuXin_alpha.file_formats.mobi.reader.mobi8 import Mobi8Reader
+
     with open(path, "rb") as stream:
         mr = MobiReader(stream, default_log, None, None)
 
@@ -109,6 +113,9 @@ def set_cover(oeb):
 
 
 def do_rebuild(opf, dest_path):
+    from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
+    from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
+
     plumber = Plumber(opf, dest_path, default_log)
     plumber.setup_options()
     inp = plugin_for_input_format("azw3")

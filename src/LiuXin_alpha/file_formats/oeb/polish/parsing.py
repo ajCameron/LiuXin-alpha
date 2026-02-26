@@ -22,19 +22,19 @@ from lxml.etree import (
 from LiuXin_alpha.file_formats.chardet import xml_to_unicode, ENCODING_PATS
 from LiuXin_alpha.file_formats.oeb.parse_utils import fix_self_closing_cdata_tags
 
-from LiuXin_alpha.utils.calibre import xml_replace_entities
-from utils.libraries.cleantext import clean_xml_chars
+from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
-from LiuXin_alpha.utils.liuxin_html5lib.constants import (
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
     namespaces,
     tableInsertModeElements,
     EOF,
 )
-from LiuXin_alpha.utils.liuxin_html5lib.treebuilders._base import (
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.treebuilders._base import (
     TreeBuilder as BaseTreeBuilder,
 )
-from LiuXin_alpha.utils.liuxin_html5lib.ihatexml import InfosetFilter, DataLossWarning
-from LiuXin_alpha.utils.liuxin_html5lib.html5parser import HTMLParser
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.ihatexml import InfosetFilter, DataLossWarning
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.html5parser import HTMLParser
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -757,7 +757,7 @@ def parse(
         if log is not None:
             log.exception(
                 "Failed to parse as XML, parsing as tag soup",
-                " - exception message: {}".format(e.message),
+                " - exception message: {}".format(str(e)),
             )
         return parse_html5(
             raw,

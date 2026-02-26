@@ -14,23 +14,26 @@ from copy import deepcopy
 from LiuXin_alpha.constants import name_prefixes
 from LiuXin_alpha.constants import name_suffixes
 
-from LiuXin_alpha.exceptions import InputIntegrityError
+from LiuXin_alpha.errors import InputIntegrityError
 
-from LiuXin_alpha.library.standardization import LITTLE_WORDS
-from LiuXin_alpha.library.standardization import ALL_DROP_CHARACTERS
+from LiuXin_alpha.metadata.standardization import LITTLE_WORDS
+from LiuXin_alpha.metadata.standardization import ALL_DROP_CHARACTERS
 
-from LiuXin_alpha.metadata import author_to_author_sort
+from LiuXin_alpha.metadata.utils import author_to_author_sort
 
-from LiuXin_alpha.utils.icu import lower as icu_lower
-from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
-from past.builtins import basestring
+try:
+    from past.builtins import basestring
+except ModuleNotFoundError:
+    basestring = str
 
 
 class TitlePhashHandler:

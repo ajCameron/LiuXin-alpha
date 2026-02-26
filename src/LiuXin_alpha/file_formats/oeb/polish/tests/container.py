@@ -19,12 +19,12 @@ from LiuXin_alpha.file_formats.oeb.polish.tests.base import (
     get_split_book,
 )
 
-from LiuXin_alpha.utils.filenames import nlinks_file
+from LiuXin_alpha.utils.storage.local.filenames import nlinks_file
 from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -42,6 +42,12 @@ class ContainerTests(BaseTest):
         :return:
         """
         for fmt in ("epub", "azw3"):
+            if fmt == "azw3":
+                try:
+                    import cssutils  # noqa: F401
+                except ModuleNotFoundError:
+                    # AZW3 generation currently requires cssutils.
+                    continue
             base = os.path.join(self.tdir, fmt + "-")
             book = get_simple_book(fmt)
             tdir = base + "first"

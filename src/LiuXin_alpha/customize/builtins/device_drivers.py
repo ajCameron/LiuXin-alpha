@@ -1,4 +1,4 @@
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 # Order here is non-alphabetical to more closely match add order
 try:

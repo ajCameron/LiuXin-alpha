@@ -13,7 +13,7 @@ from lxml import etree
 
 from LiuXin_alpha.constants import iswindows
 
-from LiuXin_alpha.file_formats.BeautifulSoup import BeautifulSoup
+from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
 from LiuXin_alpha.file_formats.chardet import strip_encoding_declarations
 from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML_NS, XHTML, xml2text, urldefrag
 
@@ -21,14 +21,15 @@ from LiuXin_alpha.library.comments import comments_to_html
 
 from LiuXin_alpha.metadata import fmt_sidx
 
-from LiuXin_alpha.utils.calibre import guess_type, strftime
+from LiuXin_alpha.utils.mine_types import guess_type
+from LiuXin_alpha.utils.date import strftime
 from LiuXin_alpha.utils.date import is_date_undefined
-from LiuXin_alpha.utils.icu import sort_key
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.language_tools.icu import sort_key
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.resources import P
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+unicode = str
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -128,7 +129,7 @@ class Jacket(object):
     def remove_existing_jacket(self):
         for x in self.oeb.spine[:4]:
             if XPath(JACKET_XPATH)(x.data):
-                self.remove_images(x, limit=sys.maxint)
+                self.remove_images(x, limit=sys.maxsize)
                 self.oeb.manifest.remove(x)
                 self.log("Removed existing jacket")
                 break

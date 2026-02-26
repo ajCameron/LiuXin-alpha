@@ -30,8 +30,8 @@ from LiuXin_alpha.file_formats.oeb.base import urlnormalize
 from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
 from LiuXin_alpha.utils.imghdr import what
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
 __license__ = "GPL v3"

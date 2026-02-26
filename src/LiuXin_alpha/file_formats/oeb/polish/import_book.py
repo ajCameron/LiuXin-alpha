@@ -6,15 +6,13 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 import sys
 
-from LiuXin_alpha.file_formats.conversion.plumber import Plumber
-from LiuXin_alpha.file_formats.epub import initialize_container
 from LiuXin_alpha.file_formats.oeb.polish.container import Container, OEB_DOCS, OEB_STYLES
 
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -39,6 +37,9 @@ def auto_fill_manifest(container):
 
 
 def import_book_as_epub(srcpath, destpath, log=default_log):
+    from LiuXin_alpha.file_formats.conversion.plumber import Plumber
+    from LiuXin_alpha.file_formats.epub import initialize_container
+
     if not destpath.lower().endswith(".epub"):
         raise ValueError("Can only import books into the EPUB format, not %s" % (os.path.basename(destpath)))
     with TemporaryDirectory("eei") as tdir:

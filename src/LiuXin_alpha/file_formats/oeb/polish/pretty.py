@@ -4,9 +4,13 @@
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import textwrap
-from itertools import imap
 
-from LiuXin_alpha.utils.calibre import force_unicode
+try:
+    from itertools import imap
+except ImportError:
+    imap = map
+
+from LiuXin_alpha.utils.text import as_unicode as force_unicode
 
 from LiuXin_alpha.file_formats.oeb.base import (
     serialize,
@@ -20,10 +24,10 @@ from LiuXin_alpha.file_formats.oeb.base import (
 from LiuXin_alpha.file_formats.oeb.polish.container import OPF_NAMESPACES
 from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
 
-from LiuXin_alpha.utils.icu import sort_key
+from LiuXin_alpha.utils.language_tools.icu import sort_key
 
 # Py2/Py3 emulation layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

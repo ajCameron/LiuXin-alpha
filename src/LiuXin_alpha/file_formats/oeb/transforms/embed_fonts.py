@@ -19,8 +19,8 @@ from LiuXin_alpha.file_formats.oeb.transforms.subset import (
 from LiuXin_alpha.utils.calibre import guess_type
 from LiuXin_alpha.utils.filenames import ascii_filename
 from LiuXin_alpha.utils.fonts.scanner import font_scanner, NoFonts
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"

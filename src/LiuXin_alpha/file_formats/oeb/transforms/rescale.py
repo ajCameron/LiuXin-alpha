@@ -23,7 +23,11 @@ class RescaleImages(object):
         self.rescale()
 
     def rescale(self):
-        from LiuXin_alpha.utils.magick.draw import Image
+        try:
+            from LiuXin_alpha.utils.magick.draw import Image
+        except ImportError:
+            self.log.warn("ImageMagick bindings unavailable, skipping image rescale transform")
+            return
 
         is_image_collection = getattr(self.opts, "is_image_collection", False)
 
@@ -93,7 +97,7 @@ class RescaleImages(object):
                     except KeyboardInterrupt:
                         raise
                     except Exception as e:
-                        self.log.exception("Failed to rescale image - exception message: {}".format(e.message))
+                        self.log.exception("Failed to rescale image - exception message: %s", str(e))
                     else:
                         item.data = data
                         item.unload_data_from_memory()

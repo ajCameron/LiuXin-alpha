@@ -264,6 +264,17 @@ class CompatLogger(logging.Logger):
         super().__init__(name, level)
         self._logvars_format = LogVariablesFormat()
 
+    def __call__(self, *args: Any) -> "CompatLogger":
+        """
+        Backward-compat callable logger:
+        - `log()` returns the logger instance (legacy call sites did `log = Log()`).
+        - `log("a", "b")` logs an INFO line with joined arguments.
+        """
+        if not args:
+            return self
+        self.info(" ".join(str(arg) for arg in args))
+        return self
+
     # Optional: let you override formatting at runtime if you like.
     def set_logvars_format(self, fmt: LogVariablesFormat) -> None:
         self._logvars_format = fmt

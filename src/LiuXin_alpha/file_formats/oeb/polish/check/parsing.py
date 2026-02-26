@@ -4,7 +4,10 @@
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import re
-import cssutils
+try:
+    import cssutils
+except ModuleNotFoundError:
+    cssutils = None
 from lxml.etree import XMLParser, fromstring, XMLSyntaxError
 
 from LiuXin_alpha.file_formats.chardet import (
@@ -19,12 +22,13 @@ from LiuXin_alpha.file_formats.oeb.polish.utils import PositionFinder, guess_typ
 from LiuXin_alpha.file_formats.oeb.polish.check.base import BaseError, WARN, ERROR, INFO
 from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, XHTML_NS, urlquote, URL_SAFE
 
-from LiuXin_alpha.utils.calibre import force_unicode, human_readable, prepare_string_for_xml
+from LiuXin_alpha.utils.text import as_unicode as force_unicode, human_readable
+from LiuXin_alpha.utils.text.xml_utils import prepare_string_for_xml
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -133,7 +137,7 @@ class EscapedName(BaseError):
     level = WARN
 
     def __init__(self, name):
-        from LiuXin_alpha.utils.filenames import ascii_filename
+        from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
 
         BaseError.__init__(self, _("Filename contains unsafe characters"), name)
         qname = urlquote(name)
@@ -434,6 +438,8 @@ class ErrorHandler(object):
 
 
 def check_css_parsing(name, raw, line_offset=0, is_declaration=False):
+    if cssutils is None:
+        return []
     log = ErrorHandler(name)
     parser = cssutils.CSSParser(fetcher=lambda x: (None, None), log=log)
     if is_declaration:

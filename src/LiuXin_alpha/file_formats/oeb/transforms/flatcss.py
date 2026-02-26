@@ -29,10 +29,10 @@ from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 from LiuXin_alpha.utils.calibre import guess_type
 from LiuXin_alpha.utils.filenames import ascii_filename, ascii_text
 from LiuXin_alpha.utils.icu import numeric_sort_key
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"

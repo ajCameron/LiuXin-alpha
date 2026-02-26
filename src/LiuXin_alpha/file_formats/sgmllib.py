@@ -10,11 +10,8 @@
 
 from __future__ import print_function
 
-# Todo: Make py3 compatible
 import LiuXin_alpha.file_formats.markupbase as markupbase
 import re
-
-from past.builtins import unichr
 
 __all__ = ["SGMLParser", "SGMLParseError"]
 
@@ -407,7 +404,7 @@ class SGMLParser(markupbase.ParserBase):
         return self.convert_codepoint(n)
 
     def convert_codepoint(self, codepoint):
-        return unichr(codepoint)
+        return chr(codepoint)
 
     def handle_charref(self, name):
         """Handle character reference, no need to override."""

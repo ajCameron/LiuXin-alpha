@@ -3,15 +3,8 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin_alpha.customize.ui import output_profiles
-
-from LiuXin_alpha.file_formats.conversion.config import load_defaults
 from LiuXin_alpha.file_formats.oeb.base import XPath, OPF
 from LiuXin_alpha.file_formats.oeb.polish.cover import find_cover_page
-from LiuXin_alpha.file_formats.oeb.transforms.jacket import (
-    render_jacket as render,
-    referenced_images,
-)
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -19,6 +12,12 @@ __docformat__ = "restructuredtext en"
 
 
 def render_jacket(container, jacket):
+    from LiuXin_alpha.customize.ui import output_profiles
+    from LiuXin_alpha.file_formats.conversion.config import load_defaults
+    from LiuXin_alpha.file_formats.oeb.transforms.jacket import (
+        referenced_images,
+        render_jacket as render,
+    )
 
     mi = container.mi
     ps = load_defaults("page_setup")

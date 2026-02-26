@@ -15,20 +15,28 @@ from LiuXin_alpha.file_formats.docx.names import DOCXNamespace
 from LiuXin_alpha.file_formats.oeb.parse_utils import RECOVER_PARSER
 
 from LiuXin_alpha.metadata.ebook_metadata_tools import string_to_authors
-from LiuXin_alpha.metadata.metadata import MetaData as Metadata
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as Metadata,
+)
 from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_sort_string
 
-from LiuXin_alpha.utils.calibre import walk, guess_type
+from LiuXin_alpha.utils.mine_types import guess_type
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.localization import canonicalize_lang
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
-from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
+
+
+def walk(path):
+    for base, _dirnames, filenames in os.walk(path):
+        for filename in filenames:
+            yield os.path.join(base, filename)
 
 
 def fromstring(raw, parser=RECOVER_PARSER):

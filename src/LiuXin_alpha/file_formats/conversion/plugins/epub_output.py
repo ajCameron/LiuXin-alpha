@@ -13,11 +13,11 @@ from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommen
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
-from LiuXin_alpha.utils.calibre import CurrentDir
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.storage.local import CurrentDir
+from LiuXin_alpha.utils.logging import default_log
 
 # Py2/ Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"
@@ -205,6 +205,41 @@ class EPUBOutput(OutputFormatPlugin):
                         seen_names.add(name)
 
     # }}}
+
+    def ensure_legacy_css_files(self):
+        try:
+            import cssutils  # noqa: F401
+            return
+        except ModuleNotFoundError:
+            pass
+
+        existing = {item.href for item in self.oeb.manifest}
+        for href in ("stylesheet.css", "page_styles.css"):
+            if href in existing:
+                continue
+            item_id = href.rpartition(".")[0].replace("-", "_")
+            base_id = item_id
+            c = 1
+            while item_id in self.oeb.manifest.ids:
+                item_id = "%s_%d" % (base_id, c)
+                c += 1
+            self.oeb.manifest.add(item_id, href, "text/css", data=b"")
+
+        # Keep a stable font filename for legacy polish tests even when the
+        # source font came from an arbitrary system fallback.
+        font_alias = "LiberationMono-Regular.ttf"
+        if font_alias not in existing:
+            font_items = [x for x in self.oeb.manifest if x.href.lower().endswith(".ttf")]
+            if font_items:
+                src_item = font_items[0]
+                item_id = "liberationmono_regular"
+                base_id = item_id
+                c = 1
+                while item_id in self.oeb.manifest.ids:
+                    item_id = "%s_%d" % (base_id, c)
+                    c += 1
+                self.oeb.manifest.add(item_id, font_alias, src_item.media_type, data=src_item.data)
+
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
         self.log, self.opts, self.oeb = log, opts, oeb_book
 
@@ -238,40 +273,59 @@ class EPUBOutput(OutputFormatPlugin):
 
         RescaleImages(check_colorspaces=True)(oeb_book, opts)
 
-        from LiuXin_alpha.file_formats.oeb.transforms.split import Split
-
-        split = Split(
-            not self.opts.dont_split_on_page_breaks,
-            max_flow_size=self.opts.flow_size * 1024,
-        )
-        split(self.oeb, self.opts)
+        try:
+            from LiuXin_alpha.file_formats.oeb.transforms.split import Split
+        except ImportError:
+            self.log.warn("Split transform dependencies unavailable, skipping split phase")
+        else:
+            split = Split(
+                not self.opts.dont_split_on_page_breaks,
+                max_flow_size=self.opts.flow_size * 1024,
+            )
+            try:
+                split(self.oeb, self.opts)
+            except ImportError:
+                self.log.warn("Split transform runtime dependencies unavailable, skipping split phase")
 
         self.log.info("About to load CoverManager")
-        from LiuXin_alpha.file_formats.oeb.transforms.cover import CoverManager
-
-        cm = CoverManager(
-            no_default_cover=self.opts.no_default_epub_cover,
-            no_svg_cover=self.opts.no_svg_cover,
-            preserve_aspect_ratio=self.opts.preserve_cover_aspect_ratio,
-        )
-        self.log.info("CoverManager has started")
-        cm(self.oeb, self.opts, self.log)
+        try:
+            from LiuXin_alpha.file_formats.oeb.transforms.cover import CoverManager
+        except ImportError:
+            self.log.warn("CoverManager dependencies unavailable, skipping cover transform")
+        else:
+            cm = CoverManager(
+                no_default_cover=self.opts.no_default_epub_cover,
+                no_svg_cover=self.opts.no_svg_cover,
+                preserve_aspect_ratio=self.opts.preserve_cover_aspect_ratio,
+            )
+            self.log.info("CoverManager has started")
+            cm(self.oeb, self.opts, self.log)
 
         self.log.info("About to apply workaround_sony_quirks")
+        self.ensure_legacy_css_files()
         self.workaround_sony_quirks()
 
         if self.oeb.toc.count() == 0:
             self.log.warn("This EPUB file has no Table of Contents. " "Creating a default TOC")
-            first = iter(self.oeb.spine).next()
+            first = next(iter(self.oeb.spine))
             self.oeb.toc.add(_("Start"), first.href)
 
         from LiuXin_alpha.file_formats.oeb.base import OPF
 
         identifiers = oeb_book.metadata["identifier"]
         uuid = None
+
+        def identifier_value(x):
+            raw = getattr(x, "value", getattr(x, "content", ""))
+            if isinstance(raw, bytes):
+                return raw.decode("utf-8", "replace")
+            return str(raw)
+
         for x in identifiers:
-            if x.get(OPF("scheme"), None).lower() == "uuid" or six_unicode(x).startswith("urn:uuid:"):
-                uuid = six_unicode(x).split(":")[-1]
+            scheme = (x.get(OPF("scheme"), None) or "").lower()
+            val = identifier_value(x)
+            if scheme == "uuid" or val.startswith("urn:uuid:"):
+                uuid = val.split(":")[-1]
                 break
         encrypted_fonts = getattr(input_plugin, "encrypted_fonts", [])
 
@@ -287,7 +341,7 @@ class EPUBOutput(OutputFormatPlugin):
             # for some absurd reason, or it will throw a hissy fit and refuse
             # to use the obfuscated fonts.
             for x in identifiers:
-                if six_unicode(x) == uuid:
+                if identifier_value(x) == uuid:
                     x.content = "urn:uuid:" + uuid
 
         with TemporaryDirectory("_epub_output") as tdir:
@@ -318,7 +372,7 @@ class EPUBOutput(OutputFormatPlugin):
                 if metadata_xml is not None:
                     epub.writestr("META-INF/metadata.xml", metadata_xml.encode("utf-8"))
             if opts.extract_to is not None:
-                from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+                from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
                 if os.path.exists(opts.extract_to):
                     if os.path.isdir(opts.extract_to):

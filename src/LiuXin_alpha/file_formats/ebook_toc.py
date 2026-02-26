@@ -1,4 +1,4 @@
-#!/usr/bin/env  python2
+#!/usr/bin/env python3
 
 from __future__ import print_function
 
@@ -14,14 +14,14 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 # Todo: Check the imports - do they point to the right version of BS e.t.c
 from LiuXin_alpha.constants import __appname__, __version__
 
-from LiuXin_alpha.file_formats.BeautifulSoup import BeautifulSoup
+from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
 from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode as six_unicode
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -202,7 +202,8 @@ class TOC(list):
     def read_ncx_toc(self, toc, root=None):
         self.base_path = os.path.dirname(toc)
         if root is None:
-            raw = xml_to_unicode(open(toc, "rb").read(), assume_utf8=True, strip_encoding_pats=True)[0]
+            with open(toc, "rb") as f:
+                raw = xml_to_unicode(f.read(), assume_utf8=True, strip_encoding_pats=True)[0]
             root = etree.fromstring(raw, parser=etree.XMLParser(recover=True, no_network=True))
         xpn = {"re": "http://exslt.org/regular-expressions"}
         XPath = functools.partial(etree.XPath, namespaces=xpn)
@@ -253,9 +254,10 @@ class TOC(list):
 
     def read_html_toc(self, toc):
         self.base_path = os.path.dirname(toc)
-        soup = BeautifulSoup(open(toc, "rb").read(), convertEntities=BeautifulSoup.HTML_ENTITIES)
+        with open(toc, "rb") as f:
+            soup = BeautifulSoup(f.read(), convertEntities=BeautifulSoup.HTML_ENTITIES)
         for a in soup.findAll("a"):
-            if not a.has_key("href"):
+            if "href" not in a:
                 continue
             purl = urlparse(unquote(a["href"]))
             href, fragment = purl[2], purl[5]

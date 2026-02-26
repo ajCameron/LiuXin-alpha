@@ -141,7 +141,7 @@ class HTMLRenderer(object):
 
 
 def return_raster_image(path):
-    from LiuXin_alpha.utils.imghdr import what
+    from imghdr import what
 
     if os.access(path, os.R_OK):
         with open(path, "rb") as f:
@@ -211,11 +211,12 @@ def render_html_svg_workaround(path_to_html, log, width=590, height=750):
     """
     from LiuXin_alpha.file_formats.oeb.base import SVG_NS
 
-    raw = open(path_to_html, "rb").read()
+    with open(path_to_html, "rb") as f:
+        raw = f.read()
     data = None
 
     # Look for a svg image in the raw data
-    if SVG_NS in raw:
+    if SVG_NS.encode("utf-8") in raw:
         try:
             data = extract_cover_from_embedded_svg(raw, os.path.dirname(path_to_html), log)
         except:
@@ -229,21 +230,27 @@ def render_html_svg_workaround(path_to_html, log, width=590, height=750):
 
     # Todo: Install https://github.com/AdamN/python-webkit2png as a fallback for when PyQt isn't installed at all
     if data is None:
-
-        from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+        try:
+            from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+        except Exception:
+            is_ok_to_use_qt = lambda: False
 
         if is_ok_to_use_qt():
             data = render_html_data(path_to_html, width, height)
         else:
-            from LiuXin_alpha.utils.calibre.utils.ipc.simple_worker import fork_job, WorkerError
-
             try:
-                result = fork_job("calibre.ebooks", "render_html_data", (path_to_html, width, height), no_output=True)
-                data = result["result"]
-            except WorkerError as err:
-                prints(err.orig_tb)
-            except:
-                traceback.print_exc()
+                from LiuXin_alpha.utils.ipc.simple_worker import fork_job, WorkerError
+            except ModuleNotFoundError:
+                fork_job = WorkerError = None
+
+            if fork_job is not None:
+                try:
+                    result = fork_job("calibre.ebooks", "render_html_data", (path_to_html, width, height), no_output=True)
+                    data = result["result"]
+                except WorkerError as err:
+                    prints(err.orig_tb)
+                except Exception:
+                    traceback.print_exc()
 
     return data
 
@@ -254,9 +261,15 @@ def render_html_data(path_to_html, width, height):
 
 
 def render_html(path_to_html, width=590, height=750, as_xhtml=True):
-    from PyQt5.QtWebKitWidgets import QWebPage
-    from PyQt5.Qt import QEventLoop, QPalette, Qt, QUrl, QSize
-    from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+    try:
+        from PyQt5.QtWebKitWidgets import QWebPage
+        from PyQt5.Qt import QEventLoop, QPalette, Qt, QUrl, QSize
+    except Exception:
+        return None
+    try:
+        from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+    except Exception:
+        return None
 
     if not is_ok_to_use_qt():
         return None
@@ -275,9 +288,8 @@ def render_html(path_to_html, width=590, height=750, as_xhtml=True):
         renderer = HTMLRenderer(page, loop)
         page.loadFinished.connect(renderer, type=Qt.QueuedConnection)
         if as_xhtml:
-            page.mainFrame().setContent(
-                open(path_to_html, "rb").read(), "application/xhtml+xml", QUrl.fromLocalFile(path_to_html)
-            )
+            with open(path_to_html, "rb") as f:
+                page.mainFrame().setContent(f.read(), "application/xhtml+xml", QUrl.fromLocalFile(path_to_html))
         else:
             page.mainFrame().load(QUrl.fromLocalFile(path_to_html))
         loop.exec_()
@@ -294,7 +306,7 @@ def check_ebook_format(stream, current_guess):
     ans = current_guess
     if current_guess.lower() in ("prc", "mobi", "azw", "azw1", "azw3"):
         stream.seek(0)
-        if stream.read(3) == "TPZ":
+        if stream.read(3) == b"TPZ":
             ans = "tpz"
         stream.seek(0)
     return ans
@@ -309,7 +321,7 @@ def normalize(x):
     :param x:
     :return:
     """
-    if isinstance(x, unicode):
+    if isinstance(x, str):
         import unicodedata
 
         x = unicodedata.normalize("NFC", x)
@@ -381,7 +393,7 @@ UNIT_RE = re.compile(r"^(-*[0-9]*[.]?[0-9]*)\s*(%|em|ex|en|px|mm|cm|in|pt|pc|rem
 
 def unit_convert(value, base, font, dpi, body_font_size=12):
     "Return value in pts"
-    if isinstance(value, (int, long, float)):
+    if isinstance(value, (int, float)):
         return value
     try:
         return float(value) * 72.0 / dpi

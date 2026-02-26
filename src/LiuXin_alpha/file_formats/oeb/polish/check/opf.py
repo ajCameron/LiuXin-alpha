@@ -9,11 +9,11 @@ from LiuXin_alpha.file_formats.oeb.base import OPF, OPF2_NS, DC, DC11_NS, XHTML_
 from LiuXin_alpha.file_formats.oeb.polish.check.base import BaseError, WARN
 from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
 
-from LiuXin_alpha.utils.calibre import prepare_string_for_xml as xml
+from LiuXin_alpha.utils.text.xml_utils import prepare_string_for_xml as xml
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"

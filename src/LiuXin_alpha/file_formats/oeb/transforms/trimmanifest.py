@@ -7,7 +7,7 @@ OPF manifest trimming transform.
 from LiuXin_alpha.file_formats.oeb.base import CSS_MIME, OEB_DOCS
 from LiuXin_alpha.file_formats.oeb.base import urlnormalize, iterlinks
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
@@ -33,7 +33,10 @@ class ManifestTrimmer(object):
         :param context:
         :return:
         """
-        import cssutils
+        try:
+            import cssutils
+        except ImportError:
+            cssutils = None
 
         oeb.logger.info("Trimming unused files from manifest...")
         self.opts = context
@@ -71,7 +74,7 @@ class ManifestTrimmer(object):
                             found = oeb.manifest.hrefs[href]
                             if found not in used:
                                 new.add(found)
-                elif item.media_type == CSS_MIME:
+                elif item.media_type == CSS_MIME and cssutils is not None:
                     for href in cssutils.getUrls(item.data):
                         href = item.abshref(urlnormalize(href))
                         if href in oeb.manifest.hrefs:

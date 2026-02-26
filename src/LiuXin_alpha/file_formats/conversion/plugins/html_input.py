@@ -7,19 +7,22 @@ import os
 import re
 import tempfile
 from functools import partial
-from past.builtins import unicode
+try:
+    from past.builtins import unicode
+except ModuleNotFoundError:
+    from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
-from LiuXin_alpha.constants import islinux, isbsd
+from LiuXin_alpha.utils.which_os import islinux, isbsd
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
-from LiuXin_alpha.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.book.base import calibreMetadata as MetaData
 
-from LiuXin_alpha.utils.filenames import ascii_filename
-from LiuXin_alpha.utils.imghdr import what
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
+from imghdr import what
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.localization import get_lang
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_zip as izip
+from LiuXin_alpha.utils.libraries.liuxin_six import six_zip as izip
 
 
 __license__ = "GPL v3"
@@ -76,7 +79,7 @@ class HTMLInput(InputFormatPlugin):
         :return:
         """
         self._is_case_sensitive = None
-        basedir = os.getcwdu()
+        basedir = os.getcwd()
         self.opts = options
 
         # If the file is a physical file on disk and can be found from the stream the convert it directly
@@ -88,22 +91,41 @@ class HTMLInput(InputFormatPlugin):
         if file_ext != "opf":
             if options.dont_package:
                 raise ValueError("The --dont-package option is not supported for an HTML input file")
-            from LiuXin_alpha.metadata.file_sources.html import get_metadata
+            try:
+                from LiuXin_alpha.metadata.file_sources.html import get_metadata
 
-            mi = get_metadata(stream)
+                mi = get_metadata(stream)
+            except ModuleNotFoundError:
+                mi = MetaData(None, [])
             # We need calibre metadata
-            if isinstance(mi, MetaData):
-                mi = mi.to_calibre()
+            if not isinstance(mi, MetaData) and hasattr(mi, "to_calibre"):
+                try:
+                    mi = mi.to_calibre()
+                except Exception:
+                    pass
+            if not isinstance(mi, MetaData):
+                mi = MetaData(getattr(mi, "title", None), getattr(mi, "authors", None) or [])
 
             if fname:
                 # Todo: Merge with from_string LX metadata extractor
-                from LiuXin_alpha.metadata.meta import metadata_from_filename
+                try:
+                    from LiuXin_alpha.metadata.meta import metadata_from_filename
 
-                fmi = metadata_from_filename(fname)
-                if isinstance(fmi, MetaData):
-                    fmi = fmi.to_calibre()
-                fmi.smart_update(mi)
-                mi = fmi
+                    fmi = metadata_from_filename(fname)
+                except ModuleNotFoundError:
+                    fmi = None
+                if fmi is not None:
+                    if not isinstance(fmi, MetaData) and hasattr(fmi, "to_calibre"):
+                        try:
+                            fmi = fmi.to_calibre()
+                        except Exception:
+                            pass
+                    if not isinstance(fmi, MetaData):
+                        fmi = MetaData(getattr(fmi, "title", None), getattr(fmi, "authors", None) or [])
+                    fmi.smart_update(mi)
+                    mi = fmi
+            if hasattr(mi, "is_null") and mi.is_null("title"):
+                mi.title = os.path.splitext(fname or os.path.basename(stream.name))[0]
             oeb = self.create_oebbook(stream.name, basedir, options, log, mi)
             return oeb
 
@@ -132,7 +154,10 @@ class HTMLInput(InputFormatPlugin):
         :return:
         """
         import uuid
-        import cssutils
+        try:
+            import cssutils
+        except ModuleNotFoundError:
+            cssutils = None
         import logging
         from LiuXin_alpha.file_formats.conversion.plumber import create_oebbook
         from LiuXin_alpha.file_formats.html.input import get_filelist
@@ -149,12 +174,13 @@ class HTMLInput(InputFormatPlugin):
             meta_info_to_oeb_metadata,
         )
 
-        from LiuXin_alpha.metadata import string_to_authors
+        from LiuXin_alpha.metadata.utils import string_to_authors
 
-        from LiuXin_alpha.utils.calibre import guess_type
+        from LiuXin_alpha.utils.mine_types import guess_type
         from LiuXin_alpha.utils.localization import canonicalize_lang
 
-        cssutils.log.setLevel(logging.WARN)
+        if cssutils is not None:
+            cssutils.log.setLevel(logging.WARN)
         self.OEB_STYLES = OEB_STYLES
         oeb = create_oebbook(log, None, opts, self, encoding=opts.input_encoding, populate=False)
         self.oeb = oeb
@@ -226,7 +252,8 @@ class HTMLInput(InputFormatPlugin):
                     if href == item.href:
                         dpath = os.path.dirname(path)
                         break
-                cssutils.replaceUrls(item.data, partial(self.resource_adder, base=dpath))
+                if cssutils is not None:
+                    cssutils.replaceUrls(item.data, partial(self.resource_adder, base=dpath))
 
         toc = self.oeb.toc
         self.oeb.auto_generated_toc = True
@@ -300,7 +327,7 @@ class HTMLInput(InputFormatPlugin):
         if not os.access(link, os.R_OK):
             return link_
         if os.path.isdir(link):
-            self.log.warn(link_, "is a link to a directory. Ignoring.")
+            self.log.warn("%s is a link to a directory. Ignoring.", link_)
             return link_
         if not self.is_case_sensitive(tempfile.gettempdir()):
             link = link.lower()
@@ -329,9 +356,9 @@ class HTMLInput(InputFormatPlugin):
             # bhref refers to an already existing file. The read() method of
             # DirContainer will call unquote on it before trying to read the
             # file, therefore we quote it here.
-            if isinstance(bhref, unicode):
-                bhref = bhref.encode("utf-8")
-            item.html_input_href = quote(bhref).decode("utf-8")
+            if isinstance(bhref, bytes):
+                bhref = bhref.decode("utf-8", "replace")
+            item.html_input_href = quote(bhref)
             if guessed in self.OEB_STYLES:
                 item.override_css_fetch = partial(self.css_import_handler, os.path.dirname(link))
             item.data
@@ -350,6 +377,6 @@ class HTMLInput(InputFormatPlugin):
             raw = open(link, "rb").read().decode("utf-8", "replace")
             raw = self.oeb.css_preprocessor(raw, add_namespace=True)
         except Exception as e:
-            self.log.exception("Failed to read CSS file: %r" % link + " - exception message: {}".format(e.message))
+            self.log.exception("Failed to read CSS file: %r - exception message: %s", link, str(e))
             return None, None
         return None, raw

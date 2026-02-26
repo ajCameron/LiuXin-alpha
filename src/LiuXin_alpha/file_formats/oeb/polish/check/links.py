@@ -18,9 +18,9 @@ from LiuXin_alpha.file_formats.oeb.polish.utils import (
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

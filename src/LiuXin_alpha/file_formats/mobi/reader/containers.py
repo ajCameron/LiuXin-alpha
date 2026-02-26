@@ -3,6 +3,8 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
+import imghdr
+
 from struct import unpack_from, error
 
 try:
@@ -10,14 +12,13 @@ try:
 except (ImportError, RuntimeError) as e:
     # C++ based plugins probably haven't been compiled
     pass
-from LiuXin_alpha.utils.imghdr import what
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def find_imgtype(data):
-    imgtype = what(None, data)
+    imgtype = imghdr.what(None, data)
     if imgtype is None:
         try:
             imgtype = identify_data(data)[2]

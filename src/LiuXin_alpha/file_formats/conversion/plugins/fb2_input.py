@@ -11,12 +11,12 @@ from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommend
 
 from LiuXin_alpha.utils.calibre import guess_type
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.resources import P
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Anatoly Shipitsin <norguhtar at gmail.com>"

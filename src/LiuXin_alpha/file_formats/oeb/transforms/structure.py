@@ -11,9 +11,9 @@ from lxml import etree
 from LiuXin_alpha.file_formats import ConversionError
 from LiuXin_alpha.file_formats.oeb.base import XPNSMAP, TOC, XHTML, xml2text, barename
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
@@ -100,9 +100,11 @@ class DetectStructure(object):
             for item in oeb.spine:
                 for elem in pb_xpath(item.data):
                     try:
-                        prev = elem.itersiblings(tag=etree.Element, preceding=True).next()
+                        prev = next(elem.itersiblings(preceding=True))
                         if (
-                            barename(elem.tag) in {"h1", "h2"}
+                            hasattr(getattr(elem, "tag", None), "rpartition")
+                            and hasattr(getattr(prev, "tag", None), "rpartition")
+                            and barename(elem.tag) in {"h1", "h2"}
                             and barename(prev.tag) in {"h1", "h2"}
                             and (not prev.tail or not prev.tail.split())
                         ):
@@ -131,7 +133,7 @@ class DetectStructure(object):
         except Exception as e:
             self.log.warn(
                 "Invalid start reading at XPath expression, ignoring: %s" % expr
-                + " - exception messahe: {}".format(e.message)
+                + " - exception message: {}".format(str(e))
             )
             return
         for item in self.oeb.spine:
@@ -172,7 +174,7 @@ class DetectStructure(object):
                 return ans
             except Exception as e:
                 self.log.warn(
-                    "Invalid chapter expression, ignoring: %s" % expr + " - exception message: {}".format(e.message)
+                    "Invalid chapter expression, ignoring: %s" % expr + " - exception message: {}".format(str(e))
                 )
                 return []
 
@@ -278,7 +280,7 @@ class DetectStructure(object):
                 len(ans)
                 return ans
             except Exception as e:
-                self.log.warn("Invalid ToC expression, ignoring: %s" % expr + " - error message: {}".format(e.message))
+                self.log.warn("Invalid ToC expression, ignoring: %s" % expr + " - error message: {}".format(str(e)))
                 return []
 
         for document in self.oeb.spine:

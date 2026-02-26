@@ -7,7 +7,7 @@ from collections import Counter
 
 from LiuXin_alpha.file_formats.oeb.base import barename, XPath
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"

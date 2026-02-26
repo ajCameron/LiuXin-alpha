@@ -3,8 +3,6 @@
 
 from __future__ import with_statement
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cmp
-
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
@@ -39,10 +37,7 @@ class Clean(object):
                     else:
                         covers.append([self.oeb.guide[x], len(item.data)])
 
-            covers.sort(
-                cmp=lambda local_x, local_y: six_cmp(local_x[1], local_y[1]),
-                reverse=True,
-            )
+            covers.sort(key=lambda local_x: local_x[1], reverse=True)
             if covers:
                 ref = covers[0][0]
                 if len(covers) > 1:

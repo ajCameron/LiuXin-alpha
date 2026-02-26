@@ -22,15 +22,19 @@ class OEBOutput(OutputFormatPlugin):
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
 
-        from urllib import unquote
+        from urllib.parse import unquote
         from lxml import etree
         from LiuXin_alpha.file_formats.oeb.base import (
             OPF_MIME,
             NCX_MIME,
             PAGE_MAP_MIME,
             OEB_STYLES,
+            serialize,
         )
-        from LiuXin_alpha.file_formats.oeb.normalize_css import condense_sheet
+        try:
+            from LiuXin_alpha.file_formats.oeb.normalize_css import condense_sheet
+        except Exception:
+            condense_sheet = None
 
         self.log, self.opts = log, opts
         if not os.path.exists(output_path):
@@ -48,7 +52,7 @@ class OEBOutput(OutputFormatPlugin):
                         except Exception as e:
                             self.log.exception(
                                 "Something went wrong while trying to workaround Nook cover bug, "
-                                "ignoring - exception message: {}".format(e.message)
+                                "ignoring - exception message: {}".format(str(e))
                             )
                         try:
                             self.workaround_pocketbook_cover_bug(root)
@@ -56,13 +60,13 @@ class OEBOutput(OutputFormatPlugin):
                             self.log.exception(
                                 "Something went wrong while trying to"
                                 " workaround Pocketbook cover bug, ignoring - "
-                                "exception message: {}".format(e.message)
+                                "exception message: {}".format(str(e))
                             )
                         self.migrate_lang_code(root)
                     raw = etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=True)
                     if key == OPF_MIME:
                         # Needed as I can't get lxml to output opf:role and not output <opf:metadata> as well
-                        raw = re.sub(r"(<[/]{0,1})opf:", r"\1", raw)
+                        raw = re.sub(br"(<[/]{0,1})opf:", br"\1", raw)
                     with open(href, "wb") as f:
                         f.write(raw)
 
@@ -72,6 +76,7 @@ class OEBOutput(OutputFormatPlugin):
                     and item.media_type in OEB_STYLES
                     and hasattr(item.data, "cssText")
                     and "nook" not in self.opts.output_profile.short_name
+                    and condense_sheet is not None
                 ):
                     condense_sheet(item.data)
                 path = os.path.abspath(unquote(item.href))
@@ -79,7 +84,8 @@ class OEBOutput(OutputFormatPlugin):
                 if not os.path.exists(local_dir):
                     os.makedirs(local_dir)
                 with open(path, "wb") as f:
-                    f.write(str(item))
+                    payload = serialize(item.data, item.media_type, pretty_print=getattr(item.oeb, "pretty_print", False))
+                    f.write(payload)
                 item.unload_data_from_memory(memory=path)
 
     def workaround_nook_cover_bug(self, root):  # {{{

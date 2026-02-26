@@ -7,18 +7,18 @@ import codecs
 import shutil
 import os
 import posixpath
-from urlparse import urlparse
+from urllib.parse import urlparse
 from collections import Counter, defaultdict
 
 from LiuXin_alpha.file_formats.chardet import strip_encoding_declarations
 
-from LiuXin_alpha.utils.calibre import sanitize_file_name_unicode
+from LiuXin_alpha.utils.storage.local.filenames import sanitize_file_name_unicode
 
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

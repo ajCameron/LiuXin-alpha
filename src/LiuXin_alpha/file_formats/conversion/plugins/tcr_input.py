@@ -3,7 +3,7 @@
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"

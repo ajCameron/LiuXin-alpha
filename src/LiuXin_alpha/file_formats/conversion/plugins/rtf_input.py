@@ -11,7 +11,7 @@ from LiuXin_alpha.utils.resources import P
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"

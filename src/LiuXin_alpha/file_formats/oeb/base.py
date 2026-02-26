@@ -246,9 +246,16 @@ _self_closing_pat = re.compile(
     r"<(?P<tag>%s)(?=[\s/])(?P<arg>[^>]*)/>" % ("|".join(self_closing_bad_tags)),
     re.IGNORECASE,
 )
+_self_closing_pat_bytes = re.compile(
+    br"<(?P<tag>%s)(?=[\s/])(?P<arg>[^>]*)/>"
+    % b"|".join(x.encode("ascii") for x in self_closing_bad_tags),
+    re.IGNORECASE,
+)
 
 
 def close_self_closing_tags(raw):
+    if isinstance(raw, bytes):
+        return _self_closing_pat_bytes.sub(br"<\g<tag>\g<arg>></\g<tag>>", raw)
     return _self_closing_pat.sub(r"<\g<tag>\g<arg>></\g<tag>>", raw)
 
 
@@ -354,10 +361,13 @@ def rewrite_links(root, link_repl_func, resolve_base_href=False):
     :param resolve_base_href:
     :return:
     """
-    from cssutils import replaceUrls, log, CSSParser
-
-    log.setLevel(logging.WARN)
-    log.raiseExceptions = False
+    try:
+        from cssutils import replaceUrls, log, CSSParser
+    except ImportError:
+        replaceUrls = log = CSSParser = None
+    else:
+        log.setLevel(logging.WARN)
+        log.raiseExceptions = False
 
     if resolve_base_href:
         resolve_base_href(root)
@@ -383,6 +393,38 @@ def rewrite_links(root, link_repl_func, resolve_base_href=False):
             else:
                 new = cur[:pos] + new_link + cur[pos + len(link) :]
                 el.attrib[attrib] = new
+
+    if CSSParser is None:
+        # Fallback CSS URL rewriting without cssutils. This handles url(...)
+        # and @import references in <style> and inline style attributes.
+        def replace_css_links(text):
+            if not text:
+                return text
+            links = list(itercsslinks(text))
+            if not links:
+                return text
+            for link, pos in reversed(links):
+                new_link = link_repl_func(link.strip())
+                if new_link == link:
+                    continue
+                if new_link is None:
+                    new_link = ""
+                if isinstance(new_link, bytes):
+                    new_link = new_link.decode("utf-8", "replace")
+                text = text[:pos] + new_link + text[pos + len(link) :]
+            return text
+
+        for el in root.iter():
+            try:
+                tag = el.tag
+            except UnicodeDecodeError:
+                continue
+            if tag == XHTML("style") and el.text and (_css_url_re.search(el.text) is not None or "@import" in el.text):
+                el.text = replace_css_links(el.text)
+            style = el.attrib.get("style")
+            if style and _css_url_re.search(style) is not None:
+                el.attrib["style"] = replace_css_links(style)
+        return
 
     parser = CSSParser(raiseExceptions=False, log=_css_logger, fetcher=lambda x: (None, None))
     for el in root.iter(etree.Element):
@@ -523,8 +565,8 @@ def xml2str(root, pretty_print=False, strip_comments=False, with_tail=True):
     """
     if not strip_comments:
         # -- in comments trips up adobe digital editions
-        for x in root.iterdescendants(etree.Comment):
-            if x.text and "--" in x.text:
+        for x in root.iterdescendants():
+            if getattr(x, "tag", None) is etree.Comment and x.text and "--" in x.text:
                 x.text = x.text.replace("--", "__")
     ans = etree.tostring(
         root,
@@ -571,6 +613,46 @@ def serialize(data, media_type, pretty_print=False):
     return bytes(data)
 
 
+class SimpleCSSRule(object):
+    STYLE_RULE = 1
+    CHARSET_RULE = 2
+
+    def __init__(self, css_text):
+        self.cssText = css_text
+        stripped = css_text.lstrip().lower()
+        self.type = self.CHARSET_RULE if stripped.startswith("@charset") else self.STYLE_RULE
+
+
+class SimpleCSSStyleSheet(object):
+    def __init__(self, text=""):
+        self.namespaces = {}
+        self.cssRules = []
+        self.cssText = ""
+        self.set_css_text(text)
+
+    def _parse_rules(self, text):
+        matches = re.findall(r"@charset\s+[^;]+;|[^{}]+{[^{}]*}", text, flags=re.I | re.S)
+        if not matches:
+            stripped = text.strip()
+            matches = [stripped] if stripped else []
+        return [SimpleCSSRule(x.strip()) for x in matches if x.strip()]
+
+    def set_css_text(self, text):
+        self.cssText = text or ""
+        self.cssRules = self._parse_rules(self.cssText)
+
+    def __iter__(self):
+        return iter(self.cssRules)
+
+    def add(self, rule):
+        self.cssRules.append(SimpleCSSRule(getattr(rule, "cssText", six_unicode(rule))))
+        self.cssText = "\n".join(r.cssText for r in self.cssRules)
+
+    def deleteRule(self, index):
+        del self.cssRules[index]
+        self.cssText = "\n".join(r.cssText for r in self.cssRules)
+
+
 ASCII_CHARS = set(chr(x) for x in memory_range(128))
 UNIBYTE_CHARS = set(chr(x) for x in memory_range(256))
 URL_SAFE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdefghijklmnopqrstuvwxyz" "0123456789" "_.-/~")
@@ -595,20 +677,9 @@ def urlquote(href):
 
 
 def urlunquote(href, error_handling="strict"):
-    # unquote must run on a bytestring and will return a bytestring
-    # If it runs on a unicode object, it returns a double encoded unicode
-    # string: unquote(u'%C3%A4') != unquote(b'%C3%A4').decode('utf-8')
-    # and the latter is correct
-    want_unicode = isinstance(href, unicode)
-    if want_unicode:
-        href = href.encode("utf-8")
-    href = unquote(href)
-    if want_unicode:
-        # The quoted characters could have been in some encoding other than
-        # UTF-8, this often happens with old/broken web servers. There is no
-        # way to know what that encoding should be in this context.
+    if isinstance(href, bytes):
         href = href.decode("utf-8", error_handling)
-    return href
+    return unquote(href, errors=error_handling)
 
 
 def urlnormalize(href):
@@ -706,7 +777,9 @@ class DirContainer(object):
 
     def __init__(self, path, log, ignore_opf=False):
         self.log = log
-        if isbytestring(path):
+        # `isbytestring()` in this codebase currently treats str as bytes-like.
+        # Only decode actual bytes here.
+        if isinstance(path, bytes):
             path = path.decode(filesystem_encoding)
         self.opfname = None
         ext = os.path.splitext(path)[1].lower()
@@ -729,13 +802,9 @@ class DirContainer(object):
         :param path:
         :return:
         """
-        # unquote must run on a bytestring and will return a bytestring
-        # If it runs on a unicode object, it returns a double encoded unicode
-        # string: unquote(u'%C3%A4') != unquote(b'%C3%A4').decode('utf-8')
-        # and the latter is correct
-        if isinstance(path, unicode):
-            path = path.encode("utf-8")
-        return urlunquote(path).decode("utf-8")
+        if isinstance(path, bytes):
+            path = path.decode("utf-8", "replace")
+        return urlunquote(path)
 
     def read(self, path):
         """
@@ -939,7 +1008,7 @@ class Metadata(object):
                 term = CALIBRE(local)
             self.term = term
             self.value = value
-            for attr, value in attrib.items():
+            for attr, value in list(attrib.items()):
                 if isprefixname(value):
                     attrib[attr] = qname(value, nsmap)
                 nsattr = Metadata.OPF_ATTRS.get(attr, attr)
@@ -1005,7 +1074,10 @@ class Metadata(object):
             )
 
         def __str__(self):
-            return six_unicode(self.value).encode("ascii", "xmlcharrefreplace")
+            val = six_unicode(self.value)
+            if isinstance(val, bytes):
+                val = val.decode("utf-8", "replace")
+            return val
 
         def __unicode__(self):
             return as_unicode(self.value)
@@ -1258,14 +1330,17 @@ class Manifest(object):
             return self._parse_xhtml(convert_markdown(data, title=title))
 
         def _parse_css(self, data):
-            from cssutils import CSSParser, log, resolveImports
-            from cssutils.css import CSSRule
-
-            log.setLevel(logging.WARN)
-            log.raiseExceptions = False
             self.oeb.log.debug("Parsing", self.href, "...")
             data = self.oeb.decode(data)
             data = self.oeb.css_preprocessor(data, add_namespace=True)
+            try:
+                from cssutils import CSSParser, log, resolveImports
+                from cssutils.css import CSSRule
+            except ModuleNotFoundError:
+                return SimpleCSSStyleSheet(data)
+
+            log.setLevel(logging.WARN)
+            log.raiseExceptions = False
             parser = CSSParser(
                 loglevel=logging.WARNING,
                 fetcher=self.override_css_fetch or self._fetch_css,
@@ -1313,7 +1388,7 @@ class Manifest(object):
                 if self._loader is None:
                     return None
                 data = self._loader(getattr(self, "html_input_href", self.href))
-            if not isinstance(data, six_string_types):
+            if not isinstance(data, (str, bytes)):
                 pass  # already parsed
             elif self.media_type.lower() in OEB_DOCS:
                 data = self._parse_xhtml(data)
@@ -1369,7 +1444,10 @@ class Manifest(object):
                 self._data = None
 
         def __str__(self):
-            return serialize(self.data, self.media_type, pretty_print=self.oeb.pretty_print)
+            text = serialize(self.data, self.media_type, pretty_print=self.oeb.pretty_print)
+            if isinstance(text, bytes):
+                return text.decode("utf-8", "replace")
+            return six_unicode(text)
 
         def __unicode__(self):
             data = self.data
@@ -1383,6 +1461,9 @@ class Manifest(object):
 
         def __eq__(self, other):
             return id(self) == id(other)
+
+        def __hash__(self):
+            return id(self)
 
         def __ne__(self, other):
             return not self.__eq__(other)
@@ -1566,11 +1647,8 @@ class Manifest(object):
         return elem
 
     def to_opf2(self, parent=None):
-        def sort(x, y):
-            return six_cmp(x.href, y.href)
-
         elem = element(parent, OPF("manifest"))
-        for item in sorted(self.items, cmp=sort):
+        for item in sorted(self.items, key=lambda x: x.href):
             media_type = item.media_type
             if media_type in OEB_DOCS:
                 media_type = XHTML_MIME
@@ -2004,7 +2082,7 @@ class TOC(object):
         return ans
 
     def __str__(self):
-        return b"\n".join([x.encode("utf-8") for x in self.get_lines()])
+        return "\n".join(self.get_lines())
 
     def __unicode__(self):
         return "\n".join(self.get_lines())
@@ -2233,7 +2311,7 @@ class OEBBook(object):
             try:
                 os.remove(path)
             except Exception as e:
-                self.log.exception("Unable to clean temporary files - {}".format(e.message))
+                self.log.exception("Unable to clean temporary files - {}".format(str(e)))
 
     @classmethod
     def generate(cls, opts):

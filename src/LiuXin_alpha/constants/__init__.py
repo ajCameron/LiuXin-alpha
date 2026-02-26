@@ -133,19 +133,21 @@ def isbytestring(obj):
 
 
 def force_unicode(obj, enc=preferred_encoding):
-    if isbytestring(obj):
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, bytes):
         try:
             obj = obj.decode(enc)
-        except:
+        except Exception:
             try:
                 obj = obj.decode(filesystem_encoding if enc == preferred_encoding else preferred_encoding)
-            except:
+            except Exception:
                 try:
                     obj = obj.decode("utf-8")
-                except:
+                except Exception:
                     obj = repr(obj)
-                    if isbytestring(obj):
-                        obj = obj.decode("utf-8")
+                    if isinstance(obj, bytes):
+                        obj = obj.decode("utf-8", "replace")
     return obj
 
 

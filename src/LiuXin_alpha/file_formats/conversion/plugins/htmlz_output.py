@@ -10,8 +10,8 @@ from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = "2011, John Schember <john@nachtimwald.com>"

@@ -21,7 +21,7 @@ from collections import Counter
 
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 
-from typing import Union, Optional
+from typing import Optional
 
 from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
 
@@ -299,9 +299,10 @@ class TOC(list):
 
     def read_html_toc(self, toc):
         self.base_path = os.path.dirname(toc)
-        soup = BeautifulSoup(open(toc, "rb").read(), convertEntities=BeautifulSoup.HTML_ENTITIES)
+        with open(toc, "rb") as f:
+            soup = BeautifulSoup(f.read(), convertEntities=BeautifulSoup.HTML_ENTITIES)
         for a in soup.findAll("a"):
-            if not a.has_key("href"):
+            if "href" not in a:
                 continue
             purl = urlparse(unquote(a["href"]))
             href, fragment = purl[2], purl[5]

@@ -10,15 +10,15 @@ from lxml import etree
 from LiuXin_alpha.file_formats.oeb.base import XHTML
 from LiuXin_alpha.file_formats.oeb.polish.stats import normalize_font_properties
 
-from LiuXin_alpha import prints
-from LiuXin_alpha.utils.filenames import ascii_filename
-from LiuXin_alpha.utils.icu import lower as icu_lower
+from LiuXin_alpha.utils.logging import prints
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
+from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     from LiuXin_alpha.file_formats.oeb.polish.container import get_container
     from LiuXin_alpha.file_formats.oeb.polish.stats import StatsCollector
 
-    from LiuXin_alpha.utils.logger import default_log
+    from LiuXin_alpha.utils.logging import default_log
 
     default_log.filter_level = default_log.DEBUG
     inbook = sys.argv[-1]

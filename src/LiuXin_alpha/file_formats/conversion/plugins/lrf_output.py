@@ -12,7 +12,7 @@ from LiuXin_alpha.customize.conversion import OutputFormatPlugin
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"

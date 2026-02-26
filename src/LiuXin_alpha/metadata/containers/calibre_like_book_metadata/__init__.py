@@ -830,8 +830,9 @@ class CalibreLikeLiuXinBookMetaData(
             null_val = METADATA_NULL_VALUES.get(field, None)
             val = getattr(self, field, None)
             return not val or val == null_val
-        except:
-            return False
+        except Exception:
+            # Unknown/missing fields should be treated as unset in compatibility paths.
+            return True
 
     # ----------------------------------------------------------------------------------------------------------------------
     #

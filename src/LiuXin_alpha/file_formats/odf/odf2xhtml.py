@@ -49,7 +49,10 @@ from namespaces import (
     XLINKNS,
 )
 
-from past.builtins import basestring
+try:
+    from past.builtins import basestring
+except ModuleNotFoundError:
+    basestring = str
 
 
 if False:  # Added by Kovid

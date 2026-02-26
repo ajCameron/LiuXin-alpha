@@ -12,11 +12,11 @@ from LiuXin_alpha.file_formats.mobi.utils import (
 )
 from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
-from LiuXin_alpha.utils.imghdr import what
+from imghdr import what
 
 # Py2/Py3 compatibility
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -8,12 +8,12 @@ import os
 import textwrap
 
 from LiuXin_alpha.customize import FileTypePlugin
+from LiuXin_alpha.customize import numeric_version
 
-from LiuXin_alpha.utils.calibre.constants import numeric_version
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -43,7 +43,7 @@ every time you add an HTML file to the library.\
     on_import = True
 
     def run(self, htmlfile):
-        from LiuXin_alpha.utils.calibre.ptempfile import TemporaryDirectory
+        from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
         from LiuXin_alpha.interfaces.gui2.convert.gui_conversion import gui_convert
         from LiuXin_alpha.customize.conversion import OptionRecommendation
         from LiuXin_alpha.file_formats.epub import initialize_container

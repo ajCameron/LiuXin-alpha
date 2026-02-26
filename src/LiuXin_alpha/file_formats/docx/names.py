@@ -7,10 +7,10 @@ import re
 
 from lxml.etree import XPath as Xp
 
-from LiuXin_alpha.utils.filenames import ascii_text
+from LiuXin_alpha.utils.storage.local.filenames import ascii_text
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

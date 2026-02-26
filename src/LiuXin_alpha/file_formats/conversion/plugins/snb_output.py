@@ -10,7 +10,7 @@ from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Li Fanxi <lifanxi@freemindworld.com>"
@@ -302,7 +302,7 @@ if __name__ == "__main__":
     opts.output_profile = HanlinV3Output(None)
 
     html_preprocessor = HTMLPreProcessor(None, None, opts)
-    from LiuXin_alpha.utils.logger import default_log
+    from LiuXin_alpha.utils.logging import default_log
 
     oeb = OEBBook(default_log, html_preprocessor)
     reader = OEBReader

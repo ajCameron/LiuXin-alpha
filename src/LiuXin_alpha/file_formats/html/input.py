@@ -17,12 +17,22 @@ from LiuXin_alpha.constants import iswindows
 
 from LiuXin_alpha.file_formats.oeb.base import urlunquote
 
-from LiuXin_alpha.utils.calibre import unicode_path, as_unicode, replace_entities
-from LiuXin_alpha.utils.calibre_utils.calibre_chardet import detect_xml_encoding
+from LiuXin_alpha.utils.text.xml_utils import replace_entities
+from LiuXin_alpha.utils.libraries.calibre_chardet import detect_xml_encoding
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlunparse as urlunparse
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlunparse as urlunparse
+
+unicode = str
+
+
+def unicode_path(path_to_file, abs=False):
+    if isinstance(path_to_file, bytes):
+        path = path_to_file.decode("utf-8", "replace")
+    else:
+        path = str(path_to_file)
+    return os.path.abspath(path) if abs else path
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -132,7 +142,7 @@ class HTMLFile:
         except IOError as err:
             msg = "Could not read from file: %s with error: %s" % (
                 self.path,
-                as_unicode(err),
+                str(err),
             )
             if level == 0:
                 raise IOError(msg)
@@ -157,6 +167,9 @@ class HTMLFile:
 
     def __eq__(self, other):
         return self.path == getattr(other, "path", other)
+
+    def __hash__(self):
+        return hash(self.path)
 
     def __str__(self):
         return "HTMLFile:%d:%s:%s" % (
@@ -188,7 +201,9 @@ class HTMLFile:
         return Link(url, self.base)
 
 
-def depth_first(root, flat, visited=set([])):
+def depth_first(root, flat, visited=None):
+    if visited is None:
+        visited = set()
     yield root
     visited.add(root)
     for link in root.links:

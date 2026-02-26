@@ -7,28 +7,32 @@ import shutil
 import sys
 from functools import partial
 
-from past.builtins import unicode
+try:
+    from past.builtins import unicode
+except ModuleNotFoundError:
+    from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
 from LiuXin_alpha.customize.conversion import OptionRecommendation, DummyReporter
 
 from LiuXin_alpha.file_formats.conversion.preprocess import HTMLPreProcessor
 
 # Todo: This is probably a function for the decompression utils
-from LiuXin_alpha.utils.calibre_utils.calibre_init_functions import extract
-from LiuXin_alpha.utils.calibre import walk, isbytestring, filesystem_encoding, get_types_map
+from LiuXin_alpha.utils.decompression.archives import extract
+from LiuXin_alpha.constants import filesystem_encoding
+from LiuXin_alpha.utils.mine_types import get_types_map
 
 # Todo: Reset all version numbers to 0.1.0
-from LiuXin_alpha.utils.calibre.constants import __version__
+from LiuXin_alpha.constants import __version__
 from LiuXin_alpha.utils.date import parse_date
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
-from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory, PersistentTemporaryFile
+from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
+from LiuXin_alpha.utils.logging import default_log
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cmp
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
 
 __license__ = "GPL 3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -55,6 +59,12 @@ various stages of conversion. The stages are:
     plugin. Use this directory to debug the output plugin.
 
 """
+
+
+def walk(path):
+    for root, _, files in os.walk(path):
+        for name in files:
+            yield os.path.join(root, name)
 
 
 def supported_input_formats():
@@ -137,9 +147,9 @@ class Plumber(object):
         )
         from LiuXin_alpha.customize.ui import run_plugins_on_preprocess
 
-        if isbytestring(input):
+        if isinstance(input, bytes):
             input = input.decode(filesystem_encoding)
-        if isbytestring(output):
+        if isinstance(output, bytes):
             output = output.decode(filesystem_encoding)
         self.original_input_arg = input
         self.for_regex_wizard = for_regex_wizard
@@ -1032,7 +1042,7 @@ class Plumber(object):
 
         extract(path, tdir)
         files = list(walk(tdir))
-        files = [f if isinstance(f, unicode) else f.decode(filesystem_encoding) for f in files]
+        files = [f if isinstance(f, six_string_types) else f.decode(filesystem_encoding) for f in files]
         fmts = set(available_input_formats())
         fmts -= {"htm", "html", "xhtm", "xhtml"}
         fmts -= set(ARCHIVE_FMTS)
@@ -1056,7 +1066,7 @@ class Plumber(object):
         if not html_files:
             raise ValueError(_("Could not find an ebook inside the archive"))
         html_files = [(f, os.stat(f).st_size) for f in html_files]
-        html_files.sort(cmp=lambda x, y: six_cmp(x[1], y[1]))
+        html_files.sort(key=lambda item: item[1])
         html_files = [f[0] for f in html_files]
         for q in ("toc", "index"):
             for f in html_files:
@@ -1104,7 +1114,7 @@ class Plumber(object):
                 rec.level = level
 
     def opts_to_mi(self, mi):
-        from LiuXin_alpha.metadata import string_to_authors
+        from LiuXin_alpha.metadata.utils import string_to_authors
 
         for x in self.metadata_option_names:
             val = getattr(self.opts, x, None)
@@ -1139,9 +1149,6 @@ class Plumber(object):
         from PIL import Image
 
         from LiuXin_alpha import browser
-        from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
-        from LiuXin_alpha.utils.calibre.ptempfile import PersistentTemporaryFile
-
         self.log("Downloading cover from %r" % url)
         br = browser()
         raw = br.open_novisit(url).read()
@@ -1157,7 +1164,9 @@ class Plumber(object):
         Read all metadata specified by the user. Command line options override
         metadata from a specified OPF file.
         """
-        from LiuXin_alpha.metadata import calibreMetaInformation as MetaInformation
+        from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+            CalibreLikeLiuXinBookMetaData as MetaInformation,
+        )
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
         mi = MetaInformation(None, [])
@@ -1468,18 +1477,21 @@ class Plumber(object):
         )
 
         # Flattening CSS and remapping font sizes...
-        from LiuXin_alpha.file_formats.oeb.transforms.flatcss import CSSFlattener
-
-        flattener = CSSFlattener(
-            fbase=fbase,
-            fkey=fkey,
-            lineh=line_height,
-            untable=needs_old_markup,
-            unfloat=needs_old_markup,
-            page_break_on_body=self.output_plugin.file_type in ("mobi", "lit"),
-            specializer=partial(self.output_plugin.specialize_css_for_output, self.log, self.opts),
-        )
-        flattener(self.oeb, self.opts)
+        try:
+            from LiuXin_alpha.file_formats.oeb.transforms.flatcss import CSSFlattener
+        except ImportError:
+            self.log.warn("cssutils unavailable, skipping CSS flattening transform")
+        else:
+            flattener = CSSFlattener(
+                fbase=fbase,
+                fkey=fkey,
+                lineh=line_height,
+                untable=needs_old_markup,
+                unfloat=needs_old_markup,
+                page_break_on_body=self.output_plugin.file_type in ("mobi", "lit"),
+                specializer=partial(self.output_plugin.specialize_css_for_output, self.log, self.opts),
+            )
+            flattener(self.oeb, self.opts)
 
         self.opts.insert_blank_line = oibl
         self.opts.remove_paragraph_spacing = orps
