@@ -15,8 +15,8 @@ from LiuXin_alpha.utils.calibre import prepare_string_for_xml, isbytestring
 from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
 
 # Py2/Py3 compatibility
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_long
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_long
 
 
 __license__ = "GPL v3"
@@ -36,7 +36,7 @@ def clean_txt(txt):
     consistent state.
     :param txt:
     """
-    if isbytestring(txt):
+    if isinstance(txt, bytes):
         txt = txt.decode("utf-8", "replace")
     # Strip whitespace from the end of the line. Also replace
     # all line breaks with \n.
@@ -49,8 +49,8 @@ def clean_txt(txt):
     txt = re.sub("[ ]{2,}", " ", txt)
 
     # Remove blank space from the beginning and end of the document.
-    txt = re.sub("^\s+(?=.)", "", txt)
-    txt = re.sub("(?<=.)\s+$", "", txt)
+    txt = re.sub(r"^\s+(?=.)", "", txt)
+    txt = re.sub(r"(?<=.)\s+$", "", txt)
     # Remove excessive line breaks.
     txt = re.sub("\n{5,}", "\n\n\n\n", txt)
     # remove ASCII invalid chars : 0 to 8 and 11-14 to 24
@@ -74,15 +74,15 @@ def split_txt(txt, epub_split_size_kb=0):
     """
     # Takes care if there is no point to split
     if epub_split_size_kb > 0:
-        if isinstance(txt, unicode):
+        if isinstance(txt, str):
             txt = txt.encode("utf-8")
         length_byte = len(txt)
         # Calculating the average chunk value for easy splitting as EPUB (+2 as a safe margin)
         chunk_size = six_long(length_byte / (int(length_byte / (epub_split_size_kb * 1024)) + 2))
         # if there are chunks with a superior size then go and break
-        if len(filter(lambda x: len(x) > chunk_size, txt.split("\n\n"))):
+        if any(len(x) > chunk_size for x in txt.split("\n\n")):
             txt = "\n\n".join([split_string_separator(line, chunk_size) for line in txt.split("\n\n")])
-    if isbytestring(txt):
+    if isinstance(txt, bytes):
         txt = txt.decode("utf-8")
 
     return txt
@@ -146,7 +146,7 @@ def separate_paragraphs_single_line(txt):
 
 def separate_paragraphs_print_formatted(txt):
     txt = re.sub(
-        "(?miu)^(?P<indent>\t+|[ ]{2,})(?=.)",
+        r"(?miu)^(?P<indent>\t+|[ ]{2,})(?=.)",
         lambda mo: "\n%s" % mo.group("indent"),
         txt,
     )
@@ -160,7 +160,7 @@ def separate_hard_scene_breaks(txt):
         else:
             return line
 
-    txt = re.sub("(?miu)^[ \t-=~\/_]+$", lambda mo: sep_break(mo.group()), txt)
+    txt = re.sub(r"(?miu)^[ \t-=~/_]+$", lambda mo: sep_break(mo.group()), txt)
     return txt
 
 
@@ -176,7 +176,7 @@ def preserve_spaces(txt):
     :return:
     """
     txt = re.sub(
-        "(?P<space>[ ]{2,})",
+        r"(?P<space>[ ]{2,})",
         lambda mo: " " + ("&nbsp;" * (len(mo.group("space")) - 1)),
         txt,
     )
@@ -190,7 +190,7 @@ def remove_indents(txt):
     :param txt:
     :return:
     """
-    txt = re.sub("(?miu)^\s+", "", txt)
+    txt = re.sub(r"(?miu)^\s+", "", txt)
     return txt
 
 
@@ -212,7 +212,7 @@ def split_string_separator(txt, size):
     if len(txt) > size:
         txt = "".join(
             [
-                re.sub("\.(?P<ends>[^.]*)$", ".\n\n\g<ends>", txt[i : i + size], 1)
+                re.sub(r"\.(?P<ends>[^.]*)$", r".\n\n\g<ends>", txt[i : i + size], 1)
                 for i in memory_range(0, len(txt), size)
             ]
         )
@@ -235,7 +235,7 @@ def detect_paragraph_type(txt):
     """
     txt = txt.replace("\r\n", "\n")
     txt = txt.replace("\r", "\n")
-    txt_line_count = len(re.findall("(?mu)^\s*.+$", txt))
+    txt_line_count = len(re.findall(r"(?mu)^\s*.+$", txt))
 
     # Check for hard line breaks - true if 55% of the doc breaks in the same region
     docanalysis = DocAnalysis("txt", txt)
@@ -243,11 +243,11 @@ def detect_paragraph_type(txt):
 
     if hardbreaks:
         # Determine print percentage
-        tab_line_count = len(re.findall("(?mu)^(\t|\s{2,}).+$", txt))
+        tab_line_count = len(re.findall(r"(?mu)^(\t|\s{2,}).+$", txt))
         print_percent = tab_line_count / float(txt_line_count)
 
         # Determine block percentage
-        empty_line_count = len(re.findall("(?mu)^\s*$", txt))
+        empty_line_count = len(re.findall(r"(?mu)^\s*$", txt))
         block_percent = empty_line_count / float(txt_line_count)
 
         # Compare the two types - the type with the larger number of instances wins
@@ -283,13 +283,13 @@ def detect_formatting_type(txt):
 
     # Check for markdown
     # Headings
-    markdown_count += len(re.findall("(?mu)^#+", txt))
-    markdown_count += len(re.findall("(?mu)^=+$", txt))
-    markdown_count += len(re.findall("(?mu)^-+$", txt))
+    markdown_count += len(re.findall(r"(?mu)^#+", txt))
+    markdown_count += len(re.findall(r"(?mu)^=+$", txt))
+    markdown_count += len(re.findall(r"(?mu)^-+$", txt))
     # Images
-    markdown_count += len(re.findall("(?u)!\[.*?\](\[|\()", txt))
+    markdown_count += len(re.findall(r"(?u)!\[.*?\](\[|\()", txt))
     # Links
-    markdown_count += len(re.findall("(?u)^|[^!]\[.*?\](\[|\()", txt))
+    markdown_count += len(re.findall(r"(?u)^|[^!]\[.*?\](\[|\()", txt))
 
     # Check for textile
     # Headings

@@ -11,8 +11,8 @@ from LiuXin_alpha.file_formats.docx.char_styles import RunStyle
 from LiuXin_alpha.file_formats.docx.tables import TableStyle
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -108,6 +108,19 @@ class Style(object):
             self.character_style.resolve_based_on(parent.character_style)
 
 
+class _NullFonts(object):
+    def family_for(self, name, bold=False, italic=False):
+        return "serif"
+
+    def embed_fonts(self, dest_dir, docx):
+        return ""
+
+
+class _NullTheme(object):
+    def resolve_font_family(self, family):
+        return family
+
+
 class Styles(object):
 
     """
@@ -126,6 +139,11 @@ class Styles(object):
         self.default_styles = {}
         self.tables = tables
         self.numbering_style_links = {}
+        # These defaults may be absent in malformed/minimal DOCX files.
+        self.default_paragraph_style = None
+        self.default_character_style = None
+        self.fonts = _NullFonts()
+        self.theme = _NullTheme()
 
     def __iter__(self):
         for s in itervalues(self.id_map):

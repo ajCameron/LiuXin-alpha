@@ -2,6 +2,7 @@
 # vim:fileencoding=utf-8
 from __future__ import unicode_literals, division, absolute_import, print_function
 
+import csv
 from collections import Counter, defaultdict
 from operator import attrgetter
 
@@ -15,18 +16,23 @@ from LiuXin_alpha.utils.localization import lang_as_iso639_1
 try:
     from tinycss.css21 import CSS21Parser
 except ImportError:
-    from LiuXin_alpha.utils.tinycss_lx.css21 import CSS21Parser
+    CSS21Parser = None
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+try:
+    long
+except NameError:
+    long = int
 
 __license__ = "GPL v3"
 __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"
 
-css_parser = CSS21Parser()
+css_parser = CSS21Parser() if CSS21Parser is not None else None
 
 border_edges = ("left", "top", "right", "bottom")
 border_props = ("padding_%s", "border_%s_width", "border_%s_style", "border_%s_color")
@@ -34,14 +40,25 @@ ignore = object()
 
 
 def parse_css_font_family(raw):
-    decl, errs = css_parser.parse_style_attr("font-family:" + raw)
-    if decl:
-        for token in decl[0].value:
-            if token.type in "STRING IDENT":
-                val = token.value
-                if val == "inherit":
-                    break
-                yield val
+    if css_parser is not None:
+        decl, errs = css_parser.parse_style_attr("font-family:" + raw)
+        if decl:
+            for token in decl[0].value:
+                if token.type in "STRING IDENT":
+                    val = token.value
+                    if val == "inherit":
+                        break
+                    yield val
+        return
+    # tinycss is optional; keep a small fallback parser for plain lists.
+    for row in csv.reader([raw], skipinitialspace=True):
+        for token in row:
+            val = token.strip().strip("'\"")
+            if not val:
+                continue
+            if val.lower() == "inherit":
+                return
+            yield val
 
 
 def css_font_family_to_docx(raw):

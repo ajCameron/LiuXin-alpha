@@ -33,7 +33,7 @@ class HTMLZInput(InputFormatPlugin):
         """
         from LiuXin_alpha.file_formats.chardet import xml_to_unicode
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
-        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log
         top_levels = []
@@ -97,7 +97,7 @@ class HTMLZInput(InputFormatPlugin):
         for opt in html_input.options:
             setattr(options, opt.option.name, opt.recommended_value)
         options.input_encoding = "utf-8"
-        base = os.getcwdu()
+        base = os.getcwd()
         fname = os.path.join(base, "index.html")
         c = 0
         while os.path.exists(fname):
@@ -133,12 +133,12 @@ class HTMLZInput(InputFormatPlugin):
                 opf = x
                 break
         if opf:
-            opf = OPF(opf, basedir=os.getcwdu())
+            opf = OPF(opf, basedir=os.getcwd())
             cover_path = opf.raster_cover or opf.cover
         # Set the cover.
         if cover_path:
             cdata = None
-            with open(os.path.join(os.getcwdu(), cover_path), "rb") as cf:
+            with open(os.path.join(os.getcwd(), cover_path), "rb") as cf:
                 cdata = cf.read()
             cover_name = os.path.basename(cover_path)
             id, href = oeb.manifest.generate("cover", cover_name)

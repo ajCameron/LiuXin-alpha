@@ -7,11 +7,11 @@ from operator import itemgetter
 
 from lxml import etree
 
-from LiuXin_alpha.utils.icu import partition_by_first_letter, sort_key
+from LiuXin_alpha.utils.text.icu import partition_by_first_letter, sort_key
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritmes
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -23,7 +23,7 @@ def get_applicable_xe_fields(index, xe_fields, XPath, expand):
 
     lr = index.get("letter-range", None)
     if lr is not None:
-        sl, el = lr.parition("-")[0::2]
+        sl, el = lr.partition("-")[0::2]
         sl, el = sl.strip(), el.strip()
         if sl and el:
 
@@ -111,7 +111,8 @@ def process_index(field, index, xe_fields, log, XPath, expand):
         groups = partition_by_first_letter(xe_fields, key=itemgetter("text"))
         items = []
         for key, fields in iteritems(groups):
-            items.append(key), items.extend(fields)
+            items.append(key)
+            items.extend(fields)
         if styles:
             heading_style = styles[0]
     else:
@@ -256,7 +257,7 @@ def polish_index_markup(index, blocks):
         if a:
             text = etree.tostring(a[0], method="text", with_tail=False, encoding=six_unicode).strip()
         if ":" in text:
-            path_map[block] = parts = filter(None, (x.strip() for x in text.split(":")))
+            path_map[block] = parts = tuple(filter(None, (x.strip() for x in text.split(":"))))
             if len(parts) > 1:
                 split_up_block(block, a[0], text, parts, ldict)
         else:

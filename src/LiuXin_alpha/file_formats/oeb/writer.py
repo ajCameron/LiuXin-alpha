@@ -82,7 +82,10 @@ class OEBWriter(object):
             os.mkdir(path)
         output = DirContainer(path, oeb.log)
         for item in oeb.manifest.values():
-            output.write(item.href, str(item))
+            payload = str(item)
+            if isinstance(payload, str):
+                payload = payload.encode("utf-8")
+            output.write(item.href, payload)
 
         if version == 1:
             metadata = oeb.to_opf1()

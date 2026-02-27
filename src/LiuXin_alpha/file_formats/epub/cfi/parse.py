@@ -3,11 +3,19 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-import regex
 import sys
 
+try:
+    import regex as _regex  # type: ignore
+
+    _HAS_REGEX = True
+except ModuleNotFoundError:
+    import re as _regex
+
+    _HAS_REGEX = False
+
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map, six_zip
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map, six_zip
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -27,19 +35,26 @@ class Parser(object):
     def __init__(self):
         # All allowed unicode characters + escaped special characters
         special_char = r"[\[\](),;=^]"
-        if is_narrow_build:
+        if _HAS_REGEX and is_narrow_build:
             unescaped_char = "[[\t\n\r -\ud7ff\ue000-\ufffd]--%s]" % special_char
-        else:
+        elif _HAS_REGEX:
             unescaped_char = "[[\t\n\r -\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]--%s]" % special_char
+        else:
+            # stdlib `re` does not support character class set subtraction.
+            unescaped_char = r"[^\[\](),;=^]"
         escaped_char = r"\^" + special_char
         chars = r"(?:%s|(?:%s))+" % (unescaped_char, escaped_char)
-        chars_no_space = chars.replace("0020", "0021")
+        chars_no_space = r"(?:[^\s\[\](),;=^]|(?:\^[\[\](),;=^]))+"
         # No leading zeros allowed for integers
         integer = r"(?:[1-9][0-9]*)|0"
         # No leading zeros, except for numbers in (0, 1) and no trailing zeros for the fractional part
         frac = r"\.[0-9]*[1-9]"
         number = r"(?:[1-9][0-9]*(?:{0})?)|(?:0{0})|(?:0)".format(frac)
-        c = lambda x: regex.compile(x, flags=regex.VERSION1)
+
+        def c(x):
+            if _HAS_REGEX:
+                return _regex.compile(x, flags=_regex.VERSION1)
+            return _regex.compile(x, flags=_regex.UNICODE)
 
         # A step of the form /integer
         self.step_pat = c(r"/(%s)" % integer)
@@ -163,11 +178,18 @@ class Parser(object):
                 ta["after"] = self.unescape(m.group(1))
 
         # parse parameters
-        m, raw = self.do_match(self.parameters_pat, raw)
-        if m is not None:
-            params = {}
-            for name, value in six_zip(m.captures(1), m.captures(2)):
-                params[name] = tuple(six_map(self.unescape, self.csv_pat.match(value).captures(1)))
+        if _HAS_REGEX:
+            m, raw = self.do_match(self.parameters_pat, raw)
+            if m is not None:
+                params = {}
+                for name, value in six_zip(m.captures(1), m.captures(2)):
+                    params[name] = tuple(six_map(self.unescape, self.csv_pat.match(value).captures(1)))
+                if params:
+                    ta["params"] = params
+        else:
+            params, raw, ok = self.parse_params_without_regex(raw)
+            if not ok:
+                return oraw
             if params:
                 ta["params"] = params
 
@@ -177,6 +199,57 @@ class Parser(object):
         if ta:
             ans["text_assertion"] = ta
         return raw[1:]
+
+    def consume_chars(self, raw, stop_chars):
+        out = []
+        idx = 0
+        while idx < len(raw):
+            ch = raw[idx]
+            if ch in stop_chars:
+                break
+            if ch == "^":
+                if idx + 1 >= len(raw):
+                    return None, raw
+                nxt = raw[idx + 1]
+                if nxt not in "[](),;=^":
+                    return None, raw
+                out.append("^")
+                out.append(nxt)
+                idx += 2
+                continue
+            out.append(ch)
+            idx += 1
+        token = "".join(out)
+        if not token:
+            return None, raw
+        return token, raw[idx:]
+
+    def parse_params_without_regex(self, raw):
+        params = {}
+        while raw.startswith(";"):
+            raw = raw[1:]
+            name, remainder = self.consume_chars(raw, stop_chars={"=", ";", ",", "]"})
+            if name is None:
+                return {}, raw, False
+            unescaped_name = self.unescape(name)
+            if any(ch.isspace() for ch in unescaped_name):
+                return {}, raw, False
+            if not remainder.startswith("="):
+                return {}, raw, False
+            raw = remainder[1:]
+            values = []
+            value, raw = self.consume_chars(raw, stop_chars={",", ";", "]"})
+            if value is None:
+                return {}, raw, False
+            values.append(self.unescape(value))
+            while raw.startswith(","):
+                raw = raw[1:]
+                value, raw = self.consume_chars(raw, stop_chars={",", ";", "]"})
+                if value is None:
+                    return {}, raw, False
+                values.append(self.unescape(value))
+            params[unescaped_name] = tuple(values)
+        return params, raw, True
 
 
 _parser = None

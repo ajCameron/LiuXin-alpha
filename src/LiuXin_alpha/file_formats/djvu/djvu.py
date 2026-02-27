@@ -11,8 +11,6 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import sys
 import struct
 
-from LiuXin_alpha.file_formats.djvu.djvubzzdec import BZZDecoder
-
 from LiuXin_alpha.utils.plugins import plugins
 
 __license__ = "GPL v3"
@@ -22,12 +20,12 @@ __copyright__ = "2011, Anthon van der Neut <A.van.der.Neut@ruamel.eu>"
 class DjvuChunk(object):
     def __init__(self, buf, start, end, align=True, bigendian=True, inclheader=False, verbose=0):
 
-        # Loading the decompression plugin needed to handle djvu files
-        if plugins.plugin_okay("bzzdec"):
-            self.speedup = plugins["bzzdec"][0]
-        else:
-            err_msg = plugins["bzzdec"][1]
+        # Load the DJVU BZZ decompressor (compiled extension or pure-Python fallback).
+        self.speedup, err_msg = plugins["bzzdec"]
+        if self.speedup is None:
             raise RuntimeError("Failed to load bzzdec plugin: %s" % err_msg)
+        if not hasattr(self.speedup, "decompress"):
+            raise RuntimeError("bzzdec plugin is missing required 'decompress' callable")
 
         self.subtype = None
         self._subchunks = []
@@ -71,34 +69,13 @@ class DjvuChunk(object):
             out.write(b"  " * indent)
             out.write(b"%s%s [%d]\n" % (self.type, b":" + self.subtype if self.subtype else b"", self.size))
         if txtout and self.type == b"TXTz":
-            if True:
-                # Use the C BZZ decode implementation
-                txtout.write(self.speedup.decompress(self.buf[self.datastart : self.dataend]))
-            else:
-                inbuf = bytearray(self.buf[self.datastart : self.dataend])
-                outbuf = bytearray()
-                decoder = BZZDecoder(inbuf, outbuf)
-                while True:
-                    xxres = decoder.convert(1024 * 1024)
-                    if not xxres:
-                        break
-                res = bytes(outbuf)
-                if not res.strip(b"\0"):
-                    raise ValueError("TXTz block is completely null")
-                l = 0
-                for x in res[:3]:
-                    l <<= 8
-                    l += ord(x)
-                if verbose > 0 and out:
-                    print(l, file=out)
-                txtout.write(res[3 : 3 + l])
+            txtout.write(self.speedup.decompress(self.buf[self.datastart : self.dataend]))
             txtout.write(b"\037")
         if txtout and self.type == b"TXTa":
             res = self.buf[self.datastart : self.dataend]
-            l = 0
-            for x in res[:3]:
-                l <<= 8
-                l += ord(x)
+            if len(res) < 3:
+                raise ValueError("TXTa block missing length header")
+            l = int.from_bytes(res[:3], byteorder="big")
             if verbose > 0 and out:
                 print(l, file=out)
             txtout.write(res[3 : 3 + l])
@@ -125,8 +102,9 @@ class DJVUFile(object):
 
 
 def main():
-    f = DJVUFile(open(sys.argv[-1], "rb"))
-    print(f.get_text(sys.stdout))
+    with open(sys.argv[-1], "rb") as in_file:
+        f = DJVUFile(in_file)
+        f.get_text(sys.stdout.buffer)
 
 
 if __name__ == "__main__":

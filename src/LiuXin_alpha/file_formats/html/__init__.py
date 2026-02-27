@@ -11,6 +11,9 @@ __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
+COMMENT_PAT = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
 def tostring(root, strip_comments=False, pretty_print=False):
     """
     Serializes an XHTML structure
@@ -19,7 +22,7 @@ def tostring(root, strip_comments=False, pretty_print=False):
     :param pretty_print:
     :return:
     """
-    from lxml.etree import tostring as _tostring
+    from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
     root.set("xmlns", "http://www.w3.org/1999/xhtml")
     root.set("{http://www.w3.org/1999/xhtml}xlink", "http://www.w3.org/1999/xlink")
@@ -27,9 +30,12 @@ def tostring(root, strip_comments=False, pretty_print=False):
         if hasattr(x.tag, "rpartition") and x.tag.rpartition("}")[-1].lower() == "svg":
             x.set("xmlns", "http://www.w3.org/2000/svg")
 
-    ans = _tostring(root, encoding="utf-8", pretty_print=pretty_print)
+    ans = etree.tostring(root, encoding="utf-8", pretty_print=pretty_print)
+    if isinstance(ans, str):
+        ans = ans.encode("utf-8")
+
     if strip_comments:
-        ans = re.compile(r"<!--.*?-->", re.DOTALL).sub("", ans)
-    ans = '<?xml version="1.0" encoding="utf-8" ?>\n' + ans
+        ans = COMMENT_PAT.sub("", ans.decode("utf-8", "replace")).encode("utf-8")
+    ans = b'<?xml version="1.0" encoding="utf-8" ?>\n' + ans
 
     return ans

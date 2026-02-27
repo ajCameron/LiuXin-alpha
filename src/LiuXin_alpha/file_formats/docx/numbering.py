@@ -12,10 +12,10 @@ from lxml.html.builder import OL, UL, SPAN
 from LiuXin_alpha.file_formats.docx.block_styles import ParagraphStyle
 from LiuXin_alpha.file_formats.docx.char_styles import RunStyle, inherit
 
-from LiuXin_alpha.metadata import roman
+from LiuXin_alpha.metadata.utils import roman
 
 # Py2/Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

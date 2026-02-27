@@ -8,13 +8,33 @@ from collections import namedtuple
 
 from LiuXin_alpha.file_formats.docx.block_styles import binary_property, inherit
 
-from LiuXin_alpha.utils.filenames import ascii_filename
-from LiuXin_alpha.utils.fonts.scanner import font_scanner, NoFonts
-from LiuXin_alpha.utils.fonts.utils import panose_to_css_generic_family, is_truetype_font
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
+try:
+    from LiuXin_alpha.utils.fonts.scanner import font_scanner, NoFonts
+except Exception:
+    class NoFonts(Exception):
+        """Font scanner backend unavailable."""
+
+    class _MissingFontScanner:
+        def fonts_for_family(self, name):
+            raise NoFonts("font scanner backend unavailable")
+
+    font_scanner = _MissingFontScanner()
+
+try:
+    from LiuXin_alpha.utils.fonts.utils import panose_to_css_generic_family, is_truetype_font
+except Exception:
+    def panose_to_css_generic_family(_panose):
+        return None
+
+    def is_truetype_font(raw):
+        if not raw:
+            return False
+        return raw.startswith((b"\x00\x01\x00\x00", b"OTTO", b"true", b"ttcf"))
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

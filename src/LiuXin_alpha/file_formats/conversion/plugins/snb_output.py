@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import os
-import string
 
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.constants import __appname__, __version__
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
@@ -154,10 +153,10 @@ class SNBOutput(OutputFormatPlugin):
             output_files = {}
             if oeb_book.toc.count() == 0:
                 log.warn("This SNB file has no Table of Contents. Creating a default TOC")
-                first = iter(oeb_book.spine).next()
+                first = next(iter(oeb_book.spine))
                 oeb_book.toc.add(_("Start Page"), first.href)
             else:
-                first = iter(oeb_book.spine).next()
+                first = next(iter(oeb_book.spine))
                 if oeb_book.toc[0].href != first.href:
                     # The pages before the fist item in toc will be stored as
                     # "Cover Pages".
@@ -171,7 +170,7 @@ class SNBOutput(OutputFormatPlugin):
 
             for tocitem in oeb_book.toc:
                 if tocitem.href.find("#") != -1:
-                    item = string.split(tocitem.href, "#")
+                    item = tocitem.href.split("#")
                     if len(item) != 2:
                         log.error("Error in TOC item: %s" % tocitem)
                     else:

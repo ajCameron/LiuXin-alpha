@@ -9,7 +9,7 @@ import sys
 from lxml import etree
 
 from LiuXin_alpha.utils.calibre import walk
-from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -134,7 +134,7 @@ class HTMLFile:
                 if encoding:
                     try:
                         header = header.decode(encoding)
-                    except ValueError:
+                    except (LookupError, ValueError):
                         pass
                 self.is_binary = level > 0 and not bool(self.HTML_PAT.search(header))
                 if not self.is_binary:
@@ -156,11 +156,10 @@ class HTMLFile:
         if not self.is_binary:
             if not encoding:
                 encoding = detect_xml_encoding(src[:4096], verbose=verbose)[1]
-                self.encoding = encoding
-            else:
-                self.encoding = encoding
+            # Fall back to UTF-8 if no declaration/guess is available.
+            self.encoding = encoding or "utf-8"
 
-            src = src.decode(encoding, "replace")
+            src = src.decode(self.encoding, "replace")
             match = self.TITLE_PAT.search(src)
             self.title = match.group(1) if match is not None else self.title
             self.find_links(src)

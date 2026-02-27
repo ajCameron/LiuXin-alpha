@@ -7,10 +7,15 @@ from collections import defaultdict
 from uuid import uuid4
 
 from LiuXin_alpha.file_formats.oeb.base import OEB_STYLES
-from LiuXin_alpha.file_formats.oeb.transforms.subset import find_font_face_rules
+try:
+    from LiuXin_alpha.file_formats.oeb.transforms.subset import find_font_face_rules
+except Exception:
+    # Font subsetting backend is optional during the ongoing port.
+    def find_font_face_rules(sheet, oeb):
+        return []
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"

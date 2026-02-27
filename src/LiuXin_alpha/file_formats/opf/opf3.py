@@ -1060,8 +1060,8 @@ def read_metadata(root, ver=None, return_extra_data=False, calibre_md_rtn=True):
     s, si = read_series(root, prefixes, refines)
     if s:
         ans.series, ans.series_index = s, si
-    ans.author_link_map = read_author_link_map(root, prefixes, refines) or ans.author_link_map
-    ans.user_categories = read_user_categories(root, prefixes, refines) or ans.user_categories
+    ans.author_link_map = read_author_link_map(root, prefixes, refines) or getattr(ans, "author_link_map", {})
+    ans.user_categories = read_user_categories(root, prefixes, refines) or getattr(ans, "user_categories", {})
     for name, fm in iteritems((read_user_metadata(root, prefixes, refines) or {})):
         ans.set_user_metadata(name, fm)
     if return_extra_data:
@@ -1142,10 +1142,12 @@ def apply_metadata(
     if ok("user_categories"):
         set_user_categories(root, prefixes, refines, getattr(mi, "user_categories", None))
     # We ignore apply_null for the next two to match the behavior with opf2.py
-    if mi.application_id:
-        set_application_id(root, prefixes, refines, mi.application_id)
-    if mi.uuid:
-        set_uuid(root, prefixes, refines, mi.uuid)
+    application_id = getattr(mi, "application_id", None)
+    if application_id:
+        set_application_id(root, prefixes, refines, application_id)
+    uuid = getattr(mi, "uuid", None)
+    if uuid:
+        set_uuid(root, prefixes, refines, uuid)
     new_user_metadata, current_user_metadata = (
         mi.get_all_user_metadata(True),
         current_mi.get_all_user_metadata(True),

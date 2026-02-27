@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import annotations
 
 import os
 import re
@@ -22,7 +22,7 @@ def decrypt_font_data(key, data, algorithm):
     crypt_len = 1024 if is_adobe else 1040
     crypt = bytearray(data[:crypt_len])
     key = cycle(iter(bytearray(key)))
-    decrypt = bytes(bytearray(x ^ key.next() for x in crypt))
+    decrypt = bytes(bytearray(x ^ next(key) for x in crypt))
     return decrypt + data[crypt_len:]
 
 
@@ -43,7 +43,7 @@ class EPUBInput(InputFormatPlugin):
     recommendations = {("page_breaks_before", "/", OptionRecommendation.MED)}
 
     def process_encryption(self, encfile, opf, log):
-        from lxml import etree
+        from LiuXin_alpha.utils.libraries.liuxin_etree import etree
         import uuid
         import hashlib
 
@@ -59,11 +59,11 @@ class EPUBInput(InputFormatPlugin):
                     scheme = item.get(xkey)
             if (scheme and scheme.lower() == "uuid") or (item.text and item.text.startswith("urn:uuid:")):
                 try:
-                    key = bytes(item.text).rpartition(":")[-1]
-                    key = uuid.UUID(key).bytes
+                    key_text = item.text.rpartition(":")[-1]
+                    key = uuid.UUID(key_text).bytes
                 except Exception as e:
                     err_message = "Unable to handle epub encryption."
-                    default_log.log_exception(message=err_message, exception=e, level="INFO")
+                    default_log.log_exception(err_message, e, "INFO")
                     key = None
 
         try:
@@ -82,7 +82,7 @@ class EPUBInput(InputFormatPlugin):
             return True
         except Exception as e:
             err_message = "Unable to handle epub encryption."
-            default_log.log_exception(message=err_message, exception=e, level="INFO")
+            default_log.log_exception(err_message, e, "INFO")
 
         return False
 
@@ -95,7 +95,7 @@ class EPUBInput(InputFormatPlugin):
         :return:
         """
         removed = None
-        from lxml import etree
+        from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
         guide_cover, guide_elem = None, None
         for guide_elem in opf.iterguide():
@@ -176,7 +176,7 @@ class EPUBInput(InputFormatPlugin):
         return removed
 
     def find_opf(self):
-        from lxml import etree
+        from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
         def attr(n, attr):
             for k, v in n.attrib.items():
@@ -184,7 +184,7 @@ class EPUBInput(InputFormatPlugin):
                     return v
 
         try:
-            with open("META-INF/container.xml") as f:
+            with open("META-INF/container.xml", "rb") as f:
                 root = etree.fromstring(f.read())
                 for r in root.xpath('//*[local-name()="rootfile"]'):
                     if attr(r, "media-type") != "application/oebps-package+xml":
@@ -192,12 +192,12 @@ class EPUBInput(InputFormatPlugin):
                     path = attr(r, "full-path")
                     if not path:
                         continue
-                    path = os.path.join(os.getcwdu(), *path.split("/"))
+                    path = os.path.join(os.getcwd(), *path.split("/"))
                     if os.path.exists(path):
                         return path
         except Exception as e:
             err_str = "Find opf failed./n"
-            default_log.log_exception(message=err_str, exception=e, level="WARN")
+            default_log.log_exception(err_str, e, "WARN")
 
     # Todo: Add ConversionError for when generic things go wrong with the conversion
     def convert(self, stream, options, file_ext, log, accelerators):
@@ -210,14 +210,14 @@ class EPUBInput(InputFormatPlugin):
         :param accelerators:
         :return:
         """
-        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
         from LiuXin_alpha.utils.calibre import walk
         from LiuXin_alpha.file_formats import DRMError
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
         try:
             zf = ZipFile(stream)
-            zf.extractall(os.getcwdu())
+            zf.extractall(os.getcwd())
         except Exception as e:
 
             info_str = "EPUB appears to be invalid ZIP file, trying a more forgiving ZIP parser"
@@ -242,7 +242,7 @@ class EPUBInput(InputFormatPlugin):
         if opf is None:
             raise ValueError("%s is not a valid EPUB file (could not find opf)" % path)
 
-        opf = os.path.relpath(opf, os.getcwdu())
+        opf = os.path.relpath(opf, os.getcwd())
         parts = os.path.split(opf)
         opf = OPF(opf, os.path.dirname(os.path.abspath(opf)))
 

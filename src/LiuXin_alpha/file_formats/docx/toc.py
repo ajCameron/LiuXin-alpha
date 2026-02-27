@@ -6,13 +6,13 @@ from collections import namedtuple
 
 from lxml.etree import tostring
 
-from LiuXin_alpha.metadata.toc import TOC
+from LiuXin_alpha.file_formats.toc import TOC
 from LiuXin_alpha.file_formats.oeb.polish.toc import elem_to_toc_text
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"

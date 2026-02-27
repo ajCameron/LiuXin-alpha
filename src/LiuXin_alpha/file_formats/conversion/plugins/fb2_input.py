@@ -10,6 +10,7 @@ import re
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
 from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.libraries.liuxin_etree import LXML_AVAILABLE, etree
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.resources import P
@@ -23,6 +24,20 @@ __copyright__ = "2008, Anatoly Shipitsin <norguhtar at gmail.com>"
 
 FB2NS = "http://www.gribuser.ru/xml/fictionbook/2.0"
 FB21NS = "http://www.gribuser.ru/xml/fictionbook/2.1"
+
+
+def _get_fb2_metadata(stream, file_ext):
+    """
+    Resolve metadata using the legacy path when available, with a fallback to
+    the metadata reader plugin registry.
+    """
+    try:
+        from LiuXin_alpha.metadata.meta import get_metadata as legacy_get_metadata
+    except Exception:
+        from LiuXin_alpha.customize.ui import get_file_type_metadata
+
+        return get_file_type_metadata(stream, file_ext, calibre=True)
+    return legacy_get_metadata(stream, file_ext)
 
 
 class FB2Input(InputFormatPlugin):
@@ -48,18 +63,21 @@ class FB2Input(InputFormatPlugin):
     }
 
     def convert(self, stream, options, file_ext, log, accelerators):
-
-        from lxml import etree
-
-        from LiuXin_alpha.metadata.meta import get_metadata
         from LiuXin_alpha.file_formats.chardet import xml_to_unicode
         from LiuXin_alpha.file_formats.oeb.base import XLINK_NS, XHTML_NS, RECOVER_PARSER
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
+        if not LXML_AVAILABLE or getattr(etree, "XSLT", None) is None:
+            raise RuntimeError("FB2 input conversion requires lxml with XSLT support")
+
         self.log = log
 
         log.debug("Parsing XML...")
-        raw = stream.read().replace("\0", "")
+        raw = stream.read()
+        if isinstance(raw, bytes):
+            raw = raw.replace(b"\0", b"")
+        else:
+            raw = raw.replace("\0", "")
         raw = xml_to_unicode(raw, strip_encoding_pats=True, assume_utf8=True, resolve_entities=True)[0]
 
         try:
@@ -93,27 +111,33 @@ class FB2Input(InputFormatPlugin):
         for s in stylesheets:
             css += etree.tostring(s, encoding=six_unicode, method="text", with_tail=False) + "\n\n"
         if css:
-            import cssutils
             import logging
+            try:
+                import cssutils
+            except ModuleNotFoundError:
+                cssutils = None
 
-            parser = cssutils.CSSParser(fetcher=None, log=logging.getLogger("calibre.css"))
+            if cssutils is not None:
+                parser = cssutils.CSSParser(fetcher=None, log=logging.getLogger("calibre.css"))
 
-            xhtml_css_namespace = '@namespace "%s";\n' % XHTML_NS
-            text = xhtml_css_namespace + css
-            log.debug("Parsing stylesheet...")
-            stylesheet = parser.parseString(text)
-            stylesheet.namespaces["h"] = XHTML_NS
-            css = six_unicode(stylesheet.cssText).replace("h|style", "h|span")
+                xhtml_css_namespace = '@namespace "%s";\n' % XHTML_NS
+                text = xhtml_css_namespace + css
+                log.debug("Parsing stylesheet...")
+                stylesheet = parser.parseString(text)
+                stylesheet.namespaces["h"] = XHTML_NS
+                css = six_unicode(stylesheet.cssText).replace("h|style", "h|span")
+            else:
+                log.warn("cssutils is unavailable, using embedded CSS without namespace normalization")
             css = re.sub(r"name\s*=\s*", "class=", css)
 
         self.extract_embedded_content(doc)
         log.debug("Converting XML to HTML...")
         with open(P("templates/fb2.xsl"), "rb") as template_file:
             ss = template_file.read()
-        ss = ss.replace("__FB_NS__", fb_ns)
+        ss = ss.replace(b"__FB_NS__", fb_ns.encode("utf-8"))
         if options.no_inline_fb2_toc:
             log("Disabling generation of inline FB2 TOC")
-            ss = re.compile(r"<!-- BUILD TOC -->.*<!-- END BUILD TOC -->", re.DOTALL).sub("", ss)
+            ss = re.compile(br"<!-- BUILD TOC -->.*<!-- END BUILD TOC -->", re.DOTALL).sub(b"", ss)
 
         styledoc = etree.fromstring(ss)
 
@@ -144,12 +168,14 @@ class FB2Input(InputFormatPlugin):
             src = img.get("src")
             img.set("src", self.binary_map.get(src, src))
         index = transform.tostring(result)
+        if isinstance(index, str):
+            index = index.encode("utf-8")
         with open("index.xhtml", "wb") as bin_index_html:
             bin_index_html.write(index)
         with open("inline-styles.css", "wb") as bin_css_file:
-            bin_css_file.write(css)
+            bin_css_file.write(css.encode("utf-8"))
         stream.seek(0)
-        mi = get_metadata(stream, "fb2")
+        mi = _get_fb2_metadata(stream, "fb2")
         if not mi.title:
             mi.title = _("Unknown")
         if not mi.authors:
@@ -168,7 +194,7 @@ class FB2Input(InputFormatPlugin):
                     cpath = os.path.abspath(href)
                     break
 
-        opf = OPFCreator(os.getcwdu(), mi)
+        opf = OPFCreator(os.getcwd(), mi)
         entries = [(f2, guess_type(f2)[0]) for f2 in os.listdir(".")]
         opf.create_manifest(entries)
         opf.create_spine(["index.xhtml"])
@@ -176,7 +202,7 @@ class FB2Input(InputFormatPlugin):
             opf.guide.set_cover(cpath)
         with open("metadata.opf", "wb") as f:
             opf.render(f)
-        return os.path.join(os.getcwdu(), "metadata.opf")
+        return os.path.join(os.getcwd(), "metadata.opf")
 
     def extract_embedded_content(self, doc):
         """

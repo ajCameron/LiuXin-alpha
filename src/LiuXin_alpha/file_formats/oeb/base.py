@@ -860,17 +860,17 @@ class DirContainer(object):
         """
         names = []
         base = self.rootdir
-        if isinstance(base, unicode):
-            base = base.encode(filesystem_encoding)
+        if isinstance(base, bytes):
+            base = base.decode(filesystem_encoding, "replace")
         for root, dirs, files in os.walk(base):
             for fname in files:
                 fname = os.path.join(root, fname)
-                fname = fname.replace("\\", "/")
-                if not isinstance(fname, unicode):
+                if isinstance(fname, bytes):
                     try:
-                        fname = fname.decode(filesystem_encoding)
-                    except:
+                        fname = fname.decode(filesystem_encoding, "replace")
+                    except Exception:
                         continue
+                fname = fname.replace("\\", "/")
                 names.append(fname)
         return names
 
@@ -2223,7 +2223,7 @@ class PageList(object):
         for page in self.pages:
             id = page.id or uuid_id()
             page_type = page.type
-            value = str(values[page_type].next())
+            value = str(next(values[page_type]))
             attrib = {"id": id, "value": value, "type": page_type, "playOrder": "0"}
             if page.klass:
                 attrib["class"] = page.klass

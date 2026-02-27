@@ -38,7 +38,7 @@ class DJVUInput(InputFormatPlugin):
         for opt in html_input.options:
             setattr(options, opt.option.name, opt.recommended_value)
         options.input_encoding = "utf-8"
-        base = os.getcwdu()
+        base = os.getcwd()
         fname = os.path.join(base, "index.html")
         c = 0
 

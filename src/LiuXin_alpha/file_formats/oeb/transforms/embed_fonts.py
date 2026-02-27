@@ -6,21 +6,43 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import logging
 from collections import defaultdict
 
-import cssutils
-from lxml import etree
+try:
+    import cssutils
+
+    _HAS_CSSUTILS = True
+except ModuleNotFoundError:
+    cssutils = None
+    _HAS_CSSUTILS = False
+
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 from LiuXin_alpha.file_formats.oeb.base import XPath, CSS_MIME, XHTML
-from LiuXin_alpha.file_formats.oeb.transforms.subset import (
-    get_font_properties,
-    find_font_face_rules,
-    elem_style,
-)
+try:
+    from LiuXin_alpha.file_formats.oeb.transforms.subset import (
+        get_font_properties,
+        find_font_face_rules,
+        elem_style,
+    )
+
+    _HAS_FONT_SUBSET = True
+except ModuleNotFoundError:
+    get_font_properties = None
+    find_font_face_rules = None
+    elem_style = None
+    _HAS_FONT_SUBSET = False
 
 from LiuXin_alpha.utils.calibre import guess_type
-from LiuXin_alpha.utils.filenames import ascii_filename
-from LiuXin_alpha.utils.fonts.scanner import font_scanner, NoFonts
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+try:
+    from LiuXin_alpha.utils.fonts.scanner import font_scanner, NoFonts
+except ModuleNotFoundError:
+    font_scanner = None
+
+    class NoFonts(Exception):
+        pass
 
 
 __license__ = "GPL v3"
@@ -100,6 +122,12 @@ class EmbedFonts(object):
     """
 
     def __call__(self, oeb, log, opts):
+        if not _HAS_CSSUTILS:
+            raise ModuleNotFoundError("cssutils is required for font embedding transforms")
+        if not _HAS_FONT_SUBSET:
+            raise ModuleNotFoundError("font subset support is required for font embedding transforms")
+        if font_scanner is None:
+            raise ModuleNotFoundError("font scanner support is required for font embedding transforms")
         self.oeb, self.log, self.opts = oeb, log, opts
         self.sheet_cache = {}
         self.find_style_rules()

@@ -51,8 +51,8 @@ from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.localization import canonicalize_lang, lang_as_iso639_1
 
 # Py2/Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -97,7 +97,7 @@ class Convert(object):
         self.notes_text = notes_text or _("Notes")
         self.notes_nopb = notes_nopb
         self.nosupsub = nosupsub
-        self.dest_dir = dest_dir or os.getcwdu()
+        self.dest_dir = dest_dir or os.getcwd()
         self.mi = self.docx.metadata
         self.body = BODY()
         self.theme = Theme(self.namespace)
@@ -196,7 +196,7 @@ class Convert(object):
                 self.styles.apply_contextual_spacing(paras)
                 self.mark_block_runs(paras)
 
-        for p, wp in self.object_map.iteritems():
+        for p, wp in iteritems(self.object_map):
             if len(p) > 0 and not p.text and len(p[0]) > 0 and not p[0].text and p[0][0].get("class", None) == "tab":
                 # Paragraph uses tabs for indentation, convert to text-indent
                 parent = p[0]
@@ -217,7 +217,8 @@ class Convert(object):
                         indent = float(style.text_indent[:-2]) + indent
                     style.text_indent = "%.3gpt" % indent
                     parent.text = tabs[-1].tail or ""
-                    map(parent.remove, tabs)
+                    for tab in tabs:
+                        parent.remove(tab)
 
         self.images.rid_map = orig_rid_map
 
@@ -319,8 +320,9 @@ class Convert(object):
             if name is None:
                 cname = self.docx.document_name.split("/")
                 cname[-1] = defname
-                if self.docx.exists("/".join(cname)):
-                    name = name
+                candidate = "/".join(cname)
+                if self.docx.exists(candidate):
+                    name = candidate
             return name
 
         nname = get_name(self.namespace.names["NUMBERING"], "numbering.xml")
@@ -637,7 +639,7 @@ class Convert(object):
             # hrefs that point nowhere give epubcheck a hernia. The element
             # should be styled explicitly by Word anyway.
             # span.set('href', '#')
-        rmap = {v: k for k, v in self.object_map.iteritems()}
+        rmap = {v: k for k, v in iteritems(self.object_map)}
         for hyperlink, runs in self.fields.hyperlink_fields:
             spans = [rmap[r] for r in runs if r in rmap]
             if not spans:
@@ -854,10 +856,10 @@ class Convert(object):
 
 if __name__ == "__main__":
     import shutil
-    from LiuXin_alpha.utils.logger import default_log
+    from LiuXin_alpha.utils.logging import default_log
 
     default_log.filter_level = default_log.DEBUG
-    dest_dir = os.path.join(os.getcwdu(), "docx_input")
+    dest_dir = os.path.join(os.getcwd(), "docx_input")
     if os.path.exists(dest_dir):
         shutil.rmtree(dest_dir)
     os.mkdir(dest_dir)

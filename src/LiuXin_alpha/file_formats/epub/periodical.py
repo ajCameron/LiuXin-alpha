@@ -5,12 +5,12 @@ from uuid import uuid4
 import time
 
 from LiuXin_alpha.utils.calibre import strftime, prepare_string_for_xml as xml
-from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.constants import __appname__, __version__
 from LiuXin_alpha.utils.date import parse_date
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"

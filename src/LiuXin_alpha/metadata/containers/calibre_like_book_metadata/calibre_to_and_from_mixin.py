@@ -29,12 +29,13 @@ from LiuXin_alpha.constants import check_image_tuple
 # from LiuXin_alpha.metadata import check_isbn
 # from LiuXin_alpha.metadata import string_to_authors
 # from LiuXin_alpha.metadata import authors_to_sort_string
-# from LiuXin.metadata.book.base import calibreMetadata
+from LiuXin_alpha.metadata.book.base import calibreMetadata
 from LiuXin_alpha.metadata.constants import CREATOR_DROP_REGEX_SET, CREATOR_CATEGORIES, CREATOR_TYPES, CREATOR_TYPE_CAT_DIR, EXTERNAL_EBOOK_ID_SCHEMA, EXTERNAL_EBOOK_REKEY_SCHEME
 from LiuXin_alpha.metadata.constants import INTERNAL_EBOOK_ID_SCHEMA
 from LiuXin_alpha.metadata.constants import INTERNAL_EBOOK_REKEY_SCHEME
 from LiuXin_alpha.metadata.constants import METADATA_NULL_VALUES
 from LiuXin_alpha.metadata.standardize import standardize_id_name, standardize_creator_category, string_to_authors, standardize_lang, standardize_internal_id_name, standardize_rating_type, standardize_tag
+from LiuXin_alpha.metadata.utils import authors_to_sort_string
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
@@ -147,9 +148,9 @@ class ToAndFromCalibreMetadataMixin:
         # If there are both authors and editors then the editors go first
         lx_editors = self.editors
         if lx_editors:
-            calibre_md.authors = self.editors.keys() + self.authors.keys()
+            calibre_md.authors = list(self.editors.keys()) + list(self.authors.keys())
         else:
-            calibre_md.authors = self.authors.keys()
+            calibre_md.authors = list(self.authors.keys())
 
         # AUTHOR SORT
         cs = self.creator_sort
@@ -157,20 +158,20 @@ class ToAndFromCalibreMetadataMixin:
 
         # COMMENTS
         # Includes the synopsis as it seems to be the best place to store it
-        comments_vals = self.comments.keys() + self.synopses.keys()
+        comments_vals = list(self.comments.keys()) + list(self.synopses.keys())
         calibre_md.comments = ", ".join(comments_vals)
 
         # COVER DATA
         cover_data = self.cover_data
         if cover_data:
-            calibre_md.cover_data = cover_data.keys()[0]
+            calibre_md.cover_data = next(iter(cover_data.keys()))
 
         # IDENTIFIERS
         # If not null transfer the first identifier of each type over to the new metadata object
         for id_type in EXTERNAL_EBOOK_ID_SCHEMA.union(INTERNAL_EBOOK_ID_SCHEMA):
             type_ids = self.__getattr__(id_type)
             if type_ids:
-                calibre_md.set(field=id_type, val=type_ids.keys()[0])
+                calibre_md.set(field=id_type, val=next(iter(type_ids.keys())))
 
         # LANGUAGES
         calibre_md.languages = self.languages
@@ -181,7 +182,7 @@ class ToAndFromCalibreMetadataMixin:
         # PUBLISHER
         publisher = self.publisher
         if publisher:
-            calibre_md.publisher = publisher.keys()[0]
+            calibre_md.publisher = next(iter(publisher.keys()))
 
         # RATINGS
         if "calibre" in _data["ratings"]:
@@ -190,14 +191,14 @@ class ToAndFromCalibreMetadataMixin:
         # SERIES AND SERIES INDEX
         series = self.series
         if series:
-            md_series = series.keys()[0]
+            md_series = next(iter(series.keys()))
             calibre_md.series = md_series
 
             if md_series in self.series_index:
                 calibre_md.series_index = self.series_index[md_series]
 
         # TAGS
-        calibre_md.tags = self.tags.keys() + self.subject.keys()
+        calibre_md.tags = list(self.tags.keys()) + list(self.subject.keys())
 
         # TTITLESORT
         calibre_md.titlesort = self.titlesort

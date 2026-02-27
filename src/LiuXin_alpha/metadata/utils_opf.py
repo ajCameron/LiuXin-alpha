@@ -1,135 +1,32 @@
-#!/usr/bin/env python2
-# vim:fileencoding=utf-8
-# License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
+#!/usr/bin/env python
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+"""
+Compatibility exports for legacy OPF utility imports.
 
-import os
+Use `LiuXin_alpha.metadata.utils` directly for new code.
+"""
 
-from collections import namedtuple
-from builtins import map
+from __future__ import annotations
 
-from lxml import etree
+from LiuXin_alpha.metadata.utils import (
+    OPFVersion,
+    PARSER,
+    create_manifest_item,
+    ensure_unique,
+    normalize_languages,
+    parse_opf,
+    parse_opf_version,
+    pretty_print_opf,
+)
 
-from LiuXin_alpha.utils.calibre_utils.calibre_chardet import xml_to_unicode
+__all__ = [
+    "OPFVersion",
+    "PARSER",
+    "create_manifest_item",
+    "ensure_unique",
+    "normalize_languages",
+    "parse_opf",
+    "parse_opf_version",
+    "pretty_print_opf",
+]
 
-from LiuXin_alpha.file_formats.oeb.base import OPF
-
-from LiuXin_alpha.file_formats.oeb.polish.utils import guess_type
-
-from LiuXin_alpha.utils.spell import parse_lang_code
-from LiuXin_alpha.utils.localization import lang_as_iso639_1
-
-PARSER = etree.XMLParser(recover=True, no_network=True)
-
-OPFVersion = namedtuple("OPFVersion", "major minor patch")
-
-
-def parse_opf_version(raw):
-    """
-    Returns the opf version from an opf string.
-    :param raw:
-    :return:
-    """
-    parts = (raw or "").split(".")
-    try:
-        major = int(parts[0])
-    except Exception:
-        return OPFVersion(2, 0, 0)
-    try:
-        v = list(map(int, raw.split(".")))
-    except Exception:
-        v = [major, 0, 0]
-    while len(v) < 3:
-        v.append(0)
-    v = v[:3]
-    return OPFVersion(*v)
-
-
-def parse_opf(stream_or_path):
-    """
-    Take an opf file as a stream, string or path. Tries to guess which is which and then parses the
-    :param stream_or_path:
-    :return:
-    """
-    stream = stream_or_path
-    if not hasattr(stream, "read"):
-        if len(stream) < 4096 and os.path.exists(stream):
-            with open(stream, "rb") as opf_stream:
-                raw = opf_stream.read()
-        else:
-            raw = stream
-    else:
-        raw = stream.read()
-    if not raw:
-        raise ValueError("Empty file: " + getattr(stream, "name", "stream"))
-    raw, encoding = xml_to_unicode(raw, strip_encoding_pats=True, resolve_entities=True, assume_utf8=True)
-    raw = raw[raw.find("<") :]
-    root = etree.fromstring(raw, PARSER)
-    if root is None:
-        raise ValueError("Not an OPF file")
-    return root
-
-
-def normalize_languages(opf_languages, mi_languages):
-    """
-    Preserve original country codes and use 2-letter lang codes where possible
-    :param opf_languages:
-    :param mi_languages:
-    :return:
-    """
-
-    def parse(x):
-        try:
-            return parse_lang_code(x)
-        except ValueError:
-            return None
-
-    opf_languages = filter(None, map(parse, opf_languages))
-    cc_map = {c.langcode: c.countrycode for c in opf_languages}
-    mi_languages = filter(None, map(parse, mi_languages))
-
-    def norm(x):
-        lc = x.langcode
-        cc = x.countrycode or cc_map.get(lc, None)
-        lc = lang_as_iso639_1(lc) or lc
-        if cc:
-            lc += "-" + cc
-        return lc
-
-    return list(map(norm, mi_languages))
-
-
-def ensure_unique(template, existing):
-    b, e = template.rpartition(".")[::2]
-    if b and e:
-        e = "." + e
-    else:
-        b, e = template, ""
-    q = template
-    c = 0
-    while q in existing:
-        c += 1
-        q = "%s-%d%s" % (b, c, e)
-    return q
-
-
-def create_manifest_item(root, href_template, id_template, media_type=None):
-    all_ids = frozenset(root.xpath("//*/@id"))
-    all_hrefs = frozenset(root.xpath("//*/@href"))
-    href = ensure_unique(href_template, all_hrefs)
-    item_id = ensure_unique(id_template, all_ids)
-    manifest = root.find(OPF("manifest"))
-    if manifest is not None:
-        i = manifest.makeelement(OPF("item"))
-        i.set("href", href), i.set("id", item_id)
-        i.set("media-type", media_type or guess_type(href_template))
-        manifest.append(i)
-        return i
-
-
-def pretty_print_opf(root):
-    from LiuXin_alpha.file_formats.oeb.polish.pretty import pretty_opf, pretty_xml_tree
-
-    pretty_opf(root)
-    pretty_xml_tree(root)

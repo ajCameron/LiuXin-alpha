@@ -11,13 +11,16 @@ from LiuXin_alpha.constants import iswindows
 
 from LiuXin_alpha.file_formats.docx.names import barename
 
-from LiuXin_alpha.utils.filenames import ascii_filename
-from LiuXin_alpha.utils.img import resize_to_fit, image_to_data
-from LiuXin_alpha.utils.imghdr import what
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
+try:
+    from LiuXin_alpha.utils.image_tools.img import resize_to_fit, image_to_data
+except Exception:
+    from LiuXin_alpha.utils.image_tools.img_fallback import resize_to_fit, image_to_data
+from LiuXin_alpha.utils.image_tools.imghdr import what
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

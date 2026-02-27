@@ -10,7 +10,6 @@ from LiuXin_alpha.file_formats.opf.opf2 import OPF, pretty_print
 from LiuXin_alpha.file_formats.opf.opf3 import apply_metadata, read_metadata
 
 from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata as calibreMetadata
-from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import MetaInformation as calibreMetaInformation
 
 from LiuXin_alpha.metadata.utils import (
     parse_opf,
@@ -119,7 +118,6 @@ def set_metadata_opf2(
     :return:
     """
     assert isinstance(mi, calibreMetadata), "Method can only run on calibreMetadata object"
-    mi = calibreMetaInformation(mi)
 
     for x in ("guide", "toc", "manifest", "spine"):
         setattr(mi, x, None)

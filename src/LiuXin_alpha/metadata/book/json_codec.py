@@ -7,7 +7,11 @@ from datetime import datetime, time
 
 from LiuXin_alpha.constants import filesystem_encoding, preferred_encoding
 
-from LiuXin_alpha.library.field_metadata import FieldMetadata
+try:
+    from LiuXin_alpha.library.field_metadata import FieldMetadata
+except Exception:
+    # Ported location in LiuXin_alpha
+    from LiuXin_alpha.databases.field_metadata import FieldMetadata
 
 from LiuXin_alpha.metadata.book import SERIALIZABLE_FIELDS
 

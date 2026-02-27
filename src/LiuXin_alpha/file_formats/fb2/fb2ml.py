@@ -9,18 +9,42 @@ import textwrap
 import uuid
 from base64 import b64encode
 from datetime import datetime
-from lxml import etree
+
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 from LiuXin_alpha.file_formats.oeb.base import urlnormalize
 
 from LiuXin_alpha.utils.calibre import prepare_string_for_xml
-from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.constants import __appname__, __version__
 from LiuXin_alpha.utils.localization import lang_as_iso639_1
-from LiuXin_alpha.utils.wrappers.magick import Image
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+
+def _convert_to_jpeg(raw_data, quality=70):
+    """
+    Best-effort conversion of image bytes to JPEG.
+    Returns converted bytes on success, otherwise None.
+    """
+    try:
+        from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as FallbackImage
+    except Exception:
+        return None
+
+    image_obj = None
+    try:
+        image_obj = FallbackImage(raw_data)
+        return image_obj.to_bytes(format="jpg")
+    except Exception:
+        return None
+    finally:
+        if image_obj is not None:
+            try:
+                image_obj.close()
+            except Exception:
+                pass
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -179,7 +203,8 @@ class FB2MLizer(object):
         year = publisher = isbn = ""
         identifiers = self.oeb_book.metadata["identifier"]
         for x in identifiers:
-            if x.get(OPF("scheme"), None).lower() == "uuid" or six_unicode(x).startswith("urn:uuid:"):
+            scheme = x.get(OPF("scheme"), None)
+            if (scheme and six_unicode(scheme).lower() == "uuid") or six_unicode(x).startswith("urn:uuid:"):
                 metadata["id"] = six_unicode(x).split(":")[-1]
                 break
         if metadata["id"] is None:
@@ -201,7 +226,8 @@ class FB2MLizer(object):
             publisher = "<publisher>%s</publisher>" % prepare_string_for_xml(publisher.value)
 
         for x in identifiers:
-            if x.get(OPF("scheme"), None).lower() == "isbn":
+            scheme = x.get(OPF("scheme"), None)
+            if scheme and six_unicode(scheme).lower() == "isbn":
                 isbn = "<isbn>%s</isbn>" % prepare_string_for_xml(x.value)
 
         metadata["year"], metadata["isbn"], metadata["publisher"] = (
@@ -361,25 +387,19 @@ class FB2MLizer(object):
                 continue
             if item.media_type in OEB_RASTER_IMAGES:
                 try:
-                    if item.media_type != "image/jpeg":
-                        im = Image()
-                        im.load(item.data)
-                        im.set_compression_quality(70)
-                        imdata = im.export("jpg")
-                        raw_data = b64encode(imdata)
-                    else:
-                        raw_data = b64encode(item.data)
-                    # Don't put the encoded image on a single line.
-                    data = ""
-                    col = 1
-                    for char in raw_data:
-                        if col == 72:
-                            data += "\n"
-                            col = 1
-                        col += 1
-                        data += char
+                    mime_type = item.media_type or "image/jpeg"
+                    raw_bytes = item.data
+                    if mime_type != "image/jpeg":
+                        converted = _convert_to_jpeg(raw_bytes, quality=70)
+                        if converted is not None:
+                            raw_bytes = converted
+                            mime_type = "image/jpeg"
+
+                    encoded = b64encode(raw_bytes).decode("ascii")
+                    data = "\n".join(textwrap.wrap(encoded, 72))
                     images.append(
-                        '<binary id="%s" content-type="image/jpeg">%s\n</binary>' % (self.image_hrefs[item.href], data)
+                        '<binary id="%s" content-type="%s">%s\n</binary>'
+                        % (self.image_hrefs[item.href], mime_type, data)
                     )
                 except Exception as e:
                     self.log.error("Error: Could not include file %s because %s." % (item.href, e))

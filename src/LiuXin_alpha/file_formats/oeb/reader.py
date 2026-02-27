@@ -10,9 +10,8 @@ import re
 import sys
 import uuid
 from collections import defaultdict
-from itertools import izip
 
-from lxml import etree
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 from LiuXin_alpha.file_formats.oeb.base import (
     OPF1_NS,
@@ -52,16 +51,17 @@ from LiuXin_alpha.file_formats.oeb.base import (
 )
 from LiuXin_alpha.file_formats.oeb.writer import OEBWriter
 
-from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.constants import __appname__, __version__
 from LiuXin_alpha.utils.calibre import guess_type, xml_replace_entities
-from utils.libraries.cleantext import clean_xml_chars
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import get_lang
 from LiuXin_alpha.utils.localization import delayed_trans as __
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py3 comparability layer
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_BytesIO
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_zip as izip
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unquote as urlunquote
 from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
 from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
@@ -124,10 +124,10 @@ class OEBReader(object):
 
     def _clean_opf(self, opf):
         nsmap = {}
-        for elem in opf.iter(tag=etree.Element):
+        for elem in opf.iter():
             nsmap.update(elem.nsmap)
 
-        for elem in opf.iter(tag=etree.Element):
+        for elem in opf.iter():
             if namespace(elem.tag) in ("", OPF1_NS) and ":" not in barename(elem.tag):
                 elem.tag = OPF(barename(elem.tag))
 
@@ -197,12 +197,12 @@ class OEBReader(object):
         )
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
-        stream = six_cStringIO(etree.tostring(opf, xml_declaration=True, encoding="utf-8"))
+        stream = six_BytesIO(etree.tostring(opf, xml_declaration=True, encoding="utf-8"))
         mi = OPF(stream).to_book_metadata()
         if not mi.language:
             mi.language = get_lang().replace("_", "-")
         self.oeb.metadata.add("language", mi.language)
-        if not mi.book_producer:
+        if not getattr(mi, "book_producer", None):
             mi.book_producer = "%(a)s (%(v)s) [http://%(a)s-ebook.com]" % dict(a=__appname__, v=__version__)
         meta_info_to_oeb_metadata(mi, self.oeb.metadata, self.logger)
         m = self.oeb.metadata
@@ -234,14 +234,17 @@ class OEBReader(object):
                     raise
                 except Exception as e:
                     self.logger.exception(
-                        "Failed to parse content in {} - error message {}".format(item.href, e.message)
+                        "Failed to parse content in {} - error message {}".format(item.href, str(e))
                     )
                     bad.append(item)
                     self.oeb.manifest.remove(item)
         return bad
 
     def _manifest_add_missing(self, invalid):
-        import cssutils
+        try:
+            import cssutils
+        except ModuleNotFoundError:
+            cssutils = None
 
         manifest = self.oeb.manifest
         known = set(manifest.hrefs)
@@ -258,7 +261,7 @@ class OEBReader(object):
                     except Exception as e:
                         self.oeb.log.exception(
                             "Failed to read from manifest entry with id: "
-                            "{}, ignoring - error message {}".format(item.id, e.message)
+                            "{}, ignoring - error message {}".format(item.id, str(e))
                         )
                         invalid.add(item)
                         continue
@@ -281,12 +284,12 @@ class OEBReader(object):
                             scheme = urlparse(href).scheme
                         except Exception as e:
                             self.oeb.log.exception(
-                                "Skipping invalid href: %r" % href + " Exception message: {}".format(e.message)
+                                "Skipping invalid href: %r" % href + " Exception message: {}".format(str(e))
                             )
                             continue
                         if not scheme and href not in known:
                             new.add(href)
-                elif item.media_type in OEB_STYLES:
+                elif item.media_type in OEB_STYLES and cssutils is not None:
                     try:
                         urls = list(cssutils.getUrls(data))
                     except:

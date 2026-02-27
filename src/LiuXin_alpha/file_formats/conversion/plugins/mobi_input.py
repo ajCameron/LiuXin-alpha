@@ -56,7 +56,7 @@ class MOBIInput(InputFormatPlugin):
 
         raw = parse_cache.pop("calibre_raw_mobi_markup", False)
         if raw:
-            if isinstance(raw, unicode):
+            if isinstance(raw, str):
                 raw = raw.encode("utf-8")
             with open("debug-raw.html", "wb") as debug_raw_html_file:
                 debug_raw_html_file.write(raw)

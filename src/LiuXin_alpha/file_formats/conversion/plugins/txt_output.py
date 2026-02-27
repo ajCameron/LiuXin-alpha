@@ -163,7 +163,7 @@ class TXTZOutput(TXTOutput):
 
         from lxml import etree
         from LiuXin_alpha.file_formats.oeb.base import OEB_IMAGES
-        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         with TemporaryDirectory("_txtz_output") as tdir:
             # TXT

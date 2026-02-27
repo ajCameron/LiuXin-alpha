@@ -78,10 +78,10 @@ class PMLInput(InputFormatPlugin):
         if not imgs:
             imgs = glob.glob(os.path.join(os.path.join(tdir, "images"), "*.png"))
         if imgs:
-            os.makedirs(os.path.join(os.getcwdu(), "images"))
+            os.makedirs(os.path.join(os.getcwd(), "images"))
         for img in imgs:
             pimg_name = os.path.basename(img)
-            pimg_path = os.path.join(os.getcwdu(), "images", pimg_name)
+            pimg_path = os.path.join(os.getcwd(), "images", pimg_name)
 
             images.append("images/" + pimg_name)
 
@@ -92,7 +92,7 @@ class PMLInput(InputFormatPlugin):
     def convert(self, stream, options, file_ext, log, accelerators):
         from LiuXin_alpha.metadata.toc import TOC
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
-        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.options = options
         self.log = log
@@ -108,7 +108,7 @@ class PMLInput(InputFormatPlugin):
                 pmls = glob.glob(os.path.join(tdir, "*.pml"))
                 for pml in pmls:
                     html_name = os.path.splitext(os.path.basename(pml))[0] + ".html"
-                    html_path = os.path.join(os.getcwdu(), html_name)
+                    html_path = os.path.join(os.getcwd(), html_name)
 
                     pages.append(html_name)
                     log.debug("Processing PML item %s..." % pml)
@@ -136,7 +136,7 @@ class PMLInput(InputFormatPlugin):
         mi = get_metadata(stream, "pml")
         if "images/cover.png" in images:
             mi.cover = "images/cover.png"
-        opf = OPFCreator(os.getcwdu(), mi)
+        opf = OPFCreator(os.getcwd(), mi)
         log.debug("Generating manifest...")
         opf.create_manifest(manifest_items)
         opf.create_spine(pages)
@@ -145,4 +145,4 @@ class PMLInput(InputFormatPlugin):
             with open("toc.ncx", "wb") as tocfile:
                 opf.render(opffile, tocfile, "toc.ncx")
 
-        return os.path.join(os.getcwdu(), "metadata.opf")
+        return os.path.join(os.getcwd(), "metadata.opf")

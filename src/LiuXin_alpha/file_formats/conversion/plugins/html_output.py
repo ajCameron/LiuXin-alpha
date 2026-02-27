@@ -6,13 +6,16 @@ import shutil
 
 from functools import partial
 from os.path import dirname, abspath, relpath as _relpath, exists, basename
+from urllib.parse import unquote
 
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
 from LiuXin_alpha.utils.calibre import CurrentDir
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 from LiuXin_alpha.utils.resources import P
+from LiuXin_alpha.utils.liuxin_templite import Templite
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Fabian Grassl <fg@jusmeum.de>"
@@ -64,9 +67,6 @@ class HTMLOutput(OutputFormatPlugin):
         :param output_dir:
         :return:
         """
-        from lxml import etree
-        from urllib import unquote
-
         from LiuXin_alpha.file_formats.oeb.base import element
 
         with CurrentDir(output_dir):
@@ -92,10 +92,9 @@ class HTMLOutput(OutputFormatPlugin):
             return wrap
 
     def generate_html_toc(self, oeb_book, ref_url, output_dir):
-        from lxml import etree
-
         root = self.generate_toc(oeb_book, ref_url, output_dir)
-        return etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=False)
+        data = etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=False)
+        return data.decode("utf-8", "replace") if isinstance(data, bytes) else data
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
         """
@@ -107,11 +106,6 @@ class HTMLOutput(OutputFormatPlugin):
         :param log:
         :return:
         """
-        from urllib import unquote
-
-        from lxml import etree
-        from LiuXin_alpha.utils.liuxin_templite import Templite
-
         from LiuXin_alpha.file_formats.html.meta import EasyMeta
         from LiuXin_alpha.utils import calibre_zipfile
 
@@ -166,7 +160,7 @@ class HTMLOutput(OutputFormatPlugin):
                 cssLink=css_link,
                 firstContentPageLink=next_link,
             )
-            f.write(t)
+            f.write(t.encode("utf-8"))
 
         with CurrentDir(output_dir):
             for item in oeb_book.manifest:
@@ -179,7 +173,10 @@ class HTMLOutput(OutputFormatPlugin):
                         pass
                 else:
                     with open(path, "wb") as f:
-                        f.write(str(item))
+                        payload = str(item)
+                        if isinstance(payload, str):
+                            payload = payload.encode("utf-8")
+                        f.write(payload)
                     item.unload_data_from_memory(memory=path)
 
             for item in oeb_book.spine:
@@ -190,6 +187,8 @@ class HTMLOutput(OutputFormatPlugin):
                 # get & clean HTML <HEAD>-data
                 head = root.xpath("//h:head", namespaces={"h": "http://www.w3.org/1999/xhtml"})[0]
                 head_content = etree.tostring(head, pretty_print=True, encoding="utf-8")
+                if isinstance(head_content, bytes):
+                    head_content = head_content.decode("utf-8", "replace")
                 head_content = re.sub(r"\<\/?head.*\>", "", head_content)
                 head_content = re.sub(re.compile(r"\<style.*\/style\>", re.M | re.S), "", head_content)
                 head_content = re.sub(r"<(title)([^>]*)/>", r"<\1\2></\1>", head_content)
@@ -197,6 +196,8 @@ class HTMLOutput(OutputFormatPlugin):
                 # get & clean HTML <BODY>-data
                 body = root.xpath("//h:body", namespaces={"h": "http://www.w3.org/1999/xhtml"})[0]
                 ebook_content = etree.tostring(body, pretty_print=True, encoding="utf-8")
+                if isinstance(ebook_content, bytes):
+                    ebook_content = ebook_content.decode("utf-8", "replace")
                 ebook_content = re.sub(r"\<\/?body.*\>", "", ebook_content)
                 ebook_content = re.sub(r"<(div|a|span)([^>]*)/>", r"<\1\2></\1>", ebook_content)
 
@@ -221,12 +222,7 @@ class HTMLOutput(OutputFormatPlugin):
                 # render template
                 templite = Templite(template_html_data)
 
-                toc = partial(
-                    self.generate_html_toc,
-                    oeb_book=oeb_book,
-                    ref_url=path,
-                    output_dir=output_dir,
-                )
+                toc = partial(self.generate_html_toc, oeb_book=oeb_book, ref_url=path, output_dir=output_dir)
 
                 t = templite.render(
                     ebookContent=ebook_content,
@@ -243,7 +239,7 @@ class HTMLOutput(OutputFormatPlugin):
 
                 # write html to file
                 with open(path, "wb") as f:
-                    f.write(t)
+                    f.write(t.encode("utf-8"))
                 item.unload_data_from_memory(memory=path)
 
         zfile = calibre_zipfile.ZipFile(output_path, "w")

@@ -5,11 +5,27 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 try:
     from cssutils.css import PropertyValue
+    from cssutils import profile as cssprofiles, CSSParser
+
+    _HAS_CSSUTILS = True
 except ImportError:
-    # For inspector
     PropertyValue = None
-    raise RuntimeError("You need cssutils >= 0.9.9 for calibre")
-from cssutils import profile as cssprofiles, CSSParser
+    _HAS_CSSUTILS = False
+
+    class _NoCSSProfiles:
+        @staticmethod
+        def validate(*args, **kwargs):
+            return False
+
+        @staticmethod
+        def validateWithProfile(*args, **kwargs):
+            return (None, False)
+
+    class CSSParser:
+        def __init__(self, *args, **kwargs):
+            raise ModuleNotFoundError("cssutils is required for CSS shorthand normalization")
+
+    cssprofiles = _NoCSSProfiles()
 
 # Py2/Py3 compatability layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_zip
@@ -281,6 +297,10 @@ SHORTHAND_DEFAULTS = {
 
 def normalize_filter_css(props):
     import logging
+
+    if not _HAS_CSSUTILS:
+        # Without cssutils we cannot safely expand shorthand defaults.
+        return set(props)
 
     ans = set()
     p = CSSParser(loglevel=logging.CRITICAL, validate=False)

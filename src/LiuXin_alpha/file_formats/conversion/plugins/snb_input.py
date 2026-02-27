@@ -4,7 +4,7 @@ import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
-from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 __license__ = "GPL 3"

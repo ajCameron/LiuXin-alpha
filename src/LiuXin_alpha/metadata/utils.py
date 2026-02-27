@@ -12,20 +12,16 @@ import re
 from urllib.parse import urlparse
 from collections import namedtuple
 
-try:
-    from lxml import etree
-    _HAS_LXML = True
-except Exception:
-    # Fallback for lightweight/runtime-constrained environments where lxml is unavailable.
-    # Keep this minimal and compatible with the small subset used in this module.
-    import xml.etree.ElementTree as etree
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree, LXML_AVAILABLE
 
-    _HAS_LXML = False
+_HAS_LXML = bool(LXML_AVAILABLE)
 
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union, Literal, Iterator, TypeVar, Type
 
 from LiuXin_alpha.errors import InputIntegrityError
 
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.oeb.base import OPF
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.text import remove_bracketed_text
 from LiuXin_alpha.utils.paths import relpath
@@ -735,12 +731,28 @@ def normalize_languages(opf_languages, mi_languages):
     :param mi_languages:
     :return:
     """
+    from LiuXin_alpha.utils.localization import canonicalize_lang, lang_as_iso639_1
+    from LiuXin_alpha.utils.libraries.iso639.iso639_tools import (
+        lang_as_iso639_1 as fallback_lang_as_iso639_1,
+    )
+
+    LocaleCode = namedtuple("LocaleCode", "langcode countrycode")
 
     def parse(x):
-        try:
-            return parse_lang_code(x)
-        except ValueError:
+        raw = (x or "").strip()
+        if not raw:
             return None
+        raw = raw.replace("_", "-")
+        primary, _, tail = raw.partition("-")
+        primary = primary.strip()
+        if not primary:
+            return None
+
+        # Keep unknown values in a stable lower-cased form so we round-trip
+        # instead of dropping potentially valid-but-unlisted BCP-47 tags.
+        langcode = canonicalize_lang(primary) or primary.lower()
+        country = tail.partition("-")[0].strip().upper() if tail else ""
+        return LocaleCode(langcode=langcode, countrycode=(country or None))
 
     opf_languages = filter(None, map(parse, opf_languages))
     cc_map = {c.langcode: c.countrycode for c in opf_languages}
@@ -749,7 +761,10 @@ def normalize_languages(opf_languages, mi_languages):
     def norm(x):
         lc = x.langcode
         cc = x.countrycode or cc_map.get(lc, None)
-        lc = lang_as_iso639_1(lc) or lc
+        lc2 = lang_as_iso639_1(lc)
+        if not lc2 or len(lc2) != 2:
+            lc2 = fallback_lang_as_iso639_1(lc) or lc2
+        lc = lc2 or lc
         if cc:
             lc += "-" + cc
         return lc
@@ -785,7 +800,12 @@ def create_manifest_item(root, href_template, id_template, media_type=None):
     if manifest is not None:
         i = manifest.makeelement(OPF("item"))
         i.set("href", href), i.set("id", item_id)
-        i.set("media-type", media_type or guess_type(href_template))
+        mtype = media_type
+        if not mtype:
+            guessed = guess_type(href_template)
+            mtype = guessed[0] if isinstance(guessed, tuple) else guessed
+            mtype = mtype or "application/octet-stream"
+        i.set("media-type", mtype)
         manifest.append(i)
         return i
 

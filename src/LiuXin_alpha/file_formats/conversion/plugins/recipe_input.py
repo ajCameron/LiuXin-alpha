@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import with_statement
+from __future__ import annotations
 
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
+from LiuXin_alpha.customize import numeric_version
 from LiuXin_alpha.utils.calibre import walk
-from LiuXin_alpha.utils.calibre.constants import numeric_version
 from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
@@ -95,7 +95,7 @@ class RecipeInput(InputFormatPlugin):
         recipe = None
         if file_ext == "downloaded_recipe":
 
-            from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+            from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
             zf = ZipFile(recipe_or_file, "r")
             zf.extractall()
@@ -138,7 +138,7 @@ class RecipeInput(InputFormatPlugin):
                 except Exception as e:
                     log.exception(
                         "Failed to compile downloaded recipe. Falling back to builtin one "
-                        "- error message: {}".format(e.message)
+                        "- error message: {}".format(e)
                     )
                     builtin = True
 
@@ -187,6 +187,6 @@ class RecipeInput(InputFormatPlugin):
 
     def save_download(self, zf):
         raw = self.recipe_source
-        if isinstance(raw, unicode):
+        if isinstance(raw, str):
             raw = raw.encode("utf-8")
         zf.writestr("download.recipe", raw)

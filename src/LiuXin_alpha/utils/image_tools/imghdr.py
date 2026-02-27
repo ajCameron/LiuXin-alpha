@@ -5,10 +5,18 @@
 from __future__ import unicode_literals, division, absolute_import, print_function
 from struct import unpack, error
 import os
-from LiuXin_alpha.utils.speedups import ReadOnlyFileBuffer
-from LiuXin_alpha.utils.file_ops.file_ops import local_open as lopen
+from io import BytesIO
 
-from past.builtins import basestring
+try:
+    from LiuXin_alpha.utils.speedups import ReadOnlyFileBuffer
+except Exception:
+    class ReadOnlyFileBuffer(BytesIO):
+        def __init__(self, data):
+            super(ReadOnlyFileBuffer, self).__init__(data)
+
+from LiuXin_alpha.utils.storage.local.file_ops import local_open as lopen
+
+basestring = (str, bytes)
 
 """ Recognize image file formats and sizes based on their first few bytes."""
 

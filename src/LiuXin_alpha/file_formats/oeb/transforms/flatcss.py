@@ -10,9 +10,19 @@ import re
 from collections import defaultdict
 from xml.dom import SyntaxErr
 
-import cssutils
-from cssutils.css import Property
-from lxml import etree
+try:
+    import cssutils
+    from cssutils.css import Property
+
+    _HAS_CSSUTILS = True
+except ModuleNotFoundError:
+    cssutils = None
+    _HAS_CSSUTILS = False
+
+    class Property:
+        pass
+
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
 from LiuXin_alpha.file_formats.oeb.base import (
@@ -27,8 +37,8 @@ from LiuXin_alpha.file_formats.oeb.base import (
 from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
 from LiuXin_alpha.utils.calibre import guess_type
-from LiuXin_alpha.utils.filenames import ascii_filename, ascii_text
-from LiuXin_alpha.utils.icu import numeric_sort_key
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename, ascii_text
+from LiuXin_alpha.utils.text.icu import numeric_sort_key
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
 
@@ -43,7 +53,7 @@ STRIPNUM = re.compile(r"[-0-9]+$")
 
 
 def asfloat(value, default):
-    if not isinstance(value, (int, long, float)):
+    if not isinstance(value, (int, float)):
         value = default
     return float(value)
 
@@ -185,6 +195,8 @@ class CSSFlattener(object):
         return cls()
 
     def __call__(self, oeb, context):
+        if not _HAS_CSSUTILS:
+            raise ModuleNotFoundError("cssutils is required for CSS flattening transforms")
         oeb.logger.info("Flattening CSS and remapping font sizes...")
         self.context = self.opts = context
         self.oeb = oeb
@@ -195,7 +207,7 @@ class CSSFlattener(object):
                 self.filter_css = {x.strip().lower() for x in self.opts.filter_css.split(",")}
             except Exception as e:
                 self.oeb.log.warning(
-                    "Failed to parse filter_css, ignoring" + " -exception message: {}".format(e.message)
+                    "Failed to parse filter_css, ignoring" + " -exception message: {}".format(str(e))
                 )
             else:
                 from LiuXin_alpha.file_formats.oeb.normalize_css import normalize_filter_css

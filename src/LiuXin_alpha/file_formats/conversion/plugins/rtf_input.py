@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import annotations
 
 import os
 import glob
@@ -78,7 +78,7 @@ class RTFInput(InputFormatPlugin):
                 indent_out = 1
                 self.log("Running RTFParser in debug mode")
             except Exception as e:
-                self.log.warn("Impossible to run RTFParser in debug mode - exception message: {}".format(e.message))
+                self.log.warn("Impossible to run RTFParser in debug mode - exception message: {}".format(e))
 
         parser = ParseRtf(
             in_file=stream,
@@ -125,7 +125,7 @@ class RTFInput(InputFormatPlugin):
         self.log("Extracting images...")
 
         with open(picts, "rb") as f:
-            raw = f.read()
+            raw = f.read().decode("latin-1", "ignore")
         picts = filter(len, re.findall(r"\{\\pict([^}]+)\}", raw))
         hex_re = re.compile(r"[^a-fA-F0-9]")
         encs = [hex_re.sub("", pict) for pict in picts]
@@ -135,7 +135,7 @@ class RTFInput(InputFormatPlugin):
         for enc in encs:
             if len(enc) % 2 == 1:
                 enc = enc[:-1]
-            data = enc.decode("hex")
+            data = bytes.fromhex(enc)
             fmt = what(None, data)
             if fmt is None:
                 fmt = "wmf"
@@ -157,7 +157,7 @@ class RTFInput(InputFormatPlugin):
                 self.log.exception(
                     "Failed to convert",
                     val,
-                    " - exception message: {}".format(e.message),
+                    " - exception message: {}".format(e),
                 )
         return imap
 
@@ -167,7 +167,7 @@ class RTFInput(InputFormatPlugin):
         try:
             return self.rasterize_wmf(name)
         except Exception as e:
-            self.log.exception("Failed to convert WMF image %r" % name + " - exception message: {}".format(e.message))
+            self.log.exception("Failed to convert WMF image %r" % name + " - exception message: {}".format(e))
         return self.replace_wmf(name)
 
     def replace_wmf(self, name):
@@ -227,7 +227,7 @@ class RTFInput(InputFormatPlugin):
         for cls, val in iteritems(border_styles):
             css += "\n\n.%s {\n%s\n}" % (cls, val)
 
-        with open("styles.css", "ab") as f:
+        with open("styles.css", "a", encoding="utf-8") as f:
             f.write(css)
 
     def convert_borders(self, doc):
@@ -277,13 +277,13 @@ class RTFInput(InputFormatPlugin):
                 % e
             )
 
+        imap = {}
         d = glob.glob(os.path.join("*_rtf_pict_dir", "picts.rtf"))
         if d:
-            imap = {}
             try:
                 imap = self.extract_images(d[0])
             except Exception as e:
-                self.log.exception("Failed to extract images... - exception messahe: {}".format(e.message))
+                self.log.exception("Failed to extract images... - exception messahe: {}".format(e))
 
         self.log("Parsing XML...")
         parser = etree.XMLParser(recover=True, no_network=True)
@@ -318,7 +318,7 @@ class RTFInput(InputFormatPlugin):
             mi.title = _("Unknown")
         if not mi.authors:
             mi.authors = [_("Unknown")]
-        opf = OPFCreator(os.getcwdu(), mi)
+        opf = OPFCreator(os.getcwd(), mi)
         opf.create_manifest([("index.xhtml", None)])
         opf.create_spine(["index.xhtml"])
         with open("metadata.opf", "wb") as bin_opf_file:

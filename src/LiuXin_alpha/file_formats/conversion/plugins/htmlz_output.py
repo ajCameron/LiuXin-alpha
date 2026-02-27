@@ -6,6 +6,7 @@ import os
 
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
@@ -61,14 +62,11 @@ class HTMLZOutput(OutputFormatPlugin):
     }
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
-
-        from lxml import etree
-
         from LiuXin_alpha.file_formats.oeb.base import OEB_IMAGES, SVG_MIME
         from LiuXin_alpha.file_formats.opf.opf2 import OPF, metadata_to_opf
 
-        from LiuXin_alpha.utils.filenames import ascii_filename
-        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         # HTML
         if opts.htmlz_css_type == "inline":
@@ -94,7 +92,7 @@ class HTMLZOutput(OutputFormatPlugin):
             fname = "index"
 
             if opts.htmlz_title_filename:
-                from LiuXin_alpha.utils.filenames import shorten_components_to
+                from LiuXin_alpha.utils.storage.local.filenames import shorten_components_to
 
                 fname = shorten_components_to(100, (ascii_filename(six_unicode(oeb_book.metadata.title[0])),))[0]
 
@@ -114,7 +112,7 @@ class HTMLZOutput(OutputFormatPlugin):
                 for item in oeb_book.manifest:
                     if item.media_type in OEB_IMAGES and item.href in images:
                         if item.media_type == SVG_MIME:
-                            data = six_unicode(etree.tostring(item.data, encoding=six_unicode))
+                            data = etree.tostring(item.data, encoding="utf-8")
                         else:
                             data = item.data
                         fname = os.path.join(tdir, "images", images[item.href])
@@ -129,14 +127,22 @@ class HTMLZOutput(OutputFormatPlugin):
                     term = oeb_book.metadata.cover[0].term
                     cover_data = oeb_book.guide[term].item.data
                 if cover_data:
-                    from LiuXin_alpha.utils.calibre.utils.magick.draw import (
-                        save_cover_data_to,
-                    )
+                    save_cover_data_to = None
+                    try:
+                        from LiuXin_alpha.file_formats.mobi.utils import save_cover_data_to
+                    except Exception:
+                        save_cover_data_to = None
 
                     cover_path = os.path.join(tdir, "cover.jpg")
-                    with open(cover_path, "w") as cf:
-                        cf.write("")
-                    save_cover_data_to(cover_data, cover_path)
+                    if save_cover_data_to is None:
+                        with open(cover_path, "wb") as cf:
+                            cf.write(cover_data)
+                    else:
+                        try:
+                            save_cover_data_to(cover_data, cover_path)
+                        except Exception:
+                            with open(cover_path, "wb") as cf:
+                                cf.write(cover_data)
             except:
                 import traceback
 
@@ -152,3 +158,4 @@ class HTMLZOutput(OutputFormatPlugin):
 
             htmlz = ZipFile(output_path, "w")
             htmlz.add_dir(tdir)
+            htmlz.close()

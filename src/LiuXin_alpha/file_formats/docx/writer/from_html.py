@@ -14,12 +14,20 @@ from LiuXin_alpha.file_formats.docx.writer.lists import ListsManager
 from LiuXin_alpha.file_formats.docx.writer.styles import StylesManager, FloatSpec
 from LiuXin_alpha.file_formats.docx.writer.tables import Table
 from LiuXin_alpha.file_formats.oeb.base import XPath, barename
-from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer as Sz, Style as St
+try:
+    from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer as Sz, Style as St
+except Exception:
+    class _MissingStylizerBase(object):
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("DOCX writer requires cssutils-backed stylizer support")
+
+    Sz = _MissingStylizerBase
+    St = _MissingStylizerBase
 
 from LiuXin_alpha.utils.localization import lang_as_iso639_1
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"

@@ -13,8 +13,6 @@ class EasyMeta(object):
 
         from LiuXin_alpha.file_formats.oeb.base import namespace, barename, DC11_NS
 
-        DC11_NS = "http://purl.org/dc/elements/1.1/"
-
         meta = self.meta
         for item_name in meta.items:
             for item in meta[item_name]:
@@ -22,10 +20,7 @@ class EasyMeta(object):
                     yield {"name": barename(item.term), "value": item.value}
 
     def __len__(self):
-        count = 0
-        for item in self:
-            count = count + 1
-        return count
+        return sum(1 for _ in self)
 
     def titles(self):
         for item in self.meta["title"]:

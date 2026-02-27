@@ -14,17 +14,58 @@ import unicodedata
 from weakref import WeakKeyDictionary
 
 from cssselect import HTMLTranslator
-from cssutils import (
-    profile as cssprofiles,
-    parseString,
-    parseStyle,
-    log as cssutils_log,
-    CSSParser,
-    profiles,
-    replaceUrls,
-)
-from cssutils.css import CSSStyleRule, CSSPageRule, CSSFontFaceRule, cssproperties, CSSRule
-from lxml import etree
+try:
+    from cssutils import (
+        profile as cssprofiles,
+        parseString,
+        parseStyle,
+        log as cssutils_log,
+        CSSParser,
+        profiles,
+        replaceUrls,
+    )
+    from cssutils.css import CSSStyleRule, CSSPageRule, CSSFontFaceRule, cssproperties, CSSRule
+
+    _HAS_CSSUTILS = True
+except ModuleNotFoundError:
+    _HAS_CSSUTILS = False
+
+    class _NoopLogger:
+        def setLevel(self, *args, **kwargs):
+            return None
+
+    class _MissingCSSProfiles:
+        @staticmethod
+        def addProfile(*args, **kwargs):
+            return None
+
+        @staticmethod
+        def validateWithProfile(*args, **kwargs):
+            return (None, False)
+
+    class _MissingProfiles:
+        class Profiles:
+            CSS_LEVEL_2 = "CSS_LEVEL_2"
+
+    class _MissingCSSProperties:
+        @staticmethod
+        def _toDOMname(name):
+            return str(name).replace("-", "_")
+
+    def _missing_cssutils(*args, **kwargs):
+        raise ModuleNotFoundError("cssutils is required for OEB styling operations")
+
+    cssprofiles = _MissingCSSProfiles()
+    parseString = _missing_cssutils
+    parseStyle = _missing_cssutils
+    cssutils_log = _NoopLogger()
+    CSSParser = _missing_cssutils
+    profiles = _MissingProfiles()
+    replaceUrls = _missing_cssutils
+    CSSStyleRule = CSSPageRule = CSSFontFaceRule = CSSRule = object
+    cssproperties = _MissingCSSProperties()
+
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from xml.dom import SyntaxErr as CSSSyntaxError
 
 from LiuXin_alpha.file_formats import unit_convert
@@ -237,6 +278,8 @@ class Stylizer(object):
     STYLESHEETS = WeakKeyDictionary()
 
     def __init__(self, tree, path, oeb, opts, profile=None, extra_css="", user_css=""):
+        if not _HAS_CSSUTILS:
+            raise ModuleNotFoundError("cssutils is required for Stylizer; install cssutils to enable OEB CSS handling")
         self.oeb, self.opts = oeb, opts
         self.profile = profile
         if self.profile is None:

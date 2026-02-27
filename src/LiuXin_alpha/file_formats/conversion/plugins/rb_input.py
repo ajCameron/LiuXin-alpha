@@ -20,6 +20,6 @@ class RBInput(InputFormatPlugin):
         from LiuXin_alpha.file_formats.rb.reader import Reader
 
         reader = Reader(stream, log, options.input_encoding)
-        opf = reader.extract_content(os.getcwdu())
+        opf = reader.extract_content(os.getcwd())
 
         return opf

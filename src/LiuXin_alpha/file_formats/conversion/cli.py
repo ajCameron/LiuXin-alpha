@@ -367,7 +367,7 @@ class ProgressBar(object):
 
 def create_option_parser(args, log):
     if "--version" in args:
-        from LiuXin_alpha.utils.calibre.constants import __appname__, __version__, __author__
+        from LiuXin_alpha.constants import __appname__, __version__, __author__
 
         log(os.path.basename(args[0]), "(" + __appname__, __version__ + ")")
         log("Created by:", __author__)

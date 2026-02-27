@@ -118,7 +118,7 @@ class TXTInput(InputFormatPlugin):
             separate_hard_scene_breaks,
         )
 
-        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log
         txt = ""
@@ -279,7 +279,7 @@ class TXTInput(InputFormatPlugin):
         for opt in html_input.options:
             setattr(options, opt.option.name, opt.recommended_value)
         options.input_encoding = "utf-8"
-        base = os.getcwdu()
+        base = os.getcwd()
         if file_ext != "txtz" and hasattr(stream, "name"):
             base = os.path.dirname(stream.name)
         fname = os.path.join(base, "index.html")

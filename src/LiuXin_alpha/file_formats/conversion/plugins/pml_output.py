@@ -50,7 +50,7 @@ class PMLOutput(OutputFormatPlugin):
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
         from LiuXin_alpha.file_formats.pml.pmlml import PMLMLizer
-        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         with TemporaryDirectory("_pmlz_output") as tdir:
             pmlmlizer = PMLMLizer(log)

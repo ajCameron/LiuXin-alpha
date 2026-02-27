@@ -391,15 +391,14 @@ class EPUBOutput(OutputFormatPlugin):
         if len(key) < 16:
             raise ValueError("UUID identifier %r is invalid" % uuid)
         key = unhexlify((key + key)[:32])
-        key = tuple(map(ord, key))
         with CurrentDir(tdir):
             paths = [os.path.join(*x.split("/")) for x in uris]
             uris = dict(zip(uris, paths))
             fonts = []
             for uri in list(uris.keys()):
                 path = uris[uri]
-                if isinstance(path, unicode):
-                    path = path.encode(filesystem_encoding)
+                if isinstance(path, bytes):
+                    path = path.decode(filesystem_encoding, "ignore")
                 if not os.path.exists(path):
                     uris.pop(uri)
                     continue
@@ -408,12 +407,12 @@ class EPUBOutput(OutputFormatPlugin):
                     data = f.read(1024)
                     if len(data) >= 1024:
                         f.seek(0)
-                        for i in range(1024):
-                            f.write(chr(ord(data[i]) ^ key[i % 16]))
+                        encrypted = bytes((data[i] ^ key[i % 16]) for i in range(1024))
+                        f.write(encrypted)
                     else:
                         self.log.warn("Font", path, "is invalid, ignoring")
 
-                if not isinstance(uri, unicode):
+                if not isinstance(uri, str):
                     uri = uri.decode("utf-8")
 
                 fonts.append(
@@ -434,9 +433,9 @@ class EPUBOutput(OutputFormatPlugin):
                     xmlns:enc="http://www.w3.org/2001/04/xmlenc#"
                     xmlns:deenc="http://ns.adobe.com/digitaleditions/enc">
                     """
-                ans += ("\n".join(fonts)).encode("utf-8")
+                ans += "\n".join(fonts)
                 ans += "\n</encryption>"
-                return ans
+                return ans.encode("utf-8")
 
     # }}}
 
@@ -446,11 +445,11 @@ class EPUBOutput(OutputFormatPlugin):
         :param ncx_path:
         :return:
         """
-        from lxml import etree
+        from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
         if not self.opts.pretty_print:
             tree = etree.parse(ncx_path)
-            for tag in tree.getroot().iter(tag=etree.Element):
+            for tag in tree.getroot().iter():
                 if tag.text:
                     tag.text = tag.text.strip()
                 if tag.tail:
@@ -508,7 +507,7 @@ class EPUBOutput(OutputFormatPlugin):
                     if br.getparent() is None:
                         continue
                     try:
-                        prior = br.itersiblings(preceding=True).next()
+                        prior = next(br.itersiblings(preceding=True))
                         priortag = barename(prior.tag)
                         priortext = prior.tail
                     except Exception as e:

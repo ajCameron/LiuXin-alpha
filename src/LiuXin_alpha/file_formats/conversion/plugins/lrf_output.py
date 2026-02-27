@@ -62,7 +62,7 @@ class LRFOptions(object):
         from LiuXin_alpha.file_formats.lrf import PRS500_PROFILE
 
         self.profile = PRS500_PROFILE
-        self.link_levels = sys.maxint
+        self.link_levels = sys.maxsize
         self.link_exclude = "@"
         self.no_links_in_toc = True
         self.disable_chapter_detection = True
@@ -187,7 +187,7 @@ class LRFOutput(OutputFormatPlugin):
             ImageStream,
             ImageBlock,
         )
-        from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+        from LiuXin_alpha.constants import __appname__, __version__
 
         width, height = (784, 1012) if wide else (584, 754)
 

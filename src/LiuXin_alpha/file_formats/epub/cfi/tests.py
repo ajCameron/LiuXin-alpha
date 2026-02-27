@@ -8,9 +8,9 @@ import unittest
 from LiuXin_alpha.file_formats.epub.cfi.parse import parser, cfi_sort_key
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"
@@ -64,7 +64,7 @@ class Tests(unittest.TestCase):
             if after is not None:
                 ta["after"] = after
             if params:
-                ta["params"] = {six_unicode(k): (v,) if isinstance(v, unicode) else v for k, v in iteritems(params)}
+                ta["params"] = {six_unicode(k): (v,) if isinstance(v, str) else v for k, v in iteritems(params)}
             if ta:
                 local_step["text_assertion"] = ta
             return ans

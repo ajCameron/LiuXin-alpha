@@ -7,13 +7,14 @@ Convert OEB ebook format to PDF.
 import glob
 import os
 
-from LiuXin_alpha.constants import iswindows, islinux
+from LiuXin_alpha.constants import iswindows
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
-from LiuXin_alpha.utils.icu import upper as icu_upper
-from LiuXin_alpha.utils.icu import lower as icu_lower
+from LiuXin_alpha.utils.text.icu import upper as icu_upper
+from LiuXin_alpha.utils.text.icu import lower as icu_lower
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
+from LiuXin_alpha.utils.which_os import islinux
 
 # Py2/Py3
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode

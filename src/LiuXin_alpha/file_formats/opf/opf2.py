@@ -136,8 +136,8 @@ class Resource(object):  # {{{
             path = href_or_path
             if not os.path.isabs(path):
                 path = os.path.abspath(os.path.join(basedir, path))
-            if isinstance(path, str):
-                path = path.decode(sys.getfilesystemencoding())
+            if isinstance(path, bytes):
+                path = path.decode(sys.getfilesystemencoding(), "replace")
             self.path = path
         else:
             href_or_path = href_or_path
@@ -146,9 +146,8 @@ class Resource(object):  # {{{
                 self._href = href_or_path
             else:
                 pc = url[2]
-                if isinstance(pc, unicode):
-                    pc = pc.encode("utf-8")
-                pc = pc.decode("utf-8")
+                if isinstance(pc, bytes):
+                    pc = pc.decode("utf-8", "replace")
                 self.path = os.path.abspath(os.path.join(basedir, pc.replace("/", os.sep)))
                 self.fragment = url[-1]
 
@@ -168,7 +167,7 @@ class Resource(object):  # {{{
                 basedir = os.getcwd()
         if self.path is None:
             return self._href
-        f = self.fragment.encode("utf-8") if isinstance(self.fragment, unicode) else self.fragment
+        f = self.fragment if isinstance(self.fragment, str) else self.fragment.decode("utf-8", "ignore")
         frag = "#" + f if self.fragment else ""
         if self.path == basedir:
             return "" + frag
@@ -176,8 +175,8 @@ class Resource(object):  # {{{
             rpath = os.path.relpath(self.path, basedir)
         except ValueError:  # On windows path and basedir could be on different drives
             rpath = self.path
-        if isinstance(rpath, unicode):
-            rpath = rpath.encode("utf-8")
+        if isinstance(rpath, bytes):
+            rpath = rpath.decode("utf-8", "replace")
         return rpath.replace(os.sep, "/") + frag
 
     def set_basedir(self, path):
@@ -999,10 +998,14 @@ class OPF(object):  # {{{
         Parse the file and read user information back out.
         :return:
         """
-        from LiuXin_alpha.utils.config.config_tools import from_json
-        from LiuXin_alpha.metadata.book.json_codec import decode_is_multiple
-
         self._user_metadata_ = {}
+        try:
+            from LiuXin_alpha.utils.config.config_tools import from_json
+            from LiuXin_alpha.metadata.book.json_codec import decode_is_multiple
+        except Exception:
+            # Legacy metadata helpers are optional in the alpha tree; skip user-metadata decoding.
+            return
+
         temp = calibreMetadata("x", ["x"])
 
         elems = self.root.xpath('//*[name() = "meta" and starts-with(@name,"calibre:user_metadata:") and @content]')
@@ -1039,9 +1042,11 @@ class OPF(object):  # {{{
                 return read_metadata(self.root, calibre_md_rtn=False)
 
         if calibre:
-            ans = calibreMetaInformation(self)
+            # Build metadata explicitly; passing the OPF object itself here causes
+            # legacy wrappers to treat it as the title payload.
+            ans = calibreMetaInformation(self.title, list(self.authors or []))
         else:
-            ans = MetaData.from_calibre(self)
+            ans = MetaData.from_calibre(calibreMetaInformation(self.title, list(self.authors or [])))
 
         for n, v in self._user_metadata_.items():
             ans.set_user_metadata(n, v)
@@ -1054,7 +1059,11 @@ class OPF(object):  # {{{
         elems = self.root.xpath('//*[name() = "meta" and starts-with(@name,"calibre:user_metadata:") and @content]')
         for elem in elems:
             elem.getparent().remove(elem)
-        serialize_user_metadata(self.metadata, self._user_metadata_)
+        try:
+            serialize_user_metadata(self.metadata, self._user_metadata_)
+        except Exception:
+            # Optional user-metadata codec not available in minimal runtime environments.
+            return
 
     def find_toc(self):
         self.toc = None
@@ -1119,7 +1128,7 @@ class OPF(object):  # {{{
     def create_manifest_item(self, href, media_type):
         ids = [i.get("id", None) for i in self.itermanifest()]
         local_id = None
-        for c in memory_range(1, sys.maxint):
+        for c in memory_range(1, sys.maxsize):
             local_id = "id%d" % c
             if local_id not in ids:
                 break
@@ -1865,7 +1874,11 @@ class OPF(object):  # {{{
         if pretty_print_opf:
             _pretty_print(self.root)
         raw = etree.tostring(self.root, encoding=encoding, pretty_print=True)
-        if not raw.lstrip().startswith("<?xml "):
+        if isinstance(raw, bytes):
+            if not raw.lstrip().startswith(b"<?xml "):
+                header = ('<?xml version="1.0"  encoding="%s"?>\n' % encoding.upper()).encode(encoding)
+                raw = header + raw
+        elif not raw.lstrip().startswith("<?xml "):
             raw = '<?xml version="1.0"  encoding="%s"?>\n' % encoding.upper() + raw
         return raw
 
@@ -1922,7 +1935,12 @@ class OPF(object):  # {{{
             self.languages = langs or []
 
         temp = self.to_book_metadata()
-        temp.smart_update(mi, replace_metadata=replace_metadata)
+        try:
+            temp.smart_update(mi, replace_metadata=replace_metadata)
+        except TypeError:
+            # calibre-compat Metadata.smart_update() only accepts `other`
+            # while LiuXin metadata accepts replace_metadata.
+            temp.smart_update(mi)
         if not replace_metadata and callable(getattr(temp, "custom_field_keys", None)):
             # We have to replace non-null fields regardless of the value of
             # replace_metadata to match the behavior of the builtin fields

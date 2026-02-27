@@ -12,15 +12,15 @@ from lxml import etree
 from LiuXin_alpha.file_formats.oeb.base import urlunquote
 from LiuXin_alpha.file_formats.docx.images import pt_to_emu
 
-from LiuXin_alpha.utils.filenames import ascii_filename
-from LiuXin_alpha.utils.imghdr import identify
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
+from LiuXin_alpha.utils.image_tools.imghdr import identify
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.resources import I
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
 
 __license__ = "GPL v3"
 __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"
