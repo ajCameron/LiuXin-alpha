@@ -19,7 +19,7 @@ from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommend
 from LiuXin_alpha.metadata.book.base import calibreMetadata as MetaData
 
 from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
-from imghdr import what
+from LiuXin_alpha.utils.image_tools.imghdr import what
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.localization import get_lang
 from LiuXin_alpha.utils.libraries.liuxin_six import six_zip as izip

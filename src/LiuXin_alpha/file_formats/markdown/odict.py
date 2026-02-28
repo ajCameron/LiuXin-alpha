@@ -9,7 +9,9 @@ from copy import deepcopy
 def iteritems_compat(d):
     """Return an iterator over the (key, value) pairs of a dictionary.
     Copied from `six` module."""
-    return iter(getattr(d, _iteritems)())
+    if hasattr(d, "items"):
+        return iter(d.items())
+    return iter(d)
 
 
 class OrderedDict(dict):

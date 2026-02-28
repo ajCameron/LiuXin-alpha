@@ -12,16 +12,22 @@ import os
 import re
 
 from lxml import etree
-from PyQt5.Qt import (
-    Qt,
-    QByteArray,
-    QBuffer,
-    QIODevice,
-    QColor,
-    QImage,
-    QPainter,
-    QSvgRenderer,
-)
+try:
+    from PyQt5.Qt import (
+        Qt,
+        QByteArray,
+        QBuffer,
+        QIODevice,
+        QColor,
+        QImage,
+        QPainter,
+        QSvgRenderer,
+    )
+
+    _QT_IMPORT_ERROR = None
+except Exception as err:
+    Qt = QByteArray = QBuffer = QIODevice = QColor = QImage = QPainter = QSvgRenderer = None
+    _QT_IMPORT_ERROR = err
 
 from LiuXin_alpha.file_formats.oeb.base import XHTML, XLINK
 from LiuXin_alpha.file_formats.oeb.base import SVG_MIME, PNG_MIME
@@ -29,7 +35,7 @@ from LiuXin_alpha.file_formats.oeb.base import xml2str, xpath
 from LiuXin_alpha.file_formats.oeb.base import urlnormalize
 from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
-from LiuXin_alpha.utils.imghdr import what
+from LiuXin_alpha.utils.image_tools.imghdr import what
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
@@ -48,6 +54,8 @@ class Unavailable(Exception):
 # Todo: Check safe to use qt by spinning it off into a different threas - see if it crashes
 class SVGRasterizer(object):
     def __init__(self):
+        if _QT_IMPORT_ERROR is not None:
+            raise Unavailable("PyQt5 is unavailable for SVG rasterization")
         from LiuXin_alpha.interfaces.gui2 import must_use_qt
 
         must_use_qt()

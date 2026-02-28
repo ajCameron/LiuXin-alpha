@@ -6,18 +6,21 @@ import random
 import re
 import time
 import uuid
-from itertools import izip, count, chain
+from itertools import count, chain
 from struct import pack
-from urllib import unquote as urlunquote
+from urllib.parse import unquote as urlunquote
 
-from lxml import etree
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 import LiuXin_alpha
 
 import LiuXin_alpha.file_formats.lit.maps as maps
 import LiuXin_alpha.file_formats.lit.mssha1 as mssha1
 
-from LiuXin_alpha.file_formats.lit.lzx import Compressor
+try:
+    from LiuXin_alpha.file_formats.lit.lzx import Compressor
+except Exception:
+    Compressor = None
 from LiuXin_alpha.file_formats.lit.reader import DirectoryEntry
 from LiuXin_alpha.file_formats.oeb.base import (
     OEB_DOCS,
@@ -34,13 +37,16 @@ from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 from LiuXin_alpha.utils.plugins import plugins
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cmp
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unichar
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cmp
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unichar
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
+
+izip = zip
+long = int
 
 
 __license__ = "GPL v3"
@@ -349,7 +355,7 @@ class LitWriter(object):
 
     def _litize_oeb(self):
         oeb = self._oeb
-        oeb.metadata.add("calibre-version", LiuXin.__version__)
+        oeb.metadata.add("calibre-version", LiuXin_alpha.__version__)
         cover = None
         if oeb.metadata.cover:
             id = six_unicode(oeb.metadata.cover[0])
@@ -686,6 +692,8 @@ class LitWriter(object):
                     if not data:
                         continue
                     unlen = len(data)
+                    if Compressor is None:
+                        raise RuntimeError("LZX compressor backend is unavailable")
                     lzx = Compressor(17)
                     data, rtable = lzx.compress(data, flush=True)
                     rdata = six_cStringIO()
@@ -735,13 +743,14 @@ class LitWriter(object):
         digest = local_hash.digest()
         key = [0] * 8
         for i in memory_range(0, len(digest)):
-            key[i % 8] ^= ord(digest[i])
+            d = digest[i]
+            key[i % 8] ^= d if isinstance(d, int) else ord(d)
         return "".join(chr(x) for x in key)
 
     def _build_dchunks(self):
         ddata = []
         directory = list(self._directory)
-        directory.sort(cmp=lambda x, y: six_cmp(x.name.lower(), y.name.lower()))
+        directory.sort(key=lambda x: (x.name or "").lower())
         qrn = 1 + (1 << 2)
         dchunk = six_cStringIO()
         dcount = 0

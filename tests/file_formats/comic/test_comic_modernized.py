@@ -112,9 +112,14 @@ def test_comic_convert_glue_with_fakes(tmp_path: Path, monkeypatch: pytest.Monke
     with in_file.open("rb") as stream:
         out = plugin.convert(stream, options, "cbz", log=types.SimpleNamespace(warning=lambda *a: None), accelerators={})
 
-    assert Path(out).name == "metadata.opf"
-    assert (tmp_path / "metadata.opf").exists()
-    assert (tmp_path / "toc.ncx").exists()
+    out_path = Path(out)
+    assert out_path.is_absolute()
+    assert out_path.name == "metadata.opf"
+    assert out_path.exists()
+    assert out_path.parent != tmp_path
+    assert not (tmp_path / "metadata.opf").exists()
+    assert not (tmp_path / "toc.ncx").exists()
+    assert out_path.with_name("toc.ncx").exists()
     assert len(plugin.get_images()) == 2
 
 

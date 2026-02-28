@@ -5,6 +5,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import re
 import unicodedata
 from collections import defaultdict
+from io import BytesIO
 
 from LiuXin_alpha.file_formats.mobi.mobiml import MBP_NS
 from LiuXin_alpha.file_formats.mobi.utils import is_guide_ref_start
@@ -19,9 +20,8 @@ from LiuXin_alpha.file_formats.oeb.base import (
 )
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -132,7 +132,7 @@ class Serializer(object):
         Return the document serialized as a single UTF-8 encoded bytestring.
         :return:
         """
-        buf = self.buf = six_cStringIO()
+        buf = self.buf = BytesIO()
         buf.write(b"<html>")
         self.serialize_head()
         self.serialize_body()
@@ -247,7 +247,7 @@ class Serializer(object):
                 buf.write('<div> <div height="1em"></div>')
             else:
                 t = tocref.title
-                if isinstance(t, unicode):
+                if isinstance(t, str):
                     t = t.encode("utf-8")
                 buf.write(
                     '<div></div> <div> <h2 height="1em"><font size="+2"><b>'
@@ -270,7 +270,7 @@ class Serializer(object):
                 buf.write("0000000000")
                 buf.write(' ><font size="+1"><b><u>')
                 t = tocitem.title
-                if isinstance(t, unicode):
+                if isinstance(t, str):
                     t = t.encode("utf-8")
                 buf.write(t)
                 buf.write("</u></b></font></a></li>")
@@ -387,9 +387,9 @@ class Serializer(object):
         text = text.replace("\u00AD", "")  # Soft-hyphen
         if quot:
             text = text.replace('"', "&quot;")
-        if isinstance(text, unicode):
+        if isinstance(text, str):
             text = unicodedata.normalize("NFC", text)
-        self.buf.write(text.encode("utf-8"))
+        self.buf.write(text.encode("utf-8", "replace"))
 
     def fixup_links(self):
         """

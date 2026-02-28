@@ -118,8 +118,8 @@ def convert_basic(txt, title="", epub_split_size_kb=0):
 
 
 def convert_markdown(txt, title="", extensions=("footnotes", "tables", "toc")):
-    from LiuXin_alpha.utils.calibre.ebooks.conversion.plugins.txt_input import MD_EXTENSIONS
-    from LiuXin_alpha.utils.calibre.ebooks.markdown import Markdown
+    from LiuXin_alpha.file_formats.conversion.plugins.txt_input import MD_EXTENSIONS
+    from LiuXin_alpha.file_formats.markdown import Markdown
 
     extensions = [x.lower() for x in extensions if x.lower() in MD_EXTENSIONS]
     md = Markdown(extensions, safe_mode=False)
@@ -127,9 +127,16 @@ def convert_markdown(txt, title="", extensions=("footnotes", "tables", "toc")):
 
 
 def convert_textile(txt, title=""):
-    from LiuXin_alpha.utils.calibre.ebooks.textile import textile
+    try:
+        from LiuXin_alpha.file_formats.textile.functions import textile
+    except Exception:
+        # Textile stack is optional while porting; fall back to plain conversion.
+        return convert_basic(txt, title=title)
 
-    html = textile(txt, encoding="utf-8")
+    try:
+        html = textile(txt, encoding="utf-8")
+    except Exception:
+        return convert_basic(txt, title=title)
     return HTML_TEMPLATE % (title, html)
 
 

@@ -777,10 +777,7 @@ class CalibreCache(BaseCalibreCache):
                 try:
                     table.read(self.backend)
                 except Exception as e:
-                    print("Failed to read table:", table.name)
-                    import pprint
-
-                    pprint.pprint(table.metadata)
+                    self.backend.log.exception("Failed to read table: %s metadata=%r", table.name, table.metadata)
                     raise CacheLoadError(f"Failed to read table: {table}") from e
 
     def _initialize_dynamic_categories(self) -> None:
@@ -2994,8 +2991,12 @@ class CalibreCache(BaseCalibreCache):
                                 newvals[book_id] = vals
 
                             except Exception as e:
-                                print(e.message)
-                                traceback.print_exc()
+                                self.backend.log.exception(
+                                    "Failed to process rename for field=%s old_id=%s book_id=%s",
+                                    field,
+                                    old_id,
+                                    book_id,
+                                )
                         else:
                             newvals[book_id] = new_names[0]
 

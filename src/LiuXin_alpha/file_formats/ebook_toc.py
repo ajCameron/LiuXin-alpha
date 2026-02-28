@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 import glob
 import re
+import logging
 import functools
 from urllib.parse import unquote
 from collections import Counter
@@ -25,6 +26,8 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid at kovidgoyal.net>"
+
+logger = logging.getLogger(__name__)
 
 
 NCX_NS = "http://www.daisy.org/z3986/2005/ncx/"
@@ -182,8 +185,8 @@ class TOC(list):
                         toc = os.path.join(os.path.dirname(toc), bn)
 
                     self.read_html_toc(toc)
-                except:
-                    print("WARNING: Could not read Table of Contents. Continuing anyway.")
+                except Exception:
+                    logger.warning("Could not read HTML Table of Contents. Continuing anyway.", exc_info=True)
             else:
                 path = opfreader.manifest.item(toc.lower())
                 path = getattr(path, "path", path)
@@ -191,7 +194,7 @@ class TOC(list):
                     try:
                         self.read_ncx_toc(path)
                     except Exception as err:
-                        print("WARNING: Invalid NCX file:", err)
+                        logger.warning("Invalid NCX file: %s", err)
                     return
                 cwd = os.path.abspath(self.base_path)
                 m = glob.glob(os.path.join(cwd, "*.ncx"))

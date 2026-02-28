@@ -31,7 +31,9 @@ def order_toc_list(toc_list):
     [{'level': 2, 'children': []}, {'level': 1, 'children': []}]
     """
 
-    def build_correct(remaining_list, prev_elements=[{"level": 1000}]):
+    def build_correct(remaining_list, prev_elements=None):
+        if prev_elements is None:
+            prev_elements = [{"level": 1000}]
 
         if not remaining_list:
             return [], []
@@ -85,7 +87,7 @@ class TocTreeprocessor(Treeprocessor):
 
     # Iterator wrapper to get parent and child all at once
     def iterparent(self, root):
-        for parent in root.getiterator():
+        for parent in root.iter():
             for child in parent:
                 yield parent, child
 
@@ -96,7 +98,7 @@ class TocTreeprocessor(Treeprocessor):
             anchor.attrib["href"] = "#" + elem_id
             anchor.attrib["class"] = "toclink"
             c.text = ""
-            for elem in c.getchildren():
+            for elem in list(c):
                 anchor.append(elem)
                 c.remove(elem)
             c.append(anchor)
@@ -132,7 +134,7 @@ class TocTreeprocessor(Treeprocessor):
 
         # Get a list of id attributes
         used_ids = set()
-        for c in doc.getiterator():
+        for c in doc.iter():
             if "id" in c.attrib:
                 used_ids.add(c.attrib["id"])
 
@@ -193,7 +195,7 @@ class TocExtension(Extension):
 
     TreeProcessorClass = TocTreeprocessor
 
-    def __init__(self, configs=[]):
+    def __init__(self, configs=None):
         self.config = {
             "marker": [
                 "[TOC]",
@@ -207,7 +209,7 @@ class TocExtension(Extension):
             "anchorlink": [0, "1 if header should be a self link" "Defaults to 0"],
         }
 
-        for key, value in configs:
+        for key, value in (configs or []):
             self.setConfig(key, value)
 
     def extendMarkdown(self, md, md_globals):
@@ -221,5 +223,5 @@ class TocExtension(Extension):
         md.treeprocessors.add("toc", tocext, "_end")
 
 
-def makeExtension(configs={}):
+def makeExtension(configs=None):
     return TocExtension(configs=configs)

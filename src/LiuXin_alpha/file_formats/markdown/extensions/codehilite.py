@@ -192,9 +192,9 @@ class HiliteTreeprocessor(Treeprocessor):
 
     def run(self, root):
         """Find code blocks and store in htmlStash."""
-        blocks = root.getiterator("pre")
+        blocks = root.iter("pre")
         for block in blocks:
-            children = block.getchildren()
+            children = list(block)
             if len(children) == 1 and children[0].tag == "code":
                 code = CodeHilite(
                     children[0].text,
@@ -272,5 +272,5 @@ class CodeHiliteExtension(Extension):
         md.registerExtension(self)
 
 
-def makeExtension(configs={}):
-    return CodeHiliteExtension(configs=configs)
+def makeExtension(configs=None):
+    return CodeHiliteExtension(configs=configs or {})

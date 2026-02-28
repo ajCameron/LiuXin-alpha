@@ -13,10 +13,10 @@ from LiuXin_alpha.file_formats.mobi.writer8.exth import build_exth
 from LiuXin_alpha.file_formats.mobi.writer8.header import Header
 from LiuXin_alpha.file_formats.mobi.utils import RECORD_SIZE, utf8_text
 
-from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"

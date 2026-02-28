@@ -4,6 +4,7 @@
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 from collections import OrderedDict, defaultdict
+from io import BytesIO
 from struct import pack
 
 from LiuXin_alpha.file_formats.mobi.utils import (
@@ -18,13 +19,12 @@ from LiuXin_alpha.file_formats.mobi.utils import (
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/ Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_filter
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import six_filter
 
 
 __license__ = "GPL v3"
@@ -187,7 +187,7 @@ class IndexEntry(object):
 
     @property
     def bytestring(self):
-        buf = six_cStringIO()
+        buf = BytesIO()
         if isinstance(self.index, int):
             buf.write(encode_number_as_hex(self.index))
         else:
@@ -315,7 +315,7 @@ class TBS(object):  # {{{
                 self.book_tbs(data, first)
 
     def periodical_tbs(self, data, first, depth_map):
-        buf = six_cStringIO()
+        buf = BytesIO()
 
         has_section_start = depth_map[1] and set(depth_map[1]).intersection(set(data["starts"]))
         spanner = data["spans"]
@@ -472,7 +472,7 @@ class Indexer(object):  # {{{
         self.log("Generating MOBI index for a %s" % ("periodical" if self.is_periodical else "book"))
         self.is_flat_periodical = False
         if self.is_periodical:
-            periodical_node = iter(oeb.toc).next()
+            periodical_node = next(iter(oeb.toc))
             sections = tuple(periodical_node)
             self.is_flat_periodical = len(sections) == 1
 
@@ -513,7 +513,7 @@ class Indexer(object):  # {{{
 
     def create_index_record(self, secondary=False):  # {{{
         header_length = 192
-        buf = six_cStringIO()
+        buf = BytesIO()
         indices = list(SecondaryIndexEntry.entries()) if secondary else self.indices
 
         # Write index entries
@@ -557,7 +557,7 @@ class Indexer(object):  # {{{
     # }}}
 
     def create_header(self, secondary=False):  # {{{
-        buf = six_cStringIO()
+        buf = BytesIO()
         if secondary:
             tagx_block = TAGX().secondary
         else:
@@ -698,7 +698,7 @@ class Indexer(object):  # {{{
     # }}}
 
     def create_periodical_index(self):  # {{{
-        periodical_node = iter(self.oeb.toc).next()
+        periodical_node = next(iter(self.oeb.toc))
         periodical_node_offset = self.serializer.body_start_offset
         periodical_node_size = self.serializer.body_end_offset - periodical_node_offset
 

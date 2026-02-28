@@ -7,12 +7,11 @@ import struct
 import re
 import os
 from collections import namedtuple
-from itertools import repeat, izip
+from itertools import repeat
 
 from lxml import etree
 
-from LiuXin_alpha.file_formats.opf import OPFCreator
-from LiuXin_alpha.file_formats.opf import Guide
+from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator, Guide
 from LiuXin_alpha.file_formats.mobi.reader.headers import NULL_INDEX
 from LiuXin_alpha.file_formats.mobi.reader.index import read_index
 from LiuXin_alpha.file_formats.mobi.reader.ncx import read_ncx, build_toc
@@ -22,12 +21,13 @@ from LiuXin_alpha.file_formats.mobi.utils import read_font_record
 from LiuXin_alpha.file_formats.oeb.parse_utils import parse_html
 from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML, xml2text
 
-from LiuXin_alpha.metadata.toc import TOC
+from LiuXin_alpha.file_formats.toc import TOC
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.libraries.liuxin_six import six_zip
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -134,7 +134,7 @@ class Mobi8Reader(object):
                 raise ValueError("KF8 does not have a valid FDST record")
             sec_start, num_sections = struct.unpack_from(b">LL", header, 4)
             secs = struct.unpack_from(b">%dL" % (num_sections * 2), header, sec_start)
-            self.flow_table = tuple(izip(secs[::2], secs[1::2]))
+            self.flow_table = tuple(six_zip(secs[::2], secs[1::2]))
 
         self.files = []
         if self.header.skelidx != NULL_INDEX:
@@ -176,7 +176,9 @@ class Mobi8Reader(object):
                     fileno = tag_map[3][0]
                 if 6 in tag_map.keys():
                     fileno = tag_map[6]
-                self.guide.append(Item(ref_type.decode(self.header.codec), title, fileno))
+                if isinstance(ref_type, (bytes, bytearray)):
+                    ref_type = ref_type.decode(self.header.codec, "replace")
+                self.guide.append(Item(ref_type, title, fileno))
 
     def build_parts(self):
         raw_ml = self.mobi6_reader.mobi_html
@@ -367,9 +369,15 @@ class Mobi8Reader(object):
             except TypeError:
                 continue  # thumbnailstandard record, ignore it
             linktgt, idtext = self.get_id_tag_by_pos_fid(*pos_fid)
+            if isinstance(idtext, (bytes, bytearray)):
+                idtext = idtext.decode(self.header.codec, "replace")
             if idtext:
-                linktgt += b"#" + idtext
-            g = Guide.Reference(linktgt, os.getcwdu())
+                linktgt += "#" + idtext
+            g = Guide.Reference(linktgt, os.getcwd())
+            if isinstance(ref_title, (bytes, bytearray)):
+                ref_title = ref_title.decode(self.header.codec, "replace")
+            if isinstance(ref_type, (bytes, bytearray)):
+                ref_type = ref_type.decode(self.header.codec, "replace")
             g.title, g.type = ref_title, ref_type
             if g.title == "start" or g.type == "text":
                 has_start = True
@@ -383,7 +391,7 @@ class Mobi8Reader(object):
                 linktgt = fi.filename
                 if idtext:
                     linktgt += "#" + idtext
-                g = Guide.Reference("%s/%s" % (fi.type, linktgt), os.getcwdu())
+                g = Guide.Reference("%s/%s" % (fi.type, linktgt), os.getcwd())
                 g.title, g.type = "start", "text"
                 guide.append(g)
 
@@ -411,6 +419,10 @@ class Mobi8Reader(object):
                     remove.append(entry)
                     continue
 
+            if isinstance(href, (bytes, bytearray)):
+                href = href.decode(self.header.codec, "replace")
+            if isinstance(idtag, (bytes, bytearray)):
+                idtag = idtag.decode(self.header.codec, "replace")
             entry["href"] = href
             entry["idtag"] = idtag
 
@@ -426,7 +438,7 @@ class Mobi8Reader(object):
         resource_map = []
         container = None
         for x in ("fonts", "images"):
-            os.mkdir(x)
+            os.makedirs(x, exist_ok=True)
 
         for start, end in self.resource_offsets:
             for i, sec in enumerate(sections[start:end]):
@@ -505,7 +517,7 @@ class Mobi8Reader(object):
                         except:
                             self.log.exception("Failed to read inline ToC")
 
-        opf = OPFCreator(os.getcwdu(), mi)
+        opf = OPFCreator(os.getcwd(), mi)
         opf.guide = guide
 
         def exclude(path):
@@ -525,7 +537,7 @@ class Mobi8Reader(object):
             except:
                 pass
 
-        opf.create_manifest_from_files_in([os.getcwdu()], exclude=exclude)
+        opf.create_manifest_from_files_in([os.getcwd()], exclude=exclude)
         for entry in opf.manifest:
             if entry.mime_type == "text/html":
                 entry.mime_type = "application/xhtml+xml"
@@ -543,7 +555,7 @@ class Mobi8Reader(object):
         ans = TOC()
         base_href = "/".join(href.split("/")[:-1])
         with open(href.replace("/", os.sep), "rb") as f:
-            raw = f.read().decode(self.header.codec)
+            raw = f.read().decode(self.header.codec, "replace")
         root = parse_html(raw, log=self.log)
         body = XPath("//h:body")(root)
         reached = False

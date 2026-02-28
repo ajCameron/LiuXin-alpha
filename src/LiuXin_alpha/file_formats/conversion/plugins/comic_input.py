@@ -262,71 +262,78 @@ class ComicInput(InputFormatPlugin):
 
         self.opts, self.log = options, log
         stream_name = getattr(stream, "name", f"comic_input.{file_ext}")
-        if file_ext == "cbc":
-            comics_ = self.get_comics_from_collection(stream)
-        else:
-            tdir = PersistentTemporaryDirectory("_comic_input")
-            stream_path = self._stream_to_path(stream, tdir, file_ext)
-            comics_ = [["Comic", stream_path]]
-        try:
-            stream.close()
-        except Exception:
-            pass
-        comics = []
-        for i, x in enumerate(comics_):
-            title, fname = x
-            cdir = "comic_%d" % (i + 1) if len(comics_) > 1 else "."
-            cdir = os.path.abspath(cdir)
-            if not os.path.exists(cdir):
-                os.makedirs(cdir)
-            pages = self.get_pages(fname, cdir)
-            if not pages:
-                continue
-            wrappers = self.create_wrappers(pages)
-            comics.append((title, pages, wrappers))
+        work_root = PersistentTemporaryDirectory("_comic_input_output")
+        with CurrentDir(work_root):
+            if file_ext == "cbc":
+                comics_ = self.get_comics_from_collection(stream)
+            else:
+                tdir = PersistentTemporaryDirectory("_comic_input")
+                stream_path = self._stream_to_path(stream, tdir, file_ext)
+                comics_ = [["Comic", stream_path]]
+            try:
+                stream.close()
+            except Exception:
+                pass
+            comics = []
+            for i, x in enumerate(comics_):
+                title, fname = x
+                if len(comics_) > 1:
+                    cdir = os.path.join(work_root, "comic_%d" % (i + 1))
+                else:
+                    cdir = work_root
+                cdir = os.path.abspath(cdir)
+                if not os.path.exists(cdir):
+                    os.makedirs(cdir)
+                pages = self.get_pages(fname, cdir)
+                if not pages:
+                    continue
+                wrappers = self.create_wrappers(pages)
+                comics.append((title, pages, wrappers))
 
-        if not comics:
-            raise ValueError("No comic pages found in %s" % stream_name)
+            if not comics:
+                raise ValueError("No comic pages found in %s" % stream_name)
 
-        mi = MetaInformation(os.path.basename(stream_name).rpartition(".")[0], [_("Unknown")])
-        opf = OPFCreator(os.getcwd(), mi)
-        entries = []
+            mi = MetaInformation(os.path.basename(stream_name).rpartition(".")[0], [_("Unknown")])
+            opf = OPFCreator(work_root, mi)
+            entries = []
 
-        def href(local_x):
-            if len(comics) == 1:
-                return os.path.basename(local_x)
-            return "/".join(local_x.split(os.sep)[-2:])
+            def href(local_x):
+                if len(comics) == 1:
+                    return os.path.basename(local_x)
+                return "/".join(local_x.split(os.sep)[-2:])
 
-        for comic in comics:
-            pages, wrappers = comic[1:]
-            entries += [(w, None) for w in map(href, wrappers)] + [(x, None) for x in map(href, pages)]
-        opf.create_manifest(entries)
-        spine = []
-        for comic in comics:
-            spine.extend(map(href, comic[2]))
-        self._images = []
-        for comic in comics:
-            self._images.extend(comic[1])
-        opf.create_spine(spine)
-        toc = TOC()
-        if len(comics) == 1:
-            wrappers = comics[0][2]
-            for i, x in enumerate(wrappers):
-                toc.add_item(href(x), None, _("Page") + " %d" % (i + 1), play_order=i)
-        else:
-            po = 0
             for comic in comics:
-                po += 1
-                wrappers = comic[2]
-                stoc = toc.add_item(href(wrappers[0]), None, comic[0], play_order=po)
-                if not options.dont_add_comic_pages_to_toc:
-                    for i, x in enumerate(wrappers):
-                        stoc.add_item(href(x), None, _("Page") + " %d" % (i + 1), play_order=po)
-                        po += 1
-        opf.set_toc(toc)
-        with open("metadata.opf", "wb") as m, open("toc.ncx", "wb") as n:
-            opf.render(m, n, "toc.ncx")
-        return os.path.abspath("metadata.opf")
+                pages, wrappers = comic[1:]
+                entries += [(w, None) for w in map(href, wrappers)] + [(x, None) for x in map(href, pages)]
+            opf.create_manifest(entries)
+            spine = []
+            for comic in comics:
+                spine.extend(map(href, comic[2]))
+            self._images = []
+            for comic in comics:
+                self._images.extend(comic[1])
+            opf.create_spine(spine)
+            toc = TOC()
+            if len(comics) == 1:
+                wrappers = comics[0][2]
+                for i, x in enumerate(wrappers):
+                    toc.add_item(href(x), None, _("Page") + " %d" % (i + 1), play_order=i)
+            else:
+                po = 0
+                for comic in comics:
+                    po += 1
+                    wrappers = comic[2]
+                    stoc = toc.add_item(href(wrappers[0]), None, comic[0], play_order=po)
+                    if not options.dont_add_comic_pages_to_toc:
+                        for i, x in enumerate(wrappers):
+                            stoc.add_item(href(x), None, _("Page") + " %d" % (i + 1), play_order=po)
+                            po += 1
+            opf.set_toc(toc)
+            metadata_path = os.path.join(work_root, "metadata.opf")
+            toc_path = os.path.join(work_root, "toc.ncx")
+            with open(metadata_path, "wb") as m, open(toc_path, "wb") as n:
+                opf.render(m, n, "toc.ncx")
+            return metadata_path
 
     def create_wrappers(self, pages):
         """

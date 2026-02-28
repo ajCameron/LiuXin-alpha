@@ -10,6 +10,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import sys
 import codecs
+import logging
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
@@ -17,6 +18,8 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
+
+logger = logging.getLogger(__name__)
 
 
 def icu_lower(target_str: str) -> str:
@@ -37,7 +40,7 @@ icu_loaded = False
 try:
     import LiuXin_alpha.utils.compiled_extensions.linux.icu as _icu
 
-    print("icu module loaded")
+    logger.debug("ICU extension module loaded")
     icu_loaded = True
 except ImportError:
     wrn_str = "Unable to import _icu.\n"
@@ -45,14 +48,14 @@ except ImportError:
     wrn_str += "try running setup.py"
     import LiuXin_alpha.utils.text.icu_fallback as _icu
 
-    print(wrn_str)
+    logger.info("%s", wrn_str)
 
 from LiuXin_alpha.utils.config.config_base import tweaks
 
 try:
     tweaks["locale_for_sorting"]
 except KeyError:
-    print("Warning - tweaks have not loaded properly - adding the required one for this package")
+    logger.info("tweaks did not include 'locale_for_sorting'; adding default None value")
     tweaks["locale_for_sorting"] = None
 
 _locale = _collator = _primary_collator = _sort_collator = _numeric_collator = _case_sensitive_collator = None
@@ -75,18 +78,14 @@ def is_ascii(name):
 try:
     if is_ascii(sys.getdefaultencoding()):
         _icu.set_default_encoding(b"utf-8")
-except:
-    import traceback
-
-    traceback.print_exc()
+except Exception:
+    logger.exception("Failed to set ICU default encoding to UTF-8")
 
 try:
     if is_ascii(sys.getfilesystemencoding()):
         _icu.set_filesystem_encoding(b"utf-8")
-except:
-    import traceback
-
-    traceback.print_exc()
+except Exception:
+    logger.exception("Failed to set ICU filesystem encoding to UTF-8")
 del is_ascii
 
 
@@ -103,7 +102,7 @@ def collator():
         try:
             _collator = _icu.Collator(_locale)
         except Exception as e:
-            print("Failed to load collator for locale: %r with error %r, using English" % (_locale, e))
+            logger.warning("Failed to load collator for locale %r (%r); using English", _locale, e)
             _collator = _icu.Collator("en")
     return _collator
 
@@ -138,7 +137,7 @@ def sort_collator():
         try:
             _sort_collator.numeric = tweaks["numeric_collation"]
         except KeyError:
-            print("numeric_collation not found in tweaks - setting to True and continuing")
+            logger.warning("numeric_collation not found in tweaks; setting to True and continuing")
             _sort_collator.numeric = True
     return _sort_collator
 

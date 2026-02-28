@@ -11,7 +11,7 @@ from struct import pack
 from LiuXin_alpha.file_formats.mobi.utils import align_block
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -86,7 +86,7 @@ class Header(OrderedDict):
             positions[name] = buf.tell()
             if val is None:
                 raise ValueError("Dynamic field %r not set" % name)
-            if isinstance(val, (int, long)):
+            if isinstance(val, int):
                 fmt = b"H" if name in self.SHORT_FIELDS else b"I"
                 val = pack(b">" + fmt, val)
             buf.write(val)

@@ -2,8 +2,8 @@ import struct
 
 from LiuXin_alpha.file_formats.lrf import LRFParseError
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -240,7 +240,7 @@ class Tag(object):
     @classmethod
     def string_parser(self, stream):
         size = struct.unpack("<H", stream.read(2))[0]
-        return six_unicode(stream.read(size), "utf_16")
+        return stream.read(size).decode("utf-16-le", "replace")
 
     def type_one_parser(self, stream):
         cnt = struct.unpack("<H", stream.read(2))[0]

@@ -3,12 +3,16 @@
 
 from __future__ import absolute_import, print_function
 
+import logging
+
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
+
+logger = logging.getLogger(__name__)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -266,7 +270,7 @@ def set_translators():
             try:
                 make(mpath + ".po", buf)
             except:
-                print(("Failed to compile translations file: %s," " ignoring") % (mpath + ".po"))
+                logger.warning("Failed to compile translations file: %s, ignoring", mpath + ".po")
                 buf = None
             else:
                 buf = six_cStringIO(buf.getvalue())

@@ -17,8 +17,8 @@ from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import (
 )
 
 # P2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -29,7 +29,7 @@ def ceil(num):
 
 
 def print_xml(elem):
-    from LiuXin_alpha.utils.calibre.ebooks.lrf.pylrs.pylrs import ElementWriter
+    from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import ElementWriter
 
     elem = elem.toElement("utf8")
     ew = ElementWriter(elem, sourceEncoding="utf8")
@@ -93,12 +93,12 @@ class Cell(object):
         self.css = css
         self.text_blocks = []
         self.pwidth = -1.0
-        if tag.has_key("width") and "%" in tag["width"]:
+        if ("width" in tag) and "%" in tag["width"]:
             try:
                 self.pwidth = float(tag["width"].replace("%", ""))
             except ValueError:
                 pass
-        if css.has_key("width") and "%" in css["width"]:
+        if ("width" in css) and "%" in css["width"]:
             try:
                 self.pwidth = float(css["width"].replace("%", ""))
             except ValueError:
@@ -107,8 +107,8 @@ class Cell(object):
             self.pwidth = -1
         self.rowspan = self.colspan = 1
         try:
-            self.colspan = int(tag["colspan"]) if tag.has_key("colspan") else 1
-            self.rowspan = int(tag["rowspan"]) if tag.has_key("rowspan") else 1
+            self.colspan = int(tag["colspan"]) if ("colspan" in tag) else 1
+            self.rowspan = int(tag["rowspan"]) if ("rowspan" in tag) else 1
         except:
             pass
 
@@ -171,7 +171,7 @@ class Cell(object):
                 mwidth = width
         return parindent + mwidth + 2
 
-    def text_block_size(self, tb, maxwidth=sys.maxint, debug=False):
+    def text_block_size(self, tb, maxwidth=sys.maxsize, debug=False):
         ts = tb.textStyle.attrs
         default_font = get_font(ts["fontfacename"], self.pts_to_pixels(ts["fontsize"]))
         parindent = self.pts_to_pixels(ts["parindent"])
@@ -202,7 +202,7 @@ class Cell(object):
                 else:
                     top += ls
                     bottom += ls
-                left = parindent if int == 1 else 0
+                left = parindent if token == 1 else 0
                 continue
             if isinstance(token, Plot):
                 width, height = self.pts_to_pixels(token.xsize), self.pts_to_pixels(token.ysize)
@@ -218,7 +218,7 @@ class Cell(object):
         return right + 3 + max(parindent, 10), bottom
 
     def text_block_preferred_width(self, tb, debug=False):
-        return self.text_block_size(tb, sys.maxint, debug=debug)[0]
+        return self.text_block_size(tb, sys.maxsize, debug=debug)[0]
 
     def preferred_width(self, debug=False):
         return ceil(max([self.text_block_preferred_width(i, debug=debug) for i in self.text_blocks]))

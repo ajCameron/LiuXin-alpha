@@ -64,7 +64,8 @@ HTML_EMPTY = (
     "input",
     "isindex",
     "link",
-    "meta" "param",
+    "meta",
+    "param",
 )
 
 try:
@@ -164,7 +165,7 @@ def _serialize_html(write, elem, qnames, namespaces, format):
                 _serialize_html(write, e, qnames, None, format)
         else:
             write("<" + tag)
-            items = elem.items()
+            items = list(elem.items())
             if items or namespaces:
                 items.sort()  # lexical order
                 for k, v in items:
@@ -180,7 +181,7 @@ def _serialize_html(write, elem, qnames, namespaces, format):
                     else:
                         write(' %s="%s"' % (qnames[k], v))
                 if namespaces:
-                    items = namespaces.items()
+                    items = list(namespaces.items())
                     items.sort(key=lambda x: x[1])  # sort on prefix
                     for v, k in items:
                         if k:
@@ -213,7 +214,7 @@ def _write_html(root, encoding=None, default_namespace=None, format="html"):
     if encoding is None:
         return "".join(data)
     else:
-        return _encode("".join(data))
+        return _encode("".join(data), encoding)
 
 
 # --------------------------------------------------------------------
@@ -255,10 +256,7 @@ def _namespaces(elem, default_namespace=None):
             _raise_serialization_error(qname)
 
     # populate qname and namespaces table
-    try:
-        iterate = elem.iter
-    except AttributeError:
-        iterate = elem.getiterator  # cET compatibility
+    iterate = elem.iter
     for elem in iterate():
         tag = elem.tag
         if isinstance(tag, QName) and tag.text not in qnames:

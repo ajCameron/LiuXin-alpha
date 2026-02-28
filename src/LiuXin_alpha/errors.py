@@ -3,6 +3,16 @@
 Base class for ALL errors that LiuXin should ever throw.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _log_exception_message(message):
+    if message is not None:
+        logger.error("%s", message)
+
+
 # -------------
 # - BASE ERRORS
 
@@ -21,7 +31,7 @@ class BadInputException(LiuXinException):
         if argument is not None:
             self.argument = argument
             if argument is not None:
-                print(self.argument)
+                _log_exception_message(self.argument)
         else:
             pass
 
@@ -36,7 +46,7 @@ class LogicalError(LiuXinException):
         if argument is not None:
             self.argument = argument
             if argument is not None:
-                print(self.argument)
+                _log_exception_message(self.argument)
         else:
             pass
 
@@ -53,7 +63,7 @@ class ImportError(LiuXinException):
         if argument is not None:
             self.argument = argument
             if argument is not None:
-                print(self.argument)
+                _log_exception_message(self.argument)
         else:
             pass
 
@@ -77,7 +87,7 @@ class PreferenceError(LiuXinException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -92,7 +102,7 @@ class PlatformError(LiuXinException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -108,7 +118,7 @@ class LXImportError(LiuXinException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -122,7 +132,7 @@ class LocationError(LiuXinException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -211,7 +221,7 @@ class DatabaseDriverError(LiuXinDatabaseException):
         if argument is not None:
             self.argument = argument
             if argument is not None:
-                print(self.argument)
+                _log_exception_message(self.argument)
         else:
             pass
 
@@ -226,7 +236,7 @@ class RowIntegrityError(LiuXinDatabaseException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -235,7 +245,7 @@ class SQLParseError(LiuXinDatabaseException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -250,7 +260,7 @@ class SearchParseError(LiuXinDatabaseException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -309,7 +319,7 @@ class ResourceError(LiuXinException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -371,7 +381,7 @@ class FolderStoreIntegrityError(LiuXinException):
         if argument is not None:
             self.argument = argument
             if argument is not None:
-                print(self.argument)
+                _log_exception_message(self.argument)
         else:
             pass
 
@@ -387,7 +397,7 @@ class InvalidFolderStore(LiuXinException):
     def __init__(self, argument):
         self.err_str = argument
         if argument is not None:
-            print(self.err_str)
+            _log_exception_message(self.err_str)
 
 
 class InvalidFolderStoreDriver(LiuXinException):
@@ -397,7 +407,7 @@ class InvalidFolderStoreDriver(LiuXinException):
 
     def __init__(self, err_str):
         self.err_str = err_str
-        print(self.err_str)
+        _log_exception_message(self.err_str)
 
 
 
@@ -409,7 +419,7 @@ class FSDriverError(LiuXinException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -423,7 +433,7 @@ class FSError(LiuXinException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -437,7 +447,7 @@ class FolderStoreError(LiuXinException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)
@@ -452,7 +462,7 @@ class FolderError(LiuXinException):
     def __init__(self, argument):
         self.argument = argument
         if argument is not None:
-            print(self.argument)
+            _log_exception_message(self.argument)
 
     def __str__(self):
         return repr(self.argument)

@@ -13,6 +13,7 @@ import codecs
 import os
 import importlib
 import string
+import logging
 
 from LiuXin_alpha.constants.file_extensions import IMAGE_EXTENSIONS, COMPRESSED_FILE_EXTENSIONS, IMAGE_EXTENSIONS_DOTTED
 from LiuXin_alpha.constants.paths import LiuXin_calibre_caches, LiuXin_calibre_config_folder, config_dir, CONFIG_DIR_MODE
@@ -27,6 +28,8 @@ from LiuXin_alpha.utils.which_os import iswindows, isosx, isportable
 
 LIUXIN_NUMERIC_VERSION = (0, 0, 8)
 __version__ = ".".join(map(str, LIUXIN_NUMERIC_VERSION))
+
+logger = logging.getLogger(__name__)
 
 
 # The version of calibre which is embedded in LiuXin and is used to provide a lot of its functionality
@@ -419,7 +422,7 @@ else:
     except:
         pass
     if not os.path.exists(config_dir) or not os.access(config_dir, os.W_OK) or not os.access(config_dir, os.X_OK):
-        print("No write acces to", config_dir, "using a temporary dir instead")
+        logger.warning("No write access to %s; using a temporary config dir instead", config_dir)
         import tempfile, atexit
 
         config_dir = tempfile.mkdtemp(prefix="calibre-config-")

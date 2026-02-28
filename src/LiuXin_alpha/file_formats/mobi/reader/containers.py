@@ -3,22 +3,30 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-import imghdr
+from LiuXin_alpha.utils.image_tools.imghdr import what
 
 from struct import unpack_from, error
 
 try:
-    from LiuXin_alpha.utils.magick.draw import identify_data
+    from LiuXin_alpha.utils.wrappers.magick.draw import identify_data
 except (ImportError, RuntimeError) as e:
-    # C++ based plugins probably haven't been compiled
-    pass
+    try:
+        from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
+    except Exception:
+        _FallbackImage = None
+
+    def identify_data(data):
+        if _FallbackImage is None:
+            raise RuntimeError("No image identify backend is available")
+        meta = _FallbackImage(data).identify()
+        return meta.get("width", 0), meta.get("height", 0), meta.get("format", "unknown")
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def find_imgtype(data):
-    imgtype = imghdr.what(None, data)
+    imgtype = what(None, data)
     if imgtype is None:
         try:
             imgtype = identify_data(data)[2]

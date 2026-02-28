@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf" xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" version="2.0">
+  <metadata>
+    <dc:title>20,000 Leagues Under the Sea</dc:title>
+    <dc:creator opf:role="aut">Jules Verne</dc:creator>
+    <dc:publisher>manybooks.net</dc:publisher>
+    <dc:subject>学</dc:subject>
+    <dc:subject>声</dc:subject>
+    <dc:language>en</dc:language>
+    <dc:creator opf:role="bkp">makelrf 0.3</dc:creator>
+  </metadata>
+  <manifest>
+    <opf:item id="61" media-type="application/xhtml+xml" href="61.xhtml"/>
+    <opf:item id="65" media-type="application/xhtml+xml" href="65.xhtml"/>
+    <opf:item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <opf:item id="styles" href="styles.css" media-type="text/css"/>
+  </manifest>
+  <spine toc="ncx">
+    <opf:itemref idref="61"/>
+    <opf:itemref idref="65"/>
+  </spine>
+</package>

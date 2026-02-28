@@ -15,10 +15,13 @@ import atexit
 import os
 import stat
 import errno
+import logging
 
 from LiuXin_alpha.utils.which_os import iswindows
 from LiuXin_alpha.constants import __appname__, fcntl
 from LiuXin_alpha.utils.libraries.liuxin_six import unicode
+
+logger = logging.getLogger(__name__)
 
 
 if iswindows:
@@ -76,7 +79,7 @@ class WindowsExclFile:
             except pywintypes.error as err:
                 # Error logging - check to see if the file exists
                 if not os.path.exists(path):
-                    print("Expected path didn't actually exist - path: {}".format(path))
+                    logger.warning("Expected lock path does not exist: %s", path)
                 if getattr(err, "args", [-1])[0] in (0x20, 0x21):
                     time.sleep(1)
                     continue

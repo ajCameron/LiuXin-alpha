@@ -4,6 +4,7 @@ import importlib
 import types
 
 from pathlib import Path
+from zipfile import ZipFile
 
 
 class _Log:
@@ -101,3 +102,86 @@ def test_liuxin_templite_basic_render() -> None:
 
     t = Templite("Hello ${name}$")
     assert t.render(name="World") == "Hello World"
+
+
+def test_html_output_convert_end_to_end_smoke(tmp_path: Path) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.html_output import HTMLOutput
+    from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+
+    class _MetaItem:
+        def __init__(self, term: str, value: str) -> None:
+            self.term = term
+            self.value = value
+
+    class _Metadata:
+        def __init__(self) -> None:
+            dc = "http://purl.org/dc/elements/1.1/"
+            self._data = {
+                "title": [_MetaItem(f"{{{dc}}}title", "Smoke Book")],
+                "creator": [_MetaItem(f"{{{dc}}}creator", "Smoke Author")],
+            }
+            self.items = list(self._data)
+
+        def __getitem__(self, key: str):
+            return self._data.get(key, [])
+
+    class _ManifestItem:
+        def __init__(self, href: str, spine_position, text: str = "", data=None) -> None:
+            self.href = href
+            self.spine_position = spine_position
+            self._text = text
+            self.data = data
+            self.unloaded_to = []
+
+        def __str__(self) -> str:
+            return self._text
+
+        def unload_data_from_memory(self, memory=None) -> None:
+            self.unloaded_to.append(memory)
+
+    class _TocNode:
+        def __init__(self, href: str, title: str, nodes=None) -> None:
+            self.href = href
+            self.title = title
+            self.nodes = nodes or []
+
+        def count(self) -> int:
+            return len(self.nodes)
+
+    xhtml = etree.fromstring(
+        b"""
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head><title>Chapter One</title></head>
+  <body><p>Hello smoke output.</p></body>
+</html>
+"""
+    )
+
+    spine_item = _ManifestItem("text/ch1.xhtml", 0, data=xhtml)
+    css_item = _ManifestItem("styles/main.css", None, text="body { color: #333; }")
+
+    oeb_book = types.SimpleNamespace(
+        metadata=_Metadata(),
+        toc=_TocNode("", "", nodes=[_TocNode("text/ch1.xhtml", "Chapter One")]),
+        manifest=[spine_item, css_item],
+        spine=[spine_item],
+    )
+
+    plugin = HTMLOutput(None)
+    opts = types.SimpleNamespace(
+        template_html_index=None,
+        template_html=None,
+        template_css=None,
+        extract_to=None,
+    )
+    out_zip = tmp_path / "smoke_html_output.zip"
+
+    plugin.convert(oeb_book, str(out_zip), None, opts, _Log())
+
+    assert out_zip.exists()
+    with ZipFile(out_zip) as zf:
+        names = set(zf.namelist())
+    assert "smoke_html_output.html" in names
+    assert "smoke_html_output_files/calibreHtmlOutBasicCss.css" in names
+    assert "smoke_html_output_files/text/ch1.xhtml" in names
+    assert "smoke_html_output_files/styles/main.css" in names

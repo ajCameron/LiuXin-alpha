@@ -11,15 +11,15 @@ from LiuXin_alpha.constants import iswindows, isosx
 
 from LiuXin_alpha.file_formats.mobi.utils import utf8_text, to_base
 
-from LiuXin_alpha.metadata import authors_to_sort_string
+from LiuXin_alpha.metadata.utils import authors_to_sort_string
 
 from LiuXin_alpha.utils.date import utcnow
 from LiuXin_alpha.utils.localization import lang_as_iso639_1
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"
@@ -145,7 +145,7 @@ def build_exth(
 
         uuid = str(uuid4())
 
-    if isinstance(uuid, unicode):
+    if isinstance(uuid, str):
         uuid = uuid.encode("utf-8")
     if not share_not_sync:
         exth.write(pack(b">II", 113, len(uuid) + 8))
@@ -182,7 +182,8 @@ def build_exth(
         default_log.warn("missing date or timestamp - defaulting to now")
         datestr = utcnow()
 
-    datestr = bytes(datestr)
+    if isinstance(datestr, str):
+        datestr = datestr.encode("utf-8")
     exth.write(pack(b">II", EXTH_CODES["pubdate"], len(datestr) + 8))
     exth.write(datestr)
     nrecs += 1

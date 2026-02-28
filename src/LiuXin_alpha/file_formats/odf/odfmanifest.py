@@ -23,12 +23,10 @@ from __future__ import print_function
 
 # This script lists the content of the manifest.xml file
 import zipfile
+from io import BytesIO
 from xml.sax import make_parser, handler
 from xml.sax.xmlreader import InputSource
 import xml.sax.saxutils
-
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO as StringIO
-
 
 MANIFESTNS = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"
 
@@ -102,7 +100,9 @@ def manifestlist(manifestxml):
     parser.setErrorHandler(handler.ErrorHandler())
 
     inpsrc = InputSource()
-    inpsrc.setByteStream(StringIO(manifestxml))
+    if isinstance(manifestxml, str):
+        manifestxml = manifestxml.encode("utf-8")
+    inpsrc.setByteStream(BytesIO(manifestxml))
     parser.setFeature(handler.feature_external_ges, False)  # Changed by Kovid to ignore external DTDs
     parser.parse(inpsrc)
 

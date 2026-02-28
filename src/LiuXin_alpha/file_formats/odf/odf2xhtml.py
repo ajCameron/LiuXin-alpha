@@ -20,13 +20,14 @@
 #
 # import pdb
 # pdb.set_trace()
+import os
 from xml.sax import handler
 from xml.sax.saxutils import escape, quoteattr
 from xml.dom import Node
 
-from opendocument import load
+from LiuXin_alpha.file_formats.odf.opendocument import load
 
-from namespaces import (
+from LiuXin_alpha.file_formats.odf.namespaces import (
     ANIMNS,
     CHARTNS,
     CONFIGNS,
@@ -48,12 +49,6 @@ from namespaces import (
     TEXTNS,
     XLINKNS,
 )
-
-try:
-    from past.builtins import basestring
-except ModuleNotFoundError:
-    basestring = str
-
 
 if False:  # Added by Kovid
     DR3DNS, MATHNS, CHARTNS, CONFIGNS, ANIMNS, FORMNS, SMILNS, SCRIPTNS
@@ -282,7 +277,7 @@ class StyleToCSS:
                 sdict["float"] = "left"
             else:
                 sdict["position"] = "relative"  # No wrapping
-                if ruleset.has_key((SVGNS, "x")):
+                if (SVGNS, "x") in ruleset:
                     sdict["left"] = ruleset[(SVGNS, "x")]
 
     def c_page_width(self, ruleset, sdict, rule, val):
@@ -342,7 +337,7 @@ class TagStack:
     def rfindattr(self, attr):
         """Find a tag with the given attribute"""
         for tag, attrs in self.stack:
-            if attrs.has_key(attr):
+            if attr in attrs:
                 return attrs[attr]
         return None
 
@@ -694,7 +689,7 @@ class ODF2XHTML(handler.ContentHandler):
 
     def get_anchor(self, name):
         """Create a unique anchor id for a href name"""
-        if not self.anchors.has_key(name):
+        if name not in self.anchors:
             # Changed by Kovid
             self.anchors[name] = "anchor%d" % (len(self.anchors) + 1)
         return self.anchors.get(name)
@@ -749,13 +744,13 @@ class ODF2XHTML(handler.ContentHandler):
             style = ""
         else:
             style = "position: absolute;"
-        if attrs.has_key((SVGNS, "width")):
+        if (SVGNS, "width") in attrs:
             style = style + "width:" + attrs[(SVGNS, "width")] + ";"
-        if attrs.has_key((SVGNS, "height")):
+        if (SVGNS, "height") in attrs:
             style = style + "height:" + attrs[(SVGNS, "height")] + ";"
-        if attrs.has_key((SVGNS, "x")):
+        if (SVGNS, "x") in attrs:
             style = style + "left:" + attrs[(SVGNS, "x")] + ";"
-        if attrs.has_key((SVGNS, "y")):
+        if (SVGNS, "y") in attrs:
             style = style + "top:" + attrs[(SVGNS, "y")] + ";"
         if self.generate_css:
             self.opentag(htmltag, {"class": name, "style": style})
@@ -783,13 +778,13 @@ class ODF2XHTML(handler.ContentHandler):
             style = ""
         else:
             style = "position:absolute;"
-        if attrs.has_key((SVGNS, "width")):
+        if (SVGNS, "width") in attrs:
             style = style + "width:" + attrs[(SVGNS, "width")] + ";"
-        if attrs.has_key((SVGNS, "height")):
+        if (SVGNS, "height") in attrs:
             style = style + "height:" + attrs[(SVGNS, "height")] + ";"
-        if attrs.has_key((SVGNS, "x")):
+        if (SVGNS, "x") in attrs:
             style = style + "left:" + attrs[(SVGNS, "x")] + ";"
-        if attrs.has_key((SVGNS, "y")):
+        if (SVGNS, "y") in attrs:
             style = style + "top:" + attrs[(SVGNS, "y")] + ";"
         if self.generate_css:
             self.opentag(htmltag, {"class": name, "style": style})
@@ -872,7 +867,7 @@ class ODF2XHTML(handler.ContentHandler):
 
     def s_draw_textbox(self, tag, attrs):
         style = ""
-        if attrs.has_key((FONS, "min-height")):
+        if (FONS, "min-height") in attrs:
             style = style + "min-height:" + attrs[(FONS, "min-height")] + ";"
         self.opentag("div")
 
@@ -908,14 +903,14 @@ ol, ul { padding-left: 2em; }
         for name in self.stylestack:
             styles = self.styledict.get(name)
             # Preload with the family's default style
-            if styles.has_key("__style-family") and self.styledict.has_key(styles["__style-family"]):
+            if "__style-family" in styles and styles["__style-family"] in self.styledict:
                 familystyle = self.styledict[styles["__style-family"]].copy()
                 del styles["__style-family"]
                 for style, val in styles.items():
                     familystyle[style] = val
                 styles = familystyle
             # Resolve the remaining parent styles
-            while styles.has_key("__parent-style-name") and self.styledict.has_key(styles["__parent-style-name"]):
+            while "__parent-style-name" in styles and styles["__parent-style-name"] in self.styledict:
                 parentstyle = self.styledict[styles["__parent-style-name"]].copy()
                 del styles["__parent-style-name"]
                 for style, val in styles.items():
@@ -928,7 +923,7 @@ ol, ul { padding-left: 2em; }
         css_styles = {}
         for name in self.stylestack:
             styles = self.styledict.get(name)
-            css2 = tuple(self.cs.convert_styles(styles).iteritems())
+            css2 = tuple(self.cs.convert_styles(styles).items())
             if css2 in css_styles:
                 css_styles[css2].append(name)
             else:
@@ -948,7 +943,7 @@ ol, ul { padding-left: 2em; }
                 if k not in ignore:
                     yield k, v
 
-        for css2, names in css_styles.iteritems():
+        for css2, names in css_styles.items():
             self.writeout("%s {\n" % ", ".join(names))
             for style, val in filter_margins(css2):
                 self.writeout("\t%s: %s;\n" % (style, val))
@@ -1135,7 +1130,7 @@ ol, ul { padding-left: 2em; }
         pagelayout = attrs.get((STYLENS, "page-layout-name"), None)
         if pagelayout:
             pagelayout = ".PL-" + pagelayout
-            if self.styledict.has_key(pagelayout):
+            if pagelayout in self.styledict:
                 styles = self.styledict[pagelayout]
                 for style, val in styles.items():
                     self.styledict[self.currentstyle][style] = val
@@ -1173,7 +1168,7 @@ ol, ul { padding-left: 2em; }
         parent = attrs.get((STYLENS, "parent-style-name"))
         self.currentstyle = special_styles.get(name, "." + name)
         self.stylestack.append(self.currentstyle)
-        if not self.styledict.has_key(self.currentstyle):
+        if self.currentstyle not in self.styledict:
             self.styledict[self.currentstyle] = {}
 
         self.styledict[self.currentstyle]["__style-family"] = htmlfamily
@@ -1182,7 +1177,7 @@ ol, ul { padding-left: 2em; }
         if parent:
             parent = "%s-%s" % (sfamily, parent)
             parent = special_styles.get(parent, "." + parent)
-            if self.styledict.has_key(parent):
+            if parent in self.styledict:
                 styles = self.styledict[parent]
                 for style, val in styles.items():
                     self.styledict[self.currentstyle][style] = val
@@ -1240,7 +1235,7 @@ ol, ul { padding-left: 2em; }
         htmlattrs = {}
         if c:
             htmlattrs["class"] = "TC-%s" % c.replace(".", "_")
-        for x in xrange(repeated):
+        for x in range(repeated):
             self.emptytag("col", htmlattrs)
         self.purgedata()
 
@@ -1473,7 +1468,7 @@ ol, ul { padding-left: 2em; }
         #        self.writeout( escape(mark) )
         # Since HTML only knows about endnotes, there is too much risk that the
         # marker is reused in the source. Therefore we force numeric markers
-        self.writeout(unicode(self.currentnote))
+        self.writeout(str(self.currentnote))
         self.closetag("sup")
         self.closetag("a")
 
@@ -1589,7 +1584,7 @@ ol, ul { padding-left: 2em; }
         """
         self.lines = []
         self._wfunc = self._wlines
-        if isinstance(odffile, basestring) or hasattr(odffile, "read"):  # Added by Kovid
+        if isinstance(odffile, (str, bytes, os.PathLike)) or hasattr(odffile, "read"):  # Added by Kovid
             self.document = load(odffile)
         else:
             self.document = odffile
@@ -1602,7 +1597,7 @@ ol, ul { padding-left: 2em; }
                 self._walknode(c)
             self.endElementNS(node.qname, node.tagName)
         if node.nodeType == Node.TEXT_NODE or node.nodeType == Node.CDATA_SECTION_NODE:
-            self.characters(unicode(node))
+            self.characters(str(node))
 
     def odf2xhtml(self, odffile):
         """Load a file and return the XHTML"""

@@ -46,7 +46,7 @@ from LiuXin_alpha.utils.config import OptionParser
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatbility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -268,7 +268,7 @@ class LrsParser(object):
                         "evenfooterid",
                         "oddfooterid",
                     ):
-                        if tag.has_key(a):
+                        if (a in tag):
                             settings[a.replace("id", "")] = self.parsed_objects[tag.get(a)]
                 settings.pop("autoindex", "")
                 self.parsed_objects[object_id] = map[tag.name][0](**settings)

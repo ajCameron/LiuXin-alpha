@@ -9,14 +9,14 @@ Extensions
 class Extension(object):
     """Base class for extensions to subclass."""
 
-    def __init__(self, configs={}):
+    def __init__(self, configs=None):
         """Create an instance of an Extention.
 
         Keyword arguments:
 
         * configs: A dict of configuration setting used by an Extension.
         """
-        self.config = configs
+        self.config = configs or {}
 
     def getConfig(self, key, default=""):
         """Return a setting for the given key or an empty string."""

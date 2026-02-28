@@ -53,5 +53,5 @@ class ExtraExtension(Extension):
             md.preprocessors["html_block"].markdown_in_raw = True
 
 
-def makeExtension(configs={}):
-    return ExtraExtension(configs=dict(configs))
+def makeExtension(configs=None):
+    return ExtraExtension(configs=dict(configs or {}))

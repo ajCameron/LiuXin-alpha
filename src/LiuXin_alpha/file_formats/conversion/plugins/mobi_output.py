@@ -302,8 +302,11 @@ class MOBIOutput(OutputFormatPlugin):
                 position="start" if opts.mobi_toc_at_start else "end",
             )
             tocadder(oeb, opts)
-        mangler = CaseMangler()
-        mangler(oeb, opts)
+        try:
+            mangler = CaseMangler()
+            mangler(oeb, opts)
+        except ModuleNotFoundError:
+            self.log.warn("cssutils unavailable, skipping case-mangling transform")
         try:
             rasterizer = SVGRasterizer()
             rasterizer(oeb, opts)

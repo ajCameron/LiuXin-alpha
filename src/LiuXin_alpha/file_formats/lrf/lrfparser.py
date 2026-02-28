@@ -19,11 +19,11 @@ from LiuXin_alpha.file_formats.lrf.objects import (
 
 from LiuXin_alpha.utils.calibre import setup_cli_handlers
 from LiuXin_alpha.utils.config.config_tools import OptionParser
-from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -70,7 +70,7 @@ class LRFDocument(LRFMetaFile):
         self.objects = {}
         self._file.seek(self.object_index_offset)
         obj_array = array.array("I", self._file.read(4 * 4 * self.number_of_objects))
-        if ord(array.array("i", [1]).tostring()[0]) == 0:  # big-endian
+        if sys.byteorder == "big":
             obj_array.byteswap()
         for i in range(self.number_of_objects):
             if not self.keep_parsing:
@@ -102,7 +102,7 @@ class LRFDocument(LRFMetaFile):
             yield pt
 
     def write_files(self):
-        for obj in self.image_map.values() + self.font_map.values():
+        for obj in list(self.image_map.values()) + list(self.font_map.values()):
             with open(obj.file, "wb") as obj_file:
                 obj_file.write(obj.stream)
 

@@ -8,6 +8,7 @@ import sys
 
 from LiuXin_alpha.customize.conversion import OptionRecommendation
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin
+from LiuXin_alpha.file_formats import ConversionError
 
 from LiuXin_alpha.utils.localization import trans as _
 
@@ -19,12 +20,31 @@ __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
+def _coerce_text(value):
+    if value is None:
+        return ""
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        value = bytes(value).decode("utf-8", "replace")
+    else:
+        try:
+            value = six_unicode(value)
+        except Exception:
+            value = repr(value)
+    try:
+        value = value.encode("utf-8", "replace").decode("utf-8", "replace")
+    except Exception:
+        pass
+    return value
+
+
 class LRFOptions(object):
     def __init__(self, output, opts, oeb):
         def f2s(f):
+            if f is None:
+                return ""
             try:
-                return six_unicode(f[0])
-            except:
+                return _coerce_text(f[0])
+            except Exception:
                 return ""
 
         m = oeb.metadata
@@ -36,17 +56,21 @@ class LRFOptions(object):
         self.title = None
         self.author = self.publisher = _("Unknown")
         self.title_sort = self.author_sort = ""
-        for x in m.creator:
-            if x.role == "aut":
-                self.author = six_unicode(x)
-                fa = six_unicode(getattr(x, "file_as", ""))
+        for x in getattr(m, "creator", ()):
+            if getattr(x, "role", None) == "aut":
+                self.author = _coerce_text(x)
+                fa = _coerce_text(getattr(x, "file_as", ""))
                 if fa:
                     self.author_sort = fa
-        for x in m.title:
-            if six_unicode(x.file_as):
-                self.title_sort = six_unicode(x.file_as)
-        self.freetext = f2s(m.description)
-        self.category = f2s(m.subject)
+        for x in getattr(m, "title", ()):
+            self.title = _coerce_text(getattr(x, "value", x))
+            break
+        for x in getattr(m, "title", ()):
+            tfa = _coerce_text(getattr(x, "file_as", ""))
+            if tfa:
+                self.title_sort = tfa
+        self.freetext = f2s(getattr(m, "description", None))
+        self.category = f2s(getattr(m, "subject", None))
         self.cover = None
         self.use_metadata_cover = True
         self.output = output
@@ -222,14 +246,16 @@ class LRFOutput(OutputFormatPlugin):
             )
             book.append(_page)
 
-        book.renderLrf(open(opts.output, "wb"))
+        with open(opts.output, "wb") as out:
+            book.renderLrf(out)
 
     def flatten_toc(self):
         from LiuXin_alpha.file_formats.oeb.base import TOC
 
         nroot = TOC()
-        for x in self.oeb.toc.iterdescendants():
-            nroot.add(x.title, x.href)
+        if hasattr(self.oeb, "toc") and hasattr(self.oeb.toc, "iterdescendants"):
+            for x in self.oeb.toc.iterdescendants():
+                nroot.add(_coerce_text(getattr(x, "title", "")), _coerce_text(getattr(x, "href", "")))
         self.oeb.toc = nroot
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
@@ -250,8 +276,13 @@ class LRFOutput(OutputFormatPlugin):
             from LiuXin_alpha.customize.ui import plugin_for_output_format
 
             oeb_output = plugin_for_output_format("oeb")
+            if oeb_output is None:
+                raise ConversionError("Unable to find OEB output plugin required for LRF conversion")
             oeb_output.convert(oeb_book, tdir, input_plugin, opts, log)
-            opf = [x for x in os.listdir(tdir) if x.endswith(".opf")][0]
+            opf_files = [x for x in os.listdir(tdir) if x.endswith(".opf")]
+            if not opf_files:
+                raise ConversionError("OEB output did not produce an OPF manifest for LRF conversion")
+            opf = opf_files[0]
 
             from LiuXin_alpha.file_formats.lrf.html.convert_from import process_file
 

@@ -11,8 +11,8 @@ import os
 from LiuXin_alpha.file_formats.lrf.pylrs.pylrfopt import tagListOptimizer
 
 # Py2/Py3 compatibility
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
 
 PYLRF_VERSION = "1.0"
 
@@ -110,11 +110,14 @@ def writeQWord(f, qword):
 
 
 def writeZeros(f, nZeros):
-    f.write("\x00" * nZeros)
+    f.write(b"\x00" * nZeros)
 
 
 def writeString(f, str):
-    f.write(str)
+    if isinstance(str, (bytes, bytearray, memoryview)):
+        f.write(bytes(str))
+    else:
+        f.write(str.encode("latin-1", "replace"))
 
 
 def writeIdList(f, idList):
@@ -132,8 +135,10 @@ def writeLineWidth(f, width):
 
 
 def writeUnicode(f, string, encoding):
-    if isinstance(string, str):
-        string = string.decode(encoding)
+    if isinstance(string, (bytes, bytearray, memoryview)):
+        string = bytes(string).decode(encoding, "replace")
+    elif not isinstance(string, str):
+        string = str(string)
     string = string.encode("utf-16-le")
     length = len(string)
     if length > 65535:
@@ -143,8 +148,10 @@ def writeUnicode(f, string, encoding):
 
 
 def writeRaw(f, string, encoding):
-    if isinstance(string, str):
-        string = string.decode(encoding)
+    if isinstance(string, (bytes, bytearray, memoryview)):
+        string = bytes(string).decode(encoding, "replace")
+    elif not isinstance(string, str):
+        string = str(string)
 
     string = string.encode("utf-16-le")
     writeString(f, string)
@@ -657,7 +664,7 @@ class LrfWriter(object):
         self.tocObjId = 0
         self.docInfoXml = ""
         self.thumbnailEncoding = "JPEG"
-        self.thumbnailData = ""
+        self.thumbnailData = b""
         self.objects = []
         self.objectTable = []
 
@@ -665,8 +672,10 @@ class LrfWriter(object):
         return self.sourceEncoding
 
     def toUnicode(self, string):
-        if type(string) is str:
-            string = string.decode(self.sourceEncoding)
+        if isinstance(string, (bytes, bytearray, memoryview)):
+            string = bytes(string).decode(self.sourceEncoding, "replace")
+        elif not isinstance(string, str):
+            string = str(string)
 
         return string
 

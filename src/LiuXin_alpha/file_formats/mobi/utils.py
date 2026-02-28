@@ -6,12 +6,13 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 import string
 import struct
+import tempfile
 import zlib
-import imghdr
 from collections import OrderedDict
 from io import BytesIO
 
 from LiuXin_alpha.file_formats import normalize
+from LiuXin_alpha.utils.image_tools.imghdr import what
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
@@ -21,10 +22,10 @@ try:
 except (ImportError, RuntimeError) as e:
     wrn_str = (
         "Unable to import from Magick.\n"
-        "from LiuXin.utils.magick.draw import Image, save_cover_data_to, thumbnail\n"
+        "from LiuXin_alpha.utils.wrappers.magick.draw import Image, save_cover_data_to, thumbnail\n"
         "falling back.\n"
     )
-    default_log.warn(wrn_str)
+    default_log.warning(wrn_str)
     try:
         from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
     except Exception:
@@ -109,11 +110,13 @@ RECORD_SIZE = 0x1000  # 4096 (Text record size (uncompressed))
 
 
 def decode_string(raw, codec="utf-8", ordt_map=""):
-    (length,) = struct.unpack(b">B", raw[0])
+    if not raw:
+        return "", 0
+    length = raw[0] if isinstance(raw[0], int) else struct.unpack(">B", raw[0:1])[0]
     raw = raw[1 : 1 + length]
     consumed = length + 1
     if ordt_map:
-        return "".join(ordt_map[ord(x)] for x in raw), consumed
+        return "".join(ordt_map[x] for x in raw), consumed
     return raw.decode(codec), consumed
 
 
@@ -133,6 +136,8 @@ def decode_hex_number(raw, codec="utf-8"):
 
 
 def encode_string(raw):
+    if isinstance(raw, str):
+        raw = raw.encode("utf-8")
     ans = bytearray(bytes(raw))
     ans.insert(0, len(ans))
     return bytes(ans)
@@ -148,7 +153,7 @@ def encode_number_as_hex(num):
     :param num:
     :return:
     """
-    num = bytes(hex(num)[2:].upper())
+    num = hex(num)[2:].upper().encode("ascii")
     nlen = len(num)
     if nlen % 2 != 0:
         num = b"0" + num
@@ -257,7 +262,17 @@ def rescale_image(data, maxsizeb=IMAGE_MAX_SIZE, dimen=None):
         data = thumbnail(data, width=width, height=height, compression_quality=90)[-1]
     else:
         # Replace transparent pixels with white pixels and convert to JPEG
-        data = save_cover_data_to(data, "img.jpg", return_data=True)
+        temp_cover_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_cover_file:
+                temp_cover_path = temp_cover_file.name
+            data = save_cover_data_to(data, temp_cover_path, return_data=True)
+        finally:
+            if temp_cover_path and os.path.exists(temp_cover_path):
+                try:
+                    os.remove(temp_cover_path)
+                except OSError:
+                    pass
     if len(data) <= maxsizeb:
         return data
     orig_data = data
@@ -310,7 +325,7 @@ def get_trailing_data(record, extra_data_flags):
     if extra_data_flags & 0b1:
         # Only the first two bits are used for the size since there can
         # never be more than 3 trailing multibyte chars
-        sz = (ord(record[-1]) & 0b11) + 1
+        sz = (record[-1] & 0b11) + 1
         consumed = 1
         if sz > consumed:
             data[0] = record[-sz:-consumed]
@@ -398,7 +413,7 @@ def decode_tbs(byts, flag_size=4):
         extra[0b0010] = x
         consumed += consumed2
     if flags & 0b0100:
-        extra[0b0100] = ord(byts[0])
+        extra[0b0100] = byts[0]
         byts = byts[1:]
         consumed += 1
     if flags & 0b0001:
@@ -439,9 +454,9 @@ def utf8_text(text):
     """
     if text and text.strip():
         text = text.strip()
-        if not isinstance(text, unicode):
+        if not isinstance(text, str):
             text = text.decode("utf-8", "replace")
-        text = normalize(text).encode("utf-8")
+        text = normalize(text).encode("utf-8", "replace")
     else:
         text = _("Unknown").encode("utf-8")
     return text
@@ -530,7 +545,7 @@ def mobify_image(data):
     :param data:
     :return:
     """
-    fmt = imghdr.what(None, data)
+    fmt = what(None, data)
 
     if fmt == "png":
         im = Image()

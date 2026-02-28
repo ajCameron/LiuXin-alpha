@@ -18,9 +18,9 @@ from LiuXin_alpha.file_formats.mobi.reader.index import (
 from LiuXin_alpha.file_formats.mobi.reader.ncx import tag_fieldname_map, default_entry
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 
 __license__ = "GPL v3"

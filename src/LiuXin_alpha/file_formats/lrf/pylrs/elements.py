@@ -1,8 +1,8 @@
 """ elements.py -- replacements and helpers for ElementTree """
 
 # Py2/Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 class ElementWriter(object):
@@ -21,8 +21,10 @@ class ElementWriter(object):
         self.outputEncodingName = outputEncodingName
 
     def _encodeCdata(self, rawText):
-        if type(rawText) is str:
-            rawText = rawText.decode(self.sourceEncoding)
+        if isinstance(rawText, (bytes, bytearray, memoryview)):
+            rawText = bytes(rawText).decode(self.sourceEncoding, "replace")
+        elif not isinstance(rawText, str):
+            rawText = six_unicode(rawText)
 
         text = rawText.replace("&", "&amp;")
         text = text.replace("<", "&lt;")
@@ -45,8 +47,7 @@ class ElementWriter(object):
     def _write(self, f, e):
         f.write("<" + six_unicode(e.tag))
 
-        attributes = e.items()
-        attributes.sort()
+        attributes = sorted(e.items())
         for name, value in attributes:
             self._writeAttribute(f, name, value)
 

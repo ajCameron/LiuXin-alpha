@@ -4,12 +4,13 @@ COMMAND-LINE SPECIFIC STUFF
 
 """
 
-import markdown
 import sys
 import optparse
 
 import logging
 from logging import DEBUG, INFO, CRITICAL
+
+from . import markdownFromFile, version
 
 logger = logging.getLogger("MARKDOWN")
 
@@ -21,7 +22,7 @@ def parse_options():
     usage = """%prog [options] [INPUTFILE]
        (STDIN is assumed if no INPUTFILE is given)"""
     desc = "A Python implementation of John Gruber's Markdown. " "http://packages.python.org/Markdown/"
-    ver = "%%prog %s" % markdown.version
+    ver = "%%prog %s" % version
 
     parser = optparse.OptionParser(usage=usage, description=desc, version=ver)
     parser.add_option(
@@ -127,7 +128,7 @@ def run():
     logger.addHandler(logging.StreamHandler())
 
     # Run
-    markdown.markdownFromFile(**options)
+    markdownFromFile(**options)
 
 
 if __name__ == "__main__":

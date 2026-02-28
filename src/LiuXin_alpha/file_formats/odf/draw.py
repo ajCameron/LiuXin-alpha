@@ -45,7 +45,7 @@ def StyleRefElement(stylename=None, classnames=None, **args):
 
 def DrawElement(name=None, **args):
     e = Element(name=name, **args)
-    if not args.has_key("displayname"):
+    if "displayname" not in args:
         e.setAttrNS(DRAWNS, "display-name", name)
     return e
 

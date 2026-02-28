@@ -156,10 +156,10 @@ class FootnoteExtension(Extension):
             )
             backlink.text = FN_BACKLINK_TEXT
 
-            if li.getchildren():
+            if len(li):
                 node = li[-1]
                 if node.tag == "p":
-                    node.text = node.text + NBSP_PLACEHOLDER
+                    node.text = (node.text or "") + NBSP_PLACEHOLDER
                     node.append(backlink)
                 else:
                     p = etree.SubElement(li, "p")
@@ -290,11 +290,11 @@ class FootnoteTreeprocessor(Treeprocessor):
 
     def run(self, root):
         footnotesDiv = self.footnotes.makeFootnotesDiv(root)
-        if footnotesDiv:
+        if footnotesDiv is not None:
             result = self.footnotes.findFootnotesPlaceholder(root)
             if result:
                 child, parent, isText = result
-                ind = parent.getchildren().index(child)
+                ind = list(parent).index(child)
                 if isText:
                     parent.remove(child)
                     parent.insert(ind, footnotesDiv)
@@ -316,6 +316,6 @@ class FootnotePostprocessor(Postprocessor):
         return text.replace(NBSP_PLACEHOLDER, "&#160;")
 
 
-def makeExtension(configs=[]):
+def makeExtension(configs=None):
     """Return an instance of the FootnoteExtension"""
-    return FootnoteExtension(configs=configs)
+    return FootnoteExtension(configs=configs or [])

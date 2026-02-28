@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 
-from LiuXin_alpha.exceptions import ConversionError
+from LiuXin_alpha.file_formats import ConversionError
 
 from LiuXin_alpha.file_formats.lrf.meta import get_metadata
 from LiuXin_alpha.file_formats.lrf.lrfparser import LRFDocument

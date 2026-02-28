@@ -107,7 +107,7 @@ class HTMLOutput(OutputFormatPlugin):
         :return:
         """
         from LiuXin_alpha.file_formats.html.meta import EasyMeta
-        from LiuXin_alpha.utils import calibre_zipfile
+        from LiuXin_alpha.utils.libraries import calibre_zipfile
 
         # read template files
         if opts.template_html_index is not None:

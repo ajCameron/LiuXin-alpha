@@ -92,8 +92,8 @@ IDCOUNT_RE = re.compile(r"^(.*)_([0-9]+)$")
 def slugify(value, separator):
     """Slugify a string, to make it URL friendly."""
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore")
-    value = re.sub("[^\w\s-]", "", value.decode("ascii")).strip().lower()
-    return re.sub("[%s\s]+" % separator, separator, value)
+    value = re.sub(r"[^\w\s-]", "", value.decode("ascii")).strip().lower()
+    return re.sub(r"[%s\s]+" % separator, separator, value)
 
 
 def unique(id, ids):
@@ -132,7 +132,7 @@ class HeaderIdTreeprocessor(Treeprocessor):
         start_level, force_id = self._get_meta()
         slugify = self.config["slugify"]
         sep = self.config["separator"]
-        for elem in doc.getiterator():
+        for elem in doc.iter():
             if elem.tag in ["h1", "h2", "h3", "h4", "h5", "h6"]:
                 if force_id:
                     if "id" in elem.attrib:

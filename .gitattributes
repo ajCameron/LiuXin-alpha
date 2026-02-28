@@ -1,0 +1,32 @@
+# Default: normalize text files in Git.
+* text=auto
+
+# Keep source and config files consistently LF across Windows/WSL.
+*.py text eol=lf
+*.pyi text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.sql text eol=lf
+*.sh text eol=lf
+
+# Windows-native scripts.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.sqlite binary
+*.db binary

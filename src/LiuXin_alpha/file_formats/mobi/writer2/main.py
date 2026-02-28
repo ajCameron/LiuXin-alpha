@@ -5,6 +5,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import random
 import time
+from io import BytesIO
 from struct import pack
 
 from LiuXin_alpha.file_formats import normalize
@@ -22,13 +23,12 @@ from LiuXin_alpha.file_formats.mobi.utils import (
     create_text_record,
 )
 
-from LiuXin_alpha.utils.filenames import ascii_filename
+from LiuXin_alpha.utils.storage.local.filenames import ascii_filename
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -148,7 +148,7 @@ class MobiWriter(object):
             pbreak = 0
             running = offset
 
-            buf = six_cStringIO()
+            buf = BytesIO()
 
             while breaks and (breaks[0] - offset) < RECORD_SIZE:
                 pbreak = (breaks.pop(0) - running) >> 3
@@ -185,7 +185,7 @@ class MobiWriter(object):
         )
         text = self.serializer()
         self.text_length = len(text)
-        text = six_cStringIO(text)
+        text = BytesIO(text)
         nrecords = 0
         records_size = 0
 
@@ -254,7 +254,7 @@ class MobiWriter(object):
         # EOF record
         self.records.append(b"\xE9\x8E\x0D\x0A")
 
-        record0 = six_cStringIO()
+        record0 = BytesIO()
         # The MOBI Header
         record0.write(
             pack(
@@ -269,7 +269,7 @@ class MobiWriter(object):
             )
         )  # 0 - 15 (0x0 - 0xf)
         uid = random.randint(0, 0xFFFFFFFF)
-        title = normalize(six_unicode(metadata.title[0])).encode("utf-8")
+        title = normalize(six_unicode(metadata.title[0])).encode("utf-8", "replace")
 
         # 0x0 - 0x3
         record0.write(b"MOBI")
@@ -497,6 +497,8 @@ class MobiWriter(object):
         Write the PalmDB header
         """
         title = ascii_filename(six_unicode(self.oeb.metadata.title[0])).replace(" ", "_")[:31]
+        if isinstance(title, str):
+            title = title.encode("utf-8", "replace")
         title += b"\0" * (32 - len(title))
         now = int(time.time())
         nrecords = len(self.records)

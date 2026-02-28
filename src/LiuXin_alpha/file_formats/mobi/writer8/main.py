@@ -9,8 +9,14 @@ from functools import partial
 from io import BytesIO
 from struct import pack
 
-import cssutils
-from cssutils.css import CSSRule
+try:
+    import cssutils
+    from cssutils.css import CSSRule
+except Exception:
+    cssutils = None
+
+    class CSSRule:
+        IMPORT_RULE = object()
 from lxml import etree
 
 from LiuXin_alpha.file_formats.compression.palmdoc import compress_doc
@@ -46,8 +52,8 @@ from LiuXin_alpha.utils.calibre import isbytestring, force_unicode
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 __license__ = "GPL v3"
@@ -63,6 +69,8 @@ to_ref = partial(to_base, base=32, min_num_digits=4)
 
 class KF8Writer(object):
     def __init__(self, oeb, opts, resources):
+        if cssutils is None:
+            raise RuntimeError("cssutils is required for MOBI/KF8 generation")
         self.oeb, self.opts, self.log = oeb, opts, oeb.log
         self.compress = not self.opts.dont_compress
         self.has_tbs = False
@@ -329,7 +337,7 @@ class KF8Writer(object):
         self.flows[0] = chunker.text
 
     def create_text_records(self):
-        self.flows = [x.encode("utf-8") if isinstance(x, unicode) else x for x in self.flows]
+        self.flows = [x.encode("utf-8") if isinstance(x, str) else x for x in self.flows]
         text = b"".join(self.flows)
         self.text_length = len(text)
         text = BytesIO(text)

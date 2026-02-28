@@ -3,18 +3,21 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
+import logging
 import struct
 from collections import OrderedDict, namedtuple
 
 from LiuXin_alpha.file_formats.mobi.utils import decint, count_set_bits, decode_string
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
+
+logger = logging.getLogger(__name__)
 
 TagX = namedtuple("TagX", "tag num_of_values bitmask eof")
 PTagX = namedtuple("PTagX", "tag value_count value_bytes num_of_values")
@@ -66,7 +69,7 @@ def parse_indx_header(data):
     check_signature(data, b"INDX")
     words = INDEX_HEADER_FIELDS
     num = len(words)
-    values = struct.unpack(bytes(">%dL" % num), data[4 : 4 * (num + 1)])
+    values = struct.unpack(">%dL" % num, data[4 : 4 * (num + 1)])
     ans = dict(zip(words, values))
     ordt1, ordt2 = ans["ordt1"], ans["ordt2"]
     ans["ordt1_raw"], ans["ordt2_raw"] = [], []
@@ -91,7 +94,7 @@ def parse_indx_header(data):
 
             parsed = bytearray(ans["oentries"])
             for i in memory_range(0, 2 * ans["oentries"], 2):
-                parsed[i // 2] = raw[i + 1] if 0x20 < raw[i + 1] < 0x7F else ord(b"?")
+                parsed[i // 2] = raw[i + 1] if 0x20 < raw[i + 1] < 0x7F else 0x3F
             ans["ordt_map"] = bytes(parsed).decode("ascii")
         else:
             ans["ordt_map"] = "?" * ans["oentries"]
@@ -120,7 +123,7 @@ class CNCX(object):  # {{{
                     except:
                         byts = raw[pos:]
                         r = format_bytes(byts)
-                        print("CNCX entry at offset %d has unknown format %s" % (pos + record_offset, r))
+                        logger.warning("CNCX entry at offset %d has unknown format %s", pos + record_offset, r)
                         self.records[pos + record_offset] = r
                         pos = len(raw)
                 pos += consumed + length
@@ -215,7 +218,7 @@ def get_tag_map(control_byte_count, tagx, data, strict=False):
                 if strict:
                     raise ValueError(err)
                 else:
-                    print(err)
+                    logger.warning("%s", err)
         ans[x.tag] = values
     # Test that all bytes have been processed
     if data.replace(b"\0", b""):
@@ -223,7 +226,7 @@ def get_tag_map(control_byte_count, tagx, data, strict=False):
         if strict:
             raise ValueError(err)
         else:
-            print(err)
+            logger.warning("%s", err)
 
     return ans
 
@@ -232,7 +235,7 @@ def parse_index_record(table, data, control_byte_count, tags, codec, ordt_map, s
     header = parse_indx_header(data)
     idxt_pos = header["start"]
     if data[idxt_pos : idxt_pos + 4] != b"IDXT":
-        print("WARNING: Invalid INDX record")
+        logger.warning("Invalid INDX record")
     entry_count = header["count"]
 
     # loop through to build up the IDXT position starts

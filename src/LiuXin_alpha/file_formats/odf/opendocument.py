@@ -22,6 +22,7 @@ import zipfile
 import time
 import sys
 import mimetypes
+from io import BytesIO
 
 from xml.sax.xmlreader import InputSource
 
@@ -34,7 +35,7 @@ from LiuXin_alpha.file_formats.odf.attrconverters import make_NCName
 from LiuXin_alpha.file_formats.odf.odfmanifest import manifestlist
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO as StringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO as StringIO
 
 __doc__ = """Use OpenDocument to generate your documents."""
 __version__ = TOOLSVERSION
@@ -135,13 +136,13 @@ class OpenDocument:
 
     def build_caches(self, element):
         """Called from element.py"""
-        if not self.element_dict.has_key(element.qname):
+        if element.qname not in self.element_dict:
             self.element_dict[element.qname] = []
         self.element_dict[element.qname].append(element)
         if element.qname == (STYLENS, "style"):
             self.__register_stylename(element)  # Add to style dictionary
         styleref = element.getAttrNS(TEXTNS, "style-name")
-        if styleref is not None and self._styles_ooo_fix.has_key(styleref):
+        if styleref is not None and styleref in self._styles_ooo_fix:
             element.setAttrNS(TEXTNS, "style-name", self._styles_ooo_fix[styleref])
 
     def __register_stylename(self, element):
@@ -153,7 +154,7 @@ class OpenDocument:
         if name is None:
             return
         if element.parentNode.qname in ((OFFICENS, "styles"), (OFFICENS, "automatic-styles")):
-            if self._styles_dict.has_key(name):
+            if name in self._styles_dict:
                 newname = "M" + name  # Rename style
                 self._styles_ooo_fix[name] = newname
                 # From here on all references to the old name will refer to the new one
@@ -619,7 +620,7 @@ def __loadxmlparts(z, manifest, doc, objectpath):
         objectpath + "content.xml",
         objectpath + "styles.xml",
     ):
-        if not manifest.has_key(xmlfile):
+        if xmlfile not in manifest:
             continue
         try:
             xmlpart = z.read(xmlfile)
@@ -631,7 +632,7 @@ def __loadxmlparts(z, manifest, doc, objectpath):
             parser.setErrorHandler(handler.ErrorHandler())
 
             inpsrc = InputSource()
-            inpsrc.setByteStream(StringIO(xmlpart))
+            inpsrc.setByteStream(BytesIO(xmlpart))
             parser.setFeature(handler.feature_external_ges, False)  # Changed by Kovid to ignore external DTDs
             parser.parse(inpsrc)
             del doc._parsing

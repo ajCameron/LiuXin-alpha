@@ -74,13 +74,10 @@ from LiuXin_alpha.utils.calibre import entity_to_unicode
 from LiuXin_alpha.utils.date import isoformat
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
-try:
-    from past.builtins import basestring
-except ModuleNotFoundError:
-    basestring = str
+basestring = six_string_types
 
 
 DEFAULT_SOURCE_ENCODING = "cp1252"  # defualt is us-windows character set
@@ -106,7 +103,7 @@ def _formatXml(root):
     :param root:
     :return:
     """
-    for elem in root.getiterator():
+    for elem in root.iter():
         if len(elem) > 0 and (not elem.text or not elem.text.strip()):
             elem.text = "\n"
         if not elem.tail or not elem.tail.strip():
@@ -468,6 +465,10 @@ class Book(Delegator):
 
         self.parent = None  # we are the top of the parent chain
 
+        # LRF object IDs are per-book. Reset the global counter here so
+        # repeated conversions in the same process remain deterministic.
+        LrsObject.nextObjId = 0
+
         if "thumbnail" in settings:
             _checkExists(settings["thumbnail"])
 
@@ -494,7 +495,7 @@ class Book(Delegator):
         LrsObject.nextObjId += 1
 
         styledefault = StyleDefault()
-        if settings.has_key("setdefault"):
+        if ("setdefault" in settings):
             styledefault = settings.pop("setdefault")
         Delegator.__init__(
             self,
@@ -659,12 +660,12 @@ class Book(Delegator):
 
         text_blocks = list(main.get_all(lambda x: isinstance(x, TextBlock)))
         for tb in text_blocks:
-            if tb.textSettings.has_key("fontsize"):
+            if ("fontsize" in tb.textSettings):
                 tb.textSettings["fontsize"] = rescale(tb.textSettings["fontsize"])
             for span in tb.get_all(lambda x: isinstance(x, Span)):
-                if span.attrs.has_key("fontsize"):
+                if ("fontsize" in span.attrs):
                     span.attrs["fontsize"] = rescale(span.attrs["fontsize"])
-                if span.attrs.has_key("baselineskip"):
+                if ("baselineskip" in span.attrs):
                     span.attrs["baselineskip"] = rescale(span.attrs["baselineskip"])
 
         text_styles = set(tb.textStyle for tb in text_blocks)

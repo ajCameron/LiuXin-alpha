@@ -5,8 +5,8 @@ __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
 Microsoft LIT OPF tag and attribute tables, copied from ConvertLIT.
 """
 
-# Py2/Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+# Py2/Py3 compatibility layer
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 TAGS = [
     None,

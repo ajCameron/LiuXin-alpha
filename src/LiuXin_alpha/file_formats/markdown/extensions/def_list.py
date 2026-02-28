@@ -111,5 +111,5 @@ class DefListExtension(Extension):
         md.parser.blockprocessors.add("deflist", DefListProcessor(md.parser), ">ulist")
 
 
-def makeExtension(configs={}):
+def makeExtension(configs=None):
     return DefListExtension(configs=configs)

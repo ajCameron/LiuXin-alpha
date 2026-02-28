@@ -44,7 +44,7 @@ class LITInput(InputFormatPlugin):
                 if len(body) == 1 and body[0].tag == XHTML("pre"):
                     pre = body[0]
                     import copy
-                    from lxml import etree
+                    from LiuXin_alpha.utils.libraries.liuxin_etree import etree
                     from LiuXin_alpha.file_formats.txt.processor import (
                         convert_basic,
                         separate_paragraphs_single_line,

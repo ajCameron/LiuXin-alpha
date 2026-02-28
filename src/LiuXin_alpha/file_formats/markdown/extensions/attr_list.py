@@ -91,7 +91,7 @@ class AttrListTreeprocessor(Treeprocessor):
     )
 
     def run(self, doc):
-        for elem in doc.getiterator():
+        for elem in doc.iter():
             if isBlockLevel(elem.tag):
                 # Block level: check for attrs on last line of text
                 RE = self.BLOCK_RE
@@ -151,5 +151,5 @@ class AttrListExtension(Extension):
         md.treeprocessors.add("attr_list", AttrListTreeprocessor(md), ">prettify")
 
 
-def makeExtension(configs={}):
+def makeExtension(configs=None):
     return AttrListExtension(configs=configs)

@@ -28,7 +28,7 @@ from LiuXin_alpha.file_formats.odf.namespaces import nsdict
 from LiuXin_alpha.file_formats.odf import grammar
 from LiuXin_alpha.file_formats.odf.attrconverters import AttrConverters
 
-from LiuXin_alpha.utils.calibre_utils.calibre_polyglot.builtins import unicode_type
+from LiuXin_alpha.utils.libraries.calibre_polyglot.builtins import unicode_type
 
 # The following code is pasted form xml.sax.saxutils
 # Tt makes it possible to run the code without the xml sax package installed
@@ -261,7 +261,7 @@ class Text(Childless, Node):
     def toXml(self, level, f):
         """Write XML in UTF-8"""
         if self.data:
-            f.write(_escape(str(self.data).encode("utf-8")))
+            f.write(_escape(str(self.data)))
 
 
 class CDATASection(Text, Childless):
@@ -483,7 +483,7 @@ class Element(Node):
                 " "
                 + _escape(unicode_type(prefix + ":" + qname[1]))
                 + "="
-                + _quoteattr(str(self.attributes[qname]).encode("utf-8"))
+                + _quoteattr(str(self.attributes[qname]))
             )
         f.write(">")
 
@@ -502,7 +502,7 @@ class Element(Node):
                 " "
                 + _escape(unicode_type(prefix + ":" + qname[1]))
                 + "="
-                + _quoteattr(str(self.attributes[qname]).encode("utf-8"))
+                + _quoteattr(str(self.attributes[qname]))
             )
         if self.childNodes:
             f.write(">")

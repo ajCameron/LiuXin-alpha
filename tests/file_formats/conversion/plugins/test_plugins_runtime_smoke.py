@@ -94,6 +94,37 @@ def test_txt_input_convert_smoke(tmp_path: Path, monkeypatch) -> None:
     assert plugin.html_postprocess_title == "Smoke Title"
 
 
+def test_txt_input_textile_fallback_smoke(tmp_path: Path, monkeypatch) -> None:
+    import LiuXin_alpha.file_formats.conversion.plugins.txt_input as txt_input_mod
+
+    fake_oeb = types.SimpleNamespace(metadata=types.SimpleNamespace())
+    _install_html_pipeline_stubs(monkeypatch, fake_oeb)
+
+    source = tmp_path / "book.textile"
+    source.write_bytes(b"h1. Smoke textile\\n\\nSimple body")
+
+    options = types.SimpleNamespace(
+        input_encoding=None,
+        paragraph_type="off",
+        formatting_type="textile",
+        preserve_spaces=False,
+        txt_in_remove_indents=False,
+        markdown_extensions="",
+        debug_pipeline=None,
+        verbose=0,
+        enable_heuristics=False,
+        dehyphenate=False,
+    )
+    plugin = txt_input_mod.TXTInput(None)
+    log = _Log()
+
+    with source.open("rb") as stream:
+        out = plugin.convert(stream, options, "textile", log, {})
+
+    assert out is fake_oeb
+    assert plugin.html_postprocess_title == "Smoke Title"
+
+
 def test_htmlz_input_convert_smoke(tmp_path: Path, monkeypatch) -> None:
     import LiuXin_alpha.file_formats.conversion.plugins.htmlz_input as htmlz_input_mod
 

@@ -141,7 +141,7 @@ class HTMLRenderer(object):
 
 
 def return_raster_image(path):
-    from imghdr import what
+    from LiuXin_alpha.utils.image_tools.imghdr import what
 
     if os.access(path, os.R_OK):
         with open(path, "rb") as f:

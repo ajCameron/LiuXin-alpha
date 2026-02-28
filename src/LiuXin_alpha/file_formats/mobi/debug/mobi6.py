@@ -21,12 +21,12 @@ from LiuXin_alpha.file_formats.mobi.utils import (
     read_font_record,
 )
 
-from LiuXin_alpha.utils.imghdr import what
+from LiuXin_alpha.utils.image_tools.imghdr import what
 
 # Py2/Py3 compatability
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"

@@ -16,6 +16,7 @@ Changes vs older LiuXin_alpha code:
 
 import optparse
 import os
+import logging
 from copy import deepcopy
 from contextlib import suppress
 
@@ -46,6 +47,8 @@ from LiuXin_alpha.utils.config.config_base import (
 
 # optparse uses gettext.gettext; patch it so translations work.
 optparse._ = _
+
+logger = logging.getLogger(__name__)
 
 if False:  # pragma: no cover
     # Silence linters/pyflakes
@@ -132,8 +135,10 @@ class DynamicConfig(dict):
                 try:
                     d = json_loads(raw)
                 except Exception as err:
-                    print(
-                        f"Failed to de-serialize JSON representation of stored dynamic data for {self.name} with error: {err}"
+                    logger.warning(
+                        "Failed to deserialize dynamic JSON config for %s: %s",
+                        self.name,
+                        err,
                     )
                     d = {}
             else:

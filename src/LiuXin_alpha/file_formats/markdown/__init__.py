@@ -190,7 +190,7 @@ class Markdown(object):
 
         return self
 
-    def build_extension(self, ext_name, configs=[]):
+    def build_extension(self, ext_name, configs=None):
         """Build extension by name, then return the module.
 
         The extension name may contain arguments as part of the string in the
@@ -199,7 +199,7 @@ class Markdown(object):
         """
 
         # Parse extensions config params (ignore the order)
-        configs = dict(configs)
+        configs = dict(configs or [])
         pos = ext_name.find("(")  # find the first "("
         if pos > 0:
             ext_args = ext_name[pos + 1 : -1]
@@ -210,7 +210,7 @@ class Markdown(object):
         # Setup the module name
         module_name = ext_name
         if "." not in ext_name:
-            module_name = ".".join(["calibre.ebooks.markdown.extensions", ext_name])
+            module_name = ".".join(["LiuXin_alpha.file_formats.markdown.extensions", ext_name])
 
         # Try loading the extension first from one place, then another
         try:  # New style (markdown.extensons.<extension>)
@@ -295,15 +295,20 @@ class Markdown(object):
         """
 
         # Fixup the source text
-        if not source.strip():
-            return ""  # a blank unicode string
-
         try:
-            source = util.text_type(source)
+            if source is None:
+                source = ""
+            elif isinstance(source, (bytes, bytearray, memoryview)):
+                source = bytes(source).decode("utf-8", "replace")
+            else:
+                source = util.text_type(source)
         except UnicodeDecodeError as e:
             # Customise error message while maintaining original trackback
             e.reason += ". -- Note: Markdown only accepts unicode input!"
             raise
+
+        if not source.strip():
+            return ""  # a blank unicode string
 
         # Split into lines and run the line preprocessors.
         self.lines = source.split("\n")
@@ -316,7 +321,7 @@ class Markdown(object):
         # Run the tree-processors
         for treeprocessor in self.treeprocessors.values():
             newRoot = treeprocessor.run(root)
-            if newRoot:
+            if newRoot is not None:
                 root = newRoot
 
         # Serialize _properly_.  Strip top-level tags.
@@ -366,15 +371,15 @@ class Markdown(object):
         # Read the source
         if input:
             if isinstance(input, util.string_type):
-                input_file = codecs.open(input, mode="r", encoding=encoding)
+                input_file = codecs.open(input, mode="r", encoding=encoding, errors="replace")
             else:
-                input_file = codecs.getreader(encoding)(input)
+                input_file = codecs.getreader(encoding)(input, errors="replace")
             text = input_file.read()
             input_file.close()
         else:
             text = sys.stdin.read()
             if not isinstance(text, util.text_type):
-                text = text.decode(encoding)
+                text = text.decode(encoding, "replace")
 
         text = text.lstrip("\ufeff")  # remove the byte-order mark
 

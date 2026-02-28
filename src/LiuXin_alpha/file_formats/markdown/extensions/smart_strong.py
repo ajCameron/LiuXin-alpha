@@ -41,5 +41,5 @@ class SmartEmphasisExtension(Extension):
         md.inlinePatterns.add("strong2", SimpleTagPattern(SMART_STRONG_RE, "strong"), ">emphasis2")
 
 
-def makeExtension(configs={}):
-    return SmartEmphasisExtension(configs=dict(configs))
+def makeExtension(configs=None):
+    return SmartEmphasisExtension(configs=dict(configs or {}))

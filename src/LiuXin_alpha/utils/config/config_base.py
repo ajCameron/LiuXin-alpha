@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import logging
 import numbers
 import os
 import re
@@ -37,6 +38,8 @@ from LiuXin_alpha.utils.logging import LiuXin_warning_print
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
+
+logger = logging.getLogger(__name__)
 
 
 # Plugins are stored here in calibre in form of zip files.
@@ -472,10 +475,7 @@ class OptionSet(object):
             except LegacyConfigError:
                 raise
             except Exception as err:
-                try:
-                    print(f"Failed to parse JSON options string with error: {err}")
-                except Exception:
-                    pass
+                logger.warning("Failed to parse JSON options string: %s", err)
                 options = {}
 
         opts = OptionValues()
@@ -795,11 +795,8 @@ def read_tweaks():
     l, g = {}, {}
     try:
         exec(tweaks, g, l)
-    except:
-        import traceback
-
-        print("Failed to load custom tweaks file")
-        traceback.print_exc()
+    except Exception:
+        logger.exception("Failed to load custom tweaks file")
     dl, dg = {}, {}
     exec(default_tweaks, dg, dl)
     dl.update(l)

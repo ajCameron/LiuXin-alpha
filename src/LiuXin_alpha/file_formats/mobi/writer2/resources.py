@@ -12,7 +12,7 @@ from LiuXin_alpha.file_formats.mobi.utils import (
 )
 from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
-from imghdr import what
+from LiuXin_alpha.utils.image_tools.imghdr import what
 
 # Py2/Py3 compatibility
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems

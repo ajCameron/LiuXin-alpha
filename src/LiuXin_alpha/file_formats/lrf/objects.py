@@ -12,9 +12,9 @@ from LiuXin_alpha.file_formats.lrf.tags import Tag
 from LiuXin_alpha.utils.calibre import entity_to_unicode, prepare_string_for_xml
 
 # Py2/Py3 compatbility
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_BytesIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -50,7 +50,7 @@ class LRFObject(object):
             a[i] ^= xorKey
             i += 1
             l -= 1
-        return a.tostring()
+        return a.tobytes()
 
     @classmethod
     def parse_empdots(cls, tag, f):
@@ -108,7 +108,7 @@ class LRFObject(object):
         return six_unicode(self.__class__.__name__)
 
     def __str__(self):
-        return six_unicode(self).encode("utf-8")
+        return self.__unicode__()
 
 
 class LRFContentObject(LRFObject):
@@ -116,7 +116,7 @@ class LRFContentObject(LRFObject):
     tag_map = {}
 
     def __init__(self, bytes, objects):
-        self.stream = bytes if hasattr(bytes, "read") else six_cStringIO(bytes)
+        self.stream = bytes if hasattr(bytes, "read") else six_BytesIO(bytes)
         length = self.stream_size()
         self.objects = objects
         self._contents = []
@@ -162,7 +162,7 @@ class LRFStream(LRFObject):
     tag_map.update(LRFObject.tag_map)
 
     def __init__(self, document, stream, id, scramble_key, boundary):
-        self.stream = ""
+        self.stream = b""
         self.stream_size = 0
         self.stream_read = False
         LRFObject.__init__(self, document, stream, id, scramble_key, boundary)
@@ -198,7 +198,7 @@ class LRFStream(LRFObject):
             self.stream = zlib.decompress(self.stream[4:])
             if len(self.stream) != decomp_size:
                 raise LRFParseError("Stream decompressed size is wrong!")
-        if stream.read(2) != "\x06\xF5":
+        if stream.read(2) != b"\x06\xF5":
             print("Warning: corrupted end-of-stream tag at %08X; skipping it" % (stream.tell() - 2))
         self.end_stream(None, None)
 
@@ -283,7 +283,7 @@ class Color(object):
         return "0x%02x%02x%02x%02x" % (self.a, self.r, self.g, self.b)
 
     def __str__(self):
-        return six_unicode(self)
+        return self.__unicode__()
 
     def __len__(self):
         return 4
@@ -301,7 +301,7 @@ class EmptyPageElement(object):
             yield i
 
     def __str__(self):
-        return six_unicode(self)
+        return self.__unicode__()
 
 
 class PageDiv(EmptyPageElement):
@@ -486,7 +486,7 @@ class Page(LRFStream):
         return s
 
     def __str__(self):
-        return six_unicode(self)
+        return self.__unicode__()
 
     def to_html(self):
         s = ""
@@ -645,7 +645,7 @@ class Block(LRFStream, TextCSS):
 
     def initialize(self):
         self.attrs = {}
-        stream = six_cStringIO(self.stream)
+        stream = six_BytesIO(self.stream)
         tag = Tag(stream)
         if tag.id != 0xF503:
             raise LRFParseError("Bad block content")
@@ -793,7 +793,10 @@ class Text(LRFStream):
     lineposition_map = {1: "before", 2: "after"}
 
     def add_text(self, text):
-        s = six_unicode(text, "utf-16-le")
+        if isinstance(text, (bytes, bytearray, memoryview)):
+            s = bytes(text).decode("utf-16-le", "replace")
+        else:
+            s = six_unicode(text)
         if s:
             s = s.translate(self.text_map)
             self.content.append(self.entity_pattern.sub(entity_to_unicode, s))
@@ -891,7 +894,7 @@ class Text(LRFStream):
 
     def initialize(self):
         self.content = collections.deque()
-        stream = six_cStringIO(self.stream)
+        stream = six_BytesIO(self.stream)
         length = len(self.stream)
         style = self.style.as_dict()
         current_style = style.copy()
@@ -903,7 +906,7 @@ class Text(LRFStream):
 
             # Is there some text before a tag?
             def find_first_tag(start):
-                pos = self.stream.find("\xf5", start)
+                pos = self.stream.find(b"\xf5", start)
                 if pos == -1:
                     return -1
                 try:
@@ -1083,7 +1086,7 @@ class Canvas(LRFStream):
             if hasattr(self, attr):
                 self.attrs[attr] = getattr(self, attr)
         self._contents = []
-        stream = six_cStringIO(self.stream)
+        stream = six_BytesIO(self.stream)
         while stream.tell() < len(self.stream):
             tag = Tag(stream)
             try:
@@ -1332,7 +1335,7 @@ class TocLabel(object):
 
 class TOCObject(LRFStream):
     def initialize(self):
-        stream = six_cStringIO(self.stream)
+        stream = six_BytesIO(self.stream)
         c = struct.unpack("<H", stream.read(2))[0]
         stream.seek(4 * (c + 1))
         self._contents = []

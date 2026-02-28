@@ -97,12 +97,17 @@ class HTMLZOutput(OutputFormatPlugin):
                 fname = shorten_components_to(100, (ascii_filename(six_unicode(oeb_book.metadata.title[0])),))[0]
 
             with open(os.path.join(tdir, fname + ".html"), "wb") as tf:
+                if isinstance(html, str):
+                    html = html.encode("utf-8")
                 tf.write(html)
 
             # CSS
             if opts.htmlz_css_type == "class" and opts.htmlz_class_style == "external":
                 with open(os.path.join(tdir, "style.css"), "wb") as tf:
-                    tf.write(htmlizer.get_css(oeb_book))
+                    css_data = htmlizer.get_css(oeb_book)
+                    if isinstance(css_data, str):
+                        css_data = css_data.encode("utf-8")
+                    tf.write(css_data)
 
             # Images
             images = htmlizer.images
@@ -115,6 +120,8 @@ class HTMLZOutput(OutputFormatPlugin):
                             data = etree.tostring(item.data, encoding="utf-8")
                         else:
                             data = item.data
+                        if isinstance(data, str):
+                            data = data.encode("utf-8")
                         fname = os.path.join(tdir, "images", images[item.href])
                         with open(fname, "wb") as img:
                             img.write(data)
@@ -150,11 +157,17 @@ class HTMLZOutput(OutputFormatPlugin):
 
             # Metadata
             with open(os.path.join(tdir, "metadata.opf"), "wb") as mdataf:
-                opf = OPF(six_cStringIO(etree.tostring(oeb_book.metadata.to_opf1())))
+                opf_xml = etree.tostring(oeb_book.metadata.to_opf1(), encoding=six_unicode)
+                if isinstance(opf_xml, bytes):
+                    opf_xml = opf_xml.decode("utf-8", "replace")
+                opf = OPF(six_cStringIO(opf_xml))
                 mi = opf.to_book_metadata()
                 if cover_path:
                     mi.cover = "cover.jpg"
-                mdataf.write(metadata_to_opf(mi))
+                opf_data = metadata_to_opf(mi)
+                if isinstance(opf_data, str):
+                    opf_data = opf_data.encode("utf-8")
+                mdataf.write(opf_data)
 
             htmlz = ZipFile(output_path, "w")
             htmlz.add_dir(tdir)

@@ -10,7 +10,11 @@ import os
 import re
 
 from functools import partial
-from lxml import html
+
+try:
+    from lxml import html as lxml_html  # type: ignore
+except Exception:  # pragma: no cover - runtime without lxml
+    lxml_html = None
 
 from LiuXin_alpha.file_formats.oeb.base import (
     XHTML,
@@ -25,11 +29,11 @@ from LiuXin_alpha.file_formats.oeb.base import (
 from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
 from LiuXin_alpha.utils.calibre import prepare_string_for_xml
-from LiuXin_alpha.utils.logger import default_log
+from LiuXin_alpha.utils.logging import default_log
 
 # Py2/Py3 compatibility
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urldefrag as urldefrag
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
 
 __license__ = "GPL 3"
 __copyright__ = "2011, John Schember <john@nachtimwald.com>"
@@ -97,6 +101,18 @@ class OEB2HTML(object):
         return self.links[href]
 
     def map_resources(self, oeb_book):
+        link_attrs_fallback = {
+            "href",
+            "src",
+            "data",
+            "action",
+            "longdesc",
+            "poster",
+            "cite",
+            "usemap",
+            "background",
+            "profile",
+        }
         for item in oeb_book.manifest:
             if item.media_type in OEB_IMAGES:
                 if item.href not in self.images:
@@ -107,7 +123,10 @@ class OEB2HTML(object):
             if item in oeb_book.spine:
                 self.get_link_id(item.href)
                 root = item.data.find(XHTML("body"))
-                link_attrs = set(html.defs.link_attrs)
+                if lxml_html is None:
+                    link_attrs = set(link_attrs_fallback)
+                else:
+                    link_attrs = set(lxml_html.defs.link_attrs)
                 link_attrs.add(XLINK("href"))
                 for el in root.iter():
                     attribs = el.attrib
@@ -146,11 +165,14 @@ class OEB2HTML(object):
                 el.attrib["id"] = self.get_link_id(page.href, el.attrib["id"])[1:]
 
     def get_css(self, oeb_book):
-        css = b""
+        css_parts = []
         for item in oeb_book.manifest:
             if item.media_type == "text/css":
-                css += item.data.cssText + b"\n\n"
-        return css
+                css_text = getattr(item.data, "cssText", "")
+                if isinstance(css_text, bytes):
+                    css_text = css_text.decode("utf-8", "replace")
+                css_parts.append(css_text)
+        return "\n\n".join(x for x in css_parts if x)
 
     def prepare_string_for_html(self, raw):
         raw = prepare_string_for_xml(raw)
@@ -286,7 +308,7 @@ class OEB2HTMLInlineCSSizer(OEB2HTML):
             # as a page break and remove all other page break types that might be set.
             style_a = "page-break-before: always; %s" % re.sub("page-break-[^:]+:[^;]+;?", "", style_a)
         # Remove unnecessary spaces.
-        style_a = re.sub("\s{2,}", " ", style_a).strip()
+        style_a = re.sub(r"\s{2,}", " ", style_a).strip()
         tags.append(tag)
 
         # Remove attributes we won't want.
@@ -441,7 +463,7 @@ def oeb2html_inline_css(oeb_book, log, opts):
 
 def oeb2html_class_css(oeb_book, log, opts):
     local_izer = OEB2HTMLClassCSSizer(log)
-    setattr(opts, "class_style", "inline")
+    setattr(opts, "htmlz_class_style", "inline")
     local_html = local_izer.oeb2html(oeb_book, opts)
     images = local_izer.images
     return local_html, images

@@ -24,7 +24,7 @@ def inspect_mobi(path_or_stream, ddir=None):  # {{{
     try:
         shutil.rmtree(ddir)
     except Exception as e:
-        print("Couldn't removed ddir - error message - {}".format(e.message))
+        print("Couldn't removed ddir - error message - {}".format(e))
         pass
     os.makedirs(ddir)
     if f.kf8_type is None:

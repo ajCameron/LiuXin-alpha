@@ -8,20 +8,28 @@ import atexit
 import os
 import shutil
 import tempfile
-from PyQt5.Qt import (
-    QUrl,
-    QApplication,
-    QSize,
-    QEventLoop,
-    QPainter,
-    QImage,
-    QObject,
-    Qt,
-)
-from PyQt5.QtWebKitWidgets import QWebPage
+
+try:
+    from PyQt5.Qt import (
+        QUrl,
+        QApplication,
+        QSize,
+        QEventLoop,
+        QPainter,
+        QImage,
+        QObject,
+        Qt,
+    )
+    from PyQt5.QtWebKitWidgets import QWebPage
+
+    _QT_IMPORT_ERROR = None
+except Exception as err:
+    QUrl = QApplication = QSize = QEventLoop = QPainter = QImage = Qt = QWebPage = None
+    QObject = object
+    _QT_IMPORT_ERROR = err
 
 # Py2.Py3 compatability layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -41,6 +49,8 @@ class HTMLTableRenderer(QObject):
         :param factor:
         :return:
         """
+        if _QT_IMPORT_ERROR is not None:
+            raise RuntimeError("PyQt5 with QtWebKit is required to render HTML tables as images") from _QT_IMPORT_ERROR
         QObject.__init__(self)
 
         self.app = None
@@ -117,10 +127,13 @@ def render_table(soup, table, css, base_dir, width, height, dpi, factor=1.0):
 
 
 def do_render(html, base_dir, width, height, dpi, factor):
-    from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+    try:
+        from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+    except Exception:
+        is_ok_to_use_qt = lambda: False
 
     if not is_ok_to_use_qt():
-        raise Exception("Not OK to use Qt")
+        raise RuntimeError("Qt is unavailable in this environment")
     tr = HTMLTableRenderer(html, base_dir, width, height, dpi, factor)
     tr.loop.exec_()
     return tr.images, tr.tdir

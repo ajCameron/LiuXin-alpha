@@ -92,5 +92,5 @@ class MetaPreprocessor(Preprocessor):
         return lines
 
 
-def makeExtension(configs={}):
+def makeExtension(configs=None):
     return MetaExtension(configs=configs)

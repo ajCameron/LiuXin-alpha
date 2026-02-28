@@ -635,10 +635,10 @@ class SearchMixin:
             for value in index_location:
                 stmt += force_unicode("[" + force_unicode(value) + "]")
             stmt += " = transformed_index"
-            print(stmt)
+            default_log.debug("%s", stmt)
             # exec(stmt)
             raise NotImplementedError(stmt)
-        print(parsed_query)
+        default_log.debug("%r", parsed_query)
 
 
     @staticmethod

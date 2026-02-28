@@ -6,6 +6,8 @@ Transform XHTML/OPS-ish content into Mobipocket HTML 3.2.
 
 import re
 import copy
+import logging
+import numbers
 
 from lxml import etree
 
@@ -15,14 +17,28 @@ from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 from LiuXin_alpha.file_formats.oeb.transforms.flatcss import KeyMapper
 from LiuXin_alpha.file_formats.mobi.utils import convert_color_for_font_tag
 
-from LiuXin_alpha.utils.magick.draw import identify_data
+try:
+    from LiuXin_alpha.utils.wrappers.magick.draw import identify_data
+except Exception:
+    try:
+        from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
+    except Exception:
+        _FallbackImage = None
+
+    def identify_data(data):
+        if _FallbackImage is None:
+            raise RuntimeError("No image identify backend is available")
+        meta = _FallbackImage(data).identify()
+        return meta.get("width", 0), meta.get("height", 0), meta.get("format", "unknown")
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.cam>"
+
+logger = logging.getLogger(__name__)
 
 MBP_NS = "http://mobipocket.com/ns/mbp"
 
@@ -79,9 +95,119 @@ COLLAPSE = re.compile(r"[ \t\r\n\v]+")
 
 
 def asfloat(value):
-    if not isinstance(value, (int, long, float)):
+    if not isinstance(value, numbers.Real):
         return 0.0
     return float(value)
+
+
+def _parse_numeric(value, default=0.0):
+    if isinstance(value, numbers.Real):
+        return float(value)
+    if isinstance(value, str):
+        m = re.match(r"\s*(-?\d+(?:\.\d+)?)", value)
+        if m is not None:
+            try:
+                return float(m.group(1))
+            except Exception:
+                return default
+    return default
+
+
+class _FallbackStyle(dict):
+    _DEFAULTS = {
+        "display": "inline",
+        "visibility": "visible",
+        "float": "none",
+        "text-align": "auto",
+        "text-indent": 0.0,
+        "margin-left": 0.0,
+        "margin-right": 0.0,
+        "margin-top": 0.0,
+        "margin-bottom": 0.0,
+        "padding-left": 0.0,
+        "padding-right": 0.0,
+        "padding-top": 0.0,
+        "padding-bottom": 0.0,
+        "page-break-before": "auto",
+        "page-break-after": "auto",
+        "font-size": 12.0,
+        "font-style": "normal",
+        "font-weight": "normal",
+        "white-space": "normal",
+        "background-color": "transparent",
+        "color": "black",
+        "font-family": "serif",
+        "vertical-align": "baseline",
+        "width": 0.0,
+        "height": 0.0,
+    }
+
+    def __init__(self, elem):
+        super().__init__(self._DEFAULTS)
+        self._raw = {}
+        tag = barename(getattr(elem, "tag", "") or "").lower()
+        if tag in {"div", "p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "table", "tr", "td", "th"}:
+            self["display"] = "block"
+        if tag in {"li"}:
+            self["display"] = "list-item"
+        if tag in {"table"}:
+            self["display"] = "table"
+        if tag in {"tr"}:
+            self["display"] = "table-row"
+        if tag in {"td", "th"}:
+            self["display"] = "table-cell"
+        if tag in {"ul", "ol"}:
+            self["display"] = "block"
+
+        align = elem.attrib.get("align")
+        if isinstance(align, str) and align.strip():
+            self["text-align"] = align.strip().lower()
+        width_attr = elem.attrib.get("width")
+        if width_attr is not None:
+            self._raw["width"] = width_attr
+            self["width"] = _parse_numeric(width_attr, default=0.0)
+        height_attr = elem.attrib.get("height")
+        if height_attr is not None:
+            self._raw["height"] = height_attr
+            self["height"] = _parse_numeric(height_attr, default=0.0)
+
+        bgcolor = elem.attrib.get("bgcolor")
+        if bgcolor:
+            self["background-color"] = bgcolor
+        fgcolor = elem.attrib.get("color")
+        if fgcolor:
+            self["color"] = fgcolor
+
+        self.effective_text_decoration = "none"
+        self.backgroundColor = self["background-color"]
+        self.height = self["height"]
+
+    def _get(self, name):
+        return self._raw.get(name, self.get(name))
+
+    def _unit_convert(self, value, base=500):
+        return _parse_numeric(value, default=0.0)
+
+    def cssdict(self):
+        return {
+            "width": self._raw.get("width", "auto"),
+            "height": self._raw.get("height", "auto"),
+            "vertical-align": self.get("vertical-align", "baseline"),
+            "border": "",
+            "border-width": "",
+        }
+
+
+class _FallbackStylizer:
+    def __init__(self):
+        self._cache = {}
+
+    def style(self, elem):
+        ans = self._cache.get(elem)
+        if ans is None:
+            ans = _FallbackStyle(elem)
+            self._cache[elem] = ans
+        return ans
 
 
 def isspace(text):
@@ -176,8 +302,17 @@ class MobiMLizer(object):
         Iterate over the spine and convert every element to MOBIML
         :return:
         """
+        warned_fallback = False
         for item in self.oeb.spine:
-            stylizer = Stylizer(item.data, item.href, self.oeb, self.opts, self.profile)
+            try:
+                stylizer = Stylizer(item.data, item.href, self.oeb, self.opts, self.profile)
+            except ModuleNotFoundError:
+                if not warned_fallback:
+                    self.oeb.logger.warning(
+                        "cssutils is unavailable; using simplified style fallback for MOBI generation"
+                    )
+                    warned_fallback = True
+                stylizer = _FallbackStylizer()
             body = item.data.find(XHTML("body"))
             nroot = etree.Element(XHTML("html"), nsmap=MOBI_NSMAP)
             nbody = etree.SubElement(nroot, XHTML("body"))
@@ -285,7 +420,7 @@ class MobiMLizer(object):
                     wrapper.addprevious(etree.Element(XHTML("br")))
                     vspace -= 1
 
-            if istate.halign != "auto" and isinstance(istate.halign, (str, unicode)):
+            if istate.halign != "auto" and isinstance(istate.halign, str):
                 para.attrib["align"] = istate.halign
 
         istate.rendered = True
@@ -295,8 +430,8 @@ class MobiMLizer(object):
             pstate = bstate.istate = None
             try:
                 etree.SubElement(para, XHTML(tag), attrib=istate.attrib)
-            except:
-                print("Invalid subelement:", para, tag, istate.attrib)
+            except Exception:
+                logger.exception("Invalid subelement: para=%r tag=%r attrib=%r", para, tag, istate.attrib)
                 raise
         elif tag in TABLE_TAGS:
             para.attrib["valign"] = "top"

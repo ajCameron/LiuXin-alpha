@@ -20,16 +20,18 @@ from shutil import copyfileobj
 
 import xml.dom.minidom as dom
 
-from LiuXin_alpha.metadata import authors_to_string
-from LiuXin_alpha.metadata import calibreMetaInformation
-from LiuXin_alpha.metadata import string_to_authors
-from LiuXin_alpha.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.utils import authors_to_string
+from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.metadata.utils import string_to_authors
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
 
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -82,17 +84,23 @@ class versioned_field(field):
         field.__init__(self, start=start, fmt=fmt)
         self.vfield, self.version = vfield, version
 
-    def enabled(self):
-        return self.vfield > self.version
+    def enabled(self, obj):
+        if isinstance(self.vfield, field):
+            if obj is None:
+                return False
+            vfield_value = self.vfield.__get__(obj, obj.__class__)
+        else:
+            vfield_value = self.vfield
+        return vfield_value > self.version
 
     def __get__(self, obj, typ=None):
-        if self.enabled():
+        if self.enabled(obj):
             return field.__get__(self, obj, typ=typ)
         else:
             return None
 
     def __set__(self, obj, val):
-        if not self.enabled():
+        if not self.enabled(obj):
             raise LRFException("Trying to set disabled field")
         else:
             field.__set__(self, obj, val)
@@ -247,8 +255,11 @@ class xml_field(object):
 
         if not val:
             val = ""
-        if type(val).__name__ != "unicode":
-            val = six_unicode(val, "utf-8")
+        if not isinstance(val, str):
+            if isinstance(val, (bytes, bytearray, memoryview)):
+                val = bytes(val).decode("utf-8", "replace")
+            else:
+                val = str(val)
 
         elems = document.getElementsByTagName(self.tag_name)
         elem = None
@@ -493,9 +504,9 @@ class LRFMetaFile(object):
             return restore_pos
 
         locals_ = func()
-        if locals_.has_key("fget"):
+        if "fget" in locals_:
             locals_["fget"] = decorator(locals_["fget"])
-        if locals_.has_key("fset"):
+        if "fset" in locals_:
             locals_["fset"] = decorator(locals_["fset"])
         return property(**locals_)
 
@@ -518,14 +529,14 @@ class LRFMetaFile(object):
                         "Decompression of document meta info\
                                         yielded unexpected results"
                     )
-                try:
-                    return dom.parseString(src)
-                except:
+                src_bytes = src if isinstance(src, (bytes, bytearray)) else str(src).encode("utf-8", "replace")
+                for candidate in (src_bytes, src_bytes.replace(b"\x00", b"").strip()):
                     try:
-                        return dom.parseString(src.replace("\x00", "").strip())
-                    except:
-                        src = src.replace("\x00", "").strip().decode("latin1")
-                        return dom.parseString(src.encode("utf-8"))
+                        return dom.parseString(candidate)
+                    except Exception:
+                        pass
+                repaired = src_bytes.replace(b"\x00", b"").strip().decode("latin1", "replace")
+                return dom.parseString(repaired.encode("utf-8"))
             except zlib.error:
                 raise LRFException("Unable to decompress document meta information")
 
@@ -556,12 +567,14 @@ class LRFMetaFile(object):
     @classmethod
     def _detect_thumbnail_type(cls, slice):
         """@param slice: The first 16 bytes of the thumbnail"""
+        if isinstance(slice, str):
+            slice = slice.encode("latin-1", "replace")
         ttype = 0x14  # GIF
-        if "PNG" in slice:
+        if b"PNG" in slice:
             ttype = 0x12
-        if "BM" in slice:
+        if b"BM" in slice:
             ttype = 0x13
-        if "JFIF" in slice:
+        if b"JFIF" in slice:
             ttype = 0x11
         return ttype
 

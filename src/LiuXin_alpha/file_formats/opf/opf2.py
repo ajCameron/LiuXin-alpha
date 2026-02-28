@@ -1981,20 +1981,56 @@ class OPFCreator(calibreMetadata):
         :return:
         """
         if not isinstance(other, calibreMetadata):
-            other = other.to_calibre()
+            to_calibre = getattr(other, "to_calibre", None)
+            if callable(to_calibre):
+                other = to_calibre()
 
         calibreMetadata.__init__(self, title="", other=other)
         self.base_path = os.path.abspath(base_path)
         self.page_progression_direction = None
-        if self.application_id is None:
-            self.application_id = str(uuid.uuid4())
-        if not isinstance(self.toc, TOC):
-            self.toc = None
-        if not self.authors:
+
+        # Some legacy metadata objects only provide a sparse subset of fields.
+        # Normalize missing attributes here so render() can safely serialize.
+        if getattr(self, "title", None) is None:
+            self.title = _("Unknown")
+        if not getattr(self, "authors", None):
             self.authors = [_("Unknown")]
-        if self.guide is None:
+        if getattr(self, "languages", None) is None:
+            self.languages = []
+        if getattr(self, "tags", None) is None:
+            self.tags = []
+        if getattr(self, "comments", None) is None:
+            self.comments = None
+        if getattr(self, "publisher", None) is None:
+            self.publisher = None
+        if getattr(self, "rights", None) is None:
+            self.rights = None
+        if getattr(self, "series", None) is None:
+            self.series = None
+        if getattr(self, "series_index", None) is None:
+            self.series_index = None
+        if getattr(self, "title_sort", None) is None:
+            self.title_sort = None
+        if getattr(self, "author_sort", None) is None:
+            self.author_sort = None
+        if getattr(self, "rating", None) is None:
+            self.rating = None
+        if getattr(self, "publication_type", None) is None:
+            self.publication_type = None
+        if getattr(self, "pubdate", None) is None:
+            self.pubdate = None
+        if getattr(self, "timestamp", None) is None:
+            self.timestamp = None
+        if getattr(self, "user_categories", None) is None:
+            self.user_categories = {}
+
+        if getattr(self, "application_id", None) is None:
+            self.application_id = str(uuid.uuid4())
+        if not isinstance(getattr(self, "toc", None), TOC):
+            self.toc = None
+        if getattr(self, "guide", None) is None:
             self.guide = Guide()
-        if self.cover:
+        if getattr(self, "cover", None):
             self.guide.set_cover(self.cover)
 
     def create_manifest(self, entries):
@@ -2251,7 +2287,7 @@ class OPFCreator(calibreMetadata):
         root = E.package(metadata, manifest, spine, guide)
         root.set("unique-identifier", __appname__ + "_id")
         raw = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding=encoding)
-        raw = raw.replace(DNS, OPF2_NS)
+        raw = raw.replace(DNS.encode(encoding), OPF2_NS.encode(encoding))
         opf_stream.write(raw)
         opf_stream.flush()
         if toc is not None and ncx_stream is not None:

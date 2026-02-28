@@ -2,7 +2,7 @@ from __future__ import print_function
 
 from base64 import b64encode, b64decode
 import json
-import traceback
+import logging
 from datetime import datetime, time
 
 from LiuXin_alpha.constants import filesystem_encoding, preferred_encoding
@@ -20,6 +20,8 @@ from LiuXin_alpha.utils.calibre import isbytestring
 """
 Created on 4 Jun 2010
 """
+
+logger = logging.getLogger(__name__)
 
 
 # Translate datetimes to and from strings. The string form is the datetime in
@@ -191,9 +193,8 @@ class JsonCodec(object):
                 entry = self.raw_to_book(item, book_class, prefix)
                 if entry is not None:
                     booklist.append(entry)
-        except:
-            print("exception during JSON decode_from_file")
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Exception during JSON decode_from_file")
 
     def raw_to_book(self, json_book, book_class, prefix):
         try:
@@ -207,9 +208,8 @@ class JsonCodec(object):
                         key = "identifiers"
                     setattr(book, key, meta)
             return book
-        except:
-            print("exception during JSON decoding")
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Exception during JSON decoding")
 
     def decode_metadata(self, key, value):
         if key == "classifiers":

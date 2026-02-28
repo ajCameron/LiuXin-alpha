@@ -100,5 +100,5 @@ class TableExtension(Extension):
         md.parser.blockprocessors.add("table", TableProcessor(md.parser), "<hashheader")
 
 
-def makeExtension(configs={}):
+def makeExtension(configs=None):
     return TableExtension(configs=configs)

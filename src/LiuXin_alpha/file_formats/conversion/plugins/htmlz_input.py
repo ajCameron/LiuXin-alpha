@@ -87,7 +87,7 @@ class HTMLZInput(InputFormatPlugin):
         if options.input_encoding:
             ienc = options.input_encoding
         else:
-            ienc = xml_to_unicode(html[:4096])[-1]
+            ienc = xml_to_unicode(html[:4096])[-1] or "utf-8"
         html = html.decode(ienc, "replace")
 
         # Run the HTML through the html processing plugin.
@@ -102,7 +102,7 @@ class HTMLZInput(InputFormatPlugin):
         c = 0
         while os.path.exists(fname):
             c += 1
-            fname = "index%d.html" % c
+            fname = os.path.join(base, "index%d.html" % c)
         htmlfile = open(fname, "wb")
         with htmlfile:
             htmlfile.write(html.encode("utf-8"))
@@ -120,6 +120,7 @@ class HTMLZInput(InputFormatPlugin):
             meta_info_to_oeb_metadata,
         )
 
+        stream.seek(0)
         mi = get_file_type_metadata(stream, file_ext)
         if hasattr(mi, "to_calibre"):
             mi = mi.to_calibre()

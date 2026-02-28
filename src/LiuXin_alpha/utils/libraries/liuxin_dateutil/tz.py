@@ -16,6 +16,7 @@ import struct
 import time
 import sys
 import os
+import logging
 
 relativedelta = None
 parser = None
@@ -36,16 +37,16 @@ __all__ = [
 
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types, PY3
 
+logger = logging.getLogger(__name__)
+
 try:
     try:
         from dateutil.tzwin import tzwin, tzwinlocal
     except ImportError:
-        wrn_str = "Attempt to use builtin dateutil failed. Falling back to inbuilt version."
-        print(wrn_str)
+        logger.info("Attempt to use builtin dateutil failed; falling back to inbuilt version")
         from LiuXin_alpha.utils.liuxin_dateutil.tzwin import tzwin, tzwinlocal
 except (ImportError, OSError):
-    wrn_str = "Attempt to fall back to inbuolt version of dateutil failed. For some reason."
-    print(wrn_str)
+    logger.info("Attempt to fall back to inbuilt dateutil failed")
     tzwin, tzwinlocal = None, None
 
 
@@ -66,7 +67,10 @@ def tzname_in_python2(myfunc):
 
 
 ZERO = datetime.timedelta(0)
-EPOCHORDINAL = datetime.datetime.utcfromtimestamp(0).toordinal()
+if hasattr(datetime, "UTC"):
+    EPOCHORDINAL = datetime.datetime.fromtimestamp(0, datetime.UTC).toordinal()
+else:
+    EPOCHORDINAL = datetime.datetime.utcfromtimestamp(0).toordinal()
 
 
 class tzutc(datetime.tzinfo):

@@ -1,21 +1,36 @@
-# Tools to handle JSON files and to parse them for metadata
-# This file will probably only contain a few methods, as more detailed methods to handle incoming data return in this
-# format will probably be stored with the access methods for the sites that produce them
+"""
+Helpers for serializing/deserializing a small set of non-JSON native types.
+"""
+
+from __future__ import annotations
 
 import base64
 import datetime
 
-from LiuXin_alpha.utils.date import parse_date
-from LiuXin_alpha.utils.date import isoformat
+from LiuXin_alpha.utils.date import isoformat, parse_date
 
 __author__ = "Cameron"
 
 
+def _parse_datetime_value(raw):
+    try:
+        return parse_date(raw, assume_utc=True)
+    except Exception:
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8", "replace")
+        text = raw[:-1] + "+00:00" if isinstance(raw, str) and raw.endswith("Z") else raw
+        dt = datetime.datetime.fromisoformat(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        return dt.astimezone(datetime.timezone.utc)
+
+
 def to_json(obj):
-    if isinstance(obj, bytearray):
+    if isinstance(obj, (bytes, bytearray, memoryview)):
+        raw = bytes(obj)
         return {
             "__class__": "bytearray",
-            "__value__": base64.standard_b64encode(bytes(obj)),
+            "__value__": base64.standard_b64encode(raw).decode("ascii"),
         }
     if isinstance(obj, datetime.datetime):
         return {
@@ -26,9 +41,11 @@ def to_json(obj):
 
 
 def from_json(obj):
-    if "__class__" in obj:
-        if obj["__class__"] == "bytearray":
-            return bytearray(base64.standard_b64decode(obj["__value__"]))
-        if obj["__class__"] == "datetime.datetime":
-            return parse_date(obj["__value__"], assume_utc=True)
+    if not isinstance(obj, dict):
+        return obj
+    cls = obj.get("__class__")
+    if cls == "bytearray":
+        return bytearray(base64.standard_b64decode(obj["__value__"]))
+    if cls == "datetime.datetime":
+        return _parse_datetime_value(obj["__value__"])
     return obj

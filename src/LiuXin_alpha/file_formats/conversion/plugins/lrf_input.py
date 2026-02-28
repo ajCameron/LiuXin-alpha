@@ -32,7 +32,7 @@ class LRFInput(InputFormatPlugin):
         :param accelerators:
         :return:
         """
-        from lxml import etree
+        from LiuXin_alpha.utils.libraries.liuxin_etree import etree
         from LiuXin_alpha.file_formats.lrf.input import (
             MediaType,
             Styles,
@@ -55,7 +55,7 @@ class LRFInput(InputFormatPlugin):
         try:
             doc = etree.fromstring(xml, parser=parser)
         except:
-            self.log.warn("Failed to parse XML. Trying to recover")
+            self.log.warning("Failed to parse XML. Trying to recover")
             parser = etree.XMLParser(no_network=True, huge_tree=True, recover=True)
             doc = etree.fromstring(xml, parser=parser)
 

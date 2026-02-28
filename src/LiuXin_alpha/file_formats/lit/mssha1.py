@@ -7,10 +7,29 @@ Adapted from the PyPy pure-Python SHA-1 implementation.
 import copy
 import struct
 
-from past.builtins import long, xrange
-
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
+
+def _ensure_bytes(data):
+    if data is None:
+        return b""
+    if isinstance(data, bytes):
+        return data
+    if isinstance(data, bytearray):
+        return bytes(data)
+    if isinstance(data, str):
+        return data.encode("latin-1")
+    try:
+        return bytes(data)
+    except Exception as exc:
+        raise TypeError("Expected bytes-like input, got %r" % (type(data),)) from exc
+
+
+def _byte_value(value):
+    if isinstance(value, int):
+        return value
+    return ord(value)
+
 
 # ======================================================================
 # Bit-Manipulation helpers
@@ -32,48 +51,47 @@ def _long2bytesBigEndian(n, blocksize=0):
     :return:
     """
     # After much testing, this algorithm was deemed to be the fastest.
-    s = ""
+    s = b""
     pack = struct.pack
     while n > 0:
         s = pack(">I", n & 0xFFFFFFFF) + s
         n = n >> 32
 
-    # Strip off leading zeros.
-    for i in range(len(s)):
-        if s[i] != "\000":
-            break
+    if not s:
+        s = b"\x00"
     else:
-        # Only happens when n == 0.
-        s = "\000"
         i = 0
-
-    s = s[i:]
+        while i < len(s) and s[i] == 0:
+            i += 1
+        if i == len(s):
+            i -= 1
+        s = s[i:]
 
     # Add back some pad bytes. This could be done more efficiently
     # w.r.t. the de-padding being done above, but sigh...
     if blocksize > 0 and len(s) % blocksize:
-        s = (blocksize - len(s) % blocksize) * "\000" + s
+        s = (blocksize - len(s) % blocksize) * b"\x00" + s
 
     return s
 
 
-def _bytelist2longBigEndian(list):
+def _bytelist2longBigEndian(data):
     """
     Transform a list of characters into a list of longs.
-    :param list:
+    :param data:
     :return:
     """
-
-    imax = len(list) / 4
+    b = _ensure_bytes(data)
+    imax = len(b) // 4
     hl = [0] * imax
 
     j = 0
     i = 0
     while i < imax:
-        b0 = long(ord(list[j])) << 24
-        b1 = long(ord(list[j + 1])) << 16
-        b2 = long(ord(list[j + 2])) << 8
-        b3 = long(ord(list[j + 3]))
+        b0 = _byte_value(b[j]) << 24
+        b1 = _byte_value(b[j + 1]) << 16
+        b2 = _byte_value(b[j + 2]) << 8
+        b3 = _byte_value(b[j + 3])
         hl[i] = b0 | b1 | b2 | b3
         i = i + 1
         j = j + 4
@@ -88,7 +106,7 @@ def _rotateLeft(x, n):
     :param n:
     :return:
     """
-    return (x << n) | (x >> (32 - n))
+    return ((x << n) | (x >> (32 - n))) & 0xFFFFFFFF
 
 
 # ======================================================================
@@ -189,8 +207,8 @@ class mssha1(object):
         D = self.H3
         E = self.H4
 
-        for t in xrange(0, 80):
-            TEMP = _rotateLeft(A, 5) + f[t](B, C, D) + E + W[t] + K[t / 20]
+        for t in range(0, 80):
+            TEMP = _rotateLeft(A, 5) + f[t](B, C, D) + E + W[t] + K[t // 20]
             E = D
             D = C
             C = _rotateLeft(B, 30) & 0xFFFFFFFF
@@ -221,7 +239,8 @@ class mssha1(object):
         to the hashed string.
         """
 
-        leninBuf = long(len(inBuf))
+        inBuf = _ensure_bytes(inBuf)
+        leninBuf = len(inBuf)
 
         # Compute number of bytes mod 64.
         index = (self.count[1] >> 3) & 0x3F
@@ -272,7 +291,7 @@ class mssha1(object):
         else:
             padLen = 120 - index
 
-        padding = ["\200"] + ["\000"] * 63
+        padding = b"\x80" + (b"\x00" * 63)
         self.update(padding[:padLen])
 
         # Append length (before padding).
@@ -308,7 +327,7 @@ class mssha1(object):
         used to exchange the value safely in email or other non-
         binary environments.
         """
-        return "".join(["%02x" % ord(c) for c in self.digest()])
+        return self.digest().hex()
 
     def copy(self):
         """
@@ -367,7 +386,7 @@ if __name__ == "__main__":
             data = file.read(16384)
         file.close()
         digest = context.hexdigest().upper()
-        for i in xrange(0, 40, 8):
+        for i in range(0, 40, 8):
             print(
                 digest[i : i + 8],
             )

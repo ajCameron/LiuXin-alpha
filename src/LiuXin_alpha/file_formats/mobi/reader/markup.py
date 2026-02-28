@@ -9,7 +9,7 @@ import re
 from LiuXin_alpha.file_formats.chardet import strip_encoding_declarations
 
 # Py2/Py3 compatability
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -120,7 +120,7 @@ def update_flow_links(mobi8_reader, resource_map, log):
             flows.append(flow)
             continue
 
-        if not isinstance(flow, unicode):
+        if not isinstance(flow, str):
             try:
                 flow = flow.decode(mr.header.codec)
             except UnicodeDecodeError:

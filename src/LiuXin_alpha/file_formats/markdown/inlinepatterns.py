@@ -112,7 +112,7 @@ IMAGE_LINK_RE = r"\!" + BRK + r"\s*\((<.*?>|([^\)]*))\)"
 # ![alttxt](http://x.com/) or ![alttxt](<http://x.com/>)
 REFERENCE_RE = NOIMG + BRK + r"\s?\[([^\]]*)\]"  # [Google][3]
 SHORT_REF_RE = NOIMG + r"\[([^\]]+)\]"  # [Google]
-IMAGE_REFERENCE_RE = r"\!" + BRK + "\s?\[([^\]]*)\]"  # ![alt text][2]
+IMAGE_REFERENCE_RE = r"\!" + BRK + r"\s?\[([^\]]*)\]"  # ![alt text][2]
 NOT_STRONG_RE = r"((^| )(\*|_)( |$))"  # stand-alone * or _
 AUTOLINK_RE = r"<((?:[Ff]|[Hh][Tt])[Tt][Pp][Ss]?://[^>]*)>"  # <http://www.123.com>
 AUTOMAIL_RE = r"<([^> \!]*@[^> ]*)>"  # <me@example.com>
@@ -130,7 +130,7 @@ def dequote(string):
         return string
 
 
-ATTR_RE = re.compile("\{@([^\}]*)=([^\}]*)}")  # {@id=123}
+ATTR_RE = re.compile(r"\{@([^\}]*)=([^\}]*)}")  # {@id=123}
 
 
 def handleAttributes(text, parent):
@@ -316,7 +316,7 @@ class HtmlPattern(Pattern):
                 try:
                     return self.markdown.serializer(value)
                 except:
-                    return "\%s" % value
+                    return "\\%s" % value
 
         return util.INLINE_PLACEHOLDER_RE.sub(get_stash, text)
 

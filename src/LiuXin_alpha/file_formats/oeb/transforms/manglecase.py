@@ -11,9 +11,9 @@ from LiuXin_alpha.file_formats.oeb.base import CSS_MIME
 from LiuXin_alpha.file_formats.oeb.base import namespace
 from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
-from LiuXin_alpha.utils.icu import lower as icu_lower
-from LiuXin_alpha.utils.icu import title_case as icu_title
-from LiuXin_alpha.utils.icu import upper as icu_upper
+from LiuXin_alpha.utils.text.icu import lower as icu_lower
+from LiuXin_alpha.utils.text.icu import title_case as icu_title
+from LiuXin_alpha.utils.text.icu import upper as icu_upper
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"

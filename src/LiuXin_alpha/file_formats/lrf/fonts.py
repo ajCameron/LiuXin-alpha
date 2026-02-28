@@ -3,10 +3,8 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 try:
     from PIL import ImageFont
-
-    ImageFont
-except ImportError:
-    import ImageFont
+except Exception:
+    ImageFont = None
 
 from LiuXin_alpha.utils.resources import P
 
@@ -32,6 +30,8 @@ def get_font(name, size, encoding="unic"):
     @param encoding: Font encoding to use. E.g. 'unic', 'symbol', 'ADOB', 'ADBE', 'aprm'
     @param manager: A dict that will store the PersistentTemporary
     """
+    if ImageFont is None:
+        raise RuntimeError("Pillow is required for LRF font rasterization")
     if name in LIBERATION_FONT_MAP:
         return ImageFont.truetype(
             P("fonts/liberation/%s.ttf" % LIBERATION_FONT_MAP[name]),

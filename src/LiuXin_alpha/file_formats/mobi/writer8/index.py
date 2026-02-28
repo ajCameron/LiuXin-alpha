@@ -11,9 +11,9 @@ from LiuXin_alpha.file_formats.mobi.writer8.header import Header
 from LiuXin_alpha.file_formats.mobi.utils import CNCX, encint, align_block
 
 # Py2/Py3
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_zip
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import six_zip
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -173,7 +173,7 @@ class Index(object):  # {{{
         for i, (index_num, tags) in enumerate(self.entries):
             control_bytes = self.control_bytes[i]
             buf.seek(0), buf.truncate(0)
-            index_num = index_num.encode("utf-8") if isinstance(index_num, unicode) else index_num
+            index_num = index_num.encode("utf-8") if isinstance(index_num, str) else index_num
             raw = bytearray(index_num)
             raw.insert(0, len(index_num))
             buf.write(bytes(raw))

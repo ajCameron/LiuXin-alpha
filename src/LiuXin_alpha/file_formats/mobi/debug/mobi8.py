@@ -7,7 +7,6 @@ import os
 import struct
 import sys
 import textwrap
-from itertools import izip
 
 from LiuXin_alpha.file_formats.mobi.debug.containers import ContainerHeader
 from LiuXin_alpha.file_formats.mobi.debug.headers import TextRecord
@@ -22,12 +21,13 @@ from LiuXin_alpha.file_formats.mobi.debug import format_bytes
 from LiuXin_alpha.file_formats.mobi.reader.headers import NULL_INDEX
 
 from LiuXin_alpha.utils.calibre import CurrentDir
-from LiuXin_alpha.utils.imghdr import what
+from LiuXin_alpha.utils.image_tools.imghdr import what
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import six_zip
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -46,7 +46,7 @@ class FDST(object):
         rest = raw[self.sec_off + struct.calcsize(secf) :]
         if rest:
             raise ValueError("FDST record has trailing data: %s" % format_bytes(rest))
-        self.sections = tuple(izip(secs[::2], secs[1::2]))
+        self.sections = tuple(six_zip(secs[::2], secs[1::2]))
 
     def __str__(self):
         ans = ["FDST record"]

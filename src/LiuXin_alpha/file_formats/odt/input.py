@@ -8,8 +8,15 @@ import logging
 import os
 
 from lxml import etree
-from cssutils import CSSParser
-from cssutils.css import CSSRule
+try:
+    from cssutils import CSSParser, parseString
+    from cssutils.css import CSSRule
+except ModuleNotFoundError:
+    CSSParser = None
+    parseString = None
+
+    class CSSRule:  # type: ignore[no-redef]
+        STYLE_RULE = 1
 
 from LiuXin_alpha.file_formats.odf.draw import Frame as odFrame, Image as odImage
 from LiuXin_alpha.file_formats.odf.namespaces import TEXTNS as odTEXTNS
@@ -21,7 +28,7 @@ from LiuXin_alpha.utils.calibre import CurrentDir, walk
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal kovid@kovidgoyal.net"
@@ -44,6 +51,8 @@ class Extract(ODF2XHTML):
         self.extract_css(root, log)
         self.epubify_markup(root, log)
         html = etree.tostring(root, encoding="utf-8", xml_declaration=True)
+        if isinstance(html, bytes):
+            html = html.decode("utf-8", "replace")
         return html
 
     def extract_css(self, root, log):
@@ -65,14 +74,20 @@ class Extract(ODF2XHTML):
             )
 
         css = "\n\n".join(ans)
-        parser = CSSParser(loglevel=logging.WARNING, log=_css_logger)
-        self.css = parser.parseString(css, validate=False)
+        self.css = None
+        if CSSParser is not None:
+            parser = CSSParser(loglevel=logging.WARNING, log=_css_logger)
+            self.css = parser.parseString(css, validate=False)
+        else:
+            log.warning("cssutils is not available; ODT CSS optimization/filtering is disabled.")
 
         with open("odfpy.css", "wb") as f:
             f.write(css.encode("utf-8"))
 
     def get_css_for_class(self, cls):
         if not cls:
+            return None
+        if self.css is None:
             return None
         for rule in self.css.cssRules.rulesOfType(CSSRule.STYLE_RULE):
             for sel in rule.selectorList:
@@ -162,13 +177,15 @@ class Extract(ODF2XHTML):
                 div2.attrib["style"] = "display:inline;" + style
 
     def filter_css(self, root, log):
+        if CSSParser is None:
+            return
         style = root.xpath('//*[local-name() = "style" and @type="text/css"]')
         if style:
             style = style[0]
             css = style.text
             if css:
                 css, sel_map = self.do_filter_css(css)
-                if not isinstance(css, unicode):
+                if isinstance(css, bytes):
                     css = css.decode("utf-8", "ignore")
                 style.text = css
                 for x in root.xpath("//*[@class]"):
@@ -180,8 +197,11 @@ class Extract(ODF2XHTML):
                         x.set("class", orig + " " + " ".join(extra))
 
     def do_filter_css(self, css):
-        from cssutils import parseString
-        from cssutils.css import CSSRule
+        if parseString is None:
+            return css, {}
+
+        if isinstance(css, bytes):
+            css = css.decode("utf-8", "ignore")
 
         sheet = parseString(css, validate=False)
         rules = list(sheet.cssRules.rulesOfType(CSSRule.STYLE_RULE))
@@ -202,7 +222,10 @@ class Extract(ODF2XHTML):
                         sel_map[s] = []
                     sel_map[s].append(replace_name)
                 r.selectorText = "." + replace_name
-        return sheet.cssText, sel_map
+        css_text = sheet.cssText
+        if isinstance(css_text, bytes):
+            css_text = css_text.decode("utf-8", "ignore")
+        return css_text, sel_map
 
     def search_page_img(self, mi, log):
         for frm in self.document.topnode.getElementsByType(odFrame):
@@ -261,20 +284,63 @@ class Extract(ODF2XHTML):
         # parse the modified tree and generate xhtml
         self._walknode(self.document.topnode)
 
+    def _fallback_metadata(self, stream):
+        from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
+
+        name = getattr(stream, "name", "")
+        if name:
+            title = os.path.splitext(os.path.basename(name))[0]
+        else:
+            title = ""
+        if not title:
+            title = _("Unknown")
+        return MetaInformation(title, [_("Unknown")])
+
+    def _read_metadata(self, stream, log):
+        try:
+            current_pos = stream.tell()
+        except Exception:
+            current_pos = None
+        try:
+            try:
+                from LiuXin_alpha.metadata.file_sources.odt import get_metadata as odt_get_metadata
+            except Exception:
+                return self._fallback_metadata(stream)
+            try:
+                if hasattr(stream, "seek"):
+                    stream.seek(0)
+                try:
+                    mi = odt_get_metadata(stream, "odt")
+                except TypeError:
+                    mi = odt_get_metadata(stream)
+                if hasattr(mi, "to_calibre"):
+                    mi = mi.to_calibre()
+                if not getattr(mi, "title", None):
+                    mi.title = _("Unknown")
+                if not getattr(mi, "authors", None):
+                    mi.authors = [_("Unknown")]
+                return mi
+            except Exception as e:
+                log.exception("Failed reading ODT metadata, using fallback metadata. - exception message: {}".format(e))
+                return self._fallback_metadata(stream)
+        finally:
+            if current_pos is not None and hasattr(stream, "seek"):
+                try:
+                    stream.seek(current_pos)
+                except Exception:
+                    pass
+
     def __call__(self, stream, odir, log):
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
-        from LiuXin_alpha.metadata.file_sources.odt import get_metadata
-
-        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         if not os.path.exists(odir):
             os.makedirs(odir)
         with CurrentDir(odir):
             log("Extracting ODT file...")
             stream.seek(0)
-            mi = get_metadata(stream, "odt")
-            mi = mi.to_calibre()
+            mi = self._read_metadata(stream, log)
             if not mi.title:
                 mi.title = _("Unknown")
             if not mi.authors:
@@ -293,15 +359,18 @@ class Extract(ODF2XHTML):
                 html = self.fix_markup(html, log)
             except Exception as e:
                 log.exception(
-                    "Failed to filter CSS, conversion may be slow " "- exception message: {}".format(e.message)
+                    "Failed to filter CSS, conversion may be slow " "- exception message: {}".format(e)
                 )
 
             with open("index.xhtml", "wb") as f:
-                f.write(html.encode("utf-8"))
+                if isinstance(html, str):
+                    html = html.encode("utf-8")
+                f.write(html)
             zf = ZipFile(stream, "r")
             self.extract_pictures(zf)
-            opf = OPFCreator(os.path.abspath(os.getcwdu()), mi)
-            opf.create_manifest([(os.path.abspath(f2), None) for f2 in walk(os.getcwdu())])
+            cwd = os.getcwd()
+            opf = OPFCreator(os.path.abspath(cwd), mi)
+            opf.create_manifest([(os.path.abspath(f2), None) for f2 in walk(cwd)])
             opf.create_spine([os.path.abspath("index.xhtml")])
             with open("metadata.opf", "wb") as f:
                 opf.render(f)

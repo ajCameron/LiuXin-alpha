@@ -3,7 +3,7 @@ This package contains logic to read and write LRF files.
 The LRF file format is documented at U{http://www.sven.de/librie/Librie/LrfFormat}.
 """
 
-from LiuXin_alpha.exceptions import ConversionError
+from LiuXin_alpha.file_formats import ConversionError
 
 from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import Book as _Book
 from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import TextBlock, Header, TextStyle, BlockStyle
@@ -39,8 +39,19 @@ class PRS500_PROFILE(object):
     name = "prs500"
 
 
+def _log_warn(logger, message):
+    if hasattr(logger, "warning"):
+        logger.warning(message)
+    elif hasattr(logger, "warn"):
+        logger.warn(message)
+
+
 def find_custom_fonts(options, logger):
-    from LiuXin_alpha.utils.fonts.scanner import font_scanner
+    try:
+        from LiuXin_alpha.utils.fonts.scanner import font_scanner
+    except ModuleNotFoundError:
+        _log_warn(logger, "Font scanner backend unavailable; using built-in LRF fonts only")
+        return {"serif": None, "sans": None, "mono": None}
 
     fonts = {"serif": None, "sans": None, "mono": None}
 
@@ -51,17 +62,17 @@ def find_custom_fonts(options, logger):
         f = family(options.serif_family)
         fonts["serif"] = font_scanner.legacy_fonts_for_family(f)
         if not fonts["serif"]:
-            logger.warn("Unable to find serif family %s" % f)
+            _log_warn(logger, "Unable to find serif family %s" % f)
     if options.sans_family:
         f = family(options.sans_family)
         fonts["sans"] = font_scanner.legacy_fonts_for_family(f)
         if not fonts["sans"]:
-            logger.warn("Unable to find sans family %s" % f)
+            _log_warn(logger, "Unable to find sans family %s" % f)
     if options.mono_family:
         f = family(options.mono_family)
         fonts["mono"] = font_scanner.legacy_fonts_for_family(f)
         if not fonts["mono"]:
-            logger.warn("Unable to find mono family %s" % f)
+            _log_warn(logger, "Unable to find mono family %s" % f)
     return fonts
 
 

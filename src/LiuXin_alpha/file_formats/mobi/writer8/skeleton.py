@@ -10,13 +10,13 @@ from xml.sax.saxutils import escape
 
 from lxml import etree
 
-from LiuXin_alpha.utils.calibre.constants import ispy3
+from LiuXin_alpha.utils.which_os import ispy3
 
 from LiuXin_alpha.file_formats.mobi.utils import to_base
 from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, extract
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -97,7 +97,9 @@ aid_able_tags = {
 }
 
 _self_closing_pat = re.compile(
-    bytes(r"<(?P<tag>%s)(?=[\s/])(?P<arg>[^>]*)/>" % ("|".join(aid_able_tags | {"script", "style", "title", "head"}))),
+    (r"<(?P<tag>%s)(?=[\s/])(?P<arg>[^>]*)/>" % ("|".join(aid_able_tags | {"script", "style", "title", "head"}))).encode(
+        "ascii"
+    ),
     re.IGNORECASE,
 )
 
@@ -187,7 +189,7 @@ class Skeleton(object):
 
     def render(self, root):
         raw = tostring(root, xml_declaration=True)
-        raw = raw.replace(b"<html", bytes('<html xmlns="%s"' % XHTML_NS), 1)
+        raw = raw.replace(b"<html", ('<html xmlns="%s"' % XHTML_NS).encode("utf-8"), 1)
         raw = close_self_closing_tags(raw)
         return raw
 
@@ -248,7 +250,7 @@ class Chunker(object):
             if orig_dumps is not None:
                 orig_dumps.append(tostring(root, xml_declaration=True, with_tail=True))
                 orig_dumps[-1] = close_self_closing_tags(
-                    orig_dumps[-1].replace(b"<html", bytes('<html xmlns="%s"' % XHTML_NS), 1)
+                    orig_dumps[-1].replace(b"<html", ('<html xmlns="%s"' % XHTML_NS).encode("utf-8"), 1)
                 )
 
             # First pass: break up document into rendered strings of length no
@@ -478,9 +480,12 @@ class Chunker(object):
         def to_placeholder(aid):
             pos, fid, _ = aid_map[aid]
             pos, fid = to_base(pos, min_num_digits=4), to_href(fid)
-            return bytes(":off:".join((pos, fid)))
+            return ":off:".join((pos, fid)).encode("ascii")
 
-        placeholder_map = {bytes(k): to_placeholder(v) for k, v in iteritems(self.placeholder_map)}
+        placeholder_map = {
+            (k.encode("utf-8") if isinstance(k, str) else bytes(k)): to_placeholder(v)
+            for k, v in iteritems(self.placeholder_map)
+        }
 
         # Now update the links
         def sub(local_match):
