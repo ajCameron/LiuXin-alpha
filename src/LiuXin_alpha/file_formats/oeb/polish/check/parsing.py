@@ -38,7 +38,7 @@ XML_ENTITIES = {"lt", "gt", "amp", "apos", "quot"}
 ALL_ENTITIES = HTML_ENTITTIES | XML_ENTITIES
 
 replace_pat = re.compile("&(%s);" % "|".join(re.escape(x) for x in sorted((HTML_ENTITTIES - XML_ENTITIES))))
-mismatch_pat = re.compile("tag mismatch:.+?line (\d+).+?line \d+")
+mismatch_pat = re.compile(r"tag mismatch:.+?line (\d+).+?line \d+")
 
 
 class EmptyFile(BaseError):
@@ -387,7 +387,8 @@ class DuplicateId(BaseError):
             "The id {0} is present on more than one element in {1}. This is"
             " not allowed. Remove the id from all but one of the elements"
         ).format(eid, name)
-        self.all_locations = [(name, lnum, None) for lnum in sorted(locs)]
+        norm_locs = sorted({lnum for lnum in locs if isinstance(lnum, int) and lnum > 0}) or [1]
+        self.all_locations = [(name, lnum, None) for lnum in norm_locs]
         self.duplicate_id = eid
 
     def __call__(self, container):
@@ -473,11 +474,14 @@ def check_ids(container):
             dups = {}
             for elem in root.xpath("//*[@id]"):
                 eid = elem.get("id")
+                lnum = getattr(elem, "sourceline", None)
+                if not isinstance(lnum, int) or lnum < 1:
+                    lnum = 1
                 if eid in seen_ids:
                     if eid not in dups:
                         dups[eid] = [seen_ids[eid]]
-                    dups[eid].append(elem.sourceline)
+                    dups[eid].append(lnum)
                 else:
-                    seen_ids[eid] = elem.sourceline
+                    seen_ids[eid] = lnum
             errors.extend(DuplicateId(name, eid, locs) for eid, locs in iteritems(dups))
     return errors

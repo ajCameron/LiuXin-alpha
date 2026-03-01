@@ -127,7 +127,10 @@ def add_from_navpoint(container, navpoint, parent, ncx_name):
         content = content[0]
         href = content.get("src", None)
         if href:
-            dest = container.href_to_name(href, base=ncx_name)
+            try:
+                dest = container.href_to_name(href, base=ncx_name)
+            except ValueError:
+                dest = None
             frag = urlparse(href).fragment or None
     return parent.add(text or None, dest or None, frag or None)
 
@@ -340,8 +343,14 @@ def from_links(container):
             href = a.get("href")
             if not href or not href.strip():
                 continue
-            dest = container.href_to_name(href, base=name)
-            frag = href.rpartition("#")[-1] or None
+            try:
+                dest = container.href_to_name(href, base=name)
+            except ValueError:
+                # Can happen for malformed absolute Windows paths in href attributes.
+                continue
+            if not dest:
+                continue
+            frag = urlparse(href).fragment or None
             if (dest, frag) in seen_dests:
                 continue
             seen_dests.add((dest, frag))
@@ -397,12 +406,21 @@ def from_files(container):
 
 
 def node_from_loc(root, locs, totals=None):
-    node = root.xpath('//*[local-name()="body"]')[0]
+    body = root.xpath('//*[local-name()="body"]')
+    if not body:
+        raise MalformedMarkup()
+    node = body[0]
     for i, loc in enumerate(locs):
         children = tuple(node.iterchildren(etree.Element))
         if totals is not None:
-            if totals[i] != len(children):
+            if i >= len(totals) or totals[i] != len(children):
                 raise MalformedMarkup()
+        try:
+            loc = int(loc)
+        except Exception:
+            raise MalformedMarkup()
+        if loc < 0 or loc >= len(children):
+            raise MalformedMarkup()
         node = children[loc]
     return node
 
@@ -432,7 +450,7 @@ def add_id(container, name, loc, totals=None):
 
 
 def create_ncx(toc, to_href, btitle, lang, uid):
-    lang = lang.replace("_", "-")
+    lang = (lang or "en").replace("_", "-")
     ncx = etree.Element(
         NCX("ncx"),
         attrib={"version": "2005-1", XML("lang"): lang},

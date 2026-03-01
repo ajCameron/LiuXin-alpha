@@ -1,0 +1,121 @@
+#!/usr/bin/env python2
+# vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
+
+from __future__ import division, absolute_import, print_function
+
+from io import BytesIO
+
+from lxml import etree
+
+from LiuXin.file_formats.docx.container import DOCX
+from LiuXin.file_formats.docx.writer.container import update_doc_props, xml2str
+
+from LiuXin.utils.imghdr import identify
+
+# Py2/Py3 compatibility layer
+from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+
+__license__ = "GPL v3"
+__copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
+__docformat__ = "restructuredtext en"
+
+
+def get_cover(docx):
+    doc = docx.document
+    get = docx.namespace.get
+    images = docx.namespace.XPath(
+        '//*[name()="w:drawing" or name()="w:pict"]/descendant::*[(name()="a:blip" and @r:embed) or '
+        '(name()="v:imagedata" and @r:id)][1]'
+    )
+    rid_map = docx.document_relationships[0]
+
+    for image in images(doc):
+        rid = get(image, "r:embed") or get(image, "r:id")
+        if rid in rid_map:
+            try:
+                raw = docx.read(rid_map[rid])
+                fmt, width, height = identify(bytes(raw))
+            except Exception:
+                continue
+            if width < 0 or height < 0:
+                continue
+            if 0.8 <= height / width <= 1.8 and height * width >= 160000:
+                return fmt, raw
+
+
+def get_metadata(stream):
+    if isinstance(stream, six_string_types):
+        with open(stream, "rb") as file_stream:
+            return get_metadata_from_stream(file_stream)
+    else:
+        return get_metadata_from_stream(stream)
+
+
+def get_metadata_from_stream(stream):
+    """
+    Takes a docx file as a stream - opens it - reads the metadata and returns
+    :param stream: The file as a stream
+    :type stream: Must be a stream open as rb
+    :return mi:
+    """
+    c = DOCX(stream, extract=False)
+    mi = c.metadata
+    try:
+        cdata = get_cover(c)
+    except Exception:
+        cdata = None
+        import traceback
+
+        traceback.print_exc()
+    c.close()
+    stream.seek(0)
+    if cdata is not None:
+        mi.cover_data = cdata
+
+    return mi
+
+
+def set_metadata(stream, mi):
+    """
+    Write metadata into the given stream.
+    :param stream:
+    :type stream: A DocX file stream
+    :param mi: a calibreMetaData object containing the metadata to write out
+    :return: None
+    """
+    from LiuXin.utils.calibre_utils.calibre_zipfile import safe_replace
+
+    c = DOCX(stream, extract=False)
+
+    dp_name, ap_name = c.get_document_properties_names()
+    dp_raw = c.read(dp_name)
+
+    try:
+        ap_raw = c.read(ap_name)
+    except Exception:
+        ap_raw = None
+
+    cp = etree.fromstring(dp_raw)
+    update_doc_props(cp, mi, c.namespace)
+    replacements = {}
+
+    if ap_raw is not None:
+
+        ap = etree.fromstring(ap_raw)
+        comp = ap.makeelement("{%s}Company" % c.namespace.namespaces["ep"])
+        for child in tuple(ap):
+            if child.tag == comp.tag:
+                ap.remove(child)
+        comp.text = mi.publisher
+        ap.append(comp)
+        replacements[ap_name] = BytesIO(xml2str(ap))
+
+    stream.seek(0)
+    safe_replace(stream, dp_name, BytesIO(xml2str(cp)), extra_replacements=replacements)
+
+
+if __name__ == "__main__":
+    import sys
+
+    with open(sys.argv[-1], "rb") as stream:
+        print(get_metadata(stream))

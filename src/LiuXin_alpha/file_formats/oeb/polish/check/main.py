@@ -38,6 +38,13 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 XML_TYPES = frozenset(six_map(guess_type, ("a.xml", "a.svg", "a.opf", "a.ncx"))) | {"application/oebps-page-map+xml"}
 
 
+def _safe_line_offset(elem):
+    line = getattr(elem, "sourceline", None)
+    if isinstance(line, int) and line > 0:
+        return line - 1
+    return 0
+
+
 def run_checks(container):
 
     errors = []
@@ -81,11 +88,11 @@ def run_checks(container):
         root = container.parsed(name)
         for style in root.xpath('//*[local-name()="style"]'):
             if style.get("type", "text/css") == "text/css" and style.text:
-                errors.extend(check_css_parsing(name, style.text, line_offset=style.sourceline - 1))
+                errors.extend(check_css_parsing(name, style.text, line_offset=_safe_line_offset(style)))
         for elem in root.xpath("//*[@style]"):
             raw = elem.get("style")
             if raw:
-                errors.extend(check_css_parsing(name, raw, line_offset=elem.sourceline - 1, is_declaration=True))
+                errors.extend(check_css_parsing(name, raw, line_offset=_safe_line_offset(elem), is_declaration=True))
 
     errors += check_mimetypes(container)
     errors += check_links(container) + check_link_destinations(container)

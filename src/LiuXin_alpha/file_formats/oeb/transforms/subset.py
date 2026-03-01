@@ -7,7 +7,20 @@ from collections import defaultdict
 
 from LiuXin_alpha.file_formats.oeb.base import urlnormalize
 
-from LiuXin_alpha.utils.fonts.sfnt.subset import subset, NoGlyphs, UnsupportedFont
+# Font subsetting is optional in this port; keep module importable when absent.
+try:
+    from LiuXin_alpha.utils.fonts.sfnt.subset import subset, NoGlyphs, UnsupportedFont
+
+    _HAS_FONT_SUBSETTER = True
+except ModuleNotFoundError:
+    subset = None
+    _HAS_FONT_SUBSETTER = False
+
+    class NoGlyphs(Exception):
+        pass
+
+    class UnsupportedFont(Exception):
+        pass
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalues
@@ -168,6 +181,9 @@ class SubsetFonts(object):
 
     def __call__(self, oeb, log, opts):
         self.oeb, self.log, self.opts = oeb, log, opts
+        if not _HAS_FONT_SUBSETTER or subset is None:
+            self.log.warn("Font subsetter is unavailable; skipping embedded font subsetting.")
+            return
 
         self.find_embedded_fonts()
         if not self.embedded_fonts:

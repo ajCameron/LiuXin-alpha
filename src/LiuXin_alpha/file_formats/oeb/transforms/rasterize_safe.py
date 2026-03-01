@@ -3,12 +3,20 @@ from __future__ import with_statement
 import re
 from copy import deepcopy
 
-import wand.color
-import wand.image
-from wand.api import library
+try:
+    import wand.color
+    import wand.image
+    from wand.api import library
+
+    _HAS_WAND = True
+except ModuleNotFoundError as err:
+    wand = None
+    library = None
+    _HAS_WAND = False
+    _WAND_IMPORT_ERROR = err
 
 from LiuXin_alpha.file_formats.oeb.base import xml2str
-from LiuXin_alpha.file_formats.oeb.transforms.rasterize import SVGRasterizer
+from LiuXin_alpha.file_formats.oeb.transforms.rasterize import SVGRasterizer, Unavailable
 
 
 # Todo: Get access to micorsoft word and make a docx file with a bunch of svgs in it. To test this mess.
@@ -18,7 +26,8 @@ class SVGRasterizerSafe(SVGRasterizer):
     """
 
     def __init__(self):
-        pass
+        if not _HAS_WAND:
+            raise Unavailable("wand is unavailable for safe SVG rasterization")
 
     def rasterize_svg(self, elem, width=0, height=0, format="PNG"):
         """
@@ -53,6 +62,9 @@ class SVGRasterizerSafe(SVGRasterizer):
 
         # https://stackoverflow.com/questions/6589358/convert-svg-to-png-in-python
         # Load the image - not sure if accounted for the background color correctly - try 'transparent' or 'white'
+        if not _HAS_WAND:
+            raise Unavailable("wand is unavailable for safe SVG rasterization")
+
         with wand.image.Image() as image:
             with wand.color.Color("white") as background_color:
                 library.MagickSetBackgroundColor(image.wand, background_color.resource)

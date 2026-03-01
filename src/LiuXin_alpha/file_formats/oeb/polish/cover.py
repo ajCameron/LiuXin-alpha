@@ -56,7 +56,7 @@ def set_azw3_cover(container, cover_path, report, options=None):
             name = container.href_to_name(item.get("href"), container.opf_name)
             found = False
     href = container.name_to_href(name, container.opf_name)
-    guide = container.opf_xpath("//opf:guide")[0]
+    guide = get_guides(container)[0]
     container.insert_into_xml(guide, guide.makeelement(OPF("reference"), href=href, type="cover"))
     if not existing_image:
         with open(cover_path, "rb") as src, container.open(name, "wb") as dest:
@@ -68,7 +68,10 @@ def set_azw3_cover(container, cover_path, report, options=None):
 def get_azw3_raster_cover_name(container):
     items = container.opf_xpath('//opf:guide/opf:reference[@href and contains(@type, "cover")]')
     if items:
-        return container.href_to_name(items[0].get("href"))
+        try:
+            return container.href_to_name(items[0].get("href"), container.opf_name)
+        except ValueError:
+            return None
 
 
 def mark_as_cover_azw3(container, name):
@@ -193,7 +196,10 @@ def find_cover_image(container, strict=False):
         if ref_type.lower() in COVER_TYPES and is_raster_image(mm.get(name, None)):
             path = container.name_path_map.get(name, None)
             if path:
-                sz = os.path.getsize(path)
+                try:
+                    sz = os.path.getsize(path)
+                except OSError:
+                    continue
                 if sz > largest_cover[1]:
                     largest_cover = (name, sz)
 
@@ -310,7 +316,10 @@ def find_cover_image_in_page(container, cover_page):
     for img in XPath("descendant::h:img[@src]|descendant::svg:svg/descendant::svg:image")(body):
         href = img.get("src") or img.get(XLINK("href"))
         if href:
-            name = container.href_to_name(href, base=cover_page)
+            try:
+                name = container.href_to_name(href, base=cover_page)
+            except ValueError:
+                continue
             images.append(name)
     text = re.sub(r"\s+", "", xml2text(body))
     if text or len(images) > 1:
@@ -396,7 +405,7 @@ def create_epub_cover(container, cover_path, existing_image, options=None):
         except Exception as e:
             container.log.exception(
                 "Failed to get width and height of cover",
-                " - exception message: {}".format(e.message),
+                " - exception message: {}".format(e),
             )
         ar = "xMidYMid meet" if keep_aspect else "none"
         templ = CoverManager.SVG_TEMPLATE.replace("__ar__", ar)
@@ -448,7 +457,10 @@ def create_epub_cover(container, cover_path, existing_image, options=None):
 def remove_cover_image_in_page(container, page, cover_images):
     for img in container.parsed(page).xpath('//*[local-name()="img" and @src]'):
         href = img.get("src")
-        name = container.href_to_name(href, page)
+        try:
+            name = container.href_to_name(href, page)
+        except ValueError:
+            continue
         if name in cover_images:
             img.getparent().remove(img)
         break
@@ -472,9 +484,10 @@ def set_epub_cover(container, cover_path, report, options=None):
     spine_items = tuple(container.spine_items)
     if cover_page is None:
         # Check if the first item in the spine is a simple cover wrapper
-        candidate = container.abspath_to_name(spine_items[0])
-        if find_cover_image_in_page(container, candidate) is not None:
-            cover_page = candidate
+        if spine_items:
+            candidate = container.abspath_to_name(spine_items[0])
+            if find_cover_image_in_page(container, candidate) is not None:
+                cover_page = candidate
 
     if cover_page is not None:
         log("Found existing cover page")

@@ -256,6 +256,8 @@ def check_mimetypes(container):
 
 
 def check_link_destination(container, dest_map, name, href, a, errors):
+    if not href or not isinstance(href, str):
+        return
     try:
         tname = container.href_to_name(href, name)
     except ValueError:
@@ -264,10 +266,13 @@ def check_link_destination(container, dest_map, name, href, a, errors):
         if container.mime_map[tname] not in OEB_DOCS:
             errors.append(BadDestinationType(name, tname, a))
         else:
-            root = container.parsed(tname)
+            try:
+                root = container.parsed(tname)
+            except Exception:
+                root = None
             if hasattr(root, "xpath"):
                 if tname not in dest_map:
-                    dest_map[tname] = set(root.xpath("//*/@id|//*/@name"))
+                    dest_map[tname] = {x for x in root.xpath("//*/@id|//*/@name") if x}
                 purl = urlparse(href)
                 if purl.fragment and purl.fragment not in dest_map[tname]:
                     errors.append(BadDestinationFragment(name, tname, a, purl.fragment))
@@ -287,7 +292,11 @@ def check_link_destinations(container):
     ncx_type = guess_type("a.ncx")
     for name, mt in iteritems(container.mime_map):
         if mt in OEB_DOCS:
-            for a in container.parsed(name).xpath('//*[local-name()="a" and @href]'):
+            try:
+                parsed = container.parsed(name)
+            except Exception:
+                continue
+            for a in parsed.xpath('//*[local-name()="a" and @href]'):
                 href = a.get("href")
                 check_link_destination(container, dest_map, name, href, a, errors)
         elif mt == opf_type:
@@ -322,7 +331,13 @@ def check_links(container):
 
     for name, mt in iteritems(container.mime_map):
         if mt in OEB_DOCS or mt in OEB_STYLES or mt in xml_types:
-            for href, lnum, col in container.iterlinks(name):
+            try:
+                link_iter = container.iterlinks(name)
+            except Exception:
+                continue
+            for href, lnum, col in link_iter:
+                if not href or not isinstance(href, str):
+                    continue
                 try:
                     tname = container.href_to_name(href, name)
                 except ValueError:
@@ -369,7 +384,10 @@ def check_links(container):
                                 )
                             )
                 else:
-                    purl = urlparse(href)
+                    try:
+                        purl = urlparse(href)
+                    except Exception:
+                        continue
                     if purl.scheme == "file":
                         a(
                             FileLink(

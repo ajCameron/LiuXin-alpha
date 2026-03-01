@@ -213,8 +213,15 @@ def polish_one(ebook, opts, report, customization=None):
     changed = False
     customization = customization or CUSTOMIZATION.copy()
 
-    if opts.subset or opts.embed:
-        stats = StatsCollector(ebook, do_embed=opts.embed)
+    perform_embed = bool(opts.embed)
+    perform_subset = bool(opts.subset)
+    stats = None
+    if perform_subset or perform_embed:
+        try:
+            stats = StatsCollector(ebook, do_embed=perform_embed)
+        except ModuleNotFoundError as e:
+            report(_("Skipping requested font operations because required dependencies are unavailable: %s") % e)
+            perform_embed = perform_subset = False
 
     if opts.opf:
         changed = True
@@ -259,13 +266,13 @@ def polish_one(ebook, opts, report, customization=None):
             changed = True
         report("")
 
-    if opts.embed:
+    if perform_embed and stats is not None:
         rt(_("Embedding referenced fonts"))
         if embed_all_fonts(ebook, stats, report):
             changed = True
         report("")
 
-    if opts.subset:
+    if perform_subset and stats is not None:
         rt(_("Subsetting embedded fonts"))
         if subset_all_fonts(ebook, stats.font_stats, report):
             changed = True

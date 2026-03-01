@@ -15,19 +15,33 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 def get_book_language(container):
     for lang in container.opf_xpath("//dc:language"):
-        raw = lang.text
-        if raw:
-            code = canonicalize_lang(raw.split(",")[0].strip())
-            if code:
-                return code
+        raw = getattr(lang, "text", None)
+        if not raw:
+            continue
+        try:
+            primary = str(raw).split(",")[0].strip()
+        except Exception:
+            continue
+        if not primary:
+            continue
+        try:
+            code = canonicalize_lang(primary)
+        except Exception:
+            continue
+        if code:
+            return code
 
 
 def set_guide_item(container, item_type, title, name, frag=None):
     ref_tag = "{%s}reference" % OPF_NAMESPACES["opf"]
+    item_type = "" if item_type is None else str(item_type)
     href = None
     if name:
-        href = container.name_to_href(name, container.opf_name)
-        if frag:
+        try:
+            href = container.name_to_href(name, container.opf_name)
+        except ValueError:
+            href = None
+        if href and frag:
             href += "#" + frag
 
     guides = container.opf_xpath("//opf:guide")
@@ -47,7 +61,12 @@ def set_guide_item(container, item_type, title, name, frag=None):
             matches.append(r)
         for m in matches:
             if href:
-                m.set("title", title), m.set("href", href), m.set("type", item_type)
+                if title is not None:
+                    m.set("title", str(title))
+                elif "title" in m.attrib:
+                    del m.attrib["title"]
+                m.set("href", href)
+                m.set("type", item_type)
             else:
                 container.remove_from_xml(m)
     container.dirty(container.opf_name)

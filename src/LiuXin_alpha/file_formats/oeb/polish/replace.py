@@ -40,7 +40,11 @@ class LinkReplacer(object):
                 return url
             self.replaced = True
             return "#" + repl
-        name = self.container.href_to_name(url, self.base)
+        try:
+            name = self.container.href_to_name(url, self.base)
+        except ValueError:
+            # Malformed absolute filesystem links can appear in legacy books.
+            return url
         if not name:
             return url
         nname = self.link_map.get(name, None)
@@ -68,7 +72,11 @@ class LinkRebaser(object):
             return url
         purl = urlparse(url)
         frag = purl.fragment
-        name = self.container.href_to_name(url, self.old_name)
+        try:
+            name = self.container.href_to_name(url, self.old_name)
+        except ValueError:
+            # Malformed absolute filesystem links can appear in legacy books.
+            return url
         if not name:
             return url
         if name == self.old_name:

@@ -23,6 +23,7 @@ from LiuXin_alpha.file_formats.odf.namespaces import TEXTNS as odTEXTNS
 from LiuXin_alpha.file_formats.odf.odf2xhtml import ODF2XHTML
 from LiuXin_alpha.file_formats.odf.opendocument import load as odLoad
 from LiuXin_alpha.file_formats.oeb.base import _css_logger
+from LiuXin_alpha.metadata.file_sources.odt import get_metadata as odt_get_metadata
 
 from LiuXin_alpha.utils.calibre import CurrentDir, walk
 from LiuXin_alpha.utils.localization import trans as _
@@ -284,52 +285,6 @@ class Extract(ODF2XHTML):
         # parse the modified tree and generate xhtml
         self._walknode(self.document.topnode)
 
-    def _fallback_metadata(self, stream):
-        from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
-
-        name = getattr(stream, "name", "")
-        if name:
-            title = os.path.splitext(os.path.basename(name))[0]
-        else:
-            title = ""
-        if not title:
-            title = _("Unknown")
-        return MetaInformation(title, [_("Unknown")])
-
-    def _read_metadata(self, stream, log):
-        try:
-            current_pos = stream.tell()
-        except Exception:
-            current_pos = None
-        try:
-            try:
-                from LiuXin_alpha.metadata.file_sources.odt import get_metadata as odt_get_metadata
-            except Exception:
-                return self._fallback_metadata(stream)
-            try:
-                if hasattr(stream, "seek"):
-                    stream.seek(0)
-                try:
-                    mi = odt_get_metadata(stream, "odt")
-                except TypeError:
-                    mi = odt_get_metadata(stream)
-                if hasattr(mi, "to_calibre"):
-                    mi = mi.to_calibre()
-                if not getattr(mi, "title", None):
-                    mi.title = _("Unknown")
-                if not getattr(mi, "authors", None):
-                    mi.authors = [_("Unknown")]
-                return mi
-            except Exception as e:
-                log.exception("Failed reading ODT metadata, using fallback metadata. - exception message: {}".format(e))
-                return self._fallback_metadata(stream)
-        finally:
-            if current_pos is not None and hasattr(stream, "seek"):
-                try:
-                    stream.seek(current_pos)
-                except Exception:
-                    pass
-
     def __call__(self, stream, odir, log):
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
@@ -340,7 +295,7 @@ class Extract(ODF2XHTML):
         with CurrentDir(odir):
             log("Extracting ODT file...")
             stream.seek(0)
-            mi = self._read_metadata(stream, log)
+            mi = odt_get_metadata(stream)
             if not mi.title:
                 mi.title = _("Unknown")
             if not mi.authors:

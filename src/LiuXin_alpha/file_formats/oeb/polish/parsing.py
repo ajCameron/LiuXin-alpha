@@ -75,7 +75,7 @@ class Element(ElementBase):
         if self.attrib:
             attrs = " " + " ".join('%s="%s"' % (k, v) for k, v in iteritems(self.attrib))
         ns = self.tag.rpartition("}")[0][1:]
-        prefix = {v: k for k, v in iteritems(self.nsmap)}[ns] or ""
+        prefix = {v: k for k, v in iteritems(self.nsmap)}.get(ns, "") or ""
         if prefix:
             prefix += ":"
         return "<%s%s%s (%s)>" % (
@@ -311,7 +311,8 @@ def makeelement_ns(ctx, namespace, prefix, name, attrib, nsmap):
     # Handle namespace prefixed tag names
     if prefix is not None:
         namespace = nsmap.get(prefix, None)
-        if namespace is not None and namespace != elem.nsmap[elem.prefix]:
+        current_ns = elem.nsmap.get(elem.prefix, None)
+        if namespace is not None and namespace != current_ns:
             nelem = ctx.makeelement("{%s}%s" % (nsmap[prefix], elem.tag.rpartition("}")[2]), nsmap=nsmap)
             for k, v in elem.items():
                 nelem.set(k, v)
@@ -364,8 +365,8 @@ class TreeBuilder(BaseTreeBuilder):
         """
         self.proxy_cache.append(elem)
         elem.name = tag_name
-        elem.namespace = elem.nsmap[elem.prefix]
-        elem.nameTuple = (elem.nsmap[elem.prefix], elem.name)
+        elem.namespace = elem.nsmap.get(elem.prefix, html_ns)
+        elem.nameTuple = (elem.namespace, elem.name)
 
     def createElement(self, token, nsmap=None):
         """
@@ -652,6 +653,8 @@ def parse_html5(
     replace_entities=True,
     fix_newlines=True,
 ):
+    if raw is None:
+        raise ValueError("Cannot parse HTML5: raw input is None")
     if isinstance(raw, bytes):
         raw = xml_to_unicode(raw)[0] if decoder is None else decoder(raw)
     raw = fix_self_closing_cdata_tags(raw)  # TODO: Handle this in the parser
@@ -682,7 +685,7 @@ def parse_html5(
                     parser.tree.proxy_cache = None
         except NamespacedHTMLPresent as err:
             raw = re.sub(
-                r"<\s*/{0,1}(%s:)" % err.prefix,
+                r"<\s*/{0,1}(%s:)" % re.escape(err.prefix),
                 lambda m: m.group().replace(m.group(1), ""),
                 raw,
                 flags=re.I,
@@ -691,6 +694,8 @@ def parse_html5(
             continue
         break
     root = parser.tree.getDocument()
+    if root is None:
+        raise ValueError("Failed to parse correctly, no root element produced")
     if (discard_namespaces and root.tag != "html") or (
         not discard_namespaces and (root.tag != "{%s}%s" % (namespaces["html"], "html") or root.prefix)
     ):
@@ -718,6 +723,8 @@ def parse(
     replace_entities=True,
     force_html5_parse=False,
 ):
+    if raw is None:
+        raise ValueError("Cannot parse markup: raw input is None")
     if isinstance(raw, bytes):
         raw = xml_to_unicode(raw)[0] if decoder is None else decoder(raw)
     if replace_entities:

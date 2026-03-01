@@ -4,11 +4,36 @@
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import re
+import builtins
 
 from lxml import etree
-from cssselect import HTMLTranslator, parse
-from cssselect.xpath import XPathExpr, is_safe_name
-from cssselect.parser import SelectorSyntaxError
+try:
+    from cssselect import HTMLTranslator, parse
+    from cssselect.xpath import XPathExpr, is_safe_name
+    from cssselect.parser import SelectorSyntaxError
+
+    _HAS_CSSSELECT = True
+except ModuleNotFoundError:
+    _HAS_CSSSELECT = False
+
+    class HTMLTranslator(object):
+        pass
+
+    class XPathExpr(object):
+        def __init__(self, element="*"):
+            self.element = element
+
+        def add_name_test(self):
+            return None
+
+    def is_safe_name(name):
+        return True
+
+    class SelectorSyntaxError(Exception):
+        pass
+
+    def parse(text):
+        return ()
 
 try:
     from cssutils.css import CSSRule
@@ -55,6 +80,16 @@ from LiuXin_alpha.utils.libraries.liuxin_six import dict_itervalues as itervalue
 
 __license__ = "GPL v3"
 __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
+
+
+def _ngettext(singular, plural, n):
+    fn = getattr(builtins, "ngettext", None)
+    if callable(fn):
+        try:
+            return fn(singular, plural, n)
+        except Exception:
+            pass
+    return singular if n == 1 else plural
 
 
 class NamespacedTranslator(HTMLTranslator):
@@ -109,11 +144,16 @@ class CaseInsensitiveAttributesTranslator(NamespacedTranslator):
         return self.xpath_attrib_equals(x, xpath_lower_case("@id"), (id_selector.id.lower()))
 
 
-css_to_xpath = NamespacedTranslator().css_to_xpath
-ci_css_to_xpath = CaseInsensitiveAttributesTranslator().css_to_xpath
+if _HAS_CSSSELECT:
+    css_to_xpath = NamespacedTranslator().css_to_xpath
+    ci_css_to_xpath = CaseInsensitiveAttributesTranslator().css_to_xpath
+else:
+    css_to_xpath = ci_css_to_xpath = None
 
 
 def build_selector(text, case_sensitive=True):
+    if not _HAS_CSSSELECT:
+        return None
     func = css_to_xpath if case_sensitive else ci_css_to_xpath
     try:
         return etree.XPath(fix_namespace(func(text)), namespaces=XPNSMAP)
@@ -180,9 +220,15 @@ def preserve_htmlns_prefix(sheet, prefix):
 def get_imported_sheets(name, container, sheets, recursion_level=10, sheet=None):
     ans = set()
     sheet = sheet or sheets[name]
-    for rule in sheet.cssRules.rulesOfType(CSSRule.IMPORT_RULE):
+    css_rules = getattr(sheet, "cssRules", None)
+    if css_rules is None:
+        return ans
+    for rule in css_rules.rulesOfType(CSSRule.IMPORT_RULE):
         if rule.href:
-            iname = container.href_to_name(rule.href, name)
+            try:
+                iname = container.href_to_name(rule.href, name)
+            except ValueError:
+                continue
             if iname in sheets:
                 ans.add(iname)
     if recursion_level > 0:
@@ -210,8 +256,8 @@ def remove_unused_css(container, report=None, remove_unused_classes=False):
     def safe_parse(parse_name):
         try:
             return container.parsed(parse_name)
-        except TypeError:
-            pass
+        except Exception:
+            return None
 
     sheets = {name: safe_parse(name) for name, mt in iteritems(container.mime_map) if mt in OEB_STYLES}
     sheets = {k: v for k, v in iteritems(sheets) if v is not None}
@@ -233,11 +279,17 @@ def remove_unused_css(container, report=None, remove_unused_classes=False):
     for name, mt in iteritems(container.mime_map):
         if mt not in OEB_DOCS:
             continue
-        root = container.parsed(name)
+        try:
+            root = container.parsed(name)
+        except Exception:
+            continue
         used_classes = set()
         for style in root.xpath('//*[local-name()="style"]'):
             if style.get("type", "text/css") == "text/css" and style.text:
-                sheet = container.parse_css(style.text)
+                try:
+                    sheet = container.parse_css(style.text)
+                except Exception:
+                    continue
                 if remove_unused_classes:
                     used_classes |= {icu_lower(x) for x in classes_in_rule_list(sheet.cssRules)}
                 imports = get_imported_sheets(name, container, sheets, sheet=sheet)
@@ -266,7 +318,10 @@ def remove_unused_css(container, report=None, remove_unused_classes=False):
                     container.dirty(name)
 
         for link in root.xpath('//*[local-name()="link" and @href]'):
-            sname = container.href_to_name(link.get("href"), name)
+            try:
+                sname = container.href_to_name(link.get("href"), name)
+            except ValueError:
+                continue
             if sname not in sheets:
                 continue
             style_rules[sname] = tuple(filter_used_rules(root, style_rules[sname], container.log, pseudo_pat, cache))
@@ -305,7 +360,7 @@ def remove_unused_css(container, report=None, remove_unused_classes=False):
     # Todo: What is ngettext? What does it do
     if num_of_removed_rules > 0:
         report(
-            ngettext(
+            _ngettext(
                 "Removed %d unused CSS style rule",
                 "Removed %d unused CSS style rules",
                 num_of_removed_rules,
@@ -317,7 +372,7 @@ def remove_unused_css(container, report=None, remove_unused_classes=False):
     if remove_unused_classes:
         if num_of_removed_classes > 0:
             report(
-                ngettext(
+                _ngettext(
                     "Removed %d unused class from the HTML",
                     "Removed %d unused classes from the HTML",
                     num_of_removed_classes,
@@ -349,17 +404,18 @@ def filter_declaration(style, properties):
 
 
 def filter_sheet(sheet, properties):
-    from cssutils.css import CSSRule
-
     changed = False
     remove = []
-    for rule in sheet.cssRules.rulesOfType(CSSRule.STYLE_RULE):
+    css_rules = getattr(sheet, "cssRules", None)
+    if css_rules is None:
+        return False
+    for rule in css_rules.rulesOfType(CSSRule.STYLE_RULE):
         if filter_declaration(rule.style, properties):
             changed = True
             if rule.style.length == 0:
                 remove.append(rule)
     for rule in remove:
-        sheet.cssRules.remove(rule)
+        css_rules.remove(rule)
     return changed
 
 
@@ -384,15 +440,23 @@ def filter_css(container, properties, names=()):
     doc_changed = False
 
     for name in names:
+        if name not in container.mime_map:
+            continue
         mt = container.mime_map[name]
         if mt in OEB_STYLES:
-            sheet = container.parsed(name)
+            try:
+                sheet = container.parsed(name)
+            except Exception:
+                continue
             filtered = filter_sheet(sheet, properties)
             if filtered:
                 container.dirty(name)
                 doc_changed = True
         elif mt in OEB_DOCS:
-            root = container.parsed(name)
+            try:
+                root = container.parsed(name)
+            except Exception:
+                continue
             changed = False
             for style in root.xpath('//*[local-name()="style"]'):
                 if style.text and style.get("type", "text/css") in {
@@ -400,7 +464,10 @@ def filter_css(container, properties, names=()):
                     "",
                     "text/css",
                 }:
-                    sheet = container.parse_css(style.text)
+                    try:
+                        sheet = container.parse_css(style.text)
+                    except Exception:
+                        continue
                     if filter_sheet(sheet, properties):
                         changed = True
                         style.text = force_unicode(sheet.cssText, "utf-8")
@@ -408,7 +475,10 @@ def filter_css(container, properties, names=()):
             for elem in root.xpath("//*[@style]"):
                 text = elem.get("style", None)
                 if text:
-                    style = container.parse_css(text, is_declaration=True)
+                    try:
+                        style = container.parse_css(text, is_declaration=True)
+                    except Exception:
+                        continue
                     if filter_declaration(style, properties):
                         changed = True
                         if style.length == 0:
@@ -447,7 +517,7 @@ def classes_in_selector(text):
 
 def classes_in_rule_list(css_rules):
     classes = set()
-    for rule in css_rules:
+    for rule in css_rules or ():
         if rule.type == rule.STYLE_RULE:
             classes |= classes_in_selector(rule.selectorText)
         elif hasattr(rule, "cssRules"):

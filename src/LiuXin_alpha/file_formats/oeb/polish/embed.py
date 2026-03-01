@@ -56,7 +56,14 @@ def embed_font(container, font, all_font_rules, report, warned):
     if not isinstance(ff, six_string_types):
         ff = ff[0]
     if rule is None:
-        from LiuXin_alpha.utils.fonts.scanner import font_scanner, NoFonts
+        try:
+            from LiuXin_alpha.utils.fonts.scanner import font_scanner, NoFonts
+        except ModuleNotFoundError:
+            msg = _("Font scanner support is unavailable, cannot embed font family: %s") % ff
+            if msg not in warned:
+                warned.add(msg)
+                report(msg)
+            return
 
         if ff in warned:
             return

@@ -232,7 +232,7 @@ def cnv_NCName(attribute, arg, element):
     """NCName is defined in http://www.w3.org/TR/REC-xml-names/#NT-NCName
     Essentially an XML name minus ':'
     """
-    if type(arg) in types.StringTypes:
+    if isinstance(arg, str):
         return make_NCName(arg)
     else:
         return arg.getAttrNS(STYLENS, "name")
@@ -286,7 +286,7 @@ pattern_points = re.compile(r"-?[0-9]+,-?[0-9]+([ ]+-?[0-9]+,-?[0-9]+)*")
 
 def cnv_points(attribute, arg, element):
     global pattern_points
-    if type(arg) in types.StringTypes:
+    if isinstance(arg, str):
         if not pattern_points.match(arg):
             raise ValueError("x,y are separated by a comma and the points are separated by white spaces")
         return arg

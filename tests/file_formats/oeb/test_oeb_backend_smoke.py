@@ -55,8 +55,13 @@ def test_oeb_modules_import_smoke() -> None:
         "LiuXin_alpha.file_formats.oeb.stylizer",
         "LiuXin_alpha.file_formats.oeb.reader",
         "LiuXin_alpha.file_formats.oeb.writer",
+        "LiuXin_alpha.file_formats.oeb.iterator.book",
+        "LiuXin_alpha.file_formats.oeb.iterator.bookmarks",
         "LiuXin_alpha.file_formats.oeb.transforms.flatcss",
         "LiuXin_alpha.file_formats.oeb.transforms.embed_fonts",
+        "LiuXin_alpha.file_formats.oeb.transforms.subset",
+        "LiuXin_alpha.file_formats.oeb.transforms.unsmarten",
+        "LiuXin_alpha.file_formats.oeb.transforms.rasterize_safe",
     )
     for module_name in modules:
         importlib.import_module(module_name)
@@ -88,3 +93,36 @@ def test_oeb_reader_writer_roundtrip_smoke(tmp_path: Path) -> None:
     OEBWriter(version="2.0", page_map=True)(oeb, str(out_dir))
     assert (out_dir / "content.opf").exists()
     assert (out_dir / "chapter.xhtml").exists()
+
+
+def test_oeb_subset_transform_fallback_noops_when_subsetter_missing() -> None:
+    subset_mod = importlib.import_module("LiuXin_alpha.file_formats.oeb.transforms.subset")
+    if getattr(subset_mod, "_HAS_FONT_SUBSETTER", False):
+        pytest.skip("font subsetter available in this environment")
+
+    class _Log:
+        def __init__(self):
+            self.messages = []
+
+        def warn(self, *args):
+            self.messages.append(" ".join(str(x) for x in args))
+
+    log = _Log()
+    subset_mod.SubsetFonts()(oeb=object(), log=log, opts=object())
+    assert any("Font subsetter is unavailable" in m for m in log.messages)
+
+
+def test_oeb_unsmarten_transform_replaces_common_punctuation() -> None:
+    unsmarten_mod = importlib.import_module("LiuXin_alpha.file_formats.oeb.transforms.unsmarten")
+    out = unsmarten_mod.unsmarten_text("“quote”—ellipses…")
+    assert out == '"quote"---ellipses...'
+
+
+def test_oeb_safe_rasterizer_imports_and_handles_missing_wand() -> None:
+    rasterize_mod = importlib.import_module("LiuXin_alpha.file_formats.oeb.transforms.rasterize")
+    rasterize_safe_mod = importlib.import_module("LiuXin_alpha.file_formats.oeb.transforms.rasterize_safe")
+    if getattr(rasterize_safe_mod, "_HAS_WAND", False):
+        assert rasterize_safe_mod.SVGRasterizerSafe() is not None
+    else:
+        with pytest.raises(rasterize_mod.Unavailable):
+            rasterize_safe_mod.SVGRasterizerSafe()
