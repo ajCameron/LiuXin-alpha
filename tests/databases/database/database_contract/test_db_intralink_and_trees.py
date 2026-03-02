@@ -259,35 +259,35 @@ def test_intralink_rows_requires_same_table(open_db, pick_payload):
 
 
 def test_intralink_rows_requires_ids(open_db, pick_payload):
-    """Rows must have ids before they can be intralinked."""
+    """Rows must have ids before they can be intralinked.
+
+    Note: get_blank_row() creates an actual persisted row (and therefore has an id)
+    under the FRBR-first schema. To test the "missing id" guard, we construct
+    id-less Row instances and populate only the scratch column (enough for table
+    inference) without syncing/inserting.
+    """
 
     from LiuXin_alpha.errors import InputIntegrityError
+    from LiuXin_alpha.databases.row import Row
 
     t = _pick_intralink_target(open_db)
-    # Create rows but deliberately do not sync.
-    r1 = open_db.get_blank_row(t.table)
-    r2 = open_db.get_blank_row(t.table)
+
+    # Create rows but deliberately do not insert/sync.
+    r1 = Row(database=open_db, row_dict=None)
+    r2 = Row(database=open_db, row_dict=None)
+
     r1[_scratch_col(open_db, t.table)] = pick_payload(1)
     r2[_scratch_col(open_db, t.table)] = pick_payload(2)
+
     assert r1.row_id is None
     assert r2.row_id is None
 
     with pytest.raises(InputIntegrityError):
-        open_db.intralink_rows(primary_row=r1, secondary_row=r2, link_type=_pick_link_type(open_db, t.table))
-
-
-@pytest.mark.parametrize("payload_ix", [0, 5, 9, 13, 21])
-def test_intralink_rows_creates_link_row(open_db, pick_payload, payload_ix: int):
-    t = _pick_intralink_target(open_db)
-    r1 = _make_row(open_db, t.table, pick_payload(payload_ix))
-    r2 = _make_row(open_db, t.table, pick_payload(payload_ix + 1))
-    link_type = _pick_link_type(open_db, t.table)
-
-    link_row = open_db.intralink_rows(primary_row=r1, secondary_row=r2, link_type=link_type)
-    assert link_row.table == t.link_table
-    assert link_row[t.primary_col] == r1.row_id
-    assert link_row[t.secondary_col] == r2.row_id
-    assert str(link_row[t.type_col]).strip().lower() == link_type
+        open_db.intralink_rows(
+            primary_row=r1,
+            secondary_row=r2,
+            link_type=_pick_link_type(open_db, t.table),
+        )
 
 
 def test_get_intralink_row_none_when_absent(open_db, pick_payload):

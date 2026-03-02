@@ -86,6 +86,14 @@ def _detect_pk_column(conn: sqlite3.Connection, table: str) -> str | None:
     return None
 
 
+def _relation_type(conn: sqlite3.Connection, name: str) -> str | None:
+    row = conn.execute(
+        "SELECT type FROM sqlite_master WHERE (type='table' OR type='view') AND name=? LIMIT 1;",
+        (name,),
+    ).fetchone()
+    return str(row[0]) if row else None
+
+
 def _default_value_for_type(col_name: str, col_type: str) -> Any:
     n = col_name.lower()
     t = (col_type or "").upper()
@@ -138,6 +146,32 @@ def _insert_minimal_row(conn: sqlite3.Connection, *, table: str, override: dict[
     return int(cur.lastrowid)
 
 
+def _insert_minimal_title_row(conn: sqlite3.Connection, *, title: str) -> int:
+    """Insert a row that is visible through the `titles` relation.
+
+    In FRBR/WEMI schema variants, `titles` can be a read-only compatibility view.
+    In that case, we seed data via `works` instead.
+    """
+    if _relation_type(conn, "titles") == "view":
+        return _insert_minimal_row(
+            conn,
+            table="works",
+            override={
+                "work_title": title,
+                "work_sort_title": title,
+            },
+        )
+
+    return _insert_minimal_row(
+        conn,
+        table="titles",
+        override={
+            "title": title,
+            "title_sort": title,
+        },
+    )
+
+
 @dataclass(frozen=True)
 class _DriverBundle:
     driver: Any
@@ -169,7 +203,7 @@ def test_dump_and_restore_round_trips(sqlite_pure_driver_bundle) -> None:
     conn = drv.get_connection()
     try:
         conn.execute("PRAGMA user_version=123;")
-        _insert_minimal_row(conn, table="titles", override={"title": "Dump/Restore Test"})
+        _insert_minimal_title_row(conn, title="Dump/Restore Test")
         conn.commit()
     finally:
         conn.close()

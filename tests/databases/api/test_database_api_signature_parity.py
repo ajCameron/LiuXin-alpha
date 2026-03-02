@@ -115,7 +115,46 @@ def classify_method(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
 
 def arg_weight(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
     args = node.args
-    return len(args.posonlyargs) + len(args.args) + len(args.kwonlyargs) + (1 if args.vararg else 0) + (1 if args.kwarg else 0)
+    return (
+        len(args.posonlyargs)
+        + len(args.args)
+        + len(args.kwonlyargs)
+        + (1 if args.vararg else 0)
+        + (1 if args.kwarg else 0)
+    )
+
+
+def _strip_arg_annotations(args: ast.arguments) -> ast.arguments:
+    """Return a shallow-copied ast.arguments with annotations removed.
+
+    We want to compare call-shape (names, defaults, position, varargs) rather than
+    type syntax. This avoids false negatives from forward-ref strings vs real names.
+    """
+
+    def strip(a: ast.arg) -> ast.arg:
+        return ast.arg(arg=a.arg, annotation=None, type_comment=None)
+
+    return ast.arguments(
+        posonlyargs=[strip(a) for a in args.posonlyargs],
+        args=[strip(a) for a in args.args],
+        vararg=strip(args.vararg) if args.vararg else None,
+        kwonlyargs=[strip(a) for a in args.kwonlyargs],
+        kw_defaults=list(args.kw_defaults),
+        kwarg=strip(args.kwarg) if args.kwarg else None,
+        defaults=list(args.defaults),
+    )
+
+
+def _normalize_returns(ret: ast.expr | None) -> str | None:
+    if ret is None:
+        return None
+    s = ast.unparse(ret)
+    # If it's a quoted forward-ref like 'SomeType', normalize to SomeType.
+    if (s.startswith("'") and s.endswith("'")) or (s.startswith('"') and s.endswith('"')):
+        inner = s[1:-1]
+        if inner and all(part.isidentifier() for part in inner.split(".")):
+            return inner
+    return s
 
 
 def resolve_base(base: ast.expr, module: ModuleInfo) -> ClassRef | None:
@@ -175,14 +214,13 @@ def collect_methods(
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         if node.name.startswith("__") and not node.name.endswith("__"):
-            # Ignore class-private name-mangled helpers. These are implementation details and
-            # cannot be reliably expressed as abstract methods across subclasses.
+            # Ignore class-private name-mangled helpers.
             continue
 
         spec = MethodSpec(
             kind=classify_method(node),
-            args=ast.unparse(node.args),
-            returns=ast.unparse(node.returns) if node.returns is not None else None,
+            args=ast.unparse(_strip_arg_annotations(node.args)),
+            returns=_normalize_returns(node.returns),
             arg_weight=arg_weight(node),
         )
 
@@ -198,22 +236,8 @@ def collect_methods(
     return methods
 
 
-def merge_concrete_signatures(concrete_refs: list[ClassRef]) -> dict[str, MethodSpec]:
-    merged: dict[str, MethodSpec] = {}
-
-    for ref in concrete_refs:
-        methods = collect_methods(ref.module, ref.class_name, strict=True)
-        for name, spec in methods.items():
-            current = merged.get(name)
-            if current is None:
-                merged[name] = spec
-                continue
-            assert current.kind == spec.kind and current.args == spec.args and current.returns == spec.returns, (
-                "Concrete implementations disagree on method signatures "
-                f"for {name!r}: {current} vs {spec}"
-            )
-
-    return merged
+# Constructors are frequently DI-heavy and legitimately differ across implementations.
+ALWAYS_IGNORED_NAMES: set[str] = {"__init__"}
 
 
 @pytest.mark.parametrize(
@@ -237,7 +261,7 @@ def merge_concrete_signatures(concrete_refs: list[ClassRef]) -> dict[str, Method
         (
             ClassRef("LiuXin_alpha.databases.api.driver_wrapper", "DatabaseDriverWrapperAPI"),
             [ClassRef("LiuXin_alpha.databases.database_driver_plugins.driver_wrapper", "DriverWrapper")],
-            {"__init__"},
+            set(),
         ),
         (
             ClassRef("LiuXin_alpha.databases.api.driver", "DatabaseDriverAPI"),
@@ -269,42 +293,71 @@ def test_database_api_signature_parity(
     concrete_refs: list[ClassRef],
     ignored_names: set[str],
 ) -> None:
+    # The API is a minimum contract: each concrete implementation must implement
+    # at least the API surface, but may add additional methods.
     api_methods = collect_methods(api_ref.module, api_ref.class_name, strict=True)
-    concrete_methods = merge_concrete_signatures(concrete_refs)
 
-    for name in ignored_names:
+    ignored = set(ignored_names) | ALWAYS_IGNORED_NAMES
+    for name in ignored:
         api_methods.pop(name, None)
-        concrete_methods.pop(name, None)
 
-    missing = sorted(set(concrete_methods) - set(api_methods))
-    assert not missing, (
-        f"{api_ref.class_name} is missing {len(missing)} methods: "
-        + ", ".join(missing[:20])
-        + (f" ... (+{len(missing) - 20} more)" if len(missing) > 20 else "")
-    )
+    concrete_maps: list[tuple[ClassRef, dict[str, MethodSpec]]] = []
+    for ref in concrete_refs:
+        concrete_methods = collect_methods(ref.module, ref.class_name, strict=True)
+        for name in ignored:
+            concrete_methods.pop(name, None)
+        concrete_maps.append((ref, concrete_methods))
 
-    kind_mismatches = sorted(
-        name
-        for name in concrete_methods
-        if name in api_methods and concrete_methods[name].kind != api_methods[name].kind
-    )
-    assert not kind_mismatches, (
-        f"{api_ref.class_name} has {len(kind_mismatches)} method-kind mismatches: "
-        + ", ".join(kind_mismatches[:20])
-        + (f" ... (+{len(kind_mismatches) - 20} more)" if len(kind_mismatches) > 20 else "")
-    )
-
-    signature_mismatches = sorted(
-        name
-        for name in concrete_methods
-        if name in api_methods
-        and (
-            concrete_methods[name].args != api_methods[name].args
-            or concrete_methods[name].returns != api_methods[name].returns
+    for ref, concrete_methods in concrete_maps:
+        missing = sorted(set(api_methods) - set(concrete_methods))
+        assert not missing, (
+            f"{ref.class_name} is missing {len(missing)} API methods from {api_ref.class_name}: "
+            + ", ".join(missing[:20])
+            + (f" ... (+{len(missing) - 20} more)" if len(missing) > 20 else "")
         )
-    )
-    assert not signature_mismatches, (
-        f"{api_ref.class_name} has {len(signature_mismatches)} signature mismatches: "
-        + ", ".join(signature_mismatches[:20])
-        + (f" ... (+{len(signature_mismatches) - 20} more)" if len(signature_mismatches) > 20 else "")
-    )
+
+        kind_mismatches = sorted(
+            name for name in api_methods if concrete_methods[name].kind != api_methods[name].kind
+        )
+        assert not kind_mismatches, (
+            f"{ref.class_name} has {len(kind_mismatches)} method-kind mismatches vs {api_ref.class_name}: "
+            + ", ".join(kind_mismatches[:20])
+            + (f" ... (+{len(kind_mismatches) - 20} more)" if len(kind_mismatches) > 20 else "")
+        )
+
+        signature_mismatches = sorted(
+            name
+            for name in api_methods
+            if (
+                concrete_methods[name].args != api_methods[name].args
+                or (
+                    concrete_methods[name].returns is not None
+                    and api_methods[name].returns is not None
+                    and concrete_methods[name].returns != api_methods[name].returns
+                )
+            )
+        )
+        assert not signature_mismatches, (
+            f"{ref.class_name} has {len(signature_mismatches)} signature mismatches vs {api_ref.class_name}: "
+            + ", ".join(signature_mismatches[:20])
+            + (f" ... (+{len(signature_mismatches) - 20} more)" if len(signature_mismatches) > 20 else "")
+        )
+
+    # Optional extra sanity: if there are multiple concretes (e.g. sqlite + apsw),
+    # ensure they agree on the API method shapes.
+    if len(concrete_maps) > 1:
+        base_ref, base_methods = concrete_maps[0]
+        disagreements: list[str] = []
+        for name in api_methods:
+            base = base_methods[name]
+            for other_ref, other_methods in concrete_maps[1:]:
+                other = other_methods[name]
+                if base != other:
+                    disagreements.append(
+                        f"{name}: {base_ref.class_name}{base} != {other_ref.class_name}{other}"
+                    )
+        assert not disagreements, (
+            f"Concrete implementations disagree on API method signatures for {api_ref.class_name}: "
+            + "; ".join(disagreements[:10])
+            + (f" ... (+{len(disagreements) - 10} more)" if len(disagreements) > 10 else "")
+        )

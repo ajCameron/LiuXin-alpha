@@ -22,7 +22,10 @@ import os
 import sys
 import zipfile
 import importlib
+import pathlib
 from copy import deepcopy
+
+from typing import Union
 
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
@@ -37,6 +40,8 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.errors import PluginNotFound, InvalidPlugin
 
 from LiuXin_alpha.preferences import preferences
+
+
 
 platform = "linux"
 if iswindows:
@@ -110,12 +115,17 @@ class Plugin:  # {{{
     # For other purposes, the category will be inferred from the plugin type.
     plugin_type = _("Base")
 
-    def __init__(self, plugin_path):
+    def __init__(self, plugin_path: Union[str, pathlib.Path]) -> None:
+        """
+        Startup the plugin.
+
+        :param plugin_path:
+        """
         self.plugin_path = plugin_path
         self.site_customization = None
         self.prefs = PluginPreferences()
 
-    def initialize(self):
+    def initialize(self) -> None:
         """
         Called once when calibre plugins are initialized. Plugins are re-initialized
         every time a new plugin is added.
@@ -231,7 +241,7 @@ class Plugin:  # {{{
                     ans[candidate] = zf.read(candidate)
         return ans
 
-    def customization_help(self, gui=False):
+    def customization_help(self, gui: bool = False) -> str:
         """
         Return a string giving help on how to customize this plugin.
 
@@ -241,12 +251,13 @@ class Plugin:  # {{{
         If you re-implement this method in your subclass, the user will be asked to enter a string as customization for
         this plugin. The customization string will be available as ``self.site_customization``.
         Site customization could be anything, for example, the path to a needed binary on the user's computer.
+
         :param gui: If True return HTML help, otherwise return plain text help.
         """
         raise NotImplementedError
 
     @staticmethod
-    def temporary_file(suffix):
+    def temporary_file(suffix: str) -> PersistentTemporaryFile:
         """
         Return a file-like object that is a temporary file on the file system.
 
@@ -259,7 +270,7 @@ class Plugin:  # {{{
         """
         return PersistentTemporaryFile(suffix)
 
-    def is_customizable(self):
+    def is_customizable(self) -> bool:
         """
         Can the plugin be customized?
 
@@ -321,6 +332,7 @@ class Plugin:  # {{{
     def cli_main(self, args):
         """
         This method is the main entry point for your plugins command line interface.
+
         It is called when the user does: calibre-debug -r "Plugin Name".
         Any arguments passed are present in the args variable.
         """
@@ -348,7 +360,7 @@ class FileTypePlugin(Plugin):  # {{{
     """
 
     #: Set of file types for which this plugin should be run. For example: ``{'lit', 'mobi', 'prc'}``
-    file_types = set()
+    file_types: set[str] = set()
 
     #: If True, this plugin is run when books are added to the database
     on_import = False
@@ -400,9 +412,13 @@ class MetadataReaderPlugin(Plugin):  # {{{
     A plugin that implements reading metadata from a set of file types.
     """
 
-    #: Set of file types for which this plugin should be run. For example: ``set(['lit', 'mobi', 'prc'])``
+    # Set of file types for which this plugin should be run. For example: ``set(['lit', 'mobi', 'prc'])``
     file_types = frozenset([])
+
+    # Basic measure of run cost
     inplace_run_cost = "high"
+
+    # What platforms does this plugin work on?
 
     supported_platforms = ["windows", "osx", "linux"]
     version = calibre_numeric_version

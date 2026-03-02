@@ -31,12 +31,16 @@ import pytest
 # ---------------------------------------------------------------------------
 
 
-def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
+def _relation_type(conn: sqlite3.Connection, name: str) -> str | None:
     row = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=? LIMIT 1;",
-        (table,),
+        "SELECT type FROM sqlite_master WHERE (type='table' OR type='view') AND name=? LIMIT 1;",
+        (name,),
     ).fetchone()
-    return row is not None
+    return str(row[0]) if row else None
+
+
+def _relation_exists(conn: sqlite3.Connection, name: str) -> bool:
+    return _relation_type(conn, name) is not None
 
 
 def _table_info(conn: sqlite3.Connection, table: str):
@@ -75,6 +79,67 @@ def _default_value_for_type(col_name: str, col_type: str, preferred_text_value: 
     return ""
 
 
+@dataclass(frozen=True)
+class _TitleContract:
+    read_table: str
+    read_id_col: str
+    read_title_col: str
+    read_sort_col: str
+    write_table: str
+    write_id_col: str
+    write_title_col: str
+    write_sort_col: str
+
+
+def _title_contract(driver) -> _TitleContract:
+    """Resolve how to read 'titles' while writing to the underlying storage.
+
+    In WEMI schema variants, `titles` is a read-only compatibility view.
+    """
+    conn = driver.get_connection()
+    try:
+        t = _relation_type(conn, "titles")
+    finally:
+        conn.close()
+
+    if t == "view":
+        # See: database_generator_frbr/aggregate_sql/wemi_views.sql
+        return _TitleContract(
+            read_table="titles",
+            read_id_col="title_id",
+            read_title_col="title",
+            read_sort_col="title_sort",
+            write_table="works",
+            write_id_col="work_id",
+            write_title_col="work_title",
+            write_sort_col="work_sort_title",
+        )
+
+    return _TitleContract(
+        read_table="titles",
+        read_id_col="title_id",
+        read_title_col="title",
+        read_sort_col="title_sort",
+        write_table="titles",
+        write_id_col="title_id",
+        write_title_col="title",
+        write_sort_col="title_sort",
+    )
+
+
+def _insert_minimal_title_row(driver, *, title: str, title_sort: str | None = None) -> int:
+    """Insert a row that will be visible through the `titles` relation.
+
+    If `titles` is a view, insert into `works` with the appropriate columns.
+    Returns the row id (work_id/title_id).
+    """
+    c = _title_contract(driver)
+    override = {
+        c.write_title_col: title,
+    }
+    if title_sort is not None:
+        override[c.write_sort_col] = title_sort
+    return _insert_minimal_row(driver, table=c.write_table, override=override)
 def _insert_minimal_row(
     driver,
     *,
@@ -248,99 +313,100 @@ class TestSQLiteDriverIntrospection:
 class TestSQLiteDriverCRUD:
     def test_insert_and_fetch_title_row(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
+        c = _title_contract(drv)
 
         title_value = "Hello World"
-        drv.direct_add_simple_row_dict({"title": title_value, "title_sort": "hello world"})
 
-        rows = drv.direct_search_table(table="titles", column="title", search_term=title_value)
+        # Insert into the writable storage table (e.g. `works` in WEMI),
+        # then assert it is visible via the `titles` compatibility surface.
+        drv.direct_add_simple_row_dict(
+            {
+                c.write_title_col: title_value,
+                c.write_sort_col: "hello world",
+            }
+        )
+
+        rows = drv.direct_search_table(table=c.read_table, column=c.read_title_col, search_term=title_value)
         assert len(rows) == 1
-        assert rows[0]["title"] == title_value
-
+        assert rows[0][c.read_title_col] == title_value
     def test_update_row_dict_round_trip(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
+        c = _title_contract(drv)
 
-        # Create a title row using direct SQL (avoids ambiguity in identify_table_from_row).
-        title_id = _insert_minimal_row(drv, table="titles", override={"title": "Before"})
+        row_id = _insert_minimal_title_row(drv, title="Before")
 
-        row = drv.direct_get_row_dict_from_id("titles", title_id)
+        # Read/write via the underlying storage table (views are read-only).
+        row = drv.direct_get_row_dict_from_id(c.write_table, row_id)
         assert row is not False
-        assert row["title"] == "Before"
+        assert row[c.write_title_col] == "Before"
 
-        row["title"] = "After"
+        row[c.write_title_col] = "After"
         drv.direct_update_row_dict(row)
 
-        row2 = drv.direct_get_row_dict_from_id("titles", title_id)
-        assert row2["title"] == "After"
+        row2 = drv.direct_get_row_dict_from_id(c.write_table, row_id)
+        assert row2[c.write_title_col] == "After"
 
+        # And it should be visible via the read surface too.
+        row3 = drv.direct_get_row_dict_from_id(c.read_table, row_id)
+        assert row3 is not False
+        assert row3[c.read_title_col] == "After"
     def test_delete_row_by_id(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
-        title_id = _insert_minimal_row(drv, table="titles", override={"title": "To Delete"})
-        assert drv.direct_get_row_dict_from_id("titles", title_id) is not False
+        c = _title_contract(drv)
 
-        drv.direct_delete_row_by_id("titles", title_id)
-        assert drv.direct_get_row_dict_from_id("titles", title_id) is False
+        row_id = _insert_minimal_title_row(drv, title="To Delete")
+        assert drv.direct_get_row_dict_from_id(c.read_table, row_id) is not False
 
+        drv.direct_delete_row_by_id(c.write_table, row_id)
+        assert drv.direct_get_row_dict_from_id(c.read_table, row_id) is False
     def test_get_all_rows_and_iterator_consistency(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
+        c = _title_contract(drv)
+
         for i in range(5):
-            _insert_minimal_row(drv, table="titles", override={"title": f"T{i}"})
+            _insert_minimal_title_row(drv, title=f"T{i}")
 
-        all_rows = drv.direct_get_all_rows("titles", sort_column="title_id")
+        all_rows = drv.direct_get_all_rows(c.read_table, sort_column=c.read_id_col)
         # The iterator is currently only implemented for id-ordered iteration.
-        it_rows = list(drv.direct_get_row_dict_iterator("titles"))
-        it_rows = sorted(it_rows, key=lambda r: int(r["title_id"]))
+        it_rows = list(drv.direct_get_row_dict_iterator(c.read_table))
+        it_rows = sorted(it_rows, key=lambda r: int(r[c.read_id_col]))
         assert len(all_rows) == len(it_rows)
-        assert [r["title_id"] for r in all_rows] == [r["title_id"] for r in it_rows]
-
+        assert [r[c.read_id_col] for r in all_rows] == [r[c.read_id_col] for r in it_rows]
     def test_unique_values_set_includes_inserted(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
         values = {"Alpha", "Beta", "Gamma"}
         for v in values:
-            _insert_minimal_row(drv, table="titles", override={"title": v})
+            _insert_minimal_title_row(drv, title=v)
 
         found = drv.direct_get_unique_values_set("title")
         assert values.issubset(set(found))
-
-
-# ---------------------------------------------------------------------------
-# Constraints / FK behaviour
-# ---------------------------------------------------------------------------
-
-
-class TestSQLiteDriverConstraints:
-    def test_foreign_key_cascade_title_to_book(self, sqlite_driver_bundle):
+    def test_foreign_key_cascade_manifestation_to_item(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
 
-        title_id = _insert_minimal_row(drv, table="titles", override={"title": "FK"})
+        # items.item_manifestation_id -> manifestations.manifestation_id has ON DELETE CASCADE
+        manifestation_id = _insert_minimal_row(drv, table="manifestations")
 
-        # `books.book_id` is PK + FK to titles.title_id
-        drv.direct_add_simple_row_dict({
-            "book_id": title_id,
-            "book_uuid": "00000000-0000-0000-0000-000000000000",
-        })
+        item_id = _insert_minimal_row(
+            drv,
+            table="items",
+            override={"item_manifestation_id": manifestation_id},
+        )
 
-        assert drv.direct_get_row_dict_from_id("books", title_id) is not False
+        assert drv.direct_get_row_dict_from_id("items", item_id) is not False
 
-        drv.direct_delete_row_by_id("titles", title_id)
+        drv.direct_delete_row_by_id("manifestations", manifestation_id)
 
         # Should cascade.
-        assert drv.direct_get_row_dict_from_id("books", title_id) is False
-
+        assert drv.direct_get_row_dict_from_id("items", item_id) is False
     def test_direct_get_row_count_matches_select(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
-        before = drv.direct_get_row_count("titles")
+        c = _title_contract(drv)
+
+        before = drv.direct_get_row_count(c.read_table)
         for _ in range(3):
-            _insert_minimal_row(drv, table="titles", override={"title": "Count"})
-        after = drv.direct_get_row_count("titles")
+            _insert_minimal_title_row(drv, title="Count")
+        after = drv.direct_get_row_count(c.read_table)
         assert after >= before + 3
-
-
-# ---------------------------------------------------------------------------
-# Type adapters / converters
-# ---------------------------------------------------------------------------
-
-
-class TestSQLiteDriverTypeAdapters:
     @pytest.mark.xfail(
         reason="PYSET converter currently expects str, but sqlite3 provides bytes on Py3",
         raises=TypeError,
@@ -348,7 +414,17 @@ class TestSQLiteDriverTypeAdapters:
     def test_pyset_round_trip_on_books_paths(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
 
-        title_id = _insert_minimal_row(drv, table="titles", override={"title": "Has Paths"})
+        conn = drv.get_connection()
+        try:
+            t = _relation_type(conn, "books")
+        finally:
+            conn.close()
+
+        if t != "table":
+            pytest.skip("books is a compatibility view in WEMI schema (read-only)")
+
+        # Legacy calibre-ish schema path (only when `books` is a real table).
+        title_id = _insert_minimal_title_row(drv, title="Has Paths")
         paths = {"/a/b.epub", "/c/d.mobi"}
 
         drv.direct_add_simple_row_dict(
@@ -364,11 +440,6 @@ class TestSQLiteDriverTypeAdapters:
         assert title_id in by_id
         assert isinstance(by_id[title_id]["book_paths"], set)
         assert by_id[title_id]["book_paths"] == paths
-
-    @pytest.mark.xfail(
-        reason="PYSET/PYLIST/PYDICT converters currently expect str, but sqlite3 provides bytes on Py3",
-        raises=TypeError,
-    )
     def test_custom_type_adapters_for_list_and_dict(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
 
@@ -415,7 +486,7 @@ class TestSQLiteDriverUnicodeAndEdges:
     def test_insert_and_search_unicode_titles(self, sqlite_driver_bundle, seed):
         drv = sqlite_driver_bundle.driver
         s = _random_unicode_string(seed)
-        _insert_minimal_row(drv, table="titles", override={"title": s})
+        _insert_minimal_title_row(drv, title=s)
 
         rows = drv.direct_search_table(table="titles", column="title", search_term=s)
         assert any(r["title"] == s for r in rows)
@@ -423,7 +494,7 @@ class TestSQLiteDriverUnicodeAndEdges:
     def test_control_chars_and_whitespace(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
         s = "  \t\n\r\x0b\x0c  "
-        _insert_minimal_row(drv, table="titles", override={"title": s})
+        _insert_minimal_title_row(drv, title=s)
         rows = drv.direct_search_table(table="titles", column="title", search_term=s)
         assert len(rows) == 1
 
@@ -436,7 +507,7 @@ class TestSQLiteDriverUnicodeAndEdges:
         #  - insertion works and we can retrieve the exact string
         #  - insertion fails with a clear sqlite/driver error
         try:
-            _insert_minimal_row(drv, table="titles", override={"title": s})
+            _insert_minimal_title_row(drv, title=s)
         except Exception:
             return
 
@@ -447,7 +518,7 @@ class TestSQLiteDriverUnicodeAndEdges:
     def test_very_large_text_payload(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
         s = "Z" * 200_000  # big enough to matter, small enough for tests
-        _insert_minimal_row(drv, table="titles", override={"title": s})
+        _insert_minimal_title_row(drv, title=s)
         rows = drv.direct_search_table(table="titles", column="title", search_term=s)
         assert len(rows) == 1
 
@@ -462,17 +533,17 @@ class TestSQLiteDriverSecurity:
         drv = sqlite_driver_bundle.driver
         conn = drv.get_connection()
         try:
-            assert _table_exists(conn, "titles")
+            assert _relation_exists(conn, "titles")
         finally:
             conn.close()
 
         payload = "x'); DROP TABLE titles; --"
-        _insert_minimal_row(drv, table="titles", override={"title": payload})
+        _insert_minimal_title_row(drv, title=payload)
 
         # Table should still exist.
         conn2 = drv.get_connection()
         try:
-            assert _table_exists(conn2, "titles")
+            assert _relation_exists(conn2, "titles")
             r = conn2.execute("SELECT title FROM titles WHERE title=?;", (payload,)).fetchone()
             assert r is not None and r[0] == payload
         finally:
@@ -489,8 +560,8 @@ class TestSQLiteDriverSecurity:
         # Ensure schema intact.
         conn = drv.get_connection()
         try:
-            assert _table_exists(conn, "titles")
-            assert _table_exists(conn, "books")
+            assert _relation_exists(conn, "titles")
+            assert _relation_exists(conn, "books")
         finally:
             conn.close()
 
@@ -505,7 +576,7 @@ class TestSQLiteDriverSecurity:
 
         conn = drv.get_connection()
         try:
-            assert _table_exists(conn, "books")
+            assert _relation_exists(conn, "books")
         finally:
             conn.close()
 
@@ -521,7 +592,7 @@ class TestSQLiteDriverSecurity:
 
         conn = drv.get_connection()
         try:
-            assert _table_exists(conn, "titles")
+            assert _relation_exists(conn, "titles")
         finally:
             conn.close()
 
@@ -531,7 +602,7 @@ class TestSQLiteDriverSecurity:
 
         conn2 = drv.get_connection()
         try:
-            assert _table_exists(conn2, "titles")
+            assert _relation_exists(conn2, "titles")
         finally:
             conn2.close()
 
@@ -570,8 +641,8 @@ class TestSQLiteDriverKnownIssues:
     )
     def test_direct_get_max_works_on_py3(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
-        _insert_minimal_row(drv, table="titles", override={"title": "A"})
-        _insert_minimal_row(drv, table="titles", override={"title": "B"})
+        _insert_minimal_title_row(drv, title="A")
+        _insert_minimal_title_row(drv, title="B")
         assert drv.direct_get_max("title_id") is not None
 
     @pytest.mark.xfail(
@@ -580,34 +651,35 @@ class TestSQLiteDriverKnownIssues:
     )
     def test_direct_get_min_works_on_py3(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
-        _insert_minimal_row(drv, table="titles", override={"title": "A"})
-        _insert_minimal_row(drv, table="titles", override={"title": "B"})
+        _insert_minimal_title_row(drv, title="A")
+        _insert_minimal_title_row(drv, title="B")
         assert drv.direct_get_min("title_id") is not None
 
     @pytest.mark.xfail(
         reason="direct_update_columns contains Py2 iterator usage and needs porting",
         raises=AttributeError,
     )
+    @pytest.mark.xfail(
+        reason="direct_update_columns contains Py2 iterator usage and needs porting",
+        raises=AttributeError,
+    )
     def test_direct_update_columns_simple_mode(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
+        c = _title_contract(drv)
 
-        id1 = _insert_minimal_row(drv, table="titles", override={"title": "Old1"})
-        id2 = _insert_minimal_row(drv, table="titles", override={"title": "Old2"})
+        id1 = _insert_minimal_title_row(drv, title="Old1")
+        id2 = _insert_minimal_title_row(drv, title="Old2")
 
-        drv.direct_update_columns({id1: "New1", id2: "New2"}, field="title", table="titles")
+        drv.direct_update_columns({id1: "New1", id2: "New2"}, field=c.read_title_col, table=c.write_table)
 
-        r1 = drv.direct_get_row_dict_from_id("titles", id1)
-        r2 = drv.direct_get_row_dict_from_id("titles", id2)
-        assert r1["title"] == "New1"
-        assert r2["title"] == "New2"
-
-    @pytest.mark.xfail(
-        reason="direct_multi_column_search currently interpolates values into SQL and should be parameterized",
-    )
+        r1 = drv.direct_get_row_dict_from_id(c.read_table, id1)
+        r2 = drv.direct_get_row_dict_from_id(c.read_table, id2)
+        assert r1[c.read_title_col] == "New1"
+        assert r2[c.read_title_col] == "New2"
     def test_direct_multi_column_search_is_parameterized(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
-        _insert_minimal_row(drv, table="titles", override={"title": "Safe"})
-        _insert_minimal_row(drv, table="titles", override={"title": "Other"})
+        _insert_minimal_title_row(drv, title="Safe")
+        _insert_minimal_title_row(drv, title="Other")
 
         # If values are interpolated, this returns both rows; if parameterized it returns none.
         res = drv.direct_multi_column_search([

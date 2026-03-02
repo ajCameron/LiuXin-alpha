@@ -170,6 +170,66 @@ def _coerce_level(level: LevelLike) -> int:
     return mapping.get(s, logging.INFO)
 
 
+
+# We intentionally store structured vars in logging `extra` so tools like pytest-json-report
+# can capture them. Those tools expect JSON-serializable data. When callers pass rich objects
+# (Rows, Path, exceptions, etc.), we fall back to a safe string representation.
+def _is_json_primitive(obj: Any) -> bool:
+    return obj is None or isinstance(obj, (str, int, float, bool))
+
+
+def _jsonability_probe(obj: Any, *, max_items: int = 25, max_depth: int = 2, _depth: int = 0) -> bool:
+    """Best-effort check for JSON-serializability (bounded depth/size).
+
+    We only need a cheap signal to decide whether to attach a helpful note.
+    """
+    if _is_json_primitive(obj):
+        return True
+
+    if _depth >= max_depth:
+        return False
+
+    try:
+        if isinstance(obj, Mapping):
+            for i, (k, v) in enumerate(obj.items()):
+                if i >= max_items:
+                    break
+                if not _is_json_primitive(k):
+                    return False
+                if not _jsonability_probe(v, max_items=max_items, max_depth=max_depth, _depth=_depth + 1):
+                    return False
+            return True
+
+        if isinstance(obj, (list, tuple)):
+            for i, v in enumerate(obj):
+                if i >= max_items:
+                    break
+                if not _jsonability_probe(v, max_items=max_items, max_depth=max_depth, _depth=_depth + 1):
+                    return False
+            return True
+
+        # json can’t represent sets by default.
+        return False
+    except Exception:
+        return False
+
+
+def _fallback_items(data: Mapping[str, Any], *, max_items: int = 25) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    for k, v in data.items():
+        if not _jsonability_probe(v, max_items=max_items):
+            out.append((k, type(v).__name__))
+    return out
+
+
+def _format_fallback_note(items: Sequence[tuple[str, str]], *, max_show: int = 10) -> str:
+    shown = items[:max_show]
+    sig = ", ".join(f"{k}:{t}" for k, t in shown)
+    if len(items) > max_show:
+        sig += f" … (+{len(items) - max_show} more)"
+    return sig
+
+
 def _safe_repr(obj: Any, *, max_len: int = 400, max_items: int = 25) -> str:
     """
     Best-effort repr with truncation + container sampling to avoid huge logs.
@@ -326,7 +386,25 @@ class CompatLogger(logging.Logger):
 
         if emit:
             # include structured context in `extra` for formatters/filters if desired
-            self.log(level_int, out, extra={"vars": data})
+            # NOTE: keep it JSON-serializable (pytest-json-report captures log records).
+            safe_vars = {
+                k: _safe_repr(v, max_len=f.max_repr_len, max_items=f.max_repr_items) for k, v in data.items()
+            }
+
+            fallbacks = _fallback_items(data, max_items=f.max_repr_items)
+            extra: dict[str, Any] = {"vars": safe_vars}
+
+            if fallbacks:
+                note = _format_fallback_note(fallbacks)
+                # Add a human-friendly hint into the message (useful when this string becomes an exception)
+                out = out + f.sep + f"{f.prefix}__json_fallback__{f.kv_sep}"                     f"Non-JSON values were stringified for structured logs: {note}. "                     f"Prefer ids / primitives (e.g. row_id) to keep reports clean."
+                # Also attach machine-readable detail for reporters.
+                extra["liuxin_json_fallback"] = {
+                    "count": len(fallbacks),
+                    "items": [f"{k}:{t}" for k, t in fallbacks[:25]],
+                }
+
+            self.log(level_int, out, extra=extra)
 
         return out
 
@@ -398,7 +476,26 @@ class CompatLogger(logging.Logger):
         )
 
         if emit:
-            extra: dict[str, Any] = {"vars": _coerce_pairs(*pairs), "exception_type": exc_type}
+            pair_data = _coerce_pairs(*pairs)
+            safe_vars = {
+                k: _safe_repr(v, max_len=(fmt or self._logvars_format).max_repr_len, max_items=(fmt or self._logvars_format).max_repr_items)
+                for k, v in pair_data.items()
+            }
+            fallbacks = _fallback_items(pair_data, max_items=(fmt or self._logvars_format).max_repr_items)
+            extra: dict[str, Any] = {
+                "vars": safe_vars,
+                "exception_type": exc_type,
+                "exception": summary,
+            }
+
+            if fallbacks:
+                note = _format_fallback_note(fallbacks)
+                out = out + (fmt or self._logvars_format).sep + f"{(fmt or self._logvars_format).prefix}__json_fallback__{(fmt or self._logvars_format).kv_sep}"                     f"Non-JSON values were stringified for structured logs: {note}. "                     f"Prefer ids / primitives (e.g. row_id) to keep reports clean."
+                extra["liuxin_json_fallback"] = {
+                    "count": len(fallbacks),
+                    "items": [f"{k}:{t}" for k, t in fallbacks[:25]],
+                }
+
             if include_traceback:
                 self.log(
                     level_int,

@@ -12,6 +12,8 @@ import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+from typing import BinaryIO, Union
+
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
 __license__ = "GPL v3"
@@ -23,7 +25,12 @@ _PDF_END_MARKER = b"%%EOF"
 
 
 def extract_embedded_pdf_bytes(raw_data: bytes) -> bytes:
-    """Extract the embedded PDF payload from raw AZW4 bytes."""
+    """
+    Extract the embedded PDF payload from raw AZW4 bytes.
+
+    :param raw_data:
+    :return:
+    """
     if not isinstance(raw_data, (bytes, bytearray, memoryview)):
         raise TypeError("raw_data must be bytes-like")
 
@@ -44,15 +51,28 @@ def extract_embedded_pdf_bytes(raw_data: bytes) -> bytes:
     return data[start:end]
 
 
-def unwrap(stream, output_path):
-    """Write the embedded PDF in ``stream`` to ``output_path``."""
+# Todo: Add hash backing
+def unwrap(stream: BinaryIO, output_path: Union[str, Path]) -> None:
+    """
+    Write the embedded PDF in ``stream`` to ``output_path``.
+
+    :param stream:
+    :param output_path:
+    :return:
+    """
     stream.seek(0)
     pdf_data = extract_embedded_pdf_bytes(stream.read())
     with open(output_path, "wb") as f:
         f.write(pdf_data)
 
 
-def _plugin_for_input_format(file_ext):
+def _plugin_for_input_format(file_ext: str):
+    """
+    Return the reader plugin for the given file extension.
+
+    :param file_ext:
+    :return:
+    """
     from LiuXin_alpha.customize.ui import plugin_for_input_format
 
     return plugin_for_input_format(file_ext)

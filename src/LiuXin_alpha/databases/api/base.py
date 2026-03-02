@@ -248,6 +248,23 @@ class RowAPI(abc.ABC):
     def _best_effort_sqlite_object_type(database: "DatabaseAPI", name: str) -> Optional[str]:
         ...
 
+
+    @abc.abstractmethod
+    def to_jsonable(
+        self,
+        *,
+        include_values: bool = True,
+        max_cols: int = 50,
+        max_text: int = 500,
+        include_db_uuid: bool = True,
+    ) -> dict[str, Any]:
+        """Return a JSON-serializable representation of this Row.
+
+        This is intentionally *lossy* and bounded so it is safe for logs and reports.
+        Implementations should only return JSON primitives (plus lists/dicts thereof).
+        """
+        ...
+
     @abc.abstractmethod
     def ensure_row_has_id(self) -> None:
         ...

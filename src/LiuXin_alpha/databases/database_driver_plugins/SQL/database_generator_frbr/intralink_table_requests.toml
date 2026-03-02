@@ -10,13 +10,14 @@
 #   - true  => warn+skip requests for tables not yet present in sqlite_master (legacy behaviour)
 #   - false => warn but still return them (useful while iterating on schemas)
 #
-version = 1
+version = 3
 
 [[intralinks]]
 table = "compressed_files"
-symmetric = true
 requested_cols = ["type"]
-types = ["same_hash", "contained_in", "same_path", ]
+types = ["same_hash", "contained_in", "same_path"]
+# Only these types are symmetric (store one edge; enforce primary_id < secondary_id).
+symmetric_types = ["same_hash", "same_path"]
 rationale = """
 During mass imports, you might well run into the same file multiple times.
 This provides a mechanism for noting this.
@@ -26,9 +27,10 @@ This provides a mechanism for noting this.
 
 [[intralinks]]
 table = "images"
-symmetric = true
 requested_cols = ["type", "data", "origin"]
 types = ["converted_from", "same_subject"]
+# Two images of the same subject is symmetric; conversions are directional.
+symmetric_types = ["same_subject"]
 rationale = """
 Images are often descended or created from each other.
 
@@ -42,7 +44,6 @@ If they are marked "same_subject" then they are two pictures of the same object 
 
 [[intralinks]]
 table = "files"
-symmetric = true
 requested_cols = ["type", "data", "origin"]
 types = ["converted_from", "compressed_version", "anthology_of"]
 rationale = """
@@ -69,7 +70,6 @@ Data, here, is the compression settings (including versions).
 
 [[intralinks]]
 table = "stores"
-symmetric = true
 requested_cols = ["type", "data", "origin"]
 types = ["backup", "partial_backup"]
 rationale = """
@@ -91,9 +91,10 @@ Stores can be backups of each other.
 
 [[intralinks]]
 table = "works"
-symmetric = true
 requested_cols = ["type", "origin"]
 types = ["inspired_by", "fanfiction_of", "user_marked_different"]
+# "user_marked_different" is an undirected judgement call; avoid duplicate edges.
+symmetric_types = ["user_marked_different"]
 rationale = """
 Defines the inter-relation between works.
 
@@ -110,9 +111,9 @@ The automated system has flagged this work as the same, but the user reckons it'
 
 [[intralinks]]
 table = "expressions"
-symmetric = true
 requested_cols = ["type", "origin"]
-types = ["user_marked_different", ]
+types = ["user_marked_different"]
+symmetric_types = ["user_marked_different"]
 rationale = """
 Defines the inter-relation between expressions.
 
@@ -129,9 +130,9 @@ Slicing the mono-expression up can be done manually.
 
 [[intralinks]]
 table = "manifestations"
-symmetric = true
 requested_cols = ["type", "origin"]
-types = ["user_marked_different", ]
+types = ["user_marked_different"]
+symmetric_types = ["user_marked_different"]
 rationale = """
 Defines the inter-relation between manifestation.
 
@@ -148,9 +149,9 @@ Slicing the mono-expression up can be done manually.
 
 [[intralinks]]
 table = "items"
-symmetric = true
 requested_cols = ["type", "origin"]
-types = ["user_marked_different", ]
+types = ["user_marked_different"]
+symmetric_types = ["user_marked_different"]
 rationale = """
 Defines the inter-relation between item.
 

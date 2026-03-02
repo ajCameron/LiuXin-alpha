@@ -178,6 +178,114 @@ class Row(RowAPI):
 
         return cls(database=database, row_dict=local_row_dict, read_only=read_only)
 
+    @staticmethod
+    def _json_sanitize(
+        obj: Any,
+        *,
+        max_text: int = 500,
+        max_items: int = 50,
+        _depth: int = 0,
+        _max_depth: int = 3,
+    ) -> Any:
+        """Convert arbitrary objects into JSON-safe primitives (bounded).
+
+        This is for diagnostics/logging/reporting, not for persistence.
+        """
+        if obj is None or isinstance(obj, (str, int, float, bool)):
+            if isinstance(obj, str) and len(obj) > max_text:
+                return obj[: max(0, max_text - 3)] + '...'
+            return obj
+
+        # Dates / times
+        import datetime as _dt
+        if isinstance(obj, (_dt.datetime, _dt.date, _dt.time)):
+            try:
+                return obj.isoformat()
+            except Exception:
+                return repr(obj)
+
+        # Bytes: represent as hex, truncated
+        if isinstance(obj, (bytes, bytearray, memoryview)):
+            b = bytes(obj)
+            hx = b.hex()
+            if len(hx) > max_text:
+                hx = hx[: max(0, max_text - 3)] + '...'
+            return {'__type__': 'bytes', 'encoding': 'hex', 'value': hx}
+
+        # Rows: avoid deep recursion/cycles
+        if isinstance(obj, Row):
+            return {'__type__': 'RowRef', 'table': obj.table, 'row_id': obj.row_id}
+
+        if _depth >= _max_depth:
+            return repr(obj)
+
+        try:
+            from collections.abc import Mapping
+            if isinstance(obj, Mapping):
+                out: dict[str, Any] = {}
+                for i, (k, v) in enumerate(obj.items()):
+                    if i >= max_items:
+                        out['__truncated__'] = True
+                        break
+                    out[str(k)] = Row._json_sanitize(
+                        v, max_text=max_text, max_items=max_items, _depth=_depth + 1, _max_depth=_max_depth
+                    )
+                return out
+
+            if isinstance(obj, (list, tuple, set, frozenset)):
+                out_list = []
+                for i, v in enumerate(obj):
+                    if i >= max_items:
+                        out_list.append({'__truncated__': True})
+                        break
+                    out_list.append(
+                        Row._json_sanitize(
+                            v, max_text=max_text, max_items=max_items, _depth=_depth + 1, _max_depth=_max_depth
+                        )
+                    )
+                return out_list
+        except Exception:
+            pass
+
+        s = repr(obj)
+        if len(s) > max_text:
+            s = s[: max(0, max_text - 3)] + '...'
+        return s
+
+    def to_jsonable(
+        self,
+        *,
+        include_values: bool = True,
+        max_cols: int = 50,
+        max_text: int = 500,
+        include_db_uuid: bool = True,
+    ) -> dict[str, Any]:
+        """Return a JSON-serializable representation of this Row.
+
+        Note: stdlib json.dumps() still needs a `default=` handler unless you're
+        dumping the result of this method (or using a custom JSONEncoder).
+        """
+        payload: dict[str, Any] = {
+            '__type__': 'Row',
+            'table': object.__getattribute__(self, 'table'),
+            'row_id': object.__getattribute__(self, 'row_id'),
+            'read_only': bool(getattr(self, 'read_only', False)),
+        }
+
+        if include_db_uuid:
+            payload['db_uuid'] = getattr(getattr(self, 'db', None), 'uuid', None)
+
+        if include_values:
+            rd = object.__getattribute__(self, 'int_row_dict') or {}
+            out: dict[str, Any] = {}
+            for i, (k, v) in enumerate(rd.items()):
+                if i >= max_cols:
+                    payload['row_dict_truncated'] = True
+                    break
+                out[str(k)] = Row._json_sanitize(v, max_text=max_text, max_items=max_cols)
+            payload['row_dict'] = out
+
+        return payload
     def refresh_db_properties(self) -> None:
         """
         Read the properties for the row off the database.
