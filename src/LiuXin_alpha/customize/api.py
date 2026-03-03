@@ -5,7 +5,17 @@ The API for the customize class - which serves as the basic API for the plugin c
 
 import abc
 import pathlib
-from typing import Union, Any, Iterable, Tuple
+from typing import Union, Any, Iterable, Tuple, BinaryIO, Optional
+from types import ModuleType
+from collections import namedtuple
+
+from typing import NamedTuple
+
+class CatalogCLIOption(NamedTuple):
+    option: str
+    default: str
+    dest: str
+    help: str
 
 
 class PluginAPI(abc.ABC):
@@ -272,3 +282,204 @@ class MetadataReaderPluginAPI(PluginAPI):
     # Basic measure of run cost
     inplace_run_cost: str = "high"
 
+    # What platforms does this plugin work on?
+    supported_platforms: list[str]
+
+    version: tuple[int, int, int]
+
+    author: str
+
+    plugin_type: str
+
+    # Used when determining if to run or not
+    quick: bool
+
+    @abc.abstractmethod
+    def get_metadata(self, stream: BinaryIO, ftype: str):
+        """
+        Return metadata for the file represented by stream (a file like object that supports reading).
+
+        Raise an exception when there is an error with the input data.
+
+        :param ftype: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
+        :return: A :class:`LiuXin.metadata.metadata.MetaData` object
+        """
+
+    @abc.abstractmethod
+    def get_metadata_inplace(self, file_path: Union[pathlib.Path, str], ftype: str):
+        """
+        Returns metadata for the file represented by the file path.
+
+        Must be a valid path with read access.
+        Raises an exception when there is an error with the input data.
+        Sometimes avoids having to copy the entire file into memory.
+        :param file_path:
+        :param ftype: Guaranteed to be one of the entries in :attr:`file_types`.
+        :return: A :class:`LiuXin.metadata.metadata.MetaData` object
+        """
+
+
+class MetadataWriterPluginAPI(PluginAPI):
+    """
+    A plugin that implements writing metadata to files in a certain set of file types.
+    """
+    file_types: set[str]
+
+    supported_platforms: list[str]
+
+    version: tuple[int, int, int]
+
+    author: str
+
+    plugin_type: str
+
+    apply_null: bool
+
+    @abc.abstractmethod
+    def set_metadata(self, stream: BinaryIO, mi, type: str) -> None:
+        """
+        Set metadata for the file represented by stream (a file like object that supports reading).
+
+        Raise an exception when there is an error with the input data.
+        :param stream: The file to be modified
+        :param type: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
+        :param mi: A :class:`calibre.ebooks.metadata.book.Metadata` object
+        """
+
+    @abc.abstractmethod
+    def set_metadata_inplace(self, file_path: Union[str, pathlib.Path], mi, type: str) -> None:
+        """
+        Set metadata for the file pointed to by the file path.
+
+        Means that the file doesn't have to be copied into memory for updating.
+        Raise an exception when there is an error with the input data.
+
+        WARNING: THE ACTUAL FILE ON DISK WILL BE MODIFIED.
+        PLEASE CONSIDER TAKING A BACKUP FIRST.
+
+        :param file_path: The file to be modified
+        :param type: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
+        :param mi: A :class:`calibre.ebooks.metadata.book.Metadata` object
+        """
+
+
+class CatalogPluginAPI(PluginAPI):
+    """
+    A plugin that implements a catalog generator.
+
+    Catalogs are files containing catalog entries from the database.
+    The default plugin only writes out calibre metadata.
+    You want a LiuXinCatalogPlugin if you want the full LiuXin metadata.
+    """
+    resources_path: Optional[Union[str, pathlib.Path]]
+
+    #: Output file plugin_type this generator can produce
+    #: For example: 'epub' or 'xml'
+    file_types: set[str]
+
+    plugin_type: str
+
+    cli_options: list[CatalogCLIOption]
+
+    @abc.abstractmethod
+    def _field_sorter(self, key: str) -> str:
+        """
+        Custom fields sort after standard fields.
+        """
+
+    @abc.abstractmethod
+    def search_sort_db(self, db, opts):
+        """
+        Generate a catalog off a db search.
+
+        Returns the data as a dict for writing out.
+        :param db:
+        :param opts:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_output_fields(self, db, opts) -> list[str]:
+        """
+        Returns a list of the requested fields.
+
+        :param db:
+        :param opts:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def initialize(self) -> None:
+        """
+        If plugin is not a built-in, copy the plugin's .ui and .py files from the zip file to $TMPDIR.
+
+        Tab will be dynamically generated and added to the Catalog Options dialog in
+        calibre.gui2.dialogs.catalog.py:Catalog
+        """
+
+    @abc.abstractmethod
+    def run(self,
+            path_to_output: Union[str, pathlib.Path],
+            opts,
+            db,
+            ids: Iterable[str],
+            notification = None) -> None:
+        """
+        Run the plugin. Must be implemented in subclasses.
+        It should generate the catalog in the format specified in file_types, returning the absolute path to the
+        generated catalog file. If an error is encountered it should raise an Exception.
+
+        The generated catalog file should be created with the :meth:`temporary_file` method.
+
+        :param path_to_output: Absolute path to the generated catalog file.
+        :param opts: A dictionary of keyword arguments
+        :param db: A LibraryDatabase2 object
+        :param ids:
+        :param notification: Callback to indicate progress.
+        """
+
+
+class StoreBaseAPI(PluginAPI):
+    """
+    Interface to an ebook store to allow buying books from within calibre.
+    """
+    # Plugins this store will run for
+    supported_platforms: list[str]
+
+    author: str
+
+    plugin_type: str
+
+    # Information about the store. Should be in the primary language
+    # of the store. This should not be translatable when set by
+    # a subclass.
+    description: str
+
+    # Minimum calibre version for the plugin to run
+    minimum_calibre_version: tuple[int, int, int]
+
+    # Plugin version
+    version: tuple[int, int, int]
+
+    actual_plugin: Optional[ModuleType]
+
+    # Does the store only distribute ebooks without DRM.
+    drm_free_only: bool
+
+    # This is the 2 letter country code for the corporate headquarters of the store.
+    headquarters: str
+
+    # All formats the store distributes ebooks in.
+    formats: list[str]
+
+    # Is this store on an affiliate program?
+    affiliate: bool
+
+    @abc.abstractmethod
+    def load_actual_plugin(self, gui: Any) -> ModuleType:
+        """
+        This method must return the actual interface action plugin object.
+
+        :param gui:
+        :return:
+        """

@@ -25,7 +25,7 @@ import importlib
 import pathlib
 from copy import deepcopy
 
-from typing import Union
+from typing import Union, Any, BinaryIO, NamedTuple, Iterable, Tuple
 
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
@@ -41,6 +41,12 @@ from LiuXin_alpha.errors import PluginNotFound, InvalidPlugin
 
 from LiuXin_alpha.preferences import preferences
 
+
+class CatalogCLIOption(NamedTuple):
+    option: str
+    default: str
+    dest: str
+    help: str
 
 
 platform = "linux"
@@ -419,31 +425,47 @@ class MetadataReaderPlugin(Plugin):  # {{{
     inplace_run_cost = "high"
 
     # What platforms does this plugin work on?
-
     supported_platforms = ["windows", "osx", "linux"]
+
+    # Default numeric version tuple
     version = calibre_numeric_version
+
     author = "Kovid Goyal"
 
+    # Displayable plugin type
     plugin_type = _("Metadata reader")
 
-    def __init__(self, *args, **kwargs):
-        Plugin.__init__(self, *args, **kwargs)
+    # Todo: Work out the signature from where these are called
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Startup the plugin.
+
+        :param args:
+        :param kwargs:
+        """
+        super().__init__(*args, **kwargs)
+
         self.quick = False
 
-    def get_metadata(self, stream, ftype):
+    # Todo: Pull the calibre metadata object out and gen an API for it
+    def get_metadata(self, stream: BinaryIO, ftype: str):
         """
         Return metadata for the file represented by stream (a file like object that supports reading).
+
         Raise an exception when there is an error with the input data.
+
         :param ftype: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
         :return: A :class:`LiuXin.metadata.metadata.MetaData` object
         """
         raise NotImplementedError
 
-    def get_metadata_inplace(self, file_path, ftype):
+    def get_metadata_inplace(self, file_path: Union[pathlib.Path, str], ftype: str):
         """
-        Returns metadata for the file represented by the file path. Must be a valid path with read access.
+        Returns metadata for the file represented by the file path.
+
+        Must be a valid path with read access.
         Raises an exception when there is an error with the input data.
-        Avoids having to copy the entire file into memr
+        Sometimes avoids having to copy the entire file into memory.
         :param file_path:
         :param ftype: Guaranteed to be one of the entries in :attr:`file_types`.
         :return: A :class:`LiuXin.metadata.metadata.MetaData` object
@@ -455,7 +477,7 @@ class MetadataReaderPlugin(Plugin):  # {{{
 
 class MetadataWriterPlugin(Plugin):
     """
-    A plugin that implements reading metadata from a set of file types.
+    A plugin that implements writing metadata to files in a certain set of file types.
     """
 
     #: Set of file types for which this plugin should be run
@@ -463,18 +485,28 @@ class MetadataWriterPlugin(Plugin):
     file_types = set([])
 
     supported_platforms = ["windows", "osx", "linux"]
+
     version = calibre_numeric_version
+
     author = "Kovid Goyal"
 
     plugin_type = _("Metadata writer")
 
-    def __init__(self, *args, **kwargs):
-        Plugin.__init__(self, *args, **kwargs)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Startup the plugin.
+
+        :param args:
+        :param kwargs:
+        """
+        super().__init__(self, *args, **kwargs)
+
         self.apply_null = False
 
-    def set_metadata(self, stream, mi, type):
+    def set_metadata(self, stream: BinaryIO, mi, type: str) -> None:
         """
         Set metadata for the file represented by stream (a file like object that supports reading).
+
         Raise an exception when there is an error with the input data.
         :param stream: The file to be modified
         :param type: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
@@ -482,12 +514,17 @@ class MetadataWriterPlugin(Plugin):
         """
         raise NotImplementedError
 
-    def set_metadata_inplace(self, file_path, mi, type):
+    def set_metadata_inplace(self, file_path: Union[str, pathlib.Path], mi, type: str) -> None:
         """
-        Set metadata for the file pointed to by the file path. Means that the file doesn't have to be copied into
-        memory for updating.
+        Set metadata for the file pointed to by the file path.
+
+        Means that the file doesn't have to be copied into memory for updating.
         Raise an exception when there is an error with the input data.
-        :param stream: The file to be modified
+
+        WARNING: THE ACTUAL FILE ON DISK WILL BE MODIFIED.
+        PLEASE CONSIDER TAKING A BACKUP FIRST.
+
+        :param file_path: The file to be modified
         :param type: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
         :param mi: A :class:`calibre.ebooks.metadata.book.Metadata` object
         """
@@ -500,11 +537,15 @@ class MetadataWriterPlugin(Plugin):
 class CatalogPlugin(Plugin):  # {{{
     """
     A plugin that implements a catalog generator.
+
+    Catalogs are files containing catalog entries from the database.
+    The default plugin only writes out calibre metadata.
+    You want a LiuXinCatalogPlugin if you want the full LiuXin metadata.
     """
 
     resources_path = None
 
-    #: Output file plugin_type for which this plugin should be run
+    #: Output file plugin_type this generator can produce
     #: For example: 'epub' or 'xml'
     file_types = set([])
 
@@ -523,9 +564,9 @@ class CatalogPlugin(Plugin):  # {{{
     cli_options = []
 
     # Todo: Make sure that this is taken account of
-    def _field_sorter(self, key):
+    def _field_sorter(self, key: str) -> str:
         """
-        Custom fields sort after standard fields
+        Custom fields sort after standard fields.
         """
         if key.startswith("#"):
             return "~%s" % key[1:]
@@ -533,6 +574,14 @@ class CatalogPlugin(Plugin):  # {{{
             return key
 
     def search_sort_db(self, db, opts):
+        """
+        Generate a catalog off a db search.
+
+        Returns the data as a dict for writing out.
+        :param db:
+        :param opts:
+        :return:
+        """
 
         db.search(opts.search_text)
 
@@ -542,9 +591,10 @@ class CatalogPlugin(Plugin):  # {{{
         return db.get_data_as_dict(ids=opts.ids)
 
     # Todo: Add field maps to the database so that it can emulate calibre
-    def get_output_fields(self, db, opts):
+    def get_output_fields(self, db, opts) -> list[str]:
         """
         Returns a list of the requested fields.
+
         :param db:
         :param opts:
         :return:
@@ -607,10 +657,10 @@ class CatalogPlugin(Plugin):  # {{{
 
         return fields
 
-    def initialize(self):
+    def initialize(self) -> None:
         """
-        If plugin is not a built-in, copy the plugin's .ui and .py files from
-        the zip file to $TMPDIR.
+        If plugin is not a built-in, copy the plugin's .ui and .py files from the zip file to $TMPDIR.
+
         Tab will be dynamically generated and added to the Catalog Options dialog in
         calibre.gui2.dialogs.catalog.py:Catalog
         """
@@ -636,7 +686,7 @@ class CatalogPlugin(Plugin):  # {{{
                     continue
             resources.close()
 
-    def run(self, path_to_output, opts, db, ids, notification=None):
+    def run(self, path_to_output: Union[str, pathlib.Path], opts, db, ids: Iterable[str], notification=None) -> None:
         """
         Run the plugin. Must be implemented in subclasses.
         It should generate the catalog in the format specified in file_types, returning the absolute path to the
@@ -657,10 +707,18 @@ class CatalogPlugin(Plugin):  # {{{
 
 
 class InterfaceActionBase(Plugin):  # {{{
+    """
+    Slots into the GUI.
+
+    Probably not going to live here.
+    """
 
     supported_platforms = ["windows", "osx", "linux"]
+
     author = "Kovid Goyal"
+
     plugin_type = _("User Interface Action")
+
     can_be_disabled = False
 
     actual_plugin = None
@@ -672,6 +730,7 @@ class InterfaceActionBase(Plugin):  # {{{
     def load_actual_plugin(self, gui):
         """
         This method must return the actual interface action plugin object.
+
         :param gui:
         :return:
         """
@@ -728,6 +787,7 @@ class PreferencesPlugin(Plugin):  # {{{
     def create_widget(self, parent=None):
         """
         Create and return the actual Qt widget used for setting this group of preferences. The widget must implement the
+
         :class:`calibre.gui2.preferences.ConfigWidgetInterface`.
 
         The default implementation uses :attr:`config_widget` to instantiate the widget.
@@ -743,32 +803,45 @@ class PreferencesPlugin(Plugin):  # {{{
 
 
 class StoreBase(Plugin):  # {{{
-
+    """
+    Interface to an ebook store to allow buying books from within calibre.
+    """
+    # Plugins this store will run for
     supported_platforms = ["windows", "osx", "linux"]
+
     author = "John Schember"
+
     plugin_type = _("Store")
+
     # Information about the store. Should be in the primary language
     # of the store. This should not be translatable when set by
     # a subclass.
     description = _("An ebook store.")
+
+    # Minimum calibre version for the plugin to run
     minimum_calibre_version = (0, 8, 0)
+
+    # Plugin version
     version = (1, 0, 1)
 
     actual_plugin = None
 
     # Does the store only distribute ebooks without DRM.
     drm_free_only = False
-    # This is the 2 letter country code for the corporate
-    # headquarters of the store.
+
+    # This is the 2 letter country code for the corporate headquarters of the store.
     headquarters = ""
+
     # All formats the store distributes ebooks in.
     formats = []
+
     # Is this store on an affiliate program?
     affiliate = False
 
     def load_actual_plugin(self, gui):
         """
         This method must return the actual interface action plugin object.
+
         :param gui:
         :return:
         """
