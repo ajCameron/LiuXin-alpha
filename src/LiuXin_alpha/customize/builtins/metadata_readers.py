@@ -19,7 +19,7 @@ file_type_plugins: list[type[MetadataReaderPlugin]] = []
 # Todo: Make sure finalize is being called from every method
 try:
     from LiuXin_alpha.utils.decompression.unrar import extract_first_alphabetically as comic_extract_first
-    from LiuXin_alpha.utils.libunzip import extract_member as comic_extract_member
+    from LiuXin_alpha.utils.decompression.libunzip import extract_member as comic_extract_member
     from LiuXin_alpha.metadata.file_sources.archive import get_comic_metadata
 except ImportError as e:
     info_str = "Unable to define ComicMetadataReader - required functions cannot be imported"
@@ -53,13 +53,13 @@ else:
                     extract_first_alphabetically as extract_first,
                 )
             else:
-                from LiuXin_alpha.utils.libunzip import extract_member
+                from LiuXin_alpha.utils.decompression.libunzip import extract_member
 
                 extract_first = functools.partial(extract_member, sort_alphabetically=True)
-            from LiuXin_alpha.metadata.metadata import MetaInformation
+            from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
             ret = extract_first(stream)
-            mi = MetaInformation(None, None)
+            mi = calibreMetaInformation(None, None)
             stream.seek(0)
             if ftype in {"cbr", "cbz"}:
                 series_index = self.site_customization

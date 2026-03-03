@@ -39,6 +39,56 @@ jobs:
           echo "Running ${#SMOKE_FILES[@]} smoke test files"
           pytest -q --maxfail=1 "${SMOKE_FILES[@]}"
 
+  file-formats-fast:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: File Formats Fast Lane
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install from pyproject.toml
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]"
+
+      - name: Run fast file_formats lane
+        env:
+          PYTHONPATH: src
+        run: python scripts/run_file_formats_lane.py --lane fast
+
+  file-formats-heavy:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: File Formats Heavy Lane
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install from pyproject.toml
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]"
+
+      - name: Run heavy file_formats lane
+        env:
+          PYTHONPATH: src
+        run: python scripts/run_file_formats_lane.py --lane heavy
+
   full:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     name: Full Test Suite (PR)

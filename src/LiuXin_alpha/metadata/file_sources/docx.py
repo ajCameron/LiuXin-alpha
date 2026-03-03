@@ -1,27 +1,34 @@
-#!/usr/bin/env python2
-# vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
+"""
+Metadata read/write helpers for DOCX files.
+"""
 
-from __future__ import division, absolute_import, print_function
+from __future__ import annotations
 
+import os
 from io import BytesIO
+from typing import Any
 
-from lxml import etree
-
-from LiuXin.file_formats.docx.container import DOCX
-from LiuXin.file_formats.docx.writer.container import update_doc_props, xml2str
-
-from LiuXin.utils.imghdr import identify
-
-# Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.file_formats.docx.container import DOCX
+from LiuXin_alpha.file_formats.docx.writer.container import update_doc_props, xml2str
+from LiuXin_alpha.utils.image_tools.imghdr import identify
+from LiuXin_alpha.utils.libraries.calibre_zipfile import safe_replace
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+from LiuXin_alpha.utils.logging import default_log
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def get_cover(docx):
-    doc = docx.document
+def _is_path_like(target: Any) -> bool:
+    return isinstance(target, (str, bytes, os.PathLike))
+
+
+def get_cover(docx: DOCX):
+    """
+    Return `(format, bytes)` for the first plausible cover image in a DOCX.
+    """
+    document = docx.document
     get = docx.namespace.get
     images = docx.namespace.XPath(
         '//*[name()="w:drawing" or name()="w:pict"]/descendant::*[(name()="a:blip" and @r:embed) or '
@@ -29,93 +36,119 @@ def get_cover(docx):
     )
     rid_map = docx.document_relationships[0]
 
-    for image in images(doc):
+    for image in images(document):
         rid = get(image, "r:embed") or get(image, "r:id")
-        if rid in rid_map:
+        if rid not in rid_map:
+            continue
+        try:
+            raw = docx.read(rid_map[rid])
+            fmt, width, height = identify(bytes(raw))
+        except Exception:
+            continue
+
+        if width <= 0 or height <= 0:
+            continue
+
+        ratio = height / float(width)
+        if 0.8 <= ratio <= 1.8 and height * width >= 160000:
+            return fmt, raw
+    return None
+
+
+def get_metadata(stream_or_path, extract_cover: bool = True):
+    """
+    Read metadata from a DOCX file path or readable binary stream.
+    """
+    if _is_path_like(stream_or_path):
+        with open(stream_or_path, "rb") as stream:
+            return get_metadata_from_stream(stream, extract_cover=extract_cover)
+    if not hasattr(stream_or_path, "read"):
+        raise TypeError("DOCX metadata reader expects a filesystem path or readable binary stream.")
+    return get_metadata_from_stream(stream_or_path, extract_cover=extract_cover)
+
+
+def get_metadata_from_stream(stream, extract_cover: bool = True):
+    """
+    Read metadata from a DOCX stream.
+    """
+    container = DOCX(stream, extract=False)
+    try:
+        metadata = container.metadata
+        cover_data = get_cover(container) if extract_cover else None
+        if cover_data is not None:
+            metadata.cover_data = cover_data
+        return metadata
+    except Exception as err:
+        default_log.log_exception(
+            "Failed to read DOCX metadata.",
+            err,
+            "ERROR",
+            ("stream_name", getattr(stream, "name", "<stream>")),
+        )
+        raise
+    finally:
+        try:
+            container.close()
+        finally:
+            if hasattr(stream, "seek"):
+                try:
+                    stream.seek(0)
+                except Exception:
+                    pass
+
+
+def _set_metadata_on_stream(stream, mi) -> None:
+    container = DOCX(stream, extract=False)
+    try:
+        dp_name, ap_name = container.get_document_properties_names()
+        if not dp_name:
+            raise ValueError("DOCX metadata cannot be updated: missing core document properties file.")
+
+        core_props = etree.fromstring(container.read(dp_name))
+        update_doc_props(core_props, mi, container.namespace)
+        replacements: dict[str, BytesIO] = {}
+
+        if ap_name:
             try:
-                raw = docx.read(rid_map[rid])
-                fmt, width, height = identify(bytes(raw))
+                app_props = etree.fromstring(container.read(ap_name))
             except Exception:
-                continue
-            if width < 0 or height < 0:
-                continue
-            if 0.8 <= height / width <= 1.8 and height * width >= 160000:
-                return fmt, raw
+                app_props = None
+
+            if app_props is not None:
+                company_tag = "{%s}Company" % container.namespace.namespaces["ep"]
+                for child in tuple(app_props):
+                    if child.tag == company_tag:
+                        app_props.remove(child)
+                company = app_props.makeelement(company_tag)
+                company.text = getattr(mi, "publisher", None)
+                app_props.append(company)
+                replacements[ap_name] = BytesIO(xml2str(app_props))
+
+        stream.seek(0)
+        safe_replace(stream, dp_name, BytesIO(xml2str(core_props)), extra_replacements=replacements)
+        stream.seek(0)
+    finally:
+        container.close()
 
 
-def get_metadata(stream):
-    if isinstance(stream, six_string_types):
-        with open(stream, "rb") as file_stream:
-            return get_metadata_from_stream(file_stream)
-    else:
-        return get_metadata_from_stream(stream)
-
-
-def get_metadata_from_stream(stream):
+def set_metadata(stream_or_path, mi):
     """
-    Takes a docx file as a stream - opens it - reads the metadata and returns
-    :param stream: The file as a stream
-    :type stream: Must be a stream open as rb
-    :return mi:
+    Write metadata into a DOCX path or read/write binary stream.
     """
-    c = DOCX(stream, extract=False)
-    mi = c.metadata
-    try:
-        cdata = get_cover(c)
-    except Exception:
-        cdata = None
-        import traceback
+    if _is_path_like(stream_or_path):
+        with open(stream_or_path, "r+b") as stream:
+            _set_metadata_on_stream(stream, mi)
+        return
 
-        traceback.print_exc()
-    c.close()
-    stream.seek(0)
-    if cdata is not None:
-        mi.cover_data = cdata
+    if not hasattr(stream_or_path, "read") or not hasattr(stream_or_path, "write"):
+        raise TypeError("DOCX metadata writer expects a path or read/write binary stream.")
 
-    return mi
+    _set_metadata_on_stream(stream_or_path, mi)
 
 
-def set_metadata(stream, mi):
-    """
-    Write metadata into the given stream.
-    :param stream:
-    :type stream: A DocX file stream
-    :param mi: a calibreMetaData object containing the metadata to write out
-    :return: None
-    """
-    from LiuXin.utils.calibre_utils.calibre_zipfile import safe_replace
-
-    c = DOCX(stream, extract=False)
-
-    dp_name, ap_name = c.get_document_properties_names()
-    dp_raw = c.read(dp_name)
-
-    try:
-        ap_raw = c.read(ap_name)
-    except Exception:
-        ap_raw = None
-
-    cp = etree.fromstring(dp_raw)
-    update_doc_props(cp, mi, c.namespace)
-    replacements = {}
-
-    if ap_raw is not None:
-
-        ap = etree.fromstring(ap_raw)
-        comp = ap.makeelement("{%s}Company" % c.namespace.namespaces["ep"])
-        for child in tuple(ap):
-            if child.tag == comp.tag:
-                ap.remove(child)
-        comp.text = mi.publisher
-        ap.append(comp)
-        replacements[ap_name] = BytesIO(xml2str(ap))
-
-    stream.seek(0)
-    safe_replace(stream, dp_name, BytesIO(xml2str(cp)), extra_replacements=replacements)
-
-
-if __name__ == "__main__":
-    import sys
-
-    with open(sys.argv[-1], "rb") as stream:
-        print(get_metadata(stream))
+__all__ = [
+    "get_cover",
+    "get_metadata",
+    "get_metadata_from_stream",
+    "set_metadata",
+]

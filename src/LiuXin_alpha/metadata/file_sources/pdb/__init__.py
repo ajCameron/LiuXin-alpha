@@ -1,109 +1,158 @@
-# -*- coding: utf-8 -*-
-
 """
-Read meta information from pdb files.
+Metadata read/write entry points for PDB files.
 """
 
+from __future__ import annotations
+
+import os
 import re
+from contextlib import contextmanager
+from typing import Iterator
 
-from LiuXin.file_formats.pdb.header import PdbHeaderReader
-
-from LiuXin.metadata.file_sources.pdb.ereader import get_metadata as get_eReader
-from LiuXin.metadata.file_sources.pdb.plucker import get_metadata as get_plucker
-from LiuXin.metadata.file_sources.pdb.haodoo import get_metadata as get_Haodoo
-from LiuXin.metadata.file_sources.pdb.ereader import set_metadata as set_eReader
-from LiuXin.metadata.metadata import MetaData as MetaInformation
-
-from LiuXin.utils.localization import trans as _
-
-from past.builtins import basestring
-
+from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
+from LiuXin_alpha.metadata.file_sources.pdb.ereader import get_metadata as get_ereader
+from LiuXin_alpha.metadata.file_sources.pdb.ereader import set_metadata as set_ereader
+from LiuXin_alpha.metadata.file_sources.pdb.haodoo import get_metadata as get_haodoo
+from LiuXin_alpha.metadata.file_sources.pdb.plucker import get_metadata as get_plucker
+from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import default_log
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
 
+_TITLE_SANITIZE_RE = re.compile(r"[^-A-Za-z0-9 ]+")
 
-# Keyed with the pheader ident and valued with the reader needed to get the metadata from the file
+# Keyed with the pheader ident and valued with the reader needed to get metadata from the file.
 MREADER = {
-    "PNPdPPrs": get_eReader,
-    "PNRdPPrs": get_eReader,
+    "PNPdPPrs": get_ereader,
+    "PNRdPPrs": get_ereader,
     "DataPlkr": get_plucker,
-    "BOOKMTIT": get_Haodoo,
-    "BOOKMTIU": get_Haodoo,
+    "BOOKMTIT": get_haodoo,
+    "BOOKMTIU": get_haodoo,
 }
 
-
-# Keyed with the pheader ident and valued with the writer needed to write the metadata out to file
+# Keyed with the pheader ident and valued with the writer used to write metadata.
 MWRITER = {
-    "PNPdPPrs": set_eReader,
-    "PNRdPPrs": set_eReader,
+    "PNPdPPrs": set_ereader,
+    "PNRdPPrs": set_ereader,
 }
 
 
-def get_metadata(stream, extract_cover=True):
+def _is_path_like(stream_or_path) -> bool:
+    return isinstance(stream_or_path, (str, bytes, os.PathLike))
+
+
+@contextmanager
+def _open_stream_for_reading(stream_or_path) -> Iterator:
+    if _is_path_like(stream_or_path):
+        with open(stream_or_path, "rb") as stream:
+            yield stream
+        return
+    if not hasattr(stream_or_path, "read"):
+        raise TypeError("PDB metadata reader expects a binary stream or filesystem path.")
+    yield stream_or_path
+
+
+@contextmanager
+def _open_stream_for_writing(stream_or_path) -> Iterator:
+    if _is_path_like(stream_or_path):
+        with open(stream_or_path, "r+b") as stream:
+            yield stream
+        return
+    if not hasattr(stream_or_path, "read") or not hasattr(stream_or_path, "write"):
+        raise TypeError("PDB metadata writer expects a read/write binary stream or filesystem path.")
+    yield stream_or_path
+
+
+def _fallback_metadata(title: str | None):
+    fallback_title = title or _("Unknown")
+    return calibreMetaInformation(fallback_title, [_("Unknown")])
+
+
+def _source_title_hint(stream_or_path) -> str | None:
+    if _is_path_like(stream_or_path):
+        try:
+            stem = os.path.splitext(os.path.basename(os.fspath(stream_or_path)))[0]
+            return stem or None
+        except Exception:
+            return None
+    name = getattr(stream_or_path, "name", None)
+    if isinstance(name, str) and name:
+        return os.path.splitext(os.path.basename(name))[0] or None
+    return None
+
+
+def _normalize_title_bytes(title: object) -> bytes:
+    text = _TITLE_SANITIZE_RE.sub("_", str(title or _("Unknown")))
+    return text.encode("ascii", "replace")[:31].ljust(31, b"\x00") + b"\x00"
+
+
+def get_metadata(stream_or_path, extract_cover: bool = True):
     """
-    Return metadata as a L{MetaInfo} object.
-    Metadata can only be read from certain types of pdb files. In particular 'PNPdPPrs', 'PNRdPPrs', 'DataPlkr',
-    'BOOKMTIT' and 'BOOKMTIU'.
-    If data can't be read from that type of file then fall back on reading the title - which can be done for all file
-    types (as it's included in the header) and set the author to unknown.
-    Check the header type using the get_pheader_ident method. If the header ident isn't in the list above then full
-    metadata read won't happen.
-    :param stream: The PDB encoded stream to extract the metadata from
-    :param extract_cover: Should the cover be included in the returned metadata?
+    Return metadata for a PDB stream/path.
+
+    If a specialized reader is not available (or fails), this falls back to
+    title-from-header + unknown author.
     """
-    stream_needs_close = False
-    if isinstance(stream, basestring):
-        stream_needs_close = True
-        stream = open(stream, "rb")
+    with _open_stream_for_reading(stream_or_path) as stream:
+        try:
+            stream.seek(0)
+            pheader = PdbHeaderReader(stream)
+        except Exception as err:
+            default_log.log_exception(
+                "Unable to parse PDB header. Returning minimal fallback metadata.",
+                err,
+                "WARNING",
+            )
+            return _fallback_metadata(_source_title_hint(stream_or_path))
 
-    try:
-        pheader = PdbHeaderReader(stream)
+        reader = MREADER.get(pheader.ident)
+        if reader is None:
+            return _fallback_metadata(pheader.title)
 
-        MetadataReader = MREADER.get(pheader.ident, None)
+        try:
+            return reader(stream, extract_cover=extract_cover)
+        except Exception as err:
+            default_log.log_exception(
+                "Falling back to PDB header-only metadata after reader failure.",
+                err,
+                "WARNING",
+                ("ident", pheader.ident),
+            )
+            return _fallback_metadata(pheader.title)
 
-        # Falls back on pulling the title out, if nothing else can be read
-        if MetadataReader is None:
-            return MetaInformation(pheader.title, [_("Unknown")])
-        else:
-            return MetadataReader(stream, extract_cover)
-    finally:
-        if stream_needs_close:
-            stream.close()
 
-
-def get_pheader_ident(stream):
+def get_pheader_ident(stream_or_path) -> str:
     """
-    Return the pheader ident for the given pdb stream.
-    :param stream: The book the metadata will be written from
-    :return:
+    Return the PDB header ident for the given stream/path.
     """
-    stream.seek(0)
+    with _open_stream_for_reading(stream_or_path) as stream:
+        try:
+            stream.seek(0)
+            return PdbHeaderReader(stream).ident
+        except Exception as err:
+            raise ValueError("Unable to parse PDB header identity from stream/path.") from err
 
-    pheader = PdbHeaderReader(stream)
 
-    return pheader.ident
-
-
-def set_metadata(stream, mi):
+def set_metadata(stream_or_path, mi) -> None:
     """
-    Write the given MetaInformation mi into the given stream.
-    Metadata can only be written to certain types of pdb files. In particular 'PNPdPPrs' and 'PNRdPPrs'.
-    Check the header type using the get_pheader_ident method. If the header ident isn't in the list above then full
-    metadata write won't happen.
-    :param stream: The book the metadata will be written into
-    :param mi: The metadata for writing
-    :return:
+    Write metadata into the given PDB stream/path when supported.
+
+    Full metadata writes are only supported for eReader PDB variants. For all
+    PDB files, the title in the wrapper header is updated.
     """
-    stream.seek(0)
+    with _open_stream_for_writing(stream_or_path) as stream:
+        try:
+            stream.seek(0)
+            pheader = PdbHeaderReader(stream)
+        except Exception as err:
+            raise ValueError("Cannot set metadata: invalid or corrupt PDB header.") from err
 
-    pheader = PdbHeaderReader(stream)
+        writer = MWRITER.get(pheader.ident)
+        if writer is not None:
+            writer(stream, mi)
 
-    MetadataWriter = MWRITER.get(pheader.ident, None)
-
-    if MetadataWriter:
-        MetadataWriter(stream, mi)
-
-    stream.seek(0)
-    stream.write("%s\x00" % re.sub("[^-A-Za-z0-9 ]+", "_", mi.title).ljust(31, "\x00")[:31].encode("ascii", "replace"))
+        stream.seek(0)
+        stream.write(_normalize_title_bytes(getattr(mi, "title", None)))

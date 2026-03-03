@@ -3,9 +3,10 @@
 # all the module actually needs is a get_metadata module
 # many of the metadata methods use containers and other useful things from over in the file formats dictionary.
 
-import importlib.util
+from __future__ import print_function
+
+import imp
 import os
-import sys
 from copy import deepcopy
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
@@ -13,7 +14,7 @@ from LiuXin_alpha.utils.logging import LiuXin_debug_print
 from LiuXin_alpha.constants.file_extensions import BOOK_EXTENSIONS
 
 # used to locate the file on disk so that the plugins can be imported
-__folder__ = os.path.realpath(os.path.dirname(__file__))
+__folder__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 valid_plugins = []
 valid_file_formats = set()
 
@@ -32,27 +33,19 @@ def get_metadata(target_object, force_type=False):
     :param target_object: Either a pointer to a stream, or the location of an object on disk.
     :return return_metadata: Metadata extracted from the object, or None if None could be extracted
     """
+    target_object = deepcopy(target_object)
     return_metadata = None
 
-    source_path = None
-    if isinstance(target_object, os.PathLike):
-        source_path = os.fspath(target_object)
-    elif isinstance(target_object, str):
-        source_path = target_object
-    elif hasattr(target_object, "name") and isinstance(target_object.name, str):
-        source_path = target_object.name
-
-    if source_path and not os.path.exists(source_path):
+    # For the moment assuming the object
+    if not os.path.exists(target_object):
         raise IOError("File not found.")
 
     if not force_type:
-        dotted_ext = os.path.splitext(source_path or "")[1]
+        dotted_ext = os.path.splitext(target_object)[1]
         if len(dotted_ext) > 0 and dotted_ext[0] == ".":
             ext = dotted_ext[1:]
         else:
             ext = dotted_ext
-        if not ext:
-            raise ValueError("Could not infer extension for metadata extraction. Pass force_type to override.")
     else:
         ext = force_type
 
@@ -126,12 +119,12 @@ def sort_plugins_by_run_cost(plugins):
             raise AssertionError(err_str)
 
         # Adds the numeric run cost to the run cost index
-        plugins_cost.append(run_cost_dict[plugin_cost])
+        plugins_cost.append(plugin_cost)
 
     assert len(plugins_cost) == len(plugins)
 
     # Zipping them together and sorting
-    sortable_index = list(zip(plugins, plugins_cost))
+    sortable_index = zip(plugins, plugins_cost)
     sortable_index.sort(key=lambda x: x[1])
     return [item[0] for item in sortable_index]
 
@@ -185,7 +178,7 @@ class MetaDataReaderPlugin(object):
         self.file_path = file_path
         self.module_name = os.path.basename(os.path.splitext(file_path)[0])
         try:
-            self.module = self._load_module_from_path(self.module_name, file_path)
+            self.module = imp.load_source(self.module_name, file_path)
         except IOError:
             err_str = "No such module as: " + self.module_name + "\n"
             err_str += "Located at: " + repr(file_path) + "\n"
@@ -220,12 +213,3 @@ class MetaDataReaderPlugin(object):
             err_str += "At: " + repr(file_path) + "\n"
             err_str += "Module has no get_metadata method"
             raise InvalidMetadataExtractor(err_str)
-
-    def _load_module_from_path(self, module_name, file_path):
-        spec = importlib.util.spec_from_file_location(module_name, file_path)
-        if spec is None or spec.loader is None:
-            raise IOError("Unable to load module from path")
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        spec.loader.exec_module(module)
-        return module
