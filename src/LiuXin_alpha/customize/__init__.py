@@ -849,17 +849,35 @@ class StoreBase(Plugin):  # {{{
         self.actual_plugin_object = getattr(importlib.import_module(mod), cls)(gui, self.name)
         return self.actual_plugin_object
 
-    def customization_help(self, gui=False):
+    def customization_help(self, gui: bool = False) -> None:
+        """
+        Help with customizing the store.
+
+        :param gui:
+        :return:
+        """
         if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.customization_help(gui)
         raise NotImplementedError()
 
-    def config_widget(self):
+    def config_widget(self) -> Any:
+        """
+        Provides a config widget to config the store plugin.
+
+        At a guess, this returns a QWidget.
+        :return:
+        """
         if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.config_widget()
         raise NotImplementedError()
 
-    def save_settings(self, config_widget):
+    def save_settings(self, config_widget: Any) -> None:
+        """
+        Save setting changes made with the config_widget.
+
+        :param config_widget:
+        :return:
+        """
         if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.save_settings(config_widget)
         raise NotImplementedError()
@@ -875,7 +893,7 @@ class ViewerPlugin(Plugin):  # {{{
 
     plugin_type = _("Viewer")
 
-    def load_fonts(self):
+    def load_fonts(self) -> None:
         """
         This method is called once at viewer startup. It should load any fonts it wants to make available. For example::
 
@@ -903,6 +921,7 @@ class ViewerPlugin(Plugin):  # {{{
     def run_javascript(self, evaljs):
         """
         This method is called every time a document has finished loading. Use it in the same way as load_javascript().
+
         :param evaljs:
         :return:
         """
@@ -945,11 +964,12 @@ class LibraryClosedPlugin(Plugin):  # {{{
     # minimum version 2.54 because that is when support was added
     minimum_calibre_version = (2, 54, 0)
 
-    def run(self, db):
+    def run(self, db) -> None:
         """
         The db will be a reference to the new_api (db.cache.py).
-        The plugin must run to completion. It must not use the GUI, threads, or
-        any signals.
+
+        The plugin must run to completion.
+        It must not use the GUI, threads, or any signals.
         """
         raise NotImplementedError("LibraryClosedPlugin " "run method must be overridden in subclass")
 
@@ -958,23 +978,36 @@ class LibraryClosedPlugin(Plugin):  # {{{
 
 
 class EditBookToolPlugin(Plugin):  # {{{
+    """
+    Tool to edit a book.
+    """
 
     plugin_type = _("Edit Book Tool")
+
     minimum_calibre_version = (1, 46, 0)
 
 
 # }}}
 
-# ----------------------------------------------------------------------------------------------------------------------
+# ------------------------------------
 #
 # - LIUXIN SPECIFIC PLUGINS START HERE
-#
-# ----------------------------------------------------------------------------------------------------------------------
+
+class LiuXinPlugin(Plugin):
+    """
+    Base class for all LiuXin specific plugins.
+
+    The assumption with the rest of the plugins is that they're calibre at base.
+    This is the base class for all LiuXin specific plugins.
+    As a rule, the above plugins expect objects with a calibre compatible surface.
+    These plugins do not (at least by default).
+    """
 
 
 class MDInputTransform(Plugin):  # {{{
     """
     Base class for the MetaData Input Transformation plugins.
+
     These plugins are intended to be run every time a set of MetaData is extracted from a file.
     A plugin of this plugin_type takes a collection of MetaData objects, and returns a MetaData object.
     This collection could be a single MetaData object.
@@ -1319,3 +1352,6 @@ class Archive(object):
         :return:
         """
         self.close()
+
+
+# ------------------------------------

@@ -466,7 +466,7 @@ class StoreBaseAPI(PluginAPI):
     # Does the store only distribute ebooks without DRM.
     drm_free_only: bool
 
-    # This is the 2 letter country code for the corporate headquarters of the store.
+    # This is the 2-letter country code for the corporate headquarters of the store.
     headquarters: str
 
     # All formats the store distributes ebooks in.
@@ -483,3 +483,124 @@ class StoreBaseAPI(PluginAPI):
         :param gui:
         :return:
         """
+
+    @abc.abstractmethod
+    def customization_help(self, gui: bool = False) -> None:
+        """
+        Help with customizing the store.
+
+        :param gui:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def config_widget(self) -> Any:
+        """
+        Provides a config widget to config the store plugin.
+
+        :return:
+        """
+
+    @abc.abstractmethod
+    def save_settings(self, config_widget: Any) -> None:
+        """
+        Save setting changes made with the config_widget.
+
+        :param config_widget:
+        :return:
+        """
+
+
+class ViewerPluginAPI(PluginAPI):
+    """
+    These plugins are used to add functionality to the calibre viewer.
+    """
+
+    plugin_type: str
+
+    @abc.abstractmethod
+    def load_fonts(self) -> None:
+        """
+        This method is called once at viewer startup. It should load any fonts it wants to make available. For example::
+
+            def load_fonts():
+                from PyQt5.Qt import QFontDatabase
+                font_data = get_resources(['myfont1.ttf', 'myfont2.ttf'])
+                for raw in font_data.itervalues():
+                    QFontDatabase.addApplicationFontFromData(raw)
+        """
+
+    @abc.abstractmethod
+    def load_javascript(self, evaljs):
+        """
+        This method is called every time a new HTML document is loaded in the viewer. Use it to load javascript
+        libraries into the viewer. For example::
+
+            def load_javascript(self, evaljs):
+                js = get_resources('myjavascript.js')
+                evaljs(js)
+        :param evaljs:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def run_javascript(self, evaljs):
+        """
+        This method is called every time a document has finished loading. Use it in the same way as load_javascript().
+
+        :param evaljs:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def customize_ui(self, ui):
+        """
+        This method is called once when the viewer is created. Use it to make any customizations you want to the
+        viewer's user interface. For example, you can modify the toolbars via ui.tool_bar and ui.tool_bar2.
+
+        :param ui:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def customize_context_menu(self, menu, event, hit_test_result):
+        """
+        This method is called every time the context (right-click) menu is shown. You can use it to customize the
+        context menu. ``event`` is the context menu event and hit_test_result is the QWebHitTestResult for this event
+        in the currently loaded document.
+        :param menu:
+        :param event:
+        :param hit_test_result:
+        :return:
+        """
+
+
+class LibraryClosedPluginAPI(PluginAPI):
+    """
+    LibraryClosedPlugins are run when a library is closed, either at shutdown, when the library is changed, or when a
+    library is used in some other way.
+    At the moment these plugins won't be called by the CLI functions.
+    """
+    plugin_type: str
+
+    minimum_calibre_version: tuple[int, int, int]
+
+    @abc.abstractmethod
+    def run(self, db) -> None:
+        """
+        The db will be a reference to the new_api (db.cache.py).
+
+        The plugin must run to completion.
+        It must not use the GUI, threads, or any signals.
+        """
+
+
+class EditBookToolPluginAPI(PluginAPI):
+    """
+    Tools to edit a book.
+    """
+    plugin_type: str
+
+    minimum_calibre_version: tuple[int, int, int]
+
+
