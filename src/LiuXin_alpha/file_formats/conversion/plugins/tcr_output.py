@@ -43,26 +43,35 @@ class TCROutput(OutputFormatPlugin):
         close = False
         if not hasattr(output_path, "write"):
             close = True
-            if not os.path.exists(os.path.dirname(output_path)) and os.path.dirname(output_path) != "":
-                os.makedirs(os.path.dirname(output_path))
+            output_dir = os.path.dirname(output_path)
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
             out_stream = open(output_path, "wb")
         else:
             out_stream = output_path
 
-        setattr(opts, "flush_paras", False)
-        setattr(opts, "max_line_length", 0)
-        setattr(opts, "force_max_line_length", False)
-        setattr(opts, "indent_paras", False)
+        try:
+            setattr(opts, "flush_paras", False)
+            setattr(opts, "max_line_length", 0)
+            setattr(opts, "force_max_line_length", False)
+            setattr(opts, "indent_paras", False)
 
-        writer = TXTMLizer(log)
-        txt = writer.extract_content(oeb_book, opts).encode(opts.tcr_output_encoding, "replace")
+            writer = TXTMLizer(log)
+            raw_txt = writer.extract_content(oeb_book, opts)
+            output_encoding = getattr(opts, "tcr_output_encoding", "utf-8") or "utf-8"
+            if isinstance(raw_txt, bytes):
+                txt = raw_txt
+            else:
+                txt = str(raw_txt).encode(output_encoding, "replace")
 
-        log.info("Compressing text...")
-        txt = compress(txt)
+            log.info("Compressing text...")
+            txt = compress(txt)
 
-        out_stream.seek(0)
-        out_stream.truncate()
-        out_stream.write(txt)
-
-        if close:
-            out_stream.close()
+            if hasattr(out_stream, "seek"):
+                out_stream.seek(0)
+            if hasattr(out_stream, "truncate"):
+                out_stream.truncate()
+            out_stream.write(txt)
+        finally:
+            if close:
+                out_stream.close()

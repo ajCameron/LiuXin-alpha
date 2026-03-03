@@ -17,8 +17,8 @@ from LiuXin_alpha.file_formats.oeb.base import (
 )
 from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = """2011, John Schember <john@nachtimwald.com>
@@ -84,8 +84,8 @@ class MarkdownMLizer(OEB2HTML):
         text = re.sub("(?msu)\n{7,}", "\n" * 6, text)
 
         # Remove blank lines at beginning and end of document.
-        text = re.sub("^\s*", "", text)
-        text = re.sub("\s*$", "\n\n", text)
+        text = re.sub(r"^\s*", "", text)
+        text = re.sub(r"\s*$", "\n\n", text)
 
         return text
 
@@ -184,9 +184,9 @@ class MarkdownMLizer(OEB2HTML):
             tags.append("\n")
         elif tag == "a":
             # Only write links with absolute (external) urls.
-            if self.opts.keep_links and attribs.has_key("href") and "://" in attribs["href"]:
+            if self.opts.keep_links and "href" in attribs and "://" in attribs["href"]:
                 title = ""
-                if attribs.has_key("title"):
+                if "title" in attribs:
                     title = ' "' + attribs["title"] + '"'
                     remove_space = self.remove_space_after_newline
                     title = self.remove_newlines(title)
@@ -196,7 +196,7 @@ class MarkdownMLizer(OEB2HTML):
         elif tag == "img":
             if self.opts.keep_image_references:
                 txt = "!"
-                if attribs.has_key("alt"):
+                if "alt" in attribs:
                     remove_space = self.remove_space_after_newline
                     txt += "[" + self.remove_newlines(attribs["alt"]) + "]"
                     self.remove_space_after_newline = remove_space

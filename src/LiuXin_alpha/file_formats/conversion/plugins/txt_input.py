@@ -6,6 +6,7 @@ from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommend
 
 from LiuXin_alpha.utils.calibre import _ent_pat, walk, xml_entity_to_unicode
 from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -121,19 +122,19 @@ class TXTInput(InputFormatPlugin):
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log
-        txt = ""
+        txt = b""
         log.debug("Reading text from file...")
         length = 0
 
         # Extract content from zip archive.
         if file_ext == "txtz":
             zf = ZipFile(stream)
-            zf.extractall(".")
-
-            for x in walk("."):
-                if os.path.splitext(x)[1].lower() in (".txt", ".text"):
-                    with open(x, "rb") as tf:
-                        txt += tf.read() + "\n\n"
+            with TemporaryDirectory("_txtz_input") as extract_root:
+                zf.extractall(extract_root)
+                for x in walk(extract_root):
+                    if os.path.splitext(x)[1].lower() in (".txt", ".text"):
+                        with open(x, "rb") as tf:
+                            txt += tf.read() + b"\n\n"
         else:
             txt = stream.read()
             if file_ext in {"md", "textile", "markdown"}:
@@ -287,7 +288,7 @@ class TXTInput(InputFormatPlugin):
         # If the index file already
         while os.path.exists(fname):
             c += 1
-            fname = "index%d.html" % c
+            fname = os.path.join(base, "index%d.html" % c)
         htmlfile = open(fname, "wb")
         with htmlfile:
             htmlfile.write(html.encode("utf-8"))
@@ -305,6 +306,8 @@ class TXTInput(InputFormatPlugin):
             meta_info_to_oeb_metadata,
         )
 
+        if hasattr(stream, "seek"):
+            stream.seek(0)
         mi = get_file_type_metadata(stream, file_ext, calibre=True)
         meta_info_to_oeb_metadata(mi, oeb.metadata, log)
         self.html_postprocess_title = mi.title

@@ -10,7 +10,7 @@ from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommend
 from LiuXin_alpha.utils.resources import P
 from LiuXin_alpha.utils.localization import trans as _
 
-# Py2/Py3 compatability layer
+# Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
@@ -119,8 +119,7 @@ class RTFInput(InputFormatPlugin):
             return f.read()
 
     def extract_images(self, picts):
-
-        from LiuXin_alpha.utils.imghdr import what
+        from LiuXin_alpha.utils.image_tools.imghdr import what
 
         self.log("Extracting images...")
 
@@ -227,7 +226,8 @@ class RTFInput(InputFormatPlugin):
         for cls, val in iteritems(border_styles):
             css += "\n\n.%s {\n%s\n}" % (cls, val)
 
-        with open("styles.css", "a", encoding="utf-8") as f:
+        # Overwrite on each conversion so repeated runs in the same directory are deterministic.
+        with open("styles.css", "w", encoding="utf-8") as f:
             f.write(css)
 
     def convert_borders(self, doc):
@@ -256,9 +256,9 @@ class RTFInput(InputFormatPlugin):
         return style_map
 
     def convert(self, stream, options, file_ext, log, accelerators):
-
         from lxml import etree
-        from LiuXin_alpha.metadata.meta import get_metadata
+        from LiuXin_alpha.metadata.file_sources import get_metadata
+        from LiuXin_alpha.metadata.utils import calibreMetaInformation
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.file_formats.rtf2xml.ParseRtf import RtfInvalidCodeException
         from LiuXin_alpha.file_formats.rtf.input import InlineClass
@@ -267,7 +267,7 @@ class RTFInput(InputFormatPlugin):
         self.log = log
         self.log("Converting RTF to XML...")
         try:
-            xml = self.generate_xml(stream.name)
+            xml = self.generate_xml(getattr(stream, "name", stream))
         except RtfInvalidCodeException as e:
             raise ValueError(
                 _(
@@ -306,14 +306,24 @@ class RTFInput(InputFormatPlugin):
             res = transform.tostring(result)
             # res = res[:100].replace('xmlns:html', 'xmlns') + res[100:]
             # clean multiple \n
-            res = re.sub("\n+", "\n", res)
+            if isinstance(res, bytes):
+                res = res.decode("utf-8", "replace")
+            res = re.sub(r"\n+", "\n", res)
             # Replace newlines inserted by the 'empty_paragraphs' option in rtf2xml with html blank lines
             # res = re.sub('\s*<body>', '<body>', res)
             # res = re.sub('(?<=\n)\n{2}', u'<p>\u00a0</p>\n'.encode('utf-8'), res)
-            f.write(res)
+            f.write(res.encode("utf-8", "replace"))
         self.write_inline_css(inline_class, border_styles)
         stream.seek(0)
-        mi = get_metadata(stream, "rtf")
+        try:
+            mi = get_metadata(stream, "rtf")
+        except Exception as err:
+            warn = getattr(self.log, "warning", None) or getattr(self.log, "warn", None)
+            if warn is not None:
+                warn("Failed to read RTF metadata, using defaults: {}".format(err))
+            mi = calibreMetaInformation(_("Unknown"), [_("Unknown")])
+        if mi is None:
+            mi = calibreMetaInformation(_("Unknown"), [_("Unknown")])
         if not mi.title:
             mi.title = _("Unknown")
         if not mi.authors:

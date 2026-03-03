@@ -21,7 +21,7 @@ class tokenDelimitatorStart:
         pass
 
     def toRTF(self):
-        return b"{"
+        return "{"
 
     def __repr__(self):
         return "{"
@@ -32,7 +32,7 @@ class tokenDelimitatorEnd:
         pass
 
     def toRTF(self):
-        return b"}"
+        return "}"
 
     def __repr__(self):
         return "}"
@@ -109,11 +109,11 @@ class token8bitChar:
 
 
 class tokenUnicode:
-    def __init__(self, data, separator="", current_ucn=1, eqList=[]):
+    def __init__(self, data, separator="", current_ucn=1, eqList=None):
         self.data = data
         self.separator = separator
         self.current_ucn = current_ucn
-        self.eqList = eqList
+        self.eqList = [] if eqList is None else eqList
 
     def toRTF(self):
         result = "\\u" + repr(self.data) + " "
@@ -239,7 +239,7 @@ class RtfTokenParser:
                             replace,
                         )
                     )
-                    if partialData is None:
+                    if partialData is not None:
                         new_tokens.append(partialData)
                     continue
 
@@ -259,6 +259,8 @@ class RtfTokenizer:
     def __init__(self, rtfData):
         self.rtfData = []
         self.tokens = []
+        if isinstance(rtfData, bytes):
+            rtfData = rtfData.decode("latin-1", "replace")
         self.rtfData = rtfData
         self.tokenize()
 

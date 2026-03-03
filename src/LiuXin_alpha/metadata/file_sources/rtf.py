@@ -37,7 +37,7 @@ comment_pat_2 = re.compile(r"\{\\info.*?\{\\comment(.*?)(?<!\\)\}", re.DOTALL)
 
 
 def get_document_info(stream):
-    """
+    r"""
     Extract the \info block from an RTF file.
     Return the info block as a string and the position in the file at which it starts.
     :param stream: File like object pointing to the RTF file.

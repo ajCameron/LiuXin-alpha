@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from LiuXin_alpha.customize.conversion import InputFormatPlugin
+import io
 
-# Py2/Py3
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.customize.conversion import InputFormatPlugin
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -27,12 +26,12 @@ class TCRInput(InputFormatPlugin):
             raw_txt = raw_txt.decode(input_encoding, "replace")
 
         log.info("Converting text to OEB...")
-        stream = six_cStringIO(raw_txt)
+        stream = io.StringIO(raw_txt)
 
         from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         txt_plugin = plugin_for_input_format("txt")
-        for opt in txt_plugin.options:
+        for opt in getattr(txt_plugin, "options", ()):
             if not hasattr(options, opt.option.name):
                 setattr(options, opt.option.name, opt.recommended_value)
 

@@ -10,7 +10,8 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
-import sys, os
+import os
+import sys
 from LiuXin_alpha.file_formats.rtf2xml import copy, override_table, list_table
 from LiuXin_alpha.utils.ptempfiles import better_mktemp
 from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
@@ -332,6 +333,7 @@ mi<tg<close_____<style-table
         self.__override_table_obj = override_table.OverrideTable(
             run_level=self.__run_level,
             list_of_lists=self.__all_lists,
+            bug_handler=self.__bug_handler,
         )
         self.__state = "override_table"
         self.__override_table_final = ""
@@ -396,7 +398,9 @@ mi<tg<close_____<style-table
         info = line[6:16]
         changed = self.__margin_dict.get(info)
         if changed is None:
-            print("woops!")
+            if self.__run_level > 3:
+                msg = f'Unexpected margin token "{info}" in preamble\n'
+                raise self.__bug_handler(msg)
         else:
             self.__page[changed] = line[20:-1]
         # cw<pa<margin-lef<nu<1728
@@ -430,7 +434,9 @@ mi<tg<close_____<style-table
         """
         info = self.__translate_sec.get(line[6:16])
         if info is None:
-            sys.stderr.write("woops!\n")
+            if self.__run_level > 3:
+                msg = f'Unexpected section token "{line[6:16]}" in preamble\n'
+                raise self.__bug_handler(msg)
         else:
             self.__section[info] = "true"
 
@@ -552,7 +558,8 @@ mi<tg<close_____<style-table
                 self.__ob_group -= 1
             action = self.__state_dict.get(self.__state)
             if action is None:
-                print(self.__state)
+                msg = f'No parser action for state "{self.__state}" while dividing preamble\n'
+                raise self.__bug_handler(msg)
             action(line)
         read_obj.close()
         self.__write_obj.close()

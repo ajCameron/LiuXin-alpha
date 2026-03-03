@@ -75,13 +75,20 @@ def split_txt(txt, epub_split_size_kb=0):
     # Takes care if there is no point to split
     if epub_split_size_kb > 0:
         if isinstance(txt, str):
-            txt = txt.encode("utf-8")
-        length_byte = len(txt)
+            txt_bytes = txt.encode("utf-8")
+        else:
+            txt_bytes = bytes(txt)
+        length_byte = len(txt_bytes)
         # Calculating the average chunk value for easy splitting as EPUB (+2 as a safe margin)
         chunk_size = six_long(length_byte / (int(length_byte / (epub_split_size_kb * 1024)) + 2))
         # if there are chunks with a superior size then go and break
-        if any(len(x) > chunk_size for x in txt.split("\n\n")):
-            txt = "\n\n".join([split_string_separator(line, chunk_size) for line in txt.split("\n\n")])
+        if any(len(x) > chunk_size for x in txt_bytes.split(b"\n\n")):
+            txt = "\n\n".join(
+                split_string_separator(line.decode("utf-8", "replace"), chunk_size)
+                for line in txt_bytes.split(b"\n\n")
+            )
+            return txt
+        txt = txt_bytes
     if isinstance(txt, bytes):
         txt = txt.decode("utf-8")
 
@@ -243,6 +250,8 @@ def detect_paragraph_type(txt):
     txt = txt.replace("\r\n", "\n")
     txt = txt.replace("\r", "\n")
     txt_line_count = len(re.findall(r"(?mu)^\s*.+$", txt))
+    if txt_line_count == 0:
+        return "single"
 
     # Check for hard line breaks - true if 55% of the doc breaks in the same region
     docanalysis = DocAnalysis("txt", txt)
@@ -296,7 +305,7 @@ def detect_formatting_type(txt):
     # Images
     markdown_count += len(re.findall(r"(?u)!\[.*?\](\[|\()", txt))
     # Links
-    markdown_count += len(re.findall(r"(?u)^|[^!]\[.*?\](\[|\()", txt))
+    markdown_count += len(re.findall(r"(?u)(?<!\!)\[[^\]]+\](\[|\()", txt))
 
     # Check for textile
     # Headings

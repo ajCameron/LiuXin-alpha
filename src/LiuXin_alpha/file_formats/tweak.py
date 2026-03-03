@@ -52,11 +52,13 @@ def ask_cli_question(msg):
             try:
                 ans = sys.stdin.read(1)
             except KeyboardInterrupt:
-                ans = b""
+                ans = ""
         finally:
             termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, old_settings)
     print()
-    return ans == b"y"
+    if isinstance(ans, bytes):
+        ans = ans.decode("ascii", "ignore")
+    return (ans or "").lower() == "y"
 
 
 def mobi_exploder(path, tdir, question=lambda x: True):
@@ -69,7 +71,10 @@ def mobi_exploder(path, tdir, question=lambda x: True):
 
 
 def zip_exploder(path, tdir, question=lambda x: True):
-    zipextract(path, tdir)
+    try:
+        zipextract(path, tdir)
+    except Exception as err:
+        raise Error("Failed to unpack {}: {}".format(path, as_unicode(err)))
     for f in walk(tdir):
         if f.lower().endswith(".opf"):
             return f
@@ -77,6 +82,7 @@ def zip_exploder(path, tdir, question=lambda x: True):
 
 
 def zip_rebuilder(tdir, path):
+    output_abspath = os.path.abspath(path)
     with ZipFile(path, "w", compression=ZIP_DEFLATED) as zf:
         # Write mimetype
         mt = os.path.join(tdir, "mimetype")
@@ -85,16 +91,20 @@ def zip_rebuilder(tdir, path):
         # Write everything else
         exclude_files = {".DS_Store", "mimetype", "iTunesMetadata.plist"}
         for root, dirs, files in os.walk(tdir):
+            dirs.sort()
+            files.sort()
             for fn in files:
                 if fn in exclude_files:
                     continue
                 absfn = os.path.join(root, fn)
+                if os.path.abspath(absfn) == output_abspath:
+                    continue
                 zfn = unicodedata.normalize("NFC", os.path.relpath(absfn, tdir).replace(os.sep, "/"))
                 zf.write(absfn, zfn)
 
 
 def get_tools(fmt):
-    fmt = fmt.lower()
+    fmt = (fmt or "").lower()
 
     if fmt in {"mobi", "azw", "azw3"}:
         from LiuXin_alpha.utils.calibre.ebooks.mobi.tweak import rebuild
@@ -128,9 +138,14 @@ def tweak(ebook_file):
             opf = exploder(ebook_file, tdir, question=ask_cli_question)
         except WorkerError as e:
             prints("Failed to unpack", ebook_file)
-            prints(e.orig_tb)
+            if getattr(e, "orig_tb", None):
+                prints(e.orig_tb)
             raise SystemExit(1)
         except Error as e:
+            prints(as_unicode(e), file=sys.stderr)
+            raise SystemExit(1)
+        except Exception as e:
+            prints("Failed to unpack", ebook_file, file=sys.stderr)
             prints(as_unicode(e), file=sys.stderr)
             raise SystemExit(1)
 
@@ -139,8 +154,12 @@ def tweak(ebook_file):
             return
 
         ed = os.environ.get("EDITOR", "dummy")
+        ed = (ed or "").strip() or "dummy"
         cmd = shlex.split(ed)
-        isvim = bool([x for x in cmd[0].split("/") if x.endswith("vim")])
+        if not cmd:
+            cmd = ["dummy"]
+        editor_name = os.path.basename(cmd[0]).lower()
+        isvim = editor_name in {"vi", "vim"} or editor_name.endswith("vim")
 
         prints("Book extracted to", tdir)
 
@@ -177,6 +196,11 @@ def tweak(ebook_file):
                 rebuilder(tdir, ebook_file)
             except WorkerError as e:
                 prints("Failed to rebuild", ebook_file)
-                prints(e.orig_tb)
+                if getattr(e, "orig_tb", None):
+                    prints(e.orig_tb)
+                raise SystemExit(1)
+            except Exception as e:
+                prints("Failed to rebuild", ebook_file, file=sys.stderr)
+                prints(as_unicode(e), file=sys.stderr)
                 raise SystemExit(1)
             prints(ebook_file, "successfully tweaked")

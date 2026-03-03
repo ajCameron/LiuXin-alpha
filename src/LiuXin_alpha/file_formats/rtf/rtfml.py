@@ -1,20 +1,34 @@
 # -*- coding: utf-8 -*-
 
 """
-Transform OEB content into RTF markup
+Transform OEB content into RTF markup.
 """
+
+from __future__ import annotations
 
 import os
 import re
+from io import BytesIO
+
 from lxml import etree
 
-from past.builtins import unicode
+from LiuXin_alpha.metadata.utils import authors_to_string
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO, six_string_types
 
-from LiuXin_alpha.metadata import authors_to_string
+try:
+    from LiuXin_alpha.utils.wrappers.magick.draw import identify_data as _identify_data_backend
+except Exception:
+    _identify_data_backend = None
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
-from LiuXin_alpha.utils.wrappers.magick.draw import save_cover_data_to, identify_data
+try:
+    from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as _FallbackImage
+except Exception:
+    _FallbackImage = None
+
+try:
+    from PIL import Image as _PILImage
+except Exception:
+    _PILImage = None
 
 
 __license__ = "GPL 3"
@@ -63,32 +77,92 @@ BLOCK_TAGS = [
 
 BLOCK_STYLES = ["block"]
 
-"""
-TODO:
-    * Tables
-    * Fonts
-"""
+
+def _meta_value(raw):
+    return getattr(raw, "value", raw)
+
+
+def _ensure_bytes(data) -> bytes:
+    if isinstance(data, bytes):
+        return data
+    if isinstance(data, bytearray):
+        return bytes(data)
+    if isinstance(data, str):
+        return data.encode("utf-8", "replace")
+    if hasattr(data, "read"):
+        return _ensure_bytes(data.read())
+    return bytes(data)
+
+
+def _convert_image_to_jpeg_bytes(data: bytes) -> bytes:
+    """
+    Best-effort conversion to JPEG bytes for RTF's `\\jpegblip`.
+    """
+    raw = _ensure_bytes(data)
+    if _PILImage is not None:
+        try:
+            with _PILImage.open(BytesIO(raw)) as image:
+                if image.mode not in ("RGB", "L"):
+                    image = image.convert("RGB")
+                out = BytesIO()
+                image.save(out, "JPEG")
+                return out.getvalue()
+        except Exception:
+            pass
+    if _FallbackImage is not None:
+        try:
+            with _FallbackImage(raw) as image:
+                return image.to_bytes(format="jpeg")
+        except Exception:
+            pass
+    return raw
+
+
+def _identify_data(data: bytes):
+    raw = _ensure_bytes(data)
+    if _identify_data_backend is not None:
+        try:
+            return _identify_data_backend(raw)
+        except Exception:
+            pass
+    if _FallbackImage is not None:
+        try:
+            with _FallbackImage(raw) as image:
+                meta = image.identify()
+            return meta.get("width", 0), meta.get("height", 0), meta.get("format", "unknown")
+        except Exception:
+            pass
+    if _PILImage is not None:
+        try:
+            with _PILImage.open(BytesIO(raw)) as image:
+                return image.width, image.height, (image.format or "unknown")
+        except Exception:
+            pass
+    return 0, 0, "unknown"
 
 
 def txt2rtf(text):
-    # Escape { and } in the text.
+    if text is None:
+        return ""
+    if isinstance(text, bytes):
+        text = text.decode("utf-8", "replace")
+    if not isinstance(text, str):
+        text = str(text)
+
+    # Escape control characters in plain text first. Backslash must go first.
+    text = text.replace("\\", r"\'5c")
     text = text.replace("{", r"\'7b")
     text = text.replace("}", r"\'7d")
-    text = text.replace("\\", r"\'5c")
-
-    if not isinstance(text, unicode):
-        return text
 
     buf = six_cStringIO()
-    for x in text:
-        val = ord(x)
+    for char in text:
+        val = ord(char)
         if val == 160:
             buf.write("\\~")
         elif val <= 127:
-            buf.write(x)
+            buf.write(char)
         else:
-            c = r"\u{0:d}?".format(val)
-            buf.write(c)
+            buf.write(r"\u{0:d}?".format(val))
     return buf.getvalue()
 
 
@@ -115,11 +189,16 @@ class RTFMLizer(object):
                 self.currently_dumping_item = item
                 output += self.dump_text(item.data.find(XHTML("body")), stylizer)
                 output += "{\\page }"
+
         for item in self.oeb_book.spine:
             self.log.debug("Converting %s to RTF markup..." % item.href)
-            # Removing comments is needed as comments with -- inside them can
-            # cause fromstring() to fail
-            content = re.sub(r"<!--.*?-->", "", etree.tostring(item.data, encoding=unicode), flags=re.DOTALL)
+            # Comments containing `--` can make fromstring() fail.
+            content = re.sub(
+                r"<!--.*?-->",
+                "",
+                etree.tostring(item.data, encoding="unicode"),
+                flags=re.DOTALL,
+            )
             content = self.remove_newlines(content)
             content = self.remove_tabs(content)
             content = etree.fromstring(content)
@@ -127,10 +206,10 @@ class RTFMLizer(object):
             self.currently_dumping_item = item
             output += self.dump_text(content.find(XHTML("body")), stylizer)
             output += "{\\page }"
+
         output += self.footer()
         output = self.insert_images(output)
         output = self.clean_text(output)
-
         return output
 
     def remove_newlines(self, text):
@@ -138,19 +217,21 @@ class RTFMLizer(object):
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
         text = text.replace("\r", " ")
-
         return text
 
     def remove_tabs(self, text):
-        self.log.debug("\Replace tabs with space for processing...")
-        text = text.replace("\t", " ")
-
-        return text
+        self.log.debug("\tReplace tabs with space for processing...")
+        return text.replace("\t", " ")
 
     def header(self):
+        title_items = getattr(self.oeb_book.metadata, "title", ()) or ()
+        creator_items = getattr(self.oeb_book.metadata, "creator", ()) or ()
+        title = _meta_value(title_items[0]) if title_items else "Unknown"
+        creators = [_meta_value(x) for x in creator_items]
+        author = authors_to_string(creators) if creators else "Unknown"
         header = "{\\rtf1{\\info{\\title %s}{\\author %s}}\\ansi\\ansicpg1252\\deff0\\deflang1033\n" % (
-            self.oeb_book.metadata.title[0].value,
-            authors_to_string([x.value for x in self.oeb_book.metadata.creator]),
+            title,
+            author,
         )
         return (
             header
@@ -175,62 +256,42 @@ class RTFMLizer(object):
                 src = item.href
                 try:
                     data, width, height = self.image_to_hexstring(item.data)
-                except:
-                    self.log.warn("Image %s is corrupted, ignoring" % item.href)
+                except Exception:
+                    log_warn = getattr(self.log, "warning", None) or getattr(self.log, "warn", None)
+                    if log_warn is not None:
+                        log_warn("Image %s is corrupted, ignoring" % item.href)
                     repl = "\n\n"
                 else:
-                    repl = "\n\n{\\*\\shppict{\\pict\\jpegblip\\picw%i\\pich%i \n%s\n}}\n\n" % (width, height, data)
+                    repl = "\n\n{\\*\\shppict{\\pict\\jpegblip\\picw%i\\pich%i \n%s\n}}\n\n" % (
+                        width,
+                        height,
+                        data,
+                    )
                 text = text.replace("SPECIAL_IMAGE-%s-REPLACE_ME" % src, repl)
         return text
 
     def image_to_hexstring(self, data):
-        data = save_cover_data_to(data, "cover.jpg", return_data=True)
-        width, height = identify_data(data)[:2]
+        data = _convert_image_to_jpeg_bytes(_ensure_bytes(data))
+        width, height = _identify_data(data)[:2]
+        raw_hex = data.hex()
 
-        raw_hex = ""
-        for char in data:
-            raw_hex += hex(ord(char)).replace("0x", "").rjust(2, "0")
-
-        # Images must be broken up so that they are no longer than 129 chars
-        # per line
-        hex_string = ""
-        col = 1
-        for char in raw_hex:
-            if col == 129:
-                hex_string += "\n"
-                col = 1
-            col += 1
-            hex_string += char
-
+        # Images must be wrapped so each line is no longer than 128 chars.
+        hex_lines = [raw_hex[i : i + 128] for i in range(0, len(raw_hex), 128)]
+        hex_string = "\n".join(hex_lines)
         return hex_string, width, height
 
     def clean_text(self, text):
-        # Remove excessive newlines
         text = re.sub("%s{3,}" % os.linesep, "%s%s" % (os.linesep, os.linesep), text)
-
-        # Remove excessive spaces
         text = re.sub("[ ]{2,}", " ", text)
         text = re.sub("\t{2,}", "\t", text)
         text = re.sub("\t ", "\t", text)
-
-        # Remove excessive line breaks
         text = re.sub(r"(\{\\line \}\s*){3,}", r"{\\line }{\\line }", text)
-
-        # Remove non-breaking spaces
         text = text.replace("\xa0", " ")
         text = text.replace("\n\r", "\n")
-
         return text
 
     def dump_text(self, elem, stylizer, tag_stack=None):
-        """
-
-        :param elem:
-        :param stylizer:
-        :param tag_stack:
-        :return:
-        """
-        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, namespace, barename, urlnormalize
+        from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace, urlnormalize
 
         if tag_stack is None:
             tag_stack = []
@@ -252,14 +313,11 @@ class RTFMLizer(object):
         tag = barename(elem.tag)
         tag_count = 0
 
-        # Are we in a paragraph block?
         if tag in BLOCK_TAGS or style["display"] in BLOCK_STYLES:
             if "block" not in tag_stack:
                 tag_count += 1
                 tag_stack.append("block")
 
-        # Process tags that need special processing and that do not have inner
-        # text. Usually these require an argument
         if tag == "img":
             src = elem.get("src")
             if src:
@@ -271,32 +329,30 @@ class RTFMLizer(object):
                     block_end = "}"
                 text += "%s SPECIAL_IMAGE-%s-REPLACE_ME %s" % (block_start, src, block_end)
 
-        single_tag = SINGLE_TAGS.get(tag, None)
+        single_tag = SINGLE_TAGS.get(tag)
         if single_tag:
             text += single_tag
 
-        rtf_tag = TAGS.get(tag, None)
+        rtf_tag = TAGS.get(tag)
         if rtf_tag and rtf_tag not in tag_stack:
             tag_count += 1
             text += "{%s\n" % rtf_tag
             tag_stack.append(rtf_tag)
 
-        # Processes style information
-        for s in STYLES:
-            style_tag = s[1].get(style[s[0]], None)
+        for style_key, style_map in STYLES:
+            style_tag = style_map.get(style[style_key])
             if style_tag and style_tag not in tag_stack:
                 tag_count += 1
                 text += "{%s\n" % style_tag
                 tag_stack.append(style_tag)
 
-        # Proccess tags that contain text.
         if hasattr(elem, "text") and elem.text:
             text += txt2rtf(elem.text)
 
         for item in elem:
             text += self.dump_text(item, stylizer, tag_stack)
 
-        for i in range(0, tag_count):
+        for _ in range(0, tag_count):
             end_tag = tag_stack.pop()
             if end_tag != "block":
                 if tag in BLOCK_TAGS:

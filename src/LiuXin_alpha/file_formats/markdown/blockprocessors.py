@@ -318,7 +318,7 @@ class OListProcessor(BlockProcessor):
         items = self.get_items(blocks.pop(0))
         sibling = self.lastChild(parent)
 
-        if sibling and sibling.tag in self.SIBLING_TAGS:
+        if sibling is not None and sibling.tag in self.SIBLING_TAGS:
             # Previous block was a list item, so set that as parent
             lst = sibling
             # make sure previous item is in a p- if the item has text, then it
