@@ -6,7 +6,7 @@ Read content from palmdoc pdb file.
 
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
 __license__ = "GPL v3"

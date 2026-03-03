@@ -42,7 +42,7 @@ class PDFInput(InputFormatPlugin):
 
     def convert_new(self, stream, accelerators):
         from LiuXin_alpha.file_formats.pdf.pdftohtml import pdftohtml
-        from utils.libraries.cleantext import clean_ascii_chars
+        from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
         from LiuXin_alpha.file_formats.pdf.reflow import PDFDocument
 
         pdftohtml(os.getcwd(), stream.name, self.opts.no_images, as_xml=True)
@@ -71,10 +71,10 @@ class PDFInput(InputFormatPlugin):
             return self.convert_new(stream, accelerators)
         pdftohtml(os.getcwd(), stream.name, options.no_images)
 
-        from LiuXin_alpha.metadata.meta import get_metadata
+        from LiuXin_alpha.customize.ui import get_file_type_metadata
 
         log.debug("Retrieving document metadata...")
-        mi = get_metadata(stream, "pdf")
+        mi = get_file_type_metadata(stream, "pdf")
         opf = OPFCreator(os.getcwd(), mi)
 
         manifest = [("index.html", None)]

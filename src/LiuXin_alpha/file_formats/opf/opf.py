@@ -3,6 +3,7 @@
 # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
 from __future__ import unicode_literals, division, absolute_import, print_function
+import os
 
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
@@ -25,8 +26,45 @@ class DummyFile(object):
     def __init__(self, raw):
         self.raw = raw
 
-    def read(self):
-        return self.raw
+    def read(self, size=-1):
+        if size is None or size < 0:
+            return self.raw
+        return self.raw[:size]
+
+
+def _coerce_input_stream(stream):
+    if isinstance(stream, (bytes, bytearray, memoryview)):
+        return DummyFile(bytes(stream))
+    if isinstance(stream, os.PathLike):
+        return os.fspath(stream)
+    return stream
+
+
+def _parse_opf_from_input(stream):
+    stream = _coerce_input_stream(stream)
+    if hasattr(stream, "read"):
+        # parse_opf() reads from current position; for robustness we parse from
+        # start and then restore the original stream position.
+        pos = None
+        if hasattr(stream, "tell"):
+            try:
+                pos = stream.tell()
+            except Exception:
+                pos = None
+        try:
+            if hasattr(stream, "seek"):
+                try:
+                    stream.seek(0)
+                except Exception:
+                    pass
+            return parse_opf(stream)
+        finally:
+            if pos is not None and hasattr(stream, "seek"):
+                try:
+                    stream.seek(pos)
+                except Exception:
+                    pass
+    return parse_opf(stream)
 
 
 def get_metadata2(root, ver):
@@ -45,9 +83,7 @@ def get_metadata_from_parsed(root):
 
 
 def get_metadata(stream):
-    if isinstance(stream, bytes):
-        stream = DummyFile(stream)
-    root = parse_opf(stream)
+    root = _parse_opf_from_input(stream)
     return get_metadata_from_parsed(root)
 
 
@@ -74,9 +110,7 @@ def set_metadata(
     :param add_missing_cover:
     :return:
     """
-    if isinstance(stream, bytes):
-        stream = DummyFile(stream)
-    root = parse_opf(stream)
+    root = _parse_opf_from_input(stream)
     ver = parse_opf_version(root.get("version"))
     f = set_metadata_opf2 if ver.major < 3 else set_metadata_opf3
     opfbytes, raster_cover = f(

@@ -1,7 +1,53 @@
 # -*- coding: utf-8 -*-
 
 # Probably used as part of the reader system
-from PyQt5.Qt import QPrinter
+try:
+    from PyQt5.Qt import QPrinter
+except Exception:
+    class _QPrinterFallback:
+        Millimeter = 0
+        Point = 1
+        Inch = 2
+        Pica = 3
+        Didot = 4
+        Cicero = 5
+        DevicePixel = 6
+
+        A0 = 10
+        A1 = 11
+        A2 = 12
+        A3 = 13
+        A4 = 14
+        A5 = 15
+        A6 = 16
+        A7 = 17
+        A8 = 18
+        A9 = 19
+        B0 = 20
+        B1 = 21
+        B2 = 22
+        B3 = 23
+        B4 = 24
+        B5 = 25
+        B6 = 26
+        B7 = 27
+        B8 = 28
+        B9 = 29
+        B10 = 30
+        C5E = 31
+        Comm10E = 32
+        DLE = 33
+        Executive = 34
+        Folio = 35
+        Ledger = 36
+        Legal = 37
+        Letter = 38
+        Tabloid = 39
+
+        Portrait = 40
+        Landscape = 41
+
+    QPrinter = _QPrinterFallback
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"

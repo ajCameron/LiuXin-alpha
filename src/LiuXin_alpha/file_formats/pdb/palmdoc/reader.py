@@ -4,11 +4,10 @@
 Read content from palmdoc pdb file.
 """
 
+import io
 import struct
 
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
-
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cStringIO
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -50,7 +49,7 @@ class Reader(FormatReader):
             from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 
             return decompress_doc(self.section_data(number))
-        return ""
+        return b""
 
     def extract_content(self, output_dir):
         """
@@ -58,7 +57,7 @@ class Reader(FormatReader):
         :param output_dir:
         :return:
         """
-        raw_txt = ""
+        raw_txt = b""
 
         self.log.info("Decompressing text...")
         for i in range(1, self.header_record.num_records + 1):
@@ -66,7 +65,7 @@ class Reader(FormatReader):
             raw_txt += self.decompress_text(i)
 
         self.log.info("Converting text to OEB...")
-        stream = six_cStringIO(raw_txt)
+        stream = io.BytesIO(raw_txt)
 
         from LiuXin_alpha.customize.ui import plugin_for_input_format
 

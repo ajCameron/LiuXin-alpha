@@ -40,7 +40,9 @@ class PMLInput(InputFormatPlugin):
         else:
             html_stream = html_path
 
-        ienc = pml_stream.encoding if pml_stream.encoding else "cp1252"
+        ienc = getattr(pml_stream, "encoding", None)
+        if ienc is None:
+            ienc = "cp1252"
         if self.options.input_encoding:
             ienc = self.options.input_encoding
 
@@ -90,7 +92,7 @@ class PMLInput(InputFormatPlugin):
         return images
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        from LiuXin_alpha.metadata.toc import TOC
+        from LiuXin_alpha.file_formats.toc import TOC
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
@@ -130,10 +132,10 @@ class PMLInput(InputFormatPlugin):
         for item in pages + images:
             manifest_items.append((item, None))
 
-        from LiuXin_alpha.metadata.meta import get_metadata
+        from LiuXin_alpha.customize.ui import get_file_type_metadata
 
         log.debug("Reading metadata from input file...")
-        mi = get_metadata(stream, "pml")
+        mi = get_file_type_metadata(stream, "pml")
         if "images/cover.png" in images:
             mi.cover = "images/cover.png"
         opf = OPFCreator(os.getcwd(), mi)

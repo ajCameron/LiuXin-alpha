@@ -9,6 +9,7 @@ import os
 
 from LiuXin_alpha.constants import iswindows
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats import ConversionError
 
 from LiuXin_alpha.utils.text.icu import upper as icu_upper
 from LiuXin_alpha.utils.text.icu import lower as icu_lower
@@ -86,6 +87,16 @@ class PDFOutput(OutputFormatPlugin):
     file_type = "pdf"
 
     options = {
+        OptionRecommendation(
+            name="pdf_engine_mode",
+            recommended_value="auto",
+            level=OptionRecommendation.LOW,
+            choices=["auto", "qt", "headless"],
+            option_help=_(
+                "PDF engine selection. 'auto' prefers the Qt engine when available and falls back to a non-Qt "
+                "headless engine. Use 'qt' to force Qt or 'headless' to force the fallback."
+            ),
+        ),
         OptionRecommendation(
             name="override_profile_size",
             recommended_value=False,
@@ -223,6 +234,41 @@ class PDFOutput(OutputFormatPlugin):
         ),
     }
 
+    def _qt_pdf_available(self):
+        try:
+            from LiuXin_alpha.file_formats.pdf import writer as qt_pdf_writer
+        except Exception:
+            return False
+        return bool(getattr(qt_pdf_writer, "_HAS_QT", False))
+
+    def _select_text_writer(self):
+        mode = str(getattr(self.opts, "pdf_engine_mode", "auto") or "auto").lower()
+        if mode == "qt":
+            from LiuXin_alpha.file_formats.pdf.writer import PDFWriter
+
+            return PDFWriter
+        if mode == "headless":
+            from LiuXin_alpha.file_formats.pdf.headless_writer import HeadlessPDFWriter
+
+            return HeadlessPDFWriter
+        if self._qt_pdf_available():
+            from LiuXin_alpha.file_formats.pdf.writer import PDFWriter
+
+            return PDFWriter
+        from LiuXin_alpha.file_formats.pdf.headless_writer import HeadlessPDFWriter
+
+        return HeadlessPDFWriter
+
+    def _select_image_writer(self):
+        mode = str(getattr(self.opts, "pdf_engine_mode", "auto") or "auto").lower()
+        if mode == "headless":
+            raise ConversionError("Headless PDF engine does not support image-collection PDF output yet.")
+        if not self._qt_pdf_available():
+            raise ConversionError("Qt-based PDF image output is unavailable (PyQt5/QtWebKit not installed).")
+        from LiuXin_alpha.file_formats.pdf.writer import ImagePDFWriter
+
+        return ImagePDFWriter
+
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
 
         from io import BytesIO
@@ -266,9 +312,7 @@ class PDFOutput(OutputFormatPlugin):
         :param images:
         :return:
         """
-        from LiuXin_alpha.file_formats.pdf.writer import ImagePDFWriter
-
-        self.write(ImagePDFWriter, images, None)
+        self.write(self._select_image_writer(), images, None)
 
     def get_cover_data(self):
         oeb = self.oeb
@@ -333,18 +377,17 @@ class PDFOutput(OutputFormatPlugin):
     def convert_text(self, oeb_book):
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
-        if self.opts.old_pdf_engine:
-            from LiuXin_alpha.file_formats.pdf.writer import PDFWriter
-
-            # PDFWriter  # To make pyflakes shut up
-        else:
-            self.log.warn("New PDFWriter does not currently work - falling back on the old one")
-            from LiuXin_alpha.file_formats.pdf.writer import PDFWriter
+        writer_cls = self._select_text_writer()
+        using_headless = writer_cls.__name__ == "HeadlessPDFWriter"
+        if using_headless:
+            self.log.info("Using headless PDF engine (non-Qt fallback).")
+        elif not self.opts.old_pdf_engine:
+            self.log.warn("New PDFWriter does not currently work - falling back on the old Qt writer.")
 
         self.log.debug("Serializing oeb input to disk for processing...")
         self.get_cover_data()
-
-        self.handle_embedded_fonts()
+        if not using_headless:
+            self.handle_embedded_fonts()
 
         with TemporaryDirectory("_pdf_out") as oeb_dir:
             from LiuXin_alpha.customize.ui import plugin_for_output_format
@@ -355,7 +398,7 @@ class PDFOutput(OutputFormatPlugin):
             opfpath = glob.glob(os.path.join(oeb_dir, "*.opf"))[0]
             opf = OPF(opfpath, os.path.dirname(opfpath))
 
-            self.write(PDFWriter, [s.path for s in opf.spine], getattr(opf, "toc", None))
+            self.write(writer_cls, [s.path for s in opf.spine], getattr(opf, "toc", None))
 
     def write(self, Writer, items, toc):
         writer = Writer(self.opts, self.log, cover_data=self.cover_data, toc=toc)

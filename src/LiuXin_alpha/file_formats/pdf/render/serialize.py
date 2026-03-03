@@ -5,9 +5,14 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 import hashlib
 
-from past.builtins import long
+from LiuXin_alpha.utils.libraries.liuxin_six import long
 
-from PyQt5.Qt import QBuffer, QByteArray, QImage, Qt, QColor, qRgba, QPainter
+try:
+    from PyQt5.Qt import QBuffer, QByteArray, QImage, Qt, QColor, qRgba, QPainter
+    _HAS_QT = True
+except Exception:
+    QBuffer = QByteArray = QImage = Qt = QColor = qRgba = QPainter = None
+    _HAS_QT = False
 
 from LiuXin_alpha.file_formats.pdf.render.common import (
     Reference,
@@ -23,16 +28,21 @@ from LiuXin_alpha.file_formats.pdf.render.common import (
 from LiuXin_alpha.file_formats.pdf.render.fonts import FontManager
 from LiuXin_alpha.file_formats.pdf.render.links import Links
 
-from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+from LiuXin_alpha.constants import __appname__, __version__
 from LiuXin_alpha.utils.date import utcnow
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 PDFVER = b"%PDF-1.4"  # 1.4 is needed for XMP metadata
+
+
+def _require_qt():
+    if not _HAS_QT:
+        raise RuntimeError("PyQt5 is required for PDF serialization.")
 
 
 class IndirectObjects(object):
@@ -224,7 +234,7 @@ class HashingStream(object):
         self.f.write(raw)
         self.hashobj.update(raw)
         if raw:
-            self.last_char = raw[-1]
+            self.last_char = raw[-1:]
 
 
 class Image(Stream):
@@ -306,13 +316,19 @@ class PDFStream(object):
         self.pattern_cache, self.shader_cache = {}, {}
         self.debug = debug
         self.links = Links(self, mark_links, page_size)
-        i = QImage(1, 1, QImage.Format_ARGB32)
-        i.fill(qRgba(0, 0, 0, 255))
-        self.alpha_bit = i.constBits().asstring(4).find(b"\xff")
+        if _HAS_QT:
+            i = QImage(1, 1, QImage.Format_ARGB32)
+            i.fill(qRgba(0, 0, 0, 255))
+            self.alpha_bit = i.constBits().asstring(4).find(b"\xff")
+        else:
+            # Used only by image embedding paths, which are guarded by _require_qt().
+            self.alpha_bit = 3
 
+    @property
     def page_tree(self):
         return self.objects[0]
 
+    @property
     def catalog(self):
         return self.objects[1]
 
@@ -419,6 +435,7 @@ class PDFStream(object):
         return r
 
     def add_image(self, img, cache_key):
+        _require_qt()
         ref = self.get_image(cache_key)
         if ref is not None:
             return ref
@@ -525,7 +542,7 @@ class PDFStream(object):
         self.objects.pdf_serialize(self.stream)
         self.write_line()
         startxref = self.objects.write_xref(self.stream)
-        file_id = String(self.stream.hashobj.hexdigest().decode("ascii"))
+        file_id = String(self.stream.hashobj.hexdigest())
         self.write_line("trailer")
         trailer = Dictionary(
             {

@@ -13,9 +13,9 @@ from LiuXin_alpha.file_formats.pdf.render.common import (
     UTF16String,
 )
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse as urlparse
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unquote as unquote
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unquote as unquote
 from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"

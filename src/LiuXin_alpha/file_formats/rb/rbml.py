@@ -9,7 +9,7 @@ import re
 from LiuXin_alpha.file_formats.rb import unique_name
 
 from LiuXin_alpha.utils.calibre import prepare_string_for_xml
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 from LiuXin_alpha.utils.localization import trans as _
 
 
@@ -59,9 +59,9 @@ STYLES = [
 
 
 class RBMLizer(object):
-    def __init__(self, log, name_map={}):
+    def __init__(self, log, name_map=None):
         self.log = log
-        self.name_map = name_map
+        self.name_map = {} if name_map is None else name_map
         self.link_hrefs = {}
 
     def extract_content(self, oeb_book, opts):
@@ -116,7 +116,9 @@ class RBMLizer(object):
                 if item.href in self.link_hrefs.keys():
                     toc.append('<LI><A HREF="#%s">%s</A></LI>\n' % (self.link_hrefs[item.href], item.title))
                 else:
-                    self.oeb.warn("Ignoring toc item: %s not found in document." % item)
+                    log_warn = getattr(self.log, "warning", None) or getattr(self.log, "warn", None)
+                    if log_warn is not None:
+                        log_warn("Ignoring toc item: %s not found in document." % item)
             toc.append("</UL>")
         return "".join(toc)
 
@@ -151,8 +153,10 @@ class RBMLizer(object):
 
         return text
 
-    def dump_text(self, elem, stylizer, page, tag_stack=[]):
+    def dump_text(self, elem, stylizer, page, tag_stack=None):
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
+        if tag_stack is None:
+            tag_stack = []
 
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:
             p = elem.getparent()

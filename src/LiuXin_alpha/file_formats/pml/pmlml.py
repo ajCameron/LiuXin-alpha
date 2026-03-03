@@ -11,8 +11,8 @@ from lxml import etree
 from LiuXin_alpha.file_formats.pdb.ereader import image_name
 from LiuXin_alpha.file_formats.pml import unipmlcode
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -193,7 +193,7 @@ class PMLMLizer(object):
         except AttributeError:
             # Python 3
             pass
-        text = re.sub(prepare_pat, "\\c\n\\c", text)
+        text = re.sub(prepare_pat, r"\\c\n\\c", text)
         return text
 
     def clean_text(self, text):
@@ -215,7 +215,7 @@ class PMLMLizer(object):
             # Python 3 - string is already unicode - so carry on
             pass
 
-        text = re.sub(clean_pat, "\g<t>\g<a>\g<b>\g<t>", text)
+        text = re.sub(clean_pat, r"\g<t>\g<a>\g<b>\g<t>", text)
 
         # Replace bad characters.
         text = text.replace("\xc2", "")
@@ -233,7 +233,7 @@ class PMLMLizer(object):
         text = re.sub("[ ]{2,}", " ", text)
 
         # Condense excessive \c empty line sequences.
-        text = re.sub("(\\c\s*\\c\s*){2,}", "\\c \n\\c\n", text)
+        text = re.sub(r"(\\c\s*\\c\s*){2,}", r"\\c \n\\c\n", text)
 
         # Remove excessive newlines.
         text = re.sub("\n[ ]+\n", "\n\n", text)

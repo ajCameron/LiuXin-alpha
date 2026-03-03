@@ -325,13 +325,17 @@ else:
 
 try:
     from LiuXin_alpha.file_formats.conversion.plugins.pdf_output import PDFOutput
+    from LiuXin_alpha.file_formats.conversion.plugins.pdf_output_qt import PDFQtOutput
+    from LiuXin_alpha.file_formats.conversion.plugins.pdf_output_headless import PDFHeadlessOutput
 except Exception as e:
-    debug_str = "Output plugin couldn't be loaded - {}".format("PDFOutput")
+    debug_str = "Output plugin couldn't be loaded - {}".format("PDFOutput / PDFQtOutput / PDFHeadlessOutput")
     default_log.log_exception(debug_str, e, "DEBUG")
 else:
-    info_str = "Output conversion plugin was loaded successfully - {}".format("PDFOutput")
+    info_str = "Output conversion plugin was loaded successfully - {}".format(
+        "PDFOutput / PDFQtOutput / PDFHeadlessOutput"
+    )
     default_log.info(info_str)
-    output_plugins += [PDFOutput]
+    output_plugins += [PDFOutput, PDFQtOutput, PDFHeadlessOutput]
 
 try:
     from LiuXin_alpha.file_formats.conversion.plugins.pml_output import PMLOutput

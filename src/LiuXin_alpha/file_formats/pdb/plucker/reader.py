@@ -11,10 +11,62 @@ from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
 from LiuXin_alpha.utils.calibre import CurrentDir
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unichar
-from LiuXin_alpha.utils.wrappers.magick import Image, create_canvas
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unichar
 from LiuXin_alpha.utils.ptempfiles import TemporaryFile
+
+try:
+    from LiuXin_alpha.utils.wrappers.magick import Image, create_canvas
+except Exception:
+    try:
+        from PIL import Image as _PILImage
+    except Exception:
+        _PILImage = None
+
+    class Image(object):
+        def __init__(self):
+            self._img = None
+            self._quality = 75
+
+        def read(self, path):
+            if _PILImage is None:
+                raise RuntimeError("No image backend is available.")
+            self._img = _PILImage.open(path).convert("RGB")
+
+        @property
+        def size(self):
+            if self._img is None:
+                return 0, 0
+            return self._img.size
+
+        def set_compression_quality(self, quality):
+            self._quality = int(quality)
+
+        def save(self, path):
+            if self._img is None:
+                raise RuntimeError("No image loaded.")
+            self._img.save(path, format="JPEG", quality=self._quality)
+
+    class _Canvas(object):
+        def __init__(self, width, height):
+            if _PILImage is None:
+                raise RuntimeError("No image backend is available.")
+            self._img = _PILImage.new("RGB", (int(width), int(height)), "white")
+            self._quality = 75
+
+        def compose(self, image, x_off, y_off):
+            if getattr(image, "_img", None) is None:
+                raise RuntimeError("No image loaded.")
+            self._img.paste(image._img, (int(x_off), int(y_off)))
+
+        def set_compression_quality(self, quality):
+            self._quality = int(quality)
+
+        def save(self, path):
+            self._img.save(path, format="JPEG", quality=self._quality)
+
+    def create_canvas(width, height):
+        return _Canvas(width, height)
 
 __license__ = "GPL v3"
 __copyright__ = "20011, John Schember <john@nachtimwald.com>"
@@ -150,8 +202,8 @@ class SectionHeader(object):
         (self.uid,) = struct.unpack(">H", raw[0:2])
         (self.paragraphs,) = struct.unpack(">H", raw[2:4])
         (self.size,) = struct.unpack(">H", raw[4:6])
-        (self.type,) = struct.unpack(">B", raw[6])
-        (self.flags,) = struct.unpack(">B", raw[7])
+        (self.type,) = struct.unpack(">B", raw[6:7])
+        (self.flags,) = struct.unpack(">B", raw[7:8])
 
 
 class SectionHeaderText(object):
@@ -213,7 +265,7 @@ class SectionMetadata(object):
             # ExceptionalCharSets
             elif type == 2:
                 ii_adv = 0
-                for ii in memory_range(length / 2):
+                for ii in memory_range(length // 2):
                     (uid,) = struct.unpack(">H", raw[6 + adv + ii_adv : 8 + adv + ii_adv])
                     (mib,) = struct.unpack(">H", raw[8 + adv + ii_adv : 10 + adv + ii_adv])
                     self.exceptional_uid_encodings[uid] = MIBNUM_TO_NAME.get(mib, "latin-1")
@@ -371,9 +423,7 @@ class Reader(FormatReader):
                         html += self.process_phtml(section_data.data, section_data.header.paragraph_offsets)
                     elif section_header.type == DATATYPE_PHTML_COMPRESSED:
                         d = self.decompress_phtml(section_data.data)
-                        html += self.process_phtml(d, section_data.header.paragraph_offsets).decode(
-                            self.get_text_uid_encoding(section_header.uid), "replace"
-                        )
+                        html += self.process_phtml(d, section_data.header.paragraph_offsets)
                     html += "</body></html>"
                     htmlf.write(html.encode("utf-8"))
 
@@ -470,7 +520,7 @@ class Reader(FormatReader):
         try:
             home_html = self.header_record.home_html
             if not home_html:
-                home_html = self.uid_text_secion_number.items()[0][0]
+                home_html = next(iter(self.uid_text_secion_number))
         except:
             raise Exception("Could not determine home.html")
         # Generate oeb from html conversion.
@@ -485,8 +535,6 @@ class Reader(FormatReader):
                 raise NotImplementedError
             return zlib.decompress(data)
         elif self.header_record.compression == 1:
-            from LiuXin_alpha.utils.calibre.ebooks.compression.palmdoc import decompress_doc
-
             return decompress_doc(data)
 
     def process_phtml(self, d, paragraph_offsets=None):
@@ -512,11 +560,11 @@ class Reader(FormatReader):
                     html += "<p>"
                 paragraph_open = True
 
-            c = ord(d[offset])
+            c = d[offset] if isinstance(d[offset], int) else ord(d[offset])
             # PHTML "functions"
             if c == 0x0:
                 offset += 1
-                c = ord(d[offset])
+                c = d[offset] if isinstance(d[offset], int) else ord(d[offset])
                 # Page link begins
                 # 2 Bytes
                 # record ID

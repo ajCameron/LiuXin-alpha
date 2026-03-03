@@ -5,13 +5,13 @@ Convert pml markup to and from html
 """
 
 import os
+import io
 import re
 from copy import deepcopy
 
-from LiuXin_alpha.metadata.toc import TOC
+from LiuXin_alpha.file_formats.toc import TOC
 
-from LiuXin_alpha.utils.calibre_utils.calibre_init_functions import my_unichr, prepare_string_for_xml
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_basic_StringIO
+from LiuXin_alpha.utils.text.xml_utils import my_unichr, prepare_string_for_xml
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -221,7 +221,7 @@ class PML_HTMLizer(object):
         # Replace \\a and \\U with either the unicode character or the entity.
         pml = re.sub(r"\\a(?P<num>\d{3})", lambda match: "&#%s;" % match.group("num"), pml)
         pml = re.sub(
-            r"\\U(?P<num>[0-9a-f]{4})",
+            r"\\U(?P<num>[0-9A-Fa-f]{4})",
             lambda match: "%s" % my_unichr(int(match.group("num"), 16)),
             pml,
         )
@@ -239,7 +239,7 @@ class PML_HTMLizer(object):
         pml = re.sub(r"\\S[pbd]", "", pml)
         pml = re.sub(r"\\Fn", "", pml)
         pml = re.sub(r"\\a\d\d\d", "", pml)
-        pml = re.sub(r"\\U\d\d\d\d", "", pml)
+        pml = re.sub(r"\\U[0-9A-Fa-f]{4}", "", pml)
         pml = re.sub(r"\\.", "", pml)
         pml = pml.replace("\r\n", " ")
         pml = pml.replace("\n", " ")
@@ -606,8 +606,8 @@ class PML_HTMLizer(object):
             else:
                 indent_state["et"] = False
 
-            # Must use StringIO, cStringIO does not support unicode
-            line = six_basic_StringIO(line)
+            # Parse PML control codes from a unicode line stream.
+            line = io.StringIO(line)
             parsed.append(self.start_line())
 
             c = line.read(1)
@@ -753,18 +753,22 @@ class PML_HTMLizer(object):
         t_l3 = None
 
         for level, (href, toc_id, text) in self.toc:
-            if level == "0":
+            try:
+                ilevel = int(level)
+            except Exception:
+                ilevel = 4
+            if ilevel == 0:
                 t_l0 = n_toc.add_item(href, toc_id, text)
                 t_l1 = None
                 t_l2 = None
                 t_l3 = None
-            elif level == "1":
+            elif ilevel == 1:
                 if t_l0 is None:
                     t_l0 = n_toc
                 t_l1 = t_l0.add_item(href, toc_id, text)
                 t_l2 = None
                 t_l3 = None
-            elif level == "2":
+            elif ilevel == 2:
                 if t_l1 is None:
                     if t_l0 is None:
                         t_l1 = n_toc
@@ -772,7 +776,7 @@ class PML_HTMLizer(object):
                         t_l1 = t_l0
                 t_l2 = t_l1.add_item(href, toc_id, text)
                 t_l3 = None
-            elif level == "3":
+            elif ilevel == 3:
                 if t_l2 is None:
                     if t_l1 is None:
                         if t_l0 is None:

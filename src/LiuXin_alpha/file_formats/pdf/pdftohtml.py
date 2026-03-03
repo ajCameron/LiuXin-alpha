@@ -10,7 +10,8 @@ import subprocess
 import sys
 from functools import partial
 
-from LiuXin_alpha.constants import isosx, iswindows, islinux, isbsd, filesystem_encoding
+from LiuXin_alpha.constants import isosx, iswindows
+from LiuXin_alpha.utils.which_os import islinux, isbsd
 
 from LiuXin_alpha.file_formats import ConversionError, DRMError
 
@@ -56,33 +57,27 @@ def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
         shutil.copyfileobj(src, dest)
 
     with CurrentDir(output_dir):
-        # This is necessary as pdftohtml doesn't always (linux) respect absolute paths. Also, it allows us to safely
-        # pass only bytestring arguments to subprocess on widows
-
-        # subprocess in python 2 cannot handle unicode arguments on windows that cannot be encoded with mbcs.
-        # Ensure all args are bytestrings.
+        # This is necessary as pdftohtml doesn't always (linux) respect absolute paths.
         def a(x):
-            return os.path.basename(x).encode("ascii")
-
-        exe = PDFTOHTML.encode(filesystem_encoding) if isinstance(PDFTOHTML, unicode) else PDFTOHTML
+            return os.path.basename(x)
 
         cmd = [
-            exe,
-            b"-enc",
-            b"UTF-8",
-            b"-noframes",
-            b"-p",
-            b"-nomerge",
-            b"-nodrm",
-            b"-q",
+            PDFTOHTML,
+            "-enc",
+            "UTF-8",
+            "-noframes",
+            "-p",
+            "-nomerge",
+            "-nodrm",
+            "-q",
             a(pdfsrc),
             a(index),
         ]
 
         if isbsd:
-            cmd.remove(b"-nodrm")
+            cmd.remove("-nodrm")
         if no_images:
-            cmd.append(b"-i")
+            cmd.append("-i")
         if as_xml:
             cmd.append("-xml")
 
@@ -114,10 +109,10 @@ def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
         except:
             pass
         if ret != 0:
-            raise ConversionError(b"return code: %d\n%s" % (ret, out))
+            raise ConversionError("return code: %d\n%s" % (ret, out.decode("utf-8", "replace")))
         if out:
             print("pdftohtml log:")
-            print(out)
+            print(out.decode("utf-8", "replace"))
         if not os.path.exists(index) or os.stat(index).st_size < 100:
             raise DRMError()
 
@@ -125,7 +120,7 @@ def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
             with open(index, "r+b") as i:
                 raw = i.read()
                 raw = flip_images(raw)
-                raw = "<!-- created by calibre's pdftohtml -->\n" + raw
+                raw = b"<!-- created by calibre's pdftohtml -->\n" + raw
                 i.seek(0)
                 i.truncate()
                 # versions of pdftohtml >= 0.20 output self closing <br> tags, this breaks the pdf heuristics regexps,
@@ -134,15 +129,17 @@ def pdftohtml(output_dir, pdf_path, no_images, as_xml=False):
 
 
 def flip_image(img, flip):
-    from LiuXin_alpha.utils.calibre.utils.magick import Image
+    try:
+        from PIL import Image as PILImage
+    except Exception:
+        return
 
-    im = Image()
-    im.open(img)
-    if b"x" in flip:
-        im.flip(True)
-    if b"y" in flip:
-        im.flip()
-    im.save(img)
+    with PILImage.open(img) as im:
+        if b"x" in flip:
+            im = im.transpose(PILImage.FLIP_LEFT_RIGHT)
+        if b"y" in flip:
+            im = im.transpose(PILImage.FLIP_TOP_BOTTOM)
+        im.save(img)
 
 
 def flip_images(raw):

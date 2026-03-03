@@ -8,34 +8,51 @@ import os
 import shutil
 import json
 
-from PyQt5.Qt import (
-    QEventLoop,
-    QObject,
-    QPrinter,
-    QSizeF,
-    Qt,
-    QPainter,
-    QPixmap,
-    QTimer,
-    pyqtProperty,
-    QSize,
-)
-from PyQt5.QtWebKit import QWebSettings
-from PyQt5.QtWebKitWidgets import QWebView, QWebPage
+try:
+    from PyQt5.Qt import (
+        QEventLoop,
+        QObject,
+        QPrinter,
+        QSizeF,
+        Qt,
+        QPainter,
+        QPixmap,
+        QTimer,
+        pyqtProperty,
+        QSize,
+    )
+    from PyQt5.QtWebKit import QWebSettings
+    from PyQt5.QtWebKitWidgets import QWebView, QWebPage
+    _HAS_QT = True
+except Exception:
+    _HAS_QT = False
+
+    class _QtMissingBase(object):
+        pass
+
+    QEventLoop = QObject = QPrinter = QSizeF = Qt = QPainter = QPixmap = QTimer = QSize = QWebSettings = QWebView = QWebPage = _QtMissingBase
+
+    def pyqtProperty(*_args, **kwargs):
+        return property(kwargs.get("fget"), kwargs.get("fset"))
 
 from LiuXin_alpha.file_formats.oeb.display.webview import load_html
 from LiuXin_alpha.file_formats.pdf.pageoptions import unit, paper_size
 from LiuXin_alpha.file_formats.pdf.outline_writer import Outline
 
 from LiuXin_alpha.utils.calibre import __appname__, __version__, fit_image, isosx
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
+
+
+def _require_qt():
+    if not _HAS_QT:
+        raise RuntimeError("PyQt5 + QtWebKit are required for PDF writing.")
 
 
 def get_custom_size(opts):
@@ -53,6 +70,7 @@ def get_custom_size(opts):
 
 
 def get_pdf_printer(opts, for_comic=False, output_file_name=None):  # {{{
+    _require_qt()
     from LiuXin_alpha.interfaces.gui2 import must_use_qt
 
     must_use_qt()
@@ -128,6 +146,7 @@ def draw_image_page(printer, painter, p, preserve_aspect_ratio=True):
 
 class Page(QWebPage):  # {{{
     def __init__(self, opts, log):
+        _require_qt()
         self.log = log
         QWebPage.__init__(self)
         settings = self.settings()
@@ -162,6 +181,7 @@ class Page(QWebPage):  # {{{
 
 class PDFWriter(QObject):  # {{{
     def __init__(self, opts, log, cover_data=None, toc=None):
+        _require_qt()
         from LiuXin_alpha.interfaces.gui2 import must_use_qt
         from LiuXin_alpha.utils.podofo import get_podofo
 
@@ -221,7 +241,7 @@ class PDFWriter(QObject):  # {{{
             else:
                 self._render_next()
         except Exception as e:
-            self.logger.exception("Rendering failed - {}".format(e.message))
+            self.logger.exception("Rendering failed - %s", e)
             self.loop.exit(1)
 
     def _render_next(self):
@@ -406,6 +426,7 @@ class ImagePDFWriter(object):  # {{{
                 pass
 
     def render_images(self, outpath, mi, items):
+        _require_qt()
         printer = get_pdf_printer(self.opts, for_comic=True, output_file_name=outpath)
         printer.setDocName(mi.title)
 
