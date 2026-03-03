@@ -5,7 +5,7 @@ The API for the customize class - which serves as the basic API for the plugin c
 
 import abc
 import pathlib
-from typing import Union, Any, Iterable, Tuple, BinaryIO, Optional
+from typing import Union, Any, Iterable, Tuple, BinaryIO, Optional, Literal
 from types import ModuleType
 from collections import namedtuple
 
@@ -281,9 +281,9 @@ class FileTypePluginAPI(PluginAPI):
         """
 
 
-class MetadataReaderPluginAPI(PluginAPI):
+class _MetadataReaderPluginAPI:
     """
-    A plugin which impelements reading metadata from a set of file types.
+    We want to implement a very similar interface without cross-pollinating the class hierarchy.
     """
     #: Set of file types for which this plugin should be run. For example: ``set(['lit', 'mobi', 'prc'])``
     file_types: frozenset[str] = frozenset([])
@@ -326,6 +326,12 @@ class MetadataReaderPluginAPI(PluginAPI):
         :param ftype: Guaranteed to be one of the entries in :attr:`file_types`.
         :return: A :class:`LiuXin.metadata.metadata.MetaData` object
         """
+
+
+class MetadataReaderPluginAPI(PluginAPI, _MetadataReaderPluginAPI):
+    """
+    A plugin which implements reading metadata from a set of file types.
+    """
 
 
 class MetadataWriterPluginAPI(PluginAPI):
@@ -666,6 +672,95 @@ class MDInputTransformAPI(LiuXinPluginAPI):
         :param rest:
         :return:
         """
+
+
+class LXMetadataReaderAPI(LiuXinPluginAPI, _MetadataReaderPluginAPI):
+    """
+    To distinguish the calibre metadata readers from the ones which have been re-written for LiuXin.
+    """
+    # All file formats this plugin could be used for
+    valid_for: Optional[set[str]]
+
+    # The file formats this plugin SHOULD be used for
+    priority_for: Optional[set[str]]
+
+    # Costs of actually running the
+    run_cost: Literal["low", "medium", "high"]
+
+    quick: bool
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Startup the plugin.
+
+        :param args:
+        :param kwargs:
+        """
+        LiuXinPluginAPI.__init__(self, *args, **kwargs)
+
+    @staticmethod
+    @abc.abstractmethod
+    def standardize_type(file_type: str) -> str:
+        """
+        Standardizes a plugin_type so that it can be compared against the known types that the plugin can be run for.
+
+        :param file_type:
+        :return file_type:
+        """
+
+    @abc.abstractmethod
+    def get_metadata(self, stream: Union[BinaryIO, str, pathlib.Path], file_type: str):
+        """
+        Return metadata for the file represented by stream or path.
+
+        (a file like object that supports reading) or a filepath on the local system).
+        Raise an exception when there is an error with the input data.
+        :param file_type: The plugin_type of file. Guaranteed to be one of the entries
+        in :attr:`file_types`.
+        :return: A :class:`calibre.ebooks.metadata.book.Metadata` object
+        """
+
+
+class ArchiveAPI(LiuXinPluginAPI):
+    """
+    Provides a zipfile like read interface to a compressed file format.
+
+    Options for writing interfaces are also provided - where possible.
+    read_formats and write_formats are the formats that this plugin can read/write to -
+    stored as the extension without the dot.
+    Note - all classes that inherit from this should try and raise only one form of error - ArchiveError from
+    LiuXin.errors
+    """
+    # This plugin can read from these formats
+    read_formats: frozenset[str]
+
+    # This plugin can write to these formats
+    write_formats: frozenset[str]
+
+    # If the plugin supports multiple write types, which one should be used by default?
+    default_write_type: str
+
+    # Properties of the archive
+
+    # - on disk
+    file_path: str
+    file_name: str
+    file_ext: str
+    file_name: str
+
+    # - archive itself
+    mode: str
+    compression_flags: Any
+    write_type: Literal["a", "w", "r"]
+
+    # - Properties of the file in the archive
+    compression_type: Optional[Any]
+    block_count: Optional[int]
+    physical_size: Optional[int]
+    final_size: Optional[int]
+    multivolume: str
+
+
 
 
 

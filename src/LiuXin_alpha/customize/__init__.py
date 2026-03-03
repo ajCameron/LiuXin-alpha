@@ -25,7 +25,7 @@ import importlib
 import pathlib
 from copy import deepcopy
 
-from typing import Union, Any, BinaryIO, NamedTuple, Iterable, Tuple, ClassVar
+from typing import Union, Any, BinaryIO, NamedTuple, Iterable, Tuple, ClassVar, Literal, Optional
 
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
@@ -419,10 +419,9 @@ class FileTypePlugin(Plugin):  # {{{
 
 # }}}
 
-
-class MetadataReaderPlugin(Plugin):  # {{{
+class _MetadataReaderPlugin:
     """
-    A plugin that implements reading metadata from a set of file types.
+    We want both LiuXin and calibre metadata readers to have a common interface - but not a common class heirachy.
     """
 
     # Set of file types for which this plugin should be run. For example: ``set(['lit', 'mobi', 'prc'])``
@@ -480,6 +479,12 @@ class MetadataReaderPlugin(Plugin):  # {{{
         # Tries to open the file as a stream and use the get_metadata method on it
         with open(file_path, "rb") as md_file_stream:
             return self.get_metadata(stream=md_file_stream, ftype=ftype)
+
+
+class MetadataReaderPlugin(Plugin, _MetadataReaderPlugin):  # {{{
+    """
+    A plugin that implements reading metadata from a set of file types.
+    """
 
 
 class MetadataWriterPlugin(Plugin):
@@ -1060,23 +1065,34 @@ class MDInputTransform(LiuXinPlugin):  # {{{
         raise NotImplementedError("You need to actually work out how to do this.")
 
 
-class LXMetadataReaderPlugin(MetadataReaderPlugin):
+class LXMetadataReaderPlugin(LiuXinPlugin, _MetadataReaderPlugin):
     """
     To distinguish the calibre metadata readers from the ones which have been re-written for LiuXin.
     """
-
+    # All file formats this plugin could be used for
     valid_for = None
+
+    # The file formats this plugin SHOULD be used for
     priority_for = None
+
+    # Costs of actually running the
     run_cost = "high"
 
-    def __init__(self, *args, **kwargs):
-        Plugin.__init__(self, *args, **kwargs)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Startup the plugin.
+
+        :param args:
+        :param kwargs:
+        """
+        super().__init__(self, *args, **kwargs)
         self.quick = False
 
     @staticmethod
-    def standardize_type(file_type):
+    def standardize_type(file_type: str) -> str:
         """
         Standardizes a plugin_type so that it can be compared against the known types that the plugin can be run for.
+
         :param file_type:
         :return file_type:
         """
@@ -1085,10 +1101,11 @@ class LXMetadataReaderPlugin(MetadataReaderPlugin):
             file_type = file_type[1:]
         return file_type.upper()
 
-    def get_metadata(self, stream, file_type):
+    def get_metadata(self, stream: Union[BinaryIO, str, pathlib.Path], file_type: str):
         """
-        Return metadata for the file represented by stream (a file like object that supports reading) or a filepath on
-        the local system..
+        Return metadata for the file represented by stream or path.
+
+        (a file like object that supports reading) or a filepath on the local system).
         Raise an exception when there is an error with the input data.
         :param file_type: The plugin_type of file. Guaranteed to be one of the entries
         in :attr:`file_types`.
@@ -1097,34 +1114,50 @@ class LXMetadataReaderPlugin(MetadataReaderPlugin):
         return None
 
 
-class Archive(object):
+class Archive(LiuXinPlugin):
     """
-    Provides at least a zipfile like read interface to a compressed file format.
+    Provides a zipfile like read interface to a compressed file format.
+
     Options for writing interfaces are also provided - where possible.
-    read_formats and write_formats are the formats that thios plugin can read/write to - stored as the extension without
-    the dot.
-    Note - all classes that inherit from this should try and rasise only one form of error - ArchiveError from
-    LiuXin.exceptions
+    read_formats and write_formats are the formats that this plugin can read/write to -
+    stored as the extension without the dot.
+    Note - all classes that inherit from this should try and raise only one form of error - ArchiveError from
+    LiuXin.errors
     """
+    # This plugin can read from these formats
+    read_formats: frozenset[str] = frozenset()
 
-    read_formats = frozenset()
-    write_formats = frozenset()
+    # This plugin can write to these formats
+    write_formats: frozenset[str] = frozenset()
 
-    def __init__(self, file_path, mode, compression_flags=None, write_type=None):
+    # If the plugin supports multiple write types, which one should be used by default?
+    default_write_type: str
+
+    def __init__(self,
+                 file_path: Union[pathlib.Path, str],
+                 *,
+                 mode: Literal["r", "w", "a"],
+                 compression_flags=None,
+                 write_type: Optional[str] = None,
+                 password: str) -> None:
         """
         Initialize an object representing the compressed file.
+
         :param file_path: Path to the file
         :param mode: Should be the standard python file modes for zipfile (a, r, w e.t.c)
                      Note that there is no such mode as rb e.t.c supported for zip files - archives are opened in
-                     bytes mode by default. This should be reflected in all archive implementations.
+                     bytes mode by default.
+                     This should be reflected in all archive implementations.
         :param compression_flags: A flag for the compression method
         :param write_type: If an archive doesn't exist at the given file_path, then it has to be created. For plugins
                            that can write to multiple file types the write_type is the plugin_type of archive you want to write
-                            to (e.g. if an plugin can write to both rar and zip, and you want to create a rar archive,
+                            to (e.g. if a plugin can write to both rar and zip, and you want to create a rar archive,
                             the set write_type="rar").
                             If the plugin can only write to one plugin_type of archive this will be ignored.
         :return:
         """
+        super().__init__(plugin_path="builtin")
+
         # Properties of the archive on disk - it's location, size, plugin_type e.t.c
         self.file_path = file_path
         file_ext = os.path.splitext(file_path)[0]
@@ -1135,6 +1168,7 @@ class Archive(object):
         self.mode = mode
         self.compression_flags = compression_flags
         self.write_type = write_type
+
         if write_type is not None and not self.write_formats or write_type not in self.write_formats:
             err_str = "This class has been called with an invalid write plugin_type - " "valid write types: {}".format(
                 self.write_formats
@@ -1146,7 +1180,8 @@ class Archive(object):
         self.block_count = None
         self.physical_size = None
         self.final_size = None
-        self.multivolume = "unkown"
+        self.multivolume = "unknown"
+        self.password = password
 
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO REPRESENT THE CLASS START HERE
