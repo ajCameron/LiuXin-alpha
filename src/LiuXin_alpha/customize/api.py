@@ -18,6 +18,15 @@ class CatalogCLIOption(NamedTuple):
     help: str
 
 
+
+from typing import TypeVar
+
+class Base:
+    ...
+
+T = TypeVar("T", bound=Base)
+
+
 class PluginAPI(abc.ABC):
     """
     API for the basic plugins class.
@@ -602,5 +611,62 @@ class EditBookToolPluginAPI(PluginAPI):
     plugin_type: str
 
     minimum_calibre_version: tuple[int, int, int]
+
+
+# ------------------------------------
+#
+# - LIUXIN SPECIFIC PLUGINS START HERE
+
+
+class LiuXinPluginAPI(PluginAPI):
+    """
+    Base class for all LiuXin specific plugins.
+
+    The assumption with the rest of the plugins is that they're calibre at base.
+    This is the base class for all LiuXin specific plugins.
+    As a rule, the above plugins expect objects with a calibre compatible surface.
+    These plugins do not (at least by default).
+    """
+
+
+class MDInputTransformAPI(LiuXinPluginAPI):
+    """
+    Base class for the MetaData Input Transformation plugins.
+
+    These plugins are intended to be run every time a set of MetaData is extracted from a file.
+    A plugin of this plugin_type takes a collection of MetaData objects, and returns a MetaData object.
+    This collection could be a single MetaData object.
+    The MetaData object should be loaded with either the files or, preferably, local paths to the files which are being
+    examined.
+    This allows this plugin to go back and check the metadata again. If needed.
+
+    This is also intended to be the base class for transforming  a single metadata object.
+    (for example "I want to ensure the title is in title case").
+    In this case it should take and return a single MetaData object.
+    (You should _check_ you're only being given one in this case - mistakes happen).
+    """
+    target_classes: list[Any]
+
+    @abc.abstractmethod
+    def transform_metadata(self, first: T, /, *rest: T) -> T:
+        """
+        Takes a collection of MetaData objects. Uses them to preform a transform. Returns the transformed MetaData.
+
+        :param first:
+        :param rest:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def _true_transform_metadata(self, first: T, /, *rest: T) -> T:
+        """
+        Mostly needed for typing.
+
+        :param first:
+        :param rest:
+        :return:
+        """
+
+
 
 

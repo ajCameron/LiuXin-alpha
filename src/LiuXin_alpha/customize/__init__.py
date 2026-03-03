@@ -25,7 +25,7 @@ import importlib
 import pathlib
 from copy import deepcopy
 
-from typing import Union, Any, BinaryIO, NamedTuple, Iterable, Tuple
+from typing import Union, Any, BinaryIO, NamedTuple, Iterable, Tuple, ClassVar
 
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
@@ -40,6 +40,13 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.errors import PluginNotFound, InvalidPlugin
 
 from LiuXin_alpha.preferences import preferences
+
+from typing import TypeVar
+
+class Base:
+    ...
+
+T = TypeVar("T", bound=Base)
 
 
 class CatalogCLIOption(NamedTuple):
@@ -1003,8 +1010,11 @@ class LiuXinPlugin(Plugin):
     These plugins do not (at least by default).
     """
 
+    # Will start incrementing... soon
+    minimum_liuxin_version = (1, 0, 0)
 
-class MDInputTransform(Plugin):  # {{{
+
+class MDInputTransform(LiuXinPlugin):  # {{{
     """
     Base class for the MetaData Input Transformation plugins.
 
@@ -1013,17 +1023,44 @@ class MDInputTransform(Plugin):  # {{{
     This collection could be a single MetaData object.
     The MetaData object should be loaded with either the files or, preferably, local paths to the files which are being
     examined.
-    This allows the plugin to examine the files and change the Meta
+    This allows this plugin to go back and check the metadata again. If needed.
+
+    This is also intended to be the base class for transforming  a single metadata object.
+    (for example "I want to ensure the title is in title case").
+    In this case it should take and return a single MetaData object.
+    (You should _check_ you're only being given one in this case - mistakes happen).
     """
 
-    def transform_metadata(self, *args):
+    # There are several different metadata containers floating around
+    # As such, these transforms could support all - or none - of them
+    target_classes = []
+
+    def transform_metadata(self, first: T, /, *rest: T) -> T:
         """
         Takes a collection of MetaData objects. Uses them to preform a transform. Returns the transformed MetaData.
+
+        :param first:
+        :param rest:
+        :return:
         """
-        raise NotImplementedError()
+        # Optional runtime guard if you want it strict:
+        if any(type(x) is not type(first) for x in rest):
+            raise TypeError("All args must be the same concrete class")
+
+        return self._true_transform_metadata(first, *rest)
+
+    def _true_transform_metadata(self, first: T, /, *rest: T) -> T:
+        """
+        Mostly needed for typing.
+
+        :param first:
+        :param rest:
+        :return:
+        """
+        raise NotImplementedError("You need to actually work out how to do this.")
 
 
-class LXMetadataReaderPLugin(MetadataReaderPlugin):
+class LXMetadataReaderPlugin(MetadataReaderPlugin):
     """
     To distinguish the calibre metadata readers from the ones which have been re-written for LiuXin.
     """
