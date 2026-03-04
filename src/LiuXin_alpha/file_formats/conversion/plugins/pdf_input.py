@@ -3,7 +3,11 @@
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
+from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL 3"
@@ -64,31 +68,33 @@ class PDFInput(InputFormatPlugin):
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.file_formats.pdf.pdftohtml import pdftohtml
 
-        log.debug("Converting file to html...")
-        # The main html file will be named index.html
-        self.opts, self.log = options, log
-        if options.new_pdf_engine:
-            return self.convert_new(stream, accelerators)
-        pdftohtml(os.getcwd(), stream.name, options.no_images)
+        work_root = choose_conversion_workdir("_pdf_input")
+        with CurrentDir(work_root):
+            log.debug("Converting file to html...")
+            # The main html file will be named index.html
+            self.opts, self.log = options, log
+            if options.new_pdf_engine:
+                return self.convert_new(stream, accelerators)
+            pdftohtml(os.getcwd(), stream.name, options.no_images)
 
-        from LiuXin_alpha.customize.ui import get_file_type_metadata
+            from LiuXin_alpha.customize.ui import get_file_type_metadata
 
-        log.debug("Retrieving document metadata...")
-        mi = get_file_type_metadata(stream, "pdf")
-        opf = OPFCreator(os.getcwd(), mi)
+            log.debug("Retrieving document metadata...")
+            mi = get_file_type_metadata(stream, "pdf")
+            opf = OPFCreator(os.getcwd(), mi)
 
-        manifest = [("index.html", None)]
+            manifest = [("index.html", None)]
 
-        images = os.listdir(os.getcwd())
-        images.remove("index.html")
-        for i in images:
-            manifest.append((i, None))
-        log.debug("Generating manifest...")
-        opf.create_manifest(manifest)
+            images = os.listdir(os.getcwd())
+            images.remove("index.html")
+            for i in images:
+                manifest.append((i, None))
+            log.debug("Generating manifest...")
+            opf.create_manifest(manifest)
 
-        opf.create_spine(["index.html"])
-        log.debug("Rendering manifest...")
-        with open("metadata.opf", "wb") as opffile:
-            opf.render(opffile)
+            opf.create_spine(["index.html"])
+            log.debug("Rendering manifest...")
+            with open("metadata.opf", "wb") as opffile:
+                opf.render(opffile)
 
-        return os.path.join(os.getcwd(), "metadata.opf")
+            return os.path.join(os.getcwd(), "metadata.opf")

@@ -3,6 +3,9 @@
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
 from LiuXin_alpha.utils.localization import trans as _
 
@@ -34,6 +37,6 @@ class PDBInput(InputFormatPlugin):
         log.debug("Detected ebook format as: %s with identity: %s" % (IDENTITY_TO_NAME[header.ident], header.ident))
 
         reader = reader(header, stream, log, options)
-        opf = reader.extract_content(os.getcwd())
+        opf = reader.extract_content(choose_conversion_workdir("_pdb_input"))
 
         return opf

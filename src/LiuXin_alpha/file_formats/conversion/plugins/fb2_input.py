@@ -8,7 +8,11 @@ import os
 import re
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
+from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.calibre import guess_type
 from LiuXin_alpha.utils.libraries.liuxin_etree import LXML_AVAILABLE, etree
 from LiuXin_alpha.utils.localization import trans as _
@@ -130,79 +134,83 @@ class FB2Input(InputFormatPlugin):
                 log.warn("cssutils is unavailable, using embedded CSS without namespace normalization")
             css = re.sub(r"name\s*=\s*", "class=", css)
 
-        self.extract_embedded_content(doc)
-        log.debug("Converting XML to HTML...")
-        with open(P("templates/fb2.xsl"), "rb") as template_file:
-            ss = template_file.read()
-        ss = ss.replace(b"__FB_NS__", fb_ns.encode("utf-8"))
-        if options.no_inline_fb2_toc:
-            log("Disabling generation of inline FB2 TOC")
-            ss = re.compile(br"<!-- BUILD TOC -->.*<!-- END BUILD TOC -->", re.DOTALL).sub(b"", ss)
+        work_root = choose_conversion_workdir("_fb2_input")
+        with CurrentDir(work_root):
+            self.extract_embedded_content(doc)
+            log.debug("Converting XML to HTML...")
+            with open(P("templates/fb2.xsl"), "rb") as template_file:
+                ss = template_file.read()
+            ss = ss.replace(b"__FB_NS__", fb_ns.encode("utf-8"))
+            if options.no_inline_fb2_toc:
+                log("Disabling generation of inline FB2 TOC")
+                ss = re.compile(br"<!-- BUILD TOC -->.*<!-- END BUILD TOC -->", re.DOTALL).sub(b"", ss)
 
-        styledoc = etree.fromstring(ss)
+            styledoc = etree.fromstring(ss)
 
-        transform = etree.XSLT(styledoc)
-        result = transform(doc)
+            transform = etree.XSLT(styledoc)
+            result = transform(doc)
 
-        # Handle links of type note and cite
-        notes = {
-            a.get("href")[1:]: a for a in result.xpath("//a[@link_note and @href]") if a.get("href").startswith("#")
-        }
-        cites = {a.get("link_cite"): a for a in result.xpath("//a[@link_cite]") if not a.get("href", "")}
-        all_ids = {x for x in result.xpath("//*/@id")}
-        for cite, a in iteritems(cites):
-            note = notes.get(cite, None)
-            if note:
-                c = 1
-                while "cite%d" % c in all_ids:
-                    c += 1
-                if not note.get("id", None):
-                    note.set("id", "cite%d" % c)
-                    all_ids.add(note.get("id"))
-                a.set("href", "#%s" % note.get("id"))
-        for x in result.xpath("//*[@link_note or @link_cite]"):
-            x.attrib.pop("link_note", None)
-            x.attrib.pop("link_cite", None)
+            # Handle links of type note and cite
+            notes = {
+                a.get("href")[1:]: a
+                for a in result.xpath("//a[@link_note and @href]")
+                if a.get("href").startswith("#")
+            }
+            cites = {a.get("link_cite"): a for a in result.xpath("//a[@link_cite]") if not a.get("href", "")}
+            all_ids = {x for x in result.xpath("//*/@id")}
+            for cite, a in iteritems(cites):
+                note = notes.get(cite, None)
+                if note:
+                    c = 1
+                    while "cite%d" % c in all_ids:
+                        c += 1
+                    if not note.get("id", None):
+                        note.set("id", "cite%d" % c)
+                        all_ids.add(note.get("id"))
+                    a.set("href", "#%s" % note.get("id"))
+            for x in result.xpath("//*[@link_note or @link_cite]"):
+                x.attrib.pop("link_note", None)
+                x.attrib.pop("link_cite", None)
 
-        for img in result.xpath("//img[@src]"):
-            src = img.get("src")
-            img.set("src", self.binary_map.get(src, src))
-        index = transform.tostring(result)
-        if isinstance(index, str):
-            index = index.encode("utf-8")
-        with open("index.xhtml", "wb") as bin_index_html:
-            bin_index_html.write(index)
-        with open("inline-styles.css", "wb") as bin_css_file:
-            bin_css_file.write(css.encode("utf-8"))
-        stream.seek(0)
-        mi = _get_fb2_metadata(stream, "fb2")
-        if not mi.title:
-            mi.title = _("Unknown")
-        if not mi.authors:
-            mi.authors = [_("Unknown")]
-        cpath = None
-        if mi.cover_data and mi.cover_data[1]:
-            with open("fb2_cover_calibre_mi.jpg", "wb") as f:
-                f.write(mi.cover_data[1])
-            cpath = os.path.abspath("fb2_cover_calibre_mi.jpg")
-        else:
-            for img in doc.xpath("//f:coverpage/f:image", namespaces=namespaces):
-                href = img.get("{%s}href" % XLINK_NS, img.get("href", None))
-                if href is not None:
-                    if href.startswith("#"):
-                        href = href[1:]
-                    cpath = os.path.abspath(href)
-                    break
+            for img in result.xpath("//img[@src]"):
+                src = img.get("src")
+                img.set("src", self.binary_map.get(src, src))
+            index = transform.tostring(result)
+            if isinstance(index, str):
+                index = index.encode("utf-8")
+            with open("index.xhtml", "wb") as bin_index_html:
+                bin_index_html.write(index)
+            with open("inline-styles.css", "wb") as bin_css_file:
+                bin_css_file.write(css.encode("utf-8"))
+            stream.seek(0)
+            mi = _get_fb2_metadata(stream, "fb2")
+            if not mi.title:
+                mi.title = _("Unknown")
+            if not mi.authors:
+                mi.authors = [_("Unknown")]
+            cpath = None
+            if mi.cover_data and mi.cover_data[1]:
+                with open("fb2_cover_calibre_mi.jpg", "wb") as f:
+                    f.write(mi.cover_data[1])
+                cpath = os.path.abspath("fb2_cover_calibre_mi.jpg")
+            else:
+                for img in doc.xpath("//f:coverpage/f:image", namespaces=namespaces):
+                    href = img.get("{%s}href" % XLINK_NS, img.get("href", None))
+                    if href is not None:
+                        if href.startswith("#"):
+                            href = href[1:]
+                        cpath = os.path.abspath(href)
+                        break
 
-        opf = OPFCreator(os.getcwd(), mi)
-        entries = [(f2, guess_type(f2)[0]) for f2 in os.listdir(".")]
-        opf.create_manifest(entries)
-        opf.create_spine(["index.xhtml"])
-        if cpath:
-            opf.guide.set_cover(cpath)
-        with open("metadata.opf", "wb") as f:
-            opf.render(f)
-        return os.path.join(os.getcwd(), "metadata.opf")
+            opf = OPFCreator(os.getcwd(), mi)
+            entries = [(f2, guess_type(f2)[0]) for f2 in os.listdir(".")]
+            opf.create_manifest(entries)
+            opf.create_spine(["index.xhtml"])
+            if cpath:
+                opf.guide.set_cover(cpath)
+            with open("metadata.opf", "wb") as f:
+                opf.render(f)
+            return os.path.join(os.getcwd(), "metadata.opf")
 
     def extract_embedded_content(self, doc):
         """

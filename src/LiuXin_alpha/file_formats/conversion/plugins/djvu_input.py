@@ -6,6 +6,10 @@ import os
 from io import BytesIO
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
+from LiuXin_alpha.utils.calibre import CurrentDir
 
 __license__ = "GPL 3"
 __copyright__ = "2011, Anthon van der Neut <anthon@mnt.org>"
@@ -31,38 +35,40 @@ class DJVUInput(InputFormatPlugin):
 
         html = convert_basic(stdout.getvalue().replace(b"\n", b" ").replace(b"\037", b"\n\n"))
 
-        # Run the HTMLized text through the html processing plugin.
-        from LiuXin_alpha.customize.ui import plugin_for_input_format
+        work_root = choose_conversion_workdir("_djvu_input")
+        with CurrentDir(work_root):
+            # Run the HTMLized text through the html processing plugin.
+            from LiuXin_alpha.customize.ui import plugin_for_input_format
 
-        html_input = plugin_for_input_format("html")
-        for opt in html_input.options:
-            setattr(options, opt.option.name, opt.recommended_value)
-        options.input_encoding = "utf-8"
-        base = os.getcwd()
-        fname = os.path.join(base, "index.html")
-        c = 0
+            html_input = plugin_for_input_format("html")
+            for opt in html_input.options:
+                setattr(options, opt.option.name, opt.recommended_value)
+            options.input_encoding = "utf-8"
+            base = os.getcwd()
+            fname = os.path.join(base, "index.html")
+            c = 0
 
-        while os.path.exists(fname):
-            c += 1
-            fname = os.path.join(base, "index%d.html" % c)
-        htmlfile = open(fname, "wb")
-        with htmlfile:
-            htmlfile.write(html.encode("utf-8"))
-        odi = options.debug_pipeline
-        options.debug_pipeline = None
-        # Generate oeb from html conversion.
-        with open(htmlfile.name, "rb") as f:
-            oeb = html_input.convert(f, options, "html", log, {})
-        options.debug_pipeline = odi
-        os.remove(htmlfile.name)
+            while os.path.exists(fname):
+                c += 1
+                fname = os.path.join(base, "index%d.html" % c)
+            htmlfile = open(fname, "wb")
+            with htmlfile:
+                htmlfile.write(html.encode("utf-8"))
+            odi = options.debug_pipeline
+            options.debug_pipeline = None
+            # Generate oeb from html conversion.
+            with open(htmlfile.name, "rb") as f:
+                oeb = html_input.convert(f, options, "html", log, {})
+            options.debug_pipeline = odi
+            os.remove(htmlfile.name)
 
-        # Set metadata from file.
-        from LiuXin_alpha.customize.ui import get_file_type_metadata
-        from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
-            meta_info_to_oeb_metadata,
-        )
+            # Set metadata from file.
+            from LiuXin_alpha.customize.ui import get_file_type_metadata
+            from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
+                meta_info_to_oeb_metadata,
+            )
 
-        mi = get_file_type_metadata(stream, file_ext, calibre=True)
-        meta_info_to_oeb_metadata(mi, oeb.metadata, log)
+            mi = get_file_type_metadata(stream, file_ext, calibre=True)
+            meta_info_to_oeb_metadata(mi, oeb.metadata, log)
 
-        return oeb
+            return oeb

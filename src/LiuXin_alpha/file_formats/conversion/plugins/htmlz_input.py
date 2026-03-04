@@ -5,7 +5,11 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
+from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.calibre import guess_type
 from LiuXin_alpha.utils.localization import trans as _
 
@@ -36,114 +40,116 @@ class HTMLZInput(InputFormatPlugin):
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log
-        top_levels = []
+        work_root = choose_conversion_workdir("_htmlz_input")
+        with CurrentDir(work_root):
+            top_levels = []
 
-        # Extract content from zip archive.
-        zf = ZipFile(stream)
-        zf.extractall()
+            # Extract content from zip archive.
+            zf = ZipFile(stream)
+            zf.extractall()
 
-        # Find the HTML file in the archive. It needs to be top level.
-        index = ""
-        multiple_html = False
-        # Get a list of all top level files in the archive.
-        for x in os.listdir("."):
-            if os.path.isfile(x):
-                top_levels.append(x)
+            # Find the HTML file in the archive. It needs to be top level.
+            index = ""
+            multiple_html = False
+            # Get a list of all top level files in the archive.
+            for x in os.listdir("."):
+                if os.path.isfile(x):
+                    top_levels.append(x)
 
-        # Try to find an index. file.
-        for x in top_levels:
-            if x.lower() in ("index.html", "index.xhtml", "index.htm"):
-                index = x
-                break
-
-        # Look for multiple HTML files in the archive. We look at the
-        # top level files only as only they matter in HTMLZ.
-        for x in top_levels:
-            if os.path.splitext(x)[1].lower() in (".html", ".xhtml", ".htm"):
-                # Set index to the first HTML file found if it's not
-                # called index.
-                if not index:
+            # Try to find an index. file.
+            for x in top_levels:
+                if x.lower() in ("index.html", "index.xhtml", "index.htm"):
                     index = x
-                else:
-                    multiple_html = True
+                    break
 
-        # Warn the user if there multiple HTML file in the archive. HTMLZ
-        # supports a single HTML file. A conversion with a multiple HTML file
-        # HTMLZ archive probably won't turn out as the user expects. With
-        # Multiple HTML files ZIP input should be used in place of HTMLZ.
-        if multiple_html:
-            log.warn(_("Multiple HTML files found in the archive. Only %s will be used.") % index)
+            # Look for multiple HTML files in the archive. We look at the
+            # top level files only as only they matter in HTMLZ.
+            for x in top_levels:
+                if os.path.splitext(x)[1].lower() in (".html", ".xhtml", ".htm"):
+                    # Set index to the first HTML file found if it's not
+                    # called index.
+                    if not index:
+                        index = x
+                    else:
+                        multiple_html = True
 
-        if index:
-            with open(index, "rb") as tf:
-                html = tf.read()
-        else:
-            raise Exception(_("No top level HTML file found."))
+            # Warn the user if there multiple HTML file in the archive. HTMLZ
+            # supports a single HTML file. A conversion with a multiple HTML file
+            # HTMLZ archive probably won't turn out as the user expects. With
+            # Multiple HTML files ZIP input should be used in place of HTMLZ.
+            if multiple_html:
+                log.warn(_("Multiple HTML files found in the archive. Only %s will be used.") % index)
 
-        if not html:
-            raise Exception(_("Top level HTML file %s is empty") % index)
+            if index:
+                with open(index, "rb") as tf:
+                    html = tf.read()
+            else:
+                raise Exception(_("No top level HTML file found."))
 
-        # Encoding
-        if options.input_encoding:
-            ienc = options.input_encoding
-        else:
-            ienc = xml_to_unicode(html[:4096])[-1] or "utf-8"
-        html = html.decode(ienc, "replace")
+            if not html:
+                raise Exception(_("Top level HTML file %s is empty") % index)
 
-        # Run the HTML through the html processing plugin.
-        from LiuXin_alpha.customize.ui import plugin_for_input_format
+            # Encoding
+            if options.input_encoding:
+                ienc = options.input_encoding
+            else:
+                ienc = xml_to_unicode(html[:4096])[-1] or "utf-8"
+            html = html.decode(ienc, "replace")
 
-        html_input = plugin_for_input_format("html")
-        for opt in html_input.options:
-            setattr(options, opt.option.name, opt.recommended_value)
-        options.input_encoding = "utf-8"
-        base = os.getcwd()
-        fname = os.path.join(base, "index.html")
-        c = 0
-        while os.path.exists(fname):
-            c += 1
-            fname = os.path.join(base, "index%d.html" % c)
-        htmlfile = open(fname, "wb")
-        with htmlfile:
-            htmlfile.write(html.encode("utf-8"))
-        odi = options.debug_pipeline
-        options.debug_pipeline = None
-        # Generate oeb from html conversion.
-        with open(htmlfile.name, "rb") as bin_html_file:
-            oeb = html_input.convert(bin_html_file, options, "html", log, {})
-        options.debug_pipeline = odi
-        os.remove(htmlfile.name)
+            # Run the HTML through the html processing plugin.
+            from LiuXin_alpha.customize.ui import plugin_for_input_format
 
-        # Set metadata from file.
-        from LiuXin_alpha.customize.ui import get_file_type_metadata
-        from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
-            meta_info_to_oeb_metadata,
-        )
+            html_input = plugin_for_input_format("html")
+            for opt in html_input.options:
+                setattr(options, opt.option.name, opt.recommended_value)
+            options.input_encoding = "utf-8"
+            base = os.getcwd()
+            fname = os.path.join(base, "index.html")
+            c = 0
+            while os.path.exists(fname):
+                c += 1
+                fname = os.path.join(base, "index%d.html" % c)
+            htmlfile = open(fname, "wb")
+            with htmlfile:
+                htmlfile.write(html.encode("utf-8"))
+            odi = options.debug_pipeline
+            options.debug_pipeline = None
+            # Generate oeb from html conversion.
+            with open(htmlfile.name, "rb") as bin_html_file:
+                oeb = html_input.convert(bin_html_file, options, "html", log, {})
+            options.debug_pipeline = odi
+            os.remove(htmlfile.name)
 
-        stream.seek(0)
-        mi = get_file_type_metadata(stream, file_ext)
-        if hasattr(mi, "to_calibre"):
-            mi = mi.to_calibre()
-        meta_info_to_oeb_metadata(mi, oeb.metadata, log)
+            # Set metadata from file.
+            from LiuXin_alpha.customize.ui import get_file_type_metadata
+            from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
+                meta_info_to_oeb_metadata,
+            )
 
-        # Get the cover path from the OPF.
-        cover_path = None
-        opf = None
-        for x in top_levels:
-            if os.path.splitext(x)[1].lower() == ".opf":
-                opf = x
-                break
-        if opf:
-            opf = OPF(opf, basedir=os.getcwd())
-            cover_path = opf.raster_cover or opf.cover
-        # Set the cover.
-        if cover_path:
-            cdata = None
-            with open(os.path.join(os.getcwd(), cover_path), "rb") as cf:
-                cdata = cf.read()
-            cover_name = os.path.basename(cover_path)
-            id, href = oeb.manifest.generate("cover", cover_name)
-            oeb.manifest.add(id, href, guess_type(cover_name)[0], data=cdata)
-            oeb.guide.add("cover", "Cover", href)
+            stream.seek(0)
+            mi = get_file_type_metadata(stream, file_ext)
+            if hasattr(mi, "to_calibre"):
+                mi = mi.to_calibre()
+            meta_info_to_oeb_metadata(mi, oeb.metadata, log)
 
-        return oeb
+            # Get the cover path from the OPF.
+            cover_path = None
+            opf = None
+            for x in top_levels:
+                if os.path.splitext(x)[1].lower() == ".opf":
+                    opf = x
+                    break
+            if opf:
+                opf = OPF(opf, basedir=os.getcwd())
+                cover_path = opf.raster_cover or opf.cover
+            # Set the cover.
+            if cover_path:
+                cdata = None
+                with open(os.path.join(os.getcwd(), cover_path), "rb") as cf:
+                    cdata = cf.read()
+                cover_name = os.path.basename(cover_path)
+                id, href = oeb.manifest.generate("cover", cover_name)
+                oeb.manifest.add(id, href, guess_type(cover_name)[0], data=cdata)
+                oeb.guide.add("cover", "Cover", href)
+
+            return oeb

@@ -7,6 +7,8 @@ import types
 import zipfile
 from pathlib import Path
 
+import pytest
+
 
 class _Log:
     def __init__(self) -> None:
@@ -187,3 +189,58 @@ def test_txt_output_convert_handles_write_only_stream(monkeypatch) -> None:
     )
     txt_output_mod.TXTOutput(None).convert(object(), sink, None, opts, _Log())
     assert b"Unicode \xce\xa9" in sink.data
+
+
+def test_txt_input_does_not_leave_root_index_files_on_failure(
+    monkeypatch,
+    project_root: Path,
+) -> None:
+    txt_input_mod = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.txt_input")
+
+    class _Opt:
+        def __init__(self, name, val):
+            self.option = types.SimpleNamespace(name=name)
+            self.recommended_value = val
+
+    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+
+    def _raise_convert(stream, options, file_ext, log, accelerators):
+        raise RuntimeError("forced txt->html failure")
+
+    fake_ui.plugin_for_input_format = lambda fmt: types.SimpleNamespace(
+        options=(_Opt("breadth_first", False), _Opt("dont_package", False)),
+        convert=_raise_convert,
+    )
+    fake_ui.get_file_type_metadata = (
+        lambda stream, file_ext, calibre=True: types.SimpleNamespace(title="TXT Smoke", authors=["A"])
+    )
+
+    fake_meta = types.ModuleType("LiuXin_alpha.file_formats.oeb.transforms.metadata")
+    fake_meta.meta_info_to_oeb_metadata = lambda mi, metadata, log: None
+
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.metadata", fake_meta)
+    monkeypatch.chdir(project_root)
+
+    plugin = txt_input_mod.TXTInput(None)
+    options = types.SimpleNamespace(
+        input_encoding="utf-8",
+        paragraph_type="block",
+        formatting_type="plain",
+        preserve_spaces=False,
+        txt_in_remove_indents=False,
+        markdown_extensions="footnotes, tables, toc",
+        debug_pipeline=None,
+        verbose=0,
+        enable_heuristics=False,
+        dehyphenate=False,
+        flow_size=0,
+    )
+
+    before = {p.name for p in project_root.glob("index*.html")}
+    with io.BytesIO(b"hello from memory stream") as stream:
+        with pytest.raises(RuntimeError, match="forced txt->html failure"):
+            plugin.convert(stream, options, "txt", _Log(), {})
+    after = {p.name for p in project_root.glob("index*.html")}
+
+    assert after == before

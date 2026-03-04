@@ -1,161 +1,42 @@
-#!/usr/bin/env python
-# vim:fileencoding=utf-8
-from __future__ import division, absolute_import, print_function
+"""
+Read metadata from HTML files.
 
+Supports metadata encoded in `<meta>` tags, special HTML comments, and title
+fallback from the document `<title>` element.
+"""
+
+from __future__ import annotations
+
+import os
 import re
+from collections import defaultdict
+from datetime import datetime
+from html.parser import HTMLParser
+from typing import Any
 
-from LiuXin.metadata.ebook_metadata_tools import string_to_authors
-from LiuXin.metadata.metadata import MetaData as Metadata
-
-from LiuXin.utils.calibre_chardet import xml_to_unicode
-from LiuXin.utils.calibre import replace_entities, isbytestring
-from LiuXin.utils.date import is_date_undefined
-from LiuXin.utils.localization import trans as _
-
-# Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import dict_itervalues as itervalues
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.metadata.metadata import MetaData as Metadata
+from LiuXin_alpha.metadata.utils import check_isbn, string_to_authors
+from LiuXin_alpha.utils.calibre import isbytestring, replace_entities
+from LiuXin_alpha.utils.date import is_date_undefined, parse_date, parse_only_date
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
-"""
-Read/write metadata to an HTML file.
-"""
+# Extract an HTML attribute value; supports both quote styles.
+attr_pat = r"""(?:(?P<sq>')|(?P<dq>"))(?P<content>(?(sq)[^']+|[^"]+))(?(sq)'|")"""
 
-
-def get_metadata(target_file):
-    """
-    If target_file is a string, assumes it's a file path, opens it and reads it - if it's anything else assume it's
-    already a stream and read it
-    :param target_file: A file stream or a file path
-    :return: The extracted metadata
-    """
-    if isinstance(target_file, six_string_types):
-        with open(target_file, "rb") as html_stream:
-            src = html_stream.read()
-            return get_metadata_(src)
-    else:
-        src = target_file.read()
-        return get_metadata_(src)
-
-
-def get_metadata_(src, encoding=None):
-    # Meta data definitions as in
-    # http://www.mobileread.com/forums/showpost.php?p=712544&postcount=9
-
-    if isbytestring(src):
-        if not encoding:
-            src = xml_to_unicode(src)[0]
-        else:
-            src = src.decode(encoding, "replace")
-
-    # TODO: Add an option to tweaks to change this value
-    src = src[:150000]  # Searching shouldn't take too long
-    comment_tags = parse_comment_tags(src)
-    meta_tags = parse_meta_tags(src)
-
-    def get(local_field):
-        """
-        Process and return an answer from one of the metadata dicts.
-        :param local_field:
-        :return:
-        """
-        ans = comment_tags.get(local_field, meta_tags.get(local_field, None))
-        if ans:
-            ans = ans.strip()
-        if not ans:
-            ans = None
-        return ans
-
-    # Title
-    title = get("title")
-    if not title:
-        pat = re.compile("<title>([^<>]+?)</title>", re.IGNORECASE)
-        match = pat.search(src)
-        if match:
-            title = replace_entities(match.group(1))
-
-    # Author
-    authors = get("authors") or _("Unknown")
-
-    # Creating the Metadata object and loading it with title and author data
-    # mi = Metadata(title or _('Unknown'), string_to_authors(authors))
-    mi = Metadata()
-    mi.title = title
-    creator_dict = dict()
-    creator_dict["authors"] = string_to_authors(authors)
-    mi.add_creators(creators=creator_dict)
-
-    # PROCESS GENERIC FIELDS
-    for field in ("publisher", "isbn", "language", "comments"):
-        val = get(field)
-        if val:
-            setattr(mi, field, val)
-
-    # Date like fields
-    for field in ("pubdate", "timestamp"):
-        try:
-            val = get(field)
-        except:
-            pass
-        else:
-            if not is_date_undefined(val):
-                setattr(mi, field, val)
-
-    # Series
-    series = get("series")
-    if series:
-        pat = re.compile(r"\[([.0-9]+)\]$")
-        match = pat.search(series)
-        series_index = None
-        if match is not None:
-            try:
-                series_index = float(match.group(1))
-            except:
-                pass
-            series = series.replace(match.group(), "").strip()
-        mi.series = series
-        if series_index is None:
-            series_index = get("series_index")
-            try:
-                series_index = float(series_index)
-            except:
-                pass
-        if series_index is not None:
-            mi.series_index = series_index
-
-    # RATING
-    rating = get("rating")
-    if rating:
-        try:
-            mi.rating = float(rating)
-            if mi.rating < 0:
-                mi.rating = 0
-            if mi.rating > 5:
-                mi.rating /= 2.0
-            if mi.rating > 5:
-                mi.rating = 0
-        except:
-            pass
-
-    # TAGS
-    tags = get("tags")
-    if tags:
-        tags = [x.strip() for x in tags.split(",") if x.strip()]
-        if tags:
-            mi.tags = tags
-
-    return mi
-
+VALID_FOR = ["HTML", "HTM", "XHTML", "XHTM", "XML"]
+PRIORITY_FOR = ["NONE"]
+RUN_COST = ["LOW"]
 
 META_NAMES = {
     "title": ("dc.title", "dcterms.title", "title"),
     "authors": ("author", "dc.creator.aut", "dcterms.creator.aut", "dc.creator"),
     "publisher": ("publisher", "dc.publisher", "dcterms.publisher"),
     "isbn": ("isbn", "dc.identifier.isbn", "dcterms.identifier.isbn"),
-    "language": ("dc.language", "dcterms.language"),
+    "language": ("dc.language", "dcterms.language", "language"),
     "pubdate": (
         "pubdate",
         "date of publication",
@@ -174,8 +55,8 @@ META_NAMES = {
     "series": ("series",),
     "series_index": ("seriesnumber", "series_index", "series.index"),
     "rating": ("rating",),
-    "comments": ("comments",),
-    "tags": ("tags",),
+    "comments": ("comments", "dc.description", "description"),
+    "tags": ("tags", "subject"),
 }
 
 COMMENT_NAMES = {
@@ -193,58 +74,376 @@ COMMENT_NAMES = {
     "tags": "TAGS",
 }
 
-# Extract an HTML attribute value, supports both single and double quotes and single quotes inside double quotes and
-# vice versa.
-attr_pat = r"""(?:(?P<sq>')|(?P<dq>"))(?P<content>(?(sq)[^']+|[^"]+))(?(sq)'|")"""
+_COMMENT_PAIR_RE = re.compile(rf"(?P<name>\S+)\s*=\s*{attr_pat}")
+_IDENTIFIER_NAME_RE = re.compile(r"(?:dc|dcterms)[.:]identifier(?:\.|$)", flags=re.IGNORECASE)
+_IDENTIFIER_EXACT_RE = re.compile(r"(?:dc|dcterms)[.:]identifier$", flags=re.IGNORECASE)
+_SERIES_INDEX_IN_SERIES_RE = re.compile(r"\[([.0-9]+)\]$")
+
+_RMAP_COMMENT = {v: k for k, v in COMMENT_NAMES.items()}
+_RMAP_META = {n: field for field, names in META_NAMES.items() for n in names}
+
+
+def _coerce_text(raw: Any, encoding: str | None = None) -> str:
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, (bytes, bytearray)):
+        data = bytes(raw)
+        if encoding:
+            return data.decode(encoding, "replace")
+        return xml_to_unicode(data)[0]
+    return str(raw)
+
+
+def _dedupe_stable(values: list[str]) -> list[str]:
+    seen = set()
+    out: list[str] = []
+    for val in values:
+        key = val.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(val)
+    return out
+
+
+def _clean_values(values: list[str] | None) -> list[str]:
+    if not values:
+        return []
+    cleaned = [str(v).strip() for v in values if str(v).strip()]
+    return _dedupe_stable(cleaned)
+
+
+def _safe_rating(raw: str | None) -> float | None:
+    if raw is None:
+        return None
+    try:
+        rating = float(str(raw).strip())
+    except Exception:
+        return None
+
+    if rating < 0:
+        rating = 0
+    if rating > 5:
+        rating /= 2.0
+    if rating > 5:
+        rating = 0
+    return rating
+
+
+def _parse_date_value(raw: str | None):
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+
+    # Prefer parse_date to preserve full timestamp information when present.
+    try:
+        dt = parse_date(text)
+        if not is_date_undefined(dt):
+            return dt
+    except Exception:
+        pass
+
+    # Fallback for date-only noisy fields.
+    try:
+        dt = parse_only_date(text)
+        if not is_date_undefined(dt):
+            return dt
+    except Exception:
+        pass
+
+    # Stdlib-only fallback for environments missing liuxin_dateutil.
+    normalized = text.replace("/", "-").replace(".", "-")
+    if re.fullmatch(r"[12]\d{3}", normalized):
+        try:
+            return datetime(int(normalized), 6, 2)
+        except Exception:
+            return None
+    for fmt in ("%Y-%m-%d", "%Y-%m", "%Y%m%d"):
+        try:
+            return datetime.strptime(normalized, fmt)
+        except Exception:
+            continue
+
+    return None
+
+
+def _extract_comment_pairs(comment_text: str) -> dict[str, list[str]]:
+    ans: dict[str, list[str]] = defaultdict(list)
+    for match in _COMMENT_PAIR_RE.finditer(comment_text or ""):
+        raw_name = match.group("name")
+        field = _RMAP_COMMENT.get(raw_name.upper())
+        if not field:
+            continue
+        ans[field].append(replace_entities(match.group("content")))
+    return ans
+
+
+class _HTMLMetadataParser(HTMLParser):
+    """
+    Tolerant parser for metadata-like HTML patterns.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.comment_tags: dict[str, list[str]] = defaultdict(list)
+        self.meta_tags: dict[str, list[str]] = defaultdict(list)
+        self.meta_identifiers: dict[str, list[str]] = defaultdict(list)
+        self._in_title = False
+        self._title_chunks: list[str] = []
+
+    @property
+    def title_text(self) -> str:
+        return "".join(self._title_chunks).strip()
+
+    def handle_starttag(self, tag: str, attrs):
+        self._handle_tag(tag, attrs)
+
+    def handle_startendtag(self, tag: str, attrs):
+        self._handle_tag(tag, attrs)
+
+    def _handle_tag(self, tag: str, attrs):
+        tag = (tag or "").lower()
+        if tag == "title":
+            self._in_title = True
+            return
+        if tag != "meta":
+            return
+
+        ad = {str(k).lower(): ("" if v is None else str(v)) for k, v in attrs}
+        name = ad.get("name", "").strip()
+        content = ad.get("content", "")
+        if not name or not content:
+            return
+
+        lowered_name = name.lower()
+
+        if _IDENTIFIER_NAME_RE.match(lowered_name):
+            scheme = None
+            if _IDENTIFIER_EXACT_RE.match(lowered_name):
+                scheme = ad.get("scheme", "").strip().lower()
+            else:
+                parts = re.split(r"[.:]", lowered_name)
+                if len(parts) == 3 and not ad.get("scheme"):
+                    scheme = parts[2].strip().lower()
+            if scheme:
+                self.meta_identifiers[scheme].append(content)
+            return
+
+        field = _RMAP_META.get(lowered_name) or _RMAP_META.get(lowered_name.replace(":", "."))
+        if field:
+            self.meta_tags[field].append(replace_entities(content))
+
+    def handle_endtag(self, tag: str):
+        if (tag or "").lower() == "title":
+            self._in_title = False
+
+    def handle_data(self, data: str):
+        if self._in_title and data:
+            self._title_chunks.append(data)
+
+    def handle_entityref(self, name: str):
+        if self._in_title and name:
+            # Keep entities for later centralized decode via replace_entities().
+            self._title_chunks.append(f"&{name};")
+
+    def handle_charref(self, name: str):
+        if self._in_title and name:
+            # Keep charrefs for later centralized decode via replace_entities().
+            self._title_chunks.append(f"&#{name};")
+
+    def handle_comment(self, data: str):
+        for field, values in _extract_comment_pairs(data).items():
+            self.comment_tags[field].extend(values)
+
+
+def parse_metadata(src: str) -> tuple[dict[str, list[str]], dict[str, list[str]], dict[str, list[str]], str]:
+    parser = _HTMLMetadataParser()
+    parser.feed(src)
+    parser.close()
+
+    return (
+        {k: _clean_values(v) for k, v in parser.comment_tags.items()},
+        {k: _clean_values(v) for k, v in parser.meta_tags.items()},
+        {k: _clean_values(v) for k, v in parser.meta_identifiers.items()},
+        replace_entities(parser.title_text),
+    )
 
 
 def parse_meta_tags(src):
     """
-    Read metadata tags out of the src - use META_NAMES to provide mappings from reasonable ways to tag to the metadata
-    to a standardized name for that metadata entry.
-    :param src: The source as a string
-    :return metadata_dict: Keyed with the name of the entry and valued with it's contents
+    Parse metadata-like `<meta>` tags.
+
+    Returns a dict keyed by canonical metadata field with first observed value.
     """
-    rmap = {}
-    for field, names in iteritems(META_NAMES):
-        for name in names:
-            rmap[name.lower()] = field
-
-    all_names = "|".join(rmap)
-    ans = {}
-    npat = r"""name\s*=\s*['"]{0,1}(?P<name>%s)['"]{0,1}""" % all_names
-    cpat = r"content\s*=\s*%s" % attr_pat
-    for pat in (r"<meta\s+%s\s+%s" % (npat, cpat), r"<meta\s+%s\s+%s" % (cpat, npat)):
-
-        for match in re.finditer(pat, src, flags=re.IGNORECASE):
-
-            x = match.group("name").lower()
-            try:
-                field = rmap[x]
-            except KeyError:
-                try:
-                    field = rmap[x.replace(":", ".")]
-                except KeyError:
-                    continue
-
-            # Load the answer dictionary with the contents of the tag
-            if field not in ans:
-                ans[field] = replace_entities(match.group("content"))
-            # If all allowable fields have been filled, then return as parse is complete
-            if len(ans) == len(META_NAMES):
-                return ans
-
-    return ans
+    _comment_tags, meta_tags, _meta_ids, _title = parse_metadata(_coerce_text(src))
+    return {k: v[0] for k, v in meta_tags.items() if v}
 
 
 def parse_comment_tags(src):
-    all_names = "|".join(itervalues(COMMENT_NAMES))
-    rmap = {v: k for k, v in iteritems(COMMENT_NAMES)}
-    ans = {}
-    for match in re.finditer(r"""<!--\s*(?P<name>%s)\s*=\s*%s""" % (all_names, attr_pat), src):
-        field = rmap[match.group("name")]
-        if field not in ans:
-            ans[field] = replace_entities(match.group("content"))
-        if len(ans) == len(COMMENT_NAMES):
-            break
-    return ans
+    """
+    Parse calibre-style metadata comments such as `<!-- TITLE="..." -->`.
+
+    Returns a dict keyed by canonical metadata field with first observed value.
+    """
+    comment_tags, _meta_tags, _meta_ids, _title = parse_metadata(_coerce_text(src))
+    return {k: v[0] for k, v in comment_tags.items() if v}
+
+
+def get_metadata(target_file):
+    """
+    Read metadata from a filesystem path or readable stream.
+    """
+    if isinstance(target_file, (str, bytes, os.PathLike)):
+        with open(target_file, "rb") as html_stream:
+            src = html_stream.read()
+        return get_metadata_(src)
+
+    stream = target_file
+    if not hasattr(stream, "read"):
+        raise TypeError("HTML metadata reader expects a path or readable stream.")
+
+    pos = None
+    if hasattr(stream, "tell"):
+        try:
+            pos = stream.tell()
+        except Exception:
+            pos = None
+
+    try:
+        if hasattr(stream, "seek"):
+            stream.seek(0)
+        src = stream.read()
+        return get_metadata_(src)
+    finally:
+        if pos is not None and hasattr(stream, "seek"):
+            try:
+                stream.seek(pos)
+            except Exception:
+                pass
+
+
+def get_metadata_(src, encoding=None):
+    """
+    Parse metadata from HTML content as `bytes` or `str`.
+    """
+    if isbytestring(src):
+        src = _coerce_text(src, encoding=encoding)
+
+    src = _coerce_text(src)
+    src = src[:250000]
+
+    comment_tags, meta_tags, meta_ids, title_tag = parse_metadata(src)
+
+    def get_all(local_field: str) -> list[str]:
+        # Preserve legacy precedence: comment tags override meta tags.
+        values = comment_tags.get(local_field) or meta_tags.get(local_field) or []
+        return _clean_values(values)
+
+    def get(local_field: str) -> str | None:
+        values = get_all(local_field)
+        return values[0] if values else None
+
+    title = get("title") or (title_tag.strip() if title_tag.strip() else None) or _("Unknown")
+
+    authors: list[str] = []
+    for raw_authors in get_all("authors"):
+        authors.extend(string_to_authors(raw_authors))
+    authors = _dedupe_stable([a.strip() for a in authors if a.strip()])
+    if not authors:
+        authors = [_("Unknown")]
+
+    mi = Metadata(title, authors)
+
+    # Single value fields.
+    for field in ("publisher", "comments"):
+        val = get(field)
+        if val:
+            setattr(mi, field, val)
+
+    # ISBN from dedicated field first.
+    isbn = get("isbn")
+    if isbn:
+        checked = check_isbn(re.sub(r"[^0-9Xx]", "", isbn))
+        if checked:
+            mi.isbn = checked
+
+    # Language(s).
+    languages = get_all("language")
+    if languages:
+        mi.languages = languages
+        mi.language = languages[0]
+
+    # Date-like fields.
+    for field in ("pubdate", "timestamp"):
+        parsed = _parse_date_value(get(field))
+        if parsed is not None:
+            setattr(mi, field, parsed)
+
+    # Series and index.
+    series = get("series")
+    if series:
+        series_index = None
+        match = _SERIES_INDEX_IN_SERIES_RE.search(series)
+        if match is not None:
+            try:
+                series_index = float(match.group(1))
+            except Exception:
+                series_index = None
+            series = series.replace(match.group(), "").strip()
+
+        mi.series = series
+
+        if series_index is None:
+            raw_idx = get("series_index")
+            try:
+                series_index = float(raw_idx) if raw_idx is not None else None
+            except Exception:
+                series_index = None
+
+        if series_index is not None:
+            mi.series_index = (series, series_index)
+
+    rating = _safe_rating(get("rating"))
+    if rating is not None:
+        mi.rating = rating
+
+    tags = []
+    for block in get_all("tags"):
+        tags.extend([x.strip() for x in re.split(r"[,;]", block) if x.strip()])
+    tags = _dedupe_stable(tags)
+    if tags:
+        mi.tags = tags
+
+    # Generic identifier support from dc.identifier.<scheme> tags.
+    for scheme, values in meta_ids.items():
+        if not values:
+            continue
+        val = values[0]
+        if not val:
+            continue
+        try:
+            mi.set_identifier(scheme, val)
+        except Exception:
+            pass
+        if scheme == "isbn" and mi.is_null("isbn"):
+            checked = check_isbn(re.sub(r"[^0-9Xx]", "", val))
+            if checked:
+                mi.isbn = checked
+
+    return mi
+
+
+__all__ = [
+    "VALID_FOR",
+    "PRIORITY_FOR",
+    "RUN_COST",
+    "META_NAMES",
+    "COMMENT_NAMES",
+    "parse_meta_tags",
+    "parse_comment_tags",
+    "parse_metadata",
+    "get_metadata",
+    "get_metadata_",
+]

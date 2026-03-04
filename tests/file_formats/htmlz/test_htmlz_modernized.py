@@ -219,3 +219,54 @@ def test_htmlz_input_convert_uses_utf8_fallback_and_rewinds_stream(
     assert options.input_encoding == "utf-8"
     assert options.debug_pipeline == "keep"
     assert called["seeked"] is True
+
+
+def test_htmlz_input_does_not_extract_archive_into_project_root_on_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    project_root: Path,
+) -> None:
+    import LiuXin_alpha.file_formats.conversion.plugins.htmlz_input as htmlz_input_mod
+
+    archive = tmp_path / "leak-check.htmlz"
+    leak_names = {
+        "__htmlz_leak_probe_57.gif",
+        "__htmlz_leak_probe_61.xhtml",
+        "__htmlz_leak_probe_metadata.opf",
+    }
+    with ZipFile(archive, "w") as zf:
+        zf.writestr("index.html", "<html><body>test</body></html>".encode("utf-8"))
+        zf.writestr("__htmlz_leak_probe_57.gif", b"GIF89a")
+        zf.writestr("__htmlz_leak_probe_61.xhtml", b"<html/>")
+        zf.writestr("__htmlz_leak_probe_metadata.opf", b"<package/>")
+
+    class _Opt:
+        def __init__(self, name: str, value):
+            self.option = types.SimpleNamespace(name=name)
+            self.recommended_value = value
+
+    fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
+    fake_ui.plugin_for_input_format = lambda fmt: types.SimpleNamespace(
+        options=(_Opt("breadth_first", False),),
+        convert=lambda stream, options, file_ext, log, accelerators: (_ for _ in ()).throw(
+            RuntimeError("forced html conversion failure")
+        ),
+    )
+    fake_ui.get_file_type_metadata = lambda stream, file_ext: types.SimpleNamespace()
+
+    fake_meta_transform = types.ModuleType("LiuXin_alpha.file_formats.oeb.transforms.metadata")
+    fake_meta_transform.meta_info_to_oeb_metadata = lambda mi, metadata, log: None
+
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.customize.ui", fake_ui)
+    monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.metadata", fake_meta_transform)
+    monkeypatch.chdir(project_root)
+
+    before = {name for name in leak_names if (project_root / name).exists()}
+    options = types.SimpleNamespace(input_encoding=None, debug_pipeline="keep")
+    plugin = htmlz_input_mod.HTMLZInput(None)
+    with archive.open("rb") as stream:
+        with pytest.raises(RuntimeError, match="forced html conversion failure"):
+            plugin.convert(stream, options, "htmlz", _Log(), {})
+    after = {name for name in leak_names if (project_root / name).exists()}
+
+    assert after == before

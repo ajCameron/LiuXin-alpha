@@ -6,7 +6,11 @@ import re
 import textwrap
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
+from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.resources import P
 from LiuXin_alpha.utils.localization import trans as _
 
@@ -263,77 +267,79 @@ class RTFInput(InputFormatPlugin):
         from LiuXin_alpha.file_formats.rtf2xml.ParseRtf import RtfInvalidCodeException
         from LiuXin_alpha.file_formats.rtf.input import InlineClass
 
-        self.opts = options
-        self.log = log
-        self.log("Converting RTF to XML...")
-        try:
-            xml = self.generate_xml(getattr(stream, "name", stream))
-        except RtfInvalidCodeException as e:
-            raise ValueError(
-                _(
-                    "This RTF file has a feature calibre does not "
-                    "support. Convert it to HTML first and then try it.\n%s"
-                )
-                % e
-            )
-
-        imap = {}
-        d = glob.glob(os.path.join("*_rtf_pict_dir", "picts.rtf"))
-        if d:
+        work_root = choose_conversion_workdir("_rtf_input")
+        with CurrentDir(work_root):
+            self.opts = options
+            self.log = log
+            self.log("Converting RTF to XML...")
             try:
-                imap = self.extract_images(d[0])
-            except Exception as e:
-                self.log.exception("Failed to extract images... - exception messahe: {}".format(e))
+                xml = self.generate_xml(getattr(stream, "name", stream))
+            except RtfInvalidCodeException as e:
+                raise ValueError(
+                    _(
+                        "This RTF file has a feature calibre does not "
+                        "support. Convert it to HTML first and then try it.\n%s"
+                    )
+                    % e
+                )
 
-        self.log("Parsing XML...")
-        parser = etree.XMLParser(recover=True, no_network=True)
-        doc = etree.fromstring(xml, parser=parser)
-        border_styles = self.convert_borders(doc)
-        for pict in doc.xpath("//rtf:pict[@num]", namespaces={"rtf": "http://rtf2xml.sourceforge.net/"}):
-            num = int(pict.get("num"))
-            name = imap.get(num, None)
-            if name is not None:
-                pict.set("num", name)
+            imap = {}
+            d = glob.glob(os.path.join("*_rtf_pict_dir", "picts.rtf"))
+            if d:
+                try:
+                    imap = self.extract_images(d[0])
+                except Exception as e:
+                    self.log.exception("Failed to extract images... - exception messahe: {}".format(e))
 
-        self.log("Converting XML to HTML...")
-        inline_class = InlineClass(self.log)
-        styledoc = etree.fromstring(P("templates/rtf.xsl", data=True))
-        extensions = {("calibre", "inline-class"): inline_class}
-        transform = etree.XSLT(styledoc, extensions=extensions)
-        result = transform(doc)
-        html = "index.xhtml"
-        with open(html, "wb") as f:
-            res = transform.tostring(result)
-            # res = res[:100].replace('xmlns:html', 'xmlns') + res[100:]
-            # clean multiple \n
-            if isinstance(res, bytes):
-                res = res.decode("utf-8", "replace")
-            res = re.sub(r"\n+", "\n", res)
-            # Replace newlines inserted by the 'empty_paragraphs' option in rtf2xml with html blank lines
-            # res = re.sub('\s*<body>', '<body>', res)
-            # res = re.sub('(?<=\n)\n{2}', u'<p>\u00a0</p>\n'.encode('utf-8'), res)
-            f.write(res.encode("utf-8", "replace"))
-        self.write_inline_css(inline_class, border_styles)
-        stream.seek(0)
-        try:
-            mi = get_metadata(stream, "rtf")
-        except Exception as err:
-            warn = getattr(self.log, "warning", None) or getattr(self.log, "warn", None)
-            if warn is not None:
-                warn("Failed to read RTF metadata, using defaults: {}".format(err))
-            mi = calibreMetaInformation(_("Unknown"), [_("Unknown")])
-        if mi is None:
-            mi = calibreMetaInformation(_("Unknown"), [_("Unknown")])
-        if not mi.title:
-            mi.title = _("Unknown")
-        if not mi.authors:
-            mi.authors = [_("Unknown")]
-        opf = OPFCreator(os.getcwd(), mi)
-        opf.create_manifest([("index.xhtml", None)])
-        opf.create_spine(["index.xhtml"])
-        with open("metadata.opf", "wb") as bin_opf_file:
-            opf.render(bin_opf_file)
-        return os.path.abspath("metadata.opf")
+            self.log("Parsing XML...")
+            parser = etree.XMLParser(recover=True, no_network=True)
+            doc = etree.fromstring(xml, parser=parser)
+            border_styles = self.convert_borders(doc)
+            for pict in doc.xpath("//rtf:pict[@num]", namespaces={"rtf": "http://rtf2xml.sourceforge.net/"}):
+                num = int(pict.get("num"))
+                name = imap.get(num, None)
+                if name is not None:
+                    pict.set("num", name)
+
+            self.log("Converting XML to HTML...")
+            inline_class = InlineClass(self.log)
+            styledoc = etree.fromstring(P("templates/rtf.xsl", data=True))
+            extensions = {("calibre", "inline-class"): inline_class}
+            transform = etree.XSLT(styledoc, extensions=extensions)
+            result = transform(doc)
+            html = "index.xhtml"
+            with open(html, "wb") as f:
+                res = transform.tostring(result)
+                # res = res[:100].replace('xmlns:html', 'xmlns') + res[100:]
+                # clean multiple \n
+                if isinstance(res, bytes):
+                    res = res.decode("utf-8", "replace")
+                res = re.sub(r"\n+", "\n", res)
+                # Replace newlines inserted by the 'empty_paragraphs' option in rtf2xml with html blank lines
+                # res = re.sub('\s*<body>', '<body>', res)
+                # res = re.sub('(?<=\n)\n{2}', u'<p>\u00a0</p>\n'.encode('utf-8'), res)
+                f.write(res.encode("utf-8", "replace"))
+            self.write_inline_css(inline_class, border_styles)
+            stream.seek(0)
+            try:
+                mi = get_metadata(stream, "rtf")
+            except Exception as err:
+                warn = getattr(self.log, "warning", None) or getattr(self.log, "warn", None)
+                if warn is not None:
+                    warn("Failed to read RTF metadata, using defaults: {}".format(err))
+                mi = calibreMetaInformation(_("Unknown"), [_("Unknown")])
+            if mi is None:
+                mi = calibreMetaInformation(_("Unknown"), [_("Unknown")])
+            if not mi.title:
+                mi.title = _("Unknown")
+            if not mi.authors:
+                mi.authors = [_("Unknown")]
+            opf = OPFCreator(os.getcwd(), mi)
+            opf.create_manifest([("index.xhtml", None)])
+            opf.create_spine(["index.xhtml"])
+            with open("metadata.opf", "wb") as bin_opf_file:
+                opf.render(bin_opf_file)
+            return os.path.abspath("metadata.opf")
 
     def postprocess_book(self, oeb, opts, log):
         for item in oeb.spine:

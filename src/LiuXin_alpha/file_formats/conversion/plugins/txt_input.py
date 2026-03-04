@@ -3,8 +3,11 @@
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
-from LiuXin_alpha.utils.calibre import _ent_pat, walk, xml_entity_to_unicode
+from LiuXin_alpha.utils.calibre import CurrentDir, _ent_pat, walk, xml_entity_to_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
@@ -122,197 +125,197 @@ class TXTInput(InputFormatPlugin):
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log
-        txt = b""
-        log.debug("Reading text from file...")
-        length = 0
+        work_root = choose_conversion_workdir("_txt_input")
+        with CurrentDir(work_root):
+            txt = b""
+            log.debug("Reading text from file...")
+            length = 0
 
-        # Extract content from zip archive.
-        if file_ext == "txtz":
-            zf = ZipFile(stream)
-            with TemporaryDirectory("_txtz_input") as extract_root:
-                zf.extractall(extract_root)
-                for x in walk(extract_root):
-                    if os.path.splitext(x)[1].lower() in (".txt", ".text"):
-                        with open(x, "rb") as tf:
-                            txt += tf.read() + b"\n\n"
-        else:
-            txt = stream.read()
-            if file_ext in {"md", "textile", "markdown"}:
-                options.formatting_type = {"md": "markdown"}.get(file_ext, file_ext)
-                log.info(
-                    "File extension indicates particular formatting. "
-                    "Forcing formatting type to: %s" % options.formatting_type
-                )
-                options.paragraph_type = "off"
-
-        # Get the encoding of the document - try and standardize it if it's automatically detected
-        if options.input_encoding:
-            ienc = options.input_encoding
-            log.debug("Using user specified input encoding of %s" % ienc)
-        else:
-            det_encoding = detect(txt)
-            det_encoding, confidence = (
-                det_encoding["encoding"],
-                det_encoding["confidence"],
-            )
-            if det_encoding and det_encoding.lower().replace("_", "-").strip() in (
-                "gb2312",
-                "chinese",
-                "csiso58gb231280",
-                "euc-cn",
-                "euccn",
-                "eucgb2312-cn",
-                "gb2312-1980",
-                "gb2312-80",
-                "iso-ir-58",
-            ):
-                # Microsoft Word exports to HTML with encoding incorrectly set to
-                # gb2312 instead of gbk. gbk is a superset of gb2312, anyway.
-                det_encoding = "gbk"
-            ienc = det_encoding
-            log.debug("Detected input encoding as %s with a confidence of %s%%" % (ienc, confidence * 100))
-        # Fallback to using utf-8
-        if not ienc:
-            ienc = "utf-8"
-            log.debug("No input encoding specified and could not auto detect using %s" % ienc)
-
-        # Remove BOM (Byte Order Mark) from start of txt as its presence can confuse markdown
-        for bom in (
-            codecs.BOM_UTF16_LE,
-            codecs.BOM_UTF16_BE,
-            codecs.BOM_UTF8,
-            codecs.BOM_UTF32_LE,
-            codecs.BOM_UTF32_BE,
-        ):
-            if txt.startswith(bom):
-                txt = txt[len(bom) :]
-                break
-        txt = txt.decode(ienc, "replace")
-
-        # Replace entities
-        txt = _ent_pat.sub(xml_entity_to_unicode, txt)
-
-        txt = normalize_line_endings(txt)
-
-        # Determine the paragraph type of the document.
-        if options.paragraph_type == "auto":
-            options.paragraph_type = detect_paragraph_type(txt)
-            if options.paragraph_type == "unknown":
-                log.debug("Could not reliably determine paragraph type using block")
-                options.paragraph_type = "block"
+            # Extract content from zip archive.
+            if file_ext == "txtz":
+                zf = ZipFile(stream)
+                with TemporaryDirectory("_txtz_input") as extract_root:
+                    zf.extractall(extract_root)
+                    for x in walk(extract_root):
+                        if os.path.splitext(x)[1].lower() in (".txt", ".text"):
+                            with open(x, "rb") as tf:
+                                txt += tf.read() + b"\n\n"
             else:
-                log.debug("Auto detected paragraph type as %s" % options.paragraph_type)
+                txt = stream.read()
+                if file_ext in {"md", "textile", "markdown"}:
+                    options.formatting_type = {"md": "markdown"}.get(file_ext, file_ext)
+                    log.info(
+                        "File extension indicates particular formatting. "
+                        "Forcing formatting type to: %s" % options.formatting_type
+                    )
+                    options.paragraph_type = "off"
 
-        # Detect formatting
-        if options.formatting_type == "auto":
-            options.formatting_type = detect_formatting_type(txt)
-            log.debug("Auto detected formatting as %s" % options.formatting_type)
+            # Get the encoding of the document - try and standardize it if it's automatically detected
+            if options.input_encoding:
+                ienc = options.input_encoding
+                log.debug("Using user specified input encoding of %s" % ienc)
+            else:
+                det_encoding = detect(txt)
+                det_encoding, confidence = (
+                    det_encoding["encoding"],
+                    det_encoding["confidence"],
+                )
+                if det_encoding and det_encoding.lower().replace("_", "-").strip() in (
+                    "gb2312",
+                    "chinese",
+                    "csiso58gb231280",
+                    "euc-cn",
+                    "euccn",
+                    "eucgb2312-cn",
+                    "gb2312-1980",
+                    "gb2312-80",
+                    "iso-ir-58",
+                ):
+                    # Microsoft Word exports to HTML with encoding incorrectly set to
+                    # gb2312 instead of gbk. gbk is a superset of gb2312, anyway.
+                    det_encoding = "gbk"
+                ienc = det_encoding
+                log.debug("Detected input encoding as %s with a confidence of %s%%" % (ienc, confidence * 100))
+            # Fallback to using utf-8
+            if not ienc:
+                ienc = "utf-8"
+                log.debug("No input encoding specified and could not auto detect using %s" % ienc)
 
-        if options.formatting_type == "heuristic":
-            setattr(options, "enable_heuristics", True)
-            setattr(options, "unwrap_lines", False)
-            setattr(options, "smarten_punctuation", True)
+            # Remove BOM (Byte Order Mark) from start of txt as its presence can confuse markdown
+            for bom in (
+                codecs.BOM_UTF16_LE,
+                codecs.BOM_UTF16_BE,
+                codecs.BOM_UTF8,
+                codecs.BOM_UTF32_LE,
+                codecs.BOM_UTF32_BE,
+            ):
+                if txt.startswith(bom):
+                    txt = txt[len(bom) :]
+                    break
+            txt = txt.decode(ienc, "replace")
 
-        # Reformat paragraphs to block formatting based on the detected type.
-        # We don't check for block because the processor assumes block.
-        # single and print at transformed to block for processing.
-        if options.paragraph_type == "single":
-            txt = separate_paragraphs_single_line(txt)
-        elif options.paragraph_type == "print":
-            txt = separate_hard_scene_breaks(txt)
-            txt = separate_paragraphs_print_formatted(txt)
-            txt = block_to_single_line(txt)
-        elif options.paragraph_type == "unformatted":
-            from LiuXin_alpha.file_formats.conversion.utils import HeuristicProcessor
+            # Replace entities
+            txt = _ent_pat.sub(xml_entity_to_unicode, txt)
 
-            # unwrap lines based on punctuation
-            docanalysis = DocAnalysis("txt", txt)
-            length = docanalysis.line_length(0.5)
-            preprocessor = HeuristicProcessor(options, log=getattr(self, "log", None))
-            txt = preprocessor.punctuation_unwrap(length, txt, "txt")
-            txt = separate_paragraphs_single_line(txt)
-        elif options.paragraph_type == "block":
-            txt = separate_hard_scene_breaks(txt)
-            txt = block_to_single_line(txt)
+            txt = normalize_line_endings(txt)
 
-        if getattr(options, "enable_heuristics", False) and getattr(options, "dehyphenate", False):
-            docanalysis = DocAnalysis("txt", txt)
-            if not length:
+            # Determine the paragraph type of the document.
+            if options.paragraph_type == "auto":
+                options.paragraph_type = detect_paragraph_type(txt)
+                if options.paragraph_type == "unknown":
+                    log.debug("Could not reliably determine paragraph type using block")
+                    options.paragraph_type = "block"
+                else:
+                    log.debug("Auto detected paragraph type as %s" % options.paragraph_type)
+
+            # Detect formatting
+            if options.formatting_type == "auto":
+                options.formatting_type = detect_formatting_type(txt)
+                log.debug("Auto detected formatting as %s" % options.formatting_type)
+
+            if options.formatting_type == "heuristic":
+                setattr(options, "enable_heuristics", True)
+                setattr(options, "unwrap_lines", False)
+                setattr(options, "smarten_punctuation", True)
+
+            # Reformat paragraphs to block formatting based on the detected type.
+            # We don't check for block because the processor assumes block.
+            # single and print at transformed to block for processing.
+            if options.paragraph_type == "single":
+                txt = separate_paragraphs_single_line(txt)
+            elif options.paragraph_type == "print":
+                txt = separate_hard_scene_breaks(txt)
+                txt = separate_paragraphs_print_formatted(txt)
+                txt = block_to_single_line(txt)
+            elif options.paragraph_type == "unformatted":
+                from LiuXin_alpha.file_formats.conversion.utils import HeuristicProcessor
+
+                # unwrap lines based on punctuation
+                docanalysis = DocAnalysis("txt", txt)
                 length = docanalysis.line_length(0.5)
-            dehyphenator = Dehyphenator(options.verbose, log=self.log)
-            txt = dehyphenator(txt, "txt", length)
+                preprocessor = HeuristicProcessor(options, log=getattr(self, "log", None))
+                txt = preprocessor.punctuation_unwrap(length, txt, "txt")
+                txt = separate_paragraphs_single_line(txt)
+            elif options.paragraph_type == "block":
+                txt = separate_hard_scene_breaks(txt)
+                txt = block_to_single_line(txt)
 
-        # User requested transformation on the text.
-        if options.txt_in_remove_indents:
-            txt = remove_indents(txt)
+            if getattr(options, "enable_heuristics", False) and getattr(options, "dehyphenate", False):
+                docanalysis = DocAnalysis("txt", txt)
+                if not length:
+                    length = docanalysis.line_length(0.5)
+                dehyphenator = Dehyphenator(options.verbose, log=self.log)
+                txt = dehyphenator(txt, "txt", length)
 
-        # Preserve spaces will replace multiple spaces to a space
-        # followed by the &nbsp; entity.
-        if options.preserve_spaces:
-            txt = preserve_spaces(txt)
+            # User requested transformation on the text.
+            if options.txt_in_remove_indents:
+                txt = remove_indents(txt)
 
-        # Process the text using the appropriate text processor.
-        if options.formatting_type == "markdown":
-            log.debug("Running text through markdown conversion...")
-            try:
-                html = convert_markdown(
-                    txt,
-                    extensions=[x.strip() for x in options.markdown_extensions.split(",") if x.strip()],
-                )
-            except RuntimeError:
-                raise ValueError(
-                    "This txt file has malformed markup, it cannot be"
-                    " converted by calibre. See http://daringfireball.net/projects/markdown/syntax"
-                )
-        elif options.formatting_type == "textile":
-            log.debug("Running text through textile conversion...")
-            html = convert_textile(txt)
-        else:
-            log.debug("Running text through basic conversion...")
-            flow_size = getattr(options, "flow_size", 0)
-            html = convert_basic(txt, epub_split_size_kb=flow_size)
+            # Preserve spaces will replace multiple spaces to a space
+            # followed by the &nbsp; entity.
+            if options.preserve_spaces:
+                txt = preserve_spaces(txt)
 
-        # Run the HTMLized text through the html processing plugin.
-        from LiuXin_alpha.customize.ui import plugin_for_input_format
+            # Process the text using the appropriate text processor.
+            if options.formatting_type == "markdown":
+                log.debug("Running text through markdown conversion...")
+                try:
+                    html = convert_markdown(
+                        txt,
+                        extensions=[x.strip() for x in options.markdown_extensions.split(",") if x.strip()],
+                    )
+                except RuntimeError:
+                    raise ValueError(
+                        "This txt file has malformed markup, it cannot be"
+                        " converted by calibre. See http://daringfireball.net/projects/markdown/syntax"
+                    )
+            elif options.formatting_type == "textile":
+                log.debug("Running text through textile conversion...")
+                html = convert_textile(txt)
+            else:
+                log.debug("Running text through basic conversion...")
+                flow_size = getattr(options, "flow_size", 0)
+                html = convert_basic(txt, epub_split_size_kb=flow_size)
 
-        html_input = plugin_for_input_format("html")
-        # Use the default encoding from the html input package
-        for opt in html_input.options:
-            setattr(options, opt.option.name, opt.recommended_value)
-        options.input_encoding = "utf-8"
-        base = os.getcwd()
-        if file_ext != "txtz" and hasattr(stream, "name"):
-            base = os.path.dirname(stream.name)
-        fname = os.path.join(base, "index.html")
-        c = 0
-        # If the index file already
-        while os.path.exists(fname):
-            c += 1
-            fname = os.path.join(base, "index%d.html" % c)
-        htmlfile = open(fname, "wb")
-        with htmlfile:
-            htmlfile.write(html.encode("utf-8"))
-        odi = options.debug_pipeline
-        options.debug_pipeline = None
-        # Generate oeb from html conversion.
-        with open(htmlfile.name, "rb") as bin_htmlfile:
-            oeb = html_input.convert(bin_htmlfile, options, "html", log, {})
-        options.debug_pipeline = odi
-        os.remove(htmlfile.name)
+            # Run the HTMLized text through the html processing plugin.
+            from LiuXin_alpha.customize.ui import plugin_for_input_format
 
-        # Set metadata from file.
-        from LiuXin_alpha.customize.ui import get_file_type_metadata
-        from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
-            meta_info_to_oeb_metadata,
-        )
+            html_input = plugin_for_input_format("html")
+            # Use the default encoding from the html input package
+            for opt in html_input.options:
+                setattr(options, opt.option.name, opt.recommended_value)
+            options.input_encoding = "utf-8"
+            base = os.getcwd()
+            fname = os.path.join(base, "index.html")
+            c = 0
+            # If the index file already
+            while os.path.exists(fname):
+                c += 1
+                fname = os.path.join(base, "index%d.html" % c)
+            htmlfile = open(fname, "wb")
+            with htmlfile:
+                htmlfile.write(html.encode("utf-8"))
+            odi = options.debug_pipeline
+            options.debug_pipeline = None
+            # Generate oeb from html conversion.
+            with open(htmlfile.name, "rb") as bin_htmlfile:
+                oeb = html_input.convert(bin_htmlfile, options, "html", log, {})
+            options.debug_pipeline = odi
+            os.remove(htmlfile.name)
 
-        if hasattr(stream, "seek"):
-            stream.seek(0)
-        mi = get_file_type_metadata(stream, file_ext, calibre=True)
-        meta_info_to_oeb_metadata(mi, oeb.metadata, log)
-        self.html_postprocess_title = mi.title
+            # Set metadata from file.
+            from LiuXin_alpha.customize.ui import get_file_type_metadata
+            from LiuXin_alpha.file_formats.oeb.transforms.metadata import (
+                meta_info_to_oeb_metadata,
+            )
 
-        return oeb
+            if hasattr(stream, "seek"):
+                stream.seek(0)
+            mi = get_file_type_metadata(stream, file_ext, calibre=True)
+            meta_info_to_oeb_metadata(mi, oeb.metadata, log)
+            self.html_postprocess_title = mi.title
+
+            return oeb
 
     def postprocess_book(self, oeb, opts, log):
         for item in oeb.spine:

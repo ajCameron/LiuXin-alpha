@@ -1,58 +1,166 @@
-import sys
+"""
+Read metadata from IMP files.
+"""
 
-from LiuXin.metadata.metadata import MetaInformation
-from LiuXin.metadata.ebook_metadata_tools import string_to_authors
+from __future__ import annotations
 
-from LiuXin.utils.logger import default_log
+import os
+from typing import BinaryIO
 
-# Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.metadata.metadata import MetaData as Metadata
+from LiuXin_alpha.metadata.utils import string_to_authors
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Ashish Kulkarni <kulkarni.ashish@gmail.com>"
 
-"""Read meta information from IMP files"""
+MAGIC = (b"\x00\x01BOOKDOUG", b"\x00\x02BOOKDOUG")
+
+VALID_FOR = ["IMP"]
+PRIORITY_FOR = ["IMP"]
+RUN_COST = ["LOW"]
 
 
-MAGIC = ["\x00\x01BOOKDOUG", "\x00\x02BOOKDOUG"]
+def _default_metadata(_source_name: str = ""):
+    return Metadata(_("Unknown"), [])
 
 
-def get_metadata(stream):
-    """Return metadata as a L{MetaInfo} object"""
-    title = "Unknown"
-    mi = MetaInformation(title, ["Unknown"])
+def _ensure_default_authors(mi) -> None:
+    try:
+        if hasattr(mi, "is_null") and mi.is_null("authors"):
+            mi.authors = [_("Unknown")]
+            return
+    except Exception:
+        pass
+
+    raw = getattr(mi, "authors", None)
+    if not raw:
+        mi.authors = [_("Unknown")]
+
+
+def _warn(msg: str) -> None:
+    warn = getattr(default_log, "warning", None) or getattr(default_log, "warn", None)
+    if warn is not None:
+        warn(msg)
+
+
+def _decode_bytes(raw: bytes) -> str:
+    if not raw:
+        return ""
+    for enc in ("utf-8", "cp1252", "latin-1"):
+        try:
+            return raw.decode(enc)
+        except Exception:
+            continue
+    return raw.decode("utf-8", "replace")
+
+
+def _read_cstring(stream: BinaryIO, *, skip: int = 0, max_bytes: int = 128 * 1024) -> str:
+    """
+    Read a null-terminated string.
+
+    `skip` keeps legacy semantics from calibre's IMP parser: skip the first
+    `skip` terminated strings, then return the next one.
+    """
+    result = bytearray()
+    consumed = 0
+    while True:
+        data = stream.read(1)
+        if not data:
+            # Gracefully stop on truncated files.
+            return _decode_bytes(bytes(result))
+        consumed += 1
+        if consumed > max_bytes:
+            raise ValueError("IMP metadata string exceeded safety limit.")
+        if data == b"\x00":
+            if not skip:
+                return _decode_bytes(bytes(result))
+            skip -= 1
+            result.clear()
+            continue
+        result.extend(data)
+
+
+def read_metadata_from_stream(stream: BinaryIO, source_name: str = ""):
+    mi = _default_metadata(source_name)
     stream.seek(0)
     try:
         if stream.read(10) not in MAGIC:
-            default_log.warning("Couldn't read IMP header from file")
+            _warn("Couldn't read IMP header from file")
+            _ensure_default_authors(mi)
             return mi
 
-        def cString(skip=0):
-            result = ""
-            while 1:
-                data = stream.read(1)
-                if data == "\x00":
-                    if not skip:
-                        return result
-                    skip -= 1
-                    result, data = "", ""
-                result += data
-
-        stream.read(38)  # skip past some uninteresting headers
-        cString()
-        category, title, author = cString(), cString(1), cString(2)
+        # Skip uninteresting header bytes.
+        stream.read(38)
+        _read_cstring(stream)  # Legacy unused field.
+        category = _read_cstring(stream).strip()
+        title = _read_cstring(stream, skip=1).strip()
+        author = _read_cstring(stream, skip=2).strip()
 
         if title:
             mi.title = title
         if author:
             mi.authors = string_to_authors(author)
-            mi.author = author
         if category:
-            mi.category = category
+            # Keep legacy behaviour where IMP category is exposed.
+            setattr(mi, "category", category)
     except Exception as err:
-        msg = "Couldn't read metadata from imp: %s with error %s" % (
-            mi.title,
-            six_unicode(err),
-        )
-        default_log.warning(msg.encode("utf8"))
+        msg = "Couldn't read metadata from imp: %s with error %s" % (getattr(mi, "title", "Unknown"), err)
+        if hasattr(default_log, "log_exception"):
+            default_log.log_exception(msg, err, "ERROR")
+        else:
+            _warn(msg)
+    _ensure_default_authors(mi)
     return mi
+
+
+def get_metadata(target_file):
+    """
+    Return metadata as a calibre-compatible metadata object.
+    """
+    stream_needs_close = False
+    source_name = ""
+
+    if isinstance(target_file, six_string_types):
+        source_name = target_file
+        stream_needs_close = True
+        stream = open(target_file, "rb")
+    elif isinstance(target_file, os.PathLike):
+        source_name = os.fspath(target_file)
+        stream_needs_close = True
+        stream = open(source_name, "rb")
+    elif hasattr(target_file, "read"):
+        stream = target_file
+        source_name = getattr(stream, "name", "") or ""
+    else:
+        raise TypeError("target_file must be a filesystem path or a binary stream")
+
+    pos = None
+    if hasattr(stream, "tell"):
+        try:
+            pos = stream.tell()
+        except Exception:
+            pos = None
+
+    try:
+        return read_metadata_from_stream(stream, source_name=source_name)
+    finally:
+        if stream_needs_close:
+            stream.close()
+        elif pos is not None and hasattr(stream, "seek"):
+            try:
+                stream.seek(pos)
+            except Exception:
+                pass
+
+
+__all__ = [
+    "MAGIC",
+    "VALID_FOR",
+    "PRIORITY_FOR",
+    "RUN_COST",
+    "get_metadata",
+    "read_metadata_from_stream",
+]
