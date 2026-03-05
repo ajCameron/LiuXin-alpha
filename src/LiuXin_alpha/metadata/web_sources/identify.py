@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import time
+import unicodedata
 from datetime import datetime
 from io import StringIO
 from operator import attrgetter
@@ -33,6 +34,7 @@ except Exception:
         "find_first_edition_date": False,
         "fewer_tags": True,
         "id_link_rules": {},
+        "keep_dups": False,
     }
 
 try:
@@ -98,6 +100,33 @@ def _log(log, *parts):
     level_fn = getattr(log, "info", None)
     if callable(level_fn):
         level_fn(" ".join(str(p) for p in parts))
+
+
+def _normalize_identifier_value(value):
+    if value is None:
+        return None
+    if isinstance(value, (set, frozenset, list, tuple)):
+        for item in value:
+            normalized = _normalize_identifier_value(item)
+            if normalized:
+                return normalized
+        return None
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace").strip() or None
+    text = str(value).strip()
+    return text or None
+
+
+def _normalize_identifiers_for_urls(identifiers):
+    normalized = {}
+    for key, value in (identifiers or {}).items():
+        if key is None:
+            continue
+        norm_value = _normalize_identifier_value(value)
+        if not norm_value:
+            continue
+        normalized[str(key).lower()] = norm_value
+    return normalized
 
 
 # Download worker {{{
@@ -218,7 +247,8 @@ class ISBNMerge:
         if results:
             seen = set()
             for result in results:
-                if result.identify_plugin not in seen:
+                keep_dups = bool(msprefs.get("keep_dups", False))
+                if keep_dups or result.identify_plugin not in seen:
                     seen.add(result.identify_plugin)
                     self.results.append(result)
                     result.average_source_relevance = result.relevance_in_source
@@ -389,19 +419,25 @@ def merge_identify_results(result_map, log):
 
 
 # {{{
-def identify(log, abort, title=None, authors=None, identifiers={}, timeout=30):
+def identify(log, abort, title=None, authors=None, identifiers=None, timeout=30, allowed_plugins=None):
+    identifiers = identifiers or {}
+
     if title == _("Unknown"):
         title = None
     if authors == [_("Unknown")]:
         authors = None
 
     start_time = time.time()
-    plugins = [p for p in _iter_metadata_plugins(["identify"]) if p.is_configured()]
+    plugins = [
+        p
+        for p in _iter_metadata_plugins(["identify"])
+        if p.is_configured() and (allowed_plugins is None or p.name in allowed_plugins)
+    ]
     kwargs = {"title": title, "authors": authors, "identifiers": identifiers, "timeout": timeout}
 
     _log(log, "Running identify query with parameters:")
     _log(log, kwargs)
-    _log(log, "Using plugins:", ", ".join(p.name for p in plugins))
+    _log(log, "Using plugins:", ", ".join("%s %s" % (p.name, getattr(p, "version", "")) for p in plugins))
     _log(log, "The log from individual plugins is below")
 
     workers = [Worker(p, kwargs, abort) for p in plugins]
@@ -450,7 +486,7 @@ def identify(log, abort, title=None, authors=None, identifiers={}, timeout=30):
         # Remove exact duplicates from same source (title+authors)
         seen, filtered = set(), []
         for result in plugin_results:
-            key = (result.title, tuple(result.authors))
+            key = (getattr(result, "title", None), tuple(getattr(result, "authors", None) or ()))
             if key not in seen:
                 seen.add(key)
                 filtered.append(result)
@@ -477,7 +513,10 @@ def identify(log, abort, title=None, authors=None, identifiers={}, timeout=30):
 
         for result in plugin_results:
             _log(log, "\n\n---")
-            _log(log, str(result))
+            try:
+                _log(log, str(result))
+            except TypeError:
+                _log(log, repr(result))
 
         plugin_log = logs[plugin].getvalue().strip()
         if plugin_log:
@@ -513,6 +552,20 @@ def identify(log, abort, title=None, authors=None, identifiers={}, timeout=30):
     merged = merge_identify_results(results, log)
     _log(log, "We have %d merged results, merging took: %.2f seconds" % (len(merged), time.time() - start_time))
 
+    for result in merged:
+        if result.tags:
+            result.tags = [unicodedata.normalize("NFC", str(x)) for x in result.tags]
+        if result.authors:
+            result.authors = [unicodedata.normalize("NFC", str(x)) for x in result.authors]
+        if getattr(result, "author_sort", None):
+            result.author_sort = unicodedata.normalize("NFC", str(result.author_sort))
+        if result.title:
+            result.title = unicodedata.normalize("NFC", str(result.title))
+        if result.publisher:
+            result.publisher = unicodedata.normalize("NFC", str(result.publisher))
+        if result.comments:
+            result.comments = unicodedata.normalize("NFC", str(result.comments))
+
     max_tags = int(msprefs.get("max_tags", 20))
     for result in merged:
         result.tags = result.tags[:max_tags]
@@ -539,7 +592,7 @@ def identify(log, abort, title=None, authors=None, identifiers={}, timeout=30):
 
 
 def urls_from_identifiers(identifiers, sort_results=False):  # {{{
-    identifiers = {str(k).lower(): str(v) for k, v in (identifiers or {}).items() if k and v}
+    identifiers = _normalize_identifiers_for_urls(identifiers)
     ans = []
     keys_left = set(identifiers)
 
@@ -549,15 +602,22 @@ def urls_from_identifiers(identifiers, sort_results=False):  # {{{
 
     rules = msprefs.get("id_link_rules", {})
     if rules:
-        from LiuXin_alpha.utils.formatter import EvalFormatter
+        formatter = None
+        try:
+            from LiuXin_alpha.utils.formatter import EvalFormatter
 
-        formatter = EvalFormatter()
+            formatter = EvalFormatter()
+        except Exception:
+            formatter = None
         for key, val in identifiers.items():
             val = val.replace("|", ",")
             vals = {"id": quote(val), "id_unquoted": val}
             for name, template in (rules.get(key) or ()):
                 try:
-                    url = formatter.safe_format(template, vals, "", vals)
+                    if formatter is not None:
+                        url = formatter.safe_format(template, vals, "", vals)
+                    else:
+                        url = template.format(**vals)
                 except Exception:
                     continue
                 add(name, key, val, url)

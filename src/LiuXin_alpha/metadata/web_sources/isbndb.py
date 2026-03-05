@@ -1,34 +1,176 @@
-#!/usr/bin/env python
-# vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
+"""
+ISBNDB metadata source.
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+This source supports the modern ISBNDB v2 JSON API and retains a legacy XML
+fallback parser for older payloads.
+"""
 
-import pprint
+from __future__ import annotations
 
-from LiuXin.utils.localization import _
-from LiuXin.metadata import check_isbn
-from LiuXin.metadata.web_sources.base import Source, Option
-from LiuXin.metadata.metadata import MetaData as Metadata
+import json
+import os
+import re
+from collections import OrderedDict
+from collections.abc import Iterable, Mapping
+from datetime import datetime
+from urllib.parse import quote, quote_plus, urlencode
 
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn
+from LiuXin_alpha.metadata.web_sources.base import Option, Source
+from LiuXin_alpha.metadata.web_sources.http_client import RetryPolicy, call_with_backoff, compute_backoff_delay
+from LiuXin_alpha.metadata.web_sources.http_client import decode_http_body
+from LiuXin_alpha.metadata.web_sources.http_client import log_message
+from LiuXin_alpha.metadata.web_sources.http_client import wait_for_backoff
+from LiuXin_alpha.utils.date import parse_only_date
+from LiuXin_alpha.utils.localization import canonicalize_lang
+from LiuXin_alpha.utils.localization import trans as _
 
-BASE_URL = "http://isbndb.com/api/books.xml?access_key=%s&page_number=1&results=subjects,authors,texts&"
+try:
+    from xml.etree import ElementTree as ET
+except Exception:  # pragma: no cover - stdlib should always exist
+    ET = None
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-class ISBNDB(Source):
+def _as_text(raw) -> str:
+    if isinstance(raw, bytes):
+        return raw.decode("utf-8", "replace")
+    try:
+        return str(raw)
+    except Exception:
+        return ""
 
+
+def _first(raw):
+    if raw is None:
+        return None
+    if isinstance(raw, (str, bytes)):
+        return raw
+    if isinstance(raw, Mapping):
+        for key in raw:
+            return key
+        return None
+    if isinstance(raw, Iterable):
+        for item in raw:
+            return item
+    return raw
+
+
+def _first_identifier_value(identifiers, key):
+    if not isinstance(identifiers, Mapping):
+        return None
+    return _first(identifiers.get(key))
+
+
+def _safe_isbn(identifiers) -> str | None:
+    for key in ("isbn", "isbn13", "isbn10"):
+        raw = _first_identifier_value(identifiers or {}, key)
+        if raw is None:
+            continue
+        isbn = check_isbn(_as_text(raw))
+        if isbn:
+            return isbn
+    return None
+
+
+def _parse_pubdate(raw) -> datetime | None:
+    value = _as_text(raw).strip()
+    if not value:
+        return None
+    try:
+        return parse_only_date(value, assume_utc=True)
+    except Exception:
+        pass
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y-%m", "%Y/%m", "%Y.%m", "%Y"):
+        try:
+            dt = datetime.strptime(value, fmt)
+        except Exception:
+            continue
+        if fmt == "%Y":
+            return dt.replace(month=6, day=15)
+        if fmt in {"%Y-%m", "%Y/%m", "%Y.%m"}:
+            return dt.replace(day=15)
+        return dt
+    m = re.search(r"\b(19|20)\d{2}\b", value)
+    if m:
+        try:
+            return datetime(int(m.group(0)), 6, 15)
+        except Exception:
+            return None
+    return None
+
+
+def _ensure_author_list(raw):
+    if raw is None:
+        return []
+    if isinstance(raw, (list, tuple, set)):
+        return [x for x in (_as_text(v).strip() for v in raw) if x]
+    text = _as_text(raw).strip()
+    if not text:
+        return []
+    if "," in text:
+        return [x.strip() for x in text.split(",") if x.strip()]
+    return [text]
+
+
+def _parse_legacy_xml_books(payload: str):
+    if ET is None:
+        return []
+    text = _as_text(payload).strip()
+    if not text:
+        return []
+    try:
+        root = ET.fromstring(text)
+    except Exception:
+        return []
+
+    books = []
+    for node in root.findall(".//BookData"):
+        title = _as_text(node.findtext("Title", "")).strip()
+        if not title:
+            continue
+        authors = []
+        for person in node.findall(".//Authors/Person"):
+            name = _as_text(person.text or "").strip()
+            if not name:
+                continue
+            if "," in name:
+                last, _comma, first = name.partition(",")
+                name = (first.strip() + " " + last.strip()).strip()
+            authors.append(name)
+        record = {
+            "title": title,
+            "authors": authors,
+            "publisher": _as_text(node.findtext("PublisherText", "")).strip(),
+            "summary": _as_text(node.findtext("Summary", "")).strip(),
+            "isbn10": _as_text(node.get("isbn", "")).strip(),
+            "isbn13": _as_text(node.get("isbn13", "")).strip(),
+        }
+        books.append(record)
+    return books
+
+
+class ISBNDB(Source):
     name = "ISBNDB"
+    version = (2, 0, 0)
     description = _("Downloads metadata from isbndb.com")
 
-    capabilities = frozenset(["identify"])
-    touched_fields = frozenset(["title", "authors", "identifier:isbn", "comments", "publisher"])
+    capabilities = frozenset({"identify"})
+    touched_fields = frozenset(
+        {
+            "title",
+            "authors",
+            "identifier:isbn",
+            "comments",
+            "publisher",
+            "pubdate",
+            "languages",
+        }
+    )
     supports_gzip_transfer_encoding = True
-
-    # Shortcut, since we have no cached cover URLS
     cached_cover_url_is_reliable = False
 
     options = (
@@ -36,76 +178,227 @@ class ISBNDB(Source):
             "isbndb_key",
             "string",
             None,
-            _("IsbnDB key:"),
-            _("To use isbndb.com you have to sign up for a free account at isbndb.com and get an access key."),
+            _("ISBNDB API key:"),
+            _("To use isbndb.com you need an API key from isbndb.com."),
         ),
     )
-
     config_help_message = (
         "<p>"
         + _(
-            "To use metadata from isbndb.com you must sign"
-            " up for a free account and get an isbndb key and enter it below."
-            " Instructions to get the key are "
-            '<a href="%s">here</a>.'
+            "To use metadata from isbndb.com you must provide an API key. "
+            'See <a href="%s">the ISBNDB API docs</a> for key setup.'
         )
-    ) % "http://isbndb.com/api/v1/docs/keys"
+        + "</p>"
+    ) % "https://isbndb.com/apidocs/v2"
 
-    LIUXIN_TEST_KEY = "7L2BHNMV"
+    API_BASE = "https://api2.isbndb.com"
+    LEGACY_BASE = "https://isbndb.com/api/books.xml"
 
-    def __init__(self, *args, **kwargs):
-        Source.__init__(self, *args, **kwargs)
+    HTTP_RETRY_ATTEMPTS = 4
+    HTTP_RETRY_BASE_SECONDS = 0.5
+    HTTP_RETRY_MAX_SECONDS = 6.0
 
-        if self.LIUXIN_TEST_KEY is not None:
-            self.isbndb_key = self.LIUXIN_TEST_KEY
-
-        prefs = self.prefs
-        prefs.defaults["key_migrated"] = False
-        prefs.defaults["isbndb_key"] = self.isbndb_key
-
-        # if not prefs['key_migrated']:
-        #     prefs['key_migrated'] = True
-        #     try:
-        #         from LiuXin.customize.ui import config
-        #         key = config['plugin_customization']['IsbnDB']
-        #         prefs['isbndb_key'] = key
-        #     except:
-        #         pass
-
-    def isbndb_key(self):
-        return self.prefs["isbndb_key"]
+    def _api_key(self) -> str | None:
+        from_env = _as_text(os.environ.get("ISBNDB_API_KEY", "")).strip()
+        if from_env:
+            return from_env
+        from_prefs = _as_text(self.prefs.get("isbndb_key", "")).strip()
+        return from_prefs or None
 
     def is_configured(self):
-        return self.isbndb_key is not None
+        return self._api_key() is not None
+
+    def _retry_policy(self) -> RetryPolicy:
+        return RetryPolicy(
+            attempts=int(self.HTTP_RETRY_ATTEMPTS),
+            base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
+            max_delay=float(self.HTTP_RETRY_MAX_SECONDS),
+        )
+
+    def _retry_backoff(self, attempt: int) -> float:
+        return compute_backoff_delay(
+            attempt=attempt,
+            base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
+            max_delay=float(self.HTTP_RETRY_MAX_SECONDS),
+        )
+
+    def _wait_for_backoff(self, abort, delay: float) -> bool:
+        return wait_for_backoff(abort, delay)
+
+    def _open_bytes_with_backoff(self, log, abort, url: str, timeout: int, context: str, headers=None):
+        extra_headers = dict(headers or {})
+
+        def _open():
+            br = self.browser()
+            if extra_headers:
+                br.addheaders.extend([(str(k), str(v)) for k, v in extra_headers.items()])
+            return br.open_novisit(url, timeout=timeout).read()
+
+        return call_with_backoff(
+            _open,
+            log=log,
+            abort=abort,
+            context=context,
+            policy=self._retry_policy(),
+            timeout_seconds=timeout,
+            url=url,
+            retry_message="Transient ISBNDB request error; retrying with backoff",
+            error_message="ISBNDB request failed",
+            abort_result=b"",
+            backoff_fn=self._retry_backoff,
+            wait_for_backoff_fn=self._wait_for_backoff,
+        )
+
+    def _open_text_with_backoff(self, log, abort, url: str, timeout: int, context: str, headers=None):
+        raw = self._open_bytes_with_backoff(
+            log=log,
+            abort=abort,
+            url=url,
+            timeout=timeout,
+            context=context,
+            headers=headers,
+        )
+        if not raw:
+            return ""
+        return decode_http_body(raw)
+
+    def _json_headers(self):
+        key = self._api_key()
+        if not key:
+            return {}
+        return {"Authorization": key, "Accept": "application/json"}
 
     def create_query(self, title=None, authors=None, identifiers=None):
+        key = self._api_key()
+        if not key:
+            return []
+        identifiers = identifiers or {}
 
-        from urllib import quote
+        isbn = _safe_isbn(identifiers)
+        if isbn:
+            legacy_params = urlencode(
+                {
+                    "access_key": key,
+                    "page_number": 1,
+                    "results": "subjects,authors,texts",
+                    "index1": "isbn",
+                    "value1": isbn,
+                }
+            )
+            return [
+                ("v2_book", f"{self.API_BASE}/book/{quote(isbn)}"),
+                ("legacy_xml", f"{self.LEGACY_BASE}?{legacy_params}"),
+            ]
 
-        if identifiers is None:
-            identifiers = {}
+        title_tokens = list(self.get_title_tokens(title))
+        author_tokens = list(self.get_author_tokens(authors, only_first_author=True))
+        tokens = [x for x in title_tokens + author_tokens if x]
+        if not tokens:
+            return []
 
-        base_url = BASE_URL % self.isbndb_key
-        isbn = check_isbn(identifiers.get("isbn", None))
-        q = ""
-        if isbn is not None:
-            q = "index1=isbn&value1=" + isbn
-        elif title or authors:
-            tokens = []
-            title_tokens = list(self.get_title_tokens(title))
-            tokens += title_tokens
-            author_tokens = self.get_author_tokens(authors, only_first_author=True)
-            tokens += author_tokens
-            tokens = [quote(t.encode("utf-8") if isinstance(t, unicode) else t) for t in tokens]
-            q = "+".join(tokens)
-            q = "index1=combined&value1=" + q
+        search = " ".join(tokens)
+        legacy_params = urlencode(
+            {
+                "access_key": key,
+                "page_number": 1,
+                "results": "subjects,authors,texts",
+                "index1": "combined",
+                "value1": search,
+            }
+        )
+        return [
+            ("v2_search", f"{self.API_BASE}/books/{quote_plus(search)}?page=1&pageSize=20"),
+            ("legacy_xml", f"{self.LEGACY_BASE}?{legacy_params}"),
+        ]
 
-        if not q:
-            return None
-        if isinstance(q, unicode):
-            q = q.encode("utf-8")
-        print("query: {}".format(q))
-        return base_url + q
+    def _records_from_json_payload(self, payload: str):
+        try:
+            data = json.loads(payload)
+        except Exception:
+            return []
+        if isinstance(data, list):
+            return [x for x in data if isinstance(x, Mapping)]
+        if not isinstance(data, Mapping):
+            return []
+        if isinstance(data.get("book"), Mapping):
+            return [data["book"]]
+        if isinstance(data.get("books"), list):
+            return [x for x in data["books"] if isinstance(x, Mapping)]
+        if isinstance(data.get("data"), list):
+            return [x for x in data["data"] if isinstance(x, Mapping)]
+        return []
+
+    def _metadata_from_record(self, record, relevance=0):
+        title = _as_text(record.get("title_long") or record.get("title") or "").strip() or _("Unknown")
+        authors = _ensure_author_list(record.get("authors") or record.get("author_data"))
+        if not authors:
+            authors = [_("Unknown")]
+
+        mi = calibreMetaInformation(title, authors)
+        mi.source_relevance = relevance
+
+        publisher = _as_text(record.get("publisher") or "").strip()
+        if publisher:
+            if "audio" in publisher.lower():
+                return None
+            mi.publisher = publisher
+
+        comments = _as_text(record.get("synopsis") or record.get("summary") or record.get("overview") or "").strip()
+        if comments:
+            mi.comments = "<p>" + comments + "</p>"
+
+        pubdate = _parse_pubdate(record.get("date_published") or record.get("published_date"))
+        if pubdate is not None:
+            mi.pubdate = pubdate
+
+        lang = canonicalize_lang(_as_text(record.get("language") or record.get("language_code") or "").strip())
+        if lang and lang != "und":
+            mi.language = lang
+
+        seen = OrderedDict()
+        for key in ("isbn13", "isbn10", "isbn", "isbn_13", "isbn_10"):
+            isbn = check_isbn(_as_text(record.get(key) or ""))
+            if isbn:
+                seen[isbn] = True
+        if isinstance(record.get("isbns"), (list, tuple, set)):
+            for raw in record["isbns"]:
+                isbn = check_isbn(_as_text(raw))
+                if isbn:
+                    seen[isbn] = True
+        if seen:
+            all_isbns = list(seen.keys())
+            mi.all_isbns = all_isbns
+            best = sorted(all_isbns, key=len)[-1]
+            mi.set_identifier("isbn", best)
+
+        return mi
+
+    def _metadata_from_payload(self, payload: str, mode: str):
+        records = []
+        if mode.startswith("v2_"):
+            records = self._records_from_json_payload(payload)
+        elif mode == "legacy_xml":
+            records = _parse_legacy_xml_books(payload)
+        out = []
+        for idx, record in enumerate(records):
+            mi = self._metadata_from_record(record, relevance=idx)
+            if mi is not None:
+                out.append(mi)
+        return out
+
+    def _query_once(self, log, abort, query_mode: str, query_url: str, timeout: int):
+        headers = self._json_headers() if query_mode.startswith("v2_") else {}
+        payload = self._open_text_with_backoff(
+            log=log,
+            abort=abort,
+            url=query_url,
+            timeout=timeout,
+            context=f"ISBNDB {query_mode}",
+            headers=headers,
+        )
+        if not payload:
+            return []
+        return self._metadata_from_payload(payload=payload, mode=query_mode)
 
     def identify(
         self,
@@ -117,213 +410,76 @@ class ISBNDB(Source):
         identifiers=None,
         timeout=30,
     ):
-        """
-
-        :param log:
-        :param result_queue:
-        :param abort:
-        :param title:
-        :param authors:
-        :param identifiers:
-        :param timeout:
-        :return:
-        """
-        if identifiers is None:
-            identifiers = {}
-
-        if not self.is_configured():
+        identifiers = identifiers or {}
+        if abort.is_set():
             return
-        query = self.create_query(title=title, authors=authors, identifiers=identifiers)
-        if not query:
-            err = "Insufficient metadata to construct query"
-            log.error(err)
-            return err
+        if not self.is_configured():
+            log_message(log, "warning", "ISBNDB is not configured (missing API key)")
+            return
+
+        queries = self.create_query(title=title, authors=authors, identifiers=identifiers)
+        if not queries:
+            log_message(log, "error", "Insufficient metadata to construct ISBNDB query")
+            return
 
         results = []
-        try:
-            results = self.make_query(
-                query,
-                abort,
-                title=title,
-                authors=authors,
-                identifiers=identifiers,
-                timeout=timeout,
-            )
-        except Exception as e:
-            err_str = "Failed to make query to ISBNDb, aborting."
-            err_str = log.log_exception(err_str, e, "INFO", ("query", query))
-            return err_str
-
-        # Search again without the identifiers
-        if not results and identifiers.get("isbn", False) and title and authors and not abort.is_set():
-            return self.identify(log, result_queue, abort, title=title, authors=authors, timeout=timeout)
-
-        for result in results:
-            self.clean_downloaded_metadata(result)
-            result_queue.put(result)
-
-    def make_query(
-        self,
-        q,
-        abort,
-        title=None,
-        authors=None,
-        identifiers=None,
-        max_pages=10,
-        timeout=30,
-    ):
-        """
-        Query the ISBNDB website - return the xml feed for parsing.
-        :param q:
-        :param abort:
-        :param title:
-        :param authors:
-        :param identifiers:
-        :param max_pages:
-        :param timeout:
-        :return:
-        """
-        from lxml import etree
-        from LiuXin.file_formats.chardet import xml_to_unicode
-        from utils.libraries.cleantext import clean_ascii_chars
-
-        if identifiers is None:
-            identifiers = {}
-
-        page_num = 1
-        parser = etree.XMLParser(recover=True, no_network=True)
-        br = self.browser()
-
-        seen = set()
-
-        candidates = []
-        total_found = 0
-        while page_num <= max_pages and not abort.is_set():
-
-            url = q.replace("&page_number=1&", "&page_number=%d&" % page_num)
-
-            print("--------------------")
-            print(url)
-            print("--------------------")
-
-            page_num += 1
-            raw = br.open_novisit(url, timeout=timeout).read()
-            feed = etree.fromstring(
-                xml_to_unicode(clean_ascii_chars(raw), strip_encoding_pats=True)[0],
-                parser=parser,
-            )
-            total, found, results = self.parse_feed(feed, seen, title, authors, identifiers)
-
-            total_found += found
-            candidates += results
-
-            if total_found >= total or len(candidates) > 9:
+        for query_mode, query_url in queries:
+            if abort.is_set():
+                break
+            try:
+                found = self._query_once(
+                    log=log,
+                    abort=abort,
+                    query_mode=query_mode,
+                    query_url=query_url,
+                    timeout=timeout,
+                )
+            except Exception:
+                continue
+            if found:
+                results = found
                 break
 
-        print(pprint.pformat(candidates))
+        # Retry title/author query when strict ISBN lookup yields no match.
+        if not results and _safe_isbn(identifiers) and (title or authors) and not abort.is_set():
+            log_message(log, "info", "ISBNDB ISBN query yielded no results, retrying with title/author query")
+            queries = self.create_query(title=title, authors=authors, identifiers={})
+            for query_mode, query_url in queries:
+                if abort.is_set():
+                    break
+                try:
+                    found = self._query_once(
+                        log=log,
+                        abort=abort,
+                        query_mode=query_mode,
+                        query_url=query_url,
+                        timeout=timeout,
+                    )
+                except Exception:
+                    continue
+                if found:
+                    results = found
+                    break
 
-        return candidates
-
-    def parse_feed(self, feed, seen, orig_title, orig_authors, identifiers):
-        """
-
-        :param feed:
-        :param seen:
-        :param orig_title:
-        :param orig_authors:
-        :param identifiers:
-        :return:
-        """
-        from lxml import etree
-
-        def tostring(x):
-            """
-            Extract the text component from an xml element
-            :param x:
-            :return:
-            """
-            if x is None:
-                return ""
-            return etree.tostring(x, method="text", encoding=six_unicode).strip()
-
-        # Originally had a match function which tried to determine if the feed result matched the return. Removed, as
-        # it seems to be too restricting (no results are surviving the filter)
-
-        orig_isbn = identifiers.get("isbn", None)
-        results = []
-
-        bl = feed.find("BookList")
-        if bl is None:
-            err = tostring(feed.find("errormessage"))
-            raise ValueError("ISBNDb query failed:" + err)
-
-        # Total number of results matching the parameters
-        # Results in this page of the feeed
-        total_results = int(bl.get("total_results"))
-        shown_results = int(bl.get("shown_results"))
-        for bd in bl.xpath(".//BookData"):
-
-            # If title and author information can't be excttracted, something has gone vbery wrong
-            title = tostring(bd.find("Title"))
-            if not title:
+        seen = set()
+        for result in results:
+            self.clean_downloaded_metadata(result)
+            normalized_idents = []
+            for ident_key, ident_val in (result.get_identifiers() or {}).items():
+                if isinstance(ident_val, (set, frozenset, list, tuple)):
+                    ident_val = tuple(sorted(_as_text(x) for x in ident_val))
+                else:
+                    ident_val = _as_text(ident_val)
+                normalized_idents.append((str(ident_key), ident_val))
+            key = (
+                result.title,
+                tuple(result.authors),
+                tuple(sorted(normalized_idents)),
+            )
+            if key in seen:
                 continue
-
-            authors = []
-            for au in bd.xpath(".//Authors/Person"):
-                au = tostring(au)
-                if au:
-                    if "," in au:
-                        ln, _, fn = au.partition(",")
-                        au = fn.strip() + " " + ln.strip()
-                authors.append(au)
-            if not authors:
-                continue
-
-            md = Metadata(title, authors)
-
-            # Parse the ISBN out of the feed
-            isbn10 = check_isbn(bd.get("isbn", None))
-            isbn13 = check_isbn(bd.get("isbn13", None))
-            md.isbn10 = isbn10
-            md.isbn13 = isbn13
-
-            comments = tostring(bd.find("Summary"))
-
-            publisher = tostring(bd.find("PublisherText"))
-            if not publisher:
-                publisher = None
-            if publisher and "audio" in publisher.lower():
-                continue
-
-            md.publisher = publisher
-            md.comments = comments
-            results.append(md)
-
-        return total_results, shown_results, results
+            seen.add(key)
+            result_queue.put(result)
 
 
-if __name__ == "__main__":
-    # To run these test use:
-    # calibre-debug -e src/calibre/ebooks/metadata/sources/isbndb.py
-    from LiuXin.file_formats.metadata.sources.test import (
-        test_identify_plugin,
-        title_test,
-        authors_test,
-    )
-
-    test_identify_plugin(
-        ISBNDB.name,
-        [
-            (
-                {"title": "Great Gatsby", "authors": ["Fitzgerald"]},
-                [
-                    title_test("The great gatsby", exact=True),
-                    authors_test(["F. Scott Fitzgerald"]),
-                ],
-            ),
-            (
-                {"title": "Flatland", "authors": ["Abbott"]},
-                [title_test("Flatland", exact=False)],
-            ),
-        ],
-    )
+__all__ = ["ISBNDB"]

@@ -43,3 +43,49 @@ def test_source_identify_results_keygen_prefers_exact_title() -> None:
     ordered = sorted([fuzzy, exact], key=keygen)
 
     assert ordered[0].title == "Exact Match"
+
+
+def test_random_user_agent_can_rotate_with_env(monkeypatch) -> None:
+    import LiuXin_alpha.metadata.web_sources.base as base
+
+    monkeypatch.setenv("LIUXIN_WEB_SOURCES_RANDOM_UA", "1")
+    monkeypatch.setattr(base.random, "choice", lambda seq: seq[-1])
+    assert base.random_user_agent() == base.random_user_agent(index=2)
+
+
+def test_source_browser_adds_rich_headers_when_enabled(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.base import Source
+
+    monkeypatch.setenv("LIUXIN_WEB_SOURCES_RICH_HEADERS", "1")
+    source = Source()
+    br = source.browser()
+    headers = {k: v for k, v in br.addheaders}
+
+    assert "User-Agent" in headers
+    assert headers.get("Accept-Language")
+    assert headers.get("DNT") == "1"
+    assert headers.get("Upgrade-Insecure-Requests") == "1"
+
+
+def test_source_browser_rotates_user_agent_when_enabled(monkeypatch) -> None:
+    import LiuXin_alpha.metadata.web_sources.base as base
+
+    monkeypatch.setenv("LIUXIN_WEB_SOURCES_RANDOM_UA", "1")
+
+    class _SeqChoice:
+        def __init__(self):
+            self.idx = 0
+
+        def __call__(self, seq):
+            item = seq[self.idx % len(seq)]
+            self.idx += 1
+            return item
+
+    monkeypatch.setattr(base.random, "choice", _SeqChoice())
+
+    source = base.Source()
+    first = {k: v for k, v in source.browser().addheaders}.get("User-Agent")
+    second = {k: v for k, v in source.browser().addheaders}.get("User-Agent")
+
+    assert first is not None and second is not None
+    assert first != second

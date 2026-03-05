@@ -33,4 +33,53 @@ def test_web_sources_import_web_source_module_reports_missing_port_cleanly() -> 
     from LiuXin_alpha.metadata.web_sources import import_web_source_module
 
     with pytest.raises(ModuleNotFoundError):
-        import_web_source_module("amazon")
+        import_web_source_module("no_such_web_source_module")
+
+
+def test_web_sources_import_web_source_module_imports_ported_amazon() -> None:
+    from LiuXin_alpha.metadata.web_sources import import_web_source_module
+
+    mod = import_web_source_module("amazon")
+    assert hasattr(mod, "Amazon")
+
+
+def test_web_sources_import_web_source_module_imports_ported_edelweiss() -> None:
+    from LiuXin_alpha.metadata.web_sources import import_web_source_module
+
+    mod = import_web_source_module("edelweiss")
+    assert hasattr(mod, "Edelweiss")
+
+
+def test_web_sources_import_web_source_module_imports_ported_isbndb() -> None:
+    from LiuXin_alpha.metadata.web_sources import import_web_source_module
+
+    mod = import_web_source_module("isbndb")
+    assert hasattr(mod, "ISBNDB")
+
+
+def test_web_sources_import_web_source_module_imports_ported_kdl() -> None:
+    from LiuXin_alpha.metadata.web_sources import import_web_source_module
+
+    mod = import_web_source_module("kdl")
+    assert hasattr(mod, "get_series")
+
+
+def test_web_sources_import_web_source_module_imports_ported_library_thing() -> None:
+    from LiuXin_alpha.metadata.web_sources import import_web_source_module
+
+    mod = import_web_source_module("library_thing")
+    assert hasattr(mod, "get_social_metadata")
+
+
+def test_web_sources_import_web_source_module_imports_ported_overdrive() -> None:
+    from LiuXin_alpha.metadata.web_sources import import_web_source_module
+
+    mod = import_web_source_module("overdrive")
+    assert hasattr(mod, "OverDrive")
+
+
+def test_web_sources_import_web_source_module_imports_ported_ozon() -> None:
+    from LiuXin_alpha.metadata.web_sources import import_web_source_module
+
+    mod = import_web_source_module("ozon")
+    assert hasattr(mod, "Ozon")
