@@ -1232,6 +1232,7 @@ class Archive(LiuXinPlugin):
     def __str__(self) -> str:
         """
         Returns a string representation of the object
+
         :return:
         """
 
@@ -1329,7 +1330,7 @@ class Archive(LiuXinPlugin):
         """
         raise NotImplementedError
 
-    def infolist(self):
+    def infolist(self) -> list[ZipInfoLike]:
         """
         Returns a list containing an info object for every element.
 
@@ -1341,9 +1342,10 @@ class Archive(LiuXinPlugin):
         """
         raise NotImplementedError
 
-    def namelist(self):
+    def namelist(self) -> list[str]:
         """
         Returns a list of all members of the archive by name.
+
         Paths are unix style (/ separated).
         Not a property to more closely match the zipfile interface.
         :return:
@@ -1351,19 +1353,22 @@ class Archive(LiuXinPlugin):
         raise NotImplementedError
 
     @property
-    def files(self):
+    def files(self) -> Iterable[str]:
         """
-        Returns all the files in the archive. The paths are relative to the root of the file and are unix styles paths
+        Returns all the files in the archive.
+
+        The paths are relative to the root of the file and are unix styles paths
         (separated by /).
         :return:
         """
         raise NotImplementedError
 
     @property
-    def folders(self):
+    def folders(self) -> Iterable[str]:
         """
-        Returns all the folders in the archive. The paths are relative to the root of the file and are unix style paths
-        (separated by /).
+        Returns all the folders in the archive.
+
+        The paths are relative to the root of the file and are unix style paths (separated by /).
         :return:
         """
         raise NotImplementedError
@@ -1371,9 +1376,10 @@ class Archive(LiuXinPlugin):
     def extract(self, path, pwd, member):
         """
         Extract a member of the archive.
+
         Note that this function works like the method of this name from zipfile - if you point the member to a file in
         the archive it'll create the dictionary structure of the archive up to that file, then create that file.
-        If you just
+
         :param path: Where the file should be extracted
         :param pwd: Password for archive
         :param member: Either the name of the object or an info object (preferably a name - as, often, the name will
@@ -1384,8 +1390,10 @@ class Archive(LiuXinPlugin):
 
     def extractall(self, path, pwd, members):
         """
-        Extract all members from the archive to the current working directory. path specifies a different directory to
-        extract to. members is optional and must be a subset of the list returned by namelist(). pwd is the password
+        Extract all members from the archive to the current working directory.
+
+        path specifies a different directory to extract to.
+        members is optional and must be a subset of the list returned by namelist(). pwd is the password
         used for encrypted files.
         This works as the zipfile extractall method.
         :param path:

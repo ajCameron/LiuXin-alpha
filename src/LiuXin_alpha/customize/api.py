@@ -789,7 +789,7 @@ class ArchiveAPI(LiuXinPluginAPI):
     file_name: str
 
     # - archive itself
-    mode: str
+    mode: Literal["a", "w", "r"]
     compression_flags: Any
     write_type: Literal["a", "w", "r"]
 
@@ -798,8 +798,11 @@ class ArchiveAPI(LiuXinPluginAPI):
     block_count: Optional[int]
     physical_size: Optional[int]
     final_size: Optional[int]
-    multivolume: str
 
+    multivolume: str
+    password: str
+
+    @abc.abstractmethod
     def __init__(self,
                  file_path: Union[pathlib.Path, str],
                  *,
@@ -824,6 +827,16 @@ class ArchiveAPI(LiuXinPluginAPI):
         :return:
         """
         super().__init__(plugin_path="builtin")
+
+        self.file_path = file_path
+
+        self.mode = mode
+
+        self.compression_flags = compression_flags
+
+        self.write_type = write_type
+
+        self.password = password
 
     @abc.abstractmethod
     def __str__(self) -> str:
@@ -868,4 +881,45 @@ class ArchiveAPI(LiuXinPluginAPI):
         :return:
         """
 
+    @abc.abstractmethod
+    def infolist(self) -> list[ZipInfoLike]:
+        """
+        Returns a list containing an info object for every element.
 
+        The objects are in the same order as their entries
+        in the actual ZIP file on disk if an existing archive was opened.
+        It's assumed that the objects that this method returns have the same interface as
+        :param name:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def namelist(self) -> list[str]:
+        """
+        Returns a list of all members of the archive by name.
+
+        Paths are unix style (/ separated).
+        Not a property to more closely match the zipfile interface.
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def files(self) -> Iterable[str]:
+        """
+        Returns all the files in the archive.
+
+        The paths are relative to the root of the file and are unix styles paths
+        (separated by /).
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def folders(self) -> Iterable[str]:
+        """
+        Returns all the folders in the archive.
+
+        The paths are relative to the root of the file and are unix style paths (separated by /).
+        :return:
+        """
