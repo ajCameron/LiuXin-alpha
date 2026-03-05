@@ -4,8 +4,11 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 import os
+from copy import deepcopy
+from collections.abc import Mapping
 
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
 from LiuXin_alpha.file_formats.opf.opf2 import OPF, pretty_print
 from LiuXin_alpha.file_formats.opf.opf3 import apply_metadata, read_metadata
@@ -67,6 +70,88 @@ def _parse_opf_from_input(stream):
     return parse_opf(stream)
 
 
+def _clean_xml_text(value):
+    if value is None:
+        return value
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        value = bytes(value).decode("utf-8", "replace")
+    if isinstance(value, str):
+        return clean_xml_chars(value)
+    return value
+
+
+def _clean_xml_list(values):
+    if not values:
+        return []
+    ans = []
+    for item in values:
+        clean_item = _clean_xml_text(item)
+        if clean_item is None:
+            continue
+        if isinstance(clean_item, str) and not clean_item.strip():
+            continue
+        ans.append(clean_item)
+    return ans
+
+
+def _sanitize_metadata_for_xml(mi):
+    """
+    Return a metadata object safe for XML serialization.
+
+    This strips XML-invalid control characters from free-text fields before
+    handing off to OPF2/OPF3 writers, so callers get robust behavior instead
+    of hard lxml failures.
+    """
+    try:
+        safe_mi = deepcopy(mi)
+    except Exception:
+        safe_mi = mi
+
+    for attr in (
+        "title",
+        "author_sort",
+        "title_sort",
+        "publisher",
+        "comments",
+        "book_producer",
+        "series",
+        "isbn",
+    ):
+        val = getattr(safe_mi, attr, None)
+        clean_val = _clean_xml_text(val)
+        if clean_val != val:
+            setattr(safe_mi, attr, clean_val)
+
+    for attr in ("authors", "tags", "languages"):
+        val = getattr(safe_mi, attr, None)
+        if val is None:
+            continue
+        if isinstance(val, str):
+            val = [val]
+        try:
+            clean_val = _clean_xml_list(list(val))
+        except Exception:
+            clean_val = _clean_xml_list((val,))
+        setattr(safe_mi, attr, clean_val)
+
+    # Keep identifiers stable, but sanitize problematic control chars in keys and values.
+    if hasattr(safe_mi, "get_identifiers") and hasattr(safe_mi, "set_identifiers"):
+        try:
+            idents = safe_mi.get_identifiers() or {}
+        except Exception:
+            idents = {}
+        if isinstance(idents, Mapping):
+            clean_idents = {}
+            for key, val in iteritems(idents):
+                clean_key = _clean_xml_text(key)
+                clean_val = _clean_xml_text(val)
+                if clean_key and clean_val:
+                    clean_idents[clean_key] = clean_val
+            safe_mi.set_identifiers(clean_idents)
+
+    return safe_mi
+
+
 def get_metadata2(root, ver):
     opf = OPF(None, preparsed_opf=root, read_toc=False)
     return opf.to_book_metadata(), ver, opf.raster_cover, opf.first_spine_item()
@@ -113,10 +198,11 @@ def set_metadata(
     root = _parse_opf_from_input(stream)
     ver = parse_opf_version(root.get("version"))
     f = set_metadata_opf2 if ver.major < 3 else set_metadata_opf3
+    safe_mi = _sanitize_metadata_for_xml(mi)
     opfbytes, raster_cover = f(
         root,
         cover_prefix,
-        mi,
+        safe_mi,
         ver,
         cover_data=cover_data,
         apply_null=apply_null,

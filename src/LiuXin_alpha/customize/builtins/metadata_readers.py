@@ -205,7 +205,7 @@ else:
     file_type_plugins += [HTMLMetadataReader]
 
 try:
-    from LiuXin_alpha.metadata.file_sources.extz import get_metadata as extz_get_metadata
+    from LiuXin_alpha.metadata.file_sources.txtz import get_metadata as txtz_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize EXTZMetadataReader - necessary functions couldn't be imported from "
@@ -347,10 +347,12 @@ else:
         description = _("Read metadata from %s files") % "MOBI"
 
         def get_metadata(self, stream, ftype):
-            return mobi_get_metadata(stream).finalize()
+            md = mobi_get_metadata(stream)
+            return md.finalize() if hasattr(md, "finalize") else md
 
         def get_metadata_inplace(self, file_path, ftype):
-            return mobi_get_metadata_inplace(file_path).finalize()
+            md = mobi_get_metadata_inplace(file_path)
+            return md.finalize() if hasattr(md, "finalize") else md
 
     file_type_plugins += [MOBIMetadataReader]
 
@@ -382,7 +384,7 @@ else:
     file_type_plugins += [ODTMetadataReader]
 
 try:
-    from LiuXin_alpha.file_formats.opf.opf2 import OPF
+    from LiuXin_alpha.metadata.file_sources.opf import get_metadata as opf_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize OPFMetadataReader - necessary functions couldn't be imported from "
@@ -399,7 +401,10 @@ else:
         description = _("Read metadata from %s files") % "OPF"
 
         def get_metadata(self, stream, ftype):
-            return OPF(stream, os.getcwdu()).to_book_metadata()
+            return opf_get_metadata(stream, calibre=True)
+
+        def get_metadata_inplace(self, file_path, ftype):
+            return opf_get_metadata(file_path, calibre=True)
 
     file_type_plugins += [OPFMetadataReader]
 
@@ -585,7 +590,7 @@ else:
         author = "Li Fanxi"
 
         def get_metadata(self, stream, ftype):
-            return snb_get_metadata(stream).finalize()
+            return snb_get_metadata(stream)
 
     file_type_plugins += [SNBMetadataReader]
 
@@ -659,7 +664,7 @@ else:
         author = "John Schember"
 
         def get_metadata(self, stream, ftype):
-            return extz_get_metadata(stream)
+            return txtz_get_metadata(stream)
 
     file_type_plugins += [TXTZMetadataReader]
 

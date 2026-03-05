@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import shutil
 from collections.abc import Mapping
 from pathlib import Path
@@ -107,3 +108,40 @@ def test_docx_set_metadata_roundtrip_stream(tmp_path: Path, md_test_fixture) -> 
     assert metadata.title == "Stream title"
     assert _field_values(metadata.authors) == ["Stream Author"]
     assert _field_values(metadata.publisher) == ["Stream Publisher"]
+
+
+def test_docx_set_metadata_unicode_torture_roundtrip(tmp_path: Path, md_test_fixture) -> None:
+    from LiuXin_alpha.metadata.file_sources.docx import get_metadata, set_metadata
+
+    source = md_test_fixture(file_ext="docx", file_num=1, verify_hash=True)
+    target = tmp_path / "roundtrip_unicode_torture.docx"
+    shutil.copy2(source, target)
+
+    updated = calibreMetaInformation(
+        "Unicode Torture — Καλημέρα мир مرحبا हिन्दी 中文 日本語 😀",
+        ["Renée Δ", "李白", "مريم", "Иван", "Zoë 👩🏽‍💻"],
+    )
+    updated.tags = ["café", "καλημέρα", "emoji😀", "漢字", "e\u0301-vs-é"]
+    updated.comments = "Combining: e\u0301 a\u0308 n\u0303; RTL: العربية; ZWJ: 👨‍👩‍👧‍👦"
+    updated.publisher = "出版者 / الناشر / Издатель"
+
+    set_metadata(target, updated)
+    metadata = get_metadata(target)
+
+    assert metadata.title == updated.title
+    assert _field_values(metadata.authors) == _field_values(updated.authors)
+    assert _field_values(metadata.tags) == _field_values(updated.tags)
+    assert _field_values(metadata.comments) == _field_values(updated.comments)
+    assert _field_values(metadata.publisher) == _field_values(updated.publisher)
+
+
+def test_docx_set_metadata_invalid_zip_raises_clean_error() -> None:
+    from LiuXin_alpha.utils.libraries.calibre_zipfile import BadZipfile
+    from zipfile import BadZipFile
+
+    from LiuXin_alpha.metadata.file_sources.docx import set_metadata
+
+    stream = io.BytesIO(b"not-a-zip")
+    mi = calibreMetaInformation("x", ["y"])
+    with pytest.raises((BadZipFile, BadZipfile)):
+        set_metadata(stream, mi)

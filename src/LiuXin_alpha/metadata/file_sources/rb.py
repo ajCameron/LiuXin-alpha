@@ -21,6 +21,13 @@ PRIORITY_FOR = ["RB"]
 RUN_COST = ["LOW"]
 
 
+def _default_metadata(source_name: str = ""):
+    title = "Unknown"
+    if source_name:
+        title = os.path.splitext(os.path.basename(source_name))[0] or "Unknown"
+    return calibreMetaInformation(title, ["Unknown"])
+
+
 def get_metadata(target_file):
     """
     Return metadata as a calibre-compatible metadata object.
@@ -32,29 +39,39 @@ def get_metadata(target_file):
         source_name = target_file
         stream_needs_close = True
         stream = open(target_file, "rb")
+    elif isinstance(target_file, os.PathLike):
+        source_name = os.fspath(target_file)
+        stream_needs_close = True
+        stream = open(source_name, "rb")
     elif hasattr(target_file, "read"):
         stream = target_file
         source_name = getattr(stream, "name", "") or ""
     else:
         raise TypeError("target_file must be a filesystem path or a binary stream")
 
+    pos = None
+    if hasattr(stream, "tell"):
+        try:
+            pos = stream.tell()
+        except Exception:
+            pos = None
+
     try:
         return read_metadata_from_stream(stream, source_name=source_name)
     finally:
         if stream_needs_close:
             stream.close()
+        elif pos is not None and hasattr(stream, "seek"):
+            try:
+                stream.seek(pos)
+            except Exception:
+                pass
 
 
 def _log_warning(message: str) -> None:
     logger = getattr(default_log, "warning", None) or getattr(default_log, "warn", None)
     if logger is not None:
         logger(message)
-
-
-def _default_title_from_source(source_name: str) -> str:
-    if not source_name:
-        return "Unknown"
-    return os.path.splitext(os.path.basename(source_name))[0] or "Unknown"
 
 
 def _decode_info_line(raw_line: bytes) -> str:
@@ -65,7 +82,7 @@ def _decode_info_line(raw_line: bytes) -> str:
 
 
 def read_metadata_from_stream(stream, source_name: str = ""):
-    mi = calibreMetaInformation(_default_title_from_source(source_name), [])
+    mi = _default_metadata(source_name)
     stream.seek(0)
     try:
         if stream.read(14) != MAGIC:
@@ -93,6 +110,7 @@ def read_metadata_from_stream(stream, source_name: str = ""):
 
         stream.seek(info_offset)
         info = stream.read(info_length).splitlines()
+        authors: list[str] = []
         for raw_line in info:
             if b"=" not in raw_line:
                 continue
@@ -102,7 +120,9 @@ def read_metadata_from_stream(stream, source_name: str = ""):
             if key == "TITLE" and value:
                 mi.title = value
             elif key == "AUTHOR" and value:
-                mi.authors = string_to_authors(value)
+                authors.extend([x for x in string_to_authors(value) if x])
+        if authors:
+            mi.authors = authors
     except Exception as err:
         title = getattr(mi, "title", "Unknown")
         msg = six_unicode("Couldn't read metadata from rb: %s with error %s") % (title, six_unicode(err))
@@ -110,5 +130,15 @@ def read_metadata_from_stream(stream, source_name: str = ""):
             default_log.log_exception(msg, err, "ERROR")
         else:
             _log_warning(msg)
-        raise
+        return _default_metadata(source_name)
     return mi
+
+
+__all__ = [
+    "MAGIC",
+    "VALID_FOR",
+    "PRIORITY_FOR",
+    "RUN_COST",
+    "get_metadata",
+    "read_metadata_from_stream",
+]

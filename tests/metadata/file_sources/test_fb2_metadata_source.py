@@ -248,6 +248,24 @@ def test_fb2_handles_malformed_payload_gracefully(monkeypatch) -> None:
     assert calls
 
 
+def test_fb2_set_metadata_on_malformed_payload_logs_and_raises(monkeypatch) -> None:
+    import LiuXin_alpha.metadata.file_sources.fb2 as fb2
+
+    events: list[tuple[str, str]] = []
+
+    def _record(message, err, level, *pairs):
+        events.append((str(message), str(err)))
+
+    monkeypatch.setattr(fb2.default_log, "log_exception", _record)
+
+    stream = io.BytesIO(b"this is not xml")
+    with pytest.raises(Exception):
+        fb2.set_metadata(stream, calibreMetaInformation("Updated", ["Author"]))
+
+    assert events
+    assert any("Failed to write metadata to FB2 source." in msg for msg, _ in events)
+
+
 def test_fb2_reads_windows1251_encoded_payload() -> None:
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata
 

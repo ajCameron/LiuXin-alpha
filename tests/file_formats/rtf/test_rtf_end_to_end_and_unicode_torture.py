@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import os
 import re
+import unicodedata
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 
 class _Log:
@@ -38,6 +41,47 @@ class _Log:
 
 def _opts() -> SimpleNamespace:
     return SimpleNamespace(input_encoding=None, debug_pipeline=None, ignore_wmf=True)
+
+
+UNICODE_TORTURE_STANDARD_CASES = [
+    {
+        "title": "Unicode Torture Καλημέρα 你好",
+        "author": "José Иван",
+        "paragraphs": [
+            "Latin accents: naïve coöperate façade déjà vu.",
+            "Greek: Καλημέρα κόσμε.",
+            "Cyrillic: Здравствуйте, мир.",
+            "Arabic: مرحبا بالعالم.",
+            "Hebrew: שלום עולם.",
+            "Devanagari: नमस्ते दुनिया।",
+            "CJK: 你好，世界。",
+            "Combining marks: cafe\u0301 co\u0308perate A\u030A.",
+        ],
+        "required_probes": ["naïve", "Καλημέρα", "Здравствуйте", "مرحبا", "שלום", "नमस्ते", "你好"],
+    },
+    {
+        "title": "Emoji + Math",
+        "author": "Alice & Bob",
+        "paragraphs": [
+            "Emoji sequence: 😀 😃 😄",
+            "ZWJ family: 👨‍👩‍👧‍👦 and engineer: 👩‍💻",
+            "Math and symbols: ∑∫√∞≈≠≤≥ ←→↔↦",
+            "Mixed scripts: кириллица عربى हिन्दी 漢字 한글",
+        ],
+        "required_probes": ["Emoji", "Math and symbols", "Mixed scripts", "한글"],
+    },
+    {
+        "title": "Directionality Stress",
+        "author": "RTL/LTR",
+        "paragraphs": [
+            "English then العربية ثم English again.",
+            "Hebrew with punctuation: שלום, עולם!",
+            "Thai + Japanese + Chinese: สวัสดี 日本語 中文",
+            "Control-like chars escaped safely: braces { } and backslash \\.",
+        ],
+        "required_probes": ["العربية", "שלום", "日本語", "中文", "backslash"],
+    },
+]
 
 
 def _rtf_escape(text: str) -> str:
@@ -107,6 +151,10 @@ def _normalize_opf(opf_text: str) -> str:
     return opf_text
 
 
+def _contains_normalized(text: str, probe: str) -> bool:
+    return unicodedata.normalize("NFC", probe) in unicodedata.normalize("NFC", text)
+
+
 def test_rtf_input_end_to_end_unicode_torture(tmp_path: Path) -> None:
     paragraphs = [
         "Latin accents: naïve coöperate façade déjà vu.",
@@ -131,6 +179,22 @@ def test_rtf_input_end_to_end_unicode_torture(tmp_path: Path) -> None:
     probes = ["naïve", "Καλημέρα", "Здравствуйте", "مرحبا", "שלום", "नमस्ते", "你好"]
     hits = sum(1 for p in probes if p in html)
     assert hits >= 5
+
+
+@pytest.mark.parametrize("case", UNICODE_TORTURE_STANDARD_CASES)
+def test_rtf_input_end_to_end_unicode_torture_standard_matrix(tmp_path: Path, case: dict) -> None:
+    source = tmp_path / (case["title"].replace(" ", "_") + ".rtf")
+    source.write_bytes(_build_rtf(case["title"], case["author"], case["paragraphs"]))
+
+    _log, opf_path, html_path, css_path = _run_rtf_input_convert(source, tmp_path / ("run_" + source.stem))
+
+    assert opf_path.exists()
+    assert html_path.exists()
+    assert css_path.exists()
+
+    html = html_path.read_text("utf-8", "replace")
+    for probe in case["required_probes"]:
+        assert _contains_normalized(html, probe)
 
 
 def test_rtf_input_end_to_end_deterministic_output(tmp_path: Path) -> None:
@@ -172,5 +236,11 @@ def test_rtf_input_end_to_end_broken_encoding_tolerant(tmp_path: Path) -> None:
     html = html_path.read_text("utf-8", "replace")
     assert "Broken bytes" in html
     assert "tail text" in html
-    # Metadata stack is still partially legacy; conversion must still complete noisily.
-    assert any("Failed to read RTF metadata" in msg for msg in log.messages)
+    # Accept both behaviors:
+    # 1) legacy path warns and falls back
+    # 2) hardened parser extracts metadata and does not warn
+    warned = any("Failed to read RTF metadata" in msg for msg in log.messages)
+    if not warned:
+        opf = opf_path.read_text("utf-8", "replace")
+        assert "Broken Encoding" in opf
+        assert "Author" in opf

@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "name": "fake_realworld_001",
+      "path": "fake_realworld_001.opf",
+      "expected": {
+        "version_major": 3,
+        "title": "Fake Golden Title",
+        "authors": [
+          "Golden Author"
+        ],
+        "series": "Golden Series",
+        "series_index": 2.0
+      },
+      "sha256": "94a11190a1c0d47adf945cbc72e66ff278da0b1fce1928dc644e70cb8ff13242"
+    }
+  ]
+}
