@@ -16,7 +16,7 @@ Then run the full suite of tests which have been marked as for it.
 All base classes for any plugins anywhere in LiuXin should be stored here.
 """
 
-from __future__ import with_statement, print_function
+from __future__ import with_statement, print_function, annotations
 
 import os
 import sys
@@ -42,6 +42,49 @@ from LiuXin_alpha.errors import PluginNotFound, InvalidPlugin
 from LiuXin_alpha.preferences import preferences
 
 from typing import TypeVar
+
+from typing import Protocol, runtime_checkable, Optional, Tuple
+from datetime import datetime
+
+
+@runtime_checkable
+class ZipInfoLike(Protocol):
+    # --- core identity / metadata ---
+    filename: str
+    date_time: Tuple[int, int, int, int, int, int]  # (Y, M, D, h, m, s)
+    compress_type: int
+    comment: bytes
+    extra: bytes
+
+    # --- sizes / CRC ---
+    file_size: int
+    compress_size: int
+    CRC: int
+
+    # --- flags / versions ---
+    flag_bits: int
+    create_system: int
+    create_version: int
+    extract_version: int
+    reserved: int
+
+    # --- perms / attributes ---
+    internal_attr: int
+    external_attr: int
+
+    # --- offsets ---
+    header_offset: int
+
+    # --- extra fields often present on ZipInfo ---
+    volume: int
+
+    # --- methods ZipInfo provides ---
+    def is_dir(self) -> bool: ...
+    def FileHeader(self, zip64: Optional[bool] = None) -> bytes: ...
+
+    # Not always needed, but commonly used for display/logging.
+    def __repr__(self) -> str: ...
+
 
 class Base:
     ...
@@ -1186,20 +1229,16 @@ class Archive(LiuXinPlugin):
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO REPRESENT THE CLASS START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Returns a string representation of the object
         :return:
         """
-        return self.__unicode__().encode("utf-8")
 
-    def __unicode__(self):
-        """
-        A string representation of a archive object - for output to the console.
-        """
         ans = []
 
-        def format(x, y):
+        def format(x: Any, y: Any) -> None:
+
             candidate = None
             try:
                 candidate = "%-20s: %s" % (six_unicode(x), six_unicode(y))
@@ -1248,10 +1287,10 @@ class Archive(LiuXinPlugin):
 
         return "\n".join(ans)
 
-    def printdir(self):
+    def printdir(self) -> None:
         """
-        Prints a contents of the archive to sys.stdout. Mostly useless and will not be implemented.
-        Only here for completeness of the api.
+        Prints a contents of the archive to sys.stdout.
+
         :return:
         """
         raise NotImplementedError
@@ -1260,10 +1299,11 @@ class Archive(LiuXinPlugin):
     # - METHODS TO GATHER BASIC INFORMATION ABOUT THE FILE
     # ------------------------------------------------------------------------------------------------------------------
     @classmethod
-    def is_valid(cls, path):
+    def is_valid(cls, path: Union[str, pathlib.Path]) -> bool:
         """
-        Takes a local path - determines if the file can be read by this class (is a valid example of one of the archive
-        types that the class can read).
+        Takes a local path - determines if the file can be read by this class.
+
+        Checks the path is a valid example of one of the archive types that the class can read.
         Equivalent to the is_zipfile method.
         :param path:
         :return:
@@ -1273,15 +1313,17 @@ class Archive(LiuXinPlugin):
     # ------------------------------------------------------------------------------------------------------------------
     # - READ METHODS START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def getinfo(self, name):
+    def getinfo(self, name: str) -> ZipInfoLike:
         """
         Return info on an element in the archive.
+
         Calling this for a name not in the archive results in a KeyError.
-        Should return an object with the same API as the ZipInfo object (Note that, in later versions of ZipFile, the
-        ZipInfo object for a file can be used in place of the name when specifying an object for extraction - this
-        might not be the case here - always use the name to be sure).
-        In cases where the plugin doesn't support much data extraction, thwere will always be a file name. That is the
-        only garantee which is made.
+        Should return an object with the same API as the ZipInfo object.
+
+        Note that, in later versions of ZipFile, the ZipInfo object for a file can be used in place of the name when
+        specifying an object for extraction - this might not be the case here - always use the name to be sure.
+        In cases where the plugin doesn't support much data extraction, there will always be a file name. That is the
+        only guarantee which is made.
         :param name:
         :return:
         """
@@ -1289,7 +1331,9 @@ class Archive(LiuXinPlugin):
 
     def infolist(self):
         """
-        Returns a list containing an info object for every element.  The objects are in the same order as their entries
+        Returns a list containing an info object for every element.
+
+        The objects are in the same order as their entries
         in the actual ZIP file on disk if an existing archive was opened.
         It's assumed that the objects that this method returns have the same interface as
         :param name:

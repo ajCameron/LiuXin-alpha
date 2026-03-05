@@ -5,7 +5,7 @@ The API for the customize class - which serves as the basic API for the plugin c
 
 import abc
 import pathlib
-from typing import Union, Any, Iterable, Tuple, BinaryIO, Optional, Literal
+from typing import Union, Any, Iterable, Tuple, BinaryIO, Optional, Literal, runtime_checkable, overload, Protocol, runtime_checkable
 from types import ModuleType
 from collections import namedtuple
 
@@ -721,6 +721,46 @@ class LXMetadataReaderAPI(LiuXinPluginAPI, _MetadataReaderPluginAPI):
         """
 
 
+@runtime_checkable
+class ZipInfoLike(Protocol):
+    # --- core identity / metadata ---
+    filename: str
+    date_time: Tuple[int, int, int, int, int, int]  # (Y, M, D, h, m, s)
+    compress_type: int
+    comment: bytes
+    extra: bytes
+
+    # --- sizes / CRC ---
+    file_size: int
+    compress_size: int
+    CRC: int
+
+    # --- flags / versions ---
+    flag_bits: int
+    create_system: int
+    create_version: int
+    extract_version: int
+    reserved: int
+
+    # --- perms / attributes ---
+    internal_attr: int
+    external_attr: int
+
+    # --- offsets ---
+    header_offset: int
+
+    # --- extra fields often present on ZipInfo ---
+    volume: int
+
+    # --- methods ZipInfo provides ---
+    def is_dir(self) -> bool: ...
+    def FileHeader(self, zip64: Optional[bool] = None) -> bytes: ...
+
+    # Not always needed, but commonly used for display/logging.
+    def __repr__(self) -> str: ...
+
+
+
 class ArchiveAPI(LiuXinPluginAPI):
     """
     Provides a zipfile like read interface to a compressed file format.
@@ -760,8 +800,72 @@ class ArchiveAPI(LiuXinPluginAPI):
     final_size: Optional[int]
     multivolume: str
 
+    def __init__(self,
+                 file_path: Union[pathlib.Path, str],
+                 *,
+                 mode: Literal["r", "w", "a"],
+                 compression_flags=None,
+                 write_type: Optional[str] = None,
+                 password: str) -> None:
+        """
+        Initialize an object representing the compressed file.
 
+        :param file_path: Path to the file
+        :param mode: Should be the standard python file modes for zipfile (a, r, w e.t.c)
+                     Note that there is no such mode as rb e.t.c supported for zip files - archives are opened in
+                     bytes mode by default.
+                     This should be reflected in all archive implementations.
+        :param compression_flags: A flag for the compression method
+        :param write_type: If an archive doesn't exist at the given file_path, then it has to be created. For plugins
+                           that can write to multiple file types the write_type is the plugin_type of archive you want to write
+                            to (e.g. if a plugin can write to both rar and zip, and you want to create a rar archive,
+                            the set write_type="rar").
+                            If the plugin can only write to one plugin_type of archive this will be ignored.
+        :return:
+        """
+        super().__init__(plugin_path="builtin")
 
+    @abc.abstractmethod
+    def __str__(self) -> str:
+        """
+        Returns a string representation of the object
+        :return:
+        """
 
+    @abc.abstractmethod
+    def printdir(self) -> None:
+        """
+        Prints a contents of the archive to sys.stdout.
+
+        :return:
+        """
+
+    @classmethod
+    @abc.abstractmethod
+    def is_valid(cls, path: Union[str, pathlib.Path]) -> bool:
+        """
+        Takes a local path - determines if the file can be read by this class.
+
+        Checks the path is a valid example of one of the archive types that the class can read.
+        Equivalent to the is_zipfile method.
+        :param path:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def getinfo(self, name: str) -> ZipInfoLike:
+        """
+        Return info on an element in the archive.
+
+        Calling this for a name not in the archive results in a KeyError.
+        Should return an object with the same API as the ZipInfo object.
+
+        Note that, in later versions of ZipFile, the ZipInfo object for a file can be used in place of the name when
+        specifying an object for extraction - this might not be the case here - always use the name to be sure.
+        In cases where the plugin doesn't support much data extraction, there will always be a file name. That is the
+        only guarantee which is made.
+        :param name:
+        :return:
+        """
 
 
