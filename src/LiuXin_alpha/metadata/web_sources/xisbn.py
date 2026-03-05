@@ -1,113 +1,123 @@
-#!/usr/bin/env python2
-# vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
+"""
+xISBN helper.
 
-from __future__ import print_function
+Historically this queried OCLC's xISBN service for related ISBN pools. That
+service is decommissioned, so network querying is disabled by default while
+keeping the API surface for compatibility.
+"""
+
+from __future__ import annotations
 
 import json
 import re
 import threading
+from typing import Any
 
-from LiuXin import browser
+from LiuXin_alpha.metadata.web_sources.base import browser
+from LiuXin_alpha.utils.logging import default_log
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-# Todo: Changed so that it now requires a
-class xISBN(object):
+class xISBN:
     """
-    This class is used to find the ISBN numbers of "related" editions of a
-    book, given its ISBN. Useful when querying services for metadata by ISBN,
-    in case they do not have the ISBN for the particular edition.
+    Find ISBN numbers for related editions of a book.
     """
 
     QUERY = "http://xisbn.worldcat.org/webservices/xid/isbn/%s?method=getEditions&format=json&fl=form,year,lang,ed"
+    BOOK_FORMS = frozenset(("BA", "BC", "BB", "DA"))
 
-    def __init__(self):
+    def __init__(self, enable_network: bool = False):
         self.lock = threading.RLock()
-        self._data = []
-        self._map = {}
-
+        self._data: list[list[dict[str, Any]]] = []
+        self._map: dict[str, int] = {}
         self.isbn_pat = re.compile(r"[^0-9X]", re.IGNORECASE)
 
-    def purify(self, isbn):
-        return self.isbn_pat.sub("", isbn.upper())
+        # xISBN was decommissioned by OCLC in 2018. Keep disabled by default.
+        self.enable_network = bool(enable_network)
+        self.service_available = self.enable_network
 
-    def fetch_data(self, isbn):
+    def purify(self, isbn) -> str:
+        return self.isbn_pat.sub("", str(isbn or "").upper())
+
+    def _fetch_raw(self, isbn: str, timeout: float = 20) -> bytes:
         url = self.QUERY % isbn
-        data = browser().open_novisit(url).read()
-        data = json.loads(data)
-        if data.get("stat", None) != "ok":
+        return browser().open_novisit(url, timeout=timeout).read()
+
+    def fetch_data(self, isbn: str) -> list[dict[str, Any]]:
+        if not self.enable_network:
             return []
-        data = data.get("list", [])
-        ans = []
-        for rec in data:
-            forms = rec.get("form", [])
-            # Only get books, not audio/video
-            forms = [x for x in forms if x in ("BA", "BC", "BB", "DA")]
+
+        payload = self._fetch_raw(isbn)
+        data = json.loads(payload)
+        if data.get("stat") != "ok":
+            return []
+
+        records = data.get("list", [])
+        ans: list[dict[str, Any]] = []
+        for rec in records:
+            forms = [x for x in rec.get("form", []) if x in self.BOOK_FORMS]
             if forms:
                 ans.append(rec)
         return ans
 
     def isbns_in_data(self, data):
         for rec in data:
-            for i in rec.get("isbn", []):
-                yield i
+            for raw in rec.get("isbn", []):
+                isbn = self.purify(raw)
+                if isbn:
+                    yield isbn
 
-    def get_data(self, isbn):
-        isbn = self.purify(isbn)
+    def get_data(self, isbn: str) -> list[dict[str, Any]]:
+        pure = self.purify(isbn)
+        if not pure:
+            return []
+
         with self.lock:
-            if isbn not in self._map:
+            if pure not in self._map:
                 try:
-                    data = self.fetch_data(isbn)
-                except:
-                    import traceback
-
-                    traceback.print_exc()
+                    data = self.fetch_data(pure)
+                except Exception as err:
+                    default_log.log_exception(
+                        "xISBN fetch failed.",
+                        err,
+                        "DEBUG",
+                        ("isbn", pure),
+                    )
                     data = []
-                id_ = len(self._data)
+
+                bucket = len(self._data)
                 self._data.append(data)
-                for i in self.isbns_in_data(data):
-                    self._map[i] = id_
-                self._map[isbn] = id_
-            return self._data[self._map[isbn]]
+                for related in self.isbns_in_data(data):
+                    self._map[related] = bucket
+                self._map[pure] = bucket
 
-    def get_associated_isbns(self, isbn):
+            return self._data[self._map[pure]]
+
+    def get_associated_isbns(self, isbn: str):
+        return set(self.isbns_in_data(self.get_data(isbn)))
+
+    def get_isbn_pool(self, isbn: str):
         data = self.get_data(isbn)
-        ans = set([])
+        isbns = frozenset(self.isbns_in_data(data))
+
+        min_year = None
         for rec in data:
-            for i in rec.get("isbn", []):
-                ans.add(i)
-        return ans
-
-    def get_isbn_pool(self, isbn):
-        data = self.get_data(isbn)
-        raw = tuple(x.get("isbn") for x in data if "isbn" in x)
-        isbns = []
-        for x in raw:
-            isbns += x
-        isbns = frozenset(isbns)
-        min_year = 100000
-        for x in data:
             try:
-                year = int(x["year"])
-                if year < min_year:
-                    min_year = year
-            except:
+                year = int(rec.get("year"))
+            except Exception:
                 continue
-        if min_year == 100000:
-            min_year = None
+            min_year = year if min_year is None else min(min_year, year)
+
         return isbns, min_year
 
 
 xisbn = xISBN()
 
-if __name__ == "__main__":
-    import sys
-    import pprint
 
-    isbn = sys.argv[-1]
-    print(pprint.pprint(xisbn.get_data(isbn)))
-    print()
-    print(xisbn.get_associated_isbns(isbn))
+__all__ = [
+    "xISBN",
+    "xisbn",
+]

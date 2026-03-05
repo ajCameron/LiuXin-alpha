@@ -1,0 +1,292 @@
+from __future__ import annotations
+
+import queue
+from threading import Event
+
+
+def test_web_sources_openlibrary_import_smoke() -> None:
+    import LiuXin_alpha.metadata.web_sources.openlibrary as openlibrary
+
+    assert openlibrary is not None
+
+
+def test_openlibrary_get_book_url_and_cached_cover_url() -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    plugin = OpenLibrary()
+    assert plugin.get_book_url({"isbn": "9780306406157"}) == (
+        "isbn",
+        "9780306406157",
+        "https://openlibrary.org/isbn/9780306406157",
+    )
+    assert (
+        plugin.get_cached_cover_url({"isbn": "9780306406157"})
+        == "https://covers.openlibrary.org/b/isbn/9780306406157-L.jpg?default=false"
+    )
+
+
+def test_openlibrary_download_cover_happy_path(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    class _Resp:
+        @staticmethod
+        def read():
+            return b"jpeg-bytes"
+
+    class _Browser:
+        @staticmethod
+        def open_novisit(url, timeout=30):
+            assert "covers.openlibrary.org/b/isbn/9780306406157-L.jpg" in url
+            assert timeout == 17
+            return _Resp()
+
+    plugin = OpenLibrary()
+    monkeypatch.setattr(plugin, "browser", lambda: _Browser())
+    out = queue.Queue()
+    log = []
+
+    plugin.download_cover(
+        log=type(
+            "L",
+            (),
+            {
+                "error": staticmethod(lambda *a: log.append(("error", a))),
+                "exception": staticmethod(lambda *a: log.append(("exception", a))),
+            },
+        )(),
+        result_queue=out,
+        abort=Event(),
+        identifiers={"isbn": "9780306406157"},
+        timeout=17,
+    )
+
+    source, payload = out.get_nowait()
+    assert source is plugin
+    assert payload == b"jpeg-bytes"
+    assert log == []
+
+
+def test_openlibrary_download_cover_404_logs_error(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    class _E(Exception):
+        @staticmethod
+        def getcode():
+            return 404
+
+    class _Browser:
+        @staticmethod
+        def open_novisit(url, timeout=30):
+            raise _E("missing")
+
+    plugin = OpenLibrary()
+    monkeypatch.setattr(plugin, "browser", lambda: _Browser())
+    out = queue.Queue()
+    events = []
+    logger = type(
+        "L",
+        (),
+        {
+            "error": staticmethod(lambda *a: events.append(("error", a))),
+            "exception": staticmethod(lambda *a: events.append(("exception", a))),
+        },
+    )()
+
+    plugin.download_cover(
+        log=logger,
+        result_queue=out,
+        abort=Event(),
+        identifiers={"isbn": "9780306406157"},
+    )
+
+    assert out.empty()
+    assert events and events[0][0] == "error"
+
+
+def test_openlibrary_download_cover_without_isbn_is_noop(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    plugin = OpenLibrary()
+    called = {"browser": False}
+
+    def _browser():
+        called["browser"] = True
+        raise AssertionError("browser should not be called without ISBN")
+
+    monkeypatch.setattr(plugin, "browser", _browser)
+    out = queue.Queue()
+    logger = type("L", (), {"error": staticmethod(lambda *a: None), "exception": staticmethod(lambda *a: None)})()
+
+    plugin.download_cover(
+        log=logger,
+        result_queue=out,
+        abort=Event(),
+        identifiers={},
+    )
+
+    assert out.empty()
+    assert called["browser"] is False
+
+
+def test_openlibrary_download_cover_supports_set_identifier(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    class _Resp:
+        @staticmethod
+        def read():
+            return b"x"
+
+    seen = {}
+
+    class _Browser:
+        @staticmethod
+        def open_novisit(url, timeout=30):
+            seen["url"] = url
+            return _Resp()
+
+    plugin = OpenLibrary()
+    monkeypatch.setattr(plugin, "browser", lambda: _Browser())
+    out = queue.Queue()
+    logger = type("L", (), {"error": staticmethod(lambda *a: None), "exception": staticmethod(lambda *a: None)})()
+
+    plugin.download_cover(
+        log=logger,
+        result_queue=out,
+        abort=Event(),
+        identifiers={"isbn": {"9780306406157"}},
+    )
+
+    assert "9780306406157-L.jpg" in seen["url"]
+
+
+def test_openlibrary_sanitizes_mangled_isbn_in_url(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    class _Resp:
+        @staticmethod
+        def read():
+            return b"x"
+
+    seen = {}
+
+    class _Browser:
+        @staticmethod
+        def open_novisit(url, timeout=30):
+            seen["url"] = url
+            return _Resp()
+
+    plugin = OpenLibrary()
+    monkeypatch.setattr(plugin, "browser", lambda: _Browser())
+    out = queue.Queue()
+    logger = type("L", (), {"error": staticmethod(lambda *a: None), "exception": staticmethod(lambda *a: None)})()
+
+    plugin.download_cover(
+        log=logger,
+        result_queue=out,
+        abort=Event(),
+        identifiers={"isbn": " 978-0-306-40615-7 \n?? "},
+    )
+
+    assert "9780306406157-L.jpg" in seen["url"]
+
+
+def test_openlibrary_get_urls_accept_bytes_isbn() -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    plugin = OpenLibrary()
+    assert plugin.get_book_url({"isbn": b"9780306406157"}) == (
+        "isbn",
+        "9780306406157",
+        "https://openlibrary.org/isbn/9780306406157",
+    )
+    assert (
+        plugin.get_cached_cover_url({"isbn": b"9780306406157"})
+        == "https://covers.openlibrary.org/b/isbn/9780306406157-L.jpg?default=false"
+    )
+
+
+def test_openlibrary_download_cover_non_404_logs_exception(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    class _Browser:
+        @staticmethod
+        def open_novisit(url, timeout=30):
+            raise RuntimeError("boom")
+
+    plugin = OpenLibrary()
+    monkeypatch.setattr(plugin, "browser", lambda: _Browser())
+    out = queue.Queue()
+    events = []
+    logger = type(
+        "L",
+        (),
+        {
+            "error": staticmethod(lambda *a: events.append(("error", a))),
+            "exception": staticmethod(lambda *a: events.append(("exception", a))),
+        },
+    )()
+
+    plugin.download_cover(
+        log=logger,
+        result_queue=out,
+        abort=Event(),
+        identifiers={"isbn": "9780306406157"},
+    )
+
+    assert out.empty()
+    assert events and events[0][0] == "exception"
+
+
+def test_openlibrary_download_cover_empty_payload_not_queued(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    class _Resp:
+        @staticmethod
+        def read():
+            return b""
+
+    class _Browser:
+        @staticmethod
+        def open_novisit(url, timeout=30):
+            return _Resp()
+
+    plugin = OpenLibrary()
+    monkeypatch.setattr(plugin, "browser", lambda: _Browser())
+    out = queue.Queue()
+    logger = type("L", (), {"error": staticmethod(lambda *a: None), "exception": staticmethod(lambda *a: None)})()
+
+    plugin.download_cover(
+        log=logger,
+        result_queue=out,
+        abort=Event(),
+        identifiers={"isbn": "9780306406157"},
+    )
+
+    assert out.empty()
+
+
+def test_openlibrary_abort_prevents_request(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    plugin = OpenLibrary()
+    called = {"browser": False}
+
+    def _browser():
+        called["browser"] = True
+        raise AssertionError("browser should not be called if abort is already set")
+
+    monkeypatch.setattr(plugin, "browser", _browser)
+    out = queue.Queue()
+    logger = type("L", (), {"error": staticmethod(lambda *a: None), "exception": staticmethod(lambda *a: None)})()
+    abort = Event()
+    abort.set()
+
+    plugin.download_cover(
+        log=logger,
+        result_queue=out,
+        abort=abort,
+        identifiers={"isbn": "9780306406157"},
+    )
+
+    assert out.empty()
+    assert called["browser"] is False

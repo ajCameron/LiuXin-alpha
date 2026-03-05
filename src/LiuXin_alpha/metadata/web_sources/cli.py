@@ -1,23 +1,28 @@
-#!/usr/bin/env python
-# vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
+"""
+Command-line entrypoint for web metadata fetching.
+"""
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import annotations
 
 import sys
-from io import BytesIO
+from io import StringIO
 from threading import Event
 
-from LiuXin import prints
-from LiuXin.utils.config.config_tools import OptionParser
-from LiuXin.utils.magick.draw import save_cover_data_to
-from LiuXin.metadata import string_to_authors
-from LiuXin.file_formats.opf.opf2 import metadata_to_opf
-from LiuXin.metadata.web_sources.base import create_log
-from LiuXin.metadata.web_sources.identify import identify
-from LiuXin.metadata.web_sources.covers import download_cover
+from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf
+from LiuXin_alpha.metadata.utils import string_to_authors
+from LiuXin_alpha.metadata.web_sources.base import create_log
+from LiuXin_alpha.metadata.web_sources.covers import download_cover
+from LiuXin_alpha.metadata.web_sources.identify import identify
+from LiuXin_alpha.utils.config.config_tools import OptionParser
+from LiuXin_alpha.utils.localization import trans as _
 
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+try:
+    from LiuXin_alpha.utils.image_tools.img import save_cover_data_to
+except Exception:
+    try:
+        from LiuXin_alpha.utils.image_tools.img_fallback import save_cover_data_to
+    except Exception:
+        save_cover_data_to = None
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -39,6 +44,15 @@ of title, authors or ISBN.
     parser.add_option("-a", "--authors", help=_("Book author(s)"))
     parser.add_option("-i", "--isbn", help=_("Book ISBN"))
     parser.add_option(
+        "-I",
+        "--identifier",
+        action="append",
+        default=[],
+        help=_(
+            "Identifier key:value pair (e.g. --identifier asin:B0082BAJA0). Can be used multiple times."
+        ),
+    )
+    parser.add_option(
         "-v",
         "--verbose",
         default=False,
@@ -48,37 +62,91 @@ of title, authors or ISBN.
     parser.add_option(
         "-o",
         "--opf",
-        help=_("Output the metadata in OPF format instead of human readable text."),
         action="store_true",
         default=False,
+        help=_("Output metadata in OPF format instead of human-readable text."),
     )
     parser.add_option(
         "-c",
         "--cover",
-        help=_(
-            "Specify a filename. The cover, if available, will be saved to it. Without this option, no cover will be downloaded."
-        ),
+        help=_("Output filename for downloaded cover. If omitted, cover download is skipped."),
     )
     parser.add_option("-d", "--timeout", default="30", help=_("Timeout in seconds. Default is 30"))
-
     return parser
 
 
-def main(args=sys.argv):
-    parser = option_parser()
-    opts, args = parser.parse_args(args)
+def _emit_text(stream, text: str) -> None:
+    stream.write(text)
+    if not text.endswith("\n"):
+        stream.write("\n")
 
-    buf = BytesIO()
-    log = create_log(buf)
+
+def _emit_bytes(stream, data: bytes) -> None:
+    if hasattr(stream, "buffer"):
+        stream.buffer.write(data)
+        if not data.endswith(b"\n"):
+            stream.buffer.write(b"\n")
+    else:
+        _emit_text(stream, data.decode("utf-8", "replace"))
+
+
+def _save_cover(cover_data: bytes, path: str) -> None:
+    if save_cover_data_to is not None:
+        save_cover_data_to(cover_data, path)
+        return
+    with open(path, "wb") as handle:
+        handle.write(cover_data)
+
+
+def _result_to_text(result) -> str:
+    try:
+        rendered = str(result)
+        if isinstance(rendered, str):
+            return rendered
+    except TypeError:
+        pass
+
+    unicode_fn = getattr(result, "__unicode__", None)
+    if callable(unicode_fn):
+        try:
+            rendered = unicode_fn()
+            if isinstance(rendered, bytes):
+                return rendered.decode("utf-8", "replace")
+            return str(rendered)
+        except Exception:
+            pass
+
+    try:
+        rendered = bytes(result)
+        return rendered.decode("utf-8", "replace")
+    except Exception:
+        return repr(result)
+
+
+def _parse_identifiers(opts) -> dict[str, str]:
+    identifiers: dict[str, str] = {}
+    for spec in opts.identifier:
+        key, sep, value = str(spec or "").partition(":")
+        if not key or not sep or not value:
+            raise SystemExit(f"Not a valid identifier: {spec!r}")
+        identifiers[key.strip()] = value.strip()
+    if opts.isbn:
+        identifiers["isbn"] = str(opts.isbn).strip()
+    return identifiers
+
+
+def main(args=None):
+    if args is None:
+        args = sys.argv
+    parser = option_parser()
+    opts, _args = parser.parse_args(args)
+
+    log_buffer = StringIO()
+    log = create_log(log_buffer)
     abort = Event()
 
-    authors = []
-    if opts.authors:
-        authors = string_to_authors(opts.authors)
-
-    identifiers = {}
-    if opts.isbn:
-        identifiers["isbn"] = opts.isbn
+    authors = string_to_authors(opts.authors) if opts.authors else []
+    identifiers = _parse_identifiers(opts)
 
     results = identify(
         log,
@@ -90,39 +158,42 @@ def main(args=sys.argv):
     )
 
     if not results:
-        print(log, file=sys.stderr)
-        prints("No results found", file=sys.stderr)
+        _emit_text(sys.stderr, log_buffer.getvalue())
+        _emit_text(sys.stderr, "No results found")
         raise SystemExit(1)
-    result = results[0]
 
-    cf = None
-    if opts.cover and results:
+    result = results[0]
+    cover_path = None
+    if opts.cover:
         cover = download_cover(
             log,
             title=opts.title,
             authors=authors,
-            identifiers=result.identifiers,
+            identifiers=getattr(result, "identifiers", identifiers),
             timeout=int(opts.timeout),
         )
-        if cover is None and not opts.opf:
-            prints("No cover found", file=sys.stderr)
+        if cover is None:
+            if not opts.opf:
+                _emit_text(sys.stderr, "No cover found")
         else:
-            save_cover_data_to(cover[-1], opts.cover)
-            result.cover = cf = opts.cover
-
-    log = buf.getvalue()
-
-    result = metadata_to_opf(result) if opts.opf else six_unicode(result).encode("utf-8")
+            _save_cover(cover[-1], opts.cover)
+            result.cover = cover_path = opts.cover
 
     if opts.verbose:
-        print(log, file=sys.stderr)
+        _emit_text(sys.stderr, log_buffer.getvalue())
 
-    print(result)
-    if not opts.opf and opts.cover:
-        prints("Cover               :", cf)
+    if opts.opf:
+        payload = metadata_to_opf(result)
+        if isinstance(payload, str):
+            payload = payload.encode("utf-8", "replace")
+        _emit_bytes(sys.stdout, payload)
+    else:
+        _emit_text(sys.stdout, _result_to_text(result))
+        if opts.cover:
+            _emit_text(sys.stdout, f"Cover               : {cover_path}")
 
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

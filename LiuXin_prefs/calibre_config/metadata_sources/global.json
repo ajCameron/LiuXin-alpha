@@ -1,0 +1,9 @@
+{
+  "cover_priorities": {
+    "Big Book Search": 2,
+    "Google": 2,
+    "Google Images": 2
+  },
+  "ignore_fields": [],
+  "wait_after_first_cover_result": 60
+}
