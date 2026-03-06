@@ -1,34 +1,179 @@
-#!/usr/bin/env python
-# vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
+"""
+Shared base classes and helpers for web metadata-source plugins.
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+This module is intentionally dependency-light so it can be imported in CLI/test
+environments that do not have full GUI/network plugin stacks available.
+"""
+
+from __future__ import annotations
 
 import inspect
+import io
+import os
+import random
 import re
+import ssl
 import threading
-from builtins import map
+import traceback
+from dataclasses import dataclass
+from functools import total_ordering
+from typing import Any, Iterable
+from urllib.request import Request, urlopen
 
-from LiuXin import browser
-from LiuXin import random_user_agent
-
-from LiuXin.customize import Plugin
-
-from LiuXin.utils.icu import capitalize, lower, upper
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.localization import canonicalize_lang, get_lang
-from LiuXin.utils.logger import default_log
+from LiuXin_alpha.customize import Plugin
+from LiuXin_alpha.utils.localization import canonicalize_lang, get_lang
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import default_log
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-def create_log(ostream=None):
-    from LiuXin.utils.logger import ThreadSafeLog, FileStream
+def _cmp(a, b) -> int:
+    return (a > b) - (a < b)
 
-    log = ThreadSafeLog(level=ThreadSafeLog.DEBUG)
-    log.outputs = [FileStream(ostream)]
-    return log
+
+def _as_text(value: Any) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    return str(value)
+
+
+def _lower(text: Any) -> str:
+    return _as_text(text).lower()
+
+
+def _upper(text: Any) -> str:
+    return _as_text(text).upper()
+
+
+def _capitalize(text: Any) -> str:
+    raw = _as_text(text)
+    return raw[:1].upper() + raw[1:].lower() if raw else raw
+
+
+def _env_truthy(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return bool(default)
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+class _ThreadSafeStreamLog:
+    """
+    Small logger that mimics the callable API historically used by web sources.
+    """
+
+    def __init__(self, ostream: io.TextIOBase | None = None):
+        self._lock = threading.RLock()
+        self._stream = ostream or io.StringIO()
+
+    def _write(self, level: str, *parts: Any) -> None:
+        line = " ".join(_as_text(p) for p in parts)
+        with self._lock:
+            self._stream.write(f"[{level}] {line}\n")
+
+    def __call__(self, *parts: Any) -> None:
+        self._write("INFO", *parts)
+
+    def debug(self, *parts: Any) -> None:
+        self._write("DEBUG", *parts)
+
+    def info(self, *parts: Any) -> None:
+        self._write("INFO", *parts)
+
+    def warn(self, *parts: Any) -> None:
+        self._write("WARN", *parts)
+
+    warning = warn
+
+    def error(self, *parts: Any) -> None:
+        self._write("ERROR", *parts)
+
+    def exception(self, *parts: Any) -> None:
+        self._write("ERROR", *parts)
+        tb = traceback.format_exc()
+        if tb and tb != "NoneType: None\n":
+            with self._lock:
+                self._stream.write(tb)
+
+    def getvalue(self) -> str:
+        with self._lock:
+            return getattr(self._stream, "getvalue", lambda: "")()
+
+
+def create_log(ostream=None):
+    return _ThreadSafeStreamLog(ostream)
+
+
+class _StdlibBrowser:
+    """
+    Minimal browser adapter with the subset of API expected by legacy sources.
+    """
+
+    def __init__(
+        self,
+        user_agent: str | None = None,
+        verify_ssl_certificates: bool = True,
+        rich_headers: bool = False,
+    ):
+        self._verify_ssl = bool(verify_ssl_certificates)
+        self._handle_gzip = False
+        self.addheaders = [("User-Agent", user_agent or random_user_agent())]
+        if rich_headers:
+            self.addheaders.extend(
+                [
+                    ("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
+                    ("Accept-Language", "en-US,en;q=0.9"),
+                    ("Cache-Control", "no-cache"),
+                    ("Pragma", "no-cache"),
+                    ("DNT", "1"),
+                    ("Upgrade-Insecure-Requests", "1"),
+                ]
+            )
+
+    def set_handle_gzip(self, enabled: bool) -> None:
+        self._handle_gzip = bool(enabled)
+
+    def clone_browser(self):
+        clone = _StdlibBrowser(verify_ssl_certificates=self._verify_ssl)
+        clone.addheaders = list(self.addheaders)
+        clone._handle_gzip = self._handle_gzip
+        return clone
+
+    def open_novisit(self, url: str, timeout: float = 30):
+        headers = {k: v for k, v in self.addheaders}
+        if self._handle_gzip:
+            headers.setdefault("Accept-Encoding", "gzip")
+        req = Request(url, headers=headers)
+        context = None
+        if not self._verify_ssl:
+            context = ssl._create_unverified_context()
+        return urlopen(req, timeout=timeout, context=context)
+
+
+def browser(user_agent: str | None = None, verify_ssl_certificates: bool = True, rich_headers: bool = False):
+    return _StdlibBrowser(
+        user_agent=user_agent,
+        verify_ssl_certificates=verify_ssl_certificates,
+        rich_headers=rich_headers,
+    )
+
+
+def random_user_agent(index: int | None = None, allow_rotation: bool | None = None) -> str:
+    agents = (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+    )
+    if index is not None:
+        return agents[index % len(agents)]
+    rotate = _env_truthy("LIUXIN_WEB_SOURCES_RANDOM_UA", default=False) if allow_rotation is None else bool(allow_rotation)
+    if rotate:
+        return random.choice(agents)
+    # Keep deterministic selection unless explicit UA rotation is enabled.
+    return agents[0]
 
 
 # Comparing Metadata objects for relevance {{{
@@ -41,260 +186,206 @@ whitespace_pat = re.compile(r"\s+")
 def cleanup_title(s):
     if not s:
         s = _("Unknown")
-    s = s.strip().lower()
+    s = _as_text(s).strip().lower()
     s = prefix_pat.sub(" ", s)
     s = trailing_paren_pat.sub("", s)
     s = whitespace_pat.sub(" ", s)
     return s.strip()
 
 
-class InternalMetadataCompareKeyGen(object):
+@total_ordering
+class InternalMetadataCompareKeyGen:
     """
-    Generate a sort key for comparison of the relevance of Metadata objects,
-    given a search query. This is used only to compare results from the same
-    metadata source, not across different sources.
-
-    The sort key ensures that an ascending order sort is a sort by order of
-    decreasing relevance.
-
-    The algorithm is:
-
-        * Prefer results that have at least one identifier the same as for the query
-        * Prefer results with a cached cover URL
-        * Prefer results with all available fields filled in
-        * Prefer results with the same language as the current user interface language
-        * Prefer results that are an exact title match to the query
-        * Prefer results with longer comments (greater than 10% longer)
-        * Use the relevance of the result as reported by the metadata source's search
-           engine
+    Sort key for comparing relevance of metadata objects from a single source.
     """
 
     def __init__(self, mi, source_plugin, title, authors, identifiers):
         same_identifier = 2
-        idents = mi.get_identifiers()
-        for k, v in identifiers.iteritems():
-            if idents.get(k) == v:
+        idents = getattr(mi, "get_identifiers", lambda: {})() or {}
+        for key, val in (identifiers or {}).items():
+            if idents.get(key) == val:
                 same_identifier = 1
                 break
 
         all_fields = 1 if source_plugin.test_fields(mi) is None else 2
-
-        exact_title = 1 if title and cleanup_title(title) == cleanup_title(mi.title) else 2
+        exact_title = 1 if title and cleanup_title(title) == cleanup_title(getattr(mi, "title", "")) else 2
 
         language = 1
-        if mi.language:
-            mil = canonicalize_lang(mi.language)
+        mi_lang = getattr(mi, "language", None)
+        if mi_lang:
+            mil = canonicalize_lang(mi_lang)
             if mil != "und" and mil != canonicalize_lang(get_lang()):
                 language = 2
 
-        has_cover = (
-            2
-            if (
-                not source_plugin.cached_cover_url_is_reliable
-                or source_plugin.get_cached_cover_url(mi.identifiers) is None
-            )
-            else 1
-        )
+        has_cover = 2
+        if source_plugin.cached_cover_url_is_reliable:
+            try:
+                if source_plugin.get_cached_cover_url(getattr(mi, "identifiers", {}) or {}) is not None:
+                    has_cover = 1
+            except Exception:
+                has_cover = 2
 
         self.base = (same_identifier, has_cover, all_fields, language, exact_title)
-        self.comments_len = len(mi.comments.strip() if mi.comments else "")
-        self.extra = (getattr(mi, "source_relevance", 0),)
+        comments = getattr(mi, "comments", "") or ""
+        self.comments_len = len(_as_text(comments).strip())
+        self.extra = getattr(mi, "source_relevance", 0)
 
-    def __cmp__(self, other):
-        result = cmp(self.base, other.base)
-        if result == 0:
-            # Now prefer results with the longer comments, within 10%
-            cx, cy = self.comments_len, other.comments_len
-            t = (cx + cy) / 20
+    def compare_to_other(self, other: "InternalMetadataCompareKeyGen") -> int:
+        ans = _cmp(self.base, other.base)
+        if ans != 0:
+            return ans
+        cx, cy = self.comments_len, other.comments_len
+        if cx and cy:
+            threshold = (cx + cy) / 20
             delta = cy - cx
-            if abs(delta) > t:
-                result = delta
-            else:
-                result = cmp(self.extra, other.extra)
-        return result
+            if abs(delta) > threshold:
+                return delta
+        return _cmp(self.extra, other.extra)
+
+    def __lt__(self, other: "InternalMetadataCompareKeyGen") -> bool:
+        return self.compare_to_other(other) < 0
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, InternalMetadataCompareKeyGen):
+            return NotImplemented
+        return self.compare_to_other(other) == 0
 
 
 # }}}
 
 
 def get_cached_cover_urls(mi):
-    from LiuXin.customize.ui import metadata_plugins
-
-    plugins = list(metadata_plugins(["identify"]))
-    for p in plugins:
-        url = p.get_cached_cover_url(mi.identifiers)
+    try:
+        from LiuXin_alpha.customize.ui import metadata_plugins
+    except Exception:
+        return
+    for plugin in metadata_plugins(["identify"]):
+        try:
+            url = plugin.get_cached_cover_url(getattr(mi, "identifiers", {}) or {})
+        except Exception:
+            continue
         if url:
-            yield (p, url)
+            yield (plugin, url)
 
 
 def dump_caches():
-    from LiuXin.customize.ui import metadata_plugins
-
-    return {p.name: p.dump_caches() for p in metadata_plugins(["identify"])}
+    try:
+        from LiuXin_alpha.customize.ui import metadata_plugins
+    except Exception:
+        return {}
+    ans = {}
+    for plugin in metadata_plugins(["identify"]):
+        try:
+            ans[plugin.name] = plugin.dump_caches()
+        except Exception:
+            continue
+    return ans
 
 
 def load_caches(dump):
-    from LiuXin.customize.ui import metadata_plugins
-
-    plugins = list(metadata_plugins(["identify"]))
-    for p in plugins:
-        cache = dump.get(p.name, None)
-        if cache:
-            p.load_caches(cache)
+    try:
+        from LiuXin_alpha.customize.ui import metadata_plugins
+    except Exception:
+        return
+    for plugin in metadata_plugins(["identify"]):
+        try:
+            cache = dump.get(plugin.name)
+            if cache:
+                plugin.load_caches(cache)
+        except Exception:
+            continue
 
 
 def cap_author_token(token):
-    lt = lower(token)
+    lt = _lower(token)
     if lt in ("von", "de", "el", "van", "le"):
         return lt
-    # no digits no spez. characters
     if re.match(r"([^\d\W]\.){2,}$", lt, re.UNICODE) is not None:
-        # Normalize tokens of the form J.K. to J. K.
         parts = token.split(".")
-        return ". ".join(map(capitalize, parts)).strip()
+        return ". ".join(map(_capitalize, parts)).strip()
     scots_name = None
-    for x in ("mc", "mac"):
-        if (
-            token.lower().startswith(x)
-            and len(token) > len(x)
-            and (token[len(x)] == upper(token[len(x)]) or lt == token)
-        ):
-            scots_name = len(x)
-            break
-    ans = capitalize(token)
-    if scots_name is not None:
-        ans = ans[:scots_name] + upper(ans[scots_name]) + ans[scots_name + 1 :]
-    for x in ("-", "'"):
-        idx = ans.find(x)
+    for prefix in ("mc", "mac"):
+        if token.lower().startswith(prefix) and len(token) > len(prefix):
+            if token[len(prefix)] == _upper(token[len(prefix)]) or lt == token:
+                scots_name = len(prefix)
+                break
+    ans = _capitalize(token)
+    if scots_name is not None and len(ans) > scots_name:
+        ans = ans[:scots_name] + _upper(ans[scots_name]) + ans[scots_name + 1 :]
+    for sep in ("-", "'"):
+        idx = ans.find(sep)
         if idx > -1 and len(ans) > idx + 2:
-            ans = ans[: idx + 1] + upper(ans[idx + 1]) + ans[idx + 2 :]
+            ans = ans[: idx + 1] + _upper(ans[idx + 1]) + ans[idx + 2 :]
     return ans
 
 
 def fixauthors(authors):
     if not authors:
         return authors
-    ans = []
-    for x in authors:
-        ans.append(" ".join(map(cap_author_token, x.split())))
-    return ans
+    return [" ".join(map(cap_author_token, _as_text(author).split())) for author in authors]
 
 
-def fixcase(x):
-    if x:
-        from LiuXin.utils.libraries.titlecase import titlecase
+def fixcase(value):
+    if value:
+        from LiuXin_alpha.utils.libraries.titlecase import titlecase
 
-        x = titlecase(x)
-    return x
+        return titlecase(_as_text(value))
+    return value
 
 
-class Option(object):
-    __slots__ = ["type", "default", "label", "desc", "name", "choices"]
+@dataclass(slots=True)
+class Option:
+    name: str
+    type: str
+    default: Any
+    label: str
+    desc: str
+    choices: dict[str, str] | None = None
 
-    def __init__(self, name, type_, default, label, desc, choices=None):
-        """
-        :param name: The name of this option. Must be a valid python identifier
-        :param type_: The type of this option, one of ('number', 'string',
-                        'bool', 'choices')
-        :param default: The default value for this option
-        :param label: A short (few words) description of this option
-        :param desc: A longer description of this option
-        :param choices: A dict of possible values, used only if type='choices'.
-        dict is of the form {key:human readable label, ...}
-        """
-        self.name, self.type, self.default, self.label, self.desc = (
-            name,
-            type_,
-            default,
-            label,
-            desc,
-        )
-        if choices and not isinstance(choices, dict):
-            choices = dict([(x, x) for x in choices])
-        self.choices = choices
+    def __post_init__(self) -> None:
+        if self.choices and not isinstance(self.choices, dict):
+            self.choices = {x: x for x in self.choices}
 
 
 class Source(Plugin):
-
     type = _("Metadata source")
     author = "Kovid Goyal"
-
     supported_platforms = ["windows", "osx", "linux"]
 
-    #: Set of capabilities supported by this plugin.
-    #: Useful capabilities are: 'identify', 'cover'
     capabilities = frozenset()
-
-    #: List of metadata fields that can potentially be download by this plugin
-    #: during the identify phase
     touched_fields = frozenset()
-
-    #: Set this to True if your plugin returns HTML formatted comments
     has_html_comments = False
-
-    #: Setting this to True means that the browser object will add
-    #: Accept-Encoding: gzip to all requests. This can speedup downloads
-    #: but make sure that the source actually supports gzip transfer encoding
-    #: correctly first
     supports_gzip_transfer_encoding = False
-
-    #: Cached cover URLs can sometimes be unreliable (i.e. the download could
-    #: fail or the returned image could be bogus. If that is often the case
-    #: with this source set to False
+    ignore_ssl_errors = False
     cached_cover_url_is_reliable = True
-
-    #: A list of :class:`Option` objects. They will be used to automatically
-    #: construct the configuration widget for this plugin
     options = ()
-
-    #: A string that is displayed at the top of the config widget for this
-    #: plugin
     config_help_message = None
-
-    #: If True this source can return multiple covers for a given query
     can_get_multiple_covers = False
-
-    #: If set to True covers downloaded by this plugin are automatically trimmed.
     auto_trim_covers = False
-
-    #: If set to True, and this source returns multiple results for a query,
-    #: some of which have ISBNs and some of which do not, the results without
-    #: ISBNs will be ignored
     prefer_results_with_isbn = True
 
     def __init__(self, *args, **kwargs):
+        plugin_path = kwargs.get("plugin_path", None)
+        if plugin_path is None and args:
+            plugin_path = args[0]
+        if plugin_path is None:
+            plugin_path = inspect.getfile(type(self))
+        Plugin.__init__(self, plugin_path=plugin_path)
 
-        # Plugin requires a plugin_path - trying to initialize with the given args and kwargs - if that fails try and
-        # add a plugin path to the kwargs dictionary and trying again - if it still fails give up
-        try:
-            Plugin.__init__(self, *args, **kwargs)
-        except TypeError:
-            if not args and not kwargs:
-                current_file = inspect.getfile(inspect.currentframe())
-                Plugin.__init__(self, plugin_path=current_file)
-            else:
-                err_str = "Unexpected error while initialing LiuXin.metadata.web_sources.base:Source\n"
-                err_str += "TypeError could not be corrected for"
-                err_str = default_log.log_variables(err_str, "ERROR", ("args", args), ("kwargs", kwargs))
-                raise TypeError(err_str)
-
-        self.running_a_test = False  # Set to True when using identify_test()
-        self._isbn_to_identifier_cache = {}
-        self._identifier_to_cover_url_cache = {}
+        self.running_a_test = False
+        self._isbn_to_identifier_cache: dict[str, str] = {}
+        self._identifier_to_cover_url_cache: dict[str, str] = {}
         self.cache_lock = threading.RLock()
         self._config_obj = None
         self._browser = None
-        self.prefs.defaults["ignore_fields"] = []
+
+        self.prefs = self.get_prefs()
+        self.prefs.defaults.setdefault("ignore_fields", [])
         for opt in self.options:
-            self.prefs.defaults[opt.name] = opt.default
+            self.prefs.defaults.setdefault(opt.name, opt.default)
 
     # Configuration {{{
-
     def is_configured(self):
-        """
-        Return False if your plugin needs to be configured before it can be
-        used. For example, it might need a username/password/API key.
-        """
         return True
 
     def is_customizable(self):
@@ -304,45 +395,55 @@ class Source(Plugin):
         return "This plugin can only be customized using the GUI"
 
     def config_widget(self):
-        from LiuXin.interfaces.gui2.metadata.config import ConfigWidget
-
-        return ConfigWidget(self)
+        raise NotImplementedError("GUI config widgets for metadata sources are not ported in this environment.")
 
     def save_settings(self, config_widget):
-        config_widget.commit()
+        if hasattr(config_widget, "commit"):
+            config_widget.commit()
 
-    # Changed from prefs - which was causing name conflicts which where confusing the IDE
     def get_prefs(self):
         if self._config_obj is None:
-            from LiuXin.utils.config.config_tools import JSONConfig
+            from LiuXin_alpha.utils.config.config_tools import JSONConfig
 
-            self._config_obj = JSONConfig("metadata_sources/%s.json" % self.name)
+            self._config_obj = JSONConfig(f"metadata_sources/{self.name}.json")
         return self._config_obj
 
     # }}}
 
     # Browser {{{
-
     def user_agent(self):
-        # Pass in an index to random_user_agent() to test with a particular
-        # user agent
-        return random_user_agent()
+        return random_user_agent(allow_rotation=self._rotate_user_agents())
+
+    def _rotate_user_agents(self) -> bool:
+        return _env_truthy("LIUXIN_WEB_SOURCES_RANDOM_UA", default=False)
+
+    def _use_rich_headers(self) -> bool:
+        return _env_truthy("LIUXIN_WEB_SOURCES_RICH_HEADERS", default=False)
+
+    def _create_browser(self):
+        b = browser(
+            user_agent=self.user_agent(),
+            verify_ssl_certificates=not self.ignore_ssl_errors,
+            rich_headers=self._use_rich_headers(),
+        )
+        if self.supports_gzip_transfer_encoding:
+            b.set_handle_gzip(True)
+        return b
 
     def browser(self):
+        if self._rotate_user_agents():
+            return self._create_browser()
         if self._browser is None:
-            self._browser = browser(user_agent=self.user_agent)
-            if self.supports_gzip_transfer_encoding:
-                self._browser.set_handle_gzip(True)
+            self._browser = self._create_browser()
         return self._browser.clone_browser()
 
     # }}}
 
     # Caching {{{
-
     def get_related_isbns(self, id_):
         with self.cache_lock:
-            for isbn, q in self._isbn_to_identifier_cache.iteritems():
-                if q == id_:
+            for isbn, query in self._isbn_to_identifier_cache.items():
+                if query == id_:
                     yield isbn
 
     def cache_isbn_to_identifier(self, isbn, identifier):
@@ -370,125 +471,82 @@ class Source(Plugin):
 
     def load_caches(self, dump):
         with self.cache_lock:
-            self._isbn_to_identifier_cache.update(dump["isbn_to_identifier"])
-            self._identifier_to_cover_url_cache.update(dump["identifier_to_cover"])
+            self._isbn_to_identifier_cache.update(dump.get("isbn_to_identifier", {}))
+            self._identifier_to_cover_url_cache.update(dump.get("identifier_to_cover", {}))
 
     # }}}
 
     # Utility functions {{{
-
     def get_author_tokens(self, authors, only_first_author=True):
-        """
-        Take a list of authors and return a list of tokens useful for an
-        AND search query. This function tries to return tokens in
-        first name middle names last name order, by assuming that if a comma is
-        in the author name, the name is in lastname, other names form.
-        """
-
-        if authors:
-            # Leave ' in there for Irish names
-            remove_pat = re.compile(r'[!@#$%^&*(){}`~"\s\[\]/]')
-            replace_pat = re.compile(r"[-+.:;,]")
-            if only_first_author:
-                authors = authors[:1]
-            for au in authors:
-                has_comma = "," in au
-                au = replace_pat.sub(" ", au)
-                parts = au.split()
-                if has_comma:
-                    # au probably in ln, fn form
-                    parts = parts[1:] + parts[:1]
-                for tok in parts:
-                    tok = remove_pat.sub("", tok).strip()
-                    if len(tok) > 2 and tok.lower() not in (
-                        "von",
-                        "van",
-                        _("Unknown").lower(),
-                    ):
-                        yield tok
+        if not authors:
+            return
+        remove_pat = re.compile(r'[!@#$%^&*()（）「」{}`~"\s\[\]/]')
+        replace_pat = re.compile(r"[-+.:;,，。；：]")
+        selected = authors[:1] if only_first_author else authors
+        for author in selected:
+            has_comma = "," in author
+            author = replace_pat.sub(" ", author)
+            parts = author.split()
+            if has_comma:
+                parts = parts[1:] + parts[:1]
+            for tok in parts:
+                tok = remove_pat.sub("", tok).strip()
+                if len(tok) > 2 and tok.lower() not in ("von", "van", _("Unknown").lower()):
+                    yield tok
 
     def get_title_tokens(self, title, strip_joiners=True, strip_subtitle=False):
-        """
-        Take a title and return a list of tokens useful for an AND search query.
-        Excludes connectives(optionally) and punctuation.
-        """
-        if title:
-            # strip sub-titles
-            if strip_subtitle:
-                subtitle = re.compile(r"([\(\[\{].*?[\)\]\}]|[/:\\].*$)")
-                if len(subtitle.sub("", title)) > 1:
-                    title = subtitle.sub("", title)
+        if not title:
+            return
+        if strip_subtitle:
+            subtitle = re.compile(r"([\(\[\{].*?[\)\]\}]|[/:\\].*$)")
+            stripped = subtitle.sub("", title)
+            if len(stripped) > 1:
+                title = stripped
 
-            title_patterns = [
-                (re.compile(pat, re.IGNORECASE), repl)
-                for pat, repl in [
-                    # Remove things like: (2010) (Omnibus) etc.
-                    (
-                        r"(?i)[({\[](\d{4}|omnibus|anthology|hardcover|audiobook|audio\scd|paperback|turtleback|mass\s*market|edition|ed\.)[\])}]",
-                        "",
-                    ),
-                    # Remove any strings that contain the substring edition inside
-                    # parentheses
-                    (r"(?i)[({\[].*?(edition|ed.).*?[\]})]", ""),
-                    # Remove commas used a separators in numbers
-                    (r"(\d+),(\d+)", r"\1\2"),
-                    # Remove hyphens only if they have whitespace before them
-                    (r"(\s-)", " "),
-                    # Remove single quotes not followed by 's'
-                    (r"'(?!s)", ""),
-                    # Replace other special chars with a space
-                    (r"""[:,;!@$%^&*(){}.`~"\s\[\]/]""", " "),
-                ]
-            ]
-
-            for pat, repl in title_patterns:
-                title = pat.sub(repl, title)
-
-            tokens = title.split()
-            for token in tokens:
-                token = token.strip()
-                if token and (not strip_joiners or token.lower() not in ("a", "and", "the", "&")):
-                    yield token
+        patterns = [
+            (
+                re.compile(
+                    r"(?i)[({\[](\d{4}|omnibus|anthology|hardcover|audiobook|audio\scd|paperback|"
+                    r"turtleback|mass\s*market|edition|ed\.)[\])}]"
+                ),
+                "",
+            ),
+            (re.compile(r"(?i)[({\[].*?(edition|ed.).*?[\]})]"), ""),
+            (re.compile(r"(\d+),(\d+)"), r"\1\2"),
+            (re.compile(r"(\s-)"), " "),
+            (re.compile(r"'(?!s)"), ""),
+            (re.compile(r"""[:,;!@$%^&*(){}.`~"\s\[\]/]"""), " "),
+        ]
+        for pat, repl in patterns:
+            title = pat.sub(repl, title)
+        for token in title.split():
+            token = token.strip()
+            if token and (not strip_joiners or token.lower() not in ("a", "and", "the", "&")):
+                yield token
 
     def split_jobs(self, jobs, num):
-        """
-        Split a list of jobs into at most num groups, as evenly as possible.
-        :param jobs:
-        :param num:
-        :return:
-        """
-        groups = [[] for i in range(num)]
-        jobs = list(jobs)
-        while jobs:
-            for gr in groups:
-                try:
-                    job = jobs.pop()
-                except IndexError:
+        groups = [[] for _ in range(max(1, int(num)))]
+        pending = list(jobs)
+        while pending:
+            for group in groups:
+                if not pending:
                     break
-                gr.append(job)
-        return [g for g in groups if g]
+                group.append(pending.pop())
+        return [group for group in groups if group]
 
     def test_fields(self, mi):
-        """
-        Return the first field from self.touched_fields that is null on the mi object
-        """
-        # Touched_fields are fields which are affected by the metadata plugin
         for key in self.touched_fields:
             if key.startswith("identifier:"):
-                key = key.partition(":")[-1]
-                if not mi.has_identifier(key):
-                    return "identifier: " + key
-            elif mi.is_null(key):
+                ident_key = key.partition(":")[-1]
+                if not getattr(mi, "has_identifier", lambda x: False)(ident_key):
+                    return "identifier: " + ident_key
+            elif getattr(mi, "is_null", lambda x: True)(key):
                 return key
+        return None
 
     def clean_downloaded_metadata(self, mi):
-        """
-        Call this method in your plugin's identify method to normalize metadata
-        before putting the Metadata object into result_queue. You can of
-        course, use a custom algorithm suited to your metadata source.
-        """
-        docase = mi.language == "eng" or mi.is_null("language")
-        if docase:
+        docase = getattr(mi, "language", None) == "eng" or getattr(mi, "is_null", lambda x: False)("language")
+        if docase and hasattr(mi, "clean"):
             mi.clean()
 
     def download_multiple_covers(
@@ -504,138 +562,62 @@ class Source(Plugin):
         prefs_name="max_covers",
     ):
         if not urls:
-            log("No images found for, title: %r and authors: %r" % (title, authors))
+            log(f"No images found for title={title!r} authors={authors!r}")
             return
         from threading import Thread
         import time
 
-        if prefs_name:
-            urls = urls[: self.prefs[prefs_name]]
+        max_covers = self.prefs.get(prefs_name, len(urls)) if prefs_name else len(urls)
+        urls = list(urls)[: max(1, int(max_covers))]
         if get_best_cover:
             urls = urls[:1]
-        log("Downloading %d covers" % len(urls))
-        workers = [Thread(target=self.download_image, args=(u, timeout, log, result_queue)) for u in urls]
-        for w in workers:
-            w.daemon = True
-            w.start()
-        alive = True
-        start_time = time.time()
-        while alive and not abort.is_set() and time.time() - start_time < timeout:
-            alive = False
-            for w in workers:
-                if w.is_alive():
-                    alive = True
-                    break
+        log(f"Downloading {len(urls)} covers")
+        workers = [Thread(target=self.download_image, args=(u, timeout, log, result_queue), daemon=True) for u in urls]
+        for worker in workers:
+            worker.start()
+
+        start = time.time()
+        while (time.time() - start) < timeout and not abort.is_set():
+            if not any(w.is_alive() for w in workers):
+                break
             abort.wait(0.1)
 
     def download_image(self, url, timeout, log, result_queue):
         try:
-            ans = self.browser.open_novisit(url, timeout=timeout).read()
-            result_queue.put((self, ans))
-            log("Downloaded cover from: %s" % url)
-        except Exception:
-            self.log.exception("Failed to download cover from: %r" % url)
+            payload = self.browser().open_novisit(url, timeout=timeout).read()
+            result_queue.put((self, payload))
+            log(f"Downloaded cover from: {url}")
+        except Exception as err:
+            default_log.log_exception("Failed to download cover.", err, "DEBUG", ("url", url), ("plugin", self.name))
 
     # }}}
 
     # Metadata API {{{
     def get_book_url(self, identifiers):
-        """
-        Return a 3-tuple or None. The 3-tuple is of the form:
-        (identifier_type, identifier_value, URL).
-        The URL is the URL for the book identified by identifiers at this
-        source. identifier_type, identifier_value specify the identifier
-        corresponding to the URL.
-        This URL must be browseable to by a human using a browser. It is meant
-        to provide a clickable link for the user to easily visit the books page
-        at this source.
-        If no URL is found, return None. This method must be quick, and
-        consistent, so only implement it if it is possible to construct the URL
-        from a known scheme given identifiers.
-        """
         return None
 
     def get_book_url_name(self, idtype, idval, url):
-        """
-        Return a human readable name from the return value of get_book_url().
-        """
         return self.name
 
-    def get_cached_cover_url(self, identifiers):
-        """
-        Return cached cover URL for the book identified by
-        the identifiers dict or None if no such URL exists.
+    def get_book_urls(self, identifiers):
+        data = self.get_book_url(identifiers)
+        if data is None:
+            return ()
+        return (data,)
 
-        Note that this method must only return validated URLs, i.e. not URLS
-        that could result in a generic cover image or a not found error.
-        """
+    def get_cached_cover_url(self, identifiers):
+        return None
+
+    def id_from_url(self, url):
         return None
 
     def identify_results_keygen(self, title=None, authors=None, identifiers={}):
-        """
-        Return a function that is used to generate a key that can sort Metadata
-        objects by their relevance given a search query (title, authors,
-        identifiers).
-
-        These keys are used to sort the results of a call to :meth:`identify`.
-
-        For details on the default algorithm see
-        :class:`InternalMetadataCompareKeyGen`. Re-implement this function in
-        your plugin if the default algorithm is not suitable.
-        """
-
         def keygen(mi):
             return InternalMetadataCompareKeyGen(mi, self, title, authors, identifiers)
 
         return keygen
 
-    def identify(
-        self,
-        log,
-        result_queue,
-        abort,
-        title=None,
-        authors=None,
-        identifiers={},
-        timeout=30,
-    ):
-        """
-        Identify a book by its title/author/isbn/etc.
-
-        If identifiers(s) are specified and no match is found and this metadata
-        source does not store all related identifiers (for example, all ISBNs
-        of a book), this method should retry with just the title and author
-        (assuming they were specified).
-
-        If this metadata source also provides covers, the URL to the cover
-        should be cached so that a subsequent call to the get covers API with
-        the same ISBN/special identifier does not need to get the cover URL
-        again. Use the caching API for this.
-
-        Every Metadata object put into result_queue by this method must have a
-        `source_relevance` attribute that is an integer indicating the order in
-        which the results were returned by the metadata source for this query.
-        This integer will be used by :meth:`compare_identify_results`. If the
-        order is unimportant, set it to zero for every result.
-
-        Make sure that any cover/isbn mapping information is cached before the
-        Metadata object is put into result_queue.
-
-        :param log: A log object, use it to output debugging information/errors
-        :param result_queue: A result Queue, results should be put into it.
-                            Each result is a Metadata object
-        :param abort: If abort.is_set() returns True, abort further processing
-                      and return as soon as possible
-        :param title: The title of the book, can be None
-        :param authors: A list of authors of the book, can be None
-        :param identifiers: A dictionary of other identifiers, most commonly
-                            {'isbn':'1234...'}
-        :param timeout: Timeout in seconds, no network request should hang for
-                        longer than timeout.
-        :return: None if no errors occurred, otherwise a unicode representation
-                 of the error suitable for showing to the user
-
-        """
+    def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         return None
 
     def download_cover(
@@ -649,27 +631,23 @@ class Source(Plugin):
         timeout=30,
         get_best_cover=False,
     ):
-        """
-        Download a cover and put it into result_queue. The parameters all have
-        the same meaning as for :meth:`identify`. Put (self, cover_data) into
-        result_queue.
-
-        This method should use cached cover URLs for efficiency whenever
-        possible. When cached data is not present, most plugins simply call
-        identify and use its results.
-
-        If the parameter get_best_cover is True and this plugin can get
-        multiple covers, it should only get the "best" one.
-        :param log:
-        :param result_queue:
-        :param abort:
-        :param title:
-        :param authors:
-        :param identifiers:
-        :param timeout:
-        :param get_best_cover:
-        :return:
-        """
-        pass
+        return None
 
     # }}}
+
+
+__all__ = [
+    "InternalMetadataCompareKeyGen",
+    "Option",
+    "Source",
+    "browser",
+    "cap_author_token",
+    "cleanup_title",
+    "create_log",
+    "dump_caches",
+    "fixauthors",
+    "fixcase",
+    "get_cached_cover_urls",
+    "load_caches",
+    "random_user_agent",
+]

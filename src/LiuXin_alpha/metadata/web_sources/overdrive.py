@@ -1,43 +1,208 @@
-#!/usr/bin/env  python
+"""
+OverDrive metadata source.
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+This is a modernized, dependency-light implementation that can:
+- identify by OverDrive media id or search terms
+- parse metadata from OverDrive detail HTML (JSON-LD + meta fallbacks)
+- download covers from cached/discovered URLs
+"""
 
-import re
-import random
-import copy
+from __future__ import annotations
+
 import json
-from threading import RLock
-from mechanize import CookieJar
-from queue import Queue, Empty
+import re
+from collections import OrderedDict
+from collections.abc import Iterable, Mapping
+from datetime import datetime
+from queue import Empty, Queue
+from urllib.parse import quote_plus, urlparse
 
-from LiuXin.utils.localization import _
-from LiuXin.metadata import check_isbn
-from LiuXin.metadata.web_sources.base import Source, Option
-from LiuXin.metadata.metadata import MetaData as Metadata
-
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
-
-ovrdrv_data_cache = {}
-cache_lock = RLock()
-base_url = "http://search.overdrive.com/"
+from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn
+from LiuXin_alpha.metadata.web_sources.base import Option, Source
+from LiuXin_alpha.metadata.web_sources.http_client import RetryPolicy, call_with_backoff, compute_backoff_delay
+from LiuXin_alpha.metadata.web_sources.http_client import decode_http_body
+from LiuXin_alpha.metadata.web_sources.http_client import log_message
+from LiuXin_alpha.metadata.web_sources.http_client import wait_for_backoff
+from LiuXin_alpha.utils.date import parse_only_date
+from LiuXin_alpha.utils.localization import canonicalize_lang
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
-__copyright__ = "2011, Kovid Goyal kovid@kovidgoyal.net"
+__copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
-"""
-Fetch metadata using Overdrive Content Reserve
-"""
+
+_MEDIA_ID_RE = re.compile(r"/media/([A-Za-z0-9-]{6,})", re.IGNORECASE)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _as_text(raw) -> str:
+    if isinstance(raw, bytes):
+        return raw.decode("utf-8", "replace")
+    try:
+        return str(raw)
+    except Exception:
+        return ""
+
+
+def _first(raw):
+    if raw is None:
+        return None
+    if isinstance(raw, (str, bytes)):
+        return raw
+    if isinstance(raw, Mapping):
+        for key in raw:
+            return key
+        return None
+    if isinstance(raw, Iterable):
+        for item in raw:
+            return item
+    return raw
+
+
+def _first_identifier_value(identifiers, key):
+    if not isinstance(identifiers, Mapping):
+        return None
+    return _first(identifiers.get(key))
+
+
+def _extract_overdrive_id(raw) -> str | None:
+    text = _as_text(raw).strip()
+    if not text:
+        return None
+    if "/" in text:
+        m = _MEDIA_ID_RE.search(text)
+        if m:
+            return m.group(1)
+    if re.match(r"^[A-Za-z0-9-]{6,}$", text):
+        return text
+    return None
+
+
+def _strip_tags(raw: str) -> str:
+    return re.sub(r"\s+", " ", _TAG_RE.sub(" ", _as_text(raw))).strip()
+
+
+def _safe_isbn(identifiers) -> str | None:
+    for key in ("isbn", "isbn13", "isbn10"):
+        raw = _first_identifier_value(identifiers or {}, key)
+        if raw is None:
+            continue
+        isbn = check_isbn(_as_text(raw))
+        if isbn:
+            return isbn
+    return None
+
+
+def _parse_pubdate(raw) -> datetime | None:
+    text = _as_text(raw).strip()
+    if not text:
+        return None
+    try:
+        return parse_only_date(text, assume_utc=True)
+    except Exception:
+        pass
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y-%m", "%Y/%m", "%Y.%m", "%Y"):
+        try:
+            dt = datetime.strptime(text, fmt)
+        except Exception:
+            continue
+        if fmt in {"%Y-%m", "%Y/%m", "%Y.%m"}:
+            return dt.replace(day=15)
+        if fmt == "%Y":
+            return dt.replace(month=6, day=15)
+        return dt
+    m = re.search(r"\b(19|20)\d{2}\b", text)
+    if m:
+        try:
+            return datetime(int(m.group(0)), 6, 15)
+        except Exception:
+            return None
+    return None
+
+
+def _extract_json_ld_objects(raw_html: str):
+    out = []
+    for block in re.findall(
+        r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        raw_html,
+        re.IGNORECASE | re.DOTALL,
+    ):
+        payload = _as_text(block).strip()
+        if not payload:
+            continue
+        try:
+            data = json.loads(payload)
+        except Exception:
+            continue
+        if isinstance(data, list):
+            out.extend(data)
+        else:
+            out.append(data)
+    return out
+
+
+def _extract_overdrive_ids_from_search_html(raw_html: str, limit: int = 8):
+    seen = OrderedDict()
+    for media_id in _MEDIA_ID_RE.findall(_as_text(raw_html)):
+        norm = _extract_overdrive_id(media_id)
+        if not norm or norm in seen:
+            continue
+        seen[norm] = True
+        if len(seen) >= max(1, int(limit)):
+            break
+    return list(seen.keys())
+
+
+def _extract_meta_content(raw_html: str, key: str):
+    for pat in (
+        rf'<meta[^>]+property=["\']{re.escape(key)}["\'][^>]+content=["\'](.*?)["\']',
+        rf'<meta[^>]+name=["\']{re.escape(key)}["\'][^>]+content=["\'](.*?)["\']',
+    ):
+        m = re.search(pat, raw_html, re.IGNORECASE | re.DOTALL)
+        if m:
+            return _as_text(m.group(1)).strip()
+    return ""
+
+
+def _parse_series_and_index(raw):
+    text = _as_text(raw).strip()
+    if not text:
+        return None, None
+    m = re.search(r"(.+)\s+\(([^)]+)\)", text)
+    if not m:
+        return text, None
+    series = m.group(1).strip()
+    idx_match = re.search(r"[0-9.]+", m.group(2))
+    if idx_match is None:
+        return series, None
+    token = idx_match.group(0)
+    try:
+        if "." in token:
+            return series, float(token)
+        return series, int(token)
+    except Exception:
+        return series, None
+
+
+def _safe_cover_url(raw: str) -> str:
+    text = _as_text(raw).strip()
+    if not text:
+        return ""
+    if text.startswith("//"):
+        text = "https:" + text
+    text = re.sub(r"(?P<img>(Ima?g(eType-)?))200", r"\g<img>100", text)
+    return text
 
 
 class OverDrive(Source):
+    name = "OverDrive"
+    version = (2, 0, 0)
+    description = _("Downloads metadata and covers from OverDrive")
 
-    name = "Overdrive"
-    description = _("Downloads metadata and covers from Overdrive's Content Reserve")
-
-    capabilities = frozenset(["identify", "cover"])
+    capabilities = frozenset({"identify", "cover"})
     touched_fields = frozenset(
-        [
+        {
             "title",
             "authors",
             "tags",
@@ -49,10 +214,10 @@ class OverDrive(Source):
             "series_index",
             "languages",
             "identifier:overdrive",
-        ]
+        }
     )
     has_html_comments = True
-    supports_gzip_transfer_encoding = False
+    supports_gzip_transfer_encoding = True
     cached_cover_url_is_reliable = True
 
     options = (
@@ -60,79 +225,335 @@ class OverDrive(Source):
             "get_full_metadata",
             "bool",
             True,
-            _("Download all metadata (slow)"),
-            _("Enable this option to gather all metadata available from Overdrive."),
+            _("Download full metadata"),
+            _("Enable this to parse additional metadata fields from detail pages."),
         ),
     )
 
-    config_help_message = "<p>" + _(
-        "Additional metadata can be taken from Overdrive's book detail"
-        " page. This includes a limited set of tags used by libraries, comments, language,"
-        " and the ebook ISBN. Collecting this data is disabled by default due to the extra"
-        " time required. Check the download all metadata option below to"
-        " enable downloading this data."
-    )
+    SEARCH_BASE = "https://www.overdrive.com/search?q="
+    DETAIL_BASE = "https://www.overdrive.com/media/"
 
-    def identify(self, log, result_queue, abort, title=None, authors=None, identifiers=None, timeout=30):
-        """
-        Identify a book using the given parameters.
-        :param log:
-        :param result_queue:
-        :param abort:
-        :param title:
-        :param authors:
-        :param identifiers:
-        :param timeout:
-        :return:
-        """
-        if identifiers is None:
-            identifiers = {}
+    HTTP_RETRY_ATTEMPTS = 4
+    HTTP_RETRY_BASE_SECONDS = 0.5
+    HTTP_RETRY_MAX_SECONDS = 6.0
 
-        ovrdrv_id = identifiers.get("overdrive", None)
-        isbn = identifiers.get("isbn", None)
+    def _retry_policy(self) -> RetryPolicy:
+        return RetryPolicy(
+            attempts=int(self.HTTP_RETRY_ATTEMPTS),
+            base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
+            max_delay=float(self.HTTP_RETRY_MAX_SECONDS),
+        )
 
-        br = self.browser()
-        ovrdrv_data = self.to_ovrdrv_data(br, log, title, authors, ovrdrv_id)
-        if ovrdrv_data:
-            title = ovrdrv_data[8]
-            authors = ovrdrv_data[6]
-            mi = Metadata(title, authors)
-            self.parse_search_results(ovrdrv_data, mi)
-            if ovrdrv_id is None:
-                ovrdrv_id = ovrdrv_data[7]
+    def _retry_backoff(self, attempt: int) -> float:
+        return compute_backoff_delay(
+            attempt=attempt,
+            base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
+            max_delay=float(self.HTTP_RETRY_MAX_SECONDS),
+        )
 
-            if self.prefs["get_full_metadata"]:
-                self.get_book_detail(br, ovrdrv_data[1], mi, ovrdrv_id, log)
+    def _wait_for_backoff(self, abort, delay: float) -> bool:
+        return wait_for_backoff(abort, delay)
 
-            if isbn is not None:
-                self.cache_isbn_to_identifier(isbn, ovrdrv_id)
+    def _open_bytes_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        return call_with_backoff(
+            lambda: self.browser().open_novisit(url, timeout=timeout).read(),
+            log=log,
+            abort=abort,
+            context=context,
+            policy=self._retry_policy(),
+            timeout_seconds=timeout,
+            url=url,
+            retry_message="Transient OverDrive request error; retrying with backoff",
+            error_message="OverDrive request failed",
+            abort_result=b"",
+            backoff_fn=self._retry_backoff,
+            wait_for_backoff_fn=self._wait_for_backoff,
+        )
 
-            result_queue.put(mi)
+    def _open_text_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        raw = self._open_bytes_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
+        if not raw:
+            return ""
+        return decode_http_body(raw)
 
+    def get_book_url(self, identifiers):
+        media_id = _extract_overdrive_id(_first_identifier_value(identifiers or {}, "overdrive"))
+        if media_id:
+            return ("overdrive", media_id, self.DETAIL_BASE + media_id)
         return None
 
-    def download_cover(
-        self, log, result_queue, abort, title=None, authors=None, identifiers=None, timeout=30, get_best_cover=False
-    ):
-        """
+    def id_from_url(self, url):
+        parsed = urlparse(_as_text(url))
+        m = _MEDIA_ID_RE.search(parsed.path or "")
+        if not m:
+            return None
+        return ("overdrive", m.group(1))
 
-        :param log:
-        :param result_queue:
-        :param abort:
-        :param title:
-        :param authors:
-        :param identifiers:
-        :param timeout:
-        :param get_best_cover:
-        :return:
-        """
-        import mechanize
+    def get_cached_cover_url(self, identifiers):
+        media_id = _extract_overdrive_id(_first_identifier_value(identifiers or {}, "overdrive"))
+        if media_id is None:
+            isbn = _safe_isbn(identifiers or {})
+            if isbn is not None:
+                media_id = self.cached_isbn_to_identifier(isbn)
+        if not media_id:
+            return None
+        return self.cached_identifier_to_cover_url(_as_text(media_id))
+
+    def create_query(self, title=None, authors=None, identifiers=None):
+        identifiers = identifiers or {}
+        media_id = _extract_overdrive_id(_first_identifier_value(identifiers, "overdrive"))
+        if media_id:
+            return ("detail", self.DETAIL_BASE + media_id, media_id)
+
+        isbn = _safe_isbn(identifiers)
+        if isbn:
+            return ("search", self.SEARCH_BASE + quote_plus(isbn), None)
+
+        title_tokens = list(self.get_title_tokens(title, strip_subtitle=True))
+        author_tokens = list(self.get_author_tokens(authors, only_first_author=True))
+        tokens = [x for x in title_tokens + author_tokens if x]
+        if not tokens:
+            return None
+        query = " ".join(tokens)
+        return ("search", self.SEARCH_BASE + quote_plus(query), None)
+
+    def _metadata_from_detail_html(self, raw_html: str, media_id: str | None, relevance: int):
+        html = _as_text(raw_html)
+        title = ""
+        authors = []
+        series = None
+        series_index = None
+        publisher = ""
+        comments = ""
+        language = ""
+        pubdate = None
+        tags = []
+        cover_url = ""
+        all_isbns = []
+
+        for obj in _extract_json_ld_objects(html):
+            if not isinstance(obj, Mapping):
+                continue
+            if not title:
+                title = _as_text(obj.get("name") or obj.get("headline") or "").strip()
+
+            if not authors:
+                raw_authors = obj.get("author")
+                if isinstance(raw_authors, Mapping):
+                    raw_authors = [raw_authors]
+                if isinstance(raw_authors, (list, tuple)):
+                    for ra in raw_authors:
+                        if isinstance(ra, Mapping):
+                            name = _as_text(ra.get("name") or "").strip()
+                        else:
+                            name = _as_text(ra).strip()
+                        if name:
+                            authors.append(name)
+
+            if not publisher:
+                raw_pub = obj.get("publisher")
+                if isinstance(raw_pub, Mapping):
+                    raw_pub = raw_pub.get("name")
+                publisher = _as_text(raw_pub or "").strip()
+
+            if not comments:
+                comments = _as_text(obj.get("description") or "").strip()
+
+            if not language:
+                language = _as_text(obj.get("inLanguage") or "").strip()
+
+            if pubdate is None:
+                pubdate = _parse_pubdate(obj.get("datePublished"))
+
+            if not cover_url:
+                image = obj.get("image")
+                if isinstance(image, Mapping):
+                    image = image.get("url")
+                if isinstance(image, (list, tuple)):
+                    image = image[0] if image else ""
+                cover_url = _safe_cover_url(image)
+
+            if not tags:
+                raw_keywords = obj.get("keywords")
+                if isinstance(raw_keywords, str):
+                    tags = [x.strip() for x in raw_keywords.split(",") if x.strip()]
+                elif isinstance(raw_keywords, (list, tuple, set)):
+                    tags = [_as_text(x).strip() for x in raw_keywords if _as_text(x).strip()]
+
+            if not all_isbns:
+                raw_isbn = obj.get("isbn")
+                if isinstance(raw_isbn, (list, tuple, set)):
+                    candidates = list(raw_isbn)
+                else:
+                    candidates = [raw_isbn]
+                for candidate in candidates:
+                    checked = check_isbn(_as_text(candidate))
+                    if checked:
+                        all_isbns.append(checked)
+
+            raw_series = obj.get("isPartOf") or obj.get("series")
+            if series is None and raw_series:
+                if isinstance(raw_series, Mapping):
+                    raw_series = raw_series.get("name") or raw_series.get("@id") or raw_series.get("url")
+                series, series_index = _parse_series_and_index(raw_series)
+
+        if not title:
+            title = _extract_meta_content(html, "og:title")
+        if not comments:
+            comments = _extract_meta_content(html, "description") or _extract_meta_content(html, "og:description")
+        if not cover_url:
+            cover_url = _safe_cover_url(_extract_meta_content(html, "og:image"))
+        if not authors:
+            author_meta = _extract_meta_content(html, "author")
+            if author_meta:
+                authors = [a.strip() for a in author_meta.split(",") if a.strip()]
+
+        if not title:
+            title = _("Unknown")
+        if not authors:
+            authors = [_("Unknown")]
+
+        mi = calibreMetaInformation(title, authors)
+        mi.source_relevance = relevance
+
+        if media_id:
+            mi.set_identifier("overdrive", media_id)
+
+        if series:
+            mi.series = series
+            if series_index is not None:
+                mi.series_index = series_index
+
+        if publisher:
+            mi.publisher = publisher
+
+        if comments:
+            if "<" in comments and ">" in comments:
+                mi.comments = comments
+            else:
+                mi.comments = "<p>" + comments + "</p>"
+
+        if pubdate is not None:
+            mi.pubdate = pubdate
+
+        lang = canonicalize_lang(language)
+        if lang and lang != "und":
+            mi.language = lang
+
+        if tags:
+            mi.tags = list(dict.fromkeys([t.replace(",", ";") for t in tags if t]))
+
+        checked_isbns = []
+        for raw_isbn in all_isbns:
+            checked = check_isbn(_as_text(raw_isbn))
+            if checked:
+                checked_isbns.append(checked)
+        if checked_isbns:
+            uniq = list(dict.fromkeys(checked_isbns))
+            mi.all_isbns = uniq
+            best = sorted(uniq, key=len)[-1]
+            mi.set_identifier("isbn", best)
+            if media_id:
+                for isbn in uniq:
+                    self.cache_isbn_to_identifier(isbn, media_id)
+
+        if cover_url and media_id:
+            self.cache_identifier_to_cover_url(media_id, cover_url)
+
+        self.clean_downloaded_metadata(mi)
+        return mi
+
+    def identify(
+        self,
+        log,
+        result_queue,
+        abort,
+        title=None,
+        authors=None,
+        identifiers=None,
+        timeout=30,
+    ):
+        identifiers = identifiers or {}
+        if abort.is_set():
+            return
+
+        query = self.create_query(title=title, authors=authors, identifiers=identifiers)
+        if not query:
+            return
+        mode, url, media_id = query
+
+        detail_ids = []
+        if mode == "detail":
+            detail_ids = [media_id]
+        else:
+            search_html = self._open_text_with_backoff(
+                log=log,
+                abort=abort,
+                url=url,
+                timeout=timeout,
+                context="OverDrive search",
+            )
+            if not search_html:
+                return
+            detail_ids = _extract_overdrive_ids_from_search_html(search_html, limit=6)
+
+            # If search had no ids and caller provided isbn + title/authors, retry a broader query.
+            if not detail_ids and _safe_isbn(identifiers) and (title or authors) and not abort.is_set():
+                retry = self.create_query(title=title, authors=authors, identifiers={})
+                if retry:
+                    _, retry_url, _ = retry
+                    log_message(log, "info", "OverDrive ISBN search yielded no results, retrying with title/author query")
+                    search_html = self._open_text_with_backoff(
+                        log=log,
+                        abort=abort,
+                        url=retry_url,
+                        timeout=timeout,
+                        context="OverDrive search fallback",
+                    )
+                    detail_ids = _extract_overdrive_ids_from_search_html(search_html, limit=6)
+
+        seen = set()
+        for relevance, did in enumerate(detail_ids):
+            if abort.is_set():
+                break
+            if not did or did in seen:
+                continue
+            seen.add(did)
+            detail_url = self.DETAIL_BASE + did
+            try:
+                detail_html = self._open_text_with_backoff(
+                    log=log,
+                    abort=abort,
+                    url=detail_url,
+                    timeout=timeout,
+                    context="OverDrive detail page",
+                )
+            except Exception:
+                continue
+            if not detail_html:
+                continue
+            mi = self._metadata_from_detail_html(detail_html, media_id=did, relevance=relevance)
+            result_queue.put(mi)
+
+    def download_cover(
+        self,
+        log,
+        result_queue,
+        abort,
+        title=None,
+        authors=None,
+        identifiers=None,
+        timeout=30,
+        get_best_cover=False,
+    ):
+        del get_best_cover
+        identifiers = identifiers or {}
 
         cached_url = self.get_cached_cover_url(identifiers)
         if cached_url is None:
-            log.info("No cached cover found, running identify")
+            log_message(log, "info", "No cached cover found, running identify")
             rq = Queue()
-            self.identify(log, rq, abort, title=title, authors=authors, identifiers=identifiers)
+            self.identify(log, rq, abort, title=title, authors=authors, identifiers=identifiers, timeout=timeout)
             if abort.is_set():
                 return
             results = []
@@ -143,482 +564,30 @@ class OverDrive(Source):
                     break
             results.sort(key=self.identify_results_keygen(title=title, authors=authors, identifiers=identifiers))
             for mi in results:
-                cached_url = self.get_cached_cover_url(mi.identifiers)
+                cached_url = self.get_cached_cover_url(getattr(mi, "identifiers", {}) or {})
                 if cached_url is not None:
                     break
-        if cached_url is None:
-            log.info("No cover found")
-            return
 
+        if cached_url is None:
+            log_message(log, "info", "No cover found")
+            return
         if abort.is_set():
             return
 
-        ovrdrv_id = identifiers.get("overdrive", None)
-        br = self.browser()
-        req = mechanize.Request(cached_url)
-        if ovrdrv_id is not None:
-            referer = self.get_base_referer() + "ContentDetails-Cover.htm?ID=" + ovrdrv_id
-            req.add_header("referer", referer)
-
-        log("Downloading cover from:", cached_url)
         try:
-            cdata = br.open_novisit(req, timeout=timeout).read()
-            result_queue.put((self, cdata))
-        except:
-            log.exception("Failed to download cover from:", cached_url)
-
-    def get_cached_cover_url(self, identifiers):
-        url = None
-        ovrdrv_id = identifiers.get("overdrive", None)
-        if ovrdrv_id is None:
-            isbn = identifiers.get("isbn", None)
-            if isbn is not None:
-                ovrdrv_id = self.cached_isbn_to_identifier(isbn)
-        if ovrdrv_id is not None:
-            url = self.cached_identifier_to_cover_url(ovrdrv_id)
-
-        return url
-
-    def get_base_referer(self):  # to be used for passing referrer headers to cover download
-        choices = [
-            "http://overdrive.chipublib.org/82DC601D-7DDE-4212-B43A-09D821935B01/10/375/en/",
-            "http://emedia.clevnet.org/9D321DAD-EC0D-490D-BFD8-64AE2C96ECA8/10/241/en/",
-            "http://singapore.lib.overdrive.com/F11D55BE-A917-4D63-8111-318E88B29740/10/382/en/",
-            "http://ebooks.nypl.org/20E48048-A377-4520-BC43-F8729A42A424/10/257/en/",
-            "http://spl.lib.overdrive.com/5875E082-4CB2-4689-9426-8509F354AFEF/10/335/en/",
-        ]
-        return choices[random.randint(0, len(choices) - 1)]
-
-    def format_results(
-        self, reserveid, od_title, subtitle, series, publisher, creators, thumbimage, worldcatlink, formatid
-    ):
-
-        fix_slashes = re.compile(r"\\/")
-        thumbimage = fix_slashes.sub("/", thumbimage)
-        worldcatlink = fix_slashes.sub("/", worldcatlink)
-        cover_url = re.sub("(?P<img>(Ima?g(eType-)?))200", "\g<img>100", thumbimage)
-        social_metadata_url = base_url + "TitleInfo.aspx?ReserveID=" + reserveid + "&FormatID=" + formatid
-        series_num = ""
-        if not series:
-            if subtitle:
-                title = od_title + ": " + subtitle
-            else:
-                title = od_title
-        else:
-            title = od_title
-            m = re.search("([0-9]+$)", subtitle)
-            if m:
-                series_num = float(m.group(1))
-        return [cover_url, social_metadata_url, worldcatlink, series, series_num, publisher, creators, reserveid, title]
-
-    def safe_query(self, br, query_url, post=""):
-        """
-        The query must be initialized by loading an empty search results page
-        this page attempts to set a cookie that Mechanize doesn't like
-        copy the cookiejar to a separate instance and make a one-off request with the temp cookiejar
-        :param br: A browser instance
-        :param query_url: A url to query
-        :param post:
-        :return:
-        """
-        good_cookies = br._ua_handlers["_cookies"].cookiejar
-        clean_cj = CookieJar()
-        cookies_to_copy = []
-        for cookie in good_cookies:
-            copied_cookie = copy.deepcopy(cookie)
-            cookies_to_copy.append(copied_cookie)
-        for copied_cookie in cookies_to_copy:
-            clean_cj.set_cookie(copied_cookie)
-
-        if post:
-            br.open_novisit(query_url, post)
-        else:
-            br.open_novisit(query_url)
-
-        br.set_cookiejar(clean_cj)
-
-    def overdrive_search(self, br, log, q, title, author):
-        """
-
-        :param br:
-        :param log:
-        :param q:
-        :param title:
-        :param author:
-        :return:
-        """
-
-        import mechanize
-
-        # re-initialize the cookiejar to so that it's clean
-        clean_cj = mechanize.CookieJar()
-        br.set_cookiejar(clean_cj)
-        q_query = q + "default.aspx/SearchByKeyword"
-        q_init_search = q + "SearchResults.aspx"
-
-        # get first author as string - convert this to a proper cleanup function later
-        author_tokens = list(self.get_author_tokens(author, only_first_author=True))
-        title_tokens = list(self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True))
-
-        xref_q = ""
-        if len(author_tokens) <= 1:
-            initial_q = " ".join(title_tokens)
-            xref_q = "+".join(author_tokens)
-        else:
-            initial_q = " ".join(author_tokens)
-            for token in title_tokens:
-                if len(xref_q) < len(token):
-                    xref_q = token
-
-        log.error("Initial query is %s" % initial_q)
-        log.error("Cross reference query is %s" % xref_q)
-
-        q_xref = q + "SearchResults.svc/GetResults?iDisplayLength=50&sSearch=" + xref_q
-        query = '{"szKeyword":"' + initial_q + '"}'
-
-        # main query, requires specific Content Type header
-        req = mechanize.Request(q_query)
-        req.add_header("Content-Type", "application/json; charset=utf-8")
-        br.open_novisit(req, query)
-
-        # initiate the search without messing up the cookiejar
-        self.safe_query(br, q_init_search)
-
-        # get the search results object
-        results = False
-        iterations = 0
-        raw = None
-        while not results:
-
-            iterations += 1
-
-            xreq = mechanize.Request(q_xref)
-            xreq.add_header("X-Requested-With", "XMLHttpRequest")
-            xreq.add_header("Referer", q_init_search)
-            xreq.add_header("Accept", "application/json, text/javascript, */*")
-            raw = br.open_novisit(xreq).read()
-
-            for m in re.finditer(
-                r'"iTotalDisplayRecords":(?P<displayrecords>\d+).*?"iTotalRecords":' r"(?P<totalrecords>\d+)", raw
-            ):
-                if int(m.group("totalrecords")) == 0:
-                    return ""
-                elif int(m.group("displayrecords")) >= 1:
-                    results = True
-                elif int(m.group("totalrecords")) >= 1 and iterations < 3:
-                    if xref_q.find("+") != -1:
-                        xref_tokens = xref_q.split("+")
-                        xref_q = xref_tokens[0]
-                        for token in xref_tokens:
-                            if len(xref_q) < len(token):
-                                xref_q = token
-                        # log.error('rewrote xref_q, new query is '+xref_q)
-                else:
-                    xref_q = ""
-                q_xref = q + "SearchResults.svc/GetResults?iDisplayLength=50&sSearch=" + xref_q
-
-        return self.sort_ovrdrv_results(raw, log, title, title_tokens, author, author_tokens)
-
-    def sort_ovrdrv_results(
-        self, raw, log, title=None, title_tokens=None, author=None, author_tokens=None, ovrdrv_id=None
-    ):
-        close_matches = []
-        raw = re.sub(".*?\[\[(?P<content>.*?)\]\].*", "[[\g<content>]]", raw)
-        results = json.loads(raw)
-        # log.error('raw results are:'+str(results))
-        # The search results are either from a keyword search or a multi-format list from a single ID,
-        # sort through the results for closest match/format
-        if results:
-            for (
-                reserveid,
-                od_title,
-                subtitle,
-                edition,
-                series,
-                publisher,
-                format,
-                formatid,
-                creators,
-                thumbimage,
-                shortdescription,
-                worldcatlink,
-                excerptlink,
-                creatorfile,
-                sorttitle,
-                availabletolibrary,
-                availabletoretailer,
-                relevancyrank,
-                unknown1,
-                unknown2,
-                unknown3,
-            ) in results:
-                # log.error("this record's title is "+od_title+", subtitle is "+subtitle+", author[s] are "+creators+", series is "+series)
-                if ovrdrv_id is not None and int(formatid) in [1, 50, 410, 900]:
-                    # log.error('overdrive id is not None, searching based on format type priority')
-                    return self.format_results(
-                        reserveid, od_title, subtitle, series, publisher, creators, thumbimage, worldcatlink, formatid
-                    )
-                else:
-                    if creators:
-                        creators = creators.split(", ")
-
-                    # if an exact match in a preferred format occurs
-                    if (
-                        ((author and creators and creators[0] == author[0]) or (not author and not creators))
-                        and od_title.lower() == title.lower()
-                        and int(formatid) in [1, 50, 410, 900]
-                        and thumbimage
-                    ):
-                        return self.format_results(
-                            reserveid,
-                            od_title,
-                            subtitle,
-                            series,
-                            publisher,
-                            creators,
-                            thumbimage,
-                            worldcatlink,
-                            formatid,
-                        )
-                    else:
-                        close_title_match = False
-                        close_author_match = False
-                        for token in title_tokens:
-                            if od_title.lower().find(token.lower()) != -1:
-                                close_title_match = True
-                            else:
-                                close_title_match = False
-                                break
-                        for author in creators:
-                            for token in author_tokens:
-                                if author.lower().find(token.lower()) != -1:
-                                    close_author_match = True
-                                else:
-                                    close_author_match = False
-                                    break
-                            if close_author_match:
-                                break
-                        if (
-                            close_title_match
-                            and close_author_match
-                            and int(formatid) in [1, 50, 410, 900]
-                            and thumbimage
-                        ):
-                            if subtitle and series:
-                                close_matches.insert(
-                                    0,
-                                    self.format_results(
-                                        reserveid,
-                                        od_title,
-                                        subtitle,
-                                        series,
-                                        publisher,
-                                        creators,
-                                        thumbimage,
-                                        worldcatlink,
-                                        formatid,
-                                    ),
-                                )
-                            else:
-                                close_matches.append(
-                                    self.format_results(
-                                        reserveid,
-                                        od_title,
-                                        subtitle,
-                                        series,
-                                        publisher,
-                                        creators,
-                                        thumbimage,
-                                        worldcatlink,
-                                        formatid,
-                                    )
-                                )
-
-                        elif close_title_match and close_author_match and int(formatid) in [1, 50, 410, 900]:
-                            close_matches.append(
-                                self.format_results(
-                                    reserveid,
-                                    od_title,
-                                    subtitle,
-                                    series,
-                                    publisher,
-                                    creators,
-                                    thumbimage,
-                                    worldcatlink,
-                                    formatid,
-                                )
-                            )
-
-            if close_matches:
-                return close_matches[0]
-            else:
-                return ""
-        else:
-            return ""
-
-    def overdrive_get_record(self, br, log, q, ovrdrv_id):
-        import mechanize
-
-        search_url = q + "SearchResults.aspx?ReserveID={" + ovrdrv_id + "}"
-        results_url = (
-            q
-            + "SearchResults.svc/GetResults?sEcho=1&iColumns=18&sColumns=ReserveID%2CTitle%2CSubtitle%2CEdition%2CSeries%2CPublisher%2CFormat%2CFormatID%2CCreators%2CThumbImage%2CShortDescription%2CWorldCatLink%2CExcerptLink%2CCreatorFile%2CSortTitle%2CAvailableToLibrary%2CAvailableToRetailer%2CRelevancyRank&iDisplayStart=0&iDisplayLength=10&sSearch=&bEscapeRegex=true&iSortingCols=1&iSortCol_0=17&sSortDir_0=asc"
-        )
-
-        # re-initialize the cookiejar to so that it's clean
-        clean_cj = mechanize.CookieJar()
-        br.set_cookiejar(clean_cj)
-        # get the base url to set the proper session cookie
-        br.open_novisit(q)
-
-        # initialize the search
-        self.safe_query(br, search_url)
-
-        # get the results
-        req = mechanize.Request(results_url)
-        req.add_header("X-Requested-With", "XMLHttpRequest")
-        req.add_header("Referer", search_url)
-        req.add_header("Accept", "application/json, text/javascript, */*")
-        raw = br.open_novisit(req)
-        raw = str(list(raw))
-        clean_cj = mechanize.CookieJar()
-        br.set_cookiejar(clean_cj)
-        return self.sort_ovrdrv_results(raw, log, None, None, None, ovrdrv_id)
-
-    def find_ovrdrv_data(self, br, log, title, author, isbn, ovrdrv_id=None):
-        q = base_url
-        if ovrdrv_id is None:
-            return self.overdrive_search(br, log, q, title, author)
-        else:
-            return self.overdrive_get_record(br, log, q, ovrdrv_id)
-
-    def to_ovrdrv_data(self, br, log, title=None, author=None, ovrdrv_id=None):
-        """
-        Takes either a title/author combo or an Overdrive ID.  One of these
-        two must be passed to this function.
-        """
-        if ovrdrv_id is not None:
-            with cache_lock:
-                ans = ovrdrv_data_cache.get(ovrdrv_id, None)
-            if ans:
-                return ans
-            elif ans is False:
-                return None
-            else:
-                ovrdrv_data = self.find_ovrdrv_data(br, log, title, author, ovrdrv_id)
-        else:
-            try:
-                ovrdrv_data = self.find_ovrdrv_data(br, log, title, author, ovrdrv_id)
-            except:
-                import traceback
-
-                traceback.print_exc()
-                ovrdrv_data = None
-        with cache_lock:
-            ovrdrv_data_cache[ovrdrv_id] = ovrdrv_data if ovrdrv_data else False
-
-        return ovrdrv_data if ovrdrv_data else False
-
-    def parse_search_results(self, ovrdrv_data, mi):
-        """
-        Parse the formatted search results from the initial Overdrive query and
-        add the values to the metadta.
-
-        The list object has these values:
-        [cover_url[0], social_metadata_url[1], worldcatlink[2], series[3], series_num[4],
-        publisher[5], creators[6], reserveid[7], title[8]]
-
-        """
-        ovrdrv_id = ovrdrv_data[7]
-        mi.set_identifier("overdrive", ovrdrv_id)
-
-        if len(ovrdrv_data[3]) > 1:
-            mi.series = ovrdrv_data[3]
-            if ovrdrv_data[4]:
-                try:
-                    mi.series_index = float(ovrdrv_data[4])
-                except:
-                    pass
-        mi.publisher = ovrdrv_data[5]
-        mi.authors = ovrdrv_data[6]
-        mi.title = ovrdrv_data[8]
-        cover_url = ovrdrv_data[0]
-        if cover_url:
-            self.cache_identifier_to_cover_url(ovrdrv_id, cover_url)
-
-    def get_book_detail(self, br, metadata_url, mi, ovrdrv_id, log):
-        from lxml import html
-        from LiuXin.file_formats.chardet import xml_to_unicode
-        from LiuXin.utils.libraries.soupparser import fromstring
-        from LiuXin.library.comments import sanitize_comments_html
-
-        try:
-            raw = br.open_novisit(metadata_url).read()
-        except Exception as e:
-            if callable(getattr(e, "getcode", None)) and e.getcode() == 404:
-                return False
-            raise
-        raw = xml_to_unicode(raw, strip_encoding_pats=True, resolve_entities=True)[0]
-        try:
-            root = fromstring(raw)
-        except:
-            return False
-
-        pub_date = root.xpath("//div/label[@id='ctl00_ContentPlaceHolder1_lblPubDate']/text()")
-        lang = root.xpath("//div/label[@id='ctl00_ContentPlaceHolder1_lblLanguage']/text()")
-        subjects = root.xpath("//div/label[@id='ctl00_ContentPlaceHolder1_lblSubjects']/text()")
-        ebook_isbn = root.xpath("//td/label[@id='ctl00_ContentPlaceHolder1_lblIdentifier']/text()")
-        desc = root.xpath("//div/label[@id='ctl00_ContentPlaceHolder1_lblDescription']/ancestor::div[1]")
-
-        if pub_date:
-            from LiuXin.utils.date import parse_date
-
-            try:
-                mi.pubdate = parse_date(pub_date[0].strip())
-            except:
-                pass
-        if lang:
-            lang = lang[0].strip().lower()
-            lang = {"english": "eng", "french": "fra", "german": "deu", "spanish": "spa"}.get(lang, None)
-            if lang:
-                mi.language = lang
-
-        if ebook_isbn:
-            # print "ebook isbn is "+str(ebook_isbn[0])
-            isbn = check_isbn(ebook_isbn[0].strip())
-            if isbn:
-                self.cache_isbn_to_identifier(isbn, ovrdrv_id)
-                mi.isbn = isbn
-        if subjects:
-            mi.tags = [tag.strip() for tag in subjects[0].split(",")]
-
-        if desc:
-            desc = desc[0]
-            desc = html.tostring(desc, method="html", encoding=six_unicode).strip()
-            # remove all attributes from tags
-            desc = re.sub(r"<([a-zA-Z0-9]+)\s[^>]+>", r"<\1>", desc)
-            # Remove comments
-            desc = re.sub(r"(?s)<!--.*?-->", "", desc)
-            mi.comments = sanitize_comments_html(desc)
-
-        return None
+            payload = self._open_bytes_with_backoff(
+                log=log,
+                abort=abort,
+                url=cached_url,
+                timeout=timeout,
+                context="OverDrive cover download",
+            )
+        except Exception:
+            return
+        if payload:
+            result_queue.put((self, payload))
 
 
-if __name__ == "__main__":
-    # To run these test use:
-    # calibre-debug -e src/calibre/ebooks/metadata/sources/overdrive.py
-    from LiuXin.metadata.web_sources.test import test_identify_plugin, title_test, authors_test
-
-    test_identify_plugin(
-        OverDrive.name,
-        [
-            (
-                {"title": "The Sea Kings Daughter", "authors": ["Elizabeth Peters"]},
-                [title_test("The Sea Kings Daughter", exact=False), authors_test(["Elizabeth Peters"])],
-            ),
-            (
-                {"title": "Elephants", "authors": ["Agatha"]},
-                [title_test("Elephants Can Remember", exact=False), authors_test(["Agatha Christie"])],
-            ),
-        ],
-    )
+__all__ = [
+    "OverDrive",
+]
