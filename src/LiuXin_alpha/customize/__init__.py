@@ -1373,7 +1373,10 @@ class Archive(LiuXinPlugin):
         """
         raise NotImplementedError
 
-    def extract(self, path, pwd, member):
+    def extract(self,
+                path: Union[str, pathlib.Path],
+                pwd: str,
+                member: Union[str, ZipInfoLike]) -> pathlib.Path:
         """
         Extract a member of the archive.
 
@@ -1384,6 +1387,7 @@ class Archive(LiuXinPlugin):
         :param pwd: Password for archive
         :param member: Either the name of the object or an info object (preferably a name - as, often, the name will
                        just have to be extracted out of the info object anyways).
+
         :return normalized_path: A normalized path created to the extracted member of the archive
         """
         raise NotImplementedError
@@ -1393,8 +1397,8 @@ class Archive(LiuXinPlugin):
         Extract all members from the archive to the current working directory.
 
         path specifies a different directory to extract to.
-        members is optional and must be a subset of the list returned by namelist(). pwd is the password
-        used for encrypted files.
+        members is an optional param optional and must be a subset of the list returned by namelist().
+        pwd is the password used for encrypted files.
         This works as the zipfile extractall method.
         :param path:
         :param pwd:

@@ -923,3 +923,22 @@ class ArchiveAPI(LiuXinPluginAPI):
         The paths are relative to the root of the file and are unix style paths (separated by /).
         :return:
         """
+
+    @abc.abstractmethod
+    def extract(self,
+                path: Union[str, pathlib.Path],
+                pwd: str,
+                member: Union[str, ZipInfoLike]) -> pathlib.Path:
+        """
+        Extract a member of the archive.
+
+        Note that this function works like the method of this name from zipfile - if you point the member to a file in
+        the archive it'll create the dictionary structure of the archive up to that file, then create that file.
+
+        :param path: Where the file should be extracted
+        :param pwd: Password for archive
+        :param member: Either the name of the object or an info object (preferably a name - as, often, the name will
+                       just have to be extracted out of the info object anyways).
+
+        :return normalized_path: A normalized path created to the extracted member of the archive
+        """
