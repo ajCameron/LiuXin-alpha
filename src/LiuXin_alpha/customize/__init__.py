@@ -16,7 +16,7 @@ Then run the full suite of tests which have been marked as for it.
 All base classes for any plugins anywhere in LiuXin should be stored here.
 """
 
-from __future__ import with_statement, print_function
+from __future__ import with_statement, print_function, annotations
 
 import os
 import sys
@@ -25,7 +25,7 @@ import importlib
 import pathlib
 from copy import deepcopy
 
-from typing import Union
+from typing import Union, Any, BinaryIO, NamedTuple, Iterable, Tuple, ClassVar, Literal, Optional
 
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.constants import CALIBRE_NUMERIC_VERSION as numeric_version
@@ -41,6 +41,62 @@ from LiuXin_alpha.errors import PluginNotFound, InvalidPlugin
 
 from LiuXin_alpha.preferences import preferences
 
+from typing import TypeVar
+
+from typing import Protocol, runtime_checkable, Optional, Tuple
+from datetime import datetime
+
+
+@runtime_checkable
+class ZipInfoLike(Protocol):
+    # --- core identity / metadata ---
+    filename: str
+    date_time: Tuple[int, int, int, int, int, int]  # (Y, M, D, h, m, s)
+    compress_type: int
+    comment: bytes
+    extra: bytes
+
+    # --- sizes / CRC ---
+    file_size: int
+    compress_size: int
+    CRC: int
+
+    # --- flags / versions ---
+    flag_bits: int
+    create_system: int
+    create_version: int
+    extract_version: int
+    reserved: int
+
+    # --- perms / attributes ---
+    internal_attr: int
+    external_attr: int
+
+    # --- offsets ---
+    header_offset: int
+
+    # --- extra fields often present on ZipInfo ---
+    volume: int
+
+    # --- methods ZipInfo provides ---
+    def is_dir(self) -> bool: ...
+    def FileHeader(self, zip64: Optional[bool] = None) -> bytes: ...
+
+    # Not always needed, but commonly used for display/logging.
+    def __repr__(self) -> str: ...
+
+
+class Base:
+    ...
+
+T = TypeVar("T", bound=Base)
+
+
+class CatalogCLIOption(NamedTuple):
+    option: str
+    default: str
+    dest: str
+    help: str
 
 
 platform = "linux"
@@ -406,10 +462,9 @@ class FileTypePlugin(Plugin):  # {{{
 
 # }}}
 
-
-class MetadataReaderPlugin(Plugin):  # {{{
+class _MetadataReaderPlugin:
     """
-    A plugin that implements reading metadata from a set of file types.
+    We want both LiuXin and calibre metadata readers to have a common interface - but not a common class heirachy.
     """
 
     # Set of file types for which this plugin should be run. For example: ``set(['lit', 'mobi', 'prc'])``
@@ -419,31 +474,47 @@ class MetadataReaderPlugin(Plugin):  # {{{
     inplace_run_cost = "high"
 
     # What platforms does this plugin work on?
-
     supported_platforms = ["windows", "osx", "linux"]
+
+    # Default numeric version tuple
     version = calibre_numeric_version
+
     author = "Kovid Goyal"
 
+    # Displayable plugin type
     plugin_type = _("Metadata reader")
 
-    def __init__(self, *args, **kwargs):
-        Plugin.__init__(self, *args, **kwargs)
+    # Todo: Work out the signature from where these are called
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Startup the plugin.
+
+        :param args:
+        :param kwargs:
+        """
+        super().__init__(*args, **kwargs)
+
         self.quick = False
 
-    def get_metadata(self, stream, ftype):
+    # Todo: Pull the calibre metadata object out and gen an API for it
+    def get_metadata(self, stream: BinaryIO, ftype: str):
         """
         Return metadata for the file represented by stream (a file like object that supports reading).
+
         Raise an exception when there is an error with the input data.
+
         :param ftype: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
         :return: A :class:`LiuXin.metadata.metadata.MetaData` object
         """
         raise NotImplementedError
 
-    def get_metadata_inplace(self, file_path, ftype):
+    def get_metadata_inplace(self, file_path: Union[pathlib.Path, str], ftype: str):
         """
-        Returns metadata for the file represented by the file path. Must be a valid path with read access.
+        Returns metadata for the file represented by the file path.
+
+        Must be a valid path with read access.
         Raises an exception when there is an error with the input data.
-        Avoids having to copy the entire file into memr
+        Sometimes avoids having to copy the entire file into memory.
         :param file_path:
         :param ftype: Guaranteed to be one of the entries in :attr:`file_types`.
         :return: A :class:`LiuXin.metadata.metadata.MetaData` object
@@ -453,9 +524,15 @@ class MetadataReaderPlugin(Plugin):  # {{{
             return self.get_metadata(stream=md_file_stream, ftype=ftype)
 
 
-class MetadataWriterPlugin(Plugin):
+class MetadataReaderPlugin(Plugin, _MetadataReaderPlugin):  # {{{
     """
     A plugin that implements reading metadata from a set of file types.
+    """
+
+
+class MetadataWriterPlugin(Plugin):
+    """
+    A plugin that implements writing metadata to files in a certain set of file types.
     """
 
     #: Set of file types for which this plugin should be run
@@ -463,18 +540,28 @@ class MetadataWriterPlugin(Plugin):
     file_types = set([])
 
     supported_platforms = ["windows", "osx", "linux"]
+
     version = calibre_numeric_version
+
     author = "Kovid Goyal"
 
     plugin_type = _("Metadata writer")
 
-    def __init__(self, *args, **kwargs):
-        Plugin.__init__(self, *args, **kwargs)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Startup the plugin.
+
+        :param args:
+        :param kwargs:
+        """
+        super().__init__(self, *args, **kwargs)
+
         self.apply_null = False
 
-    def set_metadata(self, stream, mi, type):
+    def set_metadata(self, stream: BinaryIO, mi, type: str) -> None:
         """
         Set metadata for the file represented by stream (a file like object that supports reading).
+
         Raise an exception when there is an error with the input data.
         :param stream: The file to be modified
         :param type: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
@@ -482,12 +569,17 @@ class MetadataWriterPlugin(Plugin):
         """
         raise NotImplementedError
 
-    def set_metadata_inplace(self, file_path, mi, type):
+    def set_metadata_inplace(self, file_path: Union[str, pathlib.Path], mi, type: str) -> None:
         """
-        Set metadata for the file pointed to by the file path. Means that the file doesn't have to be copied into
-        memory for updating.
+        Set metadata for the file pointed to by the file path.
+
+        Means that the file doesn't have to be copied into memory for updating.
         Raise an exception when there is an error with the input data.
-        :param stream: The file to be modified
+
+        WARNING: THE ACTUAL FILE ON DISK WILL BE MODIFIED.
+        PLEASE CONSIDER TAKING A BACKUP FIRST.
+
+        :param file_path: The file to be modified
         :param type: The plugin_type of file. Guaranteed to be one of the entries in :attr:`file_types`.
         :param mi: A :class:`calibre.ebooks.metadata.book.Metadata` object
         """
@@ -500,11 +592,15 @@ class MetadataWriterPlugin(Plugin):
 class CatalogPlugin(Plugin):  # {{{
     """
     A plugin that implements a catalog generator.
+
+    Catalogs are files containing catalog entries from the database.
+    The default plugin only writes out calibre metadata.
+    You want a LiuXinCatalogPlugin if you want the full LiuXin metadata.
     """
 
     resources_path = None
 
-    #: Output file plugin_type for which this plugin should be run
+    #: Output file plugin_type this generator can produce
     #: For example: 'epub' or 'xml'
     file_types = set([])
 
@@ -523,9 +619,9 @@ class CatalogPlugin(Plugin):  # {{{
     cli_options = []
 
     # Todo: Make sure that this is taken account of
-    def _field_sorter(self, key):
+    def _field_sorter(self, key: str) -> str:
         """
-        Custom fields sort after standard fields
+        Custom fields sort after standard fields.
         """
         if key.startswith("#"):
             return "~%s" % key[1:]
@@ -533,6 +629,14 @@ class CatalogPlugin(Plugin):  # {{{
             return key
 
     def search_sort_db(self, db, opts):
+        """
+        Generate a catalog off a db search.
+
+        Returns the data as a dict for writing out.
+        :param db:
+        :param opts:
+        :return:
+        """
 
         db.search(opts.search_text)
 
@@ -542,9 +646,10 @@ class CatalogPlugin(Plugin):  # {{{
         return db.get_data_as_dict(ids=opts.ids)
 
     # Todo: Add field maps to the database so that it can emulate calibre
-    def get_output_fields(self, db, opts):
+    def get_output_fields(self, db, opts) -> list[str]:
         """
         Returns a list of the requested fields.
+
         :param db:
         :param opts:
         :return:
@@ -607,10 +712,10 @@ class CatalogPlugin(Plugin):  # {{{
 
         return fields
 
-    def initialize(self):
+    def initialize(self) -> None:
         """
-        If plugin is not a built-in, copy the plugin's .ui and .py files from
-        the zip file to $TMPDIR.
+        If plugin is not a built-in, copy the plugin's .ui and .py files from the zip file to $TMPDIR.
+
         Tab will be dynamically generated and added to the Catalog Options dialog in
         calibre.gui2.dialogs.catalog.py:Catalog
         """
@@ -636,7 +741,7 @@ class CatalogPlugin(Plugin):  # {{{
                     continue
             resources.close()
 
-    def run(self, path_to_output, opts, db, ids, notification=None):
+    def run(self, path_to_output: Union[str, pathlib.Path], opts, db, ids: Iterable[str], notification=None) -> None:
         """
         Run the plugin. Must be implemented in subclasses.
         It should generate the catalog in the format specified in file_types, returning the absolute path to the
@@ -657,10 +762,18 @@ class CatalogPlugin(Plugin):  # {{{
 
 
 class InterfaceActionBase(Plugin):  # {{{
+    """
+    Slots into the GUI.
+
+    Probably not going to live here.
+    """
 
     supported_platforms = ["windows", "osx", "linux"]
+
     author = "Kovid Goyal"
+
     plugin_type = _("User Interface Action")
+
     can_be_disabled = False
 
     actual_plugin = None
@@ -672,6 +785,7 @@ class InterfaceActionBase(Plugin):  # {{{
     def load_actual_plugin(self, gui):
         """
         This method must return the actual interface action plugin object.
+
         :param gui:
         :return:
         """
@@ -728,6 +842,7 @@ class PreferencesPlugin(Plugin):  # {{{
     def create_widget(self, parent=None):
         """
         Create and return the actual Qt widget used for setting this group of preferences. The widget must implement the
+
         :class:`calibre.gui2.preferences.ConfigWidgetInterface`.
 
         The default implementation uses :attr:`config_widget` to instantiate the widget.
@@ -743,32 +858,45 @@ class PreferencesPlugin(Plugin):  # {{{
 
 
 class StoreBase(Plugin):  # {{{
-
+    """
+    Interface to an ebook store to allow buying books from within calibre.
+    """
+    # Plugins this store will run for
     supported_platforms = ["windows", "osx", "linux"]
+
     author = "John Schember"
+
     plugin_type = _("Store")
+
     # Information about the store. Should be in the primary language
     # of the store. This should not be translatable when set by
     # a subclass.
     description = _("An ebook store.")
+
+    # Minimum calibre version for the plugin to run
     minimum_calibre_version = (0, 8, 0)
+
+    # Plugin version
     version = (1, 0, 1)
 
     actual_plugin = None
 
     # Does the store only distribute ebooks without DRM.
     drm_free_only = False
-    # This is the 2 letter country code for the corporate
-    # headquarters of the store.
+
+    # This is the 2 letter country code for the corporate headquarters of the store.
     headquarters = ""
+
     # All formats the store distributes ebooks in.
     formats = []
+
     # Is this store on an affiliate program?
     affiliate = False
 
     def load_actual_plugin(self, gui):
         """
         This method must return the actual interface action plugin object.
+
         :param gui:
         :return:
         """
@@ -776,17 +904,35 @@ class StoreBase(Plugin):  # {{{
         self.actual_plugin_object = getattr(importlib.import_module(mod), cls)(gui, self.name)
         return self.actual_plugin_object
 
-    def customization_help(self, gui=False):
+    def customization_help(self, gui: bool = False) -> None:
+        """
+        Help with customizing the store.
+
+        :param gui:
+        :return:
+        """
         if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.customization_help(gui)
         raise NotImplementedError()
 
-    def config_widget(self):
+    def config_widget(self) -> Any:
+        """
+        Provides a config widget to config the store plugin.
+
+        At a guess, this returns a QWidget.
+        :return:
+        """
         if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.config_widget()
         raise NotImplementedError()
 
-    def save_settings(self, config_widget):
+    def save_settings(self, config_widget: Any) -> None:
+        """
+        Save setting changes made with the config_widget.
+
+        :param config_widget:
+        :return:
+        """
         if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.save_settings(config_widget)
         raise NotImplementedError()
@@ -802,7 +948,7 @@ class ViewerPlugin(Plugin):  # {{{
 
     plugin_type = _("Viewer")
 
-    def load_fonts(self):
+    def load_fonts(self) -> None:
         """
         This method is called once at viewer startup. It should load any fonts it wants to make available. For example::
 
@@ -830,6 +976,7 @@ class ViewerPlugin(Plugin):  # {{{
     def run_javascript(self, evaljs):
         """
         This method is called every time a document has finished loading. Use it in the same way as load_javascript().
+
         :param evaljs:
         :return:
         """
@@ -872,11 +1019,12 @@ class LibraryClosedPlugin(Plugin):  # {{{
     # minimum version 2.54 because that is when support was added
     minimum_calibre_version = (2, 54, 0)
 
-    def run(self, db):
+    def run(self, db) -> None:
         """
         The db will be a reference to the new_api (db.cache.py).
-        The plugin must run to completion. It must not use the GUI, threads, or
-        any signals.
+
+        The plugin must run to completion.
+        It must not use the GUI, threads, or any signals.
         """
         raise NotImplementedError("LibraryClosedPlugin " "run method must be overridden in subclass")
 
@@ -885,55 +1033,109 @@ class LibraryClosedPlugin(Plugin):  # {{{
 
 
 class EditBookToolPlugin(Plugin):  # {{{
+    """
+    Tool to edit a book.
+    """
 
     plugin_type = _("Edit Book Tool")
+
     minimum_calibre_version = (1, 46, 0)
 
 
 # }}}
 
-# ----------------------------------------------------------------------------------------------------------------------
+# ------------------------------------
 #
 # - LIUXIN SPECIFIC PLUGINS START HERE
-#
-# ----------------------------------------------------------------------------------------------------------------------
+
+class LiuXinPlugin(Plugin):
+    """
+    Base class for all LiuXin specific plugins.
+
+    The assumption with the rest of the plugins is that they're calibre at base.
+    This is the base class for all LiuXin specific plugins.
+    As a rule, the above plugins expect objects with a calibre compatible surface.
+    These plugins do not (at least by default).
+    """
+
+    # Will start incrementing... soon
+    minimum_liuxin_version = (1, 0, 0)
 
 
-class MDInputTransform(Plugin):  # {{{
+class MDInputTransform(LiuXinPlugin):  # {{{
     """
     Base class for the MetaData Input Transformation plugins.
+
     These plugins are intended to be run every time a set of MetaData is extracted from a file.
     A plugin of this plugin_type takes a collection of MetaData objects, and returns a MetaData object.
     This collection could be a single MetaData object.
     The MetaData object should be loaded with either the files or, preferably, local paths to the files which are being
     examined.
-    This allows the plugin to examine the files and change the Meta
+    This allows this plugin to go back and check the metadata again. If needed.
+
+    This is also intended to be the base class for transforming  a single metadata object.
+    (for example "I want to ensure the title is in title case").
+    In this case it should take and return a single MetaData object.
+    (You should _check_ you're only being given one in this case - mistakes happen).
     """
 
-    def transform_metadata(self, *args):
+    # There are several different metadata containers floating around
+    # As such, these transforms could support all - or none - of them
+    target_classes = []
+
+    def transform_metadata(self, first: T, /, *rest: T) -> T:
         """
         Takes a collection of MetaData objects. Uses them to preform a transform. Returns the transformed MetaData.
+
+        :param first:
+        :param rest:
+        :return:
         """
-        raise NotImplementedError()
+        # Optional runtime guard if you want it strict:
+        if any(type(x) is not type(first) for x in rest):
+            raise TypeError("All args must be the same concrete class")
+
+        return self._true_transform_metadata(first, *rest)
+
+    def _true_transform_metadata(self, first: T, /, *rest: T) -> T:
+        """
+        Mostly needed for typing.
+
+        :param first:
+        :param rest:
+        :return:
+        """
+        raise NotImplementedError("You need to actually work out how to do this.")
 
 
-class LXMetadataReaderPLugin(MetadataReaderPlugin):
+class LXMetadataReaderPlugin(LiuXinPlugin, _MetadataReaderPlugin):
     """
     To distinguish the calibre metadata readers from the ones which have been re-written for LiuXin.
     """
-
+    # All file formats this plugin could be used for
     valid_for = None
+
+    # The file formats this plugin SHOULD be used for
     priority_for = None
+
+    # Costs of actually running the
     run_cost = "high"
 
-    def __init__(self, *args, **kwargs):
-        Plugin.__init__(self, *args, **kwargs)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Startup the plugin.
+
+        :param args:
+        :param kwargs:
+        """
+        super().__init__(self, *args, **kwargs)
         self.quick = False
 
     @staticmethod
-    def standardize_type(file_type):
+    def standardize_type(file_type: str) -> str:
         """
         Standardizes a plugin_type so that it can be compared against the known types that the plugin can be run for.
+
         :param file_type:
         :return file_type:
         """
@@ -942,10 +1144,11 @@ class LXMetadataReaderPLugin(MetadataReaderPlugin):
             file_type = file_type[1:]
         return file_type.upper()
 
-    def get_metadata(self, stream, file_type):
+    def get_metadata(self, stream: Union[BinaryIO, str, pathlib.Path], file_type: str):
         """
-        Return metadata for the file represented by stream (a file like object that supports reading) or a filepath on
-        the local system..
+        Return metadata for the file represented by stream or path.
+
+        (a file like object that supports reading) or a filepath on the local system).
         Raise an exception when there is an error with the input data.
         :param file_type: The plugin_type of file. Guaranteed to be one of the entries
         in :attr:`file_types`.
@@ -954,34 +1157,50 @@ class LXMetadataReaderPLugin(MetadataReaderPlugin):
         return None
 
 
-class Archive(object):
+class Archive(LiuXinPlugin):
     """
-    Provides at least a zipfile like read interface to a compressed file format.
+    Provides a zipfile like read interface to a compressed file format.
+
     Options for writing interfaces are also provided - where possible.
-    read_formats and write_formats are the formats that thios plugin can read/write to - stored as the extension without
-    the dot.
-    Note - all classes that inherit from this should try and rasise only one form of error - ArchiveError from
-    LiuXin.exceptions
+    read_formats and write_formats are the formats that this plugin can read/write to -
+    stored as the extension without the dot.
+    Note - all classes that inherit from this should try and raise only one form of error - ArchiveError from
+    LiuXin.errors
     """
+    # This plugin can read from these formats
+    read_formats: frozenset[str] = frozenset()
 
-    read_formats = frozenset()
-    write_formats = frozenset()
+    # This plugin can write to these formats
+    write_formats: frozenset[str] = frozenset()
 
-    def __init__(self, file_path, mode, compression_flags=None, write_type=None):
+    # If the plugin supports multiple write types, which one should be used by default?
+    default_write_type: str
+
+    def __init__(self,
+                 file_path: Union[pathlib.Path, str],
+                 *,
+                 mode: Literal["r", "w", "a"],
+                 compression_flags=None,
+                 write_type: Optional[str] = None,
+                 password: str) -> None:
         """
         Initialize an object representing the compressed file.
+
         :param file_path: Path to the file
         :param mode: Should be the standard python file modes for zipfile (a, r, w e.t.c)
                      Note that there is no such mode as rb e.t.c supported for zip files - archives are opened in
-                     bytes mode by default. This should be reflected in all archive implementations.
+                     bytes mode by default.
+                     This should be reflected in all archive implementations.
         :param compression_flags: A flag for the compression method
         :param write_type: If an archive doesn't exist at the given file_path, then it has to be created. For plugins
                            that can write to multiple file types the write_type is the plugin_type of archive you want to write
-                            to (e.g. if an plugin can write to both rar and zip, and you want to create a rar archive,
+                            to (e.g. if a plugin can write to both rar and zip, and you want to create a rar archive,
                             the set write_type="rar").
                             If the plugin can only write to one plugin_type of archive this will be ignored.
         :return:
         """
+        super().__init__(plugin_path="builtin")
+
         # Properties of the archive on disk - it's location, size, plugin_type e.t.c
         self.file_path = file_path
         file_ext = os.path.splitext(file_path)[0]
@@ -992,6 +1211,7 @@ class Archive(object):
         self.mode = mode
         self.compression_flags = compression_flags
         self.write_type = write_type
+
         if write_type is not None and not self.write_formats or write_type not in self.write_formats:
             err_str = "This class has been called with an invalid write plugin_type - " "valid write types: {}".format(
                 self.write_formats
@@ -1003,25 +1223,23 @@ class Archive(object):
         self.block_count = None
         self.physical_size = None
         self.final_size = None
-        self.multivolume = "unkown"
+        self.multivolume = "unknown"
+        self.password = password
 
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO REPRESENT THE CLASS START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Returns a string representation of the object
+
         :return:
         """
-        return self.__unicode__().encode("utf-8")
 
-    def __unicode__(self):
-        """
-        A string representation of a archive object - for output to the console.
-        """
         ans = []
 
-        def format(x, y):
+        def format(x: Any, y: Any) -> None:
+
             candidate = None
             try:
                 candidate = "%-20s: %s" % (six_unicode(x), six_unicode(y))
@@ -1070,10 +1288,10 @@ class Archive(object):
 
         return "\n".join(ans)
 
-    def printdir(self):
+    def printdir(self) -> None:
         """
-        Prints a contents of the archive to sys.stdout. Mostly useless and will not be implemented.
-        Only here for completeness of the api.
+        Prints a contents of the archive to sys.stdout.
+
         :return:
         """
         raise NotImplementedError
@@ -1082,10 +1300,11 @@ class Archive(object):
     # - METHODS TO GATHER BASIC INFORMATION ABOUT THE FILE
     # ------------------------------------------------------------------------------------------------------------------
     @classmethod
-    def is_valid(cls, path):
+    def is_valid(cls, path: Union[str, pathlib.Path]) -> bool:
         """
-        Takes a local path - determines if the file can be read by this class (is a valid example of one of the archive
-        types that the class can read).
+        Takes a local path - determines if the file can be read by this class.
+
+        Checks the path is a valid example of one of the archive types that the class can read.
         Equivalent to the is_zipfile method.
         :param path:
         :return:
@@ -1095,23 +1314,27 @@ class Archive(object):
     # ------------------------------------------------------------------------------------------------------------------
     # - READ METHODS START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def getinfo(self, name):
+    def getinfo(self, name: str) -> ZipInfoLike:
         """
         Return info on an element in the archive.
+
         Calling this for a name not in the archive results in a KeyError.
-        Should return an object with the same API as the ZipInfo object (Note that, in later versions of ZipFile, the
-        ZipInfo object for a file can be used in place of the name when specifying an object for extraction - this
-        might not be the case here - always use the name to be sure).
-        In cases where the plugin doesn't support much data extraction, thwere will always be a file name. That is the
-        only garantee which is made.
+        Should return an object with the same API as the ZipInfo object.
+
+        Note that, in later versions of ZipFile, the ZipInfo object for a file can be used in place of the name when
+        specifying an object for extraction - this might not be the case here - always use the name to be sure.
+        In cases where the plugin doesn't support much data extraction, there will always be a file name. That is the
+        only guarantee which is made.
         :param name:
         :return:
         """
         raise NotImplementedError
 
-    def infolist(self):
+    def infolist(self) -> list[ZipInfoLike]:
         """
-        Returns a list containing an info object for every element.  The objects are in the same order as their entries
+        Returns a list containing an info object for every element.
+
+        The objects are in the same order as their entries
         in the actual ZIP file on disk if an existing archive was opened.
         It's assumed that the objects that this method returns have the same interface as
         :param name:
@@ -1119,9 +1342,10 @@ class Archive(object):
         """
         raise NotImplementedError
 
-    def namelist(self):
+    def namelist(self) -> list[str]:
         """
         Returns a list of all members of the archive by name.
+
         Paths are unix style (/ separated).
         Not a property to more closely match the zipfile interface.
         :return:
@@ -1129,42 +1353,52 @@ class Archive(object):
         raise NotImplementedError
 
     @property
-    def files(self):
+    def files(self) -> Iterable[str]:
         """
-        Returns all the files in the archive. The paths are relative to the root of the file and are unix styles paths
+        Returns all the files in the archive.
+
+        The paths are relative to the root of the file and are unix styles paths
         (separated by /).
         :return:
         """
         raise NotImplementedError
 
     @property
-    def folders(self):
+    def folders(self) -> Iterable[str]:
         """
-        Returns all the folders in the archive. The paths are relative to the root of the file and are unix style paths
-        (separated by /).
+        Returns all the folders in the archive.
+
+        The paths are relative to the root of the file and are unix style paths (separated by /).
         :return:
         """
         raise NotImplementedError
 
-    def extract(self, path, pwd, member):
+    def extract(self,
+                path: Union[str, pathlib.Path],
+                pwd: str,
+                member: Union[str, ZipInfoLike]) -> pathlib.Path:
         """
         Extract a member of the archive.
+
         Note that this function works like the method of this name from zipfile - if you point the member to a file in
         the archive it'll create the dictionary structure of the archive up to that file, then create that file.
-        If you just
+
         :param path: Where the file should be extracted
         :param pwd: Password for archive
         :param member: Either the name of the object or an info object (preferably a name - as, often, the name will
                        just have to be extracted out of the info object anyways).
+
         :return normalized_path: A normalized path created to the extracted member of the archive
         """
         raise NotImplementedError
 
     def extractall(self, path, pwd, members):
         """
-        Extract all members from the archive to the current working directory. path specifies a different directory to
-        extract to. members is optional and must be a subset of the list returned by namelist(). pwd is the password
-        used for encrypted files.
+        Extract all members from the archive to the current working directory.
+
+        path specifies a different directory to extract to.
+        members is an optional param optional and must be a subset of the list returned by namelist().
+        pwd is the password used for encrypted files.
         This works as the zipfile extractall method.
         :param path:
         :param pwd:
@@ -1246,3 +1480,6 @@ class Archive(object):
         :return:
         """
         self.close()
+
+
+# ------------------------------------

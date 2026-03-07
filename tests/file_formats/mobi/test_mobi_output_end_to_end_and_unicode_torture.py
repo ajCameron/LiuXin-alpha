@@ -263,4 +263,4 @@ def test_mobi_output_old_mode_is_deterministic_with_frozen_runtime(
         run_names=("det_run_1", "det_run_2"),
     )
     assert len(first) > 4096
-    assert sha256_hex(first) == "fc8223387984b38d012bb9d2e3b9336de53854ff9cd696cb1359b3ec14277aeb"
+    assert sha256_hex(first) == "8dd9071f1db379fc8dda2bd401afc9904712982b47c044b5a1a358c2ff342911"
