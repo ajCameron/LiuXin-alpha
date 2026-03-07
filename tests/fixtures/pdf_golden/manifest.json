@@ -1,0 +1,61 @@
+{
+  "cases": [
+    {
+      "name": "fake_realworld_001_info",
+      "path": "fake_realworld_001_info.pdf",
+      "sha256": "4c02dc8d7f41061ed1b0bcc9d0dc139d508730c76d679dbfa94598301a057cd4",
+      "expected": {
+        "title": "Golden PDF Title One — café",
+        "authors": [
+          "Alice Example",
+          "Bob Example"
+        ],
+        "tags": [
+          "golden subject",
+          "tag-one",
+          "tag-two"
+        ],
+        "comments": null,
+        "publisher": null,
+        "producers": [
+          "LiuXin Golden Creator",
+          "LiuXin Golden Producer"
+        ],
+        "identifiers": {
+          "isbn": "9780306406157",
+          "doi": "10.1000/182",
+          "uuid": null
+        }
+      }
+    },
+    {
+      "name": "fake_realworld_002_xmp",
+      "path": "fake_realworld_002_xmp.pdf",
+      "sha256": "5c0c90fc1cebebde51d9b630ebd0488ce16c6a4cb93c7713d97d15deea91b7d4",
+      "expected": {
+        "title": "XMP Golden Title Two — 東京",
+        "authors": [
+          "Carol XMP",
+          "Дмитрий XMP"
+        ],
+        "tags": [
+          "info subject",
+          "info-tag",
+          "tag-xmp",
+          "タグ"
+        ],
+        "comments": "XMP Golden Comment Δ",
+        "publisher": null,
+        "producers": [
+          "Info Creator",
+          "Info Producer"
+        ],
+        "identifiers": {
+          "isbn": null,
+          "doi": "10.4242/xmp-golden",
+          "uuid": "12345678-9abc-def0-1234-56789abcdef0"
+        }
+      }
+    }
+  ]
+}

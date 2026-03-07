@@ -6,8 +6,12 @@ from __future__ import annotations
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
 from LiuXin_alpha.customize import numeric_version
+from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.calibre import walk
 from LiuXin_alpha.utils.localization import trans as _
 
@@ -93,85 +97,88 @@ class RecipeInput(InputFormatPlugin):
 
         options.output_profile.flow_size = 0
         recipe = None
-        if file_ext == "downloaded_recipe":
+        work_root = choose_conversion_workdir("_recipe_input")
+        with CurrentDir(work_root):
+            if file_ext == "downloaded_recipe":
 
-            from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
+                from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
-            zf = ZipFile(recipe_or_file, "r")
-            zf.extractall()
-            zf.close()
-            self.recipe_source = open("download.recipe", "rb").read()
-            recipe = compile_recipe(self.recipe_source)
-            recipe.needs_subscription = False
-            self.recipe_object = recipe(options, log, self.report_progress)
-
-        else:
-
-            if os.access(recipe_or_file, os.R_OK):
-                with open(recipe_or_file, "rb") as r_or_f_pointer:
-                    self.recipe_source = r_or_f_pointer.read()
+                zf = ZipFile(recipe_or_file, "r")
+                zf.extractall()
+                zf.close()
+                self.recipe_source = open("download.recipe", "rb").read()
                 recipe = compile_recipe(self.recipe_source)
-                log("Using custom recipe")
+                recipe.needs_subscription = False
+                self.recipe_object = recipe(options, log, self.report_progress)
+
             else:
-                from LiuXin_alpha.utils.web.feeds.recipes.collection import (
-                    get_builtin_recipe_by_title,
-                    get_builtin_recipe_titles,
-                )
 
-                title = getattr(options, "original_recipe_input_arg", recipe_or_file)
-                title = os.path.basename(title).rpartition(".")[0]
-                titles = frozenset(get_builtin_recipe_titles())
-                if title not in titles:
+                if os.access(recipe_or_file, os.R_OK):
+                    with open(recipe_or_file, "rb") as r_or_f_pointer:
+                        self.recipe_source = r_or_f_pointer.read()
+                    recipe = compile_recipe(self.recipe_source)
+                    log("Using custom recipe")
+                else:
+                    from LiuXin_alpha.utils.web.feeds.recipes.collection import (
+                        get_builtin_recipe_by_title,
+                        get_builtin_recipe_titles,
+                    )
+
                     title = getattr(options, "original_recipe_input_arg", recipe_or_file)
-                    title = title.rpartition(".")[0]
+                    title = os.path.basename(title).rpartition(".")[0]
+                    titles = frozenset(get_builtin_recipe_titles())
+                    if title not in titles:
+                        title = getattr(options, "original_recipe_input_arg", recipe_or_file)
+                        title = title.rpartition(".")[0]
 
-                raw = get_builtin_recipe_by_title(title, log=log, download_recipe=not options.dont_download_recipe)
-                builtin = False
-                try:
-                    recipe = compile_recipe(raw)
-                    self.recipe_source = raw
-                    if recipe.requires_version > numeric_version:
-                        log.warn(
-                            "Downloaded recipe needs calibre version at least: %s" % (".".join(recipe.requires_version))
+                    raw = get_builtin_recipe_by_title(title, log=log, download_recipe=not options.dont_download_recipe)
+                    builtin = False
+                    try:
+                        recipe = compile_recipe(raw)
+                        self.recipe_source = raw
+                        if recipe.requires_version > numeric_version:
+                            log.warn(
+                                "Downloaded recipe needs calibre version at least: %s"
+                                % (".".join(recipe.requires_version))
+                            )
+                            builtin = True
+                    except Exception as e:
+                        log.exception(
+                            "Failed to compile downloaded recipe. Falling back to builtin one "
+                            "- error message: {}".format(e)
                         )
                         builtin = True
-                except Exception as e:
-                    log.exception(
-                        "Failed to compile downloaded recipe. Falling back to builtin one "
-                        "- error message: {}".format(e)
-                    )
-                    builtin = True
 
-                if builtin:
-                    log("Using bundled builtin recipe")
-                    raw = get_builtin_recipe_by_title(title, log=log, download_recipe=False)
-                    if raw is None:
-                        raise ValueError("Failed to find builtin recipe: " + title)
-                    recipe = compile_recipe(raw)
-                    self.recipe_source = raw
-                else:
-                    log("Using downloaded builtin recipe")
+                    if builtin:
+                        log("Using bundled builtin recipe")
+                        raw = get_builtin_recipe_by_title(title, log=log, download_recipe=False)
+                        if raw is None:
+                            raise ValueError("Failed to find builtin recipe: " + title)
+                        recipe = compile_recipe(raw)
+                        self.recipe_source = raw
+                    else:
+                        log("Using downloaded builtin recipe")
 
-            if recipe is None:
-                raise ValueError("%r is not a valid recipe file or builtin recipe" % recipe_or_file)
+                if recipe is None:
+                    raise ValueError("%r is not a valid recipe file or builtin recipe" % recipe_or_file)
 
-            disabled = getattr(recipe, "recipe_disabled", None)
-            if disabled is not None:
-                raise RecipeDisabled(disabled)
-            ro = recipe(options, log, self.report_progress)
-            ro.download()
-            self.recipe_object = ro
+                disabled = getattr(recipe, "recipe_disabled", None)
+                if disabled is not None:
+                    raise RecipeDisabled(disabled)
+                ro = recipe(options, log, self.report_progress)
+                ro.download()
+                self.recipe_object = ro
 
-        for key, val in self.recipe_object.conversion_options.items():
-            setattr(options, key, val)
+            for key, val in self.recipe_object.conversion_options.items():
+                setattr(options, key, val)
 
-        for f in os.listdir("."):
-            if f.endswith(".opf"):
-                return os.path.abspath(f)
+            for f in os.listdir("."):
+                if f.endswith(".opf"):
+                    return os.path.abspath(f)
 
-        for f in walk("."):
-            if f.endswith(".opf"):
-                return os.path.abspath(f)
+            for f in walk("."):
+                if f.endswith(".opf"):
+                    return os.path.abspath(f)
 
     def postprocess_book(self, oeb, opts, log):
         if self.recipe_object is not None:

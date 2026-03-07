@@ -32,6 +32,7 @@ from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
 from LiuXin_alpha.preferences import preferences
+from LiuXin_alpha.storage.store_manager import StorageBootstrapReport, StorageManager
 
 from LiuXin_alpha.utils.logging import default_log
 
@@ -93,6 +94,8 @@ class Database(
     get = None
     shell = None
     get_connection = None
+    storage = None
+    storage_bootstrap_report = None
 
     # Todo: Split some of these out into factory methods and slim this down
     def __init__(
@@ -102,6 +105,9 @@ class Database(
         create: bool = False,
         backup: bool = True,
         existing_driver: Optional[DatabaseDriverAPI] = None,
+        enable_storage_manager: bool = True,
+        strict_storage_manager_bootstrap: bool = False,
+        storage_startup_on_add: bool = False,
     ) -> None:
         """
         If the database type is not set defaults to SQLite.
@@ -138,6 +144,14 @@ class Database(
 
         self.driver.dirty_records_queue = self.dirty_records_queue
         self.driver_wrapper.dirty_records_queue = self.dirty_records_queue
+
+        self.storage = None
+        self.storage_bootstrap_report = None
+        if enable_storage_manager:
+            self.bootstrap_storage_manager(
+                startup_on_add=storage_startup_on_add,
+                strict=strict_storage_manager_bootstrap,
+            )
 
     @property
     def driver(self) -> DatabaseDriverAPI:
@@ -339,6 +353,48 @@ class Database(
         self.driver.db = self
         self.macros.db = self
 
+    def bootstrap_storage_manager(
+        self,
+        *,
+        startup_on_add: bool = False,
+        include_offline: bool = False,
+        clear_existing: bool = True,
+        strict: bool = False,
+    ) -> StorageBootstrapReport:
+        """
+        Build or refresh the StorageManager from rows in the `stores` table.
+
+        If `strict` is False, bootstrap errors are logged and returned in the
+        report without raising.
+        """
+        if self.storage is None:
+            self.storage = StorageManager(startup_on_add=startup_on_add)
+
+        try:
+            report = self.storage.load_from_database(
+                self,
+                include_offline=include_offline,
+                clear_existing=clear_existing,
+            )
+        except Exception as exc:
+            if strict:
+                raise
+            default_log.log_exception(
+                "Storage manager bootstrap failed.",
+                exc,
+                "WARNING",
+                ("database_path", self.metadata.get("database_path") if self.metadata else None),
+            )
+            report = StorageBootstrapReport(
+                discovered_rows=0,
+                loaded_stores=0,
+                skipped_rows=0,
+                failed_rows=1,
+            )
+
+        self.storage_bootstrap_report = report
+        return report
+
 
     def set_driver(self, new_driver: DatabaseDriverAPI) -> None:
         """
@@ -409,6 +465,8 @@ class Database(
             "get",
             "shell",
             "get_connection",
+            "storage_bootstrap_report",
+            "storage",
         ):
             try:
                 setattr(self, name, getattr(self._driver_wrapper, name))
@@ -926,4 +984,3 @@ class Database(
 # ----------------------------------------------------------------------------------------------------------------------
 ########################################################################################################################
 ########################################################################################################################
-

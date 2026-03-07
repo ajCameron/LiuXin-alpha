@@ -5,6 +5,9 @@ import re
 from itertools import cycle
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
 from LiuXin_alpha.utils.logging import default_log
 
@@ -211,88 +214,90 @@ class EPUBInput(InputFormatPlugin):
         :return:
         """
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
-        from LiuXin_alpha.utils.calibre import walk
+        from LiuXin_alpha.utils.calibre import walk, CurrentDir
         from LiuXin_alpha.file_formats import DRMError
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
-        try:
-            zf = ZipFile(stream)
-            zf.extractall(os.getcwd())
-        except Exception as e:
+        work_root = choose_conversion_workdir("_epub_input")
+        with CurrentDir(work_root):
+            try:
+                zf = ZipFile(stream)
+                zf.extractall(os.getcwd())
+            except Exception as e:
 
-            info_str = "EPUB appears to be invalid ZIP file, trying a more forgiving ZIP parser"
-            log.exception(info_str)
-            err_str = default_log.log_exception(info_str, e, "INFO")
-            assert True is False, err_str
+                info_str = "EPUB appears to be invalid ZIP file, trying a more forgiving ZIP parser"
+                log.exception(info_str)
+                err_str = default_log.log_exception(info_str, e, "INFO")
+                assert True is False, err_str
 
-            from LiuXin_alpha.utils.decompression.localunzip import extractall
+                from LiuXin_alpha.utils.decompression.localunzip import extractall
 
-            stream.seek(0)
-            extractall(stream)
+                stream.seek(0)
+                extractall(stream)
 
-        encfile = os.path.abspath(os.path.join("META-INF", "encryption.xml"))
-        opf = self.find_opf()
-        if opf is None:
-            for f in walk("."):
-                if f.lower().endswith(".opf") and "__MACOSX" not in f and not os.path.basename(f).startswith("."):
-                    opf = os.path.abspath(f)
-                    break
-        path = getattr(stream, "name", "stream")
+            encfile = os.path.abspath(os.path.join("META-INF", "encryption.xml"))
+            opf = self.find_opf()
+            if opf is None:
+                for f in walk("."):
+                    if f.lower().endswith(".opf") and "__MACOSX" not in f and not os.path.basename(f).startswith("."):
+                        opf = os.path.abspath(f)
+                        break
+            path = getattr(stream, "name", "stream")
 
-        if opf is None:
-            raise ValueError("%s is not a valid EPUB file (could not find opf)" % path)
+            if opf is None:
+                raise ValueError("%s is not a valid EPUB file (could not find opf)" % path)
 
-        opf = os.path.relpath(opf, os.getcwd())
-        parts = os.path.split(opf)
-        opf = OPF(opf, os.path.dirname(os.path.abspath(opf)))
+            opf = os.path.relpath(opf, os.getcwd())
+            parts = os.path.split(opf)
+            opf = OPF(opf, os.path.dirname(os.path.abspath(opf)))
 
-        self._encrypted_font_uris = []
-        if os.path.exists(encfile):
-            if not self.process_encryption(encfile, opf, log):
-                raise DRMError(os.path.basename(path))
-        self.encrypted_fonts = self._encrypted_font_uris
+            self._encrypted_font_uris = []
+            if os.path.exists(encfile):
+                if not self.process_encryption(encfile, opf, log):
+                    raise DRMError(os.path.basename(path))
+            self.encrypted_fonts = self._encrypted_font_uris
 
-        if len(parts) > 1 and parts[0]:
-            delta = "/".join(parts[:-1]) + "/"
-            for elem in opf.itermanifest():
-                elem.set("href", delta + elem.get("href"))
-            for elem in opf.iterguide():
-                elem.set("href", delta + elem.get("href"))
+            if len(parts) > 1 and parts[0]:
+                delta = "/".join(parts[:-1]) + "/"
+                for elem in opf.itermanifest():
+                    elem.set("href", delta + elem.get("href"))
+                for elem in opf.iterguide():
+                    elem.set("href", delta + elem.get("href"))
 
-        self.removed_cover = self.rationalize_cover(opf, log)
+            self.removed_cover = self.rationalize_cover(opf, log)
 
-        self.optimize_opf_parsing = opf
-        for x in opf.itermanifest():
-            if x.get("media-type", "") == "application/x-dtbook+xml":
-                raise ValueError("EPUB files with DTBook markup are not supported")
+            self.optimize_opf_parsing = opf
+            for x in opf.itermanifest():
+                if x.get("media-type", "") == "application/x-dtbook+xml":
+                    raise ValueError("EPUB files with DTBook markup are not supported")
 
-        not_for_spine = set()
-        for y in opf.itermanifest():
-            id_ = y.get("id", None)
-            if id_ and y.get("media-type", None) in {
-                "application/vnd.adobe-page-template+xml",
-                "application/vnd.adobe.page-template+xml",
-                "application/adobe-page-template+xml",
-                "application/adobe.page-template+xml",
-                "application/text",
-            }:
-                not_for_spine.add(id_)
+            not_for_spine = set()
+            for y in opf.itermanifest():
+                id_ = y.get("id", None)
+                if id_ and y.get("media-type", None) in {
+                    "application/vnd.adobe-page-template+xml",
+                    "application/vnd.adobe.page-template+xml",
+                    "application/adobe-page-template+xml",
+                    "application/adobe.page-template+xml",
+                    "application/text",
+                }:
+                    not_for_spine.add(id_)
 
-        seen = set()
-        for x in list(opf.iterspine()):
-            ref = x.get("idref", None)
-            if not ref or ref in not_for_spine or ref in seen:
-                x.getparent().remove(x)
-                continue
-            seen.add(ref)
+            seen = set()
+            for x in list(opf.iterspine()):
+                ref = x.get("idref", None)
+                if not ref or ref in not_for_spine or ref in seen:
+                    x.getparent().remove(x)
+                    continue
+                seen.add(ref)
 
-        if len(list(opf.iterspine())) == 0:
-            raise ValueError("No valid entries in the spine of this EPUB")
+            if len(list(opf.iterspine())) == 0:
+                raise ValueError("No valid entries in the spine of this EPUB")
 
-        with open("content.opf", "wb") as nopf:
-            nopf.write(opf.render())
+            with open("content.opf", "wb") as nopf:
+                nopf.write(opf.render())
 
-        return os.path.abspath("content.opf")
+            return os.path.abspath("content.opf")
 
     def postprocess_book(self, oeb, opts, log):
         rc = getattr(self, "removed_cover", None)

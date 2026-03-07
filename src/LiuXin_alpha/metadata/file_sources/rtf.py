@@ -1,347 +1,443 @@
 """
-Read metadata from RTF files - modified and expanded from calibre for LiuXin
+Read and write metadata in RTF files.
 """
 
-# The rtf specification can be found at http://www.biblioscape.com/rtf15_spec.htm
+from __future__ import annotations
 
 import codecs
+import os
 import re
+from io import StringIO
+from typing import Any
 
-from copy import deepcopy
-
-from LiuXin.metadata import string_to_authors
-from LiuXin.metadata.metadata import MetaData as MetaInformation
-
-from LiuXin.utils.calibre import force_unicode
-from LiuXin.utils.localization import trans as _
-
-# Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import six_cStringIO as StringIO
-from LiuXin.utils.lx_libraries.liuxin_six import six_unichar
-from LiuXin.utils.lx_libraries.liuxin_six import six_string_types
-
+from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
+from LiuXin_alpha.metadata.utils import string_to_authors
+from LiuXin_alpha.utils.calibre import force_unicode
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import default_log
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
+VALID_FOR = ["RTF"]
+PRIORITY_FOR = ["RTF"]
+RUN_COST = ["LOW"]
 
-title_pat = re.compile(r"\{\\info.*?\{\\title(.*?)(?<!\\)\}", re.DOTALL)
-subject_pat = re.compile(r"\{\\info.*?\{\\subject(.*?)(?<!\\)\}", re.DOTALL)
-author_pat = re.compile(r"\{\\info.*?\{\\author(.*?)(?<!\\)\}", re.DOTALL)
-manager_pat = re.compile(r"\{\\info.*?\{\\manager(.*?)(?<!\\)\}", re.DOTALL)
-company_pat = re.compile(r"\{\\info.*?\{\\company(.*?)(?<!\\)\}", re.DOTALL)
-operator_pat = re.compile(r"\{\\info.*?\{\\operator(.*?)(?<!\\)\}", re.DOTALL)
-tags_pat = re.compile(r"\{\\info.*?\{\\category(.*?)(?<!\\)\}", re.DOTALL)
-tags_pat_2 = re.compile(r"\{\\info.*?\{\\keywords(.*?)(?<!\\)\}", re.DOTALL)
-comment_pat_2 = re.compile(r"\{\\info.*?\{\\comment(.*?)(?<!\\)\}", re.DOTALL)
+title_pat = re.compile(br"\{\\info.*?\{\\title(.*?)(?<!\\)\}", re.DOTALL)
+subject_pat = re.compile(br"\{\\info.*?\{\\subject(.*?)(?<!\\)\}", re.DOTALL)
+author_pat = re.compile(br"\{\\info.*?\{\\author(.*?)(?<!\\)\}", re.DOTALL)
+manager_pat = re.compile(br"\{\\info.*?\{\\manager(.*?)(?<!\\)\}", re.DOTALL)
+company_pat = re.compile(br"\{\\info.*?\{\\company(.*?)(?<!\\)\}", re.DOTALL)
+operator_pat = re.compile(br"\{\\info.*?\{\\operator(.*?)(?<!\\)\}", re.DOTALL)
+tags_pat = re.compile(br"\{\\info.*?\{\\category(.*?)(?<!\\)\}", re.DOTALL)
+tags_pat_2 = re.compile(br"\{\\info.*?\{\\keywords(.*?)(?<!\\)\}", re.DOTALL)
+comment_pat_2 = re.compile(br"\{\\info.*?\{\\comment(.*?)(?<!\\)\}", re.DOTALL)
+
+
+def _default_metadata() -> MetaInformation:
+    return MetaInformation(_("Unknown"), [_("Unknown")])
+
+
+def _source_name(target_file) -> str:
+    if isinstance(target_file, os.PathLike):
+        return os.fspath(target_file)
+    if isinstance(target_file, str):
+        return target_file
+    return getattr(target_file, "name", "") or ""
+
+
+def _to_bytes(raw: bytes | str) -> bytes:
+    if isinstance(raw, bytes):
+        return raw
+    return str(raw).encode("latin-1", "replace")
+
+
+def _normalize_text(raw: str | None) -> str:
+    if not raw:
+        return ""
+    return re.sub(r"\s+", " ", raw).strip()
+
+
+def _safe_seek(stream, pos: int) -> None:
+    try:
+        stream.seek(pos)
+    except Exception:
+        pass
+
+
+def _warn(msg: str) -> None:
+    logger = getattr(default_log, "warning", None) or getattr(default_log, "warn", None)
+    if logger is not None:
+        logger(msg)
+
+
+def _log_exception(msg: str, err: Exception) -> None:
+    if hasattr(default_log, "log_exception"):
+        default_log.log_exception(msg, err, "DEBUG")
+    else:
+        _warn(f"{msg}: {err}")
 
 
 def get_document_info(stream):
-    """
-    Extract the \info block from an RTF file.
-    Return the info block as a string and the position in the file at which it starts.
-    :param stream: File like object pointing to the RTF file.
-    :return: info_block, start_position
+    r"""
+    Extract the \info block from an RTF stream.
+    Returns: (info_block_bytes | None, start_position)
     """
     block_size = 4096
     stream.seek(0)
-    found, block = False, ""
+    found, block = False, b""
     while not found:
         prefix = block[-6:]
-        block = prefix + stream.read(block_size)
+        chunk = stream.read(block_size)
+        block = prefix + _to_bytes(chunk or b"")
         actual_block_size = len(block) - len(prefix)
         if len(block) == len(prefix):
             break
-        idx = block.find(r"{\info")
+        idx = block.find(br"{\info")
         if idx >= 0:
             found = True
             pos = stream.tell() - actual_block_size + idx - len(prefix)
             stream.seek(pos)
-        else:
-            if block.find(r"\sect") > -1:
-                break
+        elif block.find(br"\sect") > -1:
+            break
     if not found:
         return None, 0
-    data, count, = (
-        StringIO(),
-        0,
-    )
+
+    data = bytearray()
+    count = 0
     pos = stream.tell()
     while True:
-        ch = stream.read(1)
-        if ch == "\\":
-            data.write(ch + stream.read(1))
+        ch = _to_bytes(stream.read(1))
+        if not ch:
+            break
+        if ch == b"\\":
+            data.extend(ch + _to_bytes(stream.read(1)))
             continue
-        if ch == "{":
+        if ch == b"{":
             count += 1
-        elif ch == "}":
+        elif ch == b"}":
             count -= 1
-        data.write(ch)
+        data.extend(ch)
         if count == 0:
             break
-    return data.getvalue(), pos
+    return bytes(data), pos
 
 
 def detect_codepage(stream):
     """
-    Information needed to convert the ANSII back to unicode.
-    :param stream:
-    :return: codepage
-    :rtype: Will return None if a codepage cannot be found
+    Detect RTF \ansicpgNNNN codepage.
     """
-    pat = re.compile(r"\\ansicpg(\d+)")
-    match = pat.search(stream.read(512))
-
+    stream.seek(0)
+    sample = _to_bytes(stream.read(512))
+    pat = re.compile(br"\\ansicpg(\d+)")
+    match = pat.search(sample)
     if match is not None:
         num = match.group(1)
-        if num == "0":
-            num = "1252"
-        codec = "cp" + num
+        if num == b"0":
+            num = b"1252"
+        codec = (b"cp" + num).decode("ascii", "replace")
         try:
             codecs.lookup(codec)
             return codec
-        except:
+        except Exception:
             pass
-
-    return
+    return None
 
 
 def encode(unistr):
-    if not isinstance(unistr, unicode):
+    """
+    Encode unicode text for RTF metadata fields using \\uXXXX? escapes.
+    """
+    if not isinstance(unistr, str):
         unistr = force_unicode(unistr)
-    return "".join([str(c) if ord(c) < 128 else "\\u" + str(ord(c)) + "?" for c in unistr])
+    return "".join(c if ord(c) < 128 else f"\\u{ord(c)}?" for c in unistr)
 
 
 def decode(raw, codec):
+    """
+    Decode RTF field content containing \\'HH and \\uNNNN? escapes.
+    """
+    if isinstance(raw, bytes):
+        text = raw.decode("ascii", "replace")
+    else:
+        text = str(raw)
+
     if codec is not None:
-
         def codepage(match):
-            return chr(int(match.group(1), 16))
+            try:
+                return bytes([int(match.group(1), 16)]).decode(codec)
+            except Exception:
+                return "?"
 
-        raw = re.sub(r"\\'([a-fA-F0-9]{2})", codepage, raw)
-        raw = raw.decode(codec)
+        text = re.sub(r"\\'([a-fA-F0-9]{2})", codepage, text)
 
     def uni(match):
-        return six_unichar(int(match.group(1)))
+        try:
+            val = int(match.group(1))
+            # RTF \u escapes are signed 16-bit values.
+            if val < 0:
+                val += 65536
+            return chr(val)
+        except Exception:
+            return "?"
 
-    raw = re.sub(r"\\u([0-9]{3,4}).", uni, raw)
-    return raw
+    text = re.sub(r"\\u(-?\d{1,5}).", uni, text)
+    return _normalize_text(text)
+
+
+def _set_authors(mi, raw_author: str) -> None:
+    authors = [x.strip() for x in string_to_authors(raw_author) if x and x.strip()]
+    if len(authors) <= 1 and "," in raw_author:
+        authors = [x.strip() for x in raw_author.split(",") if x.strip()]
+    if authors:
+        try:
+            # Avoid keeping the default Unknown author when real authors exist.
+            raw_data = object.__getattribute__(mi, "_data")
+            if isinstance(raw_data, dict) and isinstance(raw_data.get("authors"), dict):
+                raw_data["authors"].clear()
+        except Exception:
+            pass
+        mi.authors = authors
+
+
+def _set_tags(mi, tags_text: str) -> None:
+    tags = [x.strip() for x in tags_text.split(",") if x.strip()]
+    if tags:
+        mi.tags = tags
 
 
 def get_metadata(target_file):
     """
-    Return metadata as a L{MetaInfo} object.
-    :param target_file:
-    :return: file_md
-    :rtype: LiuXin_md
+    Read metadata from an RTF path or stream.
     """
-    # Ensuring a stream pointing to the target file
-    if isinstance(target_file, six_string_types):
-        target_file = deepcopy(target_file)
-        with open(target_file, "rb") as stream:
-            return rtf_get_metadata_from_stream(stream)
-    else:
+    stream_needs_close = False
+    source_name = _source_name(target_file)
+
+    if isinstance(target_file, os.PathLike):
+        target_file = os.fspath(target_file)
+
+    if isinstance(target_file, str):
+        stream = open(target_file, "rb")
+        stream_needs_close = True
+    elif hasattr(target_file, "read"):
         stream = target_file
+    else:
+        raise TypeError("RTF metadata reader expects a filesystem path or readable stream.")
+
+    pos = None
+    if hasattr(stream, "tell"):
+        try:
+            pos = stream.tell()
+        except Exception:
+            pos = None
+
+    try:
         return rtf_get_metadata_from_stream(stream)
+    finally:
+        if stream_needs_close:
+            stream.close()
+        elif pos is not None:
+            _safe_seek(stream, pos)
 
 
 def rtf_get_metadata_from_stream(stream):
     """
-    Read metadata from a stream.
-    :param stream:
-    :return:
+    Read metadata from an RTF stream.
     """
-
-    mi = MetaInformation()
-
+    mi = _default_metadata()
     stream.seek(0)
-    if stream.read(5) != r"{\rtf":
+    if _to_bytes(stream.read(5)) != br"{\rtf":
         return mi
-    block = get_document_info(stream)[0]
+
+    block, _ = get_document_info(stream)
     if not block:
         return mi
 
-    stream.seek(0)
     cpg = detect_codepage(stream)
     stream.seek(0)
 
     title_match = title_pat.search(block)
     if title_match is not None:
         title = decode(title_match.group(1).strip(), cpg)
-    else:
-        title = _("Unknown")
-    mi.title = title
+        if title:
+            mi.title = title
 
     author_match = author_pat.search(block)
     if author_match is not None:
         author = decode(author_match.group(1).strip(), cpg)
-    else:
-        author = None
-    if author:
-        mi.authors = string_to_authors(author)
+        if author:
+            _set_authors(mi, author)
 
-    comment_match = subject_pat.search(block)
-    if comment_match is not None:
-        comment = decode(comment_match.group(1).strip(), cpg)
-        mi.comments = comment
+    subject_match = subject_pat.search(block)
+    if subject_match is not None:
+        comment = decode(subject_match.group(1).strip(), cpg)
+        if comment:
+            mi.comments = comment
 
     comment_match_2 = comment_pat_2.search(block)
     if comment_match_2 is not None:
         comment_2 = decode(comment_match_2.group(1).strip(), cpg)
-        mi.comments = comment_2
+        if comment_2:
+            # Explicit \comment is usually richer than \subject.
+            try:
+                raw_data = object.__getattribute__(mi, "_data")
+                if isinstance(raw_data, dict) and isinstance(raw_data.get("comments"), dict):
+                    raw_data["comments"].clear()
+            except Exception:
+                pass
+            mi.comments = comment_2
 
-    # Tags serving as a catchall for any extra fields that might be floating around
-    # As over tagging is hardly likely to be a serious concern
     tags_match = tags_pat.search(block)
     if tags_match is not None:
         tags = decode(tags_match.group(1).strip(), cpg)
-        mi.tags = list(filter(None, (x.strip() for x in tags.split(","))))
+        _set_tags(mi, tags)
 
     tags_match_2 = tags_pat_2.search(block)
     if tags_match_2 is not None:
         tags_2 = decode(tags_match_2.group(1).strip(), cpg)
-        mi.tags = list(filter(None, (x.strip() for x in tags_2.split(","))))
+        _set_tags(mi, tags_2)
 
     publisher_match = manager_pat.search(block)
     if publisher_match is not None:
         publisher = decode(publisher_match.group(1).strip(), cpg)
-        mi.publisher = publisher
+        if publisher:
+            mi.publisher = publisher
 
     company_match = company_pat.search(block)
     if company_match is not None:
         company = decode(company_match.group(1).strip(), cpg)
-        mi.tags = company
+        if company:
+            try:
+                mi.tags = company
+            except Exception:
+                pass
 
     operator_match = operator_pat.search(block)
     if operator_match is not None:
         operator = decode(operator_match.group(1).strip(), cpg)
-        mi.add_creators({"operator": operator})
+        if operator:
+            try:
+                mi.add_creators({"operator": operator})
+            except Exception:
+                # Older metadata objects may not have this hook.
+                pass
 
     return mi
 
 
 def create_metadata(stream, options):
     """
-    Make a metadata packet with the given options.
-    :param stream:
-    :param options:
-    :return:
+    Create a metadata packet and inject it near the top of an RTF stream.
     """
-    md = [r"{\info"]
-    if options.title:
-        title = encode(options.title)
-        md.append(r"{\title %s}" % (title,))
+    md: list[str] = [r"{\info"]
+    if getattr(options, "title", None):
+        md.append(r"{\title %s}" % encode(options.title))
 
-    if options.authors:
-        au = options.authors
-        if not isinstance(au, six_string_types):
-            au = ", ".join(au)
-        author = encode(au)
-        md.append(r"{\author %s}" % (author,))
+    authors = getattr(options, "authors", None)
+    if authors:
+        au = authors if isinstance(authors, str) else ", ".join(str(x) for x in authors)
+        md.append(r"{\author %s}" % encode(au))
 
-    comp = options.comment if hasattr(options, "comment") else options.comments
-    if comp:
-        comment = encode(comp)
-        md.append(r"{\subject %s}" % (comment,))
+    comment = getattr(options, "comment", None)
+    if comment is None:
+        comment = getattr(options, "comments", None)
+    if comment:
+        md.append(r"{\subject %s}" % encode(comment))
 
-    if options.publisher:
-        publisher = encode(options.publisher)
-        md.append(r"{\manager %s}" % (publisher,))
+    if getattr(options, "publisher", None):
+        md.append(r"{\manager %s}" % encode(options.publisher))
 
-    if options.tags:
-        tags = ", ".join(options.tags)
-        tags = encode(tags)
-        md.append(r"{\category %s}" % (tags,))
+    tags = getattr(options, "tags", None)
+    if tags:
+        if isinstance(tags, str):
+            tag_text = tags
+        else:
+            tag_text = ", ".join(str(x) for x in tags)
+        md.append(r"{\category %s}" % encode(tag_text))
 
     if len(md) > 1:
         md.append("}")
         stream.seek(0)
-        src = stream.read()
-        ans = src[:6] + "".join(md) + src[6:]
+        src = _to_bytes(stream.read())
+        ans = src[:6] + "".join(md).encode("ascii", "replace") + src[6:]
         stream.seek(0)
+        stream.truncate()
         stream.write(ans)
 
 
 def set_metadata(stream, options):
     """
-    Modify/add RTF metadata in stream
-    :param stream: The stream object to modify
-    :param options: Object with metadata attributes title, author, comment, category.
-                    Note - if both comment and comments are attributes of this object then the comment attribute will
-                    be preferred.
-    :type options: For example calibreMetaData object
-    :return:
+    Modify or add RTF metadata in a read/write binary stream.
     """
 
-    def add_metadata_item(src, name, val):
+    def add_metadata_item(src: str, name: str, val: str) -> str:
         index = src.rindex("}")
         return src[:index] + r"{\ "[:-1] + name + " " + val + "}}"
 
-    src, pos = get_document_info(stream)
+    def replace_or_create(src: str, name: str, val: str) -> str:
+        val = encode(val)
+        pat = re.compile(base_pat.replace("name", name), re.DOTALL)
+        src, num = pat.subn(r"{\\" + name.replace("\\", r"\\") + " " + val.replace("\\", r"\\") + "}", src)
+        if num == 0:
+            src = add_metadata_item(src, name, val)
+        return src
 
-    # The metadata packet will have to be created wholesale
+    src, pos = get_document_info(stream)
     if src is None:
         create_metadata(stream, options)
+        return
 
-    # Use the existing metadata packet
-    else:
-        olen = len(src)
+    try:
+        src_text = src.decode("ascii", "replace")
+    except Exception as err:
+        _log_exception("Unable to decode existing RTF info block as ASCII.", err)
+        create_metadata(stream, options)
+        return
 
-        base_pat = r"\{\\name(.*?)(?<!\\)\}"
-        title = options.title
-        if title is not None:
-            title = encode(title)
-            pat = re.compile(base_pat.replace("name", "title"), re.DOTALL)
-            if pat.search(src):
-                src = pat.sub(r"{\\title " + title + r"}", src)
-            else:
-                src = add_metadata_item(src, "title", title)
+    olen = len(src)
+    base_pat = r"\{\\name(.*?)(?<!\\)\}"
 
-        # Should catch if the comment has been set to the attributes comments or comment
-        try:
-            comment = options.comment
-        except AttributeError:
-            comment = options.comments
-        if comment is not None:
-            comment = encode(comment)
-            pat = re.compile(base_pat.replace("name", "subject"), re.DOTALL)
-            if pat.search(src):
-                src = pat.sub(r"{\\subject " + comment + r"}", src)
-            else:
-                src = add_metadata_item(src, "subject", comment)
+    if getattr(options, "title", None) is not None:
+        src_text = replace_or_create(src_text, "title", options.title)
 
-        author = options.authors
-        if author is not None:
-            author = "& ".join(author)
-            author = encode(author)
-            pat = re.compile(base_pat.replace("name", "author"), re.DOTALL)
-            if pat.search(src):
-                src = pat.sub(r"{\\author " + author + r"}", src)
-            else:
-                src = add_metadata_item(src, "author", author)
+    comment = getattr(options, "comment", None)
+    if comment is None:
+        comment = getattr(options, "comments", None)
+    if comment is not None:
+        src_text = replace_or_create(src_text, "subject", comment)
 
-        tags = options.tags
-        if tags is not None:
-            tags = ", ".join(tags)
-            tags = encode(tags)
-            pat = re.compile(base_pat.replace("name", "category"), re.DOTALL)
-            if pat.search(src):
-                src = pat.sub(r"{\\category " + tags + r"}", src)
-            else:
-                src = add_metadata_item(src, "category", tags)
+    authors = getattr(options, "authors", None)
+    if authors is not None:
+        author_text = authors if isinstance(authors, str) else "& ".join(str(x) for x in authors)
+        src_text = replace_or_create(src_text, "author", author_text)
 
-        publisher = options.publisher
-        if publisher is not None:
-            publisher = encode(publisher)
-            pat = re.compile(base_pat.replace("name", "manager"), re.DOTALL)
-            if pat.search(src):
-                src = pat.sub(r"{\\manager " + publisher + r"}", src)
-            else:
-                src = add_metadata_item(src, "manager", publisher)
+    tags = getattr(options, "tags", None)
+    if tags is not None:
+        tag_text = tags if isinstance(tags, str) else ", ".join(str(x) for x in tags)
+        src_text = replace_or_create(src_text, "category", tag_text)
 
-        stream.seek(pos + olen)
-        after = stream.read()
-        stream.seek(pos)
-        stream.truncate()
-        stream.write(src)
-        stream.write(after)
+    publisher = getattr(options, "publisher", None)
+    if publisher is not None:
+        src_text = replace_or_create(src_text, "manager", publisher)
+
+    stream.seek(pos + olen)
+    after = _to_bytes(stream.read())
+    stream.seek(pos)
+    stream.truncate()
+    stream.write(src_text.encode("ascii", "replace"))
+    stream.write(after)
+
+
+__all__ = [
+    "VALID_FOR",
+    "PRIORITY_FOR",
+    "RUN_COST",
+    "get_document_info",
+    "detect_codepage",
+    "encode",
+    "decode",
+    "get_metadata",
+    "rtf_get_metadata_from_stream",
+    "create_metadata",
+    "set_metadata",
+]

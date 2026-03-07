@@ -594,7 +594,7 @@ class ParseRtf:
                 # sys.stderr.write( msg + ' in ' + file_name + "\n")
             else:
                 msg = f"{msg} in file {file_name}"
-                print(msg, file=sys.stderr)
+                sys.stderr.write(f"{msg}\n")
 
     def __return_code(self, num):
         if num is None:

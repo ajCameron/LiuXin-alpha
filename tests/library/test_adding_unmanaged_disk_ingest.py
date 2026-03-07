@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from LiuXin_alpha.storage.reconcile import (
     register_existing_disk_as_unmanaged_store,
     register_existing_disk_with_database_path,
@@ -118,3 +120,37 @@ def test_legacy_library_wrapper_re_exports_canonical_api() -> None:
         legacy_ingest.register_existing_disk_with_database_path
         is reconcile.register_existing_disk_with_database_path
     )
+
+
+def test_register_existing_disk_refreshes_db_storage_manager(db, tmp_path: Path) -> None:
+    disk_root = tmp_path / "unmanaged_refresh"
+    _write_file(disk_root / "book.epub", b"payload")
+
+    report = register_existing_disk_as_unmanaged_store(
+        db,
+        disk_root,
+        store_name="refresh_store",
+    )
+
+    assert db.storage is not None
+    store = db.storage.get_store("refresh_store")
+    assert store.url == str(disk_root.resolve())
+
+    got = db.storage.retrieve_file(metadata={"file_storage_key": "book.epub", "file_store_id": report.store_row_id})
+    assert got.as_bytes() == b"payload"
+
+
+def test_register_existing_disk_can_skip_storage_manager_refresh(db, tmp_path: Path) -> None:
+    disk_root = tmp_path / "unmanaged_no_refresh"
+    _write_file(disk_root / "book.epub", b"payload")
+
+    register_existing_disk_as_unmanaged_store(
+        db,
+        disk_root,
+        store_name="no_refresh_store",
+        refresh_storage_manager=False,
+    )
+
+    assert db.storage is not None
+    with pytest.raises(KeyError):
+        db.storage.get_store("no_refresh_store")

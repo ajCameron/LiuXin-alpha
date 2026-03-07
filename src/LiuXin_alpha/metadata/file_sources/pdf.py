@@ -1,597 +1,653 @@
 #!/usr/bin/env python
 
-# Metadata can be embedded in PDF files in a number of different ways and placed.
-# Older PDFs used "Info" in the XRefs trailer
-# Newer ones use XMP metadata
-# Some of them use both
+"""
+PDF metadata source with dependency-light fallbacks.
 
-# Wrapper for pdfminer - replacing the calibre method - which seems to rely on the existence of
-# PDFTOHTML
-# (should work on fixing that, so it'll be available with the old one)
-# Using pdfminer which can be installed as a dependancy under python
+This module intentionally avoids hard dependencies on compiled PDF bindings when
+reading metadata. It extracts common metadata from:
+1) the PDF Info dictionary
+2) embedded XMP packets when present
 
-# Done, for the moment
+Writing metadata requires an optional backend (`pypdf`).
+"""
 
-from __future__ import unicode_literals
+from __future__ import annotations
 
+import importlib.util
+import io
 import os
-import subprocess
-import shutil
 import re
-
-from copy import deepcopy
+import shutil
+import subprocess
+import zlib
 from collections import defaultdict
+from pathlib import Path
+from typing import Any
 from xml.etree import ElementTree as ET
 
-from LiuXin.constants import DEV_MODE
-from LiuXin.constants import iswindows
+from LiuXin_alpha.metadata.constants import (
+    INFO_DICT_KEY_DROP_SET,
+    INFO_DICT_VALUE_DROP_SET,
+    PRODUCER_DROP_REGEX_SET,
+)
+from LiuXin_alpha.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.utils import check_doi, check_isbn, string_to_authors
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.python_tools import check_against_regex_set, regex_dict_str_rekey
 
-from LiuXin.file_formats.chardet import recode_to_utf8
+VALID_FOR = ["PDF"]
+PRIORITY_FOR = ["PDF"]
+RUN_COST = ["LOW"]
 
-from LiuXin.metadata import calibreMetaInformation as MetaInformation
-from LiuXin.metadata import string_to_authors, check_isbn, check_doi
-from LiuXin.metadata.constants import CREATOR_DROP_REGEX_SET
-from LiuXin.metadata.constants import PRODUCER_DROP_REGEX_SET
-from LiuXin.metadata.constants import INFO_DICT_KEY_DROP_SET
-from LiuXin.metadata.constants import INFO_DICT_VALUE_DROP_SET
-from LiuXin.metadata.metadata import MetaData
-
-from LiuXin import prints
-from LiuXin.utils.general_ops.io_ops import LiuXin_print
-from LiuXin.utils.general_ops.python_tools import regex_dict_rekey
-from LiuXin.utils.general_ops.python_tools import regex_dict_str_rekey
-from LiuXin.utils.general_ops.python_tools import check_against_regex_set
-from LiuXin.utils.ipc.simple_worker import fork_job, WorkerError
-from LiuXin.utils.localization import trans as _
-from LiuXin.utils.logger import default_log
-from LiuXin.utils.libraries.pdfminer.pdfminer.pdfparser import PDFParser
-from LiuXin.utils.libraries.pdfminer.pdfminer.pdfdocument import PDFDocument
-from LiuXin.utils.libraries.pdfminer.pdfminer.pdftypes import resolve1
-from LiuXin.utils.libraries.pdfminer.pdfminer.psparser import PSKeyword, PSLiteral
-from LiuXin.utils.podofo import set_metadata as podofo_set_metadata
-from LiuXin.utils.ptempfiles import TemporaryDirectory
-
-# Py2/Py3 compatibility layer
-from LiuXin.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin.utils.lx_libraries.liuxin_six import six_unicode
+_WS = b" \t\r\n\f\x00"
+_OBJ_RE = re.compile(rb"(\d+)\s+(\d+)\s+obj\b(.*?)\bendobj\b", re.DOTALL)
+_TRAILER_RE = re.compile(rb"trailer\s*<<(.*?)>>", re.DOTALL | re.IGNORECASE)
 
 
-# An error raised when a resource is not found or the PDF file does something unexpected
 class PdfParseError(Exception):
-    def __init__(self, argument):
-        self.argument = argument
-        LiuXin_print(self.argument)
-
-    def __str__(self):
-        return repr(self.argument)
+    """Raised when parsing a PDF structure fails in an unexpected way."""
 
 
-def get_metadata(stream):
-    """
-    Takes a path to a PDF file. Tries to parse it for metadata
-    :param stream: The PDF file to be parsed
-    :return MetaData object: A metadata object
-    """
-    # https://stackoverflow.com/questions/14209214/reading-the-pdf-properties-metadata-in-python
-    stream.seek(0)
-    parser = PDFParser(stream)
-    document = PDFDocument(parser)
-
-    # The info metadata
-    # document.info returns a list, with the first element being what appears to be the info dict
-    # This provides some basic info about the dpcument (stuff an os needs?)
-    info_dict = document.info[0]
-    metadata_return = MetaData()
-    metadata_return = process_metadata_info_dict(info_dict, metadata_return)
-
-    # Finding the XMP data, if it exists, and processing it into dictionary form
-    if "Metadata" in document.catalog:
-        xmp_metadata = resolve1(document.catalog["Metadata"]).get_data()
-        xmp_metadata_dict = xmp_to_dict(xmp_metadata)
-        metadata_return = process_xmp_metadata_dict(xmp_metadata_dict, metadata_return)
-
-    return metadata_return
+def _normalize_text(raw: str | None) -> str:
+    if not raw:
+        return ""
+    return re.sub(r"\s+", " ", raw).strip()
 
 
-def get_metadata_inplace(target_file):
-    """
-    Takes a path to a PDF file. Tries to parse it for metadata
-    :param target_file: The PDF file to be parsed
-    :return MetaData object: A metadata object
-    """
-    with open(target_file, "rb") as target_pdf_stream:
-        return get_metadata(target_pdf_stream)
+def _safe_decode(data: bytes | str | None) -> str:
+    if data is None:
+        return ""
+    if isinstance(data, str):
+        return _normalize_text(data)
+    if not data:
+        return ""
 
-
-def set_metadata(stream, mi):
-    """
-    Uses podofo to write the given metadata into the pdf stream.
-    :param stream:
-    :param mi:
-    :return:
-    """
-    stream.seek(0)
-    return podofo_set_metadata(stream, mi)
-
-
-get_quick_metadata = get_metadata
-
-########################################################################################################################
-
-
-def read_info(outputdir, get_cover):
-    """
-    Read info dict and cover from a pdf file named src.pdf in outputdir.
-    Note that this function changes the cwd to outputdir and is therefore not thread safe.
-    Run it using fork_job. This is necessary as there is no safe way to pass unicode paths via command line arguments.
-    This also ensures that if poppler crashes, no stale file handles are left for the original file, only for src.pdf.
-    :param outputdir:
-    :param get_cover:
-    :return:
-    """
-    os.chdir(outputdir)
-    pdfinfo = get_tool("pdfinfo")
-    pdftoppm = get_tool("pdftoppm")
-    ans = {}
-
-    try:
-        raw = subprocess.check_output([pdfinfo, "-meta", "-enc", "UTF-8", "src.pdf"])
-    except subprocess.CalledProcessError as e:
-        prints("pdfinfo errored out with return code: %d" % e.returncode)
-        return None
-
-    # The XMP metadata could be in an encoding other than UTF-8, so split it out before trying to decode raw
-    parts = re.split(rb"^Metadata:", raw, 1, flags=re.MULTILINE)
-    if len(parts) > 1:
-        raw, ans["xmp_metadata"] = parts
-    try:
-        raw = raw.decode("utf-8")
-    except UnicodeDecodeError:
-        prints("pdfinfo returned no UTF-8 data")
-        return None
-
-    for line in raw.splitlines():
-        if ":" not in line:
+    # PDF Unicode strings are often UTF-16BE with BOM.
+    if data.startswith(b"\xfe\xff"):
+        try:
+            return _normalize_text(data[2:].decode("utf-16-be", "replace"))
+        except Exception:
+            pass
+    if data.startswith(b"\xff\xfe"):
+        try:
+            return _normalize_text(data[2:].decode("utf-16-le", "replace"))
+        except Exception:
+            pass
+    for enc in ("utf-8", "latin-1"):
+        try:
+            return _normalize_text(data.decode(enc, "replace"))
+        except Exception:
             continue
-        field, val = line.partition(":")[::2]
-        val = val.strip()
-        if field and val:
-            ans[field] = val.strip()
-
-    if get_cover:
-        try:
-            subprocess.check_call([pdftoppm, "-singlefile", "-jpeg", "-cropbox", "src.pdf", "cover"])
-        except subprocess.CalledProcessError as e:
-            prints("pdftoppm errored out with return code: %d" % e.returncode)
-
-    return ans
+    return _normalize_text(data.decode("utf-8", "replace"))
 
 
-def page_images(pdfpath, outputdir, first=1, last=1):
-    pdf_to_ppm = get_tool("pdftoppm")
-    outputdir = os.path.abspath(outputdir)
-    args = {}
-
-    if iswindows:
-        import win32process as w
-
-        args["creationflags"] = w.HIGH_PRIORITY_CLASS | w.CREATE_NO_WINDOW
-
-    try:
-        subprocess.check_call(
-            [
-                pdf_to_ppm,
-                "-cropbox",
-                "-jpeg",
-                "-f",
-                str(first),
-                "-l",
-                str(last),
-                pdfpath,
-                os.path.join(outputdir, "page-images"),
-            ],
-            **args
-        )
-    except subprocess.CalledProcessError as e:
-        raise ValueError("Failed to render PDF, pdftoppm errorcode: %s" % e.returncode)
+def _skip_ws_and_comments(data: bytes, i: int) -> int:
+    n = len(data)
+    while i < n:
+        c = data[i : i + 1]
+        if c in _WS:
+            i += 1
+            continue
+        if c == b"%":
+            while i < n and data[i : i + 1] not in (b"\n", b"\r"):
+                i += 1
+            continue
+        break
+    return i
 
 
-def get_calibre_metadata(stream, cover=True):
-    with TemporaryDirectory("_pdf_metadata_read") as pdfpath:
-        stream.seek(0)
-        with open(os.path.join(pdfpath, "src.pdf"), "wb") as f:
-            shutil.copyfileobj(stream, f)
-        try:
-            res = fork_job("calibre.ebooks.metadata.pdf", "read_info", (pdfpath, bool(cover)))
-        except WorkerError as e:
-            prints(e.orig_tb)
-            raise RuntimeError("Failed to run pdfinfo")
-        info = res["result"]
-        with open(res["stdout_stderr"], "rb") as f:
-            raw = f.read().strip()
-            if raw:
-                prints(raw)
-        if not info:
-            raise ValueError("Could not read info dict from PDF")
-        covpath = os.path.join(pdfpath, "cover.jpg")
-        cdata = None
-        if cover and os.path.exists(covpath):
-            with open(covpath, "rb") as f:
-                cdata = f.read()
+def _read_balanced(data: bytes, i: int, start: bytes, end: bytes) -> tuple[bytes, int]:
+    """
+    Read a balanced delimiter block. Supports << >> and [ ].
+    """
+    n = len(data)
+    depth = 0
+    out = bytearray()
+    while i < n:
+        if data[i : i + len(start)] == start:
+            depth += 1
+            out.extend(start)
+            i += len(start)
+            continue
+        if data[i : i + len(end)] == end:
+            depth -= 1
+            out.extend(end)
+            i += len(end)
+            if depth <= 0:
+                return bytes(out), i
+            continue
+        out.append(data[i])
+        i += 1
+    return bytes(out), i
 
-    title = info.get("Title", None)
-    au = info.get("Author", None)
-    if au is None:
-        au = [_("Unknown")]
-    else:
-        au = string_to_authors(au)
-    mi = MetaInformation(title, au)
-    # if isbn is not None:
-    #    mi.isbn = isbn
 
-    creator = info.get("Creator", None)
-    if creator:
-        mi.book_producer = creator
-
-    keywords = info.get("Keywords", None)
-    mi.tags = []
-    if keywords:
-        mi.tags = [x.strip() for x in keywords.split(",")]
-        isbn = [check_isbn(x) for x in mi.tags if check_isbn(x)]
-        if isbn:
-            mi.isbn = isbn = isbn[0]
-        mi.tags = [x for x in mi.tags if check_isbn(x) != isbn]
-
-    subject = info.get("Subject", None)
-    if subject:
-        mi.tags.insert(0, subject)
-
-    if "xmp_metadata" in info:
-        from LiuXin.metadata.xmp import consolidate_metadata
-
-        mi = consolidate_metadata(mi, info)
-
-    # Look for recognizable identifiers in the info dict, if they were not
-    # found in the XMP metadata
-    for scheme, check_func in iteritems({"doi": check_doi, "isbn": check_isbn}):
-        if scheme not in mi.get_identifiers():
-            for k, v in iteritems(info):
-                if k != "xmp_metadata":
-                    val = check_func(v)
-                    if val:
-                        mi.set_identifier(scheme, val)
+def _read_literal_string(data: bytes, i: int) -> tuple[bytes, int]:
+    """
+    Read a PDF literal string `( ... )` with basic escape handling.
+    """
+    assert data[i : i + 1] == b"("
+    i += 1
+    n = len(data)
+    depth = 1
+    out = bytearray()
+    while i < n:
+        ch = data[i : i + 1]
+        if ch == b"\\":
+            i += 1
+            if i >= n:
+                break
+            esc = data[i : i + 1]
+            if esc in b"nrtbf":
+                out.extend(
+                    {
+                        b"n": b"\n",
+                        b"r": b"\r",
+                        b"t": b"\t",
+                        b"b": b"\b",
+                        b"f": b"\f",
+                    }[esc]
+                )
+            elif esc in (b"(", b")", b"\\"):
+                out.extend(esc)
+            elif esc in b"\r\n":
+                # Line continuation.
+                if esc == b"\r" and i + 1 < n and data[i + 1 : i + 2] == b"\n":
+                    i += 1
+            elif esc[:1].isdigit():
+                oct_digits = bytes(esc)
+                for _ in range(2):
+                    if i + 1 < n and data[i + 1 : i + 2].isdigit():
+                        i += 1
+                        oct_digits += data[i : i + 1]
+                    else:
                         break
-
-    if cdata:
-        mi.cover_data = ("jpeg", cdata)
-    return mi
-
-
-########################################################################################################################
-
-
-def process_metadata_info_dict(info_dict, md):
-    """
-    Takes a dictionary of metadata and a MetaData object. Tries to process one into the other.
-    :param info_dict:
-    :param md:
-    :type md:
-    :return:
-    """
-
-    info_dict = deepcopy(info_dict)
-    regex_rekey_dict = {
-        r"^Author$": "author",
-        r"^.*CreationDate$": "timestamp",
-        r"^.*Creator$": "creator",
-        r"^ModDate$": "last_modified",
-        r"^.*Producer$": "producer",
-        r"^(ebx_)?Publisher$": "publisher",
-        r"^Title$": "title",
-    }
-
-    for field in info_dict.keys():
-
-        field_key = regex_dict_str_rekey(regex_rekey_dict, field.strip().lower())
-        field_value = info_dict[field]
-
-        # Check to see if the key is one of the known ignore keys - if it is then continue
-        if field_key is None or field_value is None:
+                try:
+                    out.append(int(oct_digits, 8) & 0xFF)
+                except Exception:
+                    out.extend(esc)
+            else:
+                out.extend(esc)
+            i += 1
             continue
-        if check_against_regex_set(INFO_DICT_KEY_DROP_SET, field_key):
+        if ch == b"(":
+            depth += 1
+            out.extend(ch)
+            i += 1
             continue
-        md, status = process_key_value_pair(field_key, field_value, info_dict.keys(), md)
+        if ch == b")":
+            depth -= 1
+            i += 1
+            if depth <= 0:
+                break
+            out.extend(ch)
+            continue
+        out.extend(ch)
+        i += 1
+    return bytes(out), i
 
-        # If the status is False then the key value pair was not logged - try flipping the key and the value and
-        # trying again - if this doesn't work then has to give up
-        if not status:
 
-            new_field_key = deepcopy(field_value)
-            new_field_value = deepcopy(field_value)
+def _read_hex_string(data: bytes, i: int) -> tuple[bytes, int]:
+    assert data[i : i + 1] == b"<"
+    i += 1
+    n = len(data)
+    out = bytearray()
+    while i < n and data[i : i + 1] != b">":
+        out.extend(data[i : i + 1])
+        i += 1
+    if i < n and data[i : i + 1] == b">":
+        i += 1
+    cleaned = re.sub(rb"\s+", b"", bytes(out))
+    if len(cleaned) % 2:
+        cleaned += b"0"
+    try:
+        return bytes.fromhex(cleaned.decode("ascii")), i
+    except Exception:
+        return cleaned, i
 
+
+def _read_name(data: bytes, i: int) -> tuple[str, int]:
+    assert data[i : i + 1] == b"/"
+    i += 1
+    n = len(data)
+    out = bytearray()
+    while i < n:
+        ch = data[i : i + 1]
+        if ch in _WS or ch in b"()<>[]{}/%":
+            break
+        if ch == b"#" and i + 2 < n:
+            maybe_hex = data[i + 1 : i + 3]
             try:
-                regex_key_check_status = check_against_regex_set(INFO_DICT_KEY_DROP_SET, new_field_key)
-            except TypeError:
-                debug_str = (
-                    "Cannot check against the INFO_DICT_KEY_DROP_SET - the field value is not a string or buffer"
-                )
-                default_log.log_variables(
-                    debug_str,
-                    "DEBUG",
-                    ("new_field_key", new_field_key),
-                    ("type(new_field_value)", type(new_field_key)),
-                    ("new_field_value", new_field_value),
-                    ("type(new_field_value)", type(new_field_value)),
-                )
+                out.append(int(maybe_hex.decode("ascii"), 16))
+                i += 3
                 continue
+            except Exception:
+                pass
+        out.extend(ch)
+        i += 1
+    return _safe_decode(bytes(out)), i
 
-            if new_field_value is not None and regex_key_check_status:
-                continue
-            md, status = process_key_value_pair(new_field_key, new_field_value, info_dict.values(), md)
 
-        if not status:
-            debug_str = "Unexpected element found in info_dict in pdf:process_metadata_info_dict"
-            default_log.log_variables(
-                debug_str,
-                "DEBUG",
-                ("field_key", field_key),
-                ("field_value", field_value),
-                ("info_dict", info_dict),
-            )
+def _read_token(data: bytes, i: int) -> tuple[str, Any, int]:
+    i = _skip_ws_and_comments(data, i)
+    if i >= len(data):
+        return "eof", None, i
 
+    ch = data[i : i + 1]
+    if ch == b"/":
+        name, i = _read_name(data, i)
+        return "name", name, i
+    if ch == b"(":
+        val, i = _read_literal_string(data, i)
+        return "string", val, i
+    if ch == b"<":
+        if data[i : i + 2] == b"<<":
+            val, i = _read_balanced(data, i, b"<<", b">>")
+            return "dict", val, i
+        val, i = _read_hex_string(data, i)
+        return "hex", val, i
+    if ch == b"[":
+        val, i = _read_balanced(data, i, b"[", b"]")
+        return "array", val, i
+
+    n = len(data)
+    start = i
+    while i < n and data[i : i + 1] not in _WS + b"()<>[]{}/%":
+        i += 1
+    return "bare", data[start:i], i
+
+
+def _parse_array(raw: bytes) -> list[str]:
+    if not raw:
+        return []
+    body = raw[1:-1] if raw.startswith(b"[") and raw.endswith(b"]") else raw
+    i = 0
+    out: list[str] = []
+    while i < len(body):
+        kind, val, i = _read_token(body, i)
+        if kind == "eof":
+            break
+        if kind in {"string", "hex"}:
+            text = _safe_decode(val)
+            if text:
+                out.append(text)
+        elif kind == "name":
+            if val:
+                out.append(_normalize_text(str(val)))
+        elif kind == "bare":
+            text = _safe_decode(val)
+            if text:
+                out.append(text)
+    return out
+
+
+def _parse_pdf_dict(raw: bytes) -> dict[str, Any]:
+    raw = raw or b""
+    start = raw.find(b"<<")
+    if start < 0:
+        return {}
+    i = start + 2
+    out: dict[str, Any] = {}
+    while i < len(raw):
+        i = _skip_ws_and_comments(raw, i)
+        if raw[i : i + 2] == b">>":
+            break
+        k_kind, key, i = _read_token(raw, i)
+        if k_kind != "name" or not key:
+            # Try to recover by consuming one value-like token.
+            _kind, _val, i = _read_token(raw, i)
+            continue
+        v_kind, val, i = _read_token(raw, i)
+        if v_kind in {"string", "hex"}:
+            out[key] = _safe_decode(val)
+        elif v_kind == "name":
+            out[key] = _normalize_text(str(val))
+        elif v_kind == "array":
+            out[key] = _parse_array(val)
+        elif v_kind == "bare":
+            out[key] = _safe_decode(val)
+        else:
+            out[key] = val
+    return out
+
+
+def _extract_objects(pdf_bytes: bytes) -> dict[tuple[int, int], bytes]:
+    objects: dict[tuple[int, int], bytes] = {}
+    for match in _OBJ_RE.finditer(pdf_bytes):
+        num = int(match.group(1))
+        gen = int(match.group(2))
+        body = match.group(3).strip()
+        objects[(num, gen)] = body
+    return objects
+
+
+def _find_info_ref(pdf_bytes: bytes) -> tuple[int, int] | None:
+    trailers = list(_TRAILER_RE.finditer(pdf_bytes))
+    for trailer in reversed(trailers):
+        body = trailer.group(1)
+        match = re.search(rb"/Info\s+(\d+)\s+(\d+)\s+R", body)
+        if match:
+            return int(match.group(1)), int(match.group(2))
+    # Fallback: global search.
+    match = re.search(rb"/Info\s+(\d+)\s+(\d+)\s+R", pdf_bytes)
+    if match:
+        return int(match.group(1)), int(match.group(2))
+    return None
+
+
+def _extract_info_dict(pdf_bytes: bytes, objects: dict[tuple[int, int], bytes]) -> dict[str, Any]:
+    info_ref = _find_info_ref(pdf_bytes)
+    if info_ref and info_ref in objects:
+        return _parse_pdf_dict(objects[info_ref])
+
+    # Heuristic fallback if trailer /Info is absent: choose an object containing
+    # at least one common info key.
+    candidate_keys = {b"/Title", b"/Author", b"/Creator", b"/Producer", b"/Subject", b"/Keywords"}
+    for _obj_ref, body in objects.items():
+        if b"<<" not in body or b">>" not in body:
+            continue
+        if any(key in body for key in candidate_keys):
+            parsed = _parse_pdf_dict(body)
+            if parsed:
+                return parsed
+    return {}
+
+
+def _extract_stream_data(obj_body: bytes) -> bytes | None:
+    match = re.search(rb"stream\r?\n(.*?)\r?\nendstream", obj_body, flags=re.DOTALL)
+    if not match:
+        return None
+    data = match.group(1)
+    header = _parse_pdf_dict(obj_body)
+    filters = header.get("Filter")
+    if isinstance(filters, str):
+        if filters.lower() == "flatedecode":
+            try:
+                return zlib.decompress(data)
+            except Exception:
+                return data
+    elif isinstance(filters, list):
+        low = [x.lower() for x in filters if isinstance(x, str)]
+        if "flatedecode" in low:
+            try:
+                return zlib.decompress(data)
+            except Exception:
+                return data
+    return data
+
+
+def _extract_xmp_packet(pdf_bytes: bytes, objects: dict[tuple[int, int], bytes]) -> bytes | None:
+    # Prefer explicit metadata streams.
+    for _obj_ref, body in objects.items():
+        if b"/Type" in body and b"/Metadata" in body and b"stream" in body:
+            data = _extract_stream_data(body)
+            if data and b"<" in data:
+                return data
+
+    # Fallback: scan raw payload for an xmp packet.
+    for start_pat, end_pat in (
+        (b"<x:xmpmeta", b"</x:xmpmeta>"),
+        (b"<rdf:RDF", b"</rdf:RDF>"),
+    ):
+        start = pdf_bytes.find(start_pat)
+        if start >= 0:
+            end = pdf_bytes.find(end_pat, start)
+            if end >= 0:
+                return pdf_bytes[start : end + len(end_pat)]
+    return None
+
+
+def _source_name(target_file) -> str:
+    if isinstance(target_file, os.PathLike):
+        return os.fspath(target_file)
+    if isinstance(target_file, str):
+        return target_file
+    return getattr(target_file, "name", "") or ""
+
+
+def _read_source_bytes(target_file) -> tuple[bytes, str]:
+    source_name = _source_name(target_file)
+    if isinstance(target_file, os.PathLike):
+        target_file = os.fspath(target_file)
+
+    if isinstance(target_file, str):
+        with open(target_file, "rb") as stream:
+            return stream.read(), source_name
+
+    if isinstance(target_file, (bytes, bytearray)):
+        return bytes(target_file), source_name
+
+    if hasattr(target_file, "read"):
+        stream = target_file
+        pos = None
+        if hasattr(stream, "tell"):
+            try:
+                pos = stream.tell()
+            except Exception:
+                pos = None
+        try:
+            if hasattr(stream, "seek"):
+                try:
+                    stream.seek(0)
+                except Exception:
+                    pass
+            data = stream.read()
+        finally:
+            if pos is not None and hasattr(stream, "seek"):
+                try:
+                    stream.seek(pos)
+                except Exception:
+                    pass
+        if isinstance(data, str):
+            data = data.encode("utf-8", "replace")
+        return bytes(data), source_name
+
+    raise TypeError("PDF metadata reader expects a path, bytes, or readable binary stream.")
+
+
+def _default_metadata(source_name: str = "") -> MetaData:
+    title = _("Unknown")
+    if source_name:
+        stem = os.path.splitext(os.path.basename(source_name))[0].strip()
+        if stem:
+            title = stem
+    md = MetaData()
+    md.title = title
     return md
 
 
-def get_tool(tool_name):
-    """
-    Return the path to a tool's binary.
-    :param tool_name:
-    :return:
-    """
-    from LiuXin.file_formats.pdf.pdftohtml import PDFTOHTML
-
-    base = os.path.dirname(PDFTOHTML)
-    tool_path = os.path.join(base, tool_name)
-    if os.path.exists(tool_path):
-        return tool_path
-
-    base_paths = ["/usr", "/usr/bin"]
-    for base_path in base_paths:
-        cand_tool_path = os.path.join(base_path, tool_name)
-        if os.path.exists(cand_tool_path):
-            return cand_tool_path
-
-    # If the tool cannot be found then return None
-    return None
+def _field_values(raw: Any) -> list[str]:
+    if raw is None:
+        return []
+    if isinstance(raw, dict):
+        return [str(x) for x in raw.keys()]
+    if isinstance(raw, str):
+        return [raw]
+    try:
+        return [str(x) for x in list(raw)]
+    except Exception:
+        return [str(raw)]
 
 
 def process_key_value_pair(key, value, info_dict_keys, md):
     """
-    Process a key/value pair and add it to the given metadata object
-    :param key:
-    :param value:
-    :param md:
-    :type md: LiuXin or calibre md
-    :return: md
+    Compatibility helper: process one Info key/value pair onto `md`.
     """
-    if key == "author":
-        author_dict = {"author": value}
-        md.read_creators(author_dict)
-
-    elif key == "creator":
-        md.read_creators({"author": value})
-
-    # Keywords are mapped into tags as well
-    elif key == "keywords":
-
-        keywords_str = value
-
-        try:
-            comma_in_keywords = True if "," in keywords_str else False
-        except UnicodeDecodeError:
-            keywords_str = recode_to_utf8(keywords_str)
-            comma_in_keywords = True if "," in keywords_str else False
-
-        if comma_in_keywords:
-            md.tag = keywords_str.split(",")
-        else:
-            md.tag = keywords_str
-
-    elif key == "last_modified":
-        md.last_modified = value
-
-    # Another term for producer - should be used iff something more suitable is not present
-    elif key == "llc":
-        if "producer" not in info_dict_keys and not check_against_regex_set(PRODUCER_DROP_REGEX_SET, value):
-            md.read_creators({"producers": value})
-
-    elif key == "producer":
-        if not check_against_regex_set(PRODUCER_DROP_REGEX_SET, value):
-            md.read_creators({"producers": value})
-
-    elif key in ["publisher", "ebx_publisher"]:
-        value = six_unicode(value)
-        if value.startswith("/"):
-            value = value[1:]
-        if key != "publisher" and "publisher" not in info_dict_keys:
-            md.publisher = value
-        else:
-            md.tag = value
-
-    elif key == "subject":
-        md.tags = value
-
-    elif key == "timestamp":
-        md.timestamp = value
-
-    elif key == "title":
-        md.title = value
-
-    # Not really knowing what universal is, mapping it to a tag (where everything I can't easily classifid goes)
-    elif key in [
-        "universal",
-    ]:
-        # Ignore internal postscript tags - they are not helpful
-        if isinstance(value, PSKeyword):
-            value = six_unicode(value)
-            if value.lower() == "pdf":
-                pass
-            else:
-                err_str = "unexpected value found when parsing universal tag"
-                err_str = default_log.log_variables(err_str, "ERROR", ("value", value))
-                raise NotImplementedError(err_str)
-        else:
-            md.tag = value
-
-    elif key in ["universal pdf", "codemantra, llc", "pdfversion"]:
-        pass
-
-    else:
+    key = _normalize_text(str(key).lower())
+    value_str = value
+    if isinstance(value, (list, tuple)):
+        value_str = ", ".join(_normalize_text(str(x)) for x in value if _normalize_text(str(x)))
+    value_str = _normalize_text(str(value_str))
+    if not key or not value_str:
         return md, False
 
-    return md, True
+    if check_against_regex_set(INFO_DICT_VALUE_DROP_SET, value_str):
+        return md, True
+
+    if key in {"author", "authors"}:
+        for author in string_to_authors(value_str):
+            author = _normalize_text(author)
+            if author:
+                md.authors = author
+        return md, True
+
+    if key in {"creator"}:
+        if not check_against_regex_set(PRODUCER_DROP_REGEX_SET, value_str):
+            md.producers = value_str
+        return md, True
+
+    if key in {"producer"}:
+        if not check_against_regex_set(PRODUCER_DROP_REGEX_SET, value_str):
+            md.producers = value_str
+        return md, True
+
+    if key in {"publisher", "ebx_publisher"}:
+        md.publisher = value_str.lstrip("/")
+        return md, True
+
+    if key in {"title"}:
+        md.title = value_str
+        return md, True
+
+    if key in {"subject"}:
+        md.tags = value_str
+        return md, True
+
+    if key in {"keywords"}:
+        tags = [x.strip() for x in re.split(r"[;,]", value_str) if x.strip()]
+        for tag in tags:
+            isbn = check_isbn(tag)
+            if isbn:
+                md.isbn = isbn
+                continue
+            doi = check_doi(tag)
+            if doi:
+                md.set_identifier("doi", doi)
+                continue
+            md.tags = tag
+        return md, True
+
+    if key in {"creationdate", "timestamp"}:
+        md.timestamp = value_str
+        return md, True
+
+    if key in {"moddate", "last_modified"}:
+        md.last_modified = value_str
+        return md, True
+
+    if key in {"llc", "pdfversion", "universal", "universal pdf"}:
+        return md, True
+
+    return md, False
+
+
+def process_metadata_info_dict(info_dict, md):
+    """
+    Normalize and consume PDF Info dictionary content.
+    """
+    regex_rekey_dict = {
+        r"^author$": "author",
+        r"^.*creationdate$": "creationdate",
+        r"^.*creator$": "creator",
+        r"^moddate$": "moddate",
+        r"^.*producer$": "producer",
+        r"^(ebx_)?publisher$": "publisher",
+        r"^title$": "title",
+        r"^subject$": "subject",
+        r"^keywords$": "keywords",
+    }
+
+    normalized_keys = set()
+    for raw_key, raw_value in dict(info_dict).items():
+        field_key = regex_dict_str_rekey(regex_rekey_dict, _normalize_text(str(raw_key).lower()))
+        if not field_key:
+            continue
+        if check_against_regex_set(INFO_DICT_KEY_DROP_SET, field_key):
+            continue
+
+        normalized_keys.add(field_key)
+        md, status = process_key_value_pair(field_key, raw_value, normalized_keys, md)
+        if not status:
+            default_log.log_variables(
+                "Unhandled PDF info key/value while parsing metadata.",
+                "DEBUG",
+                ("field_key", field_key),
+                ("field_value", raw_value),
+            )
+    return md
 
 
 def process_xmp_metadata_dict(xmp_metadata_dict, metadata_return):
     """
-
-    :param xmp_metadata_dict:
-    :param metadata_return:
-    :return:
+    Consume parsed XMP metadata and merge onto `metadata_return`.
     """
-    # XMP metadata has been parsed and returned in the form of a standardized dic.
-    # see NS_MPA below for the various terms
-    # Once parsed out of XML metadata is stored in, well, a dictionary of dictionary of dictionaries.
-    # This is going to need some careful testing
-    xmp_metadata_dict = deepcopy(xmp_metadata_dict)
+    xmp_metadata_dict = dict(xmp_metadata_dict or {})
 
-    if "xapmm" in xmp_metadata_dict.keys():
-
-        internal_identifier_dict = xmp_metadata_dict["xapmm"]
-
-        for field in internal_identifier_dict.keys():
-
-            if field == "InstanceID":
-                pass
-            elif field == "DocumentID":
-                identifier = internal_identifier_dict[field]
-
-                id_type_tokens = identifier.split(":")
-                if len(id_type_tokens) == 1:
-                    if DEV_MODE:
-                        info_str = "Unrecognized type of identifier - "
-                        info_str += repr(identifier)
-                        raise PdfParseError(info_str)
-                    else:
-                        metadata_return.uuid = identifier
-                elif len(id_type_tokens) == 2:
-                    id_type = id_type_tokens[0]
-                    if id_type == "uuid":
-                        metadata_return.uuid = id_type_tokens[1]
-                    else:
-                        info_str = "Unrecognized type of identifier - "
-                        info_str += repr(id_type)
-                        info_str += repr(id_type_tokens)
-                        raise PdfParseError(info_str)
-                else:
-                    info_str = "internal id tokens of an unexpected length - "
-                    info_str += repr(id_type_tokens)
-                    raise PdfParseError(info_str)
+    xapmm = xmp_metadata_dict.get("xapmm") or {}
+    if isinstance(xapmm, dict):
+        doc_id = xapmm.get("DocumentID")
+        if isinstance(doc_id, str):
+            if doc_id.lower().startswith("uuid:"):
+                metadata_return.uuid = doc_id.split(":", 1)[1]
             else:
-                info_str = "Unexpected key found in internal identifiers dictionary - "
-                info_str += repr(field)
-                raise PdfParseError(info_str)
+                metadata_return.uuid = doc_id
 
-    if "dc" in xmp_metadata_dict.keys():
+    dc = xmp_metadata_dict.get("dc") or {}
+    if not isinstance(dc, dict):
+        return metadata_return
 
-        metadata_dict = xmp_metadata_dict["dc"]
+    title = dc.get("title")
+    if isinstance(title, dict):
+        title = title.get("x-default") or next(iter(title.values()), None)
+    if isinstance(title, str) and _normalize_text(title):
+        metadata_return.title = _normalize_text(title)
 
-        for field in metadata_dict.keys():
+    creators = dc.get("creator")
+    if isinstance(creators, str):
+        creators = [creators]
+    if isinstance(creators, list):
+        # XMP creators are typically richer than Info /Author; prefer them.
+        try:
+            raw_data = object.__getattribute__(metadata_return, "_data")
+            if isinstance(raw_data, dict) and isinstance(raw_data.get("authors"), dict):
+                raw_data["authors"].clear()
+        except Exception:
+            pass
+        for creator in creators:
+            if isinstance(creator, str):
+                for author in string_to_authors(creator):
+                    if _normalize_text(author):
+                        metadata_return.authors = _normalize_text(author)
 
-            value = metadata_dict[field]
-            # If there is no value then just ignore it
-            if not value:
-                continue
+    publisher = dc.get("publisher")
+    if isinstance(publisher, str):
+        publisher = [publisher]
+    if isinstance(publisher, list):
+        for pub in publisher:
+            if isinstance(pub, str) and _normalize_text(pub):
+                metadata_return.publisher = _normalize_text(pub)
+                break
 
-            if field == "title":
-                if isinstance(value, dict):
-                    # An imperfect solution, but it'll do for the moment
-                    if len(value) == 1:
-                        metadata_return.title = value.values()[0]
-                    else:
-                        if DEV_MODE:
-                            info_str = "Unexpected case found when trying to parse for the title - " "{}".format(
-                                repr(value)
-                            )
-                            raise PdfParseError(info_str)
-                        else:
-                            metadata_return.title = value.values()[0]
-                else:
-                    metadata_return.title = value
+    description = dc.get("description")
+    if isinstance(description, dict):
+        description = description.get("x-default") or next(iter(description.values()), None)
+    if isinstance(description, str) and _normalize_text(description):
+        metadata_return.comments = _normalize_text(description)
 
-            elif field == "creator":
-                # Assuming that any creator is an author
-                # XMP standard doesn't seem to have a way to specify differently
-                creator_dict = dict()
-                creator_dict["authors"] = []
-                if hasattr(value, "__iter__"):
-                    for creator in value:
-                        creator_dict["authors"].append(creator)
-                else:
-                    creator_dict["authors"] = value
-                metadata_return.read_creators(creator_dict)
-
-            elif field == "format":
-                pass
-
-            elif field == "publisher":
-                if isinstance(value, list):
-                    if len(value) == 1:
-                        metadata_return.publisher = value
-                    else:
-                        if DEV_MODE:
-                            info_str = "Unexpected case found when trying to parse the publisher - " "{}".format(
-                                repr(value)
-                            )
-                            raise PdfParseError(info_str)
-                        else:
-                            metadata_return.publisher = value[0]
-
-            elif field == "description":
-                if value == {"x-default": None}:
-                    # Ignore the default for podofo
-                    continue
-                else:
-                    if DEV_MODE:
-                        info_str = "Unexpected case found when trying to parse the publisher - {}".format(value)
-                        raise PdfParseError(info_str)
-                    else:
-                        metadata_return.publisher = value.values()[0]
-
-            elif field == "subject":
-                # Assume that these are all tags - this is true, at least, for any PDFs with metadata updated by calibre
-                metadata_return.tags = value
-
-            else:
-                if DEV_MODE:
-                    info_str = "Unrecongnized field encountered in dc dictionary - "
-                    info_str += repr(field)
-                    raise PdfParseError(info_str)
+    subject = dc.get("subject")
+    if isinstance(subject, str):
+        subject = [subject]
+    if isinstance(subject, list):
+        for tag in subject:
+            if isinstance(tag, str) and _normalize_text(tag):
+                metadata_return.tags = _normalize_text(tag)
 
     return metadata_return
 
 
-class XmpParser(object):
+class XmpParser:
     """
-    By Matt Swain. Released under the MIT liscence.
-
-    http://blog.matt-swain.com/post/25650072381/a-lightweight-xmp-parser-for-extracting-pdf
-    Parses an XMP string into a dictionary.
-
-    Usage:
-
-        parser = XmpParser(xmpstring)
-        meta = parser.meta
+    Lightweight parser for extracting useful XMP namespaces from PDF metadata.
     """
 
     RDF_NS = "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}"
@@ -599,68 +655,357 @@ class XmpParser(object):
     NS_MAP = {
         "http://www.w3.org/1999/02/22-rdf-syntax-ns#": "rdf",
         "http://purl.org/dc/elements/1.1/": "dc",
-        "http://ns.adobe.com/xap/1.0/": "xap",
-        "http://ns.adobe.com/pdf/1.3/": "pdf",
         "http://ns.adobe.com/xap/1.0/mm/": "xapmm",
-        "http://ns.adobe.com/pdfx/1.3/": "pdfx",
-        "http://prismstandard.org/namespaces/basic/2.0/": "prism",
-        "http://crossref.org/crossmark/1.0/": "crossmark",
-        "http://ns.adobe.com/xap/1.0/rights/": "rights",
         "http://www.w3.org/XML/1998/namespace": "xml",
     }
 
-    def __init__(self, xmp):
+    def __init__(self, xmp: bytes | str):
+        if isinstance(xmp, bytes):
+            xmp = xmp.decode("utf-8", "replace")
         self.tree = ET.XML(xmp)
         self.rdftree = self.tree.find(self.RDF_NS + "RDF")
 
-    @property
-    def meta(self):
-        """A dictionary of all the parsed metadata."""
-        meta = defaultdict(dict)
-        for desc in self.rdftree.findall(self.RDF_NS + "Description"):
-            for el in desc.getchildren():
-                ns, tag = self._parse_tag(el)
-                value = self._parse_value(el)
-                meta[ns][tag] = value
-        return dict(meta)
-
     def _parse_tag(self, el):
-        """Extract the namespace and tag from an element."""
         ns = None
         tag = el.tag
-        if tag[0] == "{":
+        if tag.startswith("{"):
             ns, tag = tag[1:].split("}", 1)
-            if ns in self.NS_MAP:
-                ns = self.NS_MAP[ns]
+            ns = self.NS_MAP.get(ns, ns)
         return ns, tag
 
     def _parse_value(self, el):
-        """
-        Extract the metadata value from an element.
-        :param el: element to parse
-        :return:
-        """
-        if el.find(self.RDF_NS + "Bag") is not None:
-            value = []
-            for li in el.findall(self.RDF_NS + "Bag/" + self.RDF_NS + "li"):
-                value.append(li.text)
-        elif el.find(self.RDF_NS + "Seq") is not None:
-            value = []
-            for li in el.findall(self.RDF_NS + "Seq/" + self.RDF_NS + "li"):
-                value.append(li.text)
-        elif el.find(self.RDF_NS + "Alt") is not None:
-            value = {}
-            for li in el.findall(self.RDF_NS + "Alt/" + self.RDF_NS + "li"):
-                value[li.get(self.XML_NS + "lang")] = li.text
-        else:
-            value = el.text
-        return value
+        bag = el.find(self.RDF_NS + "Bag")
+        if bag is not None:
+            return [li.text for li in bag.findall(self.RDF_NS + "li")]
+        seq = el.find(self.RDF_NS + "Seq")
+        if seq is not None:
+            return [li.text for li in seq.findall(self.RDF_NS + "li")]
+        alt = el.find(self.RDF_NS + "Alt")
+        if alt is not None:
+            out = {}
+            for li in alt.findall(self.RDF_NS + "li"):
+                out[li.get(self.XML_NS + "lang")] = li.text
+            return out
+        return el.text
+
+    @property
+    def meta(self):
+        meta = defaultdict(dict)
+        if self.rdftree is None:
+            return {}
+        for desc in self.rdftree.findall(self.RDF_NS + "Description"):
+            for el in list(desc):
+                ns, tag = self._parse_tag(el)
+                if ns:
+                    meta[ns][tag] = self._parse_value(el)
+        return dict(meta)
 
 
 def xmp_to_dict(xmp):
-    """
-    Shorthand function for parsing an XMP string into a python dictionary.
-    :param xmp:
-    :return:
-    """
     return XmpParser(xmp).meta
+
+
+def get_metadata(stream):
+    source_name = _source_name(stream)
+    try:
+        pdf_bytes, source_name = _read_source_bytes(stream)
+        if not pdf_bytes:
+            raise PdfParseError("Empty PDF payload")
+        objects = _extract_objects(pdf_bytes)
+    except Exception as err:
+        default_log.log_exception(
+            "Failed to read PDF metadata source.",
+            err,
+            "ERROR",
+            ("source", source_name or "<stream>"),
+        )
+        md = _default_metadata(source_name)
+        try:
+            md.finalize()
+        except Exception:
+            pass
+        if not getattr(md, "authors", None):
+            md.authors = _("Unknown Author")
+        return md
+
+    md = _default_metadata(source_name)
+    try:
+        info_dict = _extract_info_dict(pdf_bytes, objects)
+        if info_dict:
+            md = process_metadata_info_dict(info_dict, md)
+    except Exception as err:
+        default_log.log_exception(
+            "Failed while parsing PDF info dictionary.",
+            err,
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+        )
+
+    try:
+        xmp_packet = _extract_xmp_packet(pdf_bytes, objects)
+        if xmp_packet:
+            xmp_metadata_dict = xmp_to_dict(xmp_packet)
+            md = process_xmp_metadata_dict(xmp_metadata_dict, md)
+    except Exception as err:
+        default_log.log_exception(
+            "Failed while parsing embedded PDF XMP metadata.",
+            err,
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+        )
+
+    # Scan Info fields for recognizable identifiers if still missing.
+    try:
+        ids = md.get_identifiers() if hasattr(md, "get_identifiers") else {}
+    except Exception:
+        ids = {}
+    info_dict = _extract_info_dict(pdf_bytes, objects)
+    for scheme, check_func in (("doi", check_doi), ("isbn", check_isbn)):
+        if scheme in ids and ids.get(scheme):
+            continue
+        for value in info_dict.values():
+            if isinstance(value, list):
+                values = value
+            else:
+                values = [value]
+            for token in values:
+                tok = _normalize_text(str(token))
+                if not tok:
+                    continue
+                found = check_func(tok)
+                if found:
+                    try:
+                        md.set_identifier(scheme, found)
+                    except Exception:
+                        try:
+                            md.set_identifiers({scheme: found})
+                        except Exception:
+                            pass
+                    break
+
+    try:
+        md.finalize()
+    except Exception:
+        pass
+
+    if not getattr(md, "title", None):
+        md.title = _default_metadata(source_name).title
+    if not getattr(md, "authors", None):
+        md.authors = _("Unknown Author")
+    return md
+
+
+def get_metadata_inplace(target_file):
+    with open(target_file, "rb") as target_pdf_stream:
+        return get_metadata(target_pdf_stream)
+
+
+def _first_value(raw: Any) -> str | None:
+    vals = _field_values(raw)
+    for val in vals:
+        normed = _normalize_text(str(val))
+        if normed:
+            return normed
+    return None
+
+
+def _metadata_to_pdf_dict(mi) -> dict[str, str]:
+    out: dict[str, str] = {}
+    title = _first_value(getattr(mi, "title", None))
+    if title:
+        out["/Title"] = title
+
+    authors = _field_values(getattr(mi, "authors", None))
+    if authors:
+        out["/Author"] = ", ".join(_normalize_text(x) for x in authors if _normalize_text(x))
+
+    comments = _first_value(getattr(mi, "comments", None))
+    if comments:
+        out["/Subject"] = comments
+
+    tags = _field_values(getattr(mi, "tags", None))
+    if tags:
+        out["/Keywords"] = ", ".join(_normalize_text(x) for x in tags if _normalize_text(x))
+
+    producer = _first_value(getattr(mi, "producers", None))
+    if producer:
+        out["/Producer"] = producer
+
+    creator = _first_value(getattr(mi, "creator_sort", None))
+    if creator:
+        out["/Creator"] = creator
+
+    publisher = _first_value(getattr(mi, "publisher", None))
+    if publisher:
+        out["/Publisher"] = publisher
+
+    series = _first_value(getattr(mi, "series", None))
+    if series:
+        out["/Series"] = series
+        series_index = _first_value(getattr(mi, "series_index", None))
+        if series_index:
+            out["/SeriesIndex"] = series_index
+    return out
+
+
+def set_metadata(stream, mi):
+    """
+    Write metadata into a PDF stream.
+
+    Requires `pypdf` as an optional runtime dependency. If unavailable, this
+    raises a clear RuntimeError.
+    """
+    if isinstance(stream, os.PathLike):
+        stream = os.fspath(stream)
+    if isinstance(stream, str):
+        with open(stream, "r+b") as f:
+            return set_metadata(f, mi)
+    if not hasattr(stream, "read") or not hasattr(stream, "write"):
+        raise TypeError("set_metadata expects a writable binary stream or filesystem path.")
+
+    if importlib.util.find_spec("pypdf") is None:
+        raise RuntimeError(
+            "PDF metadata writing backend is unavailable. Install optional dependency `pypdf`."
+        )
+
+    from pypdf import PdfReader, PdfWriter
+
+    pos = None
+    if hasattr(stream, "tell"):
+        try:
+            pos = stream.tell()
+        except Exception:
+            pos = None
+
+    stream.seek(0)
+    reader = PdfReader(stream)
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+
+    existing = {}
+    try:
+        existing = dict(reader.metadata or {})
+    except Exception:
+        existing = {}
+    existing.update(_metadata_to_pdf_dict(mi))
+    if existing:
+        writer.add_metadata(existing)
+
+    tmp = io.BytesIO()
+    writer.write(tmp)
+    payload = tmp.getvalue()
+
+    stream.seek(0)
+    stream.truncate()
+    stream.write(payload)
+    if hasattr(stream, "flush"):
+        stream.flush()
+
+    if pos is not None and hasattr(stream, "seek"):
+        try:
+            stream.seek(min(pos, len(payload)))
+        except Exception:
+            pass
+
+
+get_quick_metadata = get_metadata
+
+
+def get_tool(tool_name):
+    """
+    Resolve an external PDF utility binary path, if available.
+    """
+    try:
+        from LiuXin_alpha.file_formats.pdf.pdftohtml import PDFTOHTML
+
+        base = os.path.dirname(PDFTOHTML)
+        tool_path = os.path.join(base, tool_name)
+        if os.path.exists(tool_path):
+            return tool_path
+    except Exception:
+        pass
+
+    found = shutil.which(tool_name)
+    return found
+
+
+def read_info(outputdir, get_cover):
+    """
+    Compatibility shim for legacy worker entrypoint.
+    """
+    src = Path(outputdir) / "src.pdf"
+    if not src.is_file():
+        return None
+    md = get_metadata_inplace(src)
+    ans = {}
+    title = _first_value(getattr(md, "title", None))
+    authors = _field_values(getattr(md, "authors", None))
+    tags = _field_values(getattr(md, "tags", None))
+    producer = _first_value(getattr(md, "producers", None))
+    if title:
+        ans["Title"] = title
+    if authors:
+        ans["Author"] = ", ".join(authors)
+    if tags:
+        ans["Keywords"] = ", ".join(tags)
+    if producer:
+        ans["Producer"] = producer
+    # Cover extraction is backend-dependent and intentionally omitted in this shim.
+    del get_cover
+    return ans
+
+
+def page_images(pdfpath, outputdir, first=1, last=1):
+    """
+    Render PDF pages to images using `pdftoppm` when available.
+    """
+    pdf_to_ppm = get_tool("pdftoppm")
+    if not pdf_to_ppm:
+        raise RuntimeError("pdftoppm is not available on PATH.")
+    outputdir = os.path.abspath(outputdir)
+    subprocess.check_call(
+        [
+            pdf_to_ppm,
+            "-cropbox",
+            "-jpeg",
+            "-f",
+            str(first),
+            "-l",
+            str(last),
+            pdfpath,
+            os.path.join(outputdir, "page-images"),
+        ]
+    )
+
+
+def get_calibre_metadata(stream, cover=True):
+    """
+    Compatibility helper returning a calibre-like metadata object.
+    """
+    del cover
+    md = get_metadata(stream)
+    if hasattr(md, "to_calibre"):
+        return md.to_calibre()
+    return md
+
+
+__all__ = [
+    "VALID_FOR",
+    "PRIORITY_FOR",
+    "RUN_COST",
+    "PdfParseError",
+    "XmpParser",
+    "get_metadata",
+    "get_metadata_inplace",
+    "get_quick_metadata",
+    "set_metadata",
+    "get_tool",
+    "read_info",
+    "page_images",
+    "get_calibre_metadata",
+    "process_key_value_pair",
+    "process_metadata_info_dict",
+    "process_xmp_metadata_dict",
+    "xmp_to_dict",
+]

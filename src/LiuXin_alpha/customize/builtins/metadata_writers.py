@@ -268,7 +268,7 @@ else:
 
 
 try:
-    from LiuXin_alpha.metadata.file_sources.extz import set_metadata as extz_set_metadata
+    from LiuXin_alpha.metadata.file_sources.txtz import set_metadata as txtz_set_metadata
 except Exception as e:
     debug_str = (
         "Cannot import set_metadata from LiuXin.file_formats.metadata.extz - TXTZMetadataWriter cannot be "
@@ -286,7 +286,7 @@ else:
         author = "John Schember"
 
         def set_metadata(self, stream, mi, type):
-            extz_set_metadata(stream, mi)
+            txtz_set_metadata(stream, mi)
 
     plugins += [TXTZMetadataWriter]
 

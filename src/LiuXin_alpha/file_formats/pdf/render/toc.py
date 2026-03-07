@@ -8,7 +8,7 @@ import os
 from lxml.html import tostring
 from lxml.html.builder import HTML, HEAD, BODY, TABLE, TR, TD, H2, STYLE
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 from LiuXin_alpha.utils.localization import trans as _
 
 

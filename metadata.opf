@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="LiuXin_id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>Unknown</dc:title>
+    <dc:creator opf:role="aut" opf:file-as="Unknown">Unknown</dc:creator>
+    <dc:contributor opf:role="bkp" opf:file-as="LiuXin">LiuXin (0.0.8) [https://calibre-ebook.com]</dc:contributor>
+    <dc:identifier id="LiuXin_id" opf:scheme="LiuXin">945df89b-7b8f-48d6-b115-21351b842c8e</dc:identifier>
+    <dc:language>en</dc:language>
+    <meta name="calibre:timestamp" content="2026-03-03T02:20:07.717328+00:00"/>
+  </metadata>
+  <manifest>
+    <item id="id1" href="index.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="id1"/>
+  </spine>
+  <guide/>
+</package>

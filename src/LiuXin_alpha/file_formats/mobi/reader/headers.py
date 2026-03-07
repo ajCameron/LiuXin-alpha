@@ -317,7 +317,7 @@ class MetadataHeader(BookHeader):
     def identity(self):
         self.stream.seek(60)
         ident = self.stream.read(8).upper()
-        if ident not in ["BOOKMOBI", "TEXTREAD"]:
+        if ident not in (b"BOOKMOBI", b"TEXTREAD"):
             raise MobiError("Unknown book type: %s" % ident)
         return ident
 
@@ -344,7 +344,15 @@ class MetadataHeader(BookHeader):
     def section_data(self, number):
         start = self.section_offset(number)
         if number == self.num_sections - 1:
-            end = os.stat(self.stream.name).st_size
+            if hasattr(self.stream, "name") and self.stream.name:
+                end = os.stat(self.stream.name).st_size
+            else:
+                pos = self.stream.tell()
+                try:
+                    self.stream.seek(0, os.SEEK_END)
+                    end = self.stream.tell()
+                finally:
+                    self.stream.seek(pos)
         else:
             end = self.section_offset(number + 1)
         self.stream.seek(start)

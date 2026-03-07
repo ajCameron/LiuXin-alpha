@@ -5,13 +5,12 @@ from __future__ import with_statement
 
 import sys
 import os
+from functools import cmp_to_key
 
 from lxml import etree
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_cmp
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
-
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_cmp
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -78,10 +77,10 @@ class Text(Element):
         self.font_family = self.font.family
 
         text.tail = ""
-        self.text_as_string = etree.tostring(text, method="text", encoding=six_unicode)
+        self.text_as_string = etree.tostring(text, method="text", encoding="unicode")
         self.raw = text.text if text.text else ""
         for x in text.iterchildren():
-            self.raw += etree.tostring(x, method="xml", encoding=six_unicode)
+            self.raw += etree.tostring(x, method="xml", encoding="unicode")
         self.average_character_width = self.width / len(self.text_as_string)
 
     def coalesce(self, other, page_number):
@@ -169,10 +168,10 @@ class Column(object):
         self._post_add()
 
     def _post_add(self):
-        self.elements.sort(cmp=lambda ele_1, ele_2: six_cmp(ele_1.bottom, ele_2.bottom))
+        self.elements.sort(key=cmp_to_key(lambda ele_1, ele_2: six_cmp(ele_1.bottom, ele_2.bottom)))
         self.top = self.elements[0].top
         self.bottom = self.elements[-1].bottom
-        self.left, self.right = sys.maxint, 0
+        self.left, self.right = sys.maxsize, 0
         for x in self:
             self.left = min(self.left, x.left)
             self.right = max(self.right, x.right)
@@ -254,7 +253,7 @@ class Region(object):
 
     def add(self, columns):
         if not self.columns:
-            for x in sorted(columns, cmp=lambda col_1, col_2: six_cmp(col_1.left, col_2.left)):
+            for x in sorted(columns, key=cmp_to_key(lambda col_1, col_2: six_cmp(col_1.left, col_2.left))):
                 self.columns.append(x)
         else:
             for i in range(len(columns)):
@@ -443,7 +442,7 @@ class Page(object):
         self.elements = list(self.texts)
         for img in page.xpath("descendant::img"):
             self.elements.append(Image(img, self.opts, self.log, idc))
-        self.elements.sort(cmp=lambda ele_1, ele_2: six_cmp(ele_1.top, ele_2.top))
+        self.elements.sort(key=cmp_to_key(lambda ele_1, ele_2: six_cmp(ele_1.top, ele_2.top)))
 
     def coalesce_fragments(self):
         def find_match(frag):
@@ -565,7 +564,7 @@ class Page(object):
 
     def sort_into_columns(self, elem, neighbors):
         neighbors.add(elem)
-        neighbors = sorted(neighbors, cmp=lambda col_1, col_2: six_cmp(col_1.left, col_2.left))
+        neighbors = sorted(neighbors, key=cmp_to_key(lambda col_1, col_2: six_cmp(col_1.left, col_2.left)))
         if self.opts.verbose > 3:
             self.log.debug("Neighbors:", [x.to_html() for x in neighbors])
         columns = [Column()]
@@ -580,7 +579,7 @@ class Page(object):
             if not added:
                 columns.append(Column())
                 columns[-1].add(x)
-                columns.sort(cmp=lambda col_1, col_2: six_cmp(col_1.left, col_2.left))
+                columns.sort(key=cmp_to_key(lambda col_1, col_2: six_cmp(col_1.left, col_2.left)))
         return columns
 
     def find_elements_in_row_of(self, x):
@@ -611,7 +610,7 @@ class PDFDocument(object):
         self.opts, self.log = opts, log
         parser = etree.XMLParser(recover=True)
         self.root = etree.fromstring(xml, parser=parser)
-        idc = iter(memory_range(sys.maxint))
+        idc = iter(memory_range(sys.maxsize))
 
         self.fonts = []
         self.font_map = {}

@@ -117,7 +117,7 @@ class TXTOutput(OutputFormatPlugin):
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
         from LiuXin_alpha.file_formats.txt.newlines import specified_newlines, TxtNewlines
         from LiuXin_alpha.file_formats.txt.txtml import TXTMLizer
-        from utils.libraries.cleantext import clean_ascii_chars
+        from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
 
         if opts.txt_output_formatting.lower() == "markdown":
             from LiuXin_alpha.file_formats.txt.markdownml import MarkdownMLizer
@@ -134,7 +134,8 @@ class TXTOutput(OutputFormatPlugin):
         txt = clean_ascii_chars(txt)
 
         log.debug("\tReplacing newlines with selected type...")
-        txt = specified_newlines(TxtNewlines(opts.newline).newline, txt)
+        newline_opt = getattr(opts, "newline", "system")
+        txt = specified_newlines(TxtNewlines(newline_opt).newline, txt)
 
         close = False
         if not hasattr(output_path, "write"):
@@ -145,9 +146,12 @@ class TXTOutput(OutputFormatPlugin):
         else:
             out_stream = output_path
 
-        out_stream.seek(0)
-        out_stream.truncate()
-        out_stream.write(txt.encode(opts.txt_output_encoding, "replace"))
+        if hasattr(out_stream, "seek"):
+            out_stream.seek(0)
+        if hasattr(out_stream, "truncate"):
+            out_stream.truncate()
+        output_encoding = getattr(opts, "txt_output_encoding", "utf-8") or "utf-8"
+        out_stream.write(txt.encode(output_encoding, "replace"))
 
         if close:
             out_stream.close()

@@ -209,4 +209,20 @@ __marimo__/
 
 # Zipped repos
 LiuXin-alpha-[0-9-]*.zip
+
+# External local fixture/data checkout (not part of this repo)
+/LiuXin_alpha_data/
+
+# Common transient conversion artefacts accidentally created in repo root
+/content.opf
+/metadata.opf
+/index.xhtml
+/styles.css
+/toc.ncx
+/dataxml.xml
+/debug-raw.html
+/[0-9]*.xhtml
+/[0-9]*.gif
+/*_thumbnail.gif
+
 LiuXin_scratch/*

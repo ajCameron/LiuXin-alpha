@@ -290,3 +290,45 @@ def md_test_books_dir(md_test_files_dir: Path) -> Path:
 @pytest.fixture(scope="session")
 def md_test_books(md_test_files: List[Path]) -> List[Path]:
     return md_test_files
+
+
+@pytest.fixture
+def md_test_fixture(md_test_files_dir: Path):
+    """
+    Factory fixture: return one md fixture path with optional hash verification.
+
+    Usage:
+      - md_test_fixture(file_ext="pdb", file_num=1)
+      - md_test_fixture(filename="pdb_md_test_file_1.pdb")
+    """
+    from tests.support.md_test_fixture_access import get_verified_md_fixture_path
+
+    def _get(
+        *,
+        filename: str | None = None,
+        file_ext: str | None = None,
+        file_num: int | None = None,
+        verify_hash: bool = True,
+    ) -> Path:
+        return get_verified_md_fixture_path(
+            md_test_files_dir,
+            filename=filename,
+            file_ext=file_ext,
+            file_num=file_num,
+            verify_hash=verify_hash,
+        )
+
+    return _get
+
+
+@pytest.fixture
+def md_test_fixtures_for_ext(md_test_files_dir: Path):
+    """
+    Factory fixture: return all md fixtures for an extension, verified by hash.
+    """
+    from tests.support.md_test_fixture_access import iter_verified_md_fixtures
+
+    def _get(*, file_ext: str, verify_hash: bool = True) -> List[Path]:
+        return list(iter_verified_md_fixtures(md_test_files_dir, file_ext=file_ext, verify_hash=verify_hash))
+
+    return _get

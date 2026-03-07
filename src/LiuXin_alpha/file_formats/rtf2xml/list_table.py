@@ -98,7 +98,8 @@ class ListTable:
                 self.__ob_group -= 1
             action = self.__state_dict.get(self.__state)
             if action is None:
-                print(self.__state)
+                msg = f'No parser action for state "{self.__state}" while parsing list table\n'
+                raise self.__bug_handler(msg)
             action(line)
         self.__write_final_string()
         # self.__add_to_final_line()

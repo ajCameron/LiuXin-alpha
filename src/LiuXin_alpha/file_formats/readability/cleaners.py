@@ -1,38 +1,101 @@
-# strip out a set of nuisance html attributes that can mess up rendering in RSS feeds
+"""Readability HTML cleanup helpers."""
+
+from __future__ import annotations
 
 import re
-from lxml.html.clean import Cleaner
 
-bad_attrs = ["width", "height", "style", "[-a-z]*color", "background[-a-z]*", "on*"]
-single_quoted = "'[^']+'"
-double_quoted = '"[^"]+"'
-non_space = "[^ \"'>]+"
-htmlstrip = re.compile(
+# lxml 5 split html.clean into a separate package.
+try:  # pragma: no cover - depends on install extras
+    from lxml.html.clean import Cleaner as _LxmlCleaner
+except Exception:  # pragma: no cover - depends on runtime env
+    try:
+        from lxml_html_clean import Cleaner as _LxmlCleaner  # type: ignore
+    except Exception:
+        _LxmlCleaner = None
+
+
+_BAD_ATTRS = ["width", "height", "style", "[-a-z]*color", "background[-a-z]*", "on[a-z]+"]
+_SINGLE_QUOTED = "'[^']+'"
+_DOUBLE_QUOTED = '"[^"]+"'
+_NON_SPACE = '[^ "\'>]+'
+_HTMLSTRIP_RE = re.compile(
     "<"  # open
     "([^>]+) "  # prefix
-    "(?:%s) *" % ("|".join(bad_attrs),)
-    + "= *(?:%s|%s|%s)" % (non_space, single_quoted, double_quoted)  # undesirable attributes
-    + "([^>]*)"  # value  # postfix
-    ">",  # end
+    "(?:%s) *" % ("|".join(_BAD_ATTRS),)
+    + "= *(?:%s|%s|%s)" % (_NON_SPACE, _SINGLE_QUOTED, _DOUBLE_QUOTED)  # undesirable attributes
+    + "([^>]*)"  # postfix
+    ">",
     re.I,
 )
 
 
-def clean_attributes(html):
-    while htmlstrip.search(html):
-        html = htmlstrip.sub("<\\1\\2>", html)
+def clean_attributes(html: str) -> str:
+    while _HTMLSTRIP_RE.search(html):
+        html = _HTMLSTRIP_RE.sub("<\\1\\2>", html)
     return html
 
 
-def normalize_spaces(s):
-    if not s:
+def normalize_spaces(text: str | None) -> str:
+    if not text:
         return ""
-    """replace any sequence of whitespace
-    characters with a single space"""
-    return " ".join(s.split())
+    return " ".join(text.split())
 
 
-html_cleaner = Cleaner(
+class _FallbackCleaner:
+    """
+    Minimal cleaner used when `lxml.html.clean` extras are unavailable.
+
+    This intentionally performs only the parts readability depends on:
+    stripping script/style/link tags and comments/processing instructions.
+    """
+
+    def __init__(
+        self,
+        scripts: bool = True,
+        style: bool = True,
+        links: bool = True,
+        comments: bool = True,
+        processing_instructions: bool = True,
+        **_ignored,
+    ):
+        self.scripts = scripts
+        self.style = style
+        self.links = links
+        self.comments = comments
+        self.processing_instructions = processing_instructions
+
+    def clean_html(self, doc):
+        if self.scripts:
+            for elem in list(doc.xpath(".//script")):
+                parent = elem.getparent()
+                if parent is not None:
+                    parent.remove(elem)
+        if self.style:
+            for elem in list(doc.xpath(".//style")):
+                parent = elem.getparent()
+                if parent is not None:
+                    parent.remove(elem)
+        if self.links:
+            for elem in list(doc.xpath(".//link")):
+                parent = elem.getparent()
+                if parent is not None:
+                    parent.remove(elem)
+        if self.comments:
+            for comment in list(doc.xpath("//comment()")):
+                parent = comment.getparent()
+                if parent is not None:
+                    parent.remove(comment)
+        if self.processing_instructions:
+            for pi in list(doc.xpath("//processing-instruction()")):
+                parent = pi.getparent()
+                if parent is not None:
+                    parent.remove(pi)
+        return doc
+
+
+_CleanerImpl = _LxmlCleaner or _FallbackCleaner
+
+html_cleaner = _CleanerImpl(
     scripts=True,
     javascript=True,
     comments=True,
@@ -50,3 +113,11 @@ html_cleaner = Cleaner(
     remove_unknown_tags=False,
     safe_attrs_only=False,
 )
+
+
+__all__ = [
+    "clean_attributes",
+    "normalize_spaces",
+    "html_cleaner",
+    "_FallbackCleaner",
+]

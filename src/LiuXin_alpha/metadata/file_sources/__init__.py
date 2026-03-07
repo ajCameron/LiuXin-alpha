@@ -1,215 +1,212 @@
-# Manager system for plugins to read metadata from files
-# this has been written so it can just use calibre metadata extraction methods
-# all the module actually needs is a get_metadata module
-# many of the metadata methods use containers and other useful things from over in the file formats dictionary.
+"""
+Metadata source dispatcher.
 
-from __future__ import print_function
+Historically this module implemented an ad-hoc plugin loader that scanned files
+in this package. The modern path uses registered metadata-reader plugins from
+`LiuXin_alpha.customize.builtins.metadata_readers`, while preserving the public
+helpers used by legacy call sites.
+"""
 
-import imp
+from __future__ import annotations
+
 import os
-from copy import deepcopy
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
-from LiuXin_alpha.constants import VERBOSE_DEBUG
-from LiuXin_alpha.utils.logging import LiuXin_debug_print
-from LiuXin_alpha.constants.file_extensions import BOOK_EXTENSIONS
+from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+from LiuXin_alpha.utils.logging import default_log
 
-# used to locate the file on disk so that the plugins can be imported
-__folder__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-valid_plugins = []
-valid_file_formats = set()
+__folder__ = os.path.realpath(os.path.dirname(__file__))
+
+# Backwards-compatible globals kept for callers that inspect this module.
+valid_plugins: list["MetaDataReaderPlugin"] = []
+valid_file_formats: set[str] = set()
 
 
 class InvalidMetadataExtractor(Exception):
-    def __init__(self, err_str):
-        self.err_str = err_str
-        print(self.err_str)
+    pass
 
 
-def get_metadata(target_object, force_type=False):
+@dataclass
+class MetaDataReaderPlugin:
     """
-    Polls the metadata from file folder to find plugins to handle a specific file type.
-
-    Gets a sorted list of those plugins. Works through them until one works.
-    :param target_object: Either a pointer to a stream, or the location of an object on disk.
-    :return return_metadata: Metadata extracted from the object, or None if None could be extracted
+    Small compatibility adapter around builtin metadata-reader plugin classes.
     """
-    target_object = deepcopy(target_object)
-    return_metadata = None
 
-    # For the moment assuming the object
-    if not os.path.exists(target_object):
-        raise IOError("File not found.")
+    plugin_cls: type
 
-    if not force_type:
-        dotted_ext = os.path.splitext(target_object)[1]
-        if len(dotted_ext) > 0 and dotted_ext[0] == ".":
-            ext = dotted_ext[1:]
-        else:
-            ext = dotted_ext
-    else:
-        ext = force_type
+    @property
+    def module_name(self) -> str:
+        return self.plugin_cls.__name__
 
-    ext = ext.lower()
-    if ext in ("html", "htm", "xhtml", "xhtm", "xml"):
-        ext = "html"
-    elif ext in ("mobi", "prc", "azw"):
-        ext = "mobi"
-    elif ext in ("odt", "ods", "odp", "odg", "odf"):
-        ext = "odt"
+    @property
+    def file_path(self) -> str:
+        module = self.plugin_cls.__module__.replace(".", "/")
+        return f"{module}.py"
 
-    possible_plugins = get_plugins_for_extension(ext)
-    for plugin in possible_plugins:
-        try:
-            return_metadata = plugin.get_metadata(target_object)
-        except:
-            err_str = "Error while running a metadata extractor plugin.\n"
-            err_str += "Plugin name: " + plugin.module_name + "\n"
-            err_str += "Plugin path: " + plugin.file_path + "\n"
-            raise NotImplementedError(err_str)
-        if return_metadata is not None:
-            break
+    @property
+    def VALID_FOR(self) -> list[str]:
+        return [x.upper() for x in getattr(self.plugin_cls, "file_types", [])]
 
-    return return_metadata
+    @property
+    def PRIORITY_FOR(self) -> list[str]:
+        # Legacy loaders expected this field; file types were commonly reused.
+        return self.VALID_FOR
+
+    @property
+    def RUN_COST(self) -> list[str]:
+        cost = str(getattr(self.plugin_cls, "inplace_run_cost", "high")).upper()
+        return [cost]
+
+    def get_metadata(self, target_object, force_type: str | None = None):
+        return _run_metadata_reader(self.plugin_cls, target_object, ftype=force_type)
 
 
-def get_plugins_for_extension(ext):
-    """
-    Scans the available plugins. Finds ones which can handle a certain extension. Further sorts by the cost of running
-    the plugin. Returns the ordered list.
-    :param ext: The extension to be searched for
-    :return ordered_plugins: An index of the available plugins sorted by the cost of running the plugin
-    """
-    ext = deepcopy(ext)
-    ext = ext.upper()
-    plugins = []
-    if not valid_plugins:
-        load_plugins()
+def _normalize_ext(raw_ext: str | None) -> str:
+    ext = (raw_ext or "").lower().lstrip(".")
+    if ext in {"html", "htm", "xhtml", "xhtm", "xml"}:
+        return "html"
+    if ext in {"mobi", "prc", "azw"}:
+        return "mobi"
+    if ext in {"odt", "ods", "odp", "odg", "odf"}:
+        return "odt"
+    return ext
 
-    for plugin in valid_plugins:
-        if ext in [test.upper() for test in plugin.VALID_FOR]:
-            plugins.append(plugin)
 
-    return sort_plugins_by_run_cost(plugins)
+def _target_path_hint(target_object) -> str | None:
+    if isinstance(target_object, os.PathLike):
+        return os.fspath(target_object)
+    if isinstance(target_object, str):
+        return target_object
+    name = getattr(target_object, "name", None)
+    if isinstance(name, str) and name:
+        return name
+    return None
+
+
+def _resolve_extension(target_object, force_type: str | bool | None = None) -> str:
+    if force_type:
+        return _normalize_ext(str(force_type))
+
+    source_path = _target_path_hint(target_object)
+    dotted_ext = os.path.splitext(source_path or "")[1]
+    ext = dotted_ext[1:] if dotted_ext.startswith(".") else dotted_ext
+    ext = _normalize_ext(ext)
+    if not ext:
+        raise ValueError("Could not infer extension for metadata extraction. Pass force_type to override.")
+    return ext
+
+
+def _is_path_like(target_object) -> bool:
+    return isinstance(target_object, (str, bytes, os.PathLike))
+
+
+def _run_metadata_reader(plugin_cls: type, target_object, *, ftype: str):
+    plugin = plugin_cls(None)
+    if _is_path_like(target_object):
+        path = os.fspath(target_object)
+        if hasattr(plugin, "get_metadata_inplace"):
+            return plugin.get_metadata_inplace(path, ftype)
+        with open(path, "rb") as stream:
+            return plugin.get_metadata(stream=stream, ftype=ftype)
+
+    if hasattr(target_object, "read"):
+        return plugin.get_metadata(stream=target_object, ftype=ftype)
+
+    raise TypeError("target_object must be a filesystem path or a readable binary stream.")
 
 
 def sort_plugins_by_run_cost(plugins):
     """
-    Takes an index of plugins.
-    :param plugins:
-    :return ordered_plugins:
+    Sort plugin adapters from highest to lowest speed preference.
     """
-    # Cannot deepcopy - it doesn't play well with user defined classes. Shouldn't be needed here
     run_cost_dict = {"HIGH": 1, "MEDIUM": 2, "LOW": 3}
-    plugins_cost = []
 
-    # Building an index of the numeric run costs
+    sortable_index = []
     for plugin in plugins:
-
-        # Checks for a properly formed module
-        try:
-            plugin_cost = plugin.RUN_COST[0]
-        except KeyError:
-            err_str = "Plugin run cost not properly set.\n"
-            err_str += "Plugin name: " + plugin.module_name + "\n"
-            err_str += "Given RUN_COST: " + repr(plugin.RUN_COST) + "\n"
-            raise AssertionError(err_str)
+        plugin_cost = plugin.RUN_COST[0]
         if plugin_cost not in run_cost_dict:
-            err_str = "Unrecognized run cost detected\n"
-            err_str += "Plugin name: " + plugin.module_name + "\n"
-            raise AssertionError(err_str)
+            raise AssertionError(
+                "Unrecognized run cost detected\n"
+                f"Plugin name: {plugin.module_name}\n"
+                f"Given RUN_COST: {plugin.RUN_COST!r}"
+            )
+        sortable_index.append((plugin, run_cost_dict[plugin_cost]))
 
-        # Adds the numeric run cost to the run cost index
-        plugins_cost.append(plugin_cost)
-
-    assert len(plugins_cost) == len(plugins)
-
-    # Zipping them together and sorting
-    sortable_index = zip(plugins, plugins_cost)
     sortable_index.sort(key=lambda x: x[1])
     return [item[0] for item in sortable_index]
 
 
 def load_plugins():
     """
-    loads all valid metadata extractors and adds them to VALID_METADATA_EXTRACTORS
-    :return None: Purely internal method
+    Populate compatibility plugin adapters from builtin metadata-reader plugins.
     """
-    plugin_sources = os.listdir(__folder__)
+    valid_plugins[:] = [MetaDataReaderPlugin(cls) for cls in get_metadata_reader_plugins()]
+    valid_file_formats.clear()
+    for plugin in valid_plugins:
+        valid_file_formats.update(plugin.VALID_FOR)
 
-    # Filter the plugin sources to remove the things that we really don't want to try loading
-    plugin_sources = filter_plugin_sources(plugin_sources)
-    plugin_paths = [os.path.join(__folder__, plugin_name) for plugin_name in plugin_sources]
-    for path in plugin_paths:
-        try:
-            new_plugin = MetaDataReaderPlugin(path)
-            valid_plugins.append(new_plugin)
-            valid_file_formats.union(new_plugin.VALID_FOR)
-        except InvalidMetadataExtractor as e:
-            if VERBOSE_DEBUG:
-                LiuXin_debug_print(e.err_str)
-            else:
-                pass
+
+def get_plugins_for_extension(ext: str):
+    ext = _normalize_ext(ext).upper()
+    if not valid_plugins:
+        load_plugins()
+    plugins = [plugin for plugin in valid_plugins if ext in plugin.VALID_FOR]
+    return sort_plugins_by_run_cost(plugins)
 
 
 def filter_plugin_sources(plugin_sources_names):
     """
-    Takes a list of file_names. Removes the ones we probably don't want being compiled as extensions.
-    :param plugin_sources_names:
-    :return plugin_sources_names: Except now filtered.
+    Legacy helper retained for compatibility.
     """
-    plugin_sources_names = deepcopy(plugin_sources_names)
+    plugin_sources_names = list(plugin_sources_names)
     plugin_sources_names = [name for name in plugin_sources_names if name != "__init__.py"]
     plugin_sources_names = [name for name in plugin_sources_names if not name.endswith(".pyc")]
     return plugin_sources_names
 
 
-# Todo: Add functionality to check for .pyc files and load from them instead of from source every time
-class MetaDataReaderPlugin(object):
+def get_metadata(target_object, force_type: str | bool = False):
     """
-    A class to represent a metadata reader object.
+    Read metadata from a path or stream using registered metadata-reader plugins.
     """
+    ext = _resolve_extension(target_object, force_type=force_type)
+    plugins = get_plugins_for_extension(ext)
+    if not plugins:
+        raise InvalidMetadataExtractor(f"No metadata reader plugin is registered for extension: {ext!r}")
 
-    def __init__(self, file_path):
-        """
-        Takes the name of a file. Tries to load the pre-defined constants from it and then parses them,
-        :param file_path:
-        :return:
-        """
-        self.file_path = file_path
-        self.module_name = os.path.basename(os.path.splitext(file_path)[0])
+    errors: list[tuple[str, Exception]] = []
+    for plugin in plugins:
         try:
-            self.module = imp.load_source(self.module_name, file_path)
-        except IOError:
-            err_str = "No such module as: " + self.module_name + "\n"
-            err_str += "Located at: " + repr(file_path) + "\n"
-            raise InvalidMetadataExtractor(err_str)
-        try:
-            self.VALID_FOR = self.module.VALID_FOR
-            if self.VALID_FOR == ["ALL_EBOOKS"]:
-                self.VALID_FOR = [EXT.upper() for EXT in BOOK_EXTENSIONS]
-        except AttributeError:
-            err_str = "Invalid Metadata Extractor Module detected: " + self.module_name + "\n"
-            err_str += "At: " + repr(file_path) + "\n"
-            err_str += "Module has no VALID_FOR constant"
-            raise InvalidMetadataExtractor(err_str)
-        try:
-            self.PRIORITY_FOR = self.module.PRIORITY_FOR
-        except AttributeError:
-            err_str = "Invalid Metadata Extractor Module detected: " + self.module_name + "\n"
-            err_str += "At: " + repr(file_path) + "\n"
-            err_str += "Module has no PRIORITY_FOR constant"
-            raise InvalidMetadataExtractor(err_str)
-        try:
-            self.RUN_COST = self.module.RUN_COST
-        except AttributeError:
-            err_str = "Invalid Metadata Extractor Module detected: " + self.module_name + "\n"
-            err_str += "At: " + repr(file_path) + "\n"
-            err_str += "Module has no RUN_COST constant"
-            raise InvalidMetadataExtractor(err_str)
-        try:
-            self.get_metadata = self.module.get_metadata
-        except AttributeError:
-            err_str = "Invalid Metadata Extractor Module detected: " + self.module_name + "\n"
-            err_str += "At: " + repr(file_path) + "\n"
-            err_str += "Module has no get_metadata method"
-            raise InvalidMetadataExtractor(err_str)
+            md = plugin.get_metadata(target_object, force_type=ext)
+            if md is not None:
+                return md
+        except Exception as err:
+            errors.append((plugin.module_name, err))
+            default_log.log_exception(
+                "Error while running metadata extractor plugin.",
+                err,
+                "DEBUG",
+                ("plugin_name", plugin.module_name),
+                ("plugin_path", plugin.file_path),
+                ("extension", ext),
+            )
+
+    if errors:
+        plugin_names = [name for name, _ in errors]
+        raise RuntimeError(
+            "Metadata extraction failed for extension %r. Tried plugins: %s"
+            % (ext, ", ".join(plugin_names))
+        ) from errors[-1][1]
+    return None
+
+
+__all__ = [
+    "InvalidMetadataExtractor",
+    "MetaDataReaderPlugin",
+    "filter_plugin_sources",
+    "get_metadata",
+    "get_plugins_for_extension",
+    "load_plugins",
+    "sort_plugins_by_run_cost",
+]

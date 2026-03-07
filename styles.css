@@ -1,2 +1,18 @@
 
-.image_page { text-align:center }
+span.none {
+    text-decoration: none; font-weight: normal;
+    font-style: normal; font-variant: normal
+}
+
+span.italics { font-style: italic }
+
+span.bold { font-weight: bold }
+
+span.small-caps { font-variant: small-caps }
+
+span.underlined { text-decoration: underline }
+
+span.strike-through { text-decoration: line-through }
+
+
+

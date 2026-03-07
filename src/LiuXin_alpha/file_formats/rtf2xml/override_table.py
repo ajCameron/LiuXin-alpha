@@ -24,9 +24,11 @@ class OverrideTable:
     def __init__(
         self,
         list_of_lists,
+        bug_handler=Exception,
         run_level=1,
     ):
         self.__list_of_lists = list_of_lists
+        self.__bug_handler = bug_handler
         self.__initiate_values()
         self.__run_level = run_level
 
@@ -86,7 +88,7 @@ class OverrideTable:
         """
         override_dict = self.__override_list[-1]
         list_id = override_dict.get("list-id")
-        if list_id is None and self.__level > 3:
+        if list_id is None and self.__run_level > 3:
             msg = "This override does not appear to have a list-id\n"
             raise self.__bug_handler(msg)
         current_table_id = override_dict.get("list-table-id")
@@ -94,8 +96,8 @@ class OverrideTable:
             msg = "This override does not appear to have a list-table-id\n"
             raise self.__bug_handler(msg)
         counter = 0
-        for list in self.__list_of_lists:
-            info_dict = list[0]
+        for list_entry in self.__list_of_lists:
+            info_dict = list_entry[0]
             old_table_id = info_dict.get("list-table-id")
             if old_table_id == current_table_id:
                 self.__list_of_lists[counter][0]["list-id"].append(list_id)
@@ -125,7 +127,8 @@ class OverrideTable:
                 self.__ob_group -= 1
             action = self.__state_dict.get(self.__state)
             if action is None:
-                print(self.__state)
+                msg = f'No parser action for state "{self.__state}" while parsing override table\n'
+                raise self.__bug_handler(msg)
             action(line)
         self.__write_final_string()
         # self.__add_to_final_line()

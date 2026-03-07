@@ -6,7 +6,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 import re
 import textwrap
 from collections import Counter, OrderedDict
-from itertools import izip, groupby
+from itertools import groupby
 from operator import itemgetter
 
 from LiuXin_alpha.file_formats.pdf.render.common import (
@@ -18,10 +18,21 @@ from LiuXin_alpha.file_formats.pdf.render.common import (
 )
 
 from LiuXin_alpha.utils.calibre import as_unicode
-from LiuXin_alpha.utils.fonts.sfnt.subset import pdf_subset, UnsupportedFont, NoGlyphs
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+
+try:
+    from LiuXin_alpha.utils.fonts.sfnt.subset import pdf_subset, UnsupportedFont, NoGlyphs
+except Exception:
+    class UnsupportedFont(Exception):
+        pass
+
+    class NoGlyphs(Exception):
+        pass
+
+    def pdf_subset(*_args, **_kwargs):
+        raise UnsupportedFont("Font subsetting backend is not available.")
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -214,7 +225,7 @@ class Font(object):
 
     def write_widths(self, objects):
         glyphs = sorted(self.used_glyphs | {0})
-        widths = {g: self.metrics.pdf_scale(w) for g, w in izip(glyphs, self.metrics.glyph_widths(glyphs))}
+        widths = {g: self.metrics.pdf_scale(w) for g, w in zip(glyphs, self.metrics.glyph_widths(glyphs))}
         counter = Counter()
         for g, w in iteritems(widths):
             counter[w] += 1

@@ -8,17 +8,21 @@ import zlib
 from datetime import datetime
 from io import BytesIO
 
-from LiuXin_alpha.utils.calibre.constants import ispy3
-
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iterkeys as iterkeys
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iterkeys as iterkeys
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import long
+from LiuXin_alpha.utils.libraries.liuxin_six import unicode
 from LiuXin_alpha.utils.plugins import plugins
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
-pdf_float = plugins["speedup"][0].pdf_float
+try:
+    pdf_float = plugins["speedup"][0].pdf_float
+except Exception:
+    def pdf_float(val):
+        return ("%.6f" % float(val)).rstrip("0").rstrip(".")
 
 EOL = b"\n"
 
@@ -59,8 +63,8 @@ PAPER_SIZES = {k: globals()[k.upper()] for k in "a0 a1 a2 a3 a4 a5 a6 b0 b1 b2 b
 
 # Basic PDF datatypes {{{
 
-ic = str if ispy3 else unicode
-icb = (lambda x: str(x).encode("ascii")) if ispy3 else bytes
+ic = str
+icb = lambda x: str(x).encode("ascii")
 
 
 def fmtnum(o):
@@ -83,7 +87,7 @@ def serialize(o, stream):
         stream.write_raw(b"null")
     elif isinstance(o, datetime):
         val = o.strftime("D:%Y%m%d%H%M%%02d%z") % min(59, o.second)
-        if datetime.tzinfo is not None:
+        if o.tzinfo is not None:
             val = "(%s'%s')" % (val[:-2], val[-2:])
         stream.write(val.encode("ascii"))
     else:
@@ -92,10 +96,15 @@ def serialize(o, stream):
 
 class Name(unicode):
     def pdf_serialize(self, stream):
-        raw = self.encode("ascii")
+        raw = self.encode("ascii", "strict")
         if len(raw) > 126:
             raise ValueError("Name too long: %r" % self)
-        buf = [x if 33 < ord(x) < 126 and x != b"#" else b"#" + hex(ord(x)) for x in raw]
+        buf = []
+        for num in raw:
+            if 33 < num < 126 and num != ord("#"):
+                buf.append(bytes((num,)))
+            else:
+                buf.append(("#%02X" % num).encode("ascii"))
         stream.write(b"/" + b"".join(buf))
 
 

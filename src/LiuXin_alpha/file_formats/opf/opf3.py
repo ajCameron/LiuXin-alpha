@@ -407,8 +407,34 @@ def set_title(root, prefixes, refines, title, title_sort=None):
         main_title = m.makeelement("dc:title")
         m.insert(0, main_title)
     main_title.text = title or None
-    ts = [refdef("file-as", title_sort)] if title_sort else ()
-    set_refines(main_title, refines, refdef("title-type", "main"), *ts)
+    title_id = ensure_id(main_title)
+
+    # Preserve non-title refines attached to the main title element.
+    existing = list(refines.get(title_id, ()))
+    kept = []
+    for meta in existing:
+        prop = (meta.get("property") or "").strip().lower()
+        if prop in {"title-type", "file-as"}:
+            meta.getparent().remove(meta)
+        else:
+            kept.append(meta)
+    if kept:
+        refines[title_id] = kept
+    else:
+        refines.pop(title_id, None)
+
+    new_refines = [refdef("title-type", "main")]
+    if title_sort:
+        new_refines.append(refdef("file-as", title_sort))
+    parent = main_title.getparent()
+    insert_pos = parent.index(main_title)
+    for prop, val, _scheme in new_refines:
+        r = main_title.makeelement(OPF("meta"))
+        r.set("refines", "#" + title_id), r.set("property", prop)
+        r.text = val.strip()
+        insert_pos += 1
+        parent.insert(insert_pos, r)
+        refines[title_id].append(r)
     for m in XPath('./opf:metadata/opf:meta[@name="calibre:title_sort"]')(root):
         remove_element(m, refines)
 
@@ -806,7 +832,15 @@ def set_series(root, prefixes, refines, series, series_index):
     for meta in XPath('./opf:metadata/opf:meta[@name="calibre:series" or @name="calibre:series_index"]')(root):
         remove_element(meta, refines)
     for meta in XPath('./opf:metadata/opf:meta[@property="belongs-to-collection"]')(root):
-        remove_element(meta, refines)
+        # Preserve non-series collection metadata and refinements; only rewrite
+        # series collections owned by calibre/LiuXin.
+        meta_id = meta.get("id")
+        if not meta_id:
+            continue
+        props = properties_for_id(meta_id, refines)
+        collection_type = (props.get("collection-type") or "").strip().lower()
+        if collection_type == "series":
+            remove_element(meta, refines)
     m = XPath("./opf:metadata")(root)[0]
     if series:
         d = m.makeelement(OPF("meta"), attrib={"property": "belongs-to-collection"})

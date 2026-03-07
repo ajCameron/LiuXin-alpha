@@ -60,6 +60,28 @@ def _build_odt_with_metadata(path: Path, *, series_index: str = "3.0") -> None:
     _inject_dc_identifiers(path, ["not-an-isbn", "9780306406157"])
 
 
+def _build_odt_with_unicode_torture_metadata(path: Path) -> None:
+    doc = OpenDocumentText()
+    para = P()
+    addTextToElement(para, "unicode metadata source smoke")
+    doc.text.addElement(para)
+
+    doc.meta.addElement(Title(text="主題 🙂 — Καλημέρα — مرحبا — नमस्ते — 漢字"))
+    doc.meta.addElement(Creator(text="Renée Faßbinder and 李白"))
+    doc.meta.addElement(Description(text="Combining: cafe\u0301 co\u0308perate A\u030A. Emoji: 👩🏽\u200d🔬"))
+    doc.meta.addElement(Subject(text="タグ;Κατηγορία;Тег;العربية"))
+    doc.meta.addElement(Keyword(text="हिंदी,日本語;العربية"))
+    doc.meta.addElement(Language(text="ja"))
+    doc.meta.addElement(Date(text="2025-05-06"))
+
+    doc.meta.addElement(UserDefined(name="opf.authors", valuetype="string", text="Renée & 李白 and कुमारी"))
+    doc.meta.addElement(UserDefined(name="opf.publisher", valuetype="string", text="Éditions Δ"))
+    doc.meta.addElement(UserDefined(name="opf.series", valuetype="string", text="シリーズΩ"))
+    doc.meta.addElement(UserDefined(name="opf.series_index", valuetype="string", text="7,5"))
+
+    doc.save(path)
+
+
 def _png_bytes(width: int, height: int, rgb: tuple[int, int, int] = (180, 90, 40)) -> bytes:
     signature = b"\x89PNG\r\n\x1a\n"
 
@@ -187,3 +209,67 @@ def test_odt_metadata_respects_opf_nocover(tmp_path: Path) -> None:
         mi = get_metadata(stream, extract_cover=True)
 
     assert getattr(mi, "cover_data", (None, None))[1] is None
+
+
+def test_odt_metadata_unicode_torture_fields(tmp_path: Path) -> None:
+    from LiuXin_alpha.metadata.file_sources.odt import get_metadata
+
+    path = tmp_path / "odt_md_unicode_torture.odt"
+    _build_odt_with_unicode_torture_metadata(path)
+
+    with path.open("rb") as stream:
+        mi = get_metadata(stream, extract_cover=False)
+
+    assert "主題" in mi.title and "🙂" in mi.title
+    assert set(mi.authors) == {"Renée", "李白", "कुमारी"}
+    assert "Combining: cafe" in mi.comments
+    assert "Éditions Δ" == mi.publisher
+    assert mi.series == "シリーズΩ"
+    assert float(mi.series_index) == 7.5
+    assert set(mi.tags) >= {"タグ", "Κατηγορία", "Тег", "العربية", "हिंदी", "日本語"}
+
+
+def test_odt_metadata_stream_cursor_is_preserved(tmp_path: Path) -> None:
+    from LiuXin_alpha.metadata.file_sources.odt import get_metadata
+
+    path = tmp_path / "odt_md_cursor_restore.odt"
+    _build_odt_with_metadata(path)
+
+    with path.open("rb") as stream:
+        stream.seek(11)
+        before = stream.tell()
+        mi = get_metadata(stream, extract_cover=False)
+        after = stream.tell()
+
+    assert mi.title == "Main Title"
+    assert before == after == 11
+
+
+def test_odt_metadata_recover_parses_mildly_malformed_meta_xml_when_lxml_available(tmp_path: Path) -> None:
+    from LiuXin_alpha.metadata.file_sources.odt import get_metadata
+    from LiuXin_alpha.utils.libraries import liuxin_etree
+
+    if not getattr(liuxin_etree, "LXML_AVAILABLE", False):
+        return
+
+    path = tmp_path / "odt_md_recoverable_meta_xml.odt"
+    _build_odt_with_metadata(path)
+
+    with zipfile.ZipFile(path, "r") as zf:
+        members = {info.filename: zf.read(info.filename) for info in zf.infolist()}
+    meta_xml = members["meta.xml"].decode("utf-8", "replace")
+    # Broken tail after the closing root keeps the XML recoverable under lxml's
+    # recover parser while strict parsing fails.
+    members["meta.xml"] = (meta_xml + "<broken-tail").encode("utf-8")
+
+    tmp = path.with_suffix(".tmp.odt")
+    with zipfile.ZipFile(tmp, "w") as out:
+        for name, data in members.items():
+            out.writestr(name, data)
+    tmp.replace(path)
+
+    with path.open("rb") as stream:
+        mi = get_metadata(stream, extract_cover=False)
+
+    assert mi.title == "Main Title"
+    assert mi.authors == ["Carol", "Dan"]

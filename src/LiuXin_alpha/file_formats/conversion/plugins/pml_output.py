@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import io
 
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
@@ -9,7 +10,6 @@ from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 # Py2/Py3
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
 
 __license__ = "GPL 3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -77,13 +77,17 @@ class PMLOutput(OutputFormatPlugin):
         :return:
         """
         try:
-            from PIL import Image
-
-            # Image  # To make pyflakes shut up
-        except ImportError:
-            import Image
+            from PIL import Image as PILImage
+        except Exception:
+            PILImage = None
 
         from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
+        if PILImage is None:
+            self.log.warning("Pillow not available; skipping image export in PML output.")
+            return
+
+        resampling = getattr(PILImage, "Resampling", None)
+        lanczos = resampling.LANCZOS if resampling is not None and hasattr(resampling, "LANCZOS") else getattr(PILImage, "ANTIALIAS", None)
 
         for item in manifest:
             if item.media_type in OEB_RASTER_IMAGES and item.href in image_hrefs.keys():
@@ -93,14 +97,17 @@ class PMLOutput(OutputFormatPlugin):
                 # empty string, which causes problems when trying to read in here
                 try:
                     if opts.full_image_depth:
-                        im = Image.open(six_cStringIO(item.data))
+                        im = PILImage.open(io.BytesIO(item.data))
                     else:
-                        im = Image.open(six_cStringIO(item.data)).convert("P")
-                        im.thumbnail((300, 300), Image.ANTIALIAS)
+                        im = PILImage.open(io.BytesIO(item.data)).convert("P")
+                        if lanczos is None:
+                            im.thumbnail((300, 300))
+                        else:
+                            im.thumbnail((300, 300), lanczos)
                 except IOError:
                     continue
 
-                data = six_cStringIO()
+                data = io.BytesIO()
                 im.save(data, "PNG")
                 data = data.getvalue()
 

@@ -8,7 +8,6 @@ from LiuXin_alpha.constants import __appname__, __version__
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
-# Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
@@ -196,9 +195,8 @@ class SNBOutput(OutputFormatPlugin):
 
             etree.SubElement(toc_head, "chapters").text = "%d" % len(toc_body)
 
-            toc_info_file = open(os.path.join(snbf_dir, "toc.snbf"), "wb")
-            toc_info_file.write(etree.tostring(toc_info_tree, pretty_print=True, encoding="utf-8"))
-            toc_info_file.close()
+            with open(os.path.join(snbf_dir, "toc.snbf"), "wb") as toc_info_file:
+                toc_info_file.write(etree.tostring(toc_info_tree, pretty_print=True, encoding="utf-8"))
 
             # Output Files
             OEB_IMAGES = ()
@@ -215,9 +213,8 @@ class SNBOutput(OutputFormatPlugin):
                     else:
                         if old_tree is not None and merge_last:
                             log.debug("Output the modified chapter again: %s" % last_name)
-                            output_file = open(os.path.join(snbc_dir, last_name), "wb")
-                            output_file.write(etree.tostring(old_tree, pretty_print=True, encoding="utf-8"))
-                            output_file.close()
+                            with open(os.path.join(snbc_dir, last_name), "wb") as output_file:
+                                output_file.write(etree.tostring(old_tree, pretty_print=True, encoding="utf-8"))
                             merge_last = False
 
                     log.debug("Converting %s to snbc..." % item.href)
@@ -230,9 +227,8 @@ class SNBOutput(OutputFormatPlugin):
                                 postfix = "_" + subName
                             last_name = ProcessFileName(item.href + postfix + ".snbc")
                             old_tree = snbc_trees[subName]
-                            output_file = open(os.path.join(snbc_dir, last_name), "wb")
-                            output_file.write(etree.tostring(old_tree, pretty_print=True, encoding="utf-8"))
-                            output_file.close()
+                            with open(os.path.join(snbc_dir, last_name), "wb") as output_file:
+                                output_file.write(etree.tostring(old_tree, pretty_print=True, encoding="utf-8"))
                     else:
                         log.debug("Merge %s with last TOC item..." % item.href)
                         snbwriter.merge_content(old_tree, oeb_book, item, [("", _("Start"))], opts)
@@ -240,9 +236,8 @@ class SNBOutput(OutputFormatPlugin):
             # Output the last one if needed
             log.debug("Output the last modified chapter again: %s" % last_name)
             if old_tree is not None and merge_last:
-                output_file = open(os.path.join(snbc_dir, last_name), "wb")
-                output_file.write(etree.tostring(old_tree, pretty_print=True, encoding="utf-8"))
-                output_file.close()
+                with open(os.path.join(snbc_dir, last_name), "wb") as output_file:
+                    output_file.write(etree.tostring(old_tree, pretty_print=True, encoding="utf-8"))
 
             for item in m:
                 if m.hrefs[item.href].media_type in OEB_IMAGES:
@@ -282,7 +277,7 @@ class SNBOutput(OutputFormatPlugin):
             # TODO : intelligent image rotation
             #     img = img.rotate(90)
             #     x,y = y,x
-            img.size = (x / scale, y / scale)
+            img.size = (int(x / scale), int(y / scale))
         img.save(imagePath)
 
 

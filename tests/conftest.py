@@ -205,3 +205,34 @@ def provision_populated_calibre_library(provision_calibre_library):
         return lib, builder
 
     return _provision
+
+
+@pytest.fixture(scope="session")
+def html_ingest_fixtures_dir(project_root: Path) -> Path:
+    from tests.support.html_ingest_fixture_access import resolve_html_ingest_fixture_dir
+
+    return resolve_html_ingest_fixture_dir(project_root)
+
+
+@pytest.fixture
+def html_ingest_fixture(html_ingest_fixtures_dir: Path):
+    from tests.support.html_ingest_fixture_access import get_verified_html_ingest_fixture_path
+
+    def _get(*, filename: str, verify_hash: bool = True) -> Path:
+        return get_verified_html_ingest_fixture_path(
+            fixture_dir=html_ingest_fixtures_dir,
+            filename=filename,
+            verify_hash=verify_hash,
+        )
+
+    return _get
+
+
+@pytest.fixture
+def html_ingest_fixtures(html_ingest_fixtures_dir: Path):
+    from tests.support.html_ingest_fixture_access import iter_verified_html_ingest_fixtures
+
+    def _get(*, verify_hash: bool = True) -> list[Path]:
+        return list(iter_verified_html_ingest_fixtures(html_ingest_fixtures_dir, verify_hash=verify_hash))
+
+    return _get

@@ -110,8 +110,9 @@ class Mobi8Reader(object):
 
         self.processed_records = self.mobi6_reader.extract_text(offset=offset)
         self.raw_ml = self.mobi6_reader.mobi_html
-        with open("debug-raw.html", "wb") as f:
-            f.write(self.raw_ml)
+        if self.for_tweak:
+            with open("debug-raw.html", "wb") as f:
+                f.write(self.raw_ml)
 
         self.kf8_sections = self.mobi6_reader.sections[offset - 1 :]
 

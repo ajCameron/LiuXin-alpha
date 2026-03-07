@@ -68,13 +68,13 @@ class Writer(FormatWriter):
         txt_length = len(txt)
 
         txt_records = []
-        for i in range(0, (len(txt) / MAX_RECORD_SIZE) + 1):
+        for i in range(0, (len(txt) // MAX_RECORD_SIZE) + 1):
             txt_records.append(txt[i * MAX_RECORD_SIZE : (i * MAX_RECORD_SIZE) + MAX_RECORD_SIZE])
 
         return txt_records, txt_length
 
     def _header_record(self, txt_length, record_count, crc32):
-        record = ""
+        record = b""
 
         record += struct.pack(">H", 0x012C)  # [0:2], version. 0x012c = 1.44
         record += struct.pack(">H", record_count)  # [2:4], Number of PDB records used for the text of the book.

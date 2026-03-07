@@ -22,7 +22,7 @@ from collections import Counter
 
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
 
@@ -48,15 +48,27 @@ E = ElementMaker(namespace=NCX_NS, nsmap=NSMAP)
 C = ElementMaker(namespace=CALIBRE_NS, nsmap=NSMAP)
 
 
+def _parse_href(raw_href: str) -> Optional[Tuple[str, Optional[str]]]:
+    if raw_href is None:
+        return None
+    parsed = urlparse(unquote(raw_href))
+    href = (parsed.path or "").strip()
+    fragment = (parsed.fragment or "").strip() or None
+    # Completely empty href+fragment entries are not meaningful in a TOC
+    if not href and fragment is None:
+        return None
+    return href, fragment
+
+
 class TOC(list):
     def __init__(
         self,
         href: Optional[str] = None,
         fragment: Optional[str] = None,
         text: Optional[str] = None,
-        parent: Optional[str] = None,
+        parent: Optional["TOC"] = None,
         play_order: int = 0,
-        base_path: str = os.getcwd(),
+        base_path: Optional[str] = None,
         type="unknown",
         author=None,
         description=None,
@@ -84,7 +96,7 @@ class TOC(list):
             self.fragment = None
         self.text = text
         self.parent = parent
-        self.base_path = base_path
+        self.base_path = os.getcwd() if base_path is None else base_path
         self.play_order = play_order
         self.type = type
         self.author = author
@@ -277,14 +289,15 @@ class TOC(list):
                 text = ""
                 for txt in txt_path(nl):
                     text += etree.tostring(txt, method="text", encoding=six_unicode, with_tail=False)
+                text = re.sub(r"\s+", " ", text).strip()
                 content = content_path(np)
                 if content and text:
                     content = content[0]
-                    # if get_attr(content, attr='src'):
-                    purl = urlparse(content.get("src"))
-                    href, fragment = unquote(purl[2]), unquote(purl[5])
-                    nd = dest.add_item(href, fragment, text)
-                    nd.play_order = play_order
+                    src = _parse_href(content.get("src"))
+                    if src is not None:
+                        href, fragment = src
+                        nd = dest.add_item(href, fragment, text)
+                        nd.play_order = play_order
 
             for c in np_path(np):
                 process_navpoint(c, nd)
@@ -300,26 +313,36 @@ class TOC(list):
     def read_html_toc(self, toc):
         self.base_path = os.path.dirname(toc)
         with open(toc, "rb") as f:
-            soup = BeautifulSoup(f.read(), convertEntities=BeautifulSoup.HTML_ENTITIES)
-        for a in soup.findAll("a"):
-            if "href" not in a:
-                continue
-            purl = urlparse(unquote(a["href"]))
-            href, fragment = purl[2], purl[5]
-            if not fragment:
-                fragment = None
-            else:
-                fragment = fragment.strip()
-            href = href.strip()
+            raw = f.read()
 
-            txt = "".join([six_unicode(s).strip() for s in a.findAll(text=True)])
-            add = True
-            for i in self.flat():
-                if i.href == href and i.fragment == fragment:
-                    add = False
-                    break
-            if add:
+        links = []
+        try:
+            from lxml import html as lxml_html
+
+            root = lxml_html.fromstring(raw)
+            for anchor in root.xpath("//a[@href]"):
+                links.append((anchor.get("href"), " ".join(anchor.itertext())))
+        except Exception:
+            try:
+                soup = BeautifulSoup(raw, convertEntities=BeautifulSoup.HTML_ENTITIES)
+                for anchor in soup.findAll("a"):
+                    if "href" in anchor:
+                        links.append((anchor["href"], "".join(six_unicode(s) for s in anchor.findAll(text=True))))
+            except Exception:
+                logger.warning("Failed to parse HTML TOC: %s", toc, exc_info=True)
+                return
+
+        seen = {(item.href, item.fragment) for item in self.flat()}
+        for href_text, anchor_text in links:
+            src = _parse_href(href_text)
+            if src is None:
+                continue
+            href, fragment = src
+            txt = " ".join(anchor_text.split())
+            key = (href, fragment)
+            if key not in seen:
                 self.add_item(href, fragment, txt)
+                seen.add(key)
 
     def render(self, stream, uid):
         root = E.ncx(
@@ -344,9 +367,12 @@ class TOC(list):
             c[1] += 1
             item_id = "num_%d" % c[1]
             text = clean_xml_chars(text)
+            href = six_unicode(np.href) if np.href is not None else ""
+            if np.fragment:
+                href += "#" + six_unicode(np.fragment)
             elem = E.navPoint(
                 E.navLabel(E.text(re.sub(r"\s+", " ", text))),
-                E.content(src=six_unicode(np.href) + (("#" + six_unicode(np.fragment)) if np.fragment else "")),
+                E.content(src=href),
                 id=item_id,
                 playOrder=str(np.play_order),
             )

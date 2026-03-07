@@ -276,6 +276,7 @@ def register_existing_disk_as_unmanaged_store(
     compute_hash: bool = True,
     follow_symlinks: bool = False,
     attach_store_links: bool = True,
+    refresh_storage_manager: bool = True,
 ) -> UnmanagedDiskRegistrationReport:
     """
     Register ebook files under a disk path into `files` using one unmanaged store row.
@@ -353,6 +354,12 @@ def register_existing_disk_as_unmanaged_store(
         except Exception as exc:
             report.errors.append("{} :: {}".format(str(path), repr(exc)))
 
+    if refresh_storage_manager and hasattr(db, "bootstrap_storage_manager"):
+        try:
+            db.bootstrap_storage_manager(clear_existing=True)
+        except Exception as exc:
+            report.errors.append("storage_manager_bootstrap_failed :: {!r}".format(exc))
+
     report.finished_timestamp_ep_k = _now_ep_ms()
     return report
 
@@ -368,6 +375,7 @@ def register_existing_disk_with_database_path(
     compute_hash: bool = True,
     follow_symlinks: bool = False,
     attach_store_links: bool = True,
+    refresh_storage_manager: bool = True,
 ) -> UnmanagedDiskRegistrationReport:
     """
     Convenience wrapper that opens a Database instance from a path.
@@ -385,6 +393,7 @@ def register_existing_disk_with_database_path(
             compute_hash=compute_hash,
             follow_symlinks=follow_symlinks,
             attach_store_links=attach_store_links,
+            refresh_storage_manager=refresh_storage_manager,
         )
 
 

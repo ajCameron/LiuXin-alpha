@@ -15,7 +15,7 @@ import re
 import uuid
 
 from LiuXin_alpha.utils.libraries.smartypants import smartyPants
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_urlparse
+from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse
 
 urlparse = six_urlparse
 
@@ -98,13 +98,13 @@ def getimagesize(url):
             return None
 
     try:
-        import urllib2
+        from urllib.request import urlopen
     except ImportError:
         return None
 
     try:
         p = ImageFile.Parser()
-        f = urllib2.urlopen(url)
+        f = urlopen(url)
         while True:
             s = f.read(1024)
             if not s:
@@ -130,11 +130,11 @@ class Textile(object):
 
     pnct = r'[-!"#$%&()*+,/:;<=>?@\'\[\\\]\.^_`{|}~]'
     # urlch = r'[\w"$\-_.+!*\'(),";/?:@=&%#{}|\\^~\[\]`]'
-    urlch = '[\w"$\-_.+*\'(),";\/?:@=&%#{}|\\^~\[\]`]'
+    urlch = r'[\w"$\-_.+*\'(),";\/?:@=&%#{}|\\^~\[\]`]'
 
     url_schemes = ("http", "https", "ftp", "mailto")
 
-    btag = ("bq", "bc", "notextile", "pre", "h[1-6]", "fn\d+", "p")
+    btag = ("bq", "bc", "notextile", "pre", "h[1-6]", r"fn\d+", "p")
     btag_lite = ("bq", "bc", "p")
 
     macro_defaults = [
@@ -888,7 +888,7 @@ class Textile(object):
             \s?
             (?:   \(([^)]+?)\)(?=")   )?     # $title
             ":
-            (?P<url>    (?:ftp|https?)? (?: :// )? [-A-Za-z0-9+&@#/?=~_()|!:,.;]*[-A-Za-z0-9+&@#/=~_()|]   )
+            (?P<url>    (?:ftp|https?)? (?: :// )? [^\s<]+   )
             (?P<post>   [^\w\/;]*?   )
             (?=<|\s|$)
         """ % (

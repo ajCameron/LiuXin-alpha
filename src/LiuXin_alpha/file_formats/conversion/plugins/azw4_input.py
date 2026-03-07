@@ -5,6 +5,9 @@ from __future__ import annotations
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
 __license__ = "GPL v3"
 __copyright__ = "2011, John Schember <john@nachtimwald.com>"
@@ -26,4 +29,4 @@ class AZW4Input(InputFormatPlugin):
 
         # AZW4 handling is byte-pattern based and does not need the PDB header.
         reader = Reader(None, stream, log, options)
-        return reader.extract_content(os.getcwd())
+        return reader.extract_content(choose_conversion_workdir("_azw4_input"))

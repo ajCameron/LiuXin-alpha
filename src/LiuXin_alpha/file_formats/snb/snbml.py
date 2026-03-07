@@ -8,8 +8,8 @@ import os
 import re
 from lxml import etree
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Li Fanxi <lifanxi@freemindworld.com>"
@@ -22,7 +22,7 @@ def ProcessFileName(fileName):
     :param fileName:
     :return:
     """
-    fileName = fileName.replace("/", "_").replace(os.sep, "_")
+    fileName = fileName.replace("/", "_").replace("\\", "_").replace(os.sep, "_")
     # Handle bookmark for HTML file
     fileName = fileName.replace("#", "_")
     # Make it lower case
@@ -79,7 +79,7 @@ class SNBMLizer(object):
     def merge_content(self, old_tree, oeb_book, item, subitems, opts):
         newTrees = self.extract_content(oeb_book, item, subitems, opts)
         body = old_tree.find(".//body")
-        if body != None:
+        if body is not None:
             for subName in newTrees:
                 newbody = newTrees[subName].find(".//body")
                 for entity in newbody:
@@ -182,7 +182,7 @@ class SNBMLizer(object):
 
         if self.opts.snb_max_line_length:
             max_length = self.opts.snb_max_line_length
-            if self.opts.max_line_length < 25:  # and not self.opts.force_max_line_length:
+            if getattr(self.opts, "max_line_length", max_length) < 25:  # and not self.opts.force_max_line_length:
                 max_length = 25
             short_lines = []
             lines = text.splitlines()
@@ -229,7 +229,7 @@ class SNBMLizer(object):
         style = stylizer.style(elem)
 
         if elem.attrib.get("id") is not None and elem.attrib["id"] in [href for href, title in subitems]:
-            if self.curSubItem != None and self.curSubItem != elem.attrib["id"]:
+            if self.curSubItem is not None and self.curSubItem != elem.attrib["id"]:
                 self.curSubItem = elem.attrib["id"]
                 text.append("\n\n%s%s\n\n" % (CALIBRE_SNB_BM_TAG, self.curSubItem))
 

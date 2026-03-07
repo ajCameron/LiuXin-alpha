@@ -7,8 +7,12 @@ import os
 import sys
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
 from LiuXin_alpha.utils.resources import P
+from LiuXin_alpha.utils.calibre import CurrentDir
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -43,66 +47,68 @@ class LRFInput(InputFormatPlugin):
         )
 
         self.log = log
-        self.log("Generating XML")
-        from LiuXin_alpha.file_formats.lrf.lrfparser import LRFDocument
+        work_root = choose_conversion_workdir("_lrf_input")
+        with CurrentDir(work_root):
+            self.log("Generating XML")
+            from LiuXin_alpha.file_formats.lrf.lrfparser import LRFDocument
 
-        d = LRFDocument(stream)
-        d.parse()
-        xml = d.to_xml(write_files=True)
-        if options.verbose > 2:
-            open("lrs.xml", "wb").write(xml.encode("utf-8"))
-        parser = etree.XMLParser(no_network=True, huge_tree=True)
-        try:
-            doc = etree.fromstring(xml, parser=parser)
-        except:
-            self.log.warning("Failed to parse XML. Trying to recover")
-            parser = etree.XMLParser(no_network=True, huge_tree=True, recover=True)
-            doc = etree.fromstring(xml, parser=parser)
+            d = LRFDocument(stream)
+            d.parse()
+            xml = d.to_xml(write_files=True)
+            if options.verbose > 2:
+                open("lrs.xml", "wb").write(xml.encode("utf-8"))
+            parser = etree.XMLParser(no_network=True, huge_tree=True)
+            try:
+                doc = etree.fromstring(xml, parser=parser)
+            except:
+                self.log.warning("Failed to parse XML. Trying to recover")
+                parser = etree.XMLParser(no_network=True, huge_tree=True, recover=True)
+                doc = etree.fromstring(xml, parser=parser)
 
-        char_button_map = {}
-        for x in doc.xpath("//CharButton[@refobj]"):
-            ro = x.get("refobj")
-            jump_button = doc.xpath('//*[@objid="%s"]' % ro)
-            if jump_button:
-                jump_to = jump_button[0].xpath("descendant::JumpTo[@refpage and @refobj]")
-                if jump_to:
-                    char_button_map[ro] = "%s.xhtml#%s" % (
-                        jump_to[0].get("refpage"),
-                        jump_to[0].get("refobj"),
-                    )
-        plot_map = {}
-        for x in doc.xpath("//Plot[@refobj]"):
-            ro = x.get("refobj")
-            image = doc.xpath('//Image[@objid="%s" and @refstream]' % ro)
-            if image:
-                imgstr = doc.xpath('//ImageStream[@objid="%s" and @file]' % image[0].get("refstream"))
-                if imgstr:
-                    plot_map[ro] = imgstr[0].get("file")
+            char_button_map = {}
+            for x in doc.xpath("//CharButton[@refobj]"):
+                ro = x.get("refobj")
+                jump_button = doc.xpath('//*[@objid="%s"]' % ro)
+                if jump_button:
+                    jump_to = jump_button[0].xpath("descendant::JumpTo[@refpage and @refobj]")
+                    if jump_to:
+                        char_button_map[ro] = "%s.xhtml#%s" % (
+                            jump_to[0].get("refpage"),
+                            jump_to[0].get("refobj"),
+                        )
+            plot_map = {}
+            for x in doc.xpath("//Plot[@refobj]"):
+                ro = x.get("refobj")
+                image = doc.xpath('//Image[@objid="%s" and @refstream]' % ro)
+                if image:
+                    imgstr = doc.xpath('//ImageStream[@objid="%s" and @file]' % image[0].get("refstream"))
+                    if imgstr:
+                        plot_map[ro] = imgstr[0].get("file")
 
-        self.log("Converting XML to HTML...")
-        styledoc = etree.fromstring(P("templates/lrf.xsl", data=True))
-        media_type = MediaType()
-        styles = Styles()
-        text_block = TextBlock(styles, char_button_map, plot_map, log)
-        canvas = Canvas(doc, styles, text_block, log)
-        image_block = ImageBlock(canvas)
-        ruled_line = RuledLine()
-        extensions = {
-            ("calibre", "media-type"): media_type,
-            ("calibre", "text-block"): text_block,
-            ("calibre", "ruled-line"): ruled_line,
-            ("calibre", "styles"): styles,
-            ("calibre", "canvas"): canvas,
-            ("calibre", "image-block"): image_block,
-        }
-        transform = etree.XSLT(styledoc, extensions=extensions)
-        try:
-            result = transform(doc)
-        except RuntimeError:
-            sys.setrecursionlimit(5000)
-            result = transform(doc)
+            self.log("Converting XML to HTML...")
+            styledoc = etree.fromstring(P("templates/lrf.xsl", data=True))
+            media_type = MediaType()
+            styles = Styles()
+            text_block = TextBlock(styles, char_button_map, plot_map, log)
+            canvas = Canvas(doc, styles, text_block, log)
+            image_block = ImageBlock(canvas)
+            ruled_line = RuledLine()
+            extensions = {
+                ("calibre", "media-type"): media_type,
+                ("calibre", "text-block"): text_block,
+                ("calibre", "ruled-line"): ruled_line,
+                ("calibre", "styles"): styles,
+                ("calibre", "canvas"): canvas,
+                ("calibre", "image-block"): image_block,
+            }
+            transform = etree.XSLT(styledoc, extensions=extensions)
+            try:
+                result = transform(doc)
+            except RuntimeError:
+                sys.setrecursionlimit(5000)
+                result = transform(doc)
 
-        with open("content.opf", "wb") as f:
-            f.write(result)
-        styles.write()
-        return os.path.abspath("content.opf")
+            with open("content.opf", "wb") as f:
+                f.write(result)
+            styles.write()
+            return os.path.abspath("content.opf")

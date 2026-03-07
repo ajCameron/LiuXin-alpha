@@ -6,7 +6,12 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 from math import sqrt
 from collections import namedtuple
 
-from PyQt5.Qt import QBrush, QPen, Qt, QPointF, QTransform, QPaintEngine, QImage
+try:
+    from PyQt5.Qt import QBrush, QPen, Qt, QPointF, QTransform, QPaintEngine, QImage
+    _HAS_QT = True
+except Exception:
+    QBrush = QPen = Qt = QPointF = QTransform = QPaintEngine = QImage = None
+    _HAS_QT = False
 
 from LiuXin_alpha.file_formats.pdf.render.common import (
     Name,
@@ -21,6 +26,11 @@ from LiuXin_alpha.file_formats.pdf.render.gradients import LinearGradientPattern
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
+
+
+def _require_qt():
+    if not _HAS_QT:
+        raise RuntimeError("PyQt5 is required for PDF graphics rendering.")
 
 
 def convert_path(path):  # {{{
@@ -193,6 +203,7 @@ class QtPattern(TilingPattern):
 
 class TexturePattern(TilingPattern):
     def __init__(self, pixmap, matrix, pdf, clone=None):
+        _require_qt()
         if clone is None:
             image = pixmap.toImage()
             cache_key = pixmap.cacheKey()
@@ -234,6 +245,7 @@ class GraphicsState(object):
     )
 
     def __init__(self):
+        _require_qt()
         self.fill = QBrush(Qt.white)
         self.stroke = QPen()
         self.opacity = 1.0
@@ -264,6 +276,7 @@ class GraphicsState(object):
 
 class Graphics(object):
     def __init__(self, page_width_px, page_height_px):
+        _require_qt()
         self.base_state = GraphicsState()
         self.current_state = GraphicsState()
         self.pending_state = None

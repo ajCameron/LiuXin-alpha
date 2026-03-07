@@ -13,7 +13,7 @@
 import os
 
 from LiuXin_alpha.file_formats.rtf2xml import copy
-from LiuXin_alpha.utils.calibre_utils.calibre_cleantext import clean_ascii_chars
+from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
 from LiuXin_alpha.utils.ptempfiles import better_mktemp
 
 
@@ -44,7 +44,10 @@ class FixLineEndings:
         input_file = input_file.replace(b"\r", b"\n")
         # remove ASCII invalid chars : 0 to 8 and 11-14 to 24-26-27
         if self.__replace_illegals:
-            input_file = clean_ascii_chars(input_file)
+            # clean_ascii_chars returns text in the ported cleantext module.
+            input_file = clean_ascii_chars(input_file, encoding="latin-1", errors="replace").encode(
+                "latin-1", "replace"
+            )
         # write
         with open(self.__write_to, "wb") as write_obj:
             write_obj.write(input_file)

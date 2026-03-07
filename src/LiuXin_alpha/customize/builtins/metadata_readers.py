@@ -19,7 +19,7 @@ file_type_plugins: list[type[MetadataReaderPlugin]] = []
 # Todo: Make sure finalize is being called from every method
 try:
     from LiuXin_alpha.utils.decompression.unrar import extract_first_alphabetically as comic_extract_first
-    from LiuXin_alpha.utils.libunzip import extract_member as comic_extract_member
+    from LiuXin_alpha.utils.decompression.libunzip import extract_member as comic_extract_member
     from LiuXin_alpha.metadata.file_sources.archive import get_comic_metadata
 except ImportError as e:
     info_str = "Unable to define ComicMetadataReader - required functions cannot be imported"
@@ -53,13 +53,13 @@ else:
                     extract_first_alphabetically as extract_first,
                 )
             else:
-                from LiuXin_alpha.utils.libunzip import extract_member
+                from LiuXin_alpha.utils.decompression.libunzip import extract_member
 
                 extract_first = functools.partial(extract_member, sort_alphabetically=True)
-            from LiuXin_alpha.metadata.metadata import MetaInformation
+            from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
             ret = extract_first(stream)
-            mi = MetaInformation(None, None)
+            mi = calibreMetaInformation(None, None)
             stream.seek(0)
             if ftype in {"cbr", "cbz"}:
                 series_index = self.site_customization
@@ -205,7 +205,7 @@ else:
     file_type_plugins += [HTMLMetadataReader]
 
 try:
-    from LiuXin_alpha.metadata.file_sources.extz import get_metadata as extz_get_metadata
+    from LiuXin_alpha.metadata.file_sources.txtz import get_metadata as txtz_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize EXTZMetadataReader - necessary functions couldn't be imported from "
@@ -347,10 +347,12 @@ else:
         description = _("Read metadata from %s files") % "MOBI"
 
         def get_metadata(self, stream, ftype):
-            return mobi_get_metadata(stream).finalize()
+            md = mobi_get_metadata(stream)
+            return md.finalize() if hasattr(md, "finalize") else md
 
         def get_metadata_inplace(self, file_path, ftype):
-            return mobi_get_metadata_inplace(file_path).finalize()
+            md = mobi_get_metadata_inplace(file_path)
+            return md.finalize() if hasattr(md, "finalize") else md
 
     file_type_plugins += [MOBIMetadataReader]
 
@@ -382,7 +384,7 @@ else:
     file_type_plugins += [ODTMetadataReader]
 
 try:
-    from LiuXin_alpha.file_formats.opf.opf2 import OPF
+    from LiuXin_alpha.metadata.file_sources.opf import get_metadata as opf_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize OPFMetadataReader - necessary functions couldn't be imported from "
@@ -399,7 +401,10 @@ else:
         description = _("Read metadata from %s files") % "OPF"
 
         def get_metadata(self, stream, ftype):
-            return OPF(stream, os.getcwdu()).to_book_metadata()
+            return opf_get_metadata(stream, calibre=True)
+
+        def get_metadata_inplace(self, file_path, ftype):
+            return opf_get_metadata(file_path, calibre=True)
 
     file_type_plugins += [OPFMetadataReader]
 
@@ -585,7 +590,7 @@ else:
         author = "Li Fanxi"
 
         def get_metadata(self, stream, ftype):
-            return snb_get_metadata(stream).finalize()
+            return snb_get_metadata(stream)
 
     file_type_plugins += [SNBMetadataReader]
 
@@ -659,7 +664,7 @@ else:
         author = "John Schember"
 
         def get_metadata(self, stream, ftype):
-            return extz_get_metadata(stream)
+            return txtz_get_metadata(stream)
 
     file_type_plugins += [TXTZMetadataReader]
 

@@ -40,12 +40,12 @@ class TCRCompressor:
         possible_codes = []
         a_code = set(re.findall(br"(?ms).", self.coded_txt))
 
-        for code in a_code:
+        for code in sorted(a_code):
             single_code = set(re.findall(b"(?ms)%s." % re.escape(code), self.coded_txt))
             if len(single_code) == 1:
                 possible_codes.append(single_code.pop())
 
-        for code in possible_codes:
+        for code in sorted(possible_codes):
             self.coded_txt = self.coded_txt.replace(code, code[0:1])
             self.codes[code[0]] = b"%s%s" % (self.codes[code[0]], self.codes[code[1]])
 
@@ -55,7 +55,7 @@ class TCRCompressor:
                 self.unused_codes.add(i)
 
     def _new_codes(self):
-        possible_new_codes = list(set(re.findall(br"(?ms)..", self.coded_txt)))
+        possible_new_codes = sorted(set(re.findall(br"(?ms)..", self.coded_txt)))
         new_codes_count = []
 
         for c in possible_new_codes:
@@ -63,16 +63,19 @@ class TCRCompressor:
             if count > 2:
                 new_codes_count.append((c, count))
 
-        return [x[0] for x in sorted(new_codes_count, key=lambda local_c: local_c[1])]
+        return [x[0] for x in sorted(new_codes_count, key=lambda local_c: (local_c[1], local_c[0]))]
 
     def compress(self, txt):
         txt = _to_bytes(txt)
         self._reset()
 
-        self.codes = list(set(re.findall(br"(?ms).", txt)))
+        self.codes = sorted(set(re.findall(br"(?ms).", txt)))
 
-        for c in bytearray(txt):
-            self.coded_txt += _int_to_byte(self.codes.index(_int_to_byte(c)))
+        index_by_code = {code[0]: i for i, code in enumerate(self.codes)}
+        encoded_bytes = bytearray()
+        for c in txt:
+            encoded_bytes.append(index_by_code[c])
+        self.coded_txt = bytes(encoded_bytes)
 
         for i in range(len(self.codes), 256):
             self.codes.append(b"")
@@ -83,7 +86,8 @@ class TCRCompressor:
 
         while possible_codes and self.unused_codes:
             while possible_codes and self.unused_codes:
-                unused_code = self.unused_codes.pop()
+                unused_code = min(self.unused_codes)
+                self.unused_codes.remove(unused_code)
                 code = possible_codes.pop()
                 self.codes[unused_code] = b"%s%s" % (
                     self.codes[ord(code[0:1])],
@@ -114,14 +118,20 @@ def decompress(stream):
         raise ValueError(f"File {name} contains an invalid TCR header.")
 
     entries = []
-    for _ in range(256):
-        entry_len = ord(stream.read(1))
-        entries.append(stream.read(entry_len))
+    for i in range(256):
+        entry_len_raw = stream.read(1)
+        if len(entry_len_raw) != 1:
+            raise ValueError(f"TCR dictionary is truncated at entry {i}.")
+        entry_len = entry_len_raw[0]
+        entry = stream.read(entry_len)
+        if len(entry) != entry_len:
+            raise ValueError(f"TCR dictionary entry {i} payload is truncated.")
+        entries.append(entry)
 
     txt = []
     entry_loc = stream.read(1)
     while entry_loc != b"":
-        txt.append(entries[ord(entry_loc)])
+        txt.append(entries[entry_loc[0]])
         entry_loc = stream.read(1)
 
     return b"".join(txt)

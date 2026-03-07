@@ -434,6 +434,24 @@ def _safe_format_text(mi, prefs):
         return _basic_format_text(mi)
 
 
+def _coerce_positive_int(value, default, minimum=1):
+    try:
+        ans = int(value)
+    except Exception:
+        ans = int(default)
+    return max(int(minimum), ans)
+
+
+def _normalize_cover_prefs(prefs):
+    return prefs._replace(
+        cover_width=_coerce_positive_int(prefs.cover_width, cprefs.defaults["cover_width"]),
+        cover_height=_coerce_positive_int(prefs.cover_height, cprefs.defaults["cover_height"]),
+        title_font_size=_coerce_positive_int(prefs.title_font_size, cprefs.defaults["title_font_size"]),
+        subtitle_font_size=_coerce_positive_int(prefs.subtitle_font_size, cprefs.defaults["subtitle_font_size"]),
+        footer_font_size=_coerce_positive_int(prefs.footer_font_size, cprefs.defaults["footer_font_size"]),
+    )
+
+
 # Colors {{{
 
 ColorTheme = namedtuple("ColorTheme", "color1 color2 contrast_color1 contrast_color2")
@@ -462,7 +480,15 @@ def load_color_themes(prefs):
     t = default_color_themes.copy()
     t.update(prefs.color_themes)
     disabled = frozenset(prefs.disabled_color_themes)
-    ans = [theme_to_colors(v) for k, v in t.items() if k not in disabled]
+    ans = []
+    for k, v in t.items():
+        if k in disabled:
+            continue
+        try:
+            v = to_theme(v) if isinstance(v, str) else v
+            ans.append(theme_to_colors(v))
+        except Exception:
+            continue
     if not ans:
         # Ignore disabled and return only the builtin color themes
         ans = [theme_to_colors(v) for k, v in default_color_themes.items()]
@@ -686,7 +712,9 @@ def _draw_fallback_cover_with_pillow(title, subtitle, footer, width, height):
     except Exception:
         return None
 
-    img = Image.new("RGB", (max(64, int(width)), max(64, int(height))), (245, 245, 240))
+    w = _coerce_positive_int(width, cprefs.defaults["cover_width"], minimum=64)
+    h = _coerce_positive_int(height, cprefs.defaults["cover_height"], minimum=64)
+    img = Image.new("RGB", (w, h), (245, 245, 240))
     draw = ImageDraw.Draw(img)
 
     # Simple two-tone layout to mimic the existing generated covers.
@@ -742,20 +770,38 @@ def _draw_fallback_cover_with_pillow(title, subtitle, footer, width, height):
         return lines
 
     y = margin
+    def safe_draw_text(x, y, text, fill, font):
+        try:
+            draw.text((x, y), text, fill=fill, font=font)
+            return
+        except Exception:
+            pass
+        # Preserve rendering progress even if PIL chokes on edge-case Unicode
+        # (for example malformed surrogates from broken source metadata).
+        try:
+            draw.text(
+                (x, y),
+                force_unicode(text).encode("ascii", "replace").decode("ascii"),
+                fill=fill,
+                font=font,
+            )
+        except Exception:
+            return
+
     for line in wrap_lines(_plain_text_for_fallback(title), title_font)[:4]:
-        draw.text((margin, y), line, fill=(20, 20, 20), font=title_font)
+        safe_draw_text(margin, y, line, fill=(20, 20, 20), font=title_font)
         y += title_h + 6
 
     subtitle_lines = wrap_lines(_plain_text_for_fallback(subtitle), subtitle_font)[:3]
     if subtitle_lines:
         y += max(8, subtitle_h // 2)
         for line in subtitle_lines:
-            draw.text((margin, y), line, fill=(40, 40, 40), font=subtitle_font)
+            safe_draw_text(margin, y, line, fill=(40, 40, 40), font=subtitle_font)
             y += subtitle_h + 4
 
     footer_y = split_y + max(10, margin // 2)
     for line in wrap_lines(_plain_text_for_fallback(footer), footer_font)[:4]:
-        draw.text((margin, footer_y), line, fill=(245, 245, 245), font=footer_font)
+        safe_draw_text(margin, footer_y, line, fill=(245, 245, 245), font=footer_font)
         footer_y += footer_h + 4
 
     out = BytesIO()
@@ -797,6 +843,7 @@ def generate_cover(mi, prefs=None, as_qimage=False):
     prefs = prefs or cprefs
     prefs = {k: prefs.get(k) for k in cprefs.defaults}
     prefs = Prefs(**prefs)
+    prefs = _normalize_cover_prefs(prefs)
     title, subtitle, footer = _safe_format_text(mi, prefs)
     if not HAS_QT:
         if as_qimage:
@@ -879,6 +926,7 @@ def calibre_cover2(title, author_string="", series_string="", prefs=None, as_qim
     scale = 800.0 / prefs["cover_height"]
     scale_cover(prefs, scale)
     prefs = Prefs(**prefs)
+    prefs = _normalize_cover_prefs(prefs)
     if not HAS_QT:
         if as_qimage:
             raise RuntimeError("Cannot return a QImage when PyQt5 is unavailable")
@@ -937,10 +985,12 @@ def scale_cover(prefs, scale):
         "subtitle_font_size",
         "footer_font_size",
     ):
-        prefs[x] = int(scale * prefs[x])
+        prefs[x] = _coerce_positive_int(scale * prefs[x], prefs[x])
 
 
 def generate_masthead(title, output_path=None, width=600, height=60, as_qimage=False, font_family=None):
+    width = _coerce_positive_int(width, 600)
+    height = _coerce_positive_int(height, 60)
     if not HAS_QT:
         if as_qimage:
             raise RuntimeError("Cannot return a QImage when PyQt5 is unavailable")

@@ -5,7 +5,11 @@ import shutil
 import os
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 
+from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
 __license__ = "GPL v3"
@@ -40,7 +44,9 @@ class PMLInput(InputFormatPlugin):
         else:
             html_stream = html_path
 
-        ienc = pml_stream.encoding if pml_stream.encoding else "cp1252"
+        ienc = getattr(pml_stream, "encoding", None)
+        if ienc is None:
+            ienc = "cp1252"
         if self.options.input_encoding:
             ienc = self.options.input_encoding
 
@@ -90,59 +96,61 @@ class PMLInput(InputFormatPlugin):
         return images
 
     def convert(self, stream, options, file_ext, log, accelerators):
-        from LiuXin_alpha.metadata.toc import TOC
+        from LiuXin_alpha.file_formats.toc import TOC
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.options = options
         self.log = log
-        pages, images = [], []
-        toc = TOC()
+        work_root = choose_conversion_workdir("_pml_input")
+        with CurrentDir(work_root):
+            pages, images = [], []
+            toc = TOC()
 
-        if file_ext == "pmlz":
-            log.debug("De-compressing content to temporary directory...")
-            with TemporaryDirectory("_unpmlz") as tdir:
-                zf = ZipFile(stream)
-                zf.extractall(tdir)
+            if file_ext == "pmlz":
+                log.debug("De-compressing content to temporary directory...")
+                with TemporaryDirectory("_unpmlz") as tdir:
+                    zf = ZipFile(stream)
+                    zf.extractall(tdir)
 
-                pmls = glob.glob(os.path.join(tdir, "*.pml"))
-                for pml in pmls:
-                    html_name = os.path.splitext(os.path.basename(pml))[0] + ".html"
-                    html_path = os.path.join(os.getcwd(), html_name)
+                    pmls = glob.glob(os.path.join(tdir, "*.pml"))
+                    for pml in pmls:
+                        html_name = os.path.splitext(os.path.basename(pml))[0] + ".html"
+                        html_path = os.path.join(os.getcwd(), html_name)
 
-                    pages.append(html_name)
-                    log.debug("Processing PML item %s..." % pml)
-                    ttoc = self.process_pml(pml, html_path)
-                    toc += ttoc
-                images = self.get_images(stream, tdir, True)
-        else:
-            toc = self.process_pml(stream, "index.html")
-            pages.append("index.html")
+                        pages.append(html_name)
+                        log.debug("Processing PML item %s..." % pml)
+                        ttoc = self.process_pml(pml, html_path)
+                        toc += ttoc
+                    images = self.get_images(stream, tdir, True)
+            else:
+                toc = self.process_pml(stream, "index.html")
+                pages.append("index.html")
 
-            if hasattr(stream, "name"):
-                images = self.get_images(stream, os.path.abspath(os.path.dirname(stream.name)))
+                if hasattr(stream, "name"):
+                    images = self.get_images(stream, os.path.abspath(os.path.dirname(stream.name)))
 
-        # Todo: Typo in original source
-        # We want pages to be ordered alphabetically.
-        pages.sort()
+            # Todo: Typo in original source
+            # We want pages to be ordered alphabetically.
+            pages.sort()
 
-        manifest_items = []
-        for item in pages + images:
-            manifest_items.append((item, None))
+            manifest_items = []
+            for item in pages + images:
+                manifest_items.append((item, None))
 
-        from LiuXin_alpha.metadata.meta import get_metadata
+            from LiuXin_alpha.customize.ui import get_file_type_metadata
 
-        log.debug("Reading metadata from input file...")
-        mi = get_metadata(stream, "pml")
-        if "images/cover.png" in images:
-            mi.cover = "images/cover.png"
-        opf = OPFCreator(os.getcwd(), mi)
-        log.debug("Generating manifest...")
-        opf.create_manifest(manifest_items)
-        opf.create_spine(pages)
-        opf.set_toc(toc)
-        with open("metadata.opf", "wb") as opffile:
-            with open("toc.ncx", "wb") as tocfile:
-                opf.render(opffile, tocfile, "toc.ncx")
+            log.debug("Reading metadata from input file...")
+            mi = get_file_type_metadata(stream, "pml")
+            if "images/cover.png" in images:
+                mi.cover = "images/cover.png"
+            opf = OPFCreator(os.getcwd(), mi)
+            log.debug("Generating manifest...")
+            opf.create_manifest(manifest_items)
+            opf.create_spine(pages)
+            opf.set_toc(toc)
+            with open("metadata.opf", "wb") as opffile:
+                with open("toc.ncx", "wb") as tocfile:
+                    opf.render(opffile, tocfile, "toc.ncx")
 
-        return os.path.join(os.getcwd(), "metadata.opf")
+            return os.path.join(os.getcwd(), "metadata.opf")

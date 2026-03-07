@@ -19,6 +19,7 @@ HTML_TEMPLATE = (
 
 
 def html_encode(s):
+    s = "" if s is None else str(s)
     return (
         s.replace("&", "&amp;")
         .replace("<", "&lt;")
@@ -37,7 +38,7 @@ class SNBInput(InputFormatPlugin):
     description = "Convert SNB files to OEB"
     file_types = {"snb"}
 
-    options = set([])
+    options = set()
 
     def convert(self, stream, options, file_ext, log, accelerators):
         import uuid
@@ -49,11 +50,13 @@ class SNBInput(InputFormatPlugin):
         log.debug("Parsing SNB file...")
         snb_file = SNBFile()
         try:
+            if hasattr(stream, "seek"):
+                stream.seek(0)
             snb_file.Parse(stream)
-        except:
-            raise ValueError("Invalid SNB file")
+        except Exception as err:
+            raise ValueError("Invalid SNB file") from err
         if not snb_file.IsValid():
-            log.debug("Invaild SNB file")
+            log.debug("Invalid SNB file")
             raise ValueError("Invalid SNB file")
         log.debug("Handle meta data ...")
         from LiuXin_alpha.file_formats.conversion.plumber import create_oebbook
@@ -101,23 +104,27 @@ class SNBInput(InputFormatPlugin):
             if toc is not None:
                 toc = etree.fromstring(toc)
                 i = 1
-                for ch in toc.find(".//body"):
+                body = toc.find(".//body")
+                if body is None:
+                    body = []
+                for ch in body:
                     chapter_name = ch.text
                     chapter_src = ch.get("src")
+                    if not chapter_src:
+                        continue
                     fname = "ch_%d.htm" % i
                     data = snb_file.GetFileStream("snbc/" + chapter_src)
                     if data is None:
                         continue
                     snbc = etree.fromstring(data)
-                    output_file = open(os.path.join(tdir, fname), "wb")
                     lines = []
                     for line in snbc.find(".//body"):
                         if line.tag == "text":
                             lines.append("<p>%s</p>" % html_encode(line.text))
                         elif line.tag == "img":
                             lines.append('<p><img src="%s" /></p>' % html_encode(line.text))
-                    output_file.write((HTML_TEMPLATE % (chapter_name, "\n".join(lines))).encode("utf-8", "replace"))
-                    output_file.close()
+                    with open(os.path.join(tdir, fname), "wb") as output_file:
+                        output_file.write((HTML_TEMPLATE % (chapter_name, "\n".join(lines))).encode("utf-8", "replace"))
                     oeb.toc.add(ch.text, fname)
                     ch_id, href = oeb.manifest.generate(id="html", href=ascii_filename(fname))
                     item = oeb.manifest.add(ch_id, href, "text/html")

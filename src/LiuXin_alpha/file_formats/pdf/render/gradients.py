@@ -7,13 +7,21 @@ import sys
 import copy
 from collections import namedtuple
 
-import sip
-from PyQt5.Qt import QLinearGradient, QPointF
+try:
+    import sip  # type: ignore
+except Exception:
+    sip = None
+
+try:
+    from PyQt5.Qt import QLinearGradient, QPointF
+except Exception:
+    QLinearGradient = None
+    QPointF = None
 
 from LiuXin_alpha.file_formats.pdf.render.common import Name, Array, Dictionary
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_map
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import six_map
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -25,6 +33,8 @@ Stop = namedtuple("Stop", "t color")
 
 class LinearGradientPattern(Dictionary):
     def __init__(self, brush, matrix, pdf, pixel_page_width, pixel_page_height):
+        if sip is None or QLinearGradient is None or QPointF is None:
+            raise RuntimeError("PyQt5/sip is required for PDF gradient rendering.")
         self.matrix = (
             matrix.m11(),
             matrix.m12(),
@@ -117,8 +127,8 @@ class LinearGradientPattern(Dictionary):
                     ),
                 )
             )
-            maxx = maxy = -sys.maxint - 1
-            minx = miny = sys.maxint
+            maxx = maxy = -sys.maxsize - 1
+            minx = miny = sys.maxsize
 
             for p in page_rect:
                 minx, maxx = min(minx, p.x()), max(maxx, p.x())

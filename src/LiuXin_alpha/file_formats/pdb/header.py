@@ -7,8 +7,6 @@ import re
 import struct
 import time
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_long
-
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
@@ -24,6 +22,8 @@ class PdbHeaderReader(object):
     def identity(self):
         self.stream.seek(60)
         ident = self.stream.read(8)
+        if isinstance(ident, bytes):
+            return ident.decode("utf-8", "replace")
         return ident
 
     def section_count(self):
@@ -32,26 +32,30 @@ class PdbHeaderReader(object):
 
     def name(self):
         self.stream.seek(0)
-        return re.sub("[^-A-Za-z0-9 ]+", "_", self.stream.read(32).replace("\x00", ""))
+        raw_name = self.stream.read(32)
+        if isinstance(raw_name, bytes):
+            cleaned = re.sub(br"[^-A-Za-z0-9 ]+", b"_", raw_name.replace(b"\x00", b""))
+            return cleaned.decode("ascii", "replace")
+        return re.sub(r"[^-A-Za-z0-9 ]+", "_", raw_name.replace("\x00", ""))
 
     def full_section_info(self, number):
-        if number not in range(0, self.num_sections):
+        if not (0 <= number < self.num_sections):
             raise ValueError("Not a valid section number %i" % number)
 
         self.stream.seek(78 + number * 8)
-        offset, a1, a2, a3, a4 = struct.unpack(">LBBBB", self.stream.read(8))[0]
+        offset, a1, a2, a3, a4 = struct.unpack(">LBBBB", self.stream.read(8))
         flags, val = a1, a2 << 16 | a3 << 8 | a4
         return offset, flags, val
 
     def section_offset(self, number):
-        if number not in range(0, self.num_sections):
+        if not (0 <= number < self.num_sections):
             raise ValueError("Not a valid section number %i" % number)
 
         self.stream.seek(78 + number * 8)
         return struct.unpack(">LBBBB", self.stream.read(8))[0]
 
     def section_data(self, number):
-        if number not in range(0, self.num_sections):
+        if not (0 <= number < self.num_sections):
             raise ValueError("Not a valid section number %i" % number)
 
         start = self.section_offset(number)
@@ -66,8 +70,10 @@ class PdbHeaderReader(object):
 
 class PdbHeaderBuilder(object):
     def __init__(self, identity, title):
-        self.identity = identity.ljust(3, "\x00")[:8]
-        self.title = "%s\x00" % re.sub("[^-A-Za-z0-9 ]+", "_", title).ljust(31, "\x00")[:31].encode("ascii", "replace")
+        self.identity = identity.ljust(3, "\x00")[:8].encode("utf-8")
+        if isinstance(title, str):
+            title = title.encode("ascii", "replace")
+        self.title = b"%s\x00" % re.sub(br"[^-A-Za-z0-9 ]+", b"_", title).ljust(31, b"\x00")[:31]
 
     def build_header(self, section_lengths, out_stream):
         """
@@ -83,7 +89,7 @@ class PdbHeaderBuilder(object):
         out_stream.write(self.identity + struct.pack(">IIH", nrecords, 0, nrecords))
 
         offset = 78 + (8 * nrecords) + 2
-        for record_id, record in enumerate(section_lengths):
-            out_stream.write(struct.pack(">LBBBB", six_long(offset), 0, 0, 0, 0))
+        for record in section_lengths:
+            out_stream.write(struct.pack(">LBBBB", int(offset), 0, 0, 0, 0))
             offset += record
-        out_stream.write("\x00\x00")
+        out_stream.write(b"\x00\x00")
