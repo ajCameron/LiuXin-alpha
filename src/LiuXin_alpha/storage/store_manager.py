@@ -65,6 +65,14 @@ class StorageManager(StorageAPI):
         "on_disk_unmanaged": "on_disk_existing_unmanaged_drive",
         "on_disk_calibre_like": "on_disk_calibre_like",
         "calibre_like": "on_disk_calibre_like",
+        "single_file_sqlite": "single_file_sqlite",
+        "sqlite_single_file": "single_file_sqlite",
+        "sqlite_blob_store": "single_file_sqlite",
+        "single_file_blob_store": "single_file_sqlite",
+        "squashfs_readonly": "squashfs_readonly",
+        "squashfs_ro": "squashfs_readonly",
+        "squashfs_archive": "squashfs_readonly",
+        "archive_squashfs": "squashfs_readonly",
         "rclone_http_readonly": "rclone_http_readonly",
         "http_ro": "rclone_http_readonly",
         "rclone_http_ro": "rclone_http_readonly",
@@ -82,6 +90,14 @@ class StorageManager(StorageAPI):
         "on_disk_calibre_like": (
             "LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like",
             "OnDiskCalibreLikeStorageBackend",
+        ),
+        "single_file_sqlite": (
+            "LiuXin_alpha.storage.store_backend_plugins.single_file_sqlite",
+            "SingleFileSqliteStorageBackend",
+        ),
+        "squashfs_readonly": (
+            "LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly",
+            "SquashfsReadOnlyStorageBackend",
         ),
         "rclone_http_readonly": (
             "LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly",
@@ -499,6 +515,10 @@ class StorageManager(StorageAPI):
                 alias = "rclone_http_readonly"
             elif normalized_protocol == "rclone":
                 alias = "rclone_http_readonly"
+            elif normalized_protocol == "squashfs":
+                alias = "squashfs_readonly"
+            elif normalized_protocol in {"sqlite", "sqlite3"}:
+                alias = "single_file_sqlite"
             elif normalized_protocol in {"file", "nfs", "smb"}:
                 alias = "on_disk_existing_unmanaged_drive" if is_read_only else "on_disk_existing_managed_drive"
 

@@ -18,7 +18,13 @@ from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
 from LiuXin_alpha.storage.api import SingleFileAPI, StoreAPI
 from LiuXin_alpha.storage.reconcile import (
+    SquashfsArchivePublishReport,
+    SquashfsDesignationReport,
     UnmanagedDiskRegistrationReport,
+    designate_files_for_squashfs_store,
+    ensure_open_squashfs_store,
+    publish_open_squashfs_store,
+    publish_squashfs_archive_from_file_ids,
     register_existing_disk_as_unmanaged_store,
 )
 from LiuXin_alpha.storage.store_manager import StorageBootstrapReport, StorageManager
@@ -165,6 +171,80 @@ class Library:
             compute_hash=compute_hash,
             follow_symlinks=follow_symlinks,
             attach_store_links=attach_store_links,
+            refresh_storage_manager=refresh_storage_manager,
+        )
+
+    def ensure_open_squashfs_store(
+        self,
+        *,
+        archive_path: str | pathlib.Path,
+        store_name: Optional[str] = None,
+    ):
+        return ensure_open_squashfs_store(
+            self._database,
+            archive_path=archive_path,
+            store_name=store_name,
+        )
+
+    def designate_files_for_squashfs_store(
+        self,
+        *,
+        store_id: int,
+        designations,
+        replace_existing: bool = False,
+    ) -> SquashfsDesignationReport:
+        return designate_files_for_squashfs_store(
+            self._database,
+            store_id=store_id,
+            designations=designations,
+            replace_existing=replace_existing,
+        )
+
+    def publish_open_squashfs_store(
+        self,
+        *,
+        store_id: int,
+        output_archive: Optional[str | pathlib.Path] = None,
+        compression: str = "zstd",
+        deterministic: bool = False,
+        force: bool = False,
+        duplicate_verified_files: bool = True,
+        strict: bool = False,
+        refresh_storage_manager: bool = True,
+    ) -> SquashfsArchivePublishReport:
+        return publish_open_squashfs_store(
+            self._database,
+            store_id=store_id,
+            output_archive=output_archive,
+            compression=compression,
+            deterministic=deterministic,
+            force=force,
+            duplicate_verified_files=duplicate_verified_files,
+            strict=strict,
+            refresh_storage_manager=refresh_storage_manager,
+        )
+
+    def publish_squashfs_archive_from_file_ids(
+        self,
+        *,
+        file_ids,
+        archive_path: str | pathlib.Path,
+        store_name: Optional[str] = None,
+        compression: str = "zstd",
+        deterministic: bool = False,
+        force: bool = False,
+        strict: bool = False,
+        refresh_storage_manager: bool = True,
+    ) -> SquashfsArchivePublishReport:
+        return publish_squashfs_archive_from_file_ids(
+            self._database,
+            file_ids=file_ids,
+            archive_path=archive_path,
+            store_name=store_name,
+            compression=compression,
+            deterministic=deterministic,
+            force=force,
+            strict=strict,
             refresh_storage_manager=refresh_storage_manager,
         )
 
