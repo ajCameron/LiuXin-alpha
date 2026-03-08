@@ -1,3 +1,5 @@
+"""Read-only store backend that delegates remote access to `rclone`."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,6 +15,7 @@ from .rclone_http_single_file import RcloneHttpReadOnlySingleFile
 
 @dataclass
 class RcloneBackendOptions:
+    """Runtime options controlling `rclone` invocation behavior."""
     rclone_exe: str = "rclone"
     rclone_args: Sequence[str] = ()
     env: Dict[str, str] | None = None

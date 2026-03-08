@@ -1,3 +1,5 @@
+"""Single-file status model used by storage backend wrappers."""
+
 from __future__ import annotations
 
 from typing import Callable, Optional

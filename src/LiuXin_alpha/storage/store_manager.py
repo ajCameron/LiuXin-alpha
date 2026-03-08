@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass(slots=True)
 class StorageBootstrapIssue:
+    """Details for one row that could not be loaded into the storage manager."""
     store_id: Optional[int]
     store_name: Optional[str]
     reason: str
@@ -34,6 +35,7 @@ class StorageBootstrapIssue:
 
 @dataclasses.dataclass(slots=True)
 class StorageBootstrapReport:
+    """Aggregate results of loading stores from database rows."""
     discovered_rows: int = 0
     loaded_stores: int = 0
     skipped_rows: int = 0

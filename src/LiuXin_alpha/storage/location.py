@@ -1,3 +1,5 @@
+"""Base location abstractions for storage path handling."""
+
 
 
 class Location:

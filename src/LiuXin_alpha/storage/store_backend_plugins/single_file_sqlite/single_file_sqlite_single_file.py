@@ -1,3 +1,5 @@
+"""Single-file wrapper for payloads stored in the single-file SQLite backend."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional

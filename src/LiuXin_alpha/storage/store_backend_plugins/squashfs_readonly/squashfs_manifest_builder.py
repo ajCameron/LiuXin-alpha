@@ -22,12 +22,14 @@ _TARGET_KEYS = ("archive_path", "internal_path", "dest", "target")
 
 @dataclasses.dataclass(frozen=True)
 class SquashfsManifestEntry:
+    """One source-to-archive mapping entry loaded from a build manifest."""
     source_path: pathlib.Path
     archive_path: str
 
 
 @dataclasses.dataclass(frozen=True)
 class SquashfsBuildReport:
+    """Summary metadata captured after a SquashFS build run."""
     manifest_path: str
     output_archive: str
     file_count: int

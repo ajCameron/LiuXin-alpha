@@ -1,3 +1,5 @@
+"""Report dataclasses for storage/database reconciliation workflows."""
+
 from __future__ import annotations
 
 import dataclasses

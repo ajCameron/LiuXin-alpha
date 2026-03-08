@@ -113,6 +113,7 @@ LINK_STATE_TRANSITIONS: dict[str, set[str]] = {
 
 @dataclasses.dataclass
 class _SquashfsDesignation:
+    """Resolved designation entry with source snapshot and link row context."""
     file_id: int
     archive_path: str
     source_row: Row

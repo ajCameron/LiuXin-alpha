@@ -35,6 +35,7 @@ from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.o
 
 @dataclasses.dataclass(slots=True)
 class _PlacementMetadata:
+    """Normalized placement hints used to generate calibre-like output paths."""
     title_component: str
     author_component: str
     book_id_component: Optional[str]

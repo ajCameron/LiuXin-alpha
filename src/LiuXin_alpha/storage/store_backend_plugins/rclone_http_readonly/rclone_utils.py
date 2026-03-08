@@ -1,3 +1,5 @@
+"""Shared helpers for invoking `rclone` and decoding command output."""
+
 from __future__ import annotations
 
 import json
@@ -9,11 +11,13 @@ from typing import Any, Mapping, Sequence
 
 
 class RcloneNotInstalledError(RuntimeError):
+    """Raised when the configured `rclone` executable is unavailable."""
     pass
 
 
 @dataclass(frozen=True)
 class RcloneResult:
+    """Normalized result payload from an `rclone` subprocess invocation."""
     args: list[str]
     returncode: int
     stdout: str

@@ -1,3 +1,5 @@
+"""Read-only single-file wrapper backed by `rclone cat` and `lsjson`."""
+
 from __future__ import annotations
 
 from typing import Any

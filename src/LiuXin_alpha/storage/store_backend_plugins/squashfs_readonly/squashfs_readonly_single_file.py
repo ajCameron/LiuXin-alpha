@@ -1,3 +1,5 @@
+"""Single-file wrapper for files addressed inside SquashFS archives."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional

@@ -1,3 +1,5 @@
+"""Open-mode type aliases and async file protocols for storage APIs."""
+
 from __future__ import annotations
 
 from typing import TypeAlias, Literal, Callable, Protocol, Any
@@ -24,6 +26,7 @@ _Opener: TypeAlias = Callable[[str, int], int]
 
 
 class AsyncTextFile(Protocol):
+    """Protocol for async text file objects returned by location open calls."""
     async def __aenter__(self) -> "AsyncTextFile": ...
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> bool | None: ...
     async def read(self, n: int = -1) -> str: ...
@@ -33,6 +36,7 @@ class AsyncTextFile(Protocol):
 
 
 class AsyncBinaryFile(Protocol):
+    """Protocol for async binary file objects returned by location open calls."""
     async def __aenter__(self) -> "AsyncBinaryFile": ...
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> bool | None: ...
     async def read(self, n: int = -1) -> bytes: ...

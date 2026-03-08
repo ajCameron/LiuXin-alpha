@@ -1,3 +1,5 @@
+"""Path-like location implementation backed by `rclone` operations."""
+
 from __future__ import annotations
 
 import io
