@@ -26,6 +26,7 @@ from LiuXin_alpha.storage.reconcile import (
     publish_open_squashfs_store,
     publish_squashfs_archive_from_file_ids,
     register_existing_disk_as_unmanaged_store,
+    register_rclone_http_readonly_store_files,
 )
 from LiuXin_alpha.storage.store_manager import StorageBootstrapReport, StorageManager
 
@@ -170,6 +171,42 @@ class Library:
             source_label=source_label,
             compute_hash=compute_hash,
             follow_symlinks=follow_symlinks,
+            attach_store_links=attach_store_links,
+            refresh_storage_manager=refresh_storage_manager,
+        )
+
+    def register_rclone_http_store(
+        self,
+        remote_url: str,
+        *,
+        store_name: Optional[str] = None,
+        max_http_requests_per_hour: float | None = None,
+        apply_rclone_tpslimit: bool = True,
+        rclone_tpslimit_burst: int = 1,
+        enforce_global_rate_limit: bool = True,
+        rclone_exe: str = "rclone",
+        rclone_args: Optional[tuple[str, ...] | list[str]] = None,
+        timeout_s: float | None = 60.0,
+        ebook_extensions: Optional[tuple[str, ...] | list[str] | set[str]] = None,
+        source_label: str = "rclone_http_import",
+        capture_hashes: bool = False,
+        attach_store_links: bool = True,
+        refresh_storage_manager: bool = True,
+    ) -> UnmanagedDiskRegistrationReport:
+        return register_rclone_http_readonly_store_files(
+            self._database,
+            remote_url=remote_url,
+            store_name=store_name,
+            max_http_requests_per_hour=max_http_requests_per_hour,
+            apply_rclone_tpslimit=apply_rclone_tpslimit,
+            rclone_tpslimit_burst=rclone_tpslimit_burst,
+            enforce_global_rate_limit=enforce_global_rate_limit,
+            rclone_exe=rclone_exe,
+            rclone_args=rclone_args,
+            timeout_s=timeout_s,
+            ebook_extensions=ebook_extensions,
+            source_label=source_label,
+            capture_hashes=capture_hashes,
             attach_store_links=attach_store_links,
             refresh_storage_manager=refresh_storage_manager,
         )

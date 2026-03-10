@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import dataclasses
 import importlib
+import json
 import pathlib
 
 from collections.abc import Iterable, Iterator, Mapping
@@ -422,6 +423,10 @@ class StorageManager(StorageAPI):
                 kwargs["database"] = db
                 if store_id is not None:
                     kwargs["store_id"] = store_id
+            elif backend_cls.__name__ == "RcloneHttpReadOnlyStorageBackend":
+                options = self._build_rclone_options_from_row(row)
+                if options is not None:
+                    kwargs["options"] = options
 
             try:
                 store = backend_cls(**kwargs)
@@ -477,6 +482,15 @@ class StorageManager(StorageAPI):
         return text or None
 
     @staticmethod
+    def _coerce_optional_float(value: Any) -> Optional[float]:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
     def _to_int(value: Any) -> Optional[int]:
         if value is None:
             return None
@@ -499,6 +513,61 @@ class StorageManager(StorageAPI):
         if text in {"0", "false", "no", "n", "off"}:
             return False
         return default
+
+    def _build_rclone_options_from_row(self, row: Any):
+        raw_policy = self._row_get(row, "store_policy_json")
+        if raw_policy in (None, ""):
+            return None
+        try:
+            policy = json.loads(str(raw_policy))
+        except Exception:
+            return None
+        if not isinstance(policy, Mapping):
+            return None
+
+        rclone_policy: Mapping[str, Any]
+        nested = policy.get("rclone")
+        if isinstance(nested, Mapping):
+            rclone_policy = nested
+        else:
+            rclone_policy = policy
+
+        option_kwargs: dict[str, Any] = {}
+        if "rclone_exe" in rclone_policy:
+            exe = self._coerce_optional_str(rclone_policy.get("rclone_exe"))
+            if exe:
+                option_kwargs["rclone_exe"] = exe
+        if "rclone_args" in rclone_policy:
+            args = rclone_policy.get("rclone_args")
+            if isinstance(args, (list, tuple)):
+                option_kwargs["rclone_args"] = tuple(str(x) for x in args)
+        if "timeout_s" in rclone_policy:
+            timeout_s = self._coerce_optional_float(rclone_policy.get("timeout_s"))
+            option_kwargs["timeout_s"] = timeout_s
+        if "max_http_requests_per_hour" in rclone_policy:
+            max_rph = self._coerce_optional_float(rclone_policy.get("max_http_requests_per_hour"))
+            option_kwargs["max_http_requests_per_hour"] = max_rph
+        if "apply_rclone_tpslimit" in rclone_policy:
+            option_kwargs["apply_rclone_tpslimit"] = self._to_boolish(
+                rclone_policy.get("apply_rclone_tpslimit"),
+                default=True,
+            )
+        if "rclone_tpslimit_burst" in rclone_policy:
+            burst = self._to_int(rclone_policy.get("rclone_tpslimit_burst"))
+            if burst is not None:
+                option_kwargs["rclone_tpslimit_burst"] = max(1, burst)
+        if "enforce_global_rate_limit" in rclone_policy:
+            option_kwargs["enforce_global_rate_limit"] = self._to_boolish(
+                rclone_policy.get("enforce_global_rate_limit"),
+                default=True,
+            )
+
+        if not option_kwargs:
+            return None
+
+        from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import RcloneBackendOptions
+
+        return RcloneBackendOptions(**option_kwargs)
 
     def _resolve_backend_cls(self, row: Any) -> Optional[type[StoreAPI]]:
         kind_raw = self._coerce_optional_str(self._row_get(row, "store_kind"))

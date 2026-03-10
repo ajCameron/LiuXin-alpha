@@ -647,6 +647,17 @@ class Preferences:
         self.type_set("Folder_Stores", "default_cache_folder_store", None, val_type="none")
         self.type_set("Folder_Stores", "leave_space_free", 1000000000, val_type="int")
 
+        # Storage preferences
+        self.add_section("Storage")
+        # Default throttle for rclone HTTP read-only mirror/listing operations.
+        # Units: requests per hour (1200/hour == 20/minute).
+        self.type_set(
+            "Storage",
+            "rclone_http_max_requests_per_hour_default",
+            1200,
+            val_type="int",
+        )
+
         # Folder Store Specific Type Preferences - always key with type_of_store,lower()
         self.add_section("on_disk")
         self.type_set("on_disk", "on_disk_use_in_name_tags", False, val_type="bool")

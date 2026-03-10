@@ -11,7 +11,7 @@ from typing import Any, Dict, Iterator, Self
 
 from LiuXin_alpha.storage.api.location_api import SyncNativePretendAsyncLocation
 
-from .rclone_utils import run_rclone_json, run_rclone, which_rclone
+from .rclone_utils import run_rclone_json, which_rclone
 
 
 class _RcloneCatStream(io.RawIOBase):
@@ -107,8 +107,8 @@ class RcloneHttpReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
         return root
 
     def _rel_posix(self) -> str:
-        # Tokens are already normalized by StoreLocationMixinAPI, but we join here.
-        toks = [t for t in self._normalized_tokens() if t not in (".", "")]
+        # Tokens are already normalized by StoreLocationMixinAPI.
+        toks = [t for t in self.parts if t not in (".", "")]
         return "/".join(toks)
 
     def _join(self, rel: str) -> str:
@@ -131,17 +131,46 @@ class RcloneHttpReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
     def as_store_key(self) -> str:
         return self._rclone_path()
 
+    def _run_rclone_json(self, args: list[str], *, check: bool = True):
+        runner = getattr(self.store, "run_rclone_json", None)
+        if callable(runner):
+            return runner(args, check=check)
+        opts = getattr(self.store, "options", None)
+        return run_rclone_json(
+            args,
+            rclone_exe=getattr(opts, "rclone_exe", "rclone"),
+            extra_args=getattr(opts, "rclone_args", ()),
+            env=getattr(opts, "env", None),
+            timeout_s=getattr(opts, "timeout_s", 60.0),
+            check=check,
+        )
+
+    def _spawn_rclone_process(self, args: list[str]):
+        spawner = getattr(self.store, "spawn_rclone_process", None)
+        if callable(spawner):
+            return spawner(args)
+
+        opts = getattr(self.store, "options", None)
+        rclone_exe = getattr(opts, "rclone_exe", "rclone")
+        rclone_args = list(getattr(opts, "rclone_args", ()))
+        env = getattr(opts, "env", None)
+        exe = which_rclone(rclone_exe)
+        cmd = [exe, *rclone_args, *args]
+
+        import subprocess
+
+        env_map = dict(os.environ)
+        if env:
+            env_map.update(dict(env))
+        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env_map)
+
     # --- stat / existence ---
 
     def _stat_blob(self) -> Dict[str, Any] | None:
         # rclone lsjson --stat returns a JSON object; raises on missing.
         p = self._rclone_path()
         try:
-            blob = run_rclone_json(["lsjson", "--stat", p], rclone_exe=getattr(self.store, "options", None).rclone_exe if getattr(self.store, "options", None) else "rclone",
-                                   extra_args=getattr(self.store, "options", None).rclone_args if getattr(self.store, "options", None) else (),
-                                   env=getattr(self.store, "options", None).env if getattr(self.store, "options", None) else None,
-                                   timeout_s=getattr(self.store, "options", None).timeout_s if getattr(self.store, "options", None) else 60.0,
-                                   check=True)
+            blob = self._run_rclone_json(["lsjson", "--stat", p], check=True)
             if isinstance(blob, dict):
                 return blob
         except Exception:
@@ -181,14 +210,7 @@ class RcloneHttpReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
     # --- traversal ---
 
     def iterdir(self) -> Iterator[Self]:
-        items = run_rclone_json(
-            ["lsjson", self._rclone_dir()],
-            rclone_exe=getattr(self.store, "options", None).rclone_exe if getattr(self.store, "options", None) else "rclone",
-            extra_args=getattr(self.store, "options", None).rclone_args if getattr(self.store, "options", None) else (),
-            env=getattr(self.store, "options", None).env if getattr(self.store, "options", None) else None,
-            timeout_s=getattr(self.store, "options", None).timeout_s if getattr(self.store, "options", None) else 60.0,
-            check=True,
-        ) or []
+        items = self._run_rclone_json(["lsjson", self._rclone_dir()], check=True) or []
         for it in items:
             name = it.get("Name")
             if not name:
@@ -201,14 +223,7 @@ class RcloneHttpReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
                 yield child
 
     def rglob(self, pattern: str) -> Iterator[Self]:
-        items = run_rclone_json(
-            ["lsjson", "-R", self._rclone_dir()],
-            rclone_exe=getattr(self.store, "options", None).rclone_exe if getattr(self.store, "options", None) else "rclone",
-            extra_args=getattr(self.store, "options", None).rclone_args if getattr(self.store, "options", None) else (),
-            env=getattr(self.store, "options", None).env if getattr(self.store, "options", None) else None,
-            timeout_s=getattr(self.store, "options", None).timeout_s if getattr(self.store, "options", None) else 60.0,
-            check=True,
-        ) or []
+        items = self._run_rclone_json(["lsjson", "-R", self._rclone_dir()], check=True) or []
         base = self._rel_posix()
         for it in items:
             path = it.get("Path") or it.get("Name") or ""
@@ -254,22 +269,7 @@ class RcloneHttpReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
             raise PermissionError("HTTP backend is read-only")
         binary = "b" in mode
 
-        opts = getattr(self.store, "options", None)
-        rclone_exe = getattr(opts, "rclone_exe", "rclone")
-        rclone_args = list(getattr(opts, "rclone_args", ()))
-        env = getattr(opts, "env", None)
-        timeout_s = getattr(opts, "timeout_s", None)
-
-        exe = which_rclone(rclone_exe)
-
-        cmd = [exe, *rclone_args, "cat", self._rclone_path()]
-        # Note: we do not implement buffering control here; Python will buffer in higher layers.
-        import subprocess
-
-        env_map = dict(os.environ)
-        if env:
-            env_map.update(dict(env))
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env_map)
+        proc = self._spawn_rclone_process(["cat", self._rclone_path()])
         raw = _RcloneCatStream(proc)
         if binary:
             return io.BufferedReader(raw)

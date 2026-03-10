@@ -17,9 +17,16 @@ class RcloneHttpReadOnlySingleFile(SingleFileAPI):
     small and focuses on making `open()` and metadata retrieval possible.
     """
 
-    def __init__(self, file_url: str, store: object | None = None) -> None:
+    def __init__(
+        self,
+        file_url: str,
+        store: object | None = None,
+        *,
+        initial_stat: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(file_url=file_url, file_status=None)
         self._store = store
+        self._initial_stat = initial_stat if isinstance(initial_stat, dict) else None
 
     def _store_options(self) -> tuple[str, tuple[str, ...], dict[str, str] | None, float | None]:
         opts = getattr(self._store, "options", None)
@@ -29,16 +36,38 @@ class RcloneHttpReadOnlySingleFile(SingleFileAPI):
         timeout_s = getattr(opts, "timeout_s", 60.0)
         return rclone_exe, rclone_args, env, timeout_s
 
-    def _stat_blob(self) -> dict[str, Any] | None:
+    def _run_rclone_json(self, args: list[str], *, check: bool) -> Any:
+        runner = getattr(self._store, "run_rclone_json", None)
+        if callable(runner):
+            return runner(args, check=check)
         rclone_exe, rclone_args, env, timeout_s = self._store_options()
-        blob = run_rclone_json(
-            ["lsjson", "--stat", self.file_url],
+        return run_rclone_json(
+            args,
             rclone_exe=rclone_exe,
             extra_args=rclone_args,
             env=env,
             timeout_s=timeout_s,
-            check=False,
+            check=check,
         )
+
+    def _run_rclone(self, args: list[str], *, check: bool):
+        runner = getattr(self._store, "run_rclone", None)
+        if callable(runner):
+            return runner(args, check=check)
+        rclone_exe, rclone_args, env, timeout_s = self._store_options()
+        return run_rclone(
+            args,
+            rclone_exe=rclone_exe,
+            extra_args=rclone_args,
+            env=env,
+            timeout_s=timeout_s,
+            check=check,
+        )
+
+    def _stat_blob(self) -> dict[str, Any] | None:
+        if self._initial_stat is not None:
+            return self._initial_stat
+        blob = self._run_rclone_json(["lsjson", "--stat", self.file_url], check=False)
         return blob if isinstance(blob, dict) else None
 
     def recheck_status(self) -> SingleFileStatus:
@@ -83,15 +112,7 @@ class RcloneHttpReadOnlySingleFile(SingleFileAPI):
         return self.file_status
 
     def as_string(self) -> str:
-        rclone_exe, rclone_args, env, timeout_s = self._store_options()
-        result = run_rclone(
-            ["cat", self.file_url],
-            rclone_exe=rclone_exe,
-            extra_args=rclone_args,
-            env=env,
-            timeout_s=timeout_s,
-            check=True,
-        )
+        result = self._run_rclone(["cat", self.file_url], check=True)
         return result.stdout
 
     def as_bytes(self) -> bytes:
