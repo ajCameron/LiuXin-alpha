@@ -63,6 +63,7 @@ def test_register_rclone_http_store_files_inserts_rows_and_tracks_policy(db, mon
     policy = json.loads(str(policy_raw))
     assert policy["backend"] == "rclone_http_readonly"
     assert policy["rclone"]["max_http_requests_per_hour"] == 10.0
+    assert int(store_row["store_supports_checksums"] or 0) == 1
 
     # Ensure the configured rate limit is translated into rclone TPS flags.
     tpslimit = _extract_tpslimit(captured_extra_args[0])

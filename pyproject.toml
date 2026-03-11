@@ -15,3 +15,6 @@ dependencies = [
 test = [
   "pytest>=7.4",
 ]
+search = [
+  "rapidfuzz>=3.9",
+]

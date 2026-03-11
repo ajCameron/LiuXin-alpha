@@ -60,6 +60,7 @@ class JobBackend(ABC):
         no_output: bool,
         heartbeat: Callable[[], bool] | None,
         abort: Any,
+        log_path: str | None = None,
     ) -> JobExecution:
         raise NotImplementedError
 
@@ -122,7 +123,7 @@ def _execute_request_payload(request: JobRequest) -> dict[str, Any]:
         return {"ok": False, "result": None, "tb": traceback.format_exc()}
 
 
-def _allocate_log_file() -> str:
+def allocate_job_log_path() -> str:
     fd, path = tempfile.mkstemp(prefix="liuxin_job_", suffix=".log")
     os.close(fd)
     return path
@@ -158,6 +159,7 @@ class SerialJobBackend(JobBackend):
         no_output: bool,
         heartbeat: Callable[[], bool] | None,
         abort: Any,
+        log_path: str | None = None,
     ) -> JobExecution:
         del timeout  # Serial backend cannot preempt running work.
 
@@ -166,14 +168,14 @@ class SerialJobBackend(JobBackend):
         if heartbeat is not None and not heartbeat():
             return JobExecution(ok=False, timed_out=True, traceback="Worker heartbeat reported failure")
 
-        log_path = None if no_output else _allocate_log_file()
-        payload = _execute_with_optional_logging(request, log_path)
+        effective_log_path = None if no_output else (str(log_path).strip() if log_path else allocate_job_log_path())
+        payload = _execute_with_optional_logging(request, effective_log_path)
 
         return JobExecution(
             ok=bool(payload.get("ok")),
             result=payload.get("result"),
             traceback=payload.get("tb"),
-            log_path=log_path,
+            log_path=effective_log_path,
         )
 
 
@@ -188,11 +190,12 @@ class ProcessJobBackend(JobBackend):
         no_output: bool,
         heartbeat: Callable[[], bool] | None,
         abort: Any,
+        log_path: str | None = None,
     ) -> JobExecution:
-        log_path = None if no_output else _allocate_log_file()
+        effective_log_path = None if no_output else (str(log_path).strip() if log_path else allocate_job_log_path())
 
         parent_conn, child_conn = Pipe(duplex=False)
-        worker = Process(target=_process_entry, args=(child_conn, request, log_path), daemon=True)
+        worker = Process(target=_process_entry, args=(child_conn, request, effective_log_path), daemon=True)
         started = time.monotonic()
         worker.start()
         child_conn.close()
@@ -202,7 +205,7 @@ class ProcessJobBackend(JobBackend):
                 if abort is not None and hasattr(abort, "is_set") and abort.is_set():
                     worker.terminate()
                     worker.join(timeout=1.0)
-                    return JobExecution(ok=False, aborted=True, log_path=log_path)
+                    return JobExecution(ok=False, aborted=True, log_path=effective_log_path)
 
                 if heartbeat is not None and not heartbeat():
                     worker.terminate()
@@ -211,13 +214,13 @@ class ProcessJobBackend(JobBackend):
                         ok=False,
                         timed_out=True,
                         traceback="Worker heartbeat reported failure",
-                        log_path=log_path,
+                        log_path=effective_log_path,
                     )
 
                 if timeout >= 0 and (time.monotonic() - started) > timeout:
                     worker.terminate()
                     worker.join(timeout=1.0)
-                    return JobExecution(ok=False, timed_out=True, traceback="Worker timed out", log_path=log_path)
+                    return JobExecution(ok=False, timed_out=True, traceback="Worker timed out", log_path=effective_log_path)
 
                 worker.join(timeout=0.05)
 
@@ -230,7 +233,7 @@ class ProcessJobBackend(JobBackend):
                 ok=bool(payload.get("ok")),
                 result=payload.get("result"),
                 traceback=payload.get("tb"),
-                log_path=log_path,
+                log_path=effective_log_path,
             )
         finally:
             parent_conn.close()
@@ -266,6 +269,7 @@ def execute_job(
     heartbeat: Callable[[], bool] | None = None,
     abort: Any = None,
     backend: str | JobBackend | None = None,
+    log_path: str | None = None,
 ) -> JobExecution:
     backend_impl: JobBackend
     if isinstance(backend, JobBackend):
@@ -279,4 +283,5 @@ def execute_job(
         no_output=bool(no_output),
         heartbeat=heartbeat,
         abort=abort,
+        log_path=log_path,
     )

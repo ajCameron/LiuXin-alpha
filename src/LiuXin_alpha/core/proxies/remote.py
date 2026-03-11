@@ -8,6 +8,7 @@ import urllib.request
 
 from typing import Any, Mapping
 
+from LiuXin_alpha.core.proxies.jobs import JobStatesArg, JobsProxyABC
 from LiuXin_alpha.core.proxies.local import looks_like_write_method
 
 
@@ -56,21 +57,36 @@ class _RemoteProxyBase:
             raise RemoteProxyError("JSON response must be an object for {} {}.".format(method, url))
         return data
 
-    def _invoke(self, *, method: str, call_args: tuple[Any, ...], call_kwargs: Mapping[str, Any], write: bool) -> Any:
-        rpc_path = "/rpc/command" if write else "/rpc/query"
-        payload = {
-            "name": "invoke",
-            "payload": {
-                "target": self.target,
-                "method": str(method),
-                "args": list(call_args),
-                "kwargs": dict(call_kwargs),
-            },
+    def _rpc_query(self, name: str, *, payload: Mapping[str, Any] | None = None) -> Any:
+        body = {
+            "name": str(name),
+            "payload": dict(payload or {}),
         }
-        response = self._http_json(method="POST", url=self._url(rpc_path), payload=payload)
+        response = self._http_json(method="POST", url=self._url("/rpc/query"), payload=body)
         if not bool(response.get("ok", False)):
-            raise RemoteProxyError("Remote call failed: {}".format(response.get("error")))
+            raise RemoteProxyError("Remote query failed: {}".format(response.get("error")))
         return response.get("result")
+
+    def _rpc_command(self, name: str, *, payload: Mapping[str, Any] | None = None) -> Any:
+        body = {
+            "name": str(name),
+            "payload": dict(payload or {}),
+        }
+        response = self._http_json(method="POST", url=self._url("/rpc/command"), payload=body)
+        if not bool(response.get("ok", False)):
+            raise RemoteProxyError("Remote command failed: {}".format(response.get("error")))
+        return response.get("result")
+
+    def _invoke(self, *, method: str, call_args: tuple[Any, ...], call_kwargs: Mapping[str, Any], write: bool) -> Any:
+        payload = {
+            "target": self.target,
+            "method": str(method),
+            "args": list(call_args),
+            "kwargs": dict(call_kwargs),
+        }
+        if write:
+            return self._rpc_command("invoke", payload=payload)
+        return self._rpc_query("invoke", payload=payload)
 
     def query(self, method: str, *args: Any, **kwargs: Any) -> Any:
         return self._invoke(method=method, call_args=tuple(args), call_kwargs=kwargs, write=False)
@@ -102,6 +118,44 @@ class RemoteStorageProxy(_RemoteProxyBase):
         super().__init__(endpoint=endpoint, target="storage", timeout_seconds=timeout_seconds)
 
 
+class RemoteJobsProxy(_RemoteProxyBase, JobsProxyABC):
+    """Remote proxy for explicit core jobs APIs."""
+
+    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0) -> None:
+        # `target` is unused for named jobs.* RPC calls but retained for consistency.
+        super().__init__(endpoint=endpoint, target="library", timeout_seconds=timeout_seconds)
+
+    def list(
+        self,
+        *,
+        states: JobStatesArg | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> Mapping[str, Any]:
+        payload: dict[str, Any] = {"offset": int(offset)}
+        if states is not None:
+            payload["states"] = states
+        if limit is not None:
+            payload["limit"] = int(limit)
+        result = self._rpc_query("jobs.list", payload=payload)
+        return dict(result if isinstance(result, dict) else {})
+
+    def get(self, job_id: str) -> Mapping[str, Any]:
+        result = self._rpc_query("jobs.get", payload={"job_id": self.normalize_job_id(job_id)})
+        return dict(result if isinstance(result, dict) else {})
+
+    def wait(self, job_id: str, *, timeout_s: float | None = None) -> Mapping[str, Any]:
+        payload: dict[str, Any] = {"job_id": self.normalize_job_id(job_id)}
+        if timeout_s is not None:
+            payload["timeout_s"] = float(timeout_s)
+        result = self._rpc_query("jobs.wait", payload=payload)
+        return dict(result if isinstance(result, dict) else {})
+
+    def cancel(self, job_id: str) -> Mapping[str, Any]:
+        result = self._rpc_command("jobs.cancel", payload={"job_id": self.normalize_job_id(job_id)})
+        return dict(result if isinstance(result, dict) else {})
+
+
 class RemoteLibraryProxy(_RemoteProxyBase):
     """Top-level remote proxy for `library` target."""
 
@@ -109,6 +163,7 @@ class RemoteLibraryProxy(_RemoteProxyBase):
         super().__init__(endpoint=endpoint, target="library", timeout_seconds=timeout_seconds)
         self.database = RemoteDatabaseProxy(endpoint=endpoint, timeout_seconds=timeout_seconds)
         self.storage = RemoteStorageProxy(endpoint=endpoint, timeout_seconds=timeout_seconds)
+        self.jobs = RemoteJobsProxy(endpoint=endpoint, timeout_seconds=timeout_seconds)
 
     def health(self) -> Mapping[str, Any]:
         response = self._http_json(method="GET", url=self._url("/health"))
@@ -122,4 +177,5 @@ __all__ = [
     "RemoteLibraryProxy",
     "RemoteDatabaseProxy",
     "RemoteStorageProxy",
+    "RemoteJobsProxy",
 ]

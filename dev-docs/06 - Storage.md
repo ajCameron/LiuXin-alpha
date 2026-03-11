@@ -88,6 +88,10 @@ You can also effectively disable backend throttling for a run:
 - `--no-refresh` : skip storage manager bootstrap refresh after sync
 - `--no-links` : skip `file_store_links` rows
 - `--json` : emit JSON report
+- `--background` : enqueue sync as a managed job (inspect with `jobs list` / `jobs show <id>`)
+- `--job-backend process|serial` : override jobs backend for the background run
+- `--job-timeout-s <sec|none>` : background job timeout (`none` disables timeout)
+- `--job-output|--job-no-output` : capture or suppress background job logs
 
 Local disk specific:
 
@@ -108,6 +112,50 @@ If using Python directly:
 - `Library.register_rclone_http_store(...)`
 
 These write/reuse a `stores` row, iterate remote files, and upsert into `files` with deterministic `file_storage_key` values relative to `store_root_uri`.
+
+# Remote mirroring (read-only HTML spider via wget)
+
+There is also a read-only crawler backend for plain HTML directory/index pages:
+
+- Store kind: `wget_html_readonly`
+- Typical root URI: `https://example.com/`
+- It spiders links with `wget --spider --recursive` and registers discovered files into `files`.
+
+Default crawl speed is also polite:
+
+- `20` HTTP requests per minute (default, i.e. `1200`/hour)
+- Preference key: `wget_http_max_requests_per_hour_default` (section: `Storage`)
+
+The same sync command is used:
+
+- `sync store <store_id|store_name> to-db [options]`
+
+Python API entry points:
+
+- `LiuXin_alpha.storage.reconcile.register_wget_html_readonly_store_files(...)`
+- `LiuXin_alpha.storage.reconcile.register_wget_html_readonly_with_database_path(...)`
+- `Library.register_wget_html_store(...)`
+
+Wget sync tuning flags:
+
+- `--wget-no-recurse`
+- `--wget-max-depth <n|none>`
+- `--wget-timeout-s <sec|none>` (terminal sync defaults to `none`)
+- `--wget-parent` / `--wget-no-parent`
+- `--wget-span-hosts` / `--wget-no-span-hosts`
+- `--wget-ignore-robots` / `--wget-respect-robots`
+- `--wget-user-agent <ua>`
+- `--wget-verbose` / `--wget-no-verbose`
+- `--wget-arg <arg>` (repeatable)
+
+By default, terminal `sync` runs wget in verbose mode so crawler output is visible.
+Use `--wget-no-verbose` to reduce noise.
+
+Checksum capability note:
+
+- Capability is tracked on `stores.store_supports_checksums`.
+- `wget_html_readonly` is explicitly marked `0` (no checksum support in spider/list mode).
+- `rclone_http_readonly` and local disk ingest paths are marked `1`.
 
 
 

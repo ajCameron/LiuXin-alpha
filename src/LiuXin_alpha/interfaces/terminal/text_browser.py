@@ -7,6 +7,7 @@ inspection while the broader interfaces layer is still being built out.
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import shutil
 import sys
@@ -16,55 +17,9 @@ from pathlib import Path
 from typing import Optional, Sequence, TextIO
 
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.interfaces.terminal.commands import (
-    IngestDiskCommand,
-    LinkCommand,
-    LinksCommand,
-    NewCreatorWizardCommand,
-    NewExpressionWizardCommand,
-    NewGenreWizardCommand,
-    NewItemWizardCommand,
-    NewManifestationWizardCommand,
-    NewNoteWizardCommand,
-    NewOrganisationWizardCommand,
-    NewPublisherWizardCommand,
-    NewSeriesWizardCommand,
-    NewStoreWizardCommand,
-    NewSubjectWizardCommand,
-    NewTagWizardCommand,
-    NewTitleWizardCommand,
-    NewWorkWizardCommand,
-    NoteOnCommand,
-    OffGenreCommand,
-    OffLanguageCommand,
-    OffNoteCommand,
-    OffSeriesCommand,
-    OffSubjectCommand,
-    OffTagCommand,
-    OnGenreCommand,
-    OnLanguageCommand,
-    OnNoteCommand,
-    OnSeriesCommand,
-    OnSubjectCommand,
-    OnTagCommand,
-    QuitCommand,
-    ShowAllCommand,
-    ShowGenresCommand,
-    ShowLanguageCommand,
-    ShowNotesCommand,
-    ShowSeriesCommand,
-    ShowSubjectsCommand,
-    ShowTagsCommand,
-    SummaryCommand,
-    SyncStoreCommand,
-    StoreFilesCommand,
-    StoreListCommand,
-    StoreShowCommand,
-    TerminalCommandAPI,
-    TopCommand,
-    UnlinkCommand,
-)
+from LiuXin_alpha.interfaces.terminal.commands import TerminalCommandAPI, build_default_commands
 from LiuXin_alpha.interfaces.terminal.plugins import TerminalLifecyclePluginAPI
+from LiuXin_alpha.utils.jobs import default_job_manager
 
 try:
     import readline as _readline
@@ -82,6 +37,36 @@ class DatabaseCreationWizardConfig:
     enable_storage_manager: bool
     strict_storage_manager_bootstrap: bool
     storage_startup_on_add: bool
+
+
+def _default_history_file_path() -> Path:
+    """
+    Return the default on-disk command history path for the terminal browser.
+
+    Preference order:
+    - ``$XDG_STATE_HOME/liuxin_alpha/terminal_history``
+    - ``~/.local/state/liuxin_alpha/terminal_history``
+    """
+    xdg_state_home = os.environ.get("XDG_STATE_HOME", "").strip()
+    if xdg_state_home:
+        base = Path(xdg_state_home).expanduser()
+    else:
+        base = Path.home() / ".local" / "state"
+    return base / "liuxin_alpha" / "terminal_history"
+
+
+def _build_default_core_runtime(db: Database, *, job_manager):
+    """
+    Build an in-process core runtime around the active browser database.
+
+    This keeps write-path command routing local and low-latency while enforcing
+    the "writes go through core" boundary for commands that opt in.
+    """
+    from LiuXin_alpha.core.runtime import CoreRuntime
+    from LiuXin_alpha.library.library import Library
+
+    library = Library(database=db, close_database_on_close=False)
+    return CoreRuntime(library=library, job_manager=job_manager)
 
 
 def _open_database(*, database_path: str, db_type: str, create_if_missing: bool = True) -> Database:
@@ -481,12 +466,26 @@ class TextDatabaseBrowser:
         page_size: int = 20,
         input: Optional[TextIO] = None,
         output: Optional[TextIO] = None,
+        history_file: Optional[str | Path] = None,
         lifecycle_plugins: Optional[Sequence[TerminalLifecyclePluginAPI]] = None,
+        job_manager=None,
+        core_runtime=None,
     ) -> None:
         self.db = db
         self.page_size = max(1, int(page_size))
         self.input = input or sys.stdin
         self.output = output or sys.stdout
+        self.job_manager = job_manager if job_manager is not None else default_job_manager()
+        self._core_runtime = core_runtime
+        self._owns_core_runtime = False
+        if self._core_runtime is None:
+            try:
+                self._core_runtime = _build_default_core_runtime(db, job_manager=self.job_manager)
+                self._owns_core_runtime = True
+            except Exception:
+                # Core wiring is best-effort here; browser remains fully usable.
+                self._core_runtime = None
+                self._owns_core_runtime = False
         self.current_table: Optional[str] = None
         self.window: Optional[_BrowseWindow] = None
         self._commands: dict[str, TerminalCommandAPI] = {}
@@ -496,51 +495,15 @@ class TextDatabaseBrowser:
         self._started = False
         self._closed = False
         self._shutdown_reason: Optional[str] = None
-        self.register_command(QuitCommand())
-        self.register_command(SummaryCommand())
-        self.register_command(ShowTagsCommand())
-        self.register_command(ShowNotesCommand())
-        self.register_command(ShowGenresCommand())
-        self.register_command(ShowSubjectsCommand())
-        self.register_command(ShowLanguageCommand())
-        self.register_command(ShowSeriesCommand())
-        self.register_command(ShowAllCommand())
-        self.register_command(LinkCommand())
-        self.register_command(UnlinkCommand())
-        self.register_command(LinksCommand())
-        self.register_command(OnNoteCommand())
-        self.register_command(OnTagCommand())
-        self.register_command(OnGenreCommand())
-        self.register_command(OnSubjectCommand())
-        self.register_command(OnLanguageCommand())
-        self.register_command(OnSeriesCommand())
-        self.register_command(OffNoteCommand())
-        self.register_command(OffTagCommand())
-        self.register_command(OffGenreCommand())
-        self.register_command(OffSubjectCommand())
-        self.register_command(OffLanguageCommand())
-        self.register_command(OffSeriesCommand())
-        self.register_command(NoteOnCommand())
-        self.register_command(NewStoreWizardCommand())
-        self.register_command(NewCreatorWizardCommand())
-        self.register_command(NewExpressionWizardCommand())
-        self.register_command(NewGenreWizardCommand())
-        self.register_command(NewItemWizardCommand())
-        self.register_command(NewNoteWizardCommand())
-        self.register_command(NewOrganisationWizardCommand())
-        self.register_command(NewPublisherWizardCommand())
-        self.register_command(NewSeriesWizardCommand())
-        self.register_command(NewTagWizardCommand())
-        self.register_command(NewSubjectWizardCommand())
-        self.register_command(NewTitleWizardCommand())
-        self.register_command(NewWorkWizardCommand())
-        self.register_command(NewManifestationWizardCommand())
-        self.register_command(IngestDiskCommand())
-        self.register_command(SyncStoreCommand())
-        self.register_command(StoreListCommand())
-        self.register_command(StoreShowCommand())
-        self.register_command(StoreFilesCommand())
-        self.register_command(TopCommand())
+        self._history_file = (
+            Path(history_file).expanduser()
+            if history_file is not None
+            else _default_history_file_path()
+        )
+        self._history_loaded = False
+        self._history_enabled_for_session = False
+        for command in build_default_commands():
+            self.register_command(command)
         if lifecycle_plugins:
             for plugin in lifecycle_plugins:
                 self.register_lifecycle_plugin(plugin)
@@ -620,10 +583,6 @@ class TextDatabaseBrowser:
         command = tokens[0].lower()
         args = tokens[1:]
 
-        if command in {"help", "h", "?"}:
-            self._print_help()
-            return True
-
         group_name = self._group_alias_to_group.get(command)
         if group_name is not None:
             return self._execute_group_command(group_name, args)
@@ -631,36 +590,6 @@ class TextDatabaseBrowser:
         command_impl = self._commands.get(command)
         if command_impl is not None:
             return self._execute_command(command, command_impl, args)
-        if command == "tables":
-            self._cmd_tables(args)
-            return True
-        if command == "use":
-            self._cmd_use(args)
-            return True
-        if command in {"schema", "columns"}:
-            self._cmd_schema(args)
-            return True
-        if command == "count":
-            self._cmd_count(args)
-            return True
-        if command in {"browse", "ls"}:
-            self._cmd_browse(args)
-            return True
-        if command == "next":
-            self._cmd_next(args)
-            return True
-        if command == "prev":
-            self._cmd_prev(args)
-            return True
-        if command == "row":
-            self._cmd_row(args)
-            return True
-        if command == "search":
-            self._cmd_search(args)
-            return True
-        if command == "pagesize":
-            self._cmd_pagesize(args)
-            return True
 
         self._write("Unknown command: {}. Type `help`.".format(command))
         return True
@@ -691,6 +620,20 @@ class TextDatabaseBrowser:
 
         group_map = self._command_groups.get(group_name, {})
         command_impl = group_map.get(subcommand_token)
+        rewritten_group_args: Optional[list[str]] = None
+        if command_impl is None and ":" in subcommand_token:
+            # Convenience compact form for grouped commands:
+            #   <group> <subcommand>:<arg0> [arg1...]
+            # Example:
+            #   sync store:1 --no-refresh
+            compact_subcommand, compact_first_arg = subcommand_token.split(":", 1)
+            compact_subcommand = self._normalize_command_token(compact_subcommand)
+            compact_first_arg = str(compact_first_arg).strip()
+            if compact_subcommand:
+                compact_impl = group_map.get(compact_subcommand)
+                if compact_impl is not None and compact_first_arg:
+                    command_impl = compact_impl
+                    rewritten_group_args = [compact_first_arg] + args[1:]
         if command_impl is None and group_name == "on":
             legacy_rewrite = self._rewrite_on_legacy_group_args(group_map, args)
             if legacy_rewrite is not None:
@@ -726,6 +669,13 @@ class TextDatabaseBrowser:
                     subcommand_token,
                     ", ".join(available) if available else "<none>",
                 )
+                )
+
+        if rewritten_group_args is not None:
+            return self._execute_command(
+                "{} {}".format(group_name, command_impl.name),
+                command_impl,
+                rewritten_group_args,
             )
 
         return self._execute_command("{} {}".format(group_name, subcommand_token), command_impl, args[1:])
@@ -950,6 +900,7 @@ class TextDatabaseBrowser:
         if self._started:
             return
         self._started = True
+        self._load_command_history()
         for plugin in self._lifecycle_plugins:
             plugin_name = getattr(plugin, "name", plugin.__class__.__name__)
             try:
@@ -965,6 +916,12 @@ class TextDatabaseBrowser:
             return
         self._closed = True
         self._shutdown_reason = str(reason)
+        self._save_command_history()
+        if self._owns_core_runtime and self._core_runtime is not None:
+            try:
+                self._core_runtime.shutdown()
+            except Exception:
+                pass
         errors: list[str] = []
         for plugin in reversed(self._lifecycle_plugins):
             plugin_name = getattr(plugin, "name", plugin.__class__.__name__)
@@ -1075,6 +1032,59 @@ class TextDatabaseBrowser:
         """Public output sink for command implementations."""
         self._write(text, end=end)
 
+    def supports_core_commands(self) -> bool:
+        """Whether this browser can dispatch write commands through core runtime."""
+        return self._core_runtime is not None
+
+    def supports_core_queries(self) -> bool:
+        """Whether this browser can dispatch read queries through core runtime."""
+        return self._core_runtime is not None
+
+    def execute_core_command(self, name: str, *, payload: Optional[dict[str, object]] = None):
+        """
+        Execute one core write command and return command result payload.
+
+        Raises a user-facing error when core runtime is unavailable.
+        """
+        if self._core_runtime is None:
+            raise RuntimeError("Core runtime is not available for this browser session.")
+        from LiuXin_alpha.core.commands import CoreCommand
+
+        envelope = CoreCommand(
+            name=str(name),
+            payload=dict(payload or {}),
+        )
+        return self._core_runtime.execute_command(envelope).result
+
+    def execute_core_query(self, name: str, *, payload: Optional[dict[str, object]] = None):
+        """
+        Execute one core read query and return query result payload.
+
+        Raises a user-facing error when core runtime is unavailable.
+        """
+        if self._core_runtime is None:
+            raise RuntimeError("Core runtime is not available for this browser session.")
+        from LiuXin_alpha.core.queries import CoreQuery
+
+        envelope = CoreQuery(
+            name=str(name),
+            payload=dict(payload or {}),
+        )
+        return self._core_runtime.execute_query(envelope).result
+
+    def supports_job_output_panel(self) -> bool:
+        """Whether this browser can route one job log stream to a dedicated panel."""
+        return False
+
+    def attach_job_output_panel(self, job_id: str) -> bool:
+        """Attach the dedicated job output panel to a specific job id."""
+        del job_id
+        return False
+
+    def detach_job_output_panel(self) -> bool:
+        """Detach any active dedicated job output panel."""
+        return False
+
     def prompt_text(self, prompt: str, *, default: Optional[str] = None) -> str:
         """Prompt for one text input line using browser input/output streams."""
         return _ask_text(
@@ -1166,19 +1176,51 @@ class TextDatabaseBrowser:
         self.output.write(text + end)
         self.output.flush()
 
+    def _load_command_history(self) -> None:
+        """
+        Load persistent readline history for interactive sessions.
+
+        This is intentionally best-effort and should never block startup.
+        """
+        if self._history_loaded:
+            return
+        self._history_loaded = True
+        if _readline is None:
+            return
+        if not self._can_use_readline_prompt():
+            return
+        try:
+            if self._history_file.exists():
+                _readline.read_history_file(str(self._history_file))
+            self._history_enabled_for_session = True
+        except Exception:
+            self._history_enabled_for_session = False
+
+    def _save_command_history(self) -> None:
+        """
+        Persist readline history for interactive sessions.
+
+        This is intentionally best-effort and should never block shutdown.
+        """
+        if _readline is None:
+            return
+        if not self._history_enabled_for_session:
+            return
+        try:
+            self._history_file.parent.mkdir(parents=True, exist_ok=True)
+            _readline.write_history_file(str(self._history_file))
+        except Exception:
+            return
+
+    def _format_command_aliases(self, aliases: Sequence[str]) -> str:
+        normalized = [self._normalize_command_token(alias) for alias in aliases]
+        filtered = [alias for alias in normalized if alias]
+        if not filtered:
+            return ""
+        return " (aliases: {})".format(", ".join(filtered))
+
     def _print_help(self) -> None:
         self._write("Commands:")
-        self._write("  tables [pattern]                  List tables (+ row counts).")
-        self._write("  use <table>                       Set current table.")
-        self._write("  schema [table]                    Show columns for table/current table.")
-        self._write("  count [table]                     Show row count for table/current table.")
-        self._write("  browse [table] [limit] [offset]   Show rows for table/current table.")
-        self._write("  next [limit]                      Next page for current browse table.")
-        self._write("  prev [limit]                      Previous page for current browse table.")
-        self._write("  row <table> <id>                  Show one row by id.")
-        self._write("  search <table> <column> <value> [limit]")
-        self._write("                                    Exact-match search.")
-        self._write("  pagesize [n]                      Show or set default page size.")
         grouped_command_ids: set[int] = set()
         grouped = self.iter_registered_command_groups()
         if grouped:
@@ -1188,15 +1230,16 @@ class TextDatabaseBrowser:
                 for command in commands:
                     grouped_command_ids.add(id(command))
                     usage = command.usage or "{} {}".format(group_name, command.name)
-                    self._write("    {:<32} {}".format(usage, command.summary))
+                    alias_text = self._format_command_aliases(command.aliases)
+                    self._write("    {:<32} {}{}".format(usage, command.summary, alias_text))
 
         self._write("  -- direct --")
         for command in self.iter_registered_commands():
             if id(command) in grouped_command_ids:
                 continue
             usage = command.usage or command.name
-            self._write("  {:<34} {}".format(usage, command.summary))
-        self._write("  help                              Show this help.")
+            alias_text = self._format_command_aliases(command.aliases)
+            self._write("  {:<34} {}{}".format(usage, command.summary, alias_text))
 
     def _all_tables(self) -> list[str]:
         return sorted(str(t) for t in self.db.get_tables())
@@ -1454,24 +1497,87 @@ class TextDatabaseBrowser:
         self._write(self._format_row(table, row))
 
     def _cmd_search(self, args: list[str]) -> None:
-        if len(args) < 3:
-            raise ValueError("Usage: search <table> <column> <value> [limit]")
+        if len(args) < 2:
+            raise ValueError(
+                "Usage: search <table> <term> [--limit n] OR search <table> <column> <value> [limit]"
+            )
         table = self._resolve_table(args[0])
-        column = args[1]
-        value = args[2]
-        limit = self.page_size
-        if len(args) >= 4:
-            maybe_limit = _safe_int(args[3])
-            if maybe_limit is None:
-                raise ValueError("limit must be an integer")
-            limit = max(1, maybe_limit)
+        columns = set(self.db.get_column_headings(table))
 
-        matches = self.db.search(table, column, value)
-        self._write("Search {}.{} == {!r}: {} match(es)".format(table, column, value, len(matches)))
-        for row in matches[:limit]:
-            self._write("  {}".format(self._format_row(table, row)))
-        if len(matches) > limit:
-            self._write("  ... {} more".format(len(matches) - limit))
+        # Legacy exact-match mode: search <table> <column> <value> [limit]
+        if len(args) >= 3 and args[1] in columns:
+            column = args[1]
+            value = args[2]
+            limit = self.page_size
+            if len(args) >= 4:
+                maybe_limit = _safe_int(args[3])
+                if maybe_limit is None:
+                    raise ValueError("limit must be an integer")
+                limit = max(1, maybe_limit)
+
+            matches = self.db.search(table, column, value)
+            shown_rows = matches[:limit]
+            self._write("Search {}.{} == {!r}".format(table, column, value))
+            if not shown_rows:
+                self._write("(no rows)")
+            else:
+                self._write(self.format_rows_as_table(table, shown_rows))
+            self._write(
+                "Summary: matches_total={} shown={} limit={}".format(
+                    len(matches),
+                    len(shown_rows),
+                    limit,
+                )
+            )
+            return
+
+        # Table-wide contains mode: search <table> <term...> [--limit n]
+        limit = self.page_size
+        term_tokens = list(args[1:])
+        if "--limit" in term_tokens:
+            idx = term_tokens.index("--limit")
+            if idx + 1 >= len(term_tokens):
+                raise ValueError("--limit requires an integer value")
+            maybe_limit = _safe_int(term_tokens[idx + 1])
+            if maybe_limit is None:
+                raise ValueError("--limit must be an integer")
+            limit = max(1, maybe_limit)
+            del term_tokens[idx : idx + 2]
+
+        search_term = " ".join(token for token in term_tokens if str(token).strip())
+        if not search_term:
+            raise ValueError("search term cannot be blank")
+
+        search_key = search_term.casefold()
+        table_columns = list(self.db.get_column_headings(table))
+        rows = self.db.get_all_rows(table, iterator_return=False)
+
+        matches = []
+        for row in rows:
+            for column in table_columns:
+                if column not in row:
+                    continue
+                value = row[column]
+                if value is None:
+                    continue
+                if search_key in str(value).casefold():
+                    matches.append(row)
+                    break
+
+        shown_rows = matches[:limit]
+        self._write("Search {} contains {!r}".format(table, search_term))
+        if not shown_rows:
+            self._write("(no rows)")
+        else:
+            self._write(self.format_rows_as_table(table, shown_rows))
+        self._write(
+            "Summary: scanned_rows={} matches_total={} shown={} limit={}".format(
+                len(rows),
+                len(matches),
+                len(shown_rows),
+                limit,
+            )
+        )
 
     def _cmd_pagesize(self, args: list[str]) -> None:
         if not args:
@@ -1496,6 +1602,39 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--page-size", type=int, default=20, help="Default browse page size")
     parser.add_argument(
+        "--ui-mode",
+        choices=("plain", "windowed"),
+        default="plain",
+        help="UI mode: plain line-based shell (default) or windowed split-pane curses UI.",
+    )
+    parser.add_argument(
+        "--windowed-status-refresh-s",
+        type=float,
+        default=1.0,
+        help="Windowed UI status board refresh interval in seconds (default: 1.0).",
+    )
+    parser.add_argument(
+        "--windowed-status-height",
+        type=int,
+        default=9,
+        help="Windowed UI status board height in terminal rows (default: 9).",
+    )
+    parser.add_argument(
+        "--windowed-job-panel-height",
+        type=int,
+        default=10,
+        help="Windowed UI dedicated job-output panel height in terminal rows (default: 10).",
+    )
+    parser.add_argument(
+        "--history-file",
+        default=None,
+        help=(
+            "Optional readline history file path. "
+            "Default: $XDG_STATE_HOME/liuxin_alpha/terminal_history "
+            "or ~/.local/state/liuxin_alpha/terminal_history."
+        ),
+    )
+    parser.add_argument(
         "--no-create-if-missing",
         action="store_true",
         help="Fail if the database path does not exist (default creates a new library database).",
@@ -1507,6 +1646,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Execute command(s) non-interactively; may be repeated.",
     )
     return parser
+
+
+def run_windowed_text_browser(
+    db: Database,
+    *,
+    page_size: int = 20,
+    history_file: Optional[str | Path] = None,
+    status_refresh_s: float = 1.0,
+    status_height: int = 9,
+    job_panel_height: int = 10,
+) -> int:
+    """Run the split-pane curses UI wrapper around the text browser."""
+    from LiuXin_alpha.interfaces.terminal.windowed_ui import WindowedUiConfig, run_windowed_browser
+
+    config = WindowedUiConfig(
+        status_refresh_s=float(status_refresh_s),
+        status_height=max(5, int(status_height)),
+        job_panel_height=max(4, int(job_panel_height)),
+    )
+    return run_windowed_browser(
+        db,
+        page_size=page_size,
+        history_file=history_file,
+        config=config,
+    )
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -1536,9 +1700,31 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             db_type=db_type,
             create_if_missing=not bool(args.no_create_if_missing),
         ) as db:
-            shell = TextDatabaseBrowser(db, page_size=args.page_size, output=sys.stdout)
             if args.command:
+                shell = TextDatabaseBrowser(
+                    db,
+                    page_size=args.page_size,
+                    output=sys.stdout,
+                    history_file=args.history_file,
+                )
                 return shell.run_commands(args.command)
+
+            if args.ui_mode == "windowed":
+                return run_windowed_text_browser(
+                    db,
+                    page_size=args.page_size,
+                    history_file=args.history_file,
+                    status_refresh_s=args.windowed_status_refresh_s,
+                    status_height=args.windowed_status_height,
+                    job_panel_height=args.windowed_job_panel_height,
+                )
+
+            shell = TextDatabaseBrowser(
+                db,
+                page_size=args.page_size,
+                output=sys.stdout,
+                history_file=args.history_file,
+            )
             return shell.run()
     except Exception as exc:
         print("ERROR: {}".format(exc), file=sys.stderr)
@@ -1551,5 +1737,6 @@ __all__ = [
     "run_database_creation_wizard",
     "create_database_from_wizard",
     "build_parser",
+    "run_windowed_text_browser",
     "main",
 ]

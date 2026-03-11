@@ -1,0 +1,2 @@
+# Install project + developer extras used in local/CI testing.
+-e .[test,search]

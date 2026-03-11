@@ -11,6 +11,7 @@ from .text_browser import (
     create_database_from_wizard,
     main,
     run_database_creation_wizard,
+    run_windowed_text_browser,
 )
 
 __all__ = [
@@ -21,5 +22,6 @@ __all__ = [
     "run_database_creation_wizard",
     "create_database_from_wizard",
     "build_parser",
+    "run_windowed_text_browser",
     "main",
 ]

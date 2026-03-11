@@ -5,10 +5,15 @@ from __future__ import annotations
 from .commands import CoreCommand, CoreCommandResult
 from .events import CoreEvent, make_core_event
 from .proxies import (
+    JobStatesArg,
+    JobsProxyABC,
+    JobsProxyAPI,
     LocalDatabaseProxy,
+    LocalJobsProxy,
     LocalLibraryProxy,
     LocalStorageProxy,
     RemoteDatabaseProxy,
+    RemoteJobsProxy,
     RemoteLibraryProxy,
     RemoteProxyError,
     RemoteStorageProxy,
@@ -25,12 +30,17 @@ __all__ = [
     "CoreQueryResult",
     "CoreEvent",
     "make_core_event",
+    "JobStatesArg",
+    "JobsProxyAPI",
+    "JobsProxyABC",
     "LocalLibraryProxy",
     "LocalDatabaseProxy",
     "LocalStorageProxy",
+    "LocalJobsProxy",
     "RemoteLibraryProxy",
     "RemoteDatabaseProxy",
     "RemoteStorageProxy",
+    "RemoteJobsProxy",
     "RemoteProxyError",
     "CoreHttpDaemon",
 ]

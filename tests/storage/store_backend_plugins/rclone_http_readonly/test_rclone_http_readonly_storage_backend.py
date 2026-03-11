@@ -173,6 +173,27 @@ def test_rclone_backend_true_files_iterates_remote_entries(monkeypatch) -> None:
     ]
 
 
+def test_rclone_backend_normalizes_plain_https_root_to_configless_fs(monkeypatch) -> None:
+    captured_args: list[list[str]] = []
+
+    def _fake_run_rclone_json(args, **kwargs):
+        captured_args.append(list(args))
+        return []
+
+    monkeypatch.setattr(backend_module, "run_rclone_json", _fake_run_rclone_json)
+    store = RcloneHttpReadOnlyStorageBackend(
+        url="https://www.fadedpage.com/",
+        options=RcloneBackendOptions(max_http_requests_per_hour=None, enforce_global_rate_limit=False),
+    )
+
+    assert store.url == ':http,url="https://www.fadedpage.com":'
+    list(store.true_files())
+
+    assert captured_args
+    assert captured_args[0][:3] == ["lsjson", "-R", "--files-only"]
+    assert captured_args[0][3] == ':http,url="https://www.fadedpage.com":'
+
+
 def test_rclone_single_file_uses_store_wrappers() -> None:
     calls: list[tuple[str, tuple[str, ...], bool]] = []
 

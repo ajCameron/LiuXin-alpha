@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from LiuXin_alpha.core.commands import CoreCommand
+from LiuXin_alpha.core.proxies.jobs import JobStatesArg, JobsProxyABC
 from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.core.runtime import CoreRuntime
 
@@ -114,6 +116,43 @@ class LocalStorageProxy(_LocalTargetProxy):
         super().__init__(runtime=runtime, target="storage")
 
 
+class LocalJobsProxy(JobsProxyABC):
+    """Local proxy for explicit core jobs APIs."""
+
+    def __init__(self, runtime: CoreRuntime) -> None:
+        self._runtime = runtime
+
+    def list(
+        self,
+        *,
+        states: JobStatesArg | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> Mapping[str, Any]:
+        payload: dict[str, Any] = {"offset": int(offset)}
+        if states is not None:
+            payload["states"] = states
+        if limit is not None:
+            payload["limit"] = int(limit)
+        envelope = CoreQuery(name="jobs.list", payload=payload)
+        return self._runtime.execute_query(envelope).result
+
+    def get(self, job_id: str) -> Mapping[str, Any]:
+        envelope = CoreQuery(name="jobs.get", payload={"job_id": self.normalize_job_id(job_id)})
+        return self._runtime.execute_query(envelope).result
+
+    def wait(self, job_id: str, *, timeout_s: float | None = None) -> Mapping[str, Any]:
+        payload: dict[str, Any] = {"job_id": self.normalize_job_id(job_id)}
+        if timeout_s is not None:
+            payload["timeout_s"] = float(timeout_s)
+        envelope = CoreQuery(name="jobs.wait", payload=payload)
+        return self._runtime.execute_query(envelope).result
+
+    def cancel(self, job_id: str) -> Mapping[str, Any]:
+        envelope = CoreCommand(name="jobs.cancel", payload={"job_id": self.normalize_job_id(job_id)})
+        return self._runtime.execute_command(envelope).result
+
+
 class LocalLibraryProxy(_LocalTargetProxy):
     """Top-level local proxy for library + child targets."""
 
@@ -121,6 +160,7 @@ class LocalLibraryProxy(_LocalTargetProxy):
         super().__init__(runtime=runtime, target="library")
         self.database = LocalDatabaseProxy(runtime)
         self.storage = LocalStorageProxy(runtime)
+        self.jobs = LocalJobsProxy(runtime)
 
     @property
     def core_uuid(self) -> str:

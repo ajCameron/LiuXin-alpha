@@ -657,6 +657,14 @@ class Preferences:
             1200,
             val_type="int",
         )
+        # Default throttle for wget HTML spider read-only mirror/listing operations.
+        # Units: requests per hour (1200/hour == 20/minute).
+        self.type_set(
+            "Storage",
+            "wget_http_max_requests_per_hour_default",
+            1200,
+            val_type="int",
+        )
 
         # Folder Store Specific Type Preferences - always key with type_of_store,lower()
         self.add_section("on_disk")

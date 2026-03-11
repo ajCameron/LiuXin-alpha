@@ -79,6 +79,9 @@ class StorageManager(StorageAPI):
         "rclone_http_readonly": "rclone_http_readonly",
         "http_ro": "rclone_http_readonly",
         "rclone_http_ro": "rclone_http_readonly",
+        "wget_html_readonly": "wget_html_readonly",
+        "wget_http_ro": "wget_html_readonly",
+        "http_spider_ro": "wget_html_readonly",
     }
 
     _STORE_BACKEND_IMPORTS: Mapping[str, tuple[str, str]] = {
@@ -105,6 +108,10 @@ class StorageManager(StorageAPI):
         "rclone_http_readonly": (
             "LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly",
             "RcloneHttpReadOnlyStorageBackend",
+        ),
+        "wget_html_readonly": (
+            "LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly",
+            "WgetHtmlReadOnlyStorageBackend",
         ),
     }
 
@@ -427,6 +434,10 @@ class StorageManager(StorageAPI):
                 options = self._build_rclone_options_from_row(row)
                 if options is not None:
                     kwargs["options"] = options
+            elif backend_cls.__name__ == "WgetHtmlReadOnlyStorageBackend":
+                options = self._build_wget_options_from_row(row)
+                if options is not None:
+                    kwargs["options"] = options
 
             try:
                 store = backend_cls(**kwargs)
@@ -569,6 +580,63 @@ class StorageManager(StorageAPI):
 
         return RcloneBackendOptions(**option_kwargs)
 
+    def _build_wget_options_from_row(self, row: Any):
+        raw_policy = self._row_get(row, "store_policy_json")
+        if raw_policy in (None, ""):
+            return None
+        try:
+            policy = json.loads(str(raw_policy))
+        except Exception:
+            return None
+        if not isinstance(policy, Mapping):
+            return None
+
+        wget_policy: Mapping[str, Any]
+        nested = policy.get("wget")
+        if isinstance(nested, Mapping):
+            wget_policy = nested
+        else:
+            wget_policy = policy
+
+        option_kwargs: dict[str, Any] = {}
+        if "wget_exe" in wget_policy:
+            exe = self._coerce_optional_str(wget_policy.get("wget_exe"))
+            if exe:
+                option_kwargs["wget_exe"] = exe
+        if "wget_args" in wget_policy:
+            args = wget_policy.get("wget_args")
+            if isinstance(args, (list, tuple)):
+                option_kwargs["wget_args"] = tuple(str(x) for x in args)
+        if "timeout_s" in wget_policy:
+            timeout_s = self._coerce_optional_float(wget_policy.get("timeout_s"))
+            option_kwargs["timeout_s"] = timeout_s
+        if "max_http_requests_per_hour" in wget_policy:
+            max_rph = self._coerce_optional_float(wget_policy.get("max_http_requests_per_hour"))
+            option_kwargs["max_http_requests_per_hour"] = max_rph
+        if "recurse" in wget_policy:
+            option_kwargs["recurse"] = self._to_boolish(wget_policy.get("recurse"), default=True)
+        if "max_depth" in wget_policy:
+            depth = self._to_int(wget_policy.get("max_depth"))
+            option_kwargs["max_depth"] = depth
+        if "no_parent" in wget_policy:
+            option_kwargs["no_parent"] = self._to_boolish(wget_policy.get("no_parent"), default=True)
+        if "span_hosts" in wget_policy:
+            option_kwargs["span_hosts"] = self._to_boolish(wget_policy.get("span_hosts"), default=False)
+        if "respect_robots" in wget_policy:
+            option_kwargs["respect_robots"] = self._to_boolish(wget_policy.get("respect_robots"), default=True)
+        if "user_agent" in wget_policy:
+            user_agent = self._coerce_optional_str(wget_policy.get("user_agent"))
+            option_kwargs["user_agent"] = user_agent
+        if "no_verbose" in wget_policy:
+            option_kwargs["no_verbose"] = self._to_boolish(wget_policy.get("no_verbose"), default=True)
+
+        if not option_kwargs:
+            return None
+
+        from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import WgetBackendOptions
+
+        return WgetBackendOptions(**option_kwargs)
+
     def _resolve_backend_cls(self, row: Any) -> Optional[type[StoreAPI]]:
         kind_raw = self._coerce_optional_str(self._row_get(row, "store_kind"))
         protocol_raw = self._coerce_optional_str(self._row_get(row, "store_access_protocol"))
@@ -586,6 +654,8 @@ class StorageManager(StorageAPI):
                 alias = "rclone_http_readonly"
             elif normalized_protocol == "rclone":
                 alias = "rclone_http_readonly"
+            elif normalized_protocol == "wget":
+                alias = "wget_html_readonly"
             elif normalized_protocol == "squashfs":
                 alias = "squashfs_readonly"
             elif normalized_protocol in {"sqlite", "sqlite3"}:

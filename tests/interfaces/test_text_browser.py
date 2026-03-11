@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import io
+import signal
 
 from pathlib import Path
 
@@ -9,14 +10,24 @@ import pytest
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.interfaces.terminal.commands import DEFAULT_COMMAND_CLASSES
+from LiuXin_alpha.interfaces.terminal.commands import db as db_command_module
 from LiuXin_alpha.interfaces.terminal.commands import off as off_commands
 from LiuXin_alpha.interfaces.terminal.commands import on as on_commands
+from LiuXin_alpha.interfaces.terminal.commands import sync as sync_command_module
 from LiuXin_alpha.interfaces.terminal.plugins import TerminalLifecyclePluginAPI
+from LiuXin_alpha.interfaces.terminal import text_browser as text_browser_module
 from LiuXin_alpha.interfaces.terminal.text_browser import TextDatabaseBrowser, main as browser_main
 from LiuXin_alpha.metadata.standardization import make_tag_search_term, make_title_search_term, standardize_genre
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     rclone_http_storage_backend as rclone_backend_module,
 )
+from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
+    wget_html_storage_backend as wget_backend_module,
+)
+from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly.wget_utils import WgetResult
+from LiuXin_alpha.utils.jobs import JobRequest
+from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 
 
 def _insert_store_row(
@@ -44,6 +55,28 @@ def _insert_store_row(
     return int(row["store_id"])
 
 
+class _PanelAwareBrowser(TextDatabaseBrowser):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.panel_job_id: str | None = None
+        self.panel_attach_calls = 0
+        self.panel_detach_calls = 0
+
+    def supports_job_output_panel(self) -> bool:
+        return True
+
+    def attach_job_output_panel(self, job_id: str) -> bool:
+        self.panel_attach_calls += 1
+        self.panel_job_id = str(job_id).strip() or None
+        return True
+
+    def detach_job_output_panel(self) -> bool:
+        self.panel_detach_calls += 1
+        had = self.panel_job_id is not None
+        self.panel_job_id = None
+        return had
+
+
 def test_text_browser_session_basic_browsing(driver_spec, tmp_path: Path) -> None:
     db_path = tmp_path / "browser_session.sqlite"
     output = io.StringIO()
@@ -69,6 +102,7 @@ def test_text_browser_session_basic_browsing(driver_spec, tmp_path: Path) -> Non
         assert shell.execute_line("count")
         assert shell.execute_line("browse 5 0")
         assert shell.execute_line("search stores store_name browser_store 5")
+        assert shell.execute_line("search stores browser_store --limit 5")
         assert shell.execute_line("row stores {}".format(store_id))
         assert shell.execute_line("summary 3")
         assert shell.execute_line("pagesize 3")
@@ -81,6 +115,9 @@ def test_text_browser_session_basic_browsing(driver_spec, tmp_path: Path) -> Non
     assert "store_name" in rendered
     assert "browser_store" in rendered
     assert "Search stores.store_name" in rendered
+    assert "Search stores contains 'browser_store'" in rendered
+    assert "Summary: matches_total=" in rendered
+    assert "Summary: scanned_rows=" in rendered
     assert "Database summary" in rendered
     assert "largest_tables" in rendered
 
@@ -127,6 +164,557 @@ def test_text_browser_main_non_interactive(driver_spec, tmp_path: Path, capsys) 
     assert "Database summary" in out
 
 
+def test_text_browser_parser_accepts_windowed_mode_options() -> None:
+    parser = text_browser_module.build_parser()
+    args = parser.parse_args(
+        [
+            "--database",
+            "library.sqlite",
+            "--ui-mode",
+            "windowed",
+            "--windowed-status-refresh-s",
+            "2.5",
+            "--windowed-status-height",
+            "11",
+            "--windowed-job-panel-height",
+            "12",
+        ]
+    )
+    assert args.database == "library.sqlite"
+    assert args.ui_mode == "windowed"
+    assert args.windowed_status_refresh_s == pytest.approx(2.5)
+    assert args.windowed_status_height == 11
+    assert args.windowed_job_panel_height == 12
+
+
+def test_text_browser_main_windowed_mode_dispatches(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "windowed_mode.sqlite"
+    history_path = tmp_path / "windowed_history.txt"
+    observed: dict[str, object] = {}
+
+    def _fake_run_windowed(db, **kwargs):
+        observed["database_path"] = str(getattr(db, "metadata", {}).get("database_path", ""))
+        observed.update(kwargs)
+        return 17
+
+    monkeypatch.setattr(text_browser_module, "run_windowed_text_browser", _fake_run_windowed)
+
+    rc = browser_main(
+        [
+            "--database",
+            str(db_path),
+            "--db-type",
+            driver_spec.db_type,
+            "--ui-mode",
+            "windowed",
+            "--page-size",
+            "33",
+            "--windowed-status-refresh-s",
+            "2.5",
+            "--windowed-status-height",
+            "11",
+            "--windowed-job-panel-height",
+            "12",
+            "--history-file",
+            str(history_path),
+        ]
+    )
+    assert rc == 17
+    assert observed["database_path"] == str(db_path)
+    assert observed["page_size"] == 33
+    assert observed["history_file"] == str(history_path)
+    assert observed["status_refresh_s"] == pytest.approx(2.5)
+    assert observed["status_height"] == 11
+    assert observed["job_panel_height"] == 12
+
+
+def test_text_browser_main_command_mode_overrides_windowed(driver_spec, tmp_path: Path, monkeypatch, capsys) -> None:
+    db_path = tmp_path / "windowed_ignored.sqlite"
+
+    def _unexpected_windowed(*_args, **_kwargs):
+        raise AssertionError("windowed UI should not run when --command is provided")
+
+    monkeypatch.setattr(text_browser_module, "run_windowed_text_browser", _unexpected_windowed)
+
+    rc = browser_main(
+        [
+            "--database",
+            str(db_path),
+            "--db-type",
+            driver_spec.db_type,
+            "--ui-mode",
+            "windowed",
+            "--command",
+            "tables",
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "stores" in out
+
+
+def test_sync_store_options_default_to_incremental_wget_db_writes() -> None:
+    options = sync_command_module._parse_sync_store_options(["1"], usage="sync store <id>")
+    assert options.wget_incremental_db_writes is True
+
+
+def test_sync_store_options_can_disable_incremental_wget_db_writes() -> None:
+    options = sync_command_module._parse_sync_store_options(
+        ["1", "--wget-no-incremental-db-writes"],
+        usage="sync store <id>",
+    )
+    assert options.wget_incremental_db_writes is False
+
+
+def test_text_browser_help_includes_registered_search_command(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_help_search.sqlite"
+    output = io.StringIO()
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.execute_line("help")
+
+    rendered = output.getvalue()
+    assert "search <table> <term> [--limit n]" in rendered
+    assert "Search rows in a table." in rendered
+
+
+def test_text_browser_core_command_aliases_are_registered(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_command_aliases.sqlite"
+    output = io.StringIO()
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.execute_line("h")
+        assert shell.execute_line("?")
+        assert shell.execute_line("columns stores")
+        assert shell.execute_line("ls stores 1 0")
+
+    rendered = output.getvalue()
+    assert "Commands:" in rendered
+    assert "Schema for stores" in rendered
+    assert "Browsing stores rows" in rendered
+
+
+def test_text_browser_jobs_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_jobs_group.sqlite"
+    output = io.StringIO()
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    try:
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
+            assert shell.execute_line("jobs")
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+    rendered = output.getvalue()
+    assert "Available `jobs` subcommands:" in rendered
+    assert "jobs list" in rendered
+    assert "jobs show" in rendered
+    assert "jobs cancel" in rendered
+    assert "jobs panel" in rendered
+
+
+def test_text_browser_db_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_db_group.sqlite"
+    output = io.StringIO()
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.execute_line("db")
+
+    rendered = output.getvalue()
+    assert "Available `db` subcommands:" in rendered
+    assert "db unlock" in rendered
+
+
+def test_text_browser_db_unlock_locked_without_kill_raises(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_db_unlock_locked.sqlite"
+    output = io.StringIO()
+
+    holder = db_command_module._FileHolder(pid=4242, command="python", path=str(db_path))
+    monkeypatch.setattr(
+        db_command_module,
+        "_probe_database_write_lock",
+        lambda *args, **kwargs: (False, "database is locked"),
+    )
+    monkeypatch.setattr(
+        db_command_module,
+        "_list_file_holders",
+        lambda *args, **kwargs: [holder],
+    )
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output)
+        with pytest.raises(ValueError):
+            shell.execute_line("db unlock")
+
+    rendered = output.getvalue()
+    assert "Write lock probe: LOCKED" in rendered
+    assert "pid=4242" in rendered
+
+
+def test_text_browser_db_unlock_can_kill_external_holder(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_db_unlock_kill.sqlite"
+    output = io.StringIO()
+
+    state = {"killed": False}
+    holder = db_command_module._FileHolder(pid=7777, command="python", path=str(db_path))
+    sent_signals: list[tuple[set[int], int]] = []
+
+    def _fake_probe(*args, **kwargs):
+        if state["killed"]:
+            return True, ""
+        return False, "database is locked"
+
+    def _fake_list(*args, **kwargs):
+        if state["killed"]:
+            return []
+        return [holder]
+
+    def _fake_signal(pids: set[int], sig: int):
+        sent_signals.append((set(pids), int(sig)))
+        state["killed"] = True
+        return sorted(pids)
+
+    monkeypatch.setattr(db_command_module, "_probe_database_write_lock", _fake_probe)
+    monkeypatch.setattr(db_command_module, "_list_file_holders", _fake_list)
+    monkeypatch.setattr(db_command_module, "_send_signal_to_pids", _fake_signal)
+    monkeypatch.setattr(
+        db_command_module,
+        "_run_recovery_pragmas",
+        lambda *args, **kwargs: {
+            "checkpoint_busy": 0,
+            "checkpoint_log_frames": 0,
+            "checkpoint_frames_checkpointed": 0,
+            "integrity_check": None,
+        },
+    )
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.execute_line("db unlock --kill --no-check")
+
+    assert sent_signals
+    assert sent_signals[0][0] == {7777}
+    assert sent_signals[0][1] == int(signal.SIGTERM)
+    rendered = output.getvalue()
+    assert "Sent SIGTERM" in rendered
+    assert "DB unlock completed." in rendered
+
+
+def test_text_browser_db_unlock_can_escalate_to_sudo(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_db_unlock_sudo.sqlite"
+    output = io.StringIO()
+
+    state = {"killed": False}
+    holder = db_command_module._FileHolder(pid=9191, command="python", path=str(db_path))
+    sent_local: list[tuple[set[int], int]] = []
+    sent_sudo: list[tuple[set[int], int]] = []
+
+    def _fake_probe(*args, **kwargs):
+        if state["killed"]:
+            return True, ""
+        return False, "database is locked"
+
+    def _fake_list(*args, **kwargs):
+        if state["killed"]:
+            return []
+        return [holder]
+
+    def _fake_local_signal(pids: set[int], sig: int):
+        sent_local.append((set(pids), int(sig)))
+        # Simulate permission denied/no effect from local kill attempt.
+        return []
+
+    def _fake_sudo_signal(pids: set[int], sig: int):
+        sent_sudo.append((set(pids), int(sig)))
+        state["killed"] = True
+        return sorted(pids)
+
+    monkeypatch.setattr(db_command_module, "_probe_database_write_lock", _fake_probe)
+    monkeypatch.setattr(db_command_module, "_list_file_holders", _fake_list)
+    monkeypatch.setattr(db_command_module, "_send_signal_to_pids", _fake_local_signal)
+    monkeypatch.setattr(db_command_module, "_send_signal_to_pids_via_sudo", _fake_sudo_signal)
+    monkeypatch.setattr(
+        db_command_module,
+        "_run_recovery_pragmas",
+        lambda *args, **kwargs: {
+            "checkpoint_busy": 0,
+            "checkpoint_log_frames": 0,
+            "checkpoint_frames_checkpointed": 0,
+            "integrity_check": None,
+        },
+    )
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.execute_line("db unlock --kill --sudo --no-check")
+
+    assert sent_local
+    assert sent_local[0][0] == {9191}
+    assert sent_local[0][1] == int(signal.SIGTERM)
+    assert sent_sudo
+    assert sent_sudo[0][0] == {9191}
+    assert sent_sudo[0][1] == int(signal.SIGTERM)
+    rendered = output.getvalue()
+    assert "Sent sudo SIGTERM" in rendered
+    assert "DB unlock completed." in rendered
+
+
+def test_text_browser_jobs_list_and_show(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_jobs_list_show.sqlite"
+    output = io.StringIO()
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    try:
+        job_id = manager.submit(
+            JobRequest(module_name="math", function_name="sqrt", args=(81,)),
+            no_output=True,
+            label="sqrt81",
+        )
+        manager.wait(job_id, timeout=2.0)
+
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
+            assert shell.execute_line("jobs list")
+            assert shell.execute_line("jobs show {}".format(job_id))
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+    rendered = output.getvalue()
+    assert "Summary: total=" in rendered
+    assert job_id in rendered
+    assert "state: succeeded" in rendered
+    assert "result_preview: 9.0" in rendered
+
+
+def test_text_browser_jobs_commands_route_via_core_when_available(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_jobs_core_route.sqlite"
+    output = io.StringIO()
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    try:
+        job_id = manager.submit(
+            JobRequest(module_name="math", function_name="sqrt", args=(81,)),
+            no_output=True,
+            label="sqrt81-core",
+        )
+        manager.wait(job_id, timeout=2.0)
+
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
+            query_calls: list[str] = []
+            command_calls: list[str] = []
+
+            original_query = shell.execute_core_query
+            original_command = shell.execute_core_command
+
+            def _record_query(name: str, *, payload=None):
+                query_calls.append(str(name))
+                return original_query(name, payload=payload)
+
+            def _record_command(name: str, *, payload=None):
+                command_calls.append(str(name))
+                return original_command(name, payload=payload)
+
+            monkeypatch.setattr(shell, "execute_core_query", _record_query)
+            monkeypatch.setattr(shell, "execute_core_command", _record_command)
+
+            assert shell.execute_line("jobs list")
+            assert shell.execute_line("jobs show {}".format(job_id))
+            assert shell.execute_line("jobs cancel {}".format(job_id))
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+    assert "jobs.list" in query_calls
+    assert "jobs.get" in query_calls
+    assert "jobs.cancel" in command_calls
+
+
+def test_text_browser_jobs_cancel_pending_job(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_jobs_cancel.sqlite"
+    output = io.StringIO()
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    try:
+        source = """
+import time
+
+def run(seconds):
+    time.sleep(seconds)
+    return seconds
+"""
+        _first_job = manager.submit(
+            JobRequest(module_name=source, function_name="run", args=(0.4,), module_is_source_code=True),
+            no_output=True,
+            label="blocker",
+        )
+        second_job = manager.submit(
+            JobRequest(module_name=source, function_name="run", args=(0.01,), module_is_source_code=True),
+            no_output=True,
+            label="to-cancel",
+        )
+
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
+            assert shell.execute_line("jobs cancel {}".format(second_job))
+            assert shell.execute_line("jobs show {} --wait=1".format(second_job))
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+    rendered = output.getvalue()
+    assert (
+        "Cancel requested for {}".format(second_job) in rendered
+        or "No cancellable job found for {}".format(second_job) in rendered
+    )
+    assert (
+        "state: cancelled" in rendered
+        or "state: aborted" in rendered
+        or "state: succeeded" in rendered
+    )
+
+
+def test_text_browser_jobs_panel_command_attach_and_detach(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_jobs_panel.sqlite"
+    output = io.StringIO()
+    manager = InMemoryJobManager(max_workers=1, default_backend="process")
+    try:
+        source = """
+import time
+
+def run():
+    print("panel hello")
+    time.sleep(0.2)
+    print("panel done")
+    return 1
+"""
+        job_id = manager.submit(
+            JobRequest(module_name=source, function_name="run", module_is_source_code=True),
+            no_output=False,
+            label="panel-test",
+            timeout=5.0,
+        )
+
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            shell = _PanelAwareBrowser(db, output=output, job_manager=manager)
+            assert shell.execute_line("jobs panel {}".format(job_id))
+            assert shell.panel_job_id == job_id
+            assert shell.execute_line("jobs panel off")
+            assert shell.panel_job_id is None
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+    rendered = output.getvalue()
+    assert "Job output panel attached to {}".format(job_id) in rendered
+    assert "Job output panel detached." in rendered
+
+
+def test_text_browser_default_commands_and_aliases_registered(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_default_commands.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db)
+        for command_class in DEFAULT_COMMAND_CLASSES:
+            expected = command_class()
+            names = [expected.name] + list(expected.aliases)
+
+            if bool(getattr(expected, "expose_direct", True)):
+                for raw_name in names:
+                    token = shell._normalize_command_token(raw_name)
+                    if not token:
+                        continue
+                    resolved = shell._commands.get(token)
+                    assert resolved is not None
+                    assert isinstance(resolved, command_class)
+
+            group_name = shell._normalize_command_token(getattr(expected, "group", None))
+            if not group_name:
+                continue
+
+            assert shell._group_alias_to_group[group_name] == group_name
+            for raw_alias in getattr(expected, "group_aliases", ()) or ():
+                alias = shell._normalize_command_token(raw_alias)
+                if alias:
+                    assert shell._group_alias_to_group[alias] == group_name
+            if group_name == "add":
+                assert shell._group_alias_to_group["new"] == "add"
+
+            group_map = shell._command_groups[group_name]
+            for raw_name in names:
+                token = shell._normalize_command_token(raw_name)
+                if not token:
+                    continue
+                resolved = group_map.get(token)
+                assert resolved is not None
+                assert isinstance(resolved, command_class)
+
+
 def test_text_browser_read_command_line_non_tty_streams(driver_spec, tmp_path: Path) -> None:
     db_path = tmp_path / "browser_readline_non_tty.sqlite"
     output = io.StringIO()
@@ -165,6 +753,79 @@ def test_text_browser_read_command_line_readline_mode_uses_input(monkeypatch, dr
         line = shell._read_command_line()
     assert line == "tables\n"
     assert prompts == ["liuxin-db> "]
+
+
+def test_text_browser_history_loads_and_saves_for_interactive_readline(
+    monkeypatch, driver_spec, tmp_path: Path
+) -> None:
+    db_path = tmp_path / "browser_history_interactive.sqlite"
+    history_path = tmp_path / "history" / "liuxin_history.txt"
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    history_path.write_text("tables\n", encoding="utf-8")
+
+    reads: list[str] = []
+    writes: list[str] = []
+
+    class _FakeReadline:
+        def read_history_file(self, path: str) -> None:
+            reads.append(path)
+
+        def write_history_file(self, path: str) -> None:
+            writes.append(path)
+
+        def add_history(self, _line: str) -> None:
+            return None
+
+    monkeypatch.setattr(text_browser_module, "_readline", _FakeReadline(), raising=False)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, history_file=history_path)
+        shell._can_use_readline_prompt = lambda: True  # type: ignore[method-assign]
+        shell.startup()
+        shell.shutdown(reason="test")
+
+    assert reads == [str(history_path)]
+    assert writes == [str(history_path)]
+
+
+def test_text_browser_history_not_used_without_interactive_readline(monkeypatch, driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_history_noninteractive.sqlite"
+    history_path = tmp_path / "history" / "liuxin_history.txt"
+
+    reads: list[str] = []
+    writes: list[str] = []
+
+    class _FakeReadline:
+        def read_history_file(self, path: str) -> None:
+            reads.append(path)
+
+        def write_history_file(self, path: str) -> None:
+            writes.append(path)
+
+        def add_history(self, _line: str) -> None:
+            return None
+
+    monkeypatch.setattr(text_browser_module, "_readline", _FakeReadline(), raising=False)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, input=io.StringIO(""), output=io.StringIO(), history_file=history_path)
+        shell.startup()
+        shell.shutdown(reason="test")
+
+    assert reads == []
+    assert writes == []
 
 
 def test_text_browser_summary_invalid_args(driver_spec, tmp_path: Path) -> None:
@@ -338,6 +999,7 @@ def test_text_browser_new_store_wizard_creates_row(driver_spec, tmp_path: Path) 
 
     rendered = output.getvalue()
     assert "New store wizard" in rendered
+    assert "wget_html_readonly" in rendered
     assert "Store saved:" in rendered
 
 
@@ -668,6 +1330,43 @@ def test_text_browser_sync_store_by_id_registers_ebook_files(driver_spec, tmp_pa
     assert "inserted_files: 2" in rendered
 
 
+def test_text_browser_sync_store_compact_subcommand_ref(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_sync_store_compact_subcommand_ref.sqlite"
+    output = io.StringIO()
+    sync_root = tmp_path / "sync_compact_ref_root"
+    sync_root.mkdir(parents=True, exist_ok=True)
+    (sync_root / "book.epub").write_bytes(b"epub")
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-compact-store",
+            kind="on_disk_existing_unmanaged_drive",
+            root_uri=str(sync_root.resolve()),
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(
+            [
+                "sync store:{} --no-hash --no-refresh".format(store_id),
+            ]
+        ) == 0
+
+        file_rows = db.search("files", "file_store_id", store_id)
+        assert len(file_rows) == 1
+        assert str(file_rows[0]["file_storage_key"]) == "book.epub"
+
+    rendered = output.getvalue()
+    assert "Sync completed:" in rendered
+
+
 def test_text_browser_sync_store_by_name_respects_extensions_filter(driver_spec, tmp_path: Path) -> None:
     db_path = tmp_path / "browser_sync_store_by_name.sqlite"
     output = io.StringIO()
@@ -702,6 +1401,282 @@ def test_text_browser_sync_store_by_name_respects_extensions_filter(driver_spec,
         file_rows = db.search("files", "file_store_id", store_id)
         assert len(file_rows) == 1
         assert str(file_rows[0]["file_storage_key"]) == "second.pdf"
+
+
+def test_text_browser_sync_store_no_progress_suppresses_progress_lines(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_sync_store_no_progress.sqlite"
+    output = io.StringIO()
+    sync_root = tmp_path / "sync_no_progress_root"
+    sync_root.mkdir(parents=True, exist_ok=True)
+    (sync_root / "first.epub").write_bytes(b"epub")
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-no-progress-store",
+            kind="on_disk_existing_unmanaged_drive",
+            root_uri=str(sync_root.resolve()),
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(
+            [
+                "sync store {} --no-hash --no-refresh --no-progress".format(store_id),
+            ]
+        ) == 0
+
+    rendered = output.getvalue()
+    assert "Sync completed:" in rendered
+    assert "Sync started:" not in rendered
+    assert "Sync progress:" not in rendered
+
+
+def test_text_browser_sync_store_json_output_disables_progress_lines(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_sync_store_json_output.sqlite"
+    output = io.StringIO()
+    sync_root = tmp_path / "sync_json_root"
+    sync_root.mkdir(parents=True, exist_ok=True)
+    (sync_root / "first.epub").write_bytes(b"epub")
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-json-store",
+            kind="on_disk_existing_unmanaged_drive",
+            root_uri=str(sync_root.resolve()),
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(
+            [
+                "sync store {} --no-hash --no-refresh --json".format(store_id),
+            ]
+        ) == 0
+
+    rendered = output.getvalue().strip()
+    assert rendered.startswith("{")
+    assert '"store_row_id"' in rendered
+    assert "Sync started:" not in rendered
+    assert "Sync progress:" not in rendered
+
+
+def test_text_browser_sync_store_background_submits_job(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_background.sqlite"
+    output = io.StringIO()
+    sync_root = tmp_path / "sync_background_root"
+    sync_root.mkdir(parents=True, exist_ok=True)
+    (sync_root / "first.epub").write_bytes(b"epub")
+
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_run_sync_store_job(**kwargs):
+        captured_kwargs.update(kwargs)
+        return {"store_row_id": 1, "inserted_files": 1, "errors": []}
+
+    monkeypatch.setattr(sync_command_module, "run_sync_store_job", _fake_run_sync_store_job)
+
+    try:
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            store_id = _insert_store_row(
+                db,
+                name="sync-background-store",
+                kind="on_disk_existing_unmanaged_drive",
+                root_uri=str(sync_root.resolve()),
+                is_read_only=1,
+            )
+
+            shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
+            assert shell.execute_line(
+                "sync store {} --background --job-backend serial --job-timeout-s 5 --job-no-output".format(store_id)
+            )
+
+            jobs = manager.list()
+            assert len(jobs) == 1
+            info = manager.wait(jobs[0].job_id, timeout=2.0)
+            assert info.state == "succeeded"
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+    rendered = output.getvalue()
+    assert "Sync job submitted:" in rendered
+    assert "Use `jobs show " in rendered
+    assert captured_kwargs.get("mode") == "local"
+    assert captured_kwargs.get("database_path") == str(db_path)
+    assert captured_kwargs.get("db_type") == driver_spec.db_type
+    assert captured_kwargs.get("wget_incremental_db_writes") is True
+
+
+def test_text_browser_sync_store_background_job_panel_attaches(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_background_panel.sqlite"
+    output = io.StringIO()
+    sync_root = tmp_path / "sync_background_panel_root"
+    sync_root.mkdir(parents=True, exist_ok=True)
+    (sync_root / "first.epub").write_bytes(b"epub")
+
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_run_sync_store_job(**kwargs):
+        captured_kwargs.update(kwargs)
+        return {"store_row_id": 1, "inserted_files": 1, "errors": []}
+
+    monkeypatch.setattr(sync_command_module, "run_sync_store_job", _fake_run_sync_store_job)
+
+    try:
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            store_id = _insert_store_row(
+                db,
+                name="sync-background-panel-store",
+                kind="on_disk_existing_unmanaged_drive",
+                root_uri=str(sync_root.resolve()),
+                is_read_only=1,
+            )
+
+            shell = _PanelAwareBrowser(db, output=output, job_manager=manager)
+            assert shell.execute_line(
+                "sync store {} --background --job-backend serial --job-timeout-s 5 --job-panel".format(store_id)
+            )
+
+            jobs = manager.list()
+            assert len(jobs) == 1
+            info = manager.wait(jobs[0].job_id, timeout=2.0)
+            assert info.state == "succeeded"
+            assert shell.panel_job_id == jobs[0].job_id
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+    rendered = output.getvalue()
+    assert "output_panel: attached to job" in rendered
+    assert captured_kwargs.get("mode") == "local"
+
+
+def test_text_browser_sync_store_background_forwards_wget_incremental_flag(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_background_wget_incremental_flag.sqlite"
+    output = io.StringIO()
+    sync_root = tmp_path / "sync_background_wget_incremental_flag_root"
+    sync_root.mkdir(parents=True, exist_ok=True)
+    (sync_root / "first.epub").write_bytes(b"epub")
+
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_run_sync_store_job(**kwargs):
+        captured_kwargs.update(kwargs)
+        return {"store_row_id": 1, "inserted_files": 1, "errors": []}
+
+    monkeypatch.setattr(sync_command_module, "run_sync_store_job", _fake_run_sync_store_job)
+
+    try:
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            store_id = _insert_store_row(
+                db,
+                name="sync-background-wget-incremental-flag-store",
+                kind="on_disk_existing_unmanaged_drive",
+                root_uri=str(sync_root.resolve()),
+                is_read_only=1,
+            )
+
+            shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
+            assert shell.execute_line(
+                "sync store {} --background --job-backend serial --wget-no-incremental-db-writes".format(store_id)
+            )
+            jobs = manager.list()
+            assert len(jobs) == 1
+            info = manager.wait(jobs[0].job_id, timeout=2.0)
+            assert info.state == "succeeded"
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+    assert captured_kwargs.get("wget_incremental_db_writes") is False
+
+
+def test_text_browser_sync_store_background_rejects_json_mode(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_sync_store_background_json.sqlite"
+    output = io.StringIO()
+    sync_root = tmp_path / "sync_background_json_root"
+    sync_root.mkdir(parents=True, exist_ok=True)
+
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    try:
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            store_id = _insert_store_row(
+                db,
+                name="sync-background-json-store",
+                kind="on_disk_existing_unmanaged_drive",
+                root_uri=str(sync_root.resolve()),
+                is_read_only=1,
+            )
+
+            shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
+            with pytest.raises(ValueError):
+                shell.execute_line("sync store {} --background --json".format(store_id))
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+
+def test_text_browser_sync_store_job_panel_requires_background(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_sync_store_job_panel_requires_background.sqlite"
+    output = io.StringIO()
+    sync_root = tmp_path / "sync_job_panel_requires_background_root"
+    sync_root.mkdir(parents=True, exist_ok=True)
+    (sync_root / "first.epub").write_bytes(b"epub")
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-job-panel-store",
+            kind="on_disk_existing_unmanaged_drive",
+            root_uri=str(sync_root.resolve()),
+            is_read_only=1,
+        )
+        shell = TextDatabaseBrowser(db, output=output)
+        with pytest.raises(ValueError):
+            shell.execute_line("sync store {} --job-panel --no-refresh".format(store_id))
 
 
 def test_text_browser_sync_store_rclone_uses_rate_limit_option(driver_spec, tmp_path: Path, monkeypatch) -> None:
@@ -748,6 +1723,308 @@ def test_text_browser_sync_store_rclone_uses_rate_limit_option(driver_spec, tmp_
     tps_args = [arg for arg in captured_extra_args[0] if arg.startswith("--tpslimit=")]
     assert tps_args
     assert "0.00277778" in tps_args[0]
+
+
+def test_text_browser_sync_store_rclone_listing_flags_are_forwarded(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_rclone_listing_flags.sqlite"
+    output = io.StringIO()
+    captured_extra_args: list[tuple[str, ...]] = []
+
+    def _fake_run_rclone_json(args, **kwargs):
+        captured_extra_args.append(tuple(kwargs.get("extra_args", ())))
+        if list(args[:3]) == ["lsjson", "-R", "--files-only"]:
+            return [{"Path": "books/two.epub", "Name": "two.epub", "Size": 12, "ModTime": "2025-01-02T03:04:05Z"}]
+        return []
+
+    monkeypatch.setattr(rclone_backend_module, "run_rclone_json", _fake_run_rclone_json)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-rclone-flags-store",
+            kind="rclone_http_readonly",
+            root_uri="remote:",
+            access_protocol="rclone",
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(
+            [
+                "sync store {} --rclone-http-no-slash --rclone-http-no-head --no-refresh".format(store_id),
+            ]
+        ) == 0
+
+    assert captured_extra_args
+    extra_args = captured_extra_args[0]
+    assert "--http-no-slash" in extra_args
+    assert "--http-no-head" in extra_args
+
+
+def test_text_browser_sync_store_rclone_plain_https_root_is_supported(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_rclone_https.sqlite"
+    output = io.StringIO()
+    captured_roots: list[str] = []
+
+    def _fake_run_rclone_json(args, **kwargs):
+        if len(args) >= 4 and list(args[:3]) == ["lsjson", "-R", "--files-only"]:
+            captured_roots.append(str(args[3]))
+            return [{"Path": "books/plain.epub", "Name": "plain.epub", "Size": 7, "ModTime": "2025-01-02T03:04:05Z"}]
+        return []
+
+    monkeypatch.setattr(rclone_backend_module, "run_rclone_json", _fake_run_rclone_json)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-rclone-https-store",
+            kind="rclone_http_readonly",
+            root_uri="https://www.fadedpage.com/",
+            access_protocol="https",
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(
+            [
+                "sync store:{} --no-refresh".format(store_id),
+            ]
+        ) == 0
+
+        file_rows = db.search("files", "file_store_id", store_id)
+        assert len(file_rows) == 1
+        assert str(file_rows[0]["file_storage_key"]) == "books/plain.epub"
+
+    assert captured_roots
+    assert captured_roots[0] == ':http,url="https://www.fadedpage.com":'
+
+
+def test_text_browser_sync_store_wget_uses_rate_limit_option(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_wget.sqlite"
+    output = io.StringIO()
+    captured_wget_args: list[list[str]] = []
+    captured_timeout_s: list[object] = []
+
+    def _fake_run_wget(args, **kwargs):
+        captured_wget_args.append(list(args))
+        captured_timeout_s.append(kwargs.get("timeout_s"))
+        callback = kwargs.get("line_callback")
+        if callable(callback):
+            callback("Spider mode enabled")
+        listing = "https://www.fadedpage.com/books/one.epub\n"
+        return WgetResult(args=list(args), returncode=0, stdout=listing, stderr="")
+
+    monkeypatch.setattr(wget_backend_module, "run_wget", _fake_run_wget)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-wget-store",
+            kind="wget_html_readonly",
+            root_uri="https://www.fadedpage.com/",
+            access_protocol="wget",
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(
+            [
+                "sync store {} to-db --max-http-requests-per-hour 30 --no-refresh".format(store_id),
+            ]
+        ) == 0
+
+        file_rows = db.search("files", "file_store_id", store_id)
+        assert len(file_rows) == 1
+        assert str(file_rows[0]["file_storage_key"]) == "books/one.epub"
+
+    assert captured_wget_args
+    assert "--wait=120.000" in captured_wget_args[0]
+    assert "--no-verbose" not in captured_wget_args[0]
+    assert captured_timeout_s and captured_timeout_s[0] is None
+    rendered = output.getvalue()
+    assert "Wget: Spider mode enabled" in rendered
+    assert "store_supports_checksums: no" in rendered
+
+
+def test_text_browser_sync_store_wget_kind_takes_precedence_over_https_protocol(
+    driver_spec, tmp_path: Path, monkeypatch
+) -> None:
+    db_path = tmp_path / "browser_sync_store_wget_kind_precedence.sqlite"
+    output = io.StringIO()
+    captured_wget_calls = {"count": 0}
+
+    def _fake_run_wget(args, **kwargs):
+        captured_wget_calls["count"] += 1
+        listing = "https://example.com/books/one.epub\n"
+        return WgetResult(args=list(args), returncode=0, stdout=listing, stderr="")
+
+    def _fail_run_rclone_json(args, **kwargs):
+        raise AssertionError("rclone should not be used for wget_html_readonly store kind")
+
+    monkeypatch.setattr(wget_backend_module, "run_wget", _fake_run_wget)
+    monkeypatch.setattr(rclone_backend_module, "run_rclone_json", _fail_run_rclone_json)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-wget-kind-wins",
+            kind="wget_html_readonly",
+            root_uri="https://example.com/",
+            access_protocol="https",
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(["sync store:{} --no-refresh".format(store_id)]) == 0
+
+    assert captured_wget_calls["count"] >= 1
+
+
+def test_text_browser_sync_store_wget_listing_flags_are_forwarded(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_wget_listing_flags.sqlite"
+    output = io.StringIO()
+    captured_args: list[list[str]] = []
+    captured_extra_args: list[tuple[str, ...]] = []
+
+    def _fake_run_wget(args, **kwargs):
+        captured_args.append(list(args))
+        captured_extra_args.append(tuple(kwargs.get("extra_args", ())))
+        listing = "https://example.com/books/two.epub\n"
+        return WgetResult(args=list(args), returncode=0, stdout=listing, stderr="")
+
+    monkeypatch.setattr(wget_backend_module, "run_wget", _fake_run_wget)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-wget-flags-store",
+            kind="wget_html_readonly",
+            root_uri="https://example.com/base/",
+            access_protocol="wget",
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(
+            [
+                "sync store {} --wget-max-depth 2 --wget-parent --wget-span-hosts "
+                "--wget-ignore-robots --wget-user-agent 'LiuXinTest/1.0' --wget-verbose "
+                "--wget-arg=--timeout=5 --no-refresh".format(store_id),
+            ]
+        ) == 0
+
+    assert captured_args
+    sync_call = captured_args[0]
+    assert "--recursive" in sync_call
+    assert "--level=2" in sync_call
+    assert "--span-hosts" in sync_call
+    assert "--execute=robots=off" in sync_call
+    assert "--user-agent=LiuXinTest/1.0" in sync_call
+    assert "--no-parent" not in sync_call
+    assert "--no-verbose" not in sync_call
+
+    assert captured_extra_args
+    assert "--timeout=5" in captured_extra_args[0]
+
+
+def test_text_browser_sync_store_wget_no_verbose_flag_is_forwarded(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_wget_no_verbose.sqlite"
+    output = io.StringIO()
+    captured_args: list[list[str]] = []
+
+    def _fake_run_wget(args, **kwargs):
+        captured_args.append(list(args))
+        listing = "https://example.com/books/noisy.epub\n"
+        return WgetResult(args=list(args), returncode=0, stdout=listing, stderr="")
+
+    monkeypatch.setattr(wget_backend_module, "run_wget", _fake_run_wget)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-wget-no-verbose-store",
+            kind="wget_html_readonly",
+            root_uri="https://example.com/",
+            access_protocol="wget",
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(["sync store {} --wget-no-verbose --no-refresh".format(store_id)]) == 0
+
+    assert captured_args
+    assert "--no-verbose" in captured_args[0]
+
+
+def test_text_browser_sync_store_wget_timeout_option_is_forwarded(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_wget_timeout.sqlite"
+    output = io.StringIO()
+    captured_timeout_s: list[object] = []
+
+    def _fake_run_wget(args, **kwargs):
+        captured_timeout_s.append(kwargs.get("timeout_s"))
+        listing = "https://example.com/books/slow.epub\n"
+        return WgetResult(args=list(args), returncode=0, stdout=listing, stderr="")
+
+    monkeypatch.setattr(wget_backend_module, "run_wget", _fake_run_wget)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-wget-timeout-store",
+            kind="wget_html_readonly",
+            root_uri="https://example.com/",
+            access_protocol="wget",
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(["sync store {} --wget-timeout-s 1200 --no-refresh".format(store_id)]) == 0
+
+    assert captured_timeout_s
+    assert captured_timeout_s[0] == 1200.0
 
 
 def test_text_browser_store_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
@@ -943,6 +2220,30 @@ def test_text_browser_top_command_shows_rows(driver_spec, tmp_path: Path) -> Non
     assert "| name " in rendered
     assert "+-" in rendered
     assert "top-store" in rendered
+
+
+def test_text_browser_list_alias_shows_rows(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_list_alias.sqlite"
+    output = io.StringIO()
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        _insert_store_row(
+            db,
+            name="list-store",
+            kind="on_disk_existing_managed_drive",
+            root_uri=str(tmp_path / "store_root"),
+        )
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.execute_line("list stores 1")
+
+    rendered = output.getvalue()
+    assert "Top stores rows" in rendered
+    assert "list-store" in rendered
 
 
 def test_text_browser_top_command_respects_terminal_width(driver_spec, tmp_path: Path) -> None:
@@ -1256,6 +2557,7 @@ def test_text_browser_singular_table_tokens_resolve_in_core_commands(driver_spec
         assert shell.execute_line("browse store 1 0")
         assert shell.execute_line("row store {}".format(store_id))
         assert shell.execute_line("search store store_name singular-store 1")
+        assert shell.execute_line("search store singular-store --limit 1")
         assert shell.execute_line("top store 1")
 
     rendered = output.getvalue()
@@ -1264,7 +2566,35 @@ def test_text_browser_singular_table_tokens_resolve_in_core_commands(driver_spec
     assert "stores rows:" in rendered
     assert "Browsing stores rows" in rendered
     assert "Search stores.store_name" in rendered
+    assert "Search stores contains 'singular-store'" in rendered
+    assert "Summary: matches_total=" in rendered
+    assert "Summary: scanned_rows=" in rendered
     assert "Top stores rows" in rendered
+
+
+def test_text_browser_table_wide_search_with_quoted_term(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_search_table_wide.sqlite"
+    output = io.StringIO()
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        _insert_store_row(
+            db,
+            name="Wide Store Name",
+            kind="on_disk_existing_managed_drive",
+            root_uri=str(tmp_path / "store_root"),
+        )
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.execute_line('search stores "Wide Store" --limit 5')
+
+    rendered = output.getvalue()
+    assert "Search stores contains 'Wide Store'" in rendered
+    assert "matches_total=1" in rendered
+    assert "Summary: scanned_rows=" in rendered
 
 
 def test_text_browser_new_creator_wizard_creates_human_agent(driver_spec, tmp_path: Path) -> None:

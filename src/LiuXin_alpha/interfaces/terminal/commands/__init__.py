@@ -3,7 +3,21 @@
 from __future__ import annotations
 
 from .base import TerminalCommandAPI
+from .core import (
+    BrowseCommand,
+    CountCommand,
+    HelpCommand,
+    NextCommand,
+    PageSizeCommand,
+    PrevCommand,
+    RowCommand,
+    SchemaCommand,
+    TablesCommand,
+    UseCommand,
+)
+from .db import DbUnlockCommand
 from .ingest import IngestDiskCommand
+from .jobs import JobsCancelCommand, JobsListCommand, JobsPanelCommand, JobsShowCommand
 from .link import LinkCommand, LinksCommand, UnlinkCommand
 from .new_creator import NewCreatorWizardCommand
 from .new_expression import NewExpressionWizardCommand
@@ -37,6 +51,7 @@ from .on import (
     OnTagCommand,
 )
 from .quit import QuitCommand
+from .search import SearchCommand
 from .show import (
     ShowAllCommand,
     ShowGenresCommand,
@@ -51,10 +66,96 @@ from .sync import SyncStoreCommand
 from .top import TopCommand
 from .store_view import StoreFilesCommand, StoreListCommand, StoreShowCommand
 
+DEFAULT_COMMAND_CLASSES = (
+    HelpCommand,
+    TablesCommand,
+    UseCommand,
+    SchemaCommand,
+    CountCommand,
+    BrowseCommand,
+    NextCommand,
+    PrevCommand,
+    RowCommand,
+    PageSizeCommand,
+    QuitCommand,
+    SummaryCommand,
+    SearchCommand,
+    DbUnlockCommand,
+    JobsListCommand,
+    JobsShowCommand,
+    JobsCancelCommand,
+    JobsPanelCommand,
+    TopCommand,
+    LinkCommand,
+    UnlinkCommand,
+    LinksCommand,
+    NoteOnCommand,
+    OnNoteCommand,
+    OnTagCommand,
+    OnGenreCommand,
+    OnSubjectCommand,
+    OnLanguageCommand,
+    OnSeriesCommand,
+    OffNoteCommand,
+    OffTagCommand,
+    OffGenreCommand,
+    OffSubjectCommand,
+    OffLanguageCommand,
+    OffSeriesCommand,
+    ShowTagsCommand,
+    ShowNotesCommand,
+    ShowGenresCommand,
+    ShowSubjectsCommand,
+    ShowLanguageCommand,
+    ShowSeriesCommand,
+    ShowAllCommand,
+    NewStoreWizardCommand,
+    NewCreatorWizardCommand,
+    NewExpressionWizardCommand,
+    NewItemWizardCommand,
+    NewGenreWizardCommand,
+    NewNoteWizardCommand,
+    NewOrganisationWizardCommand,
+    NewPublisherWizardCommand,
+    NewSeriesWizardCommand,
+    NewSubjectWizardCommand,
+    NewTagWizardCommand,
+    NewTitleWizardCommand,
+    NewWorkWizardCommand,
+    NewManifestationWizardCommand,
+    IngestDiskCommand,
+    SyncStoreCommand,
+    StoreListCommand,
+    StoreShowCommand,
+    StoreFilesCommand,
+)
+
+
+def build_default_commands() -> list[TerminalCommandAPI]:
+    """Create one instance of each default terminal command class."""
+    return [command_class() for command_class in DEFAULT_COMMAND_CLASSES]
+
+
 __all__ = [
     "TerminalCommandAPI",
+    "HelpCommand",
+    "TablesCommand",
+    "UseCommand",
+    "SchemaCommand",
+    "CountCommand",
+    "BrowseCommand",
+    "NextCommand",
+    "PrevCommand",
+    "RowCommand",
+    "PageSizeCommand",
     "IngestDiskCommand",
     "SummaryCommand",
+    "SearchCommand",
+    "DbUnlockCommand",
+    "JobsListCommand",
+    "JobsShowCommand",
+    "JobsCancelCommand",
+    "JobsPanelCommand",
     "SyncStoreCommand",
     "QuitCommand",
     "LinkCommand",
@@ -98,4 +199,6 @@ __all__ = [
     "StoreListCommand",
     "StoreShowCommand",
     "StoreFilesCommand",
+    "DEFAULT_COMMAND_CLASSES",
+    "build_default_commands",
 ]

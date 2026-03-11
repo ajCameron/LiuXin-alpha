@@ -16,7 +16,7 @@ class TopCommand(TerminalCommandAPI):
     """Show the top rows from a table."""
 
     name = "top"
-    aliases = ("head",)
+    aliases = ("head", "list")
     summary = "Show the first rows of a table."
     usage = "top <table> [limit] [offset]"
 

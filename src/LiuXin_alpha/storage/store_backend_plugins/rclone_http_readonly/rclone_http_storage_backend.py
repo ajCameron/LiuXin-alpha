@@ -45,6 +45,25 @@ def get_default_rclone_http_requests_per_hour() -> float:
     return value
 
 
+def _normalize_rclone_fs_root(url: str) -> str:
+    """
+    Normalize a user-facing URL into an rclone filesystem root string.
+
+    Supports plain HTTP(S) URLs by converting them into rclone's config-less
+    backend syntax with quoted URL value:
+    ``:http,url="https://example.com":``
+    """
+    root = str(url or "").strip()
+    if not root:
+        return root
+    lowered = root.lower()
+    if lowered.startswith("http://") or lowered.startswith("https://"):
+        normalized_http = root.rstrip("/")
+        quoted = normalized_http.replace('"', '\\"')
+        return ':http,url="{}":'.format(quoted)
+    return root
+
+
 @dataclass
 class RcloneBackendOptions:
     """Runtime options controlling `rclone` invocation behavior."""
@@ -73,7 +92,7 @@ class RcloneHttpReadOnlyStorageBackend(StoreAPI):
     `url` is an rclone filesystem (fs) string, e.g.
 
     - Config-based:   ``remote:`` or ``remote:some/base/path``
-    - Config-less:    ``:http,url=https://example.com:``  (note: no shell quotes)
+    - Config-less:    ``:http,url="https://example.com":``  (quoted URL value)
 
     This backend is intentionally read-only: add/delete operations raise.
     """
@@ -88,7 +107,7 @@ class RcloneHttpReadOnlyStorageBackend(StoreAPI):
         uuid: Optional[str] = None,
         options: RcloneBackendOptions | None = None,
     ) -> None:
-        super().__init__(url=url, name=name, uuid=uuid)
+        super().__init__(url=_normalize_rclone_fs_root(url), name=name, uuid=uuid)
         self.options = options or RcloneBackendOptions()
         self._event_log = InMemoryEventLog()
         self._rate_limit_lock = threading.Lock()

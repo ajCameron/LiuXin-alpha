@@ -25,6 +25,7 @@ class _StoreKindPreset:
     supports_random_read: bool
     supports_random_write: bool
     supports_delete: bool
+    supports_checksums: bool
     supports_immutable_objects: bool
 
 
@@ -40,6 +41,7 @@ _STORE_KIND_PRESETS: tuple[_StoreKindPreset, ...] = (
         supports_random_read=True,
         supports_random_write=True,
         supports_delete=True,
+        supports_checksums=True,
         supports_immutable_objects=False,
     ),
     _StoreKindPreset(
@@ -53,6 +55,7 @@ _STORE_KIND_PRESETS: tuple[_StoreKindPreset, ...] = (
         supports_random_read=True,
         supports_random_write=False,
         supports_delete=False,
+        supports_checksums=True,
         supports_immutable_objects=False,
     ),
     _StoreKindPreset(
@@ -66,6 +69,7 @@ _STORE_KIND_PRESETS: tuple[_StoreKindPreset, ...] = (
         supports_random_read=True,
         supports_random_write=True,
         supports_delete=True,
+        supports_checksums=True,
         supports_immutable_objects=False,
     ),
     _StoreKindPreset(
@@ -79,6 +83,7 @@ _STORE_KIND_PRESETS: tuple[_StoreKindPreset, ...] = (
         supports_random_read=True,
         supports_random_write=True,
         supports_delete=True,
+        supports_checksums=True,
         supports_immutable_objects=False,
     ),
     _StoreKindPreset(
@@ -92,6 +97,7 @@ _STORE_KIND_PRESETS: tuple[_StoreKindPreset, ...] = (
         supports_random_read=True,
         supports_random_write=False,
         supports_delete=False,
+        supports_checksums=True,
         supports_immutable_objects=True,
     ),
     _StoreKindPreset(
@@ -105,6 +111,21 @@ _STORE_KIND_PRESETS: tuple[_StoreKindPreset, ...] = (
         supports_random_read=True,
         supports_random_write=False,
         supports_delete=False,
+        supports_checksums=True,
+        supports_immutable_objects=False,
+    ),
+    _StoreKindPreset(
+        kind="wget_html_readonly",
+        label="Wget HTML spider remote (read-only)",
+        access_protocol="wget",
+        read_only_default=True,
+        location_type="remote",
+        supports_folders=True,
+        supports_hierarchical_list=True,
+        supports_random_read=True,
+        supports_random_write=False,
+        supports_delete=False,
+        supports_checksums=False,
         supports_immutable_objects=False,
     ),
 )
@@ -332,6 +353,7 @@ class NewStoreWizardCommand(TerminalCommandAPI):
             "store_supports_random_read": int(bool(preset.supports_random_read)),
             "store_supports_random_write": int(supports_random_write),
             "store_supports_delete": int(supports_delete),
+            "store_supports_checksums": int(bool(preset.supports_checksums)),
             "store_supports_immutable_objects": int(bool(preset.supports_immutable_objects)),
             "store_modified_timestamp_ep_k": int(now_epk),
         }

@@ -16,7 +16,7 @@ import pathlib
 import time
 
 from datetime import datetime
-from typing import Iterable, Optional, Sequence
+from typing import Callable, Iterable, Optional, Sequence
 
 from LiuXin_alpha.constants.file_extensions import BOOK_EXTENSIONS
 from LiuXin_alpha.databases.row import Row
@@ -30,8 +30,16 @@ from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     RcloneHttpReadOnlyStorageBackend,
     get_default_rclone_http_requests_per_hour,
 )
+from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
+    WgetBackendOptions,
+    WgetHtmlReadOnlyStorageBackend,
+    get_default_wget_http_requests_per_hour,
+)
 from LiuXin_alpha.utils.storage.local.file_properties import get_file_hash
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
+
+
+ProgressCallback = Callable[[str, UnmanagedDiskRegistrationReport, dict[str, object]], None]
 
 
 def _now_ep_ms() -> int:
@@ -181,11 +189,12 @@ def ensure_unmanaged_store_for_disk(
             "store_supports_random_write": 0,
             "store_supports_delete": 0,
             "store_supports_folders": 1,
+            "store_supports_checksums": 1,
         }
         changed = False
         for key, value in updates.items():
             if key not in store_row.allowed_columns:
-                continue
+                return
             if store_row[key] != value:
                 store_row[key] = value
                 changed = True
@@ -206,6 +215,7 @@ def ensure_unmanaged_store_for_disk(
         "store_supports_random_write": 0,
         "store_supports_delete": 0,
         "store_supports_folders": 1,
+        "store_supports_checksums": 1,
         "store_created_timestamp_ep_k": now_epk,
         "store_modified_timestamp_ep_k": now_epk,
     }
@@ -281,6 +291,7 @@ def ensure_rclone_http_readonly_store(
             "store_supports_delete": 0,
             "store_supports_folders": 1,
             "store_supports_hierarchical_list": 1,
+            "store_supports_checksums": 1,
             "store_policy_json": policy_json,
         }
         changed = False
@@ -307,6 +318,123 @@ def ensure_rclone_http_readonly_store(
         "store_supports_delete": 0,
         "store_supports_folders": 1,
         "store_supports_hierarchical_list": 1,
+        "store_supports_checksums": 1,
+        "store_created_timestamp_ep_k": now_epk,
+        "store_modified_timestamp_ep_k": now_epk,
+        "store_policy_json": policy_json,
+    }
+    row_dict = {key: value for key, value in payload.items() if key in store_columns}
+    store_row = Row.from_idless_row_dict(db, row_dict=row_dict, table="stores")
+    return store_row, backend
+
+
+def ensure_wget_html_readonly_store(
+    db,
+    remote_url: str,
+    *,
+    store_name: Optional[str] = None,
+    store_kind: str = "wget_html_readonly",
+    max_http_requests_per_hour: float | None = None,
+    wget_exe: str = "wget",
+    wget_args: Optional[Sequence[str]] = None,
+    timeout_s: float | None = 300.0,
+    recurse: bool = True,
+    max_depth: int | None = None,
+    no_parent: bool = True,
+    span_hosts: bool = False,
+    respect_robots: bool = True,
+    user_agent: str | None = None,
+    no_verbose: bool = True,
+) -> tuple[Row, WgetHtmlReadOnlyStorageBackend]:
+    """
+    Create/reuse a `stores` row and wget-backed read-only store for a remote URL.
+    """
+    _ensure_schema_support(db)
+    root = _normalize_remote_root(remote_url)
+    effective_max_http_requests_per_hour = (
+        get_default_wget_http_requests_per_hour()
+        if max_http_requests_per_hour is None
+        else max_http_requests_per_hour
+    )
+
+    backend_name = store_name or safe_path_to_name(root)
+    options = WgetBackendOptions(
+        wget_exe=wget_exe,
+        wget_args=tuple(wget_args or ()),
+        timeout_s=timeout_s,
+        max_http_requests_per_hour=effective_max_http_requests_per_hour,
+        recurse=bool(recurse),
+        max_depth=max_depth,
+        no_parent=bool(no_parent),
+        span_hosts=bool(span_hosts),
+        respect_robots=bool(respect_robots),
+        user_agent=user_agent,
+        no_verbose=bool(no_verbose),
+    )
+    backend = WgetHtmlReadOnlyStorageBackend(url=root, name=backend_name, options=options)
+
+    store_columns = _table_columns(db, "stores")
+    policy_payload = {
+        "backend": "wget_html_readonly",
+        "wget": {
+            "max_http_requests_per_hour": options.max_http_requests_per_hour,
+            "wget_exe": options.wget_exe,
+            "wget_args": list(options.wget_args),
+            "timeout_s": options.timeout_s,
+            "recurse": bool(options.recurse),
+            "max_depth": options.max_depth,
+            "no_parent": bool(options.no_parent),
+            "span_hosts": bool(options.span_hosts),
+            "respect_robots": bool(options.respect_robots),
+            "user_agent": options.user_agent,
+            "no_verbose": bool(options.no_verbose),
+        },
+    }
+    policy_json = json.dumps(policy_payload, sort_keys=True)
+
+    store_rows = db.search("stores", "store_root_uri", root)
+    if store_rows:
+        store_row = store_rows[0]
+        updates = {
+            "store_name": backend.name,
+            "store_kind": store_kind,
+            "store_access_protocol": "wget",
+            "store_root_uri": root,
+            "store_is_read_only": 1,
+            "store_online_status": "online",
+            "store_supports_random_read": 1,
+            "store_supports_random_write": 0,
+            "store_supports_delete": 0,
+            "store_supports_folders": 1,
+            "store_supports_hierarchical_list": 1,
+            "store_supports_checksums": 0,
+            "store_policy_json": policy_json,
+        }
+        changed = False
+        for key, value in updates.items():
+            if key not in store_row.allowed_columns:
+                continue
+            if store_row[key] != value:
+                store_row[key] = value
+                changed = True
+        if changed:
+            store_row.sync()
+        return store_row, backend
+
+    now_epk = _now_ep_ms()
+    payload = {
+        "store_name": backend.name,
+        "store_kind": store_kind,
+        "store_access_protocol": "wget",
+        "store_root_uri": root,
+        "store_is_read_only": 1,
+        "store_online_status": "online",
+        "store_supports_random_read": 1,
+        "store_supports_random_write": 0,
+        "store_supports_delete": 0,
+        "store_supports_folders": 1,
+        "store_supports_hierarchical_list": 1,
+        "store_supports_checksums": 0,
         "store_created_timestamp_ep_k": now_epk,
         "store_modified_timestamp_ep_k": now_epk,
         "store_policy_json": policy_json,
@@ -419,6 +547,22 @@ def _build_remote_file_payload(
     return payload
 
 
+def _emit_progress(
+    progress_callback: Optional[ProgressCallback],
+    *,
+    event: str,
+    report: UnmanagedDiskRegistrationReport,
+    details: Optional[dict[str, object]] = None,
+) -> None:
+    if progress_callback is None:
+        return
+    try:
+        progress_callback(str(event), report, dict(details or {}))
+    except Exception:
+        # Progress callbacks are best-effort and must not break sync behavior.
+        return
+
+
 def _insert_file_row(db, *, payload: dict[str, object], file_columns: set[str]) -> Row:
     row_dict = {key: value for key, value in payload.items() if key in file_columns and value is not None}
     return Row.from_idless_row_dict(db, row_dict=row_dict, table="files")
@@ -499,6 +643,7 @@ def register_existing_disk_as_unmanaged_store(
     follow_symlinks: bool = False,
     attach_store_links: bool = True,
     refresh_storage_manager: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> UnmanagedDiskRegistrationReport:
     """
     Register ebook files under a disk path into `files` using one unmanaged store row.
@@ -516,6 +661,12 @@ def register_existing_disk_as_unmanaged_store(
         store_row_id=store_id,
         store_root_uri=str(backend.root_path),
         store_name=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.name,
+    )
+    _emit_progress(
+        progress_callback,
+        event="start",
+        report=report,
+        details={"mode": "local", "store_id": store_id, "store_root_uri": str(backend.root_path)},
     )
 
     existing_rows = db.search("files", "file_store_id", store_id)
@@ -539,6 +690,12 @@ def register_existing_disk_as_unmanaged_store(
         ext = path.suffix.lower().lstrip(".")
         if ext not in ebook_exts:
             report.skipped_non_ebook_files += 1
+            _emit_progress(
+                progress_callback,
+                event="scan",
+                report=report,
+                details={"path": str(path), "is_ebook": False},
+            )
             continue
 
         report.ebook_candidates += 1
@@ -580,6 +737,19 @@ def register_existing_disk_as_unmanaged_store(
 
         except Exception as exc:
             report.errors.append("{} :: {}".format(str(path), repr(exc)))
+            _emit_progress(
+                progress_callback,
+                event="error",
+                report=report,
+                details={"path": str(path), "error": repr(exc)},
+            )
+        else:
+            _emit_progress(
+                progress_callback,
+                event="scan",
+                report=report,
+                details={"path": str(path), "is_ebook": True},
+            )
 
     if refresh_storage_manager and hasattr(db, "bootstrap_storage_manager"):
         try:
@@ -588,6 +758,12 @@ def register_existing_disk_as_unmanaged_store(
             report.errors.append("storage_manager_bootstrap_failed :: {!r}".format(exc))
 
     report.finished_timestamp_ep_k = _now_ep_ms()
+    _emit_progress(
+        progress_callback,
+        event="done",
+        report=report,
+        details={"mode": "local", "store_id": store_id, "store_root_uri": str(backend.root_path)},
+    )
     return report
 
 
@@ -609,6 +785,7 @@ def register_rclone_http_readonly_store_files(
     capture_hashes: bool = False,
     attach_store_links: bool = True,
     refresh_storage_manager: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> UnmanagedDiskRegistrationReport:
     """
     Register ebook files discovered by a read-only rclone HTTP store into `files`.
@@ -634,6 +811,12 @@ def register_rclone_http_readonly_store_files(
         store_root_uri=str(backend.url),
         store_name=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.name,
     )
+    _emit_progress(
+        progress_callback,
+        event="start",
+        report=report,
+        details={"mode": "rclone", "store_id": store_id, "store_root_uri": str(backend.url)},
+    )
 
     existing_rows = db.search("files", "file_store_id", store_id)
     existing_by_key: dict[str, Row] = {}
@@ -658,7 +841,13 @@ def register_rclone_http_readonly_store_files(
             ext = pathlib.PurePosixPath(storage_key).suffix.lower().lstrip(".")
             if ext not in ebook_exts:
                 report.skipped_non_ebook_files += 1
-                continue
+                _emit_progress(
+                    progress_callback,
+                    event="scan",
+                    report=report,
+                    details={"path": storage_key, "is_ebook": False},
+                )
+                return
 
             report.ebook_candidates += 1
             now_epk = _now_ep_ms()
@@ -706,6 +895,19 @@ def register_rclone_http_readonly_store_files(
         except Exception as exc:
             marker = getattr(remote_file, "file_url", "<unknown>")
             report.errors.append("{} :: {}".format(marker, repr(exc)))
+            _emit_progress(
+                progress_callback,
+                event="error",
+                report=report,
+                details={"path": marker, "error": repr(exc)},
+            )
+        else:
+            _emit_progress(
+                progress_callback,
+                event="scan",
+                report=report,
+                details={"path": storage_key, "is_ebook": True},
+            )
 
     if refresh_storage_manager and hasattr(db, "bootstrap_storage_manager"):
         try:
@@ -714,6 +916,194 @@ def register_rclone_http_readonly_store_files(
             report.errors.append("storage_manager_bootstrap_failed :: {!r}".format(exc))
 
     report.finished_timestamp_ep_k = _now_ep_ms()
+    _emit_progress(
+        progress_callback,
+        event="done",
+        report=report,
+        details={"mode": "rclone", "store_id": store_id, "store_root_uri": str(backend.url)},
+    )
+    return report
+
+
+def register_wget_html_readonly_store_files(
+    db,
+    remote_url: str,
+    *,
+    store_name: Optional[str] = None,
+    store_kind: str = "wget_html_readonly",
+    max_http_requests_per_hour: float | None = None,
+    wget_exe: str = "wget",
+    wget_args: Optional[Sequence[str]] = None,
+    timeout_s: float | None = 300.0,
+    recurse: bool = True,
+    max_depth: int | None = None,
+    no_parent: bool = True,
+    span_hosts: bool = False,
+    respect_robots: bool = True,
+    user_agent: str | None = None,
+    no_verbose: bool = True,
+    ebook_extensions: Optional[Iterable[str]] = None,
+    source_label: str = "wget_html_import",
+    attach_store_links: bool = True,
+    refresh_storage_manager: bool = True,
+    incremental_db_writes: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
+) -> UnmanagedDiskRegistrationReport:
+    """
+    Register ebook files discovered by a wget HTML spider store into `files`.
+    """
+    tables, _, file_columns, link_columns = _ensure_schema_support(db)
+    store_row, backend = ensure_wget_html_readonly_store(
+        db,
+        remote_url=remote_url,
+        store_name=store_name,
+        store_kind=store_kind,
+        max_http_requests_per_hour=max_http_requests_per_hour,
+        wget_exe=wget_exe,
+        wget_args=wget_args,
+        timeout_s=timeout_s,
+        recurse=recurse,
+        max_depth=max_depth,
+        no_parent=no_parent,
+        span_hosts=span_hosts,
+        respect_robots=respect_robots,
+        user_agent=user_agent,
+        no_verbose=no_verbose,
+    )
+
+    store_id = int(store_row.row_id if store_row.row_id is not None else store_row["store_id"])
+    report = UnmanagedDiskRegistrationReport(
+        store_row_id=store_id,
+        store_root_uri=str(backend.url),
+        store_name=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.name,
+    )
+    _emit_progress(
+        progress_callback,
+        event="start",
+        report=report,
+        details={"mode": "wget", "store_id": store_id, "store_root_uri": str(backend.url)},
+    )
+
+    existing_rows = db.search("files", "file_store_id", store_id)
+    existing_by_key: dict[str, Row] = {}
+    for row in existing_rows:
+        key = row["file_storage_key"]
+        if key is not None:
+            existing_by_key[str(key)] = row
+
+    linked_file_ids: set[int] = set()
+    if attach_store_links and "file_store_links" in tables and "file_store_link_store_id" in link_columns:
+        for link_row in db.search("file_store_links", "file_store_link_store_id", store_id):
+            file_id = link_row["file_store_link_file_id"]
+            if file_id is not None:
+                linked_file_ids.add(int(file_id))
+
+    ebook_exts = _normalize_ebook_extensions(ebook_extensions)
+
+    def _on_crawl_log_line(raw_line: str) -> None:
+        line = str(raw_line or "").strip()
+        if not line:
+            return
+        _emit_progress(
+            progress_callback,
+            event="crawl-log",
+            report=report,
+            details={"line": line, "mode": "wget"},
+        )
+
+    def _process_crawled_url(crawled_url: str) -> None:
+        remote_file = backend.get_file(crawled_url)
+        report.scanned_files += 1
+        try:
+            storage_key = _storage_key_from_store_url(store_url=backend.url, file_url=remote_file.file_url)
+            ext = pathlib.PurePosixPath(storage_key).suffix.lower().lstrip(".")
+            if ext not in ebook_exts:
+                report.skipped_non_ebook_files += 1
+                _emit_progress(
+                    progress_callback,
+                    event="scan",
+                    report=report,
+                    details={"path": storage_key, "is_ebook": False},
+                )
+                return
+
+            report.ebook_candidates += 1
+            now_epk = _now_ep_ms()
+            payload = _build_remote_file_payload(
+                file_url=remote_file.file_url,
+                storage_key=storage_key,
+                stat_blob=None,
+                store_id=store_id,
+                now_epk=now_epk,
+                source_label=source_label,
+                capture_hashes=False,
+            )
+
+            existing = existing_by_key.get(storage_key)
+            if existing is None:
+                row = _insert_file_row(db, payload=payload, file_columns=file_columns)
+                existing_by_key[storage_key] = row
+                report.inserted_files += 1
+            else:
+                if _update_file_row(existing, payload=payload, file_columns=file_columns):
+                    report.updated_files += 1
+                else:
+                    report.unchanged_files += 1
+                row = existing
+
+            if attach_store_links and row.row_id is not None:
+                linked = _ensure_file_store_link(
+                    db,
+                    file_id=int(row.row_id),
+                    store_id=store_id,
+                    tables=tables,
+                    link_columns=link_columns,
+                    linked_file_ids=linked_file_ids,
+                )
+                if linked:
+                    report.linked_files += 1
+
+        except Exception as exc:
+            marker = getattr(remote_file, "file_url", "<unknown>")
+            report.errors.append("{} :: {}".format(marker, repr(exc)))
+            _emit_progress(
+                progress_callback,
+                event="error",
+                report=report,
+                details={"path": marker, "error": repr(exc)},
+            )
+        else:
+            _emit_progress(
+                progress_callback,
+                event="scan",
+                report=report,
+                details={"path": storage_key, "is_ebook": True},
+            )
+
+    if incremental_db_writes:
+        backend.crawl_urls(
+            force=False,
+            log_line_callback=_on_crawl_log_line,
+            discovered_url_callback=_process_crawled_url,
+        )
+    else:
+        crawled_urls = backend.crawl_urls(force=False, log_line_callback=_on_crawl_log_line)
+        for crawled_url in crawled_urls:
+            _process_crawled_url(crawled_url)
+
+    if refresh_storage_manager and hasattr(db, "bootstrap_storage_manager"):
+        try:
+            db.bootstrap_storage_manager(clear_existing=True)
+        except Exception as exc:
+            report.errors.append("storage_manager_bootstrap_failed :: {!r}".format(exc))
+
+    report.finished_timestamp_ep_k = _now_ep_ms()
+    _emit_progress(
+        progress_callback,
+        event="done",
+        report=report,
+        details={"mode": "wget", "store_id": store_id, "store_root_uri": str(backend.url)},
+    )
     return report
 
 
@@ -730,6 +1120,7 @@ def register_existing_disk_with_database_path(
     follow_symlinks: bool = False,
     attach_store_links: bool = True,
     refresh_storage_manager: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> UnmanagedDiskRegistrationReport:
     """
     Convenience wrapper that opens a Database instance from a path.
@@ -749,6 +1140,7 @@ def register_existing_disk_with_database_path(
             follow_symlinks=follow_symlinks,
             attach_store_links=attach_store_links,
             refresh_storage_manager=refresh_storage_manager,
+            progress_callback=progress_callback,
         )
 
 
@@ -771,6 +1163,7 @@ def register_rclone_http_readonly_with_database_path(
     capture_hashes: bool = False,
     attach_store_links: bool = True,
     refresh_storage_manager: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> UnmanagedDiskRegistrationReport:
     """
     Convenience wrapper that opens a Database instance and ingests files from an rclone HTTP store.
@@ -796,6 +1189,64 @@ def register_rclone_http_readonly_with_database_path(
             capture_hashes=capture_hashes,
             attach_store_links=attach_store_links,
             refresh_storage_manager=refresh_storage_manager,
+            progress_callback=progress_callback,
+        )
+
+
+def register_wget_html_readonly_with_database_path(
+    *,
+    database_path: str | os.PathLike[str],
+    remote_url: str,
+    db_type: str = "SQLite",
+    store_name: Optional[str] = None,
+    store_kind: str = "wget_html_readonly",
+    max_http_requests_per_hour: float | None = None,
+    wget_exe: str = "wget",
+    wget_args: Optional[Sequence[str]] = None,
+    timeout_s: float | None = 300.0,
+    recurse: bool = True,
+    max_depth: int | None = None,
+    no_parent: bool = True,
+    span_hosts: bool = False,
+    respect_robots: bool = True,
+    user_agent: str | None = None,
+    no_verbose: bool = True,
+    ebook_extensions: Optional[Iterable[str]] = None,
+    source_label: str = "wget_html_import",
+    attach_store_links: bool = True,
+    refresh_storage_manager: bool = True,
+    incremental_db_writes: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
+) -> UnmanagedDiskRegistrationReport:
+    """
+    Convenience wrapper that opens a Database instance and ingests files from a wget HTML store.
+    """
+    from LiuXin_alpha.databases.database import Database
+
+    metadata = {"database_path": str(pathlib.Path(database_path))}
+    with Database(metadata=metadata, db_type=db_type, create=False, backup=False) as db:
+        return register_wget_html_readonly_store_files(
+            db,
+            remote_url=remote_url,
+            store_name=store_name,
+            store_kind=store_kind,
+            max_http_requests_per_hour=max_http_requests_per_hour,
+            wget_exe=wget_exe,
+            wget_args=wget_args,
+            timeout_s=timeout_s,
+            recurse=recurse,
+            max_depth=max_depth,
+            no_parent=no_parent,
+            span_hosts=span_hosts,
+            respect_robots=respect_robots,
+            user_agent=user_agent,
+            no_verbose=no_verbose,
+            ebook_extensions=ebook_extensions,
+            source_label=source_label,
+            attach_store_links=attach_store_links,
+            refresh_storage_manager=refresh_storage_manager,
+            incremental_db_writes=incremental_db_writes,
+            progress_callback=progress_callback,
         )
 
 
@@ -872,9 +1323,12 @@ __all__ = [
     "UnmanagedDiskRegistrationReport",
     "ensure_unmanaged_store_for_disk",
     "ensure_rclone_http_readonly_store",
+    "ensure_wget_html_readonly_store",
     "register_existing_disk_as_unmanaged_store",
     "register_existing_disk_with_database_path",
     "register_rclone_http_readonly_store_files",
     "register_rclone_http_readonly_with_database_path",
+    "register_wget_html_readonly_store_files",
+    "register_wget_html_readonly_with_database_path",
     "main",
 ]
