@@ -807,7 +807,9 @@ class SyncStoreCommand(TerminalCommandAPI):
                     },
                 )
                 job_id = str((result or {}).get("job_id", "")).strip()
-            if not job_id:
+                if not job_id:
+                    raise RuntimeError("Core command `sync.store.start` did not return a job id.")
+            else:
                 request = JobRequest(
                     module_name="LiuXin_alpha.interfaces.terminal.commands.sync",
                     function_name="run_sync_store_job",

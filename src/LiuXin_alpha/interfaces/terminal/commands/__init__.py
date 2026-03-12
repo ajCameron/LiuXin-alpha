@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .base import TerminalCommandAPI
+from .clear import ClearCommand
 from .core import (
     BrowseCommand,
     CountCommand,
@@ -67,6 +68,7 @@ from .top import TopCommand
 from .store_view import StoreFilesCommand, StoreListCommand, StoreShowCommand
 
 DEFAULT_COMMAND_CLASSES = (
+    ClearCommand,
     HelpCommand,
     TablesCommand,
     UseCommand,
@@ -138,6 +140,7 @@ def build_default_commands() -> list[TerminalCommandAPI]:
 
 __all__ = [
     "TerminalCommandAPI",
+    "ClearCommand",
     "HelpCommand",
     "TablesCommand",
     "UseCommand",

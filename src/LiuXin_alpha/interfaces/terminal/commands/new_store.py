@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
@@ -185,18 +185,37 @@ class NewStoreWizardCommand(TerminalCommandAPI):
             "Refresh storage manager now?",
             default=True,
         )
-        if refresh and hasattr(browser.db, "bootstrap_storage_manager"):
-            report = browser.db.bootstrap_storage_manager(clear_existing=True)
+        if refresh:
+            report = self._refresh_storage_manager(browser)
             browser.emit(
                 "Storage bootstrap: discovered={} loaded={} skipped={} failed={}".format(
-                    report.discovered_rows,
-                    report.loaded_stores,
-                    report.skipped_rows,
-                    report.failed_rows,
+                    self._bootstrap_report_field(report, "discovered_rows", 0),
+                    self._bootstrap_report_field(report, "loaded_stores", 0),
+                    self._bootstrap_report_field(report, "skipped_rows", 0),
+                    self._bootstrap_report_field(report, "failed_rows", 0),
                 )
             )
 
         return True
+
+    @staticmethod
+    def _bootstrap_report_field(report: object, key: str, default=0):
+        if isinstance(report, dict):
+            return report.get(key, default)
+        return getattr(report, key, default)
+
+    @staticmethod
+    def _refresh_storage_manager(browser):
+        if hasattr(browser, "supports_core_commands") and bool(browser.supports_core_commands()):
+            return browser.execute_core_command(
+                "invoke",
+                payload={
+                    "target": "library",
+                    "method": "refresh_storage",
+                    "kwargs": {"clear_existing": True},
+                },
+            )
+        return NewStoreWizardCommand._local_library(browser).refresh_storage(clear_existing=True)
 
     def _prompt_store_kind(self, browser) -> _StoreKindPreset:
         browser.emit("Available store kinds:")
@@ -287,8 +306,6 @@ class NewStoreWizardCommand(TerminalCommandAPI):
         online: bool,
     ):
         now_epk = int(time.time() * 1000)
-        table_columns = set(browser.db.get_column_headings("stores"))
-
         updates = self._build_store_payload(
             preset=preset,
             root_uri=root_uri,
@@ -296,10 +313,9 @@ class NewStoreWizardCommand(TerminalCommandAPI):
             read_only=read_only,
             online=online,
             now_epk=now_epk,
-            table_columns=table_columns,
         )
 
-        existing = self._find_existing_store_row(browser.db, root_uri=root_uri, store_name=store_name)
+        existing = self._find_existing_store(browser, root_uri=root_uri, store_name=store_name)
         if existing is not None:
             browser.emit(
                 "Existing store found: id={} name={!r} kind={} root_uri={}".format(
@@ -313,19 +329,7 @@ class NewStoreWizardCommand(TerminalCommandAPI):
             if not update_existing:
                 raise ValueError("Store wizard canceled: existing row not updated.")
 
-            changed = False
-            for key, value in updates.items():
-                if key not in existing.allowed_columns:
-                    continue
-                if existing[key] != value:
-                    existing[key] = value
-                    changed = True
-            if changed:
-                existing.sync()
-            return existing
-
-        row_dict = {k: v for k, v in updates.items() if k in table_columns and v is not None}
-        return Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="stores")
+        return self._save_store_row(browser, store_payload=updates)
 
     def _build_store_payload(
         self,
@@ -336,7 +340,6 @@ class NewStoreWizardCommand(TerminalCommandAPI):
         read_only: bool,
         online: bool,
         now_epk: int,
-        table_columns: set[str],
     ) -> dict[str, Any]:
         supports_random_write = bool(preset.supports_random_write and not read_only)
         supports_delete = bool(preset.supports_delete and not read_only)
@@ -356,19 +359,40 @@ class NewStoreWizardCommand(TerminalCommandAPI):
             "store_supports_checksums": int(bool(preset.supports_checksums)),
             "store_supports_immutable_objects": int(bool(preset.supports_immutable_objects)),
             "store_modified_timestamp_ep_k": int(now_epk),
+            "store_created_timestamp_ep_k": int(now_epk),
         }
-        if "store_created_timestamp_ep_k" in table_columns:
-            payload["store_created_timestamp_ep_k"] = int(now_epk)
         return payload
 
-    def _find_existing_store_row(self, db, *, root_uri: str, store_name: str):
-        rows = db.search("stores", "store_root_uri", root_uri)
-        if rows:
-            return rows[0]
-        rows = db.search("stores", "store_name", store_name)
-        if rows:
-            return rows[0]
-        return None
+    @staticmethod
+    def _local_library(browser) -> Library:
+        return Library(database=browser.db, close_database_on_close=False)
+
+    def _find_existing_store(self, browser, *, root_uri: str, store_name: str):
+        if hasattr(browser, "supports_core_queries") and bool(browser.supports_core_queries()):
+            return browser.execute_core_query(
+                "invoke",
+                payload={
+                    "target": "library",
+                    "method": "find_existing_store",
+                    "kwargs": {
+                        "root_uri": root_uri,
+                        "store_name": store_name,
+                    },
+                },
+            )
+        return self._local_library(browser).find_existing_store(root_uri=root_uri, store_name=store_name)
+
+    def _save_store_row(self, browser, *, store_payload: dict[str, Any]):
+        if hasattr(browser, "supports_core_commands") and bool(browser.supports_core_commands()):
+            return browser.execute_core_command(
+                "invoke",
+                payload={
+                    "target": "library",
+                    "method": "save_store_row",
+                    "kwargs": {"store_payload": dict(store_payload)},
+                },
+            )
+        return self._local_library(browser).save_store_row(store_payload=store_payload)
 
     @staticmethod
     def _store_row_id(store_row) -> Optional[int]:

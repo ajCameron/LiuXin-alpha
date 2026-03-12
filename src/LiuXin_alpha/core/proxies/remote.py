@@ -8,7 +8,7 @@ import urllib.request
 
 from typing import Any, Mapping
 
-from LiuXin_alpha.core.proxies.jobs import JobStatesArg, JobsProxyABC
+from LiuXin_alpha.core.proxies.jobs import JobStatesArg, JobsProxyABC, normalize_job_states_arg
 from LiuXin_alpha.core.proxies.local import looks_like_write_method
 
 
@@ -133,8 +133,9 @@ class RemoteJobsProxy(_RemoteProxyBase, JobsProxyABC):
         offset: int = 0,
     ) -> Mapping[str, Any]:
         payload: dict[str, Any] = {"offset": int(offset)}
-        if states is not None:
-            payload["states"] = states
+        normalized_states = normalize_job_states_arg(states)
+        if normalized_states is not None:
+            payload["states"] = normalized_states
         if limit is not None:
             payload["limit"] = int(limit)
         result = self._rpc_query("jobs.list", payload=payload)

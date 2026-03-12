@@ -89,6 +89,21 @@ def _truncate(value: object, *, width: int = 80) -> str:
     return text[: max(0, width - 3)] + "..."
 
 
+def _truncate_text(value: object, *, width: int = 80) -> str:
+    text = str(value)
+    if len(text) <= width:
+        return text
+    return text[: max(0, width - 3)] + "..."
+
+
+def _summarize_exception(exc: BaseException) -> str:
+    text = str(exc).strip()
+    name = exc.__class__.__name__
+    if text:
+        return "{}: {}".format(name, text)
+    return name
+
+
 def _stringify_table_cell(value: object, *, width: int = 60) -> str:
     if value is None:
         text = ""
@@ -454,6 +469,16 @@ class _BrowseWindow:
     offset: int = 0
 
 
+@dataclass(frozen=True)
+class _CommandCompletion:
+    """One token-completion result for the current input buffer."""
+
+    token_start: int
+    token_end: int
+    prefix: str
+    candidates: tuple[str, ...]
+
+
 class TextDatabaseBrowser:
     """Small read-only command shell for database browsing."""
 
@@ -478,14 +503,16 @@ class TextDatabaseBrowser:
         self.job_manager = job_manager if job_manager is not None else default_job_manager()
         self._core_runtime = core_runtime
         self._owns_core_runtime = False
+        self._core_runtime_init_error: Optional[str] = None
         if self._core_runtime is None:
             try:
                 self._core_runtime = _build_default_core_runtime(db, job_manager=self.job_manager)
                 self._owns_core_runtime = True
-            except Exception:
+            except Exception as exc:
                 # Core wiring is best-effort here; browser remains fully usable.
                 self._core_runtime = None
                 self._owns_core_runtime = False
+                self._core_runtime_init_error = _summarize_exception(exc)
         self.current_table: Optional[str] = None
         self.window: Optional[_BrowseWindow] = None
         self._commands: dict[str, TerminalCommandAPI] = {}
@@ -502,6 +529,8 @@ class TextDatabaseBrowser:
         )
         self._history_loaded = False
         self._history_enabled_for_session = False
+        self._readline_completion_configured = False
+        self._readline_completion_matches: list[str] = []
         for command in build_default_commands():
             self.register_command(command)
         if lifecycle_plugins:
@@ -543,6 +572,7 @@ class TextDatabaseBrowser:
     def _read_command_line(self) -> str:
         """Read one command line, enabling arrow-key history on interactive TTY."""
         if self._can_use_readline_prompt():
+            self._configure_readline_completion()
             try:
                 line = input(self.prompt)
             except EOFError:
@@ -901,6 +931,9 @@ class TextDatabaseBrowser:
             return
         self._started = True
         self._load_command_history()
+        core_warning = self.core_runtime_startup_warning()
+        if core_warning:
+            self._write("WARNING: {}".format(core_warning))
         for plugin in self._lifecycle_plugins:
             plugin_name = getattr(plugin, "name", plugin.__class__.__name__)
             try:
@@ -1040,6 +1073,22 @@ class TextDatabaseBrowser:
         """Whether this browser can dispatch read queries through core runtime."""
         return self._core_runtime is not None
 
+    def core_runtime_status_summary(self) -> str:
+        """Summarize core runtime availability for status surfaces."""
+        if self._core_runtime is not None:
+            return "core: enabled"
+        if self._core_runtime_init_error:
+            return "core: local-only | {}".format(_truncate_text(self._core_runtime_init_error, width=120))
+        return "core: local-only"
+
+    def core_runtime_startup_warning(self) -> Optional[str]:
+        """User-facing startup warning for core runtime bootstrap failures."""
+        if not self._core_runtime_init_error:
+            return None
+        return "Core runtime unavailable; using local-only mode. {}".format(
+            _truncate_text(self._core_runtime_init_error, width=160)
+        )
+
     def execute_core_command(self, name: str, *, payload: Optional[dict[str, object]] = None):
         """
         Execute one core write command and return command result payload.
@@ -1083,6 +1132,28 @@ class TextDatabaseBrowser:
 
     def detach_job_output_panel(self) -> bool:
         """Detach any active dedicated job output panel."""
+        return False
+
+    def clear_output(self) -> bool:
+        """Clear terminal output buffer or screen when supported."""
+        stream = self.output
+        if hasattr(stream, "seek") and hasattr(stream, "truncate"):
+            try:
+                stream.seek(0)
+                stream.truncate(0)
+                stream.flush()
+                return True
+            except Exception:
+                pass
+
+        is_tty = bool(getattr(stream, "isatty", lambda: False)())
+        if is_tty:
+            try:
+                stream.write("\x1b[2J\x1b[H")
+                stream.flush()
+                return True
+            except Exception:
+                pass
         return False
 
     def prompt_text(self, prompt: str, *, default: Optional[str] = None) -> str:
@@ -1142,6 +1213,7 @@ class TextDatabaseBrowser:
         rows: Sequence[object],
         *,
         max_cell_width: int = 60,
+        max_table_width: Optional[int] = None,
     ) -> str:
         """Render rows as an ASCII table using schema column order."""
         columns = self.get_table_columns(table)
@@ -1153,7 +1225,7 @@ class TextDatabaseBrowser:
             display_columns,
             table_rows,
             max_cell_width=max_cell_width,
-            max_table_width=self.get_terminal_width(),
+            max_table_width=self.get_terminal_width() if max_table_width is None else max_table_width,
         )
 
     def render_table(
@@ -1219,8 +1291,423 @@ class TextDatabaseBrowser:
             return ""
         return " (aliases: {})".format(", ".join(filtered))
 
-    def _print_help(self) -> None:
+    def _root_completion_tokens(self) -> list[str]:
+        tokens = set(self._commands.keys()) | set(self._group_alias_to_group.keys())
+        return sorted(token for token in tokens if token)
+
+    def _group_completion_tokens(self, group_name: str) -> list[str]:
+        group_map = self._command_groups.get(group_name, {})
+        return sorted(token for token in set(group_map.keys()) if token)
+
+    def _table_completion_tokens(self) -> list[str]:
+        try:
+            return self._all_tables()
+        except Exception:
+            return []
+
+    def _table_token_completion_candidates(self, token: str) -> list[str]:
+        normalized = self._normalize_command_token(token)
+        return [table for table in self._table_completion_tokens() if table.startswith(normalized)]
+
+    def _resolve_completion_table_token(self, token: str) -> Optional[str]:
+        try:
+            return self._resolve_table_token(token)
+        except Exception:
+            return None
+
+    def _table_id_column(self, table: str) -> Optional[str]:
+        try:
+            return str(self.db.driver_wrapper.get_id_column(table))
+        except Exception:
+            return None
+
+    def _row_id_completion_candidates(self, table: str, token: str, *, max_candidates: int = 20) -> list[str]:
+        prefix = str(token).strip()
+        if prefix and not prefix.isdigit():
+            return []
+
+        id_column = self._table_id_column(table)
+        if not id_column:
+            return []
+
+        limit = max(1, int(max_candidates))
+        candidates: list[str] = []
+        seen: set[str] = set()
+
+        def _add_rows(rows) -> bool:
+            for row in rows:
+                try:
+                    raw_value = row[id_column]
+                except Exception:
+                    continue
+                value = str(raw_value).strip()
+                if not value:
+                    continue
+                if prefix and not value.startswith(prefix):
+                    continue
+                if value in seen:
+                    continue
+                seen.add(value)
+                candidates.append(value)
+                if len(candidates) >= limit:
+                    return True
+            return False
+
+        if self.window is not None and self.window.table == table:
+            reached_limit = _add_rows(
+                self._table_slice(
+                    table,
+                    limit=min(limit, max(1, int(self.window.limit))),
+                    offset=max(0, int(self.window.offset)),
+                )
+            )
+            if reached_limit or (not prefix):
+                return candidates
+
+        if prefix:
+            try:
+                if _add_rows(self.db.get_all_rows(table, iterator_return=True)):
+                    return candidates
+            except Exception:
+                return candidates
+            return candidates
+
+        try:
+            _add_rows(self._table_slice(table, limit=limit, offset=0))
+        except Exception:
+            return candidates
+        return candidates
+
+    def _row_ref_token_completion_candidates(self, token: str) -> list[str]:
+        raw = str(token)
+        if ":" not in raw:
+            return self._table_token_completion_candidates(raw)
+
+        table_token, selector_token = raw.split(":", 1)
+        resolved_table = self._resolve_completion_table_token(table_token)
+        if resolved_table is not None:
+            return ["{}:{}".format(resolved_table, row_id) for row_id in self._row_id_completion_candidates(resolved_table, selector_token)]
+
+        normalized_table = self._normalize_command_token(table_token)
+        return [table + ":" + selector_token for table in self._table_completion_tokens() if table.startswith(normalized_table)]
+
+    @staticmethod
+    def _looks_like_compact_row_ref_prefix(token: str) -> bool:
+        return ":" in str(token)
+
+    def _table_scoped_id_completion_candidates(self, table_token: str, current_token: str) -> list[str]:
+        resolved_table = self._resolve_completion_table_token(table_token)
+        if resolved_table is None:
+            return []
+        return self._row_id_completion_candidates(resolved_table, current_token)
+
+    def _completion_candidates_for_help(self, help_tokens: Sequence[str]) -> list[str]:
+        if not help_tokens:
+            return self._root_completion_tokens()
+        group_name = self._group_alias_to_group.get(self._normalize_command_token(help_tokens[0]))
+        if group_name is None:
+            return []
+        if len(help_tokens) == 1:
+            return self._group_completion_tokens(group_name)
+        return []
+
+    def _completion_candidates_for_direct_command(
+        self,
+        command: TerminalCommandAPI,
+        args_before_current: Sequence[str],
+        current_token: str,
+    ) -> list[str]:
+        command_name = self._normalize_command_token(command.name)
+        if command_name == "help":
+            return self._completion_candidates_for_help(args_before_current)
+
+        if command_name in {"use", "schema", "count", "browse", "top", "search"}:
+            if len(args_before_current) == 0:
+                return self._table_token_completion_candidates(current_token)
+            return []
+
+        if command_name == "row":
+            if len(args_before_current) == 0:
+                return self._row_ref_token_completion_candidates(current_token)
+            if len(args_before_current) == 1:
+                return self._table_scoped_id_completion_candidates(args_before_current[0], current_token)
+            return []
+
+        if command_name == "links":
+            if len(args_before_current) == 0:
+                return self._row_ref_token_completion_candidates(current_token)
+            if len(args_before_current) == 1:
+                if self._looks_like_compact_row_ref_prefix(args_before_current[0]):
+                    return self._table_token_completion_candidates(current_token)
+                return self._table_scoped_id_completion_candidates(args_before_current[0], current_token)
+            if len(args_before_current) == 2:
+                return self._table_token_completion_candidates(current_token)
+            return []
+
+        if command_name in {"link", "unlink"}:
+            remaining = list(args_before_current)
+            if not remaining:
+                return self._row_ref_token_completion_candidates(current_token)
+
+            first_token = remaining.pop(0)
+            if not self._looks_like_compact_row_ref_prefix(first_token):
+                if not remaining:
+                    return self._table_scoped_id_completion_candidates(first_token, current_token)
+                next_token = remaining.pop(0)
+                if self._normalize_command_token(next_token) == "to":
+                    return []
+
+            if remaining and self._normalize_command_token(remaining[0]) == "to":
+                remaining.pop(0)
+
+            if not remaining:
+                return self._row_ref_token_completion_candidates(current_token)
+
+            second_token = remaining.pop(0)
+            if self._looks_like_compact_row_ref_prefix(second_token):
+                return []
+            if not remaining:
+                return self._table_scoped_id_completion_candidates(second_token, current_token)
+            return []
+
+        return []
+
+    def _completion_candidates_for_group_command(
+        self,
+        group_name: str,
+        args_before_current: Sequence[str],
+        current_token: str,
+    ) -> list[str]:
+        if not args_before_current:
+            return self._group_completion_tokens(group_name)
+
+        group_map = self._command_groups.get(group_name, {})
+        subcommand_token = self._normalize_command_token(args_before_current[0])
+        subcommand = group_map.get(subcommand_token)
+        if subcommand is None:
+            return []
+
+        if group_name in {"show", "on", "off"}:
+            if len(args_before_current) == 1:
+                return self._row_ref_token_completion_candidates(current_token)
+            if len(args_before_current) == 2:
+                return self._table_scoped_id_completion_candidates(args_before_current[1], current_token)
+
+        return []
+
+    def command_completion_candidates(
+        self,
+        line: str,
+        *,
+        cursor: Optional[int] = None,
+    ) -> _CommandCompletion:
+        """
+        Return token completion candidates for the current input line.
+
+        Completion is intentionally command-focused:
+        - root prompt: direct commands + command groups/aliases
+        - grouped commands: subcommands + aliases
+        - `help`: commands/groups, then grouped subcommands
+        """
+        text = str(line)
+        cursor_pos = len(text) if cursor is None else max(0, min(len(text), int(cursor)))
+        before_cursor = text[:cursor_pos]
+
+        token_start = cursor_pos
+        while token_start > 0 and not before_cursor[token_start - 1].isspace():
+            token_start -= 1
+        token_prefix = before_cursor[token_start:cursor_pos]
+        previous_tokens = [token for token in before_cursor[:token_start].split() if token]
+        normalized_prefix = self._normalize_command_token(token_prefix)
+
+        candidates: list[str] = []
+        if not previous_tokens:
+            candidates = self._root_completion_tokens()
+        else:
+            root_token = self._normalize_command_token(previous_tokens[0])
+            group_name = self._group_alias_to_group.get(root_token)
+            if group_name is not None and len(previous_tokens) == 1:
+                candidates = self._group_completion_tokens(group_name)
+            elif group_name is not None:
+                candidates = self._completion_candidates_for_group_command(
+                    group_name,
+                    previous_tokens[1:],
+                    token_prefix,
+                )
+            else:
+                command = self._commands.get(root_token)
+                if command is not None:
+                    candidates = self._completion_candidates_for_direct_command(
+                        command,
+                        previous_tokens[1:],
+                        token_prefix,
+                    )
+
+        if normalized_prefix:
+            if ":" in token_prefix:
+                table_prefix = self._normalize_command_token(token_prefix.split(":", 1)[0])
+                candidates = [
+                    candidate
+                    for candidate in candidates
+                    if self._normalize_command_token(candidate.split(":", 1)[0]).startswith(table_prefix)
+                ]
+            else:
+                candidates = [candidate for candidate in candidates if candidate.startswith(normalized_prefix)]
+
+        return _CommandCompletion(
+            token_start=token_start,
+            token_end=cursor_pos,
+            prefix=token_prefix,
+            candidates=tuple(candidates),
+        )
+
+    def _configure_readline_completion(self) -> None:
+        """Install one readline completer for this browser session."""
+        if self._readline_completion_configured:
+            return
+        readline_mod = _readline
+        if readline_mod is None:
+            return
+        try:
+            parse_and_bind = getattr(readline_mod, "parse_and_bind", None)
+            if callable(parse_and_bind):
+                parse_and_bind("tab: complete")
+        except Exception:
+            pass
+        try:
+            set_completer_delims = getattr(readline_mod, "set_completer_delims", None)
+            if callable(set_completer_delims):
+                set_completer_delims(" \t\n")
+        except Exception:
+            pass
+        try:
+            set_completer = getattr(readline_mod, "set_completer", None)
+            if callable(set_completer):
+                set_completer(self._readline_completer)
+                self._readline_completion_configured = True
+        except Exception:
+            self._readline_completion_configured = False
+
+    def _readline_completer(self, text: str, state: int) -> Optional[str]:
+        """Readline callback returning one completion match at a time."""
+        if state == 0:
+            readline_mod = _readline
+            line_buffer = str(text)
+            endidx = len(line_buffer)
+            if readline_mod is not None:
+                try:
+                    line_buffer = str(readline_mod.get_line_buffer())
+                except Exception:
+                    line_buffer = str(text)
+                try:
+                    endidx = int(readline_mod.get_endidx())
+                except Exception:
+                    endidx = len(line_buffer)
+            completion = self.command_completion_candidates(line_buffer, cursor=endidx)
+            self._readline_completion_matches = list(completion.candidates)
+        if state < 0 or state >= len(self._readline_completion_matches):
+            return None
+        return self._readline_completion_matches[state]
+
+    def _normalized_command_tokens(self, tokens: Sequence[str]) -> list[str]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in tokens:
+            token = self._normalize_command_token(raw)
+            if not token or token in seen:
+                continue
+            seen.add(token)
+            normalized.append(token)
+        return normalized
+
+    def _group_aliases(self, group_name: str) -> list[str]:
+        aliases: list[str] = []
+        for alias, target in sorted(self._group_alias_to_group.items()):
+            if target == group_name and alias != group_name:
+                aliases.append(alias)
+        return aliases
+
+    def _write_group_help(self, group_name: str) -> None:
+        commands = dict(self._command_groups.get(group_name, {}))
+        if not commands:
+            raise ValueError("Unknown command group: {!r}.".format(group_name))
+
+        self._write("Command group: {}".format(group_name))
+        aliases = self._group_aliases(group_name)
+        if aliases:
+            self._write("Aliases: {}".format(", ".join(aliases)))
+        self._write("Subcommands:")
+
+        by_id: dict[int, TerminalCommandAPI] = {}
+        for command in commands.values():
+            by_id[id(command)] = command
+        for command in sorted(by_id.values(), key=lambda c: c.name):
+            usage = command.usage or "{} {}".format(group_name, command.name)
+            alias_text = self._format_command_aliases(command.aliases)
+            self._write("  {:<34} {}{}".format(usage, command.summary, alias_text))
+
+        self._write("Use `help {} <subcommand>` for details.".format(group_name))
+
+    def _write_command_help(self, command: TerminalCommandAPI, *, group_name: Optional[str] = None) -> None:
+        canonical_name = command.name
+        if group_name:
+            canonical_name = "{} {}".format(group_name, command.name)
+
+        self._write("Command: {}".format(canonical_name))
+        summary = str(getattr(command, "summary", "") or "").strip()
+        if summary:
+            self._write("Summary: {}".format(summary))
+
+        usage = str(getattr(command, "usage", "") or "").strip() or canonical_name
+        self._write("Usage: {}".format(usage))
+
+        if group_name:
+            direct_names: list[str] = []
+            if bool(getattr(command, "expose_direct", True)):
+                direct_names = self._normalized_command_tokens([command.name] + list(command.aliases))
+            if direct_names:
+                self._write("Direct names: {}".format(", ".join(direct_names)))
+            group_aliases = self._group_aliases(group_name)
+            if group_aliases:
+                self._write("Group aliases: {}".format(", ".join(group_aliases)))
+        else:
+            aliases = self._normalized_command_tokens(list(command.aliases))
+            if aliases:
+                self._write("Aliases: {}".format(", ".join(aliases)))
+
+    def _print_help(self, args: Optional[Sequence[str]] = None) -> None:
+        help_args = [str(arg) for arg in (args or []) if str(arg).strip()]
+        if len(help_args) > 2:
+            raise ValueError("Usage: help [command] [subcommand]")
+
+        if len(help_args) == 1:
+            target = self._normalize_command_token(help_args[0])
+            group_name = self._group_alias_to_group.get(target)
+            if group_name is not None:
+                self._write_group_help(group_name)
+                return
+
+            command = self._commands.get(target)
+            if command is None:
+                raise ValueError("Unknown command or group: {!r}.".format(help_args[0]))
+            self._write_command_help(command)
+            return
+
+        if len(help_args) == 2:
+            group_token = self._normalize_command_token(help_args[0])
+            group_name = self._group_alias_to_group.get(group_token)
+            if group_name is None:
+                raise ValueError("Unknown command group: {!r}.".format(help_args[0]))
+
+            subcommand_token = self._normalize_command_token(help_args[1])
+            command = self._command_groups.get(group_name, {}).get(subcommand_token)
+            if command is None:
+                raise ValueError("Unknown subcommand {} {}.".format(group_name, help_args[1]))
+            self._write_command_help(command, group_name=group_name)
+            return
+
         self._write("Commands:")
+        self._write("  Use `help <command>` or `help <group> <subcommand>` for details.")
         grouped_command_ids: set[int] = set()
         grouped = self.iter_registered_command_groups()
         if grouped:
@@ -1494,7 +1981,7 @@ class TextDatabaseBrowser:
         if row is None:
             self._write("No row found in {} for id {}.".format(table, row_id))
             return
-        self._write(self._format_row(table, row))
+        self._write(self.format_rows_as_table(table, [row], max_cell_width=120))
 
     def _cmd_search(self, args: list[str]) -> None:
         if len(args) < 2:

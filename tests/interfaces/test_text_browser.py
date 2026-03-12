@@ -253,6 +253,119 @@ def test_text_browser_main_command_mode_overrides_windowed(driver_spec, tmp_path
     assert "stores" in out
 
 
+def test_text_browser_help_command_shows_specific_direct_command(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_help_direct.sqlite"
+    output = io.StringIO()
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output)
+
+        assert shell.execute_line("help clear")
+
+    rendered = output.getvalue()
+    assert "Command: clear" in rendered
+    assert "Usage: clear" in rendered
+    assert "Aliases: cls" in rendered
+
+
+def test_text_browser_help_command_shows_group_details(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_help_group.sqlite"
+    output = io.StringIO()
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output)
+
+        assert shell.execute_line("help add")
+
+    rendered = output.getvalue()
+    assert "Command group: add" in rendered
+    assert "Aliases: new" in rendered
+    assert "add store" in rendered
+    assert "Use `help add <subcommand>` for details." in rendered
+
+
+def test_text_browser_help_command_shows_group_subcommand_details(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_help_subcommand.sqlite"
+    output = io.StringIO()
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output)
+
+        assert shell.execute_line("help add store")
+
+    rendered = output.getvalue()
+    assert "Command: add store" in rendered
+    assert "Usage: add store" in rendered
+    assert "Direct names: store, new-store, new_store, add-store, add_store" in rendered
+    assert "Group aliases: new" in rendered
+
+
+def test_text_browser_clear_command_truncates_seekable_output(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_clear.sqlite"
+    output = io.StringIO()
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output)
+        output.write("stale output")
+
+        assert shell.execute_line("clear")
+
+    assert output.getvalue() == ""
+
+
+def test_text_browser_startup_warns_when_core_runtime_bootstrap_fails(
+    driver_spec, tmp_path: Path, monkeypatch
+) -> None:
+    db_path = tmp_path / "browser_core_runtime_warn.sqlite"
+    history_path = tmp_path / "history.txt"
+    output = io.StringIO()
+
+    def _fail_core_runtime(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(text_browser_module, "_build_default_core_runtime", _fail_core_runtime)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, output=output, history_file=history_path)
+        shell.startup()
+        shell.shutdown(reason="test")
+
+    rendered = output.getvalue()
+    assert "WARNING: Core runtime unavailable; using local-only mode." in rendered
+    assert "RuntimeError: boom" in rendered
+    assert shell.supports_core_commands() is False
+
+
 def test_sync_store_options_default_to_incremental_wget_db_writes() -> None:
     options = sync_command_module._parse_sync_store_options(["1"], usage="sync store <id>")
     assert options.wget_incremental_db_writes is True
@@ -755,6 +868,184 @@ def test_text_browser_read_command_line_readline_mode_uses_input(monkeypatch, dr
     assert prompts == ["liuxin-db> "]
 
 
+def test_text_browser_command_completion_candidates_cover_help_and_groups(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_completion.sqlite"
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db)
+
+        root = shell.command_completion_candidates("he")
+        help_root = shell.command_completion_candidates("help a")
+        help_group = shell.command_completion_candidates("help add st")
+        group_alias = shell.command_completion_candidates("new s")
+
+    assert "help" in root.candidates
+    assert "add" in help_root.candidates
+    assert "add-store" in help_root.candidates
+    assert help_group.candidates == ("store",)
+    assert set(group_alias.candidates) >= {"series", "store", "subject"}
+
+
+def test_text_browser_command_completion_candidates_cover_table_slots(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_table_completion.sqlite"
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db)
+
+        use_table = shell.command_completion_candidates("use st")
+        row_table = shell.command_completion_candidates("row wo:")
+        show_table = shell.command_completion_candidates("show tag st")
+        on_table = shell.command_completion_candidates("on tag it")
+        off_table = shell.command_completion_candidates("off note st")
+        link_left = shell.command_completion_candidates("link wo")
+        link_right = shell.command_completion_candidates("link works 1 st")
+        link_right_compact = shell.command_completion_candidates("link works:1 st:")
+        links_other = shell.command_completion_candidates("links works:1 st")
+
+    assert "stores" in use_table.candidates
+    assert "works:" in row_table.candidates
+    assert "stores" in show_table.candidates
+    assert "items" in on_table.candidates
+    assert "stores" in off_table.candidates
+    assert "works" in link_left.candidates
+    assert "stores" in link_right.candidates
+    assert "stores:" in link_right_compact.candidates
+    assert "stores" in links_other.candidates
+
+
+def test_text_browser_command_completion_candidates_cover_row_id_slots(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_row_id_completion.sqlite"
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        work_rows = [
+            Row.from_idless_row_dict(
+                db,
+                row_dict={
+                    "work_title": "Completion Work {}".format(idx),
+                    "work_canonical_title": "Completion Work {}".format(idx),
+                    "work_sort_title": "Completion Work {}".format(idx),
+                },
+                table="works",
+            )
+            for idx in range(1, 4)
+        ]
+        store_ids = [
+            _insert_store_row(
+                db,
+                name="completion_store_{}".format(idx),
+                kind="on_disk_existing_managed_drive",
+                root_uri=str(tmp_path / "store_{}".format(idx)),
+            )
+            for idx in range(1, 3)
+        ]
+
+        shell = TextDatabaseBrowser(db)
+        shell.execute_line("browse works 2 1")
+
+        browse_window_ids = [str(work_rows[1]["work_id"]), str(work_rows[2]["work_id"])]
+        store_id_texts = [str(one) for one in store_ids]
+
+        row_ids = shell.command_completion_candidates("row works ")
+        row_ref_ids = shell.command_completion_candidates("row works:")
+        show_ids = shell.command_completion_candidates("show tag works ")
+        on_ids = shell.command_completion_candidates("on tag works ")
+        link_right_ids = shell.command_completion_candidates(
+            "link works {} stores ".format(work_rows[0]["work_id"])
+        )
+        link_right_compact_ids = shell.command_completion_candidates(
+            "link works:{} stores:".format(work_rows[0]["work_id"])
+        )
+        links_source_ids = shell.command_completion_candidates("links works ")
+
+    assert row_ids.candidates == tuple(browse_window_ids)
+    assert row_ref_ids.candidates == tuple("works:{}".format(one) for one in browse_window_ids)
+    assert show_ids.candidates == tuple(browse_window_ids)
+    assert on_ids.candidates == tuple(browse_window_ids)
+    assert tuple(link_right_ids.candidates) == tuple(store_id_texts)
+    assert tuple(link_right_compact_ids.candidates) == tuple("stores:{}".format(one) for one in store_id_texts)
+    assert links_source_ids.candidates == tuple(browse_window_ids)
+
+
+def test_text_browser_readline_mode_configures_command_completion(monkeypatch, driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_readline_completion.sqlite"
+    prompts: list[str] = []
+
+    class _FakeReadline:
+        def __init__(self) -> None:
+            self.binds: list[str] = []
+            self.delims: list[str] = []
+            self.completer = None
+            self.line_buffer = ""
+            self.endidx = 0
+
+        def parse_and_bind(self, spec: str) -> None:
+            self.binds.append(spec)
+
+        def set_completer_delims(self, delims: str) -> None:
+            self.delims.append(delims)
+
+        def set_completer(self, completer) -> None:
+            self.completer = completer
+
+        def get_line_buffer(self) -> str:
+            return self.line_buffer
+
+        def get_endidx(self) -> int:
+            return self.endidx
+
+        def add_history(self, _line: str) -> None:
+            return None
+
+    fake_readline = _FakeReadline()
+    monkeypatch.setattr(text_browser_module, "_readline", fake_readline, raising=False)
+
+    def _fake_input(prompt: str) -> str:
+        prompts.append(prompt)
+        return "help add st"
+
+    monkeypatch.setattr(builtins, "input", _fake_input)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db)
+        shell._can_use_readline_prompt = lambda: True  # type: ignore[method-assign]
+        line = shell._read_command_line()
+
+    fake_readline.line_buffer = "help add st"
+    fake_readline.endidx = len(fake_readline.line_buffer)
+
+    assert line == "help add st\n"
+    assert prompts == ["liuxin-db> "]
+    assert fake_readline.binds == ["tab: complete"]
+    assert fake_readline.delims == [" \t\n"]
+    assert fake_readline.completer is not None
+    assert fake_readline.completer("st", 0) == "store"
+    assert fake_readline.completer("st", 1) is None
+
+
 def test_text_browser_history_loads_and_saves_for_interactive_readline(
     monkeypatch, driver_spec, tmp_path: Path
 ) -> None:
@@ -1050,6 +1341,145 @@ def test_text_browser_new_store_wizard_updates_existing_row(driver_spec, tmp_pat
         row = rows[0]
         assert row["store_kind"] == "on_disk_existing_unmanaged_drive"
         assert int(row["store_is_read_only"]) == 1
+
+
+def test_text_browser_new_store_wizard_refresh_routes_via_core(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_new_store_core_refresh.sqlite"
+    output = io.StringIO()
+    store_dir = tmp_path / "core_refresh_store"
+    query_calls: list[tuple[str, dict[str, object] | None]] = []
+    command_calls: list[tuple[str, dict[str, object] | None]] = []
+
+    input_stream = io.StringIO(
+        "\n".join(
+            [
+                "",
+                str(store_dir),
+                "y",
+                "",
+                "",
+                "",
+                "",
+            ]
+        )
+        + "\n"
+    )
+
+    def _unexpected_local_bootstrap(*args, **kwargs):
+        del args, kwargs
+        raise AssertionError("terminal should route store refresh via core when available")
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        monkeypatch.setattr(type(db), "bootstrap_storage_manager", _unexpected_local_bootstrap)
+
+        shell = TextDatabaseBrowser(db, input=input_stream, output=output)
+        monkeypatch.setattr(shell, "supports_core_queries", lambda: True)
+        monkeypatch.setattr(shell, "supports_core_commands", lambda: True)
+
+        def _record_query(name: str, *, payload=None):
+            payload_dict = dict(payload or {})
+            query_calls.append((str(name), payload_dict))
+            return None
+
+        def _record_command(name: str, *, payload=None):
+            payload_dict = dict(payload or {})
+            command_calls.append((str(name), payload_dict))
+            method = str(payload_dict.get("method", ""))
+            if method == "save_store_row":
+                from LiuXin_alpha.library.library import Library
+
+                return Library(database=db, close_database_on_close=False).save_store_row(
+                    store_payload=payload_dict["kwargs"]["store_payload"]
+                )
+            return {
+                "discovered_rows": 1,
+                "loaded_stores": 1,
+                "skipped_rows": 0,
+                "failed_rows": 0,
+            }
+
+        monkeypatch.setattr(shell, "execute_core_query", _record_query)
+        monkeypatch.setattr(shell, "execute_core_command", _record_command)
+
+        rc = shell.run_commands(["add store"])
+        assert rc == 0
+
+        rows = db.search("stores", "store_root_uri", str(store_dir.resolve()))
+        assert len(rows) == 1
+
+    assert len(query_calls) == 1
+    assert query_calls[0][0] == "invoke"
+    assert query_calls[0][1]["target"] == "library"
+    assert query_calls[0][1]["method"] == "find_existing_store"
+    assert query_calls[0][1]["kwargs"]["root_uri"] == str(store_dir.resolve())
+    assert len(command_calls) == 2
+    assert command_calls[0][0] == "invoke"
+    assert command_calls[0][1]["target"] == "library"
+    assert command_calls[0][1]["method"] == "save_store_row"
+    assert (
+        query_calls[0][1]["kwargs"]["store_name"]
+        == command_calls[0][1]["kwargs"]["store_payload"]["store_name"]
+    )
+    assert command_calls[0][1]["kwargs"]["store_payload"]["store_root_uri"] == str(store_dir.resolve())
+    assert command_calls[1] == (
+        "invoke",
+        {
+            "target": "library",
+            "method": "refresh_storage",
+            "kwargs": {"clear_existing": True},
+        },
+    )
+    rendered = output.getvalue()
+    assert "Store saved:" in rendered
+    assert "Storage bootstrap: discovered=1 loaded=1 skipped=0 failed=0" in rendered
+
+
+def test_text_browser_new_store_wizard_refresh_works_with_default_core_runtime(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_new_store_default_core_refresh.sqlite"
+    output = io.StringIO()
+    store_dir = tmp_path / "default_core_refresh_store"
+
+    input_stream = io.StringIO(
+        "\n".join(
+            [
+                "",
+                str(store_dir),
+                "y",
+                "",
+                "",
+                "",
+                "",
+            ]
+        )
+        + "\n"
+    )
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        shell = TextDatabaseBrowser(db, input=input_stream, output=output)
+        rc = shell.run_commands(["add store"])
+        assert rc == 0
+
+        rows = db.search("stores", "store_root_uri", str(store_dir.resolve()))
+        assert len(rows) == 1
+        report = getattr(db, "storage_bootstrap_report", None)
+        assert report is not None
+        assert report.discovered_rows >= 1
+        assert report.loaded_stores >= 1
+
+    rendered = output.getvalue()
+    assert "Storage bootstrap: discovered=" in rendered
 
 
 def test_text_browser_new_store_wizard_rejects_args(driver_spec, tmp_path: Path) -> None:
@@ -1677,6 +2107,42 @@ def test_text_browser_sync_store_job_panel_requires_background(driver_spec, tmp_
         shell = TextDatabaseBrowser(db, output=output)
         with pytest.raises(ValueError):
             shell.execute_line("sync store {} --job-panel --no-refresh".format(store_id))
+
+
+def test_text_browser_sync_store_background_core_requires_job_id(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_background_core_job_id.sqlite"
+    output = io.StringIO()
+    sync_root = tmp_path / "sync_background_core_job_id_root"
+    sync_root.mkdir(parents=True, exist_ok=True)
+    (sync_root / "first.epub").write_bytes(b"epub")
+
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    try:
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            store_id = _insert_store_row(
+                db,
+                name="sync-background-core-job-id-store",
+                kind="on_disk_existing_unmanaged_drive",
+                root_uri=str(sync_root.resolve()),
+                is_read_only=1,
+            )
+
+            shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
+            monkeypatch.setattr(shell, "supports_core_commands", lambda: True)
+            monkeypatch.setattr(shell, "execute_core_command", lambda name, payload=None: {})
+
+            with pytest.raises(RuntimeError, match="did not return a job id"):
+                shell.execute_line("sync store {} --background --job-backend serial".format(store_id))
+
+            assert manager.list() == []
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
 
 
 def test_text_browser_sync_store_rclone_uses_rate_limit_option(driver_spec, tmp_path: Path, monkeypatch) -> None:
@@ -2530,7 +2996,9 @@ def test_text_browser_row_command_accepts_compact_table_id(driver_spec, tmp_path
         assert shell.execute_line("row store:{}".format(store_id))
 
     rendered = output.getvalue()
-    assert "store_id={}".format(store_id) in rendered
+    assert "| id " in rendered
+    assert "| name " in rendered
+    assert str(store_id) in rendered
     assert "row-compact-store" in rendered
 
 

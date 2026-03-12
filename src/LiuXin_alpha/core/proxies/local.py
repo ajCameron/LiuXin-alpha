@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from LiuXin_alpha.core.commands import CoreCommand
-from LiuXin_alpha.core.proxies.jobs import JobStatesArg, JobsProxyABC
+from LiuXin_alpha.core.proxies.jobs import JobStatesArg, JobsProxyABC, normalize_job_states_arg
 from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.core.runtime import CoreRuntime
 
@@ -34,6 +34,7 @@ WRITE_PREFIXES = (
 
 WRITE_EXACT = {
     "backup",
+    "bootstrap_storage_manager",
     "close",
 }
 
@@ -130,8 +131,9 @@ class LocalJobsProxy(JobsProxyABC):
         offset: int = 0,
     ) -> Mapping[str, Any]:
         payload: dict[str, Any] = {"offset": int(offset)}
-        if states is not None:
-            payload["states"] = states
+        normalized_states = normalize_job_states_arg(states)
+        if normalized_states is not None:
+            payload["states"] = normalized_states
         if limit is not None:
             payload["limit"] = int(limit)
         envelope = CoreQuery(name="jobs.list", payload=payload)

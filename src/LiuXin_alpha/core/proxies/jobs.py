@@ -10,6 +10,21 @@ from typing import Any, Mapping, Protocol, runtime_checkable
 JobStatesArg = str | Collection[str]
 
 
+def normalize_job_states_arg(states: JobStatesArg | None) -> str | list[str] | None:
+    """Normalize optional job-state filters for proxy payloads."""
+    if states is None:
+        return None
+    if isinstance(states, str):
+        return str(states)
+
+    values: set[str] = set()
+    for raw in states:
+        token = str(raw).strip().lower()
+        if token:
+            values.add(token)
+    return sorted(values)
+
+
 @runtime_checkable
 class JobsProxyAPI(Protocol):
     """Runtime-checkable protocol for jobs proxy implementations."""
@@ -68,6 +83,7 @@ class JobsProxyABC(ABC):
 
 __all__ = [
     "JobStatesArg",
+    "normalize_job_states_arg",
     "JobsProxyAPI",
     "JobsProxyABC",
 ]

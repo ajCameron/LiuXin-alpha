@@ -3,9 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.core import CoreCommand, CoreQuery, CoreRuntime
 from LiuXin_alpha.core.proxies import LocalLibraryProxy
+from LiuXin_alpha.core.proxies.local import looks_like_write_method
 from LiuXin_alpha.interfaces.terminal.commands import sync as sync_command_module
+from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 
 
@@ -57,6 +60,94 @@ def test_local_proxy_auto_dispatches_read_and_write(core_runtime_factory: Callab
     assert proxy.health()["core_version"] == "test-phase1"
     jobs_payload = proxy.jobs.list(limit=5, offset=0)
     assert "jobs" in jobs_payload
+
+
+def test_local_proxy_bootstrap_storage_manager_routes_via_command() -> None:
+    @dataclass
+    class _FakeDatabase:
+        bootstrapped: int = 0
+
+        def bootstrap_storage_manager(self, *, clear_existing: bool = False):
+            self.bootstrapped += 1
+            return {"bootstrapped": self.bootstrapped, "clear_existing": bool(clear_existing)}
+
+    @dataclass
+    class _FakeStorage:
+        pass
+
+    @dataclass
+    class _FakeLibrary:
+        database: _FakeDatabase
+        storage: _FakeStorage
+
+    runtime = CoreRuntime(
+        library=_FakeLibrary(database=_FakeDatabase(), storage=_FakeStorage()),
+        core_version="test-phase1",
+    )
+    events = []
+    runtime.subscribe(events.append)
+    proxy = LocalLibraryProxy(runtime)
+
+    result = proxy.database.bootstrap_storage_manager(clear_existing=True)
+
+    assert looks_like_write_method("bootstrap_storage_manager") is True
+    assert result["bootstrapped"] == 1
+    assert result["clear_existing"] is True
+    event_types = [event.event_type for event in events]
+    assert "command.started" in event_types
+    assert "command.finished" in event_types
+
+
+def test_core_runtime_library_store_save_and_lookup_round_trip(tmp_path) -> None:
+    db_path = tmp_path / "core_runtime_store_save.sqlite"
+    store_root = tmp_path / "runtime-store"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type="SQLite",
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        runtime = CoreRuntime(
+            library=Library(database=db, close_database_on_close=False),
+            core_version="test-phase1",
+        )
+        saved = runtime.invoke_command(
+            target="library",
+            method="save_store_row",
+            kwargs={
+                "store_payload": {
+                    "store_name": "runtime-store",
+                    "store_kind": "on_disk_existing_managed_drive",
+                    "store_access_protocol": "file",
+                    "store_root_uri": str(store_root.resolve()),
+                    "store_is_read_only": 0,
+                    "store_online_status": "online",
+                    "store_supports_folders": 1,
+                    "store_supports_hierarchical_list": 1,
+                    "store_supports_random_read": 1,
+                    "store_supports_random_write": 1,
+                    "store_supports_delete": 1,
+                    "store_supports_checksums": 1,
+                    "store_supports_immutable_objects": 0,
+                    "store_modified_timestamp_ep_k": 123,
+                    "store_created_timestamp_ep_k": 123,
+                }
+            },
+        )
+
+        assert saved["store_name"] == "runtime-store"
+        found = runtime.invoke_query(
+            target="library",
+            method="find_existing_store",
+            kwargs={
+                "root_uri": str(store_root.resolve()),
+                "store_name": "runtime-store",
+            },
+        )
+        assert found is not None
+        assert int(found["store_id"]) == int(saved["store_id"])
+        assert found["store_kind"] == "on_disk_existing_managed_drive"
 
 
 def test_core_runtime_sync_store_start_submits_job(monkeypatch) -> None:

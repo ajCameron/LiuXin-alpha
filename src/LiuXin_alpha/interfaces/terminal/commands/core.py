@@ -11,10 +11,10 @@ class HelpCommand(TerminalCommandAPI):
     name = "help"
     aliases = ("h", "?")
     summary = "Show command help."
-    usage = "help"
+    usage = "help [command] [subcommand]"
 
     def execute(self, browser, args: list[str]) -> bool:
-        browser._print_help()
+        browser._print_help(args)
         return True
 
 

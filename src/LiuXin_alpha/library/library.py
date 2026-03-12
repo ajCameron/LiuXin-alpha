@@ -12,9 +12,10 @@ from __future__ import annotations
 import pathlib
 
 from collections.abc import Iterator
-from typing import Optional
+from typing import Any, Mapping, Optional
 
 from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
 from LiuXin_alpha.storage.api import SingleFileAPI, StoreAPI
 from LiuXin_alpha.storage.reconcile import (
@@ -101,6 +102,58 @@ class Library:
     @property
     def storage_bootstrap_report(self) -> Optional[StorageBootstrapReport]:
         return getattr(self._database, "storage_bootstrap_report", None)
+
+    @staticmethod
+    def _row_to_plain_dict(row: Row | Mapping[str, Any]) -> dict[str, Any]:
+        if isinstance(row, Mapping):
+            return dict(row)
+        return dict(getattr(row, "row_dict", {}) or {})
+
+    def _find_existing_store_row(self, *, root_uri: str, store_name: str) -> Row | None:
+        root_token = str(root_uri).strip()
+        name_token = str(store_name).strip()
+
+        if root_token:
+            rows = self._database.search("stores", "store_root_uri", root_token)
+            if rows:
+                return rows[0]
+        if name_token:
+            rows = self._database.search("stores", "store_name", name_token)
+            if rows:
+                return rows[0]
+        return None
+
+    def find_existing_store(self, *, root_uri: str, store_name: str) -> dict[str, Any] | None:
+        row = self._find_existing_store_row(root_uri=root_uri, store_name=store_name)
+        if row is None:
+            return None
+        return self._row_to_plain_dict(row)
+
+    def save_store_row(self, *, store_payload: Mapping[str, Any]) -> dict[str, Any]:
+        payload = dict(store_payload or {})
+        table_columns = set(self._database.get_column_headings("stores"))
+        row_dict = {key: value for key, value in payload.items() if key in table_columns and value is not None}
+        if not row_dict:
+            raise ValueError("Store payload did not contain any writable `stores` columns.")
+
+        existing = self._find_existing_store_row(
+            root_uri=str(row_dict.get("store_root_uri", "") or ""),
+            store_name=str(row_dict.get("store_name", "") or ""),
+        )
+        if existing is not None:
+            changed = False
+            for key, value in row_dict.items():
+                if key not in existing.allowed_columns:
+                    continue
+                if existing[key] != value:
+                    existing[key] = value
+                    changed = True
+            if changed:
+                existing.sync()
+            return self._row_to_plain_dict(existing)
+
+        row = Row.from_idless_row_dict(self._database, row_dict=row_dict, table="stores")
+        return self._row_to_plain_dict(row)
 
     def refresh_storage(
         self,

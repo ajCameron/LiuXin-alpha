@@ -50,6 +50,16 @@ class _CursesUiDriver:
         self._history: list[str] = []
         self._history_cursor: Optional[int] = None
         self._job_output_job_id: Optional[str] = None
+        self._jobs_status_error: Optional[str] = None
+        self._job_output_error: Optional[str] = None
+        self._console_scroll_offset = 0
+        self._completion_hint: Optional[str] = None
+        self._completion_matches: tuple[str, ...] = ()
+        self._completion_base_input: Optional[str] = None
+        self._completion_active_input: Optional[str] = None
+        self._completion_token_start = 0
+        self._completion_token_end = 0
+        self._completion_index: Optional[int] = None
         self.browser: Optional[TextDatabaseBrowser] = None
 
     @property
@@ -74,19 +84,243 @@ class _CursesUiDriver:
     def clear_job_output_job(self) -> bool:
         return self.set_job_output_job(None)
 
+    def clear_console_output(self) -> bool:
+        had_content = bool(self._lines) or self._console_scroll_offset != 0
+        self._lines.clear()
+        self._console_scroll_offset = 0
+        self._render(force_status=False)
+        return had_content
+
     def append_output(self, text: str, *, end: str = "\n") -> None:
         payload = str(text) + str(end)
+        if payload == "":
+            return
         chunks = payload.splitlines()
-        if payload.endswith("\n") or payload.endswith("\r"):
-            chunks.append("")
+        added_wrapped_lines = len(self._wrap_lines_for_width(chunks, width=self._console_content_width()))
+        if self._console_scroll_offset > 0 and added_wrapped_lines > 0:
+            self._console_scroll_offset += added_wrapped_lines
         for line in chunks:
             self._lines.append(line)
         self._render(force_status=False)
+
+    @staticmethod
+    def _format_error(prefix: str, exc: BaseException) -> str:
+        text = str(exc).strip()
+        name = exc.__class__.__name__
+        if text:
+            return "{}: {}: {}".format(prefix, name, text)
+        return "{}: {}".format(prefix, name)
+
+    @staticmethod
+    def _wrap_lines_for_width(lines: list[str], *, width: int) -> list[str]:
+        usable = max(1, int(width))
+        wrapped: list[str] = []
+        for raw in lines:
+            text = str(raw)
+            if text == "":
+                wrapped.append("")
+                continue
+            start = 0
+            while start < len(text):
+                wrapped.append(text[start : start + usable])
+                start += usable
+        return wrapped
+
+    @staticmethod
+    def _clamp_scroll_offset(total_lines: int, visible_rows: int, offset: int) -> int:
+        max_offset = max(0, int(total_lines) - max(0, int(visible_rows)))
+        return max(0, min(max_offset, int(offset)))
+
+    def _console_content_width(self) -> int:
+        win = self._console_win
+        if win is not None:
+            _, cols = win.getmaxyx()
+            return max(1, cols - 1)
+        return max(1, self.terminal_width - 1)
+
+    def _console_visible_log_rows(self) -> int:
+        win = self._console_win
+        if win is not None:
+            rows, _ = win.getmaxyx()
+            return max(1, rows - 1)
+        return 10
+
+    def _wrapped_console_lines(self, *, width: Optional[int] = None) -> list[str]:
+        return self._wrap_lines_for_width(
+            list(self._lines),
+            width=max(1, self._console_content_width() if width is None else int(width)),
+        )
+
+    def _visible_console_lines(
+        self,
+        *,
+        width: Optional[int] = None,
+        visible_rows: Optional[int] = None,
+    ) -> list[str]:
+        wrapped = self._wrapped_console_lines(width=width)
+        rows = self._console_visible_log_rows() if visible_rows is None else max(0, int(visible_rows))
+        self._console_scroll_offset = self._clamp_scroll_offset(len(wrapped), rows, self._console_scroll_offset)
+        if rows <= 0:
+            return []
+        end = len(wrapped) - self._console_scroll_offset
+        start = max(0, end - rows)
+        return wrapped[start:end]
+
+    def _scroll_console_relative(
+        self,
+        delta: int,
+        *,
+        width: Optional[int] = None,
+        visible_rows: Optional[int] = None,
+    ) -> bool:
+        wrapped = self._wrapped_console_lines(width=width)
+        rows = self._console_visible_log_rows() if visible_rows is None else max(0, int(visible_rows))
+        previous = self._console_scroll_offset
+        self._console_scroll_offset = self._clamp_scroll_offset(len(wrapped), rows, previous + int(delta))
+        changed = self._console_scroll_offset != previous
+        if changed:
+            self._render(force_status=False)
+        return changed
+
+    def _scroll_console_to_top(self, *, width: Optional[int] = None, visible_rows: Optional[int] = None) -> bool:
+        wrapped = self._wrapped_console_lines(width=width)
+        rows = self._console_visible_log_rows() if visible_rows is None else max(0, int(visible_rows))
+        previous = self._console_scroll_offset
+        self._console_scroll_offset = self._clamp_scroll_offset(len(wrapped), rows, len(wrapped))
+        changed = self._console_scroll_offset != previous
+        if changed:
+            self._render(force_status=False)
+        return changed
+
+    def _scroll_console_to_bottom(self) -> bool:
+        previous = self._console_scroll_offset
+        self._console_scroll_offset = 0
+        changed = self._console_scroll_offset != previous
+        if changed:
+            self._render(force_status=False)
+        return changed
+
+    @staticmethod
+    def _shared_prefix(values: tuple[str, ...]) -> str:
+        if not values:
+            return ""
+        prefix = values[0]
+        for value in values[1:]:
+            limit = min(len(prefix), len(value))
+            idx = 0
+            while idx < limit and prefix[idx] == value[idx]:
+                idx += 1
+            prefix = prefix[:idx]
+            if not prefix:
+                break
+        return prefix
+
+    def _reset_completion(self, *, keep_hint: bool = False) -> None:
+        self._completion_matches = ()
+        self._completion_base_input = None
+        self._completion_active_input = None
+        self._completion_token_start = 0
+        self._completion_token_end = 0
+        self._completion_index = None
+        if not keep_hint:
+            self._completion_hint = None
+
+    def _format_completion_hint(self, matches: tuple[str, ...], *, selected_index: Optional[int] = None) -> str:
+        preview = list(matches[:6])
+        preview_text = ", ".join(preview)
+        remaining = len(matches) - len(preview)
+        if remaining > 0:
+            preview_text += " (+{} more)".format(remaining)
+        if selected_index is None or selected_index < 0 or selected_index >= len(matches):
+            return "completion: {}".format(preview_text)
+        return "completion: {} ({}/{}) | matches: {}".format(
+            matches[selected_index],
+            selected_index + 1,
+            len(matches),
+            preview_text,
+        )
+
+    def _apply_completion_candidate(self, candidate: str) -> str:
+        base = str(self._completion_base_input or self._current_input)
+        start = max(0, int(self._completion_token_start))
+        end = max(start, int(self._completion_token_end))
+        completed = "{}{}{}".format(base[:start], candidate, base[end:])
+        if not completed.endswith(" "):
+            completed += " "
+        return completed
+
+    def _complete_current_input(self, *, direction: int = 1) -> bool:
+        browser = self.browser
+        if browser is None or not hasattr(browser, "command_completion_candidates"):
+            self._reset_completion()
+            return False
+
+        if (
+            self._completion_matches
+            and self._completion_base_input is not None
+            and self._completion_active_input == self._current_input
+            and self._completion_index is not None
+        ):
+            next_index = (self._completion_index + int(direction)) % len(self._completion_matches)
+            self._completion_index = next_index
+            self._current_input = self._apply_completion_candidate(self._completion_matches[next_index])
+            self._completion_active_input = self._current_input
+            self._completion_hint = self._format_completion_hint(
+                self._completion_matches,
+                selected_index=next_index,
+            )
+            self._render(force_status=False)
+            return True
+
+        try:
+            completion = browser.command_completion_candidates(self._current_input, cursor=len(self._current_input))
+        except Exception:
+            self._reset_completion()
+            return False
+
+        matches = tuple(str(candidate) for candidate in completion.candidates if str(candidate))
+        if not matches:
+            self._reset_completion()
+            return False
+
+        self._reset_completion(keep_hint=True)
+        shared_prefix = self._shared_prefix(matches)
+        if len(matches) > 1 and len(shared_prefix) > len(str(completion.prefix)):
+            self._current_input = (
+                self._current_input[: completion.token_start]
+                + shared_prefix
+                + self._current_input[completion.token_end :]
+            )
+            self._completion_hint = self._format_completion_hint(matches)
+            self._render(force_status=False)
+            return True
+
+        if len(matches) == 1:
+            self._completion_base_input = self._current_input
+            self._completion_token_start = int(completion.token_start)
+            self._completion_token_end = int(completion.token_end)
+            self._current_input = self._apply_completion_candidate(matches[0])
+            self._completion_active_input = self._current_input
+            self._completion_hint = self._format_completion_hint(matches, selected_index=0)
+            self._render(force_status=False)
+            return True
+
+        self._completion_matches = matches
+        self._completion_base_input = self._current_input
+        self._completion_token_start = int(completion.token_start)
+        self._completion_token_end = int(completion.token_end)
+        self._completion_index = 0 if int(direction) >= 0 else (len(matches) - 1)
+        self._current_input = self._apply_completion_candidate(matches[self._completion_index])
+        self._completion_active_input = self._current_input
+        self._completion_hint = self._format_completion_hint(matches, selected_index=self._completion_index)
+        self._render(force_status=False)
+        return True
 
     def read_line(self, prompt: str, *, default: Optional[str] = None) -> str:
         self._current_prompt = str(prompt)
         self._current_input = "" if default is None else str(default)
         self._history_cursor = None
+        self._reset_completion()
 
         while True:
             self._render(force_status=False)
@@ -98,15 +332,42 @@ class _CursesUiDriver:
                 value = self._current_input
                 if value.strip():
                     self._history.append(value)
+                self._console_scroll_offset = 0
                 self._current_prompt = ""
                 self._current_input = ""
                 self._history_cursor = None
+                self._reset_completion()
                 self._render(force_status=True)
                 return value
+
+            if ch == "\t":
+                self._complete_current_input(direction=1)
+                continue
+
+            if ch == getattr(curses, "KEY_BTAB", None):
+                self._complete_current_input(direction=-1)
+                continue
+
+            if ch == curses.KEY_PPAGE:
+                self._scroll_console_relative(self._console_visible_log_rows())
+                continue
+
+            if ch == curses.KEY_NPAGE:
+                self._scroll_console_relative(-self._console_visible_log_rows())
+                continue
+
+            if ch == curses.KEY_HOME:
+                self._scroll_console_to_top()
+                continue
+
+            if ch == curses.KEY_END:
+                self._scroll_console_to_bottom()
+                continue
 
             if ch in (curses.KEY_BACKSPACE, "\b", "\x7f"):
                 if self._current_input:
                     self._current_input = self._current_input[:-1]
+                    self._reset_completion()
                 continue
 
             if ch == curses.KEY_UP:
@@ -117,6 +378,7 @@ class _CursesUiDriver:
                 elif self._history_cursor > 0:
                     self._history_cursor -= 1
                 self._current_input = self._history[self._history_cursor]
+                self._reset_completion()
                 continue
 
             if ch == curses.KEY_DOWN:
@@ -128,6 +390,7 @@ class _CursesUiDriver:
                 else:
                     self._history_cursor += 1
                     self._current_input = self._history[self._history_cursor]
+                self._reset_completion()
                 continue
 
             if ch == "\x04":  # Ctrl-D
@@ -135,6 +398,7 @@ class _CursesUiDriver:
                     self._current_prompt = ""
                     self._current_input = ""
                     self._history_cursor = None
+                    self._reset_completion()
                     self._render(force_status=True)
                     return ""
                 continue
@@ -144,6 +408,7 @@ class _CursesUiDriver:
 
             if isinstance(ch, str) and ch.isprintable():
                 self._current_input += ch
+                self._reset_completion()
 
     def load_history(self) -> None:
         path = self.history_file
@@ -223,6 +488,7 @@ class _CursesUiDriver:
         return getattr(info, key, default)
 
     def _list_jobs(self) -> list[object]:
+        self._jobs_status_error = None
         if self.browser is None:
             return []
         if hasattr(self.browser, "supports_core_queries") and bool(self.browser.supports_core_queries()):
@@ -232,23 +498,33 @@ class _CursesUiDriver:
                     payload={"offset": 0, "limit": 5000},
                 )
                 return list((result or {}).get("jobs", ()) or ())
-            except Exception:
-                pass
+            except Exception as exc:
+                self._jobs_status_error = self._format_error("core jobs.list failed", exc)
+                return []
         try:
             return list(self.browser.job_manager.list())
-        except Exception:
+        except Exception as exc:
+            self._jobs_status_error = self._format_error("local jobs unavailable", exc)
             return []
 
     def _get_job(self, job_id: str) -> object:
+        self._job_output_error = None
         if self.browser is None:
             raise RuntimeError("browser unavailable")
         if hasattr(self.browser, "supports_core_queries") and bool(self.browser.supports_core_queries()):
             try:
                 result = self.browser.execute_core_query("jobs.get", payload={"job_id": str(job_id)})
                 return (result or {}).get("job", {})
-            except Exception:
-                pass
-        return self.browser.job_manager.get(job_id)
+            except Exception as exc:
+                message = self._format_error("core jobs.get failed", exc)
+                self._job_output_error = message
+                raise RuntimeError(message) from exc
+        try:
+            return self.browser.job_manager.get(job_id)
+        except Exception as exc:
+            message = self._format_error("local job unavailable", exc)
+            self._job_output_error = message
+            raise RuntimeError(message) from exc
 
     def _build_status_lines(self) -> list[str]:
         now = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -265,6 +541,15 @@ class _CursesUiDriver:
         lines = [header]
         if self.browser is None:
             return lines
+
+        core_status = ""
+        if hasattr(self.browser, "core_runtime_status_summary"):
+            try:
+                core_status = str(self.browser.core_runtime_status_summary() or "").strip()
+            except Exception:
+                core_status = ""
+        if core_status:
+            lines.append(core_status)
 
         table = self.browser.current_table or "<none>"
         window = self.browser.window
@@ -293,8 +578,14 @@ class _CursesUiDriver:
             lines.append("jobs: total={} | {}".format(len(jobs), " | ".join(segments)))
         else:
             lines.append("jobs: total=0")
+        if self._jobs_status_error:
+            lines.append("jobs_error: {}".format(self._jobs_status_error))
         if self._job_output_job_id:
             lines.append("job_panel: {}".format(self._job_output_job_id))
+        if self._console_scroll_offset > 0:
+            lines.append("console_scrollback: +{} | PgUp/PgDn Home/End".format(self._console_scroll_offset))
+        if self._completion_hint:
+            lines.append(self._completion_hint)
         return lines
 
     def _build_job_output_lines(self, *, max_lines: int) -> list[str]:
@@ -381,11 +672,10 @@ class _CursesUiDriver:
             return
         win.erase()
         rows, cols = win.getmaxyx()
-        lines = self._build_status_lines()
-        for idx in range(min(rows, len(lines))):
+        content_rows = max(0, rows - 1)
+        lines = self._wrap_lines_for_width(self._build_status_lines(), width=max(1, cols - 1))
+        for idx in range(min(content_rows, len(lines))):
             line = str(lines[idx])
-            if len(line) >= cols:
-                line = line[: max(0, cols - 1)]
             try:
                 win.addstr(idx, 0, line)
             except Exception:
@@ -404,12 +694,10 @@ class _CursesUiDriver:
         rows, cols = win.getmaxyx()
         visible_log_rows = max(0, rows - 1)
 
-        tail = list(self._lines)[-visible_log_rows:]
+        tail = self._visible_console_lines(width=max(1, cols - 1), visible_rows=visible_log_rows)
         start_row = max(0, visible_log_rows - len(tail))
         for idx, line in enumerate(tail, start=start_row):
             text = str(line)
-            if len(text) >= cols:
-                text = text[: max(0, cols - 1)]
             try:
                 win.addstr(idx, 0, text)
             except Exception:
@@ -437,11 +725,12 @@ class _CursesUiDriver:
             return
         win.erase()
         rows, cols = win.getmaxyx()
-        lines = self._build_job_output_lines(max_lines=max(1, rows))
-        for idx in range(min(rows, len(lines))):
-            text = str(lines[idx])
-            if len(text) >= cols:
-                text = text[: max(0, cols - 1)]
+        lines = self._wrap_lines_for_width(
+            self._build_job_output_lines(max_lines=max(1, rows)),
+            width=max(1, cols - 1),
+        )
+        tail = lines[-rows:]
+        for idx, text in enumerate(tail):
             try:
                 win.addstr(idx, 0, text)
             except Exception:
@@ -465,6 +754,9 @@ class _WindowedTextDatabaseBrowser(TextDatabaseBrowser):
         if line == "":
             return ""
         return line + "\n"
+
+    def clear_output(self) -> bool:  # type: ignore[override]
+        return self._ui_driver.clear_console_output()
 
     def prompt_text(self, prompt: str, *, default: Optional[str] = None) -> str:  # type: ignore[override]
         suffix = ""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from LiuXin_alpha.core.proxies import (
     RemoteJobsProxy,
     RemoteLibraryProxy,
 )
+import LiuXin_alpha.core.proxies.remote as remote_proxy_module
 from LiuXin_alpha.utils.jobs import JobRequest
 from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 
@@ -170,6 +172,7 @@ def test_remote_library_proxy_jobs_methods_use_named_rpc(monkeypatch) -> None:
     assert calls[0][0] == "POST"
     assert calls[0][1].endswith("/rpc/query")
     assert str(calls[0][2].get("name", "")) == "jobs.list"
+    assert calls[0][2].get("payload", {}).get("states") == ["running"]
     assert calls[3][1].endswith("/rpc/command")
     assert str(calls[3][2].get("name", "")) == "jobs.cancel"
 
@@ -178,3 +181,60 @@ def test_remote_library_proxy_jobs_rejects_blank_job_id() -> None:
     proxy = RemoteLibraryProxy(endpoint="http://example.test", timeout_seconds=1.0)
     with pytest.raises(ValueError):
         proxy.jobs.get("  ")
+
+
+def test_remote_jobs_proxy_list_serializes_state_sets_for_http(monkeypatch) -> None:
+    proxy = RemoteLibraryProxy(endpoint="http://example.test", timeout_seconds=1.0)
+    observed: dict[str, Any] = {}
+
+    class _FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> bool:
+            del exc_type, exc, tb
+            return False
+
+        def read(self) -> bytes:
+            return json.dumps({"ok": True, "result": {"jobs": [], "total": 0, "offset": 0, "limit": 10}}).encode(
+                "utf-8"
+            )
+
+    def _fake_urlopen(request, timeout=0):
+        observed["timeout"] = float(timeout)
+        observed["method"] = request.get_method()
+        observed["url"] = request.full_url
+        observed["body"] = json.loads((request.data or b"{}").decode("utf-8"))
+        return _FakeResponse()
+
+    monkeypatch.setattr(remote_proxy_module.urllib.request, "urlopen", _fake_urlopen)
+
+    listed = proxy.jobs.list(limit=10, offset=0, states={"running", "failed"})
+
+    assert int(listed.get("total", -1)) == 0
+    assert observed["method"] == "POST"
+    assert str(observed["url"]).endswith("/rpc/query")
+    assert observed["body"]["name"] == "jobs.list"
+    assert observed["body"]["payload"]["states"] == ["failed", "running"]
+
+
+def test_remote_library_proxy_bootstrap_storage_manager_uses_command_endpoint(monkeypatch) -> None:
+    proxy = RemoteLibraryProxy(endpoint="http://example.test", timeout_seconds=1.0)
+    calls: list[tuple[str, str, dict[str, Any] | None]] = []
+
+    def _fake_http_json(*, method: str, url: str, payload=None):
+        payload_dict = dict(payload or {})
+        calls.append((str(method), str(url), payload_dict))
+        return {"ok": True, "result": {"bootstrapped": 1}}
+
+    monkeypatch.setattr(proxy.database, "_http_json", _fake_http_json)
+
+    result = proxy.database.bootstrap_storage_manager(clear_existing=True)
+
+    assert result == {"bootstrapped": 1}
+    assert len(calls) == 1
+    assert calls[0][0] == "POST"
+    assert calls[0][1].endswith("/rpc/command")
+    assert calls[0][2]["name"] == "invoke"
+    assert calls[0][2]["payload"]["target"] == "database"
+    assert calls[0][2]["payload"]["method"] == "bootstrap_storage_manager"
