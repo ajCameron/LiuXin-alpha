@@ -823,21 +823,33 @@ class SyncStoreCommand(TerminalCommandAPI):
                     backend=options.job_backend,
                     label=label,
                 )
-            browser.emit("Sync job submitted: {}".format(job_id))
-            browser.emit("  mode: {}".format(mode))
-            browser.emit("  store_id: {}".format(store_id_value))
-            browser.emit("  backend: {}".format(options.job_backend or "default"))
-            browser.emit("  timeout_s: {}".format("none" if options.job_timeout_s is None else options.job_timeout_s))
-            browser.emit("  output_capture: {}".format("disabled" if options.job_no_output else "enabled"))
+            browser.emit_detail_sections(
+                [
+                    (
+                        "Submission",
+                        [
+                            ("mode", mode),
+                            ("store_id", store_id_value),
+                            ("backend", options.job_backend or "default"),
+                            ("timeout_s", "none" if options.job_timeout_s is None else options.job_timeout_s),
+                            ("output_capture", "disabled" if options.job_no_output else "enabled"),
+                        ],
+                    )
+                ],
+                title="Sync job submitted: {}".format(job_id),
+                max_cell_width=120,
+            )
             browser.emit("  Use `jobs show {} --wait` to inspect completion.".format(job_id))
             if options.job_panel:
+                panel_rows: list[tuple[str, object]] = []
                 if browser.supports_job_output_panel():
                     browser.attach_job_output_panel(job_id)
-                    browser.emit("  output_panel: attached to job {}".format(job_id))
+                    panel_rows.append(("output_panel", "attached to job {}".format(job_id)))
                     if options.job_no_output:
-                        browser.emit("  output_panel_note: job output capture is disabled (--job-no-output)")
+                        panel_rows.append(("output_panel_note", "job output capture is disabled (--job-no-output)"))
                 else:
-                    browser.emit("  output_panel: unavailable in this UI mode")
+                    panel_rows.append(("output_panel", "unavailable in this UI mode"))
+                browser.emit_detail_sections([("", panel_rows)], max_cell_width=120)
             return True
 
         if options.job_panel:
@@ -902,45 +914,65 @@ class SyncStoreCommand(TerminalCommandAPI):
             browser.emit(json.dumps(report.to_dict(), ensure_ascii=False, sort_keys=True, indent=2))
             return True
 
-        browser.emit("Sync completed:")
-        browser.emit("  store_id: {}".format(report.store_row_id))
-        browser.emit("  store_name: {}".format(report.store_name))
-        browser.emit("  store_root_uri: {}".format(report.store_root_uri))
-        browser.emit("  scanned_files: {}".format(report.scanned_files))
-        browser.emit("  ebook_candidates: {}".format(report.ebook_candidates))
-        browser.emit("  skipped_non_ebook_files: {}".format(report.skipped_non_ebook_files))
-        browser.emit("  inserted_files: {}".format(report.inserted_files))
-        browser.emit("  updated_files: {}".format(report.updated_files))
-        browser.emit("  unchanged_files: {}".format(report.unchanged_files))
-        browser.emit("  linked_files: {}".format(report.linked_files))
-        browser.emit("  errors: {}".format(len(report.errors)))
+        sections: list[tuple[str, list[tuple[str, object]]]] = [
+            (
+                "Store",
+                [
+                    ("store_id", report.store_row_id),
+                    ("store_name", report.store_name),
+                    ("store_root_uri", report.store_root_uri),
+                ],
+            ),
+            (
+                "Results",
+                [
+                    ("scanned_files", report.scanned_files),
+                    ("ebook_candidates", report.ebook_candidates),
+                    ("skipped_non_ebook_files", report.skipped_non_ebook_files),
+                    ("inserted_files", report.inserted_files),
+                    ("updated_files", report.updated_files),
+                    ("unchanged_files", report.unchanged_files),
+                    ("linked_files", report.linked_files),
+                    ("errors", len(report.errors)),
+                ],
+            ),
+        ]
         store_row_after = browser.db.get_row_from_id("stores", report.store_row_id)
+        capabilities_rows: list[tuple[str, object]] = []
         if store_row_after is not None and "store_supports_checksums" in set(store_row_after.allowed_columns):
             supports_checksums = bool(int(store_row_after["store_supports_checksums"] or 0))
-            browser.emit("  store_supports_checksums: {}".format("yes" if supports_checksums else "no"))
+            capabilities_rows.append(("store_supports_checksums", "yes" if supports_checksums else "no"))
+        transport_rows: list[tuple[str, object]] = []
         if is_rclone:
-            browser.emit(
-                "  max_http_requests_per_hour: {}".format(
+            transport_rows.append(
+                (
+                    "max_http_requests_per_hour",
                     get_default_rclone_http_requests_per_hour()
                     if options.max_http_requests_per_hour is None
-                    else options.max_http_requests_per_hour
+                    else options.max_http_requests_per_hour,
                 )
             )
         elif is_wget:
-            browser.emit(
-                "  max_http_requests_per_hour: {}".format(
+            transport_rows.append(
+                (
+                    "max_http_requests_per_hour",
                     get_default_wget_http_requests_per_hour()
                     if options.max_http_requests_per_hour is None
-                    else options.max_http_requests_per_hour
+                    else options.max_http_requests_per_hour,
                 )
             )
+        if capabilities_rows:
+            sections.append(("Capabilities", capabilities_rows))
+        if transport_rows:
+            sections.append(("Transport", transport_rows))
+        browser.emit_detail_sections(sections, title="Sync completed:", max_cell_width=120)
         if report.errors:
             preview_count = min(5, len(report.errors))
-            browser.emit("  error_preview:")
-            for error in report.errors[:preview_count]:
-                browser.emit("    - {}".format(error))
+            browser.emit("")
+            browser.emit("Error preview")
+            browser.emit(browser.render_table(["error"], [[error] for error in report.errors[:preview_count]], max_cell_width=120))
             if len(report.errors) > preview_count:
-                browser.emit("    ... {} more".format(len(report.errors) - preview_count))
+                browser.emit("... {} more".format(len(report.errors) - preview_count))
         return True
 
 

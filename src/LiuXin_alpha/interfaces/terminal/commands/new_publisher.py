@@ -97,11 +97,21 @@ class NewPublisherWizardCommand(TerminalCommandAPI):
             if not proceed_duplicate:
                 raise ValueError("Publisher wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Publisher summary")
-        browser.emit("  name: {}".format(publisher))
-        browser.emit("  sort: {}".format(publisher_sort))
-        browser.emit("  website: {}".format(publisher_website or ""))
-        browser.emit("  parent_agent_id: {}".format(parent_id if parent_id is not None else ""))
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("name", publisher),
+                        ("sort", publisher_sort),
+                        ("website", publisher_website or ""),
+                        ("parent_agent_id", parent_id if parent_id is not None else ""),
+                    ],
+                )
+            ],
+            title="Publisher summary",
+            max_cell_width=120,
+        )
         proceed = browser.prompt_yes_no("Create this publisher now?", default=True)
         if not proceed:
             raise ValueError("Publisher wizard canceled.")

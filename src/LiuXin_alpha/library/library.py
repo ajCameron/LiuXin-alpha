@@ -109,6 +109,20 @@ class Library:
             return dict(row)
         return dict(getattr(row, "row_dict", {}) or {})
 
+    def _sample_plain_rows(
+        self,
+        rows: list[Row] | tuple[Row, ...] | list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...],
+        *,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        capped = max(0, int(limit))
+        if capped <= 0:
+            return []
+        samples: list[dict[str, Any]] = []
+        for row in list(rows)[:capped]:
+            samples.append(self._row_to_plain_dict(row))
+        return samples
+
     def _find_existing_store_row(self, *, root_uri: str, store_name: str) -> Row | None:
         root_token = str(root_uri).strip()
         name_token = str(store_name).strip()
@@ -128,6 +142,178 @@ class Library:
         if row is None:
             return None
         return self._row_to_plain_dict(row)
+
+    def get_row(self, *, table: str, row_id: int) -> dict[str, Any] | None:
+        target_table = str(table).strip()
+        if not target_table:
+            raise ValueError("`table` is required.")
+        target_row_id = int(row_id)
+        row = self._database.get_row_from_id(target_table, target_row_id)
+        if row is None:
+            return None
+        return self._row_to_plain_dict(row)
+
+    def update_row_fields(
+        self,
+        *,
+        table: str,
+        row_id: int,
+        updates: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        target_table = str(table).strip()
+        if not target_table:
+            raise ValueError("`table` is required.")
+
+        row = self._database.get_row_from_id(target_table, int(row_id))
+        if row is None:
+            raise ValueError("No row found in {} for id {}.".format(target_table, int(row_id)))
+
+        payload = dict(updates or {})
+        if not payload:
+            raise ValueError("`updates` must contain at least one column.")
+
+        id_column = str(self._database.driver_wrapper.get_id_column(target_table))
+        allowed_columns = set(getattr(row, "allowed_columns", ()) or ())
+
+        clean_updates: dict[str, Any] = {}
+        for raw_key, value in payload.items():
+            key = str(raw_key).strip()
+            if not key:
+                continue
+            if key == id_column:
+                raise ValueError("Cannot update id column {!r} for table {!r}.".format(id_column, target_table))
+            if key not in allowed_columns:
+                raise ValueError("Unknown column {!r} for table {!r}.".format(key, target_table))
+            clean_updates[key] = value
+
+        if not clean_updates:
+            raise ValueError("No writable updates were provided for table {!r}.".format(target_table))
+
+        changed = False
+        for key, value in clean_updates.items():
+            if row[key] != value:
+                row[key] = value
+                changed = True
+        if changed:
+            row.sync()
+        return self._row_to_plain_dict(row)
+
+    def describe_row_delete_impact(self, *, table: str, row_id: int, sample_limit: int = 3) -> dict[str, Any]:
+        target_table = str(table).strip()
+        if not target_table:
+            raise ValueError("`table` is required.")
+
+        row = self._database.get_row_from_id(target_table, int(row_id))
+        if row is None:
+            raise ValueError("No row found in {} for id {}.".format(target_table, int(row_id)))
+
+        max_samples = max(0, int(sample_limit))
+        id_column = str(self._database.driver_wrapper.get_id_column(target_table))
+        row_value = row[id_column]
+
+        interlinked_counts: list[dict[str, Any]] = []
+        interlinked_tables: set[str] = set()
+        for linked_table in sorted(self._database.driver_wrapper.get_interlinked_tables(target_table)):
+            if linked_table == target_table:
+                continue
+            try:
+                rows = self._database.get_interlinked_rows(target_row=row, secondary_table=linked_table)
+            except Exception:
+                continue
+            count = len(rows or [])
+            if count <= 0:
+                continue
+            interlinked_tables.add(linked_table)
+            interlinked_counts.append(
+                {
+                    "table": linked_table,
+                    "count": count,
+                    "sample_rows": self._sample_plain_rows(rows or [], limit=max_samples),
+                }
+            )
+
+        reference_candidates: list[tuple[str, str]] = []
+        seen_reference_candidates: set[tuple[str, str]] = set()
+        for candidate_table in sorted(self._database.get_tables()):
+            if candidate_table in interlinked_tables:
+                continue
+            try:
+                candidate_columns = list(self._database.get_column_headings(candidate_table))
+            except Exception:
+                continue
+            for candidate_column in candidate_columns:
+                if candidate_table == target_table and candidate_column == id_column:
+                    continue
+                normalized = str(candidate_column).strip()
+                if normalized == id_column or normalized.endswith("_" + id_column):
+                    key = (candidate_table, normalized)
+                    if key in seen_reference_candidates:
+                        continue
+                    seen_reference_candidates.add(key)
+                    reference_candidates.append(key)
+
+        try:
+            parent_column = self._database.driver_wrapper.get_parent_column(target_table)
+        except Exception:
+            parent_column = None
+        if parent_column:
+            parent_key = (target_table, str(parent_column))
+            if parent_key not in seen_reference_candidates and str(parent_column) != id_column:
+                seen_reference_candidates.add(parent_key)
+                reference_candidates.append(parent_key)
+
+        reference_counts: list[dict[str, Any]] = []
+        for candidate_table, candidate_column in reference_candidates:
+            try:
+                rows = self._database.search(candidate_table, candidate_column, row_value)
+            except Exception:
+                continue
+            count = len(rows or [])
+            if count <= 0:
+                continue
+            reference_counts.append(
+                {
+                    "table": candidate_table,
+                    "column": candidate_column,
+                    "count": count,
+                    "sample_rows": self._sample_plain_rows(rows or [], limit=max_samples),
+                }
+            )
+
+        interlinked_counts.sort(key=lambda item: (-int(item["count"]), str(item["table"])))
+        reference_counts.sort(
+            key=lambda item: (-int(item["count"]), str(item["table"]), str(item["column"]))
+        )
+
+        return {
+            "table": target_table,
+            "row_id": int(row_id),
+            "id_column": id_column,
+            "row": self._row_to_plain_dict(row),
+            "sample_limit": max_samples,
+            "interlinked_counts": interlinked_counts,
+            "reference_counts": reference_counts,
+            "interlinked_total": sum(int(item["count"]) for item in interlinked_counts),
+            "reference_total": sum(int(item["count"]) for item in reference_counts),
+            "warning": (
+                "Delete may fail or cascade depending on schema constraints."
+                if interlinked_counts or reference_counts
+                else ""
+            ),
+        }
+
+    def delete_row(self, *, table: str, row_id: int) -> dict[str, Any]:
+        target_table = str(table).strip()
+        if not target_table:
+            raise ValueError("`table` is required.")
+
+        row = self._database.get_row_from_id(target_table, int(row_id))
+        if row is None:
+            raise ValueError("No row found in {} for id {}.".format(target_table, int(row_id)))
+
+        deleted = self._row_to_plain_dict(row)
+        self._database.delete(row)
+        return deleted
 
     def save_store_row(self, *, store_payload: Mapping[str, Any]) -> dict[str, Any]:
         payload = dict(store_payload or {})

@@ -109,13 +109,23 @@ class NewExpressionWizardCommand(TerminalCommandAPI):
                 if not proceed_duplicate:
                     raise ValueError("Expression wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Expression summary")
-        browser.emit("  label: {}".format(expression_label or ""))
-        browser.emit("  type: {}".format(expression_type or ""))
-        browser.emit("  year: {}".format(expression_year if expression_year is not None else ""))
-        browser.emit("  language: {}".format(expression_language if expression_language is not None else ""))
-        browser.emit("  mode: {}".format(expression_mode or ""))
-        browser.emit("  preferred: {}".format(bool(expression_is_preferred)))
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("label", expression_label or ""),
+                        ("type", expression_type or ""),
+                        ("year", expression_year if expression_year is not None else ""),
+                        ("language", expression_language if expression_language is not None else ""),
+                        ("mode", expression_mode or ""),
+                        ("preferred", bool(expression_is_preferred)),
+                    ],
+                )
+            ],
+            title="Expression summary",
+            max_cell_width=120,
+        )
         proceed = browser.prompt_yes_no("Create this expression now?", default=True)
         if not proceed:
             raise ValueError("Expression wizard canceled.")
@@ -148,4 +158,3 @@ class NewExpressionWizardCommand(TerminalCommandAPI):
             )
         )
         return True
-

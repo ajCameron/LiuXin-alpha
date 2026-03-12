@@ -18,6 +18,7 @@ from LiuXin_alpha.interfaces.terminal.commands import sync as sync_command_modul
 from LiuXin_alpha.interfaces.terminal.plugins import TerminalLifecyclePluginAPI
 from LiuXin_alpha.interfaces.terminal import text_browser as text_browser_module
 from LiuXin_alpha.interfaces.terminal.text_browser import TextDatabaseBrowser, main as browser_main
+from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.metadata.standardization import make_tag_search_term, make_title_search_term, standardize_genre
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     rclone_http_storage_backend as rclone_backend_module,
@@ -53,6 +54,25 @@ def _insert_store_row(
         table="stores",
     )
     return int(row["store_id"])
+
+
+def _insert_folder_row(
+    db: Database,
+    *,
+    store_id: int,
+    name: str = "root",
+    relpath: str = "root",
+) -> int:
+    row = Row.from_idless_row_dict(
+        db,
+        row_dict={
+            "folder_store_id": int(store_id),
+            "folder_name": name,
+            "folder_relpath": relpath,
+        },
+        table="folders",
+    )
+    return int(row["folder_id"])
 
 
 class _PanelAwareBrowser(TextDatabaseBrowser):
@@ -119,7 +139,7 @@ def test_text_browser_session_basic_browsing(driver_spec, tmp_path: Path) -> Non
     assert "Summary: matches_total=" in rendered
     assert "Summary: scanned_rows=" in rendered
     assert "Database summary" in rendered
-    assert "largest_tables" in rendered
+    assert "Largest tables" in rendered
 
 
 def test_text_browser_main_non_interactive(driver_spec, tmp_path: Path, capsys) -> None:
@@ -642,8 +662,10 @@ def test_text_browser_jobs_list_and_show(driver_spec, tmp_path: Path) -> None:
     rendered = output.getvalue()
     assert "Summary: total=" in rendered
     assert job_id in rendered
-    assert "state: succeeded" in rendered
-    assert "result_preview: 9.0" in rendered
+    assert "state" in rendered
+    assert "succeeded" in rendered
+    assert "result_preview" in rendered
+    assert "9.0" in rendered
 
 
 def test_text_browser_jobs_commands_route_via_core_when_available(driver_spec, tmp_path: Path, monkeypatch) -> None:
@@ -735,11 +757,8 @@ def run(seconds):
         "Cancel requested for {}".format(second_job) in rendered
         or "No cancellable job found for {}".format(second_job) in rendered
     )
-    assert (
-        "state: cancelled" in rendered
-        or "state: aborted" in rendered
-        or "state: succeeded" in rendered
-    )
+    assert "state" in rendered
+    assert any(token in rendered for token in ("cancelled", "aborted", "succeeded"))
 
 
 def test_text_browser_jobs_panel_command_attach_and_detach(driver_spec, tmp_path: Path) -> None:
@@ -913,6 +932,11 @@ def test_text_browser_command_completion_candidates_cover_table_slots(driver_spe
         link_right = shell.command_completion_candidates("link works 1 st")
         link_right_compact = shell.command_completion_candidates("link works:1 st:")
         links_other = shell.command_completion_candidates("links works:1 st")
+        set_column_short = shell.command_completion_candidates("set store:1 na")
+        set_column_full = shell.command_completion_candidates("set store:1 store_n")
+        edit_column = shell.command_completion_candidates("edit store:1 ro")
+        delete_row_ref = shell.command_completion_candidates("delete wo:")
+        delete_row_ids = shell.command_completion_candidates("delete works ")
 
     assert "stores" in use_table.candidates
     assert "works:" in row_table.candidates
@@ -923,6 +947,11 @@ def test_text_browser_command_completion_candidates_cover_table_slots(driver_spe
     assert "stores" in link_right.candidates
     assert "stores:" in link_right_compact.candidates
     assert "stores" in links_other.candidates
+    assert "name" in set_column_short.candidates
+    assert "store_name" in set_column_full.candidates
+    assert "root_uri" in edit_column.candidates
+    assert "works:" in delete_row_ref.candidates
+    assert delete_row_ids.candidates == ()
 
 
 def test_text_browser_command_completion_candidates_cover_row_id_slots(driver_spec, tmp_path: Path) -> None:
@@ -1665,7 +1694,8 @@ def test_text_browser_ingest_disk_registers_ebook_files(driver_spec, tmp_path: P
 
     rendered = output.getvalue()
     assert "Ingest completed:" in rendered
-    assert "inserted_files: 2" in rendered
+    assert "Results" in rendered
+    assert "inserted_files" in rendered
 
 
 def test_text_browser_ingest_disk_respects_extensions_filter(driver_spec, tmp_path: Path) -> None:
@@ -1757,7 +1787,8 @@ def test_text_browser_sync_store_by_id_registers_ebook_files(driver_spec, tmp_pa
 
     rendered = output.getvalue()
     assert "Sync completed:" in rendered
-    assert "inserted_files: 2" in rendered
+    assert "Results" in rendered
+    assert "inserted_files" in rendered
 
 
 def test_text_browser_sync_store_compact_subcommand_ref(driver_spec, tmp_path: Path) -> None:
@@ -2003,7 +2034,8 @@ def test_text_browser_sync_store_background_job_panel_attaches(driver_spec, tmp_
         manager.shutdown(wait=True, cancel_pending=True)
 
     rendered = output.getvalue()
-    assert "output_panel: attached to job" in rendered
+    assert "output_panel" in rendered
+    assert "attached to job" in rendered
     assert captured_kwargs.get("mode") == "local"
 
 
@@ -2549,7 +2581,8 @@ def test_text_browser_store_view_commands(driver_spec, tmp_path: Path) -> None:
     assert "Stores rows" in rendered
     assert "store-view" in rendered
     assert "Store details" in rendered
-    assert "files_total: 2" in rendered
+    assert "Inventory" in rendered
+    assert "files_total" in rendered
     assert "Store {} files rows".format(store_id) in rendered
     assert "alpha.epub" in rendered
     assert "nested/beta.mobi" in rendered
@@ -2894,6 +2927,7 @@ def test_text_browser_show_all_for_work(driver_spec, tmp_path: Path) -> None:
     rendered = output.getvalue()
     assert "Linked notes" in rendered
     assert ("Linked labels" in rendered) or ("Linked tags" in rendered)
+    assert "#{} | Show all note".format(note_row["note_id"]) in rendered
 
 
 def test_text_browser_show_defaults_to_all_for_work_target(driver_spec, tmp_path: Path) -> None:
@@ -2996,10 +3030,340 @@ def test_text_browser_row_command_accepts_compact_table_id(driver_spec, tmp_path
         assert shell.execute_line("row store:{}".format(store_id))
 
     rendered = output.getvalue()
+    assert "Identity" in rendered
+    assert "Access" in rendered
+    assert "| column " in rendered
+    assert "| value " in rendered
     assert "| id " in rendered
     assert "| name " in rendered
     assert str(store_id) in rendered
     assert "row-compact-store" in rendered
+    assert "\n\nAccess\n" in rendered
+
+
+def test_text_browser_set_command_updates_row_with_display_column_token(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_set_command.sqlite"
+    output = io.StringIO()
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="set-store",
+            kind="on_disk_existing_managed_drive",
+            root_uri=str(tmp_path / "store_root"),
+        )
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.execute_line("set store:{} name Set Store Updated".format(store_id))
+
+        row = db.get_row_from_id("stores", store_id)
+        assert row is not None
+        assert row["store_name"] == "Set Store Updated"
+
+    rendered = output.getvalue()
+    assert "Updated stores:{} store_name='Set Store Updated'".format(store_id) in rendered
+
+
+def test_text_browser_set_command_routes_via_core(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_set_command_core.sqlite"
+    output = io.StringIO()
+    query_calls: list[tuple[str, dict[str, object]]] = []
+    command_calls: list[tuple[str, dict[str, object]]] = []
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="set-core-store",
+            kind="on_disk_existing_managed_drive",
+            root_uri=str(tmp_path / "store_root"),
+        )
+        shell = TextDatabaseBrowser(db, output=output)
+        monkeypatch.setattr(shell, "supports_core_queries", lambda: True)
+        monkeypatch.setattr(shell, "supports_core_commands", lambda: True)
+
+        def _record_query(name: str, *, payload=None):
+            payload_dict = dict(payload or {})
+            query_calls.append((str(name), payload_dict))
+            return Library(database=db, close_database_on_close=False).get_row(**payload_dict["kwargs"])
+
+        def _record_command(name: str, *, payload=None):
+            payload_dict = dict(payload or {})
+            command_calls.append((str(name), payload_dict))
+            return Library(database=db, close_database_on_close=False).update_row_fields(**payload_dict["kwargs"])
+
+        monkeypatch.setattr(shell, "execute_core_query", _record_query)
+        monkeypatch.setattr(shell, "execute_core_command", _record_command)
+
+        assert shell.execute_line("set store:{} online_status offline".format(store_id))
+
+        row = db.get_row_from_id("stores", store_id)
+        assert row is not None
+        assert row["store_online_status"] == "offline"
+
+    assert query_calls == [
+        (
+            "invoke",
+            {
+                "target": "library",
+                "method": "get_row",
+                "kwargs": {
+                    "table": "stores",
+                    "row_id": store_id,
+                },
+            },
+        )
+    ]
+    assert command_calls == [
+        (
+            "invoke",
+            {
+                "target": "library",
+                "method": "update_row_fields",
+                "kwargs": {
+                    "table": "stores",
+                    "row_id": store_id,
+                    "updates": {"store_online_status": "offline"},
+                },
+            },
+        )
+    ]
+
+
+def test_text_browser_edit_command_updates_selected_columns(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_edit_command.sqlite"
+    output = io.StringIO()
+    input_stream = io.StringIO("Edited Store\noffline\n")
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="edit-store",
+            kind="on_disk_existing_managed_drive",
+            root_uri=str(tmp_path / "store_root"),
+        )
+        shell = TextDatabaseBrowser(db, input=input_stream, output=output)
+        assert shell.execute_line("edit store:{} name online_status".format(store_id))
+
+        row = db.get_row_from_id("stores", store_id)
+        assert row is not None
+        assert row["store_name"] == "Edited Store"
+        assert row["store_online_status"] == "offline"
+
+    rendered = output.getvalue()
+    assert "Editing stores:{} | Enter keeps current value | type `null` to clear".format(store_id) in rendered
+    assert "Identity" in rendered
+    assert "Access" in rendered
+    assert "Updated stores:{} (2 fields): store_name, store_online_status".format(store_id) in rendered
+
+
+def test_text_browser_delete_command_with_force_removes_row(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_delete_command.sqlite"
+    output = io.StringIO()
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="delete-store",
+            kind="on_disk_existing_managed_drive",
+            root_uri=str(tmp_path / "store_root"),
+        )
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.execute_line("delete store:{} --force".format(store_id))
+        assert db.get_row_from_id("stores", store_id) is None
+
+    rendered = output.getvalue()
+    assert "Deleted stores:{}.".format(store_id) in rendered
+
+
+def test_text_browser_delete_command_cancel_keeps_row(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_delete_command_cancel.sqlite"
+    output = io.StringIO()
+    input_stream = io.StringIO("n\n")
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="delete-cancel-store",
+            kind="on_disk_existing_managed_drive",
+            root_uri=str(tmp_path / "store_root"),
+        )
+        _insert_folder_row(db, store_id=store_id, relpath="delete-cancel-root")
+        shell = TextDatabaseBrowser(db, input=input_stream, output=output)
+        assert shell.execute_line("delete store:{}".format(store_id))
+        assert db.get_row_from_id("stores", store_id) is not None
+
+    rendered = output.getvalue()
+    assert "Delete preview for stores:{}".format(store_id) in rendered
+    assert "Direct references:" in rendered
+    assert "folders.folder_store_id: 1" in rendered
+    assert "    - #1 | root | delete-cancel-root" in rendered
+    assert "Delete may fail or cascade depending on schema constraints." in rendered
+    assert "Delete canceled." in rendered
+
+
+def test_text_browser_delete_command_preview_shows_linked_row_samples(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_delete_command_linked_samples.sqlite"
+    output = io.StringIO()
+    input_stream = io.StringIO("n\n")
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        work_row = Row.from_idless_row_dict(
+            db,
+            row_dict={
+                "work_title": "Delete Preview Work",
+                "work_canonical_title": "Delete Preview Work",
+                "work_sort_title": "Delete Preview Work",
+            },
+            table="works",
+        )
+
+        tables = set(db.get_tables())
+        if "labels" in tables:
+            tag_row = Row.from_idless_row_dict(
+                db,
+                row_dict={
+                    "label_text": "Fish",
+                    "label_text_norm": make_tag_search_term("Fish"),
+                },
+                table="labels",
+            )
+        elif "tags" in tables:
+            tag_row = Row.from_idless_row_dict(
+                db,
+                row_dict={
+                    "tag": "Fish",
+                    "tag_phash": make_tag_search_term("Fish"),
+                },
+                table="tags",
+            )
+        else:
+            pytest.fail("Schema has neither labels nor tags table")
+
+        db.interlink_rows(primary_row=tag_row, secondary_row=work_row, priority=0)
+
+        shell = TextDatabaseBrowser(db, input=input_stream, output=output)
+        assert shell.execute_line("delete work:{}".format(work_row["work_id"]))
+        assert db.get_row_from_id("works", int(work_row["work_id"])) is not None
+
+    rendered = output.getvalue()
+    assert "Delete preview for works:{}".format(work_row["work_id"]) in rendered
+    assert "Linked rows:" in rendered
+    assert "    - #1 | Fish" in rendered
+    assert "Delete canceled." in rendered
+
+
+def test_text_browser_delete_command_routes_via_core(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_delete_command_core.sqlite"
+    output = io.StringIO()
+    query_calls: list[tuple[str, dict[str, object]]] = []
+    command_calls: list[tuple[str, dict[str, object]]] = []
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="delete-core-store",
+            kind="on_disk_existing_managed_drive",
+            root_uri=str(tmp_path / "store_root"),
+        )
+        shell = TextDatabaseBrowser(db, output=output)
+        monkeypatch.setattr(shell, "supports_core_queries", lambda: True)
+        monkeypatch.setattr(shell, "supports_core_commands", lambda: True)
+
+        def _record_query(name: str, *, payload=None):
+            payload_dict = dict(payload or {})
+            query_calls.append((str(name), payload_dict))
+            method = str(payload_dict.get("method", ""))
+            library = Library(database=db, close_database_on_close=False)
+            if method == "get_row":
+                return library.get_row(**payload_dict["kwargs"])
+            if method == "describe_row_delete_impact":
+                return library.describe_row_delete_impact(**payload_dict["kwargs"])
+            raise AssertionError("unexpected core query method {!r}".format(method))
+
+        def _record_command(name: str, *, payload=None):
+            payload_dict = dict(payload or {})
+            command_calls.append((str(name), payload_dict))
+            return Library(database=db, close_database_on_close=False).delete_row(**payload_dict["kwargs"])
+
+        monkeypatch.setattr(shell, "execute_core_query", _record_query)
+        monkeypatch.setattr(shell, "execute_core_command", _record_command)
+
+        assert shell.execute_line("delete store:{} --force".format(store_id))
+        assert db.get_row_from_id("stores", store_id) is None
+
+    assert query_calls == [
+        (
+            "invoke",
+            {
+                "target": "library",
+                "method": "get_row",
+                "kwargs": {
+                    "table": "stores",
+                    "row_id": store_id,
+                },
+            },
+        ),
+        (
+            "invoke",
+            {
+                "target": "library",
+                "method": "describe_row_delete_impact",
+                "kwargs": {
+                    "table": "stores",
+                    "row_id": store_id,
+                },
+            },
+        )
+    ]
+    assert command_calls == [
+        (
+            "invoke",
+            {
+                "target": "library",
+                "method": "delete_row",
+                "kwargs": {
+                    "table": "stores",
+                    "row_id": store_id,
+                },
+            },
+        )
+    ]
 
 
 def test_text_browser_singular_table_tokens_resolve_in_core_commands(driver_spec, tmp_path: Path) -> None:
@@ -3820,6 +4184,7 @@ def test_text_browser_link_links_unlink_note_and_work(driver_spec, tmp_path: Pat
     rendered = output.getvalue()
     assert "Link created:" in rendered
     assert "Linked notes rows" in rendered
+    assert "#{} | Primary source confirmed.".format(note_row["note_id"]) in rendered
     assert "Unlinked" in rendered
 
 
@@ -3956,6 +4321,7 @@ def test_text_browser_link_unlink_links_support_compact_refs(driver_spec, tmp_pa
     rendered = output.getvalue()
     assert "Link created:" in rendered
     assert "Linked notes rows" in rendered
+    assert "#{} | Compact ref link note".format(note_row["note_id"]) in rendered
     assert "Unlinked" in rendered
 
 

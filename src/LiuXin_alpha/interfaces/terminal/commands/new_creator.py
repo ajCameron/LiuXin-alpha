@@ -76,11 +76,21 @@ class NewCreatorWizardCommand(TerminalCommandAPI):
             if not proceed_duplicate:
                 raise ValueError("Creator wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Creator summary")
-        browser.emit("  name: {}".format(creator_name))
-        browser.emit("  type: {}".format(creator_type))
-        browser.emit("  sort: {}".format(creator_sort))
-        browser.emit("  one_person: {}".format(bool(creator_one_person)))
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("name", creator_name),
+                        ("type", creator_type),
+                        ("sort", creator_sort),
+                        ("one_person", bool(creator_one_person)),
+                    ],
+                )
+            ],
+            title="Creator summary",
+            max_cell_width=120,
+        )
         proceed = browser.prompt_yes_no("Create this creator now?", default=True)
         if not proceed:
             raise ValueError("Creator wizard canceled.")

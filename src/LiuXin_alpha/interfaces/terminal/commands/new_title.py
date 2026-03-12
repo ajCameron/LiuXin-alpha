@@ -109,15 +109,25 @@ class NewTitleWizardCommand(TerminalCommandAPI):
             if not proceed_duplicate:
                 raise ValueError("Title wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Title summary")
-        browser.emit("  title: {}".format(title))
-        browser.emit("  sort: {}".format(title_sort_value))
-        browser.emit("  creator_sort: {}".format(title_creator_sort or ""))
-        browser.emit("  pub_date: {}".format(title_pub_date or ""))
-        browser.emit("  type: {}".format(title_type or ""))
-        browser.emit("  wordcount: {}".format(title_wordcount if title_wordcount is not None else ""))
-        browser.emit("  source: {}".format(title_source or ""))
-        browser.emit("  source_paths: {}".format(source_paths or ""))
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("title", title),
+                        ("sort", title_sort_value),
+                        ("creator_sort", title_creator_sort or ""),
+                        ("pub_date", title_pub_date or ""),
+                        ("type", title_type or ""),
+                        ("wordcount", title_wordcount if title_wordcount is not None else ""),
+                        ("source", title_source or ""),
+                        ("source_paths", source_paths or ""),
+                    ],
+                )
+            ],
+            title="Title summary",
+            max_cell_width=120,
+        )
         proceed = browser.prompt_yes_no("Create title + WEMI stack now?", default=True)
         if not proceed:
             raise ValueError("Title wizard canceled.")
@@ -161,4 +171,3 @@ class NewTitleWizardCommand(TerminalCommandAPI):
             browser.emit("  title_work_id={}".format(work_id))
 
         return True
-

@@ -91,11 +91,21 @@ class NewGenreWizardCommand(TerminalCommandAPI):
             if not proceed_duplicate:
                 raise ValueError("Genre wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Genre summary")
-        browser.emit("  genre: {}".format(genre_text))
-        browser.emit("  sort: {}".format(genre_sort))
-        browser.emit("  phash: {}".format(genre_phash))
-        browser.emit("  parent_id: {}".format(parent_id if parent_id is not None else ""))
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("genre", genre_text),
+                        ("sort", genre_sort),
+                        ("phash", genre_phash),
+                        ("parent_id", parent_id if parent_id is not None else ""),
+                    ],
+                )
+            ],
+            title="Genre summary",
+            max_cell_width=120,
+        )
         proceed = browser.prompt_yes_no("Create this genre now?", default=True)
         if not proceed:
             raise ValueError("Genre wizard canceled.")

@@ -74,10 +74,20 @@ class NewSubjectWizardCommand(TerminalCommandAPI):
             if not proceed_duplicate:
                 raise ValueError("Subject wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Subject summary")
-        browser.emit("  subject: {}".format(subject_text))
-        browser.emit("  sort: {}".format(subject_sort))
-        browser.emit("  parent_id: {}".format(parent_id if parent_id is not None else ""))
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("subject", subject_text),
+                        ("sort", subject_sort),
+                        ("parent_id", parent_id if parent_id is not None else ""),
+                    ],
+                )
+            ],
+            title="Subject summary",
+            max_cell_width=120,
+        )
         proceed = browser.prompt_yes_no("Create this subject now?", default=True)
         if not proceed:
             raise ValueError("Subject wizard canceled.")

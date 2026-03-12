@@ -14,7 +14,7 @@ import sys
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence, TextIO
+from typing import Mapping, Optional, Sequence, TextIO
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.interfaces.terminal.commands import TerminalCommandAPI, build_default_commands
@@ -113,6 +113,59 @@ def _stringify_table_cell(value: object, *, width: int = 60) -> str:
     if len(text) <= width:
         return text
     return text[: max(0, width - 3)] + "..."
+
+
+def _preview_row_text(value: object, *, max_len: int = 64) -> str:
+    text = str(value or "").replace("\r\n", " ").replace("\r", " ").replace("\n", " ").strip()
+    if len(text) <= max_len:
+        return text
+    return text[: max(0, max_len - 3)] + "..."
+
+
+def _row_detail_group(column: str, *, id_column: Optional[str]) -> str:
+    text = str(column).strip().lower()
+    if not text:
+        return "other"
+    if id_column is not None and text == str(id_column).strip().lower():
+        return "identity"
+    if text.endswith("_id"):
+        return "references"
+    if text.startswith("supports_") or text.startswith("is_") or "read_only" in text or "eventually_consistent" in text:
+        return "capabilities"
+    if any(token in text for token in ("timestamp", "datestamp", "date", "year", "seen", "healthcheck")):
+        return "dates"
+    if any(token in text for token in ("uri", "path", "root", "protocol", "auth", "credential", "mask", "mount", "latency", "online", "location", "policy")):
+        return "access"
+    if any(
+        token in text
+        for token in (
+            "name",
+            "title",
+            "canonical",
+            "sort",
+            "kind",
+            "type",
+            "medium",
+            "status",
+            "note",
+            "flags",
+            "scratch",
+        )
+    ):
+        return "identity"
+    return "other"
+
+
+def _pretty_row_detail_group(group: str) -> str:
+    mapping = {
+        "identity": "Identity",
+        "references": "References",
+        "access": "Access",
+        "capabilities": "Capabilities",
+        "dates": "Dates",
+        "other": "Other",
+    }
+    return mapping.get(str(group).strip().lower(), str(group).strip().title() or "Other")
 
 
 def _shorten_column_headers(headers: Sequence[str], *, table_name: Optional[str] = None) -> list[str]:
@@ -414,12 +467,21 @@ def run_database_creation_wizard(
     )
 
     output_stream.write("\nCreation summary\n")
-    output_stream.write("  database_path: {}\n".format(db_path))
-    output_stream.write("  db_type: {}\n".format(db_type))
-    output_stream.write("  backup_existing: {}\n".format(backup_existing))
-    output_stream.write("  enable_storage_manager: {}\n".format(enable_storage_manager))
-    output_stream.write("  strict_storage_manager_bootstrap: {}\n".format(strict_storage_manager_bootstrap))
-    output_stream.write("  storage_startup_on_add: {}\n".format(storage_startup_on_add))
+    output_stream.write(
+        _render_ascii_table(
+            ["field", "value"],
+            [
+                ["database_path", db_path],
+                ["db_type", db_type],
+                ["backup_existing", backup_existing],
+                ["enable_storage_manager", enable_storage_manager],
+                ["strict_storage_manager_bootstrap", strict_storage_manager_bootstrap],
+                ["storage_startup_on_add", storage_startup_on_add],
+            ],
+            max_cell_width=120,
+        )
+    )
+    output_stream.write("\n")
     output_stream.flush()
 
     proceed = _ask_yes_no(
@@ -1187,6 +1249,15 @@ class TextDatabaseBrowser:
         """Return ordered column names for a table."""
         return list(self.db.get_column_headings(table))
 
+    def get_table_display_columns(self, table: str) -> list[str]:
+        """Return shortened display column names for a table."""
+        columns = self.get_table_columns(table)
+        return _shorten_column_headers(columns, table_name=table)
+
+    def get_table_id_column(self, table: str) -> Optional[str]:
+        """Return the primary id column for a table when available."""
+        return self._table_id_column(table)
+
     def get_terminal_width(self) -> int:
         """Return detected terminal width for table rendering."""
         try:
@@ -1198,6 +1269,68 @@ class TextDatabaseBrowser:
     def resolve_table(self, raw: Optional[str]) -> str:
         """Resolve a table name or raise a clear user-facing error."""
         return self._resolve_table(raw)
+
+    def resolve_table_column(self, table: str, raw: Optional[str]) -> str:
+        """Resolve one table column from a schema or display token."""
+        token = self._normalize_command_token(raw)
+        if not token:
+            raise ValueError("Column name cannot be blank.")
+
+        columns = self.get_table_columns(table)
+        display_columns = self.get_table_display_columns(table)
+        exact_full = {self._normalize_command_token(column): column for column in columns}
+        if token in exact_full:
+            return exact_full[token]
+
+        exact_display: dict[str, str | None] = {}
+        for column, display in zip(columns, display_columns):
+            alias = self._normalize_command_token(display)
+            existing = exact_display.get(alias)
+            if existing is not None and existing != column:
+                exact_display[alias] = None
+            elif alias not in exact_display:
+                exact_display[alias] = column
+
+        if token in exact_display:
+            resolved = exact_display[token]
+            if resolved is None:
+                matches = [column for column, display in zip(columns, display_columns) if self._normalize_command_token(display) == token]
+                raise ValueError(
+                    "Ambiguous column {!r} for table {!r}. Matches: {}".format(
+                        raw,
+                        table,
+                        ", ".join(matches),
+                    )
+                )
+            return resolved
+
+        prefix_matches: list[str] = []
+        seen: set[str] = set()
+        for column, display in zip(columns, display_columns):
+            normalized_column = self._normalize_command_token(column)
+            normalized_display = self._normalize_command_token(display)
+            if normalized_column.startswith(token) or normalized_display.startswith(token):
+                if column not in seen:
+                    seen.add(column)
+                    prefix_matches.append(column)
+
+        if len(prefix_matches) == 1:
+            return prefix_matches[0]
+        if not prefix_matches:
+            raise ValueError(
+                "Unknown column {!r} for table {!r}. Try one of: {}".format(
+                    raw,
+                    table,
+                    ", ".join(display_columns),
+                )
+            )
+        raise ValueError(
+            "Ambiguous column {!r} for table {!r}. Matches: {}".format(
+                raw,
+                table,
+                ", ".join(prefix_matches),
+            )
+        )
 
     def table_slice(self, table: str, *, limit: int, offset: int = 0):
         """Return a limited ordered slice of rows from a table."""
@@ -1213,7 +1346,6 @@ class TextDatabaseBrowser:
         rows: Sequence[object],
         *,
         max_cell_width: int = 60,
-        max_table_width: Optional[int] = None,
     ) -> str:
         """Render rows as an ASCII table using schema column order."""
         columns = self.get_table_columns(table)
@@ -1225,7 +1357,56 @@ class TextDatabaseBrowser:
             display_columns,
             table_rows,
             max_cell_width=max_cell_width,
-            max_table_width=self.get_terminal_width() if max_table_width is None else max_table_width,
+            max_table_width=self.get_terminal_width(),
+        )
+
+    def build_row_detail_sections(self, table: str, row) -> list[tuple[str, list[tuple[object, object]]]]:
+        """Build grouped vertical detail sections for one row."""
+        columns = self.get_table_columns(table)
+        display_columns = _shorten_column_headers(columns, table_name=table)
+        id_column = self._table_id_column(table)
+        group_rank = {
+            "identity": 0,
+            "references": 1,
+            "access": 2,
+            "capabilities": 3,
+            "dates": 4,
+            "other": 5,
+        }
+        grouped_rows: dict[str, list[tuple[object, object]]] = {}
+        ordered = list(enumerate(columns))
+        ordered.sort(
+            key=lambda pair: (
+                group_rank.get(_row_detail_group(pair[1], id_column=id_column), 99),
+                0 if id_column is not None and pair[1] == id_column else 1,
+                pair[0],
+            )
+        )
+        for idx, column in ordered:
+            raw_group_name = _row_detail_group(column, id_column=id_column)
+            grouped_rows.setdefault(raw_group_name, []).append(
+                (display_columns[idx], row[column] if column in row else None)
+            )
+
+        sections: list[tuple[str, list[tuple[object, object]]]] = []
+        ordered_groups = sorted(grouped_rows.keys(), key=lambda name: group_rank.get(name, 99))
+        for raw_group_name in ordered_groups:
+            sections.append((_pretty_row_detail_group(raw_group_name), grouped_rows[raw_group_name]))
+        return sections
+
+    def render_row_details(
+        self,
+        table: str,
+        row,
+        *,
+        max_cell_width: int = 120,
+    ) -> str:
+        """Render one row as grouped vertical detail tables."""
+        return self.render_detail_sections(
+            self.build_row_detail_sections(table, row),
+            key_header="column",
+            value_header="value",
+            max_cell_width=max_cell_width,
         )
 
     def render_table(
@@ -1243,6 +1424,57 @@ class TextDatabaseBrowser:
             max_cell_width=max_cell_width,
             max_table_width=self.get_terminal_width(),
         )
+
+    def render_detail_sections(
+        self,
+        sections: Sequence[tuple[str, Sequence[tuple[object, object]]]],
+        *,
+        key_header: str = "field",
+        value_header: str = "value",
+        max_cell_width: int = 120,
+    ) -> str:
+        """Render one or more titled two-column detail sections."""
+        blocks: list[str] = []
+        for section_title, rows in sections:
+            normalized_rows = [(str(key), value) for key, value in rows]
+            if not normalized_rows:
+                continue
+            if blocks:
+                blocks.append("")
+            title = str(section_title).strip()
+            if title:
+                blocks.append(title)
+            blocks.append(
+                self.render_table(
+                    [key_header, value_header],
+                    normalized_rows,
+                    max_cell_width=max_cell_width,
+                )
+            )
+        return "\n".join(blocks)
+
+    def emit_detail_sections(
+        self,
+        sections: Sequence[tuple[str, Sequence[tuple[object, object]]]],
+        *,
+        title: Optional[str] = None,
+        key_header: str = "field",
+        value_header: str = "value",
+        max_cell_width: int = 120,
+    ) -> None:
+        """Write titled detail sections to the current output stream."""
+        rendered = self.render_detail_sections(
+            sections,
+            key_header=key_header,
+            value_header=value_header,
+            max_cell_width=max_cell_width,
+        )
+        if title:
+            self.emit(title)
+            if rendered:
+                self.emit("")
+        if rendered:
+            self.emit(rendered)
 
     def _write(self, text: str, *, end: str = "\n") -> None:
         self.output.write(text + end)
@@ -1401,6 +1633,30 @@ class TextDatabaseBrowser:
             return []
         return self._row_id_completion_candidates(resolved_table, current_token)
 
+    def _table_column_completion_candidates(self, table_token: str, current_token: str) -> list[str]:
+        resolved_table = self._resolve_completion_table_token(table_token)
+        if resolved_table is None:
+            return []
+
+        normalized = self._normalize_command_token(current_token)
+        columns = self.get_table_columns(resolved_table)
+        display_columns = self.get_table_display_columns(resolved_table)
+
+        candidates: list[str] = []
+        seen: set[str] = set()
+        prefer_full = "_" in normalized
+        sources = (columns, display_columns) if prefer_full else (display_columns, columns)
+        for source in sources:
+            for candidate in source:
+                normalized_candidate = self._normalize_command_token(candidate)
+                if normalized and not normalized_candidate.startswith(normalized):
+                    continue
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                candidates.append(candidate)
+        return candidates
+
     def _completion_candidates_for_help(self, help_tokens: Sequence[str]) -> list[str]:
         if not help_tokens:
             return self._root_completion_tokens()
@@ -1431,6 +1687,40 @@ class TextDatabaseBrowser:
                 return self._row_ref_token_completion_candidates(current_token)
             if len(args_before_current) == 1:
                 return self._table_scoped_id_completion_candidates(args_before_current[0], current_token)
+            return []
+
+        if command_name == "set":
+            if len(args_before_current) == 0:
+                return self._row_ref_token_completion_candidates(current_token)
+            first_token = args_before_current[0]
+            if self._looks_like_compact_row_ref_prefix(first_token):
+                if len(args_before_current) == 1:
+                    return self._table_column_completion_candidates(first_token.split(":", 1)[0], current_token)
+                return []
+            if len(args_before_current) == 1:
+                return self._table_scoped_id_completion_candidates(first_token, current_token)
+            if len(args_before_current) == 2:
+                return self._table_column_completion_candidates(first_token, current_token)
+            return []
+
+        if command_name == "edit":
+            if len(args_before_current) == 0:
+                return self._row_ref_token_completion_candidates(current_token)
+            first_token = args_before_current[0]
+            if self._looks_like_compact_row_ref_prefix(first_token):
+                return self._table_column_completion_candidates(first_token.split(":", 1)[0], current_token)
+            if len(args_before_current) == 1:
+                return self._table_scoped_id_completion_candidates(first_token, current_token)
+            return self._table_column_completion_candidates(first_token, current_token)
+
+        if command_name == "delete":
+            if len(args_before_current) == 0:
+                return self._row_ref_token_completion_candidates(current_token)
+            first_token = args_before_current[0]
+            if self._looks_like_compact_row_ref_prefix(first_token):
+                return []
+            if len(args_before_current) == 1:
+                return self._table_scoped_id_completion_candidates(first_token, current_token)
             return []
 
         if command_name == "links":
@@ -1817,24 +2107,125 @@ class TextDatabaseBrowser:
             return -1
 
     def _format_row(self, table: str, row) -> str:
-        columns = self.db.get_column_headings(table)
         id_column = None
         try:
             id_column = self.db.driver_wrapper.get_id_column(table)
         except Exception:
             id_column = None
 
+        def _lookup_value(column: str):
+            if isinstance(row, Mapping):
+                if column in row:
+                    return True, row.get(column)
+                return False, None
+            try:
+                if column in row:
+                    return True, row[column]
+            except Exception:
+                pass
+            try:
+                return True, row[column]
+            except Exception:
+                return False, None
+
+        preferred_fields_by_table = {
+            "works": ("work_title", "work_canonical_title", "work_sort_title"),
+            "stores": ("store_name", "store_kind", "store_root_uri"),
+            "labels": ("label_text", "label", "label_text_norm"),
+            "tags": ("tag", "label_text", "label"),
+            "notes": ("note", "note_text", "note_body"),
+            "folders": ("folder_name", "folder_relpath"),
+            "files": ("file_name", "file_original_name", "file_storage_key"),
+            "creators": ("creator", "creator_name", "agent_canonical_name", "agent_name"),
+            "agents": ("agent_canonical_name", "agent_name", "agent_sort_name"),
+            "series": ("series_name", "series_title", "series_sort_title"),
+            "genres": ("genre", "genre_text", "genre_name"),
+            "subjects": ("subject", "subject_text", "subject_name"),
+            "languages": ("language", "language_name", "language_code"),
+            "expressions": ("expression_label", "expression_title_override", "expression_type"),
+            "manifestations": ("manifestation_label", "manifestation_title", "manifestation_type"),
+            "items": ("item_source_name", "item_inventory_code", "item_location"),
+        }
+
+        summary_parts: list[str] = []
+        seen_summary_values: set[str] = set()
+
+        def _add_summary_value(raw_value: object) -> None:
+            text = _preview_row_text(raw_value)
+            if not text:
+                return
+            if text in seen_summary_values:
+                return
+            seen_summary_values.add(text)
+            summary_parts.append(text)
+
+        raw_id = None
+        if id_column is not None:
+            has_id, raw_id = _lookup_value(id_column)
+            if not has_id:
+                raw_id = None
+
+        for field in preferred_fields_by_table.get(table, ()):
+            present, value = _lookup_value(field)
+            if present:
+                _add_summary_value(value)
+
+        if not summary_parts:
+            keyword_priority = (
+                "name",
+                "title",
+                "label",
+                "note",
+                "text",
+                "path",
+                "uri",
+                "kind",
+                "type",
+                "location",
+                "code",
+            )
+            columns = list(self.db.get_column_headings(table))
+            ordered_columns = sorted(
+                columns,
+                key=lambda key: (
+                    min(
+                        (idx for idx, token in enumerate(keyword_priority) if token in str(key).lower()),
+                        default=len(keyword_priority),
+                    ),
+                    str(key),
+                ),
+            )
+            for column in ordered_columns:
+                if id_column is not None and column == id_column:
+                    continue
+                present, value = _lookup_value(column)
+                if not present:
+                    continue
+                _add_summary_value(value)
+                if len(summary_parts) >= 3:
+                    break
+
+        if summary_parts:
+            parts: list[str] = []
+            if raw_id not in {None, ""}:
+                parts.append("#{}".format(raw_id))
+            parts.extend(summary_parts[:3])
+            return " | ".join(parts)
+
+        columns = self.db.get_column_headings(table)
         pieces: list[str] = []
-        if id_column is not None and id_column in row:
-            pieces.append("{}={}".format(id_column, _truncate(row[id_column], width=24)))
+        if id_column is not None:
+            present, value = _lookup_value(id_column)
+            if present:
+                pieces.append("{}={}".format(id_column, _truncate(value, width=24)))
 
         for column in columns:
             if id_column is not None and column == id_column:
                 continue
-            try:
-                pieces.append("{}={}".format(column, _truncate(row[column])))
-            except Exception:
+            present, value = _lookup_value(column)
+            if not present:
                 continue
+            pieces.append("{}={}".format(column, _truncate(value)))
 
         return " | ".join(pieces)
 
@@ -1981,7 +2372,7 @@ class TextDatabaseBrowser:
         if row is None:
             self._write("No row found in {} for id {}.".format(table, row_id))
             return
-        self._write(self.format_rows_as_table(table, [row], max_cell_width=120))
+        self.emit(self.render_row_details(table, row, max_cell_width=120))
 
     def _cmd_search(self, args: list[str]) -> None:
         if len(args) < 2:

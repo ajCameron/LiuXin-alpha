@@ -81,15 +81,25 @@ class NewWorkWizardCommand(TerminalCommandAPI):
             if not proceed_duplicate:
                 raise ValueError("Work wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Work summary")
-        browser.emit("  title: {}".format(work_title))
-        browser.emit("  canonical_title: {}".format(work_canonical_title))
-        browser.emit("  sort_title: {}".format(work_sort_title))
-        browser.emit("  type: {}".format(work_type or ""))
-        browser.emit("  medium: {}".format(work_medium or ""))
-        browser.emit("  original_language: {}".format(work_original_language or ""))
-        browser.emit("  original_year: {}".format(work_original_year if work_original_year is not None else ""))
-        browser.emit("  is_fiction: {}".format(bool(work_is_fiction)))
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("title", work_title),
+                        ("canonical_title", work_canonical_title),
+                        ("sort_title", work_sort_title),
+                        ("type", work_type or ""),
+                        ("medium", work_medium or ""),
+                        ("original_language", work_original_language or ""),
+                        ("original_year", work_original_year if work_original_year is not None else ""),
+                        ("is_fiction", bool(work_is_fiction)),
+                    ],
+                )
+            ],
+            title="Work summary",
+            max_cell_width=120,
+        )
         proceed = browser.prompt_yes_no("Create this work now?", default=True)
         if not proceed:
             raise ValueError("Work wizard canceled.")
@@ -119,4 +129,3 @@ class NewWorkWizardCommand(TerminalCommandAPI):
             )
         )
         return True
-

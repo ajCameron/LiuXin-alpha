@@ -127,6 +127,39 @@ class _CursesUiDriver:
         return wrapped
 
     @staticmethod
+    def _stringify_compact_value(value: object) -> str:
+        if value is None:
+            return ""
+        return str(value).replace("\r\n", " ").replace("\r", " ").replace("\n", " ").strip()
+
+    def _render_compact_sections(
+        self,
+        sections: list[tuple[str, list[tuple[str, object]]]],
+        *,
+        title: Optional[str] = None,
+    ) -> list[str]:
+        lines: list[str] = []
+        if title:
+            lines.append(str(title))
+        for section_title, rows in sections:
+            parts: list[str] = []
+            label = str(section_title).strip()
+            if label:
+                parts.append(label)
+            for key, value in rows:
+                value_text = self._stringify_compact_value(value)
+                if not value_text:
+                    continue
+                key_text = str(key).strip()
+                if key_text:
+                    parts.append("{}={}".format(key_text, value_text))
+                else:
+                    parts.append(value_text)
+            if parts:
+                lines.append(" | ".join(parts))
+        return lines
+
+    @staticmethod
     def _clamp_scroll_offset(total_lines: int, visible_rows: int, offset: int) -> int:
         max_offset = max(0, int(total_lines) - max(0, int(visible_rows)))
         return max(0, min(max_offset, int(offset)))
@@ -534,13 +567,13 @@ class _CursesUiDriver:
                 db_path = str(self.browser.database_path)
             except Exception:
                 db_path = ""
-        header = "LiuXin Terminal UI | {}".format(now)
+        title = "LiuXin Terminal UI | {}".format(now)
         if db_path:
-            header += " | db: {}".format(db_path)
+            title += " | db={}".format(db_path)
 
-        lines = [header]
+        sections: list[tuple[str, list[tuple[str, object]]]] = []
         if self.browser is None:
-            return lines
+            return self._render_compact_sections([], title=title)
 
         core_status = ""
         if hasattr(self.browser, "core_runtime_status_summary"):
@@ -549,7 +582,7 @@ class _CursesUiDriver:
             except Exception:
                 core_status = ""
         if core_status:
-            lines.append(core_status)
+            sections.append(("Runtime", [("", core_status)]))
 
         table = self.browser.current_table or "<none>"
         window = self.browser.window
@@ -557,7 +590,16 @@ class _CursesUiDriver:
             window_text = "window: <none>"
         else:
             window_text = "window: {} limit={} offset={}".format(window.table, window.limit, window.offset)
-        lines.append("table: {} | page_size: {} | {}".format(table, self.browser.page_size, window_text))
+        sections.append(
+            (
+                "Context",
+                [
+                    ("table", table),
+                    ("page_size", self.browser.page_size),
+                    ("window", window_text.replace("window: ", "", 1)),
+                ],
+            )
+        )
 
         table_counts: list[str] = []
         for name in ("works", "expressions", "manifestations", "items", "files", "stores"):
@@ -569,24 +611,27 @@ class _CursesUiDriver:
                 continue
             table_counts.append("{}={}".format(name, count))
         if table_counts:
-            lines.append("rows: " + " | ".join(table_counts))
+            sections.append(("Rows", [("", " | ".join(table_counts))]))
 
         jobs = self._list_jobs()
         counter = Counter(str(self._job_field(one, "state", "") or "") for one in jobs)
+        job_rows: list[tuple[str, object]] = [("total", len(jobs))]
         if jobs:
-            segments = ["{}={}".format(key, counter.get(key, 0)) for key in sorted(counter.keys())]
-            lines.append("jobs: total={} | {}".format(len(jobs), " | ".join(segments)))
-        else:
-            lines.append("jobs: total=0")
+            for key in sorted(counter.keys()):
+                job_rows.append((key, counter.get(key, 0)))
+        sections.append(("Jobs", job_rows))
         if self._jobs_status_error:
-            lines.append("jobs_error: {}".format(self._jobs_status_error))
+            sections.append(("Errors", [("jobs_error", self._jobs_status_error)]))
         if self._job_output_job_id:
-            lines.append("job_panel: {}".format(self._job_output_job_id))
+            sections.append(("Panels", [("job_panel", self._job_output_job_id)]))
+        ui_rows: list[tuple[str, object]] = []
         if self._console_scroll_offset > 0:
-            lines.append("console_scrollback: +{} | PgUp/PgDn Home/End".format(self._console_scroll_offset))
+            ui_rows.append(("console_scrollback", "+{} | PgUp/PgDn Home/End".format(self._console_scroll_offset)))
         if self._completion_hint:
-            lines.append(self._completion_hint)
-        return lines
+            ui_rows.append(("", self._completion_hint))
+        if ui_rows:
+            sections.append(("UI", ui_rows))
+        return self._render_compact_sections(sections, title=title)
 
     def _build_job_output_lines(self, *, max_lines: int) -> list[str]:
         if max_lines <= 0:
@@ -595,15 +640,23 @@ class _CursesUiDriver:
         if not job_id:
             return []
         if self.browser is None:
-            return ["Job output: {} | browser unavailable".format(job_id)]
+            return self._render_compact_sections(
+                [("Job", [("job_id", job_id), ("status", "browser unavailable")])],
+                title="Job output",
+            )[:max_lines]
 
         try:
             info = self._get_job(job_id)
         except Exception as exc:
-            return ["Job output: {} | unavailable: {}".format(job_id, exc)]
+            return self._render_compact_sections(
+                [
+                    ("Job", [("job_id", job_id), ("status", "unavailable")]),
+                    ("Error", [("", str(exc))]),
+                ],
+                title="Job output",
+            )[:max_lines]
 
         state = str(self._job_field(info, "state", "") or "")
-        header = "Job output: {} | state={}".format(job_id, state)
         log_path = str(self._job_field(info, "log_path", "") or "")
         execution = self._job_field(info, "execution", None)
         if not log_path and execution is not None:
@@ -612,29 +665,44 @@ class _CursesUiDriver:
             else:
                 log_path = str(getattr(execution, "log_path", "") or "")
 
-        lines: list[str] = [header]
+        lines: list[str] = self._render_compact_sections(
+            [
+                (
+                    "Job",
+                    [
+                        ("job_id", job_id),
+                        ("state", state),
+                        ("log_path", log_path or "<none>"),
+                    ],
+                )
+            ],
+            title="Job output",
+        )
         if not log_path:
-            lines.append("No log path is available for this job.")
+            lines.extend(self._render_compact_sections([("Output", [("", "No log path is available for this job.")])]))
             return lines[:max_lines]
 
         path = Path(log_path)
         if not path.exists():
-            lines.append("Log file not found yet: {}".format(log_path))
+            lines.extend(self._render_compact_sections([("Output", [("", "Log file not found yet: {}".format(log_path))])]))
             return lines[:max_lines]
 
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except Exception as exc:
-            lines.append("Failed reading log {}: {}".format(log_path, exc))
+            lines.extend(
+                self._render_compact_sections([("Output", [("", "Failed reading log {}: {}".format(log_path, exc))])])
+            )
             return lines[:max_lines]
 
         payload_lines = text.splitlines()
         if not payload_lines:
-            lines.append("(no log output yet)")
+            lines.extend(self._render_compact_sections([("Output", [("", "(no log output yet)")])]))
             return lines[:max_lines]
 
         keep = max(1, max_lines - len(lines))
         tail = payload_lines[-keep:]
+        lines.append("Log tail")
         lines.extend(tail)
         return lines[-max_lines:]
 

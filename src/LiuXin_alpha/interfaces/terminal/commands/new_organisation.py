@@ -124,11 +124,21 @@ class NewOrganisationWizardCommand(TerminalCommandAPI):
             if not proceed_duplicate:
                 raise ValueError("Organisation wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Organisation summary")
-        browser.emit("  name: {}".format(organisation))
-        browser.emit("  sort: {}".format(organisation_sort))
-        browser.emit("  website: {}".format(organisation_website or ""))
-        browser.emit("  parent_agent_id: {}".format(parent_id if parent_id is not None else ""))
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("name", organisation),
+                        ("sort", organisation_sort),
+                        ("website", organisation_website or ""),
+                        ("parent_agent_id", parent_id if parent_id is not None else ""),
+                    ],
+                )
+            ],
+            title="Organisation summary",
+            max_cell_width=120,
+        )
         proceed = browser.prompt_yes_no("Create this organisation now?", default=True)
         if not proceed:
             raise ValueError("Organisation wizard canceled.")

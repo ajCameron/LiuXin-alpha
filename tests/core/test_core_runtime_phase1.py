@@ -150,6 +150,157 @@ def test_core_runtime_library_store_save_and_lookup_round_trip(tmp_path) -> None
         assert found["store_kind"] == "on_disk_existing_managed_drive"
 
 
+def test_core_runtime_library_row_get_and_update_round_trip(tmp_path) -> None:
+    db_path = tmp_path / "core_runtime_row_update.sqlite"
+    store_root = tmp_path / "runtime-row-store"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type="SQLite",
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        runtime = CoreRuntime(
+            library=Library(database=db, close_database_on_close=False),
+            core_version="test-phase1",
+        )
+        saved = runtime.invoke_command(
+            target="library",
+            method="save_store_row",
+            kwargs={
+                "store_payload": {
+                    "store_name": "runtime-row-store",
+                    "store_kind": "on_disk_existing_managed_drive",
+                    "store_access_protocol": "file",
+                    "store_root_uri": str(store_root.resolve()),
+                    "store_is_read_only": 0,
+                    "store_online_status": "online",
+                }
+            },
+        )
+
+        row_id = int(saved["store_id"])
+        fetched = runtime.invoke_query(
+            target="library",
+            method="get_row",
+            kwargs={"table": "stores", "row_id": row_id},
+        )
+        assert fetched is not None
+        assert fetched["store_name"] == "runtime-row-store"
+
+        updated = runtime.invoke_command(
+            target="library",
+            method="update_row_fields",
+            kwargs={
+                "table": "stores",
+                "row_id": row_id,
+                "updates": {
+                    "store_name": "runtime-row-store-updated",
+                    "store_online_status": "offline",
+                },
+            },
+        )
+        assert updated["store_name"] == "runtime-row-store-updated"
+        assert updated["store_online_status"] == "offline"
+
+
+def test_core_runtime_library_delete_row_round_trip(tmp_path) -> None:
+    db_path = tmp_path / "core_runtime_row_delete.sqlite"
+    store_root = tmp_path / "runtime-delete-store"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type="SQLite",
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        runtime = CoreRuntime(
+            library=Library(database=db, close_database_on_close=False),
+            core_version="test-phase1",
+        )
+        saved = runtime.invoke_command(
+            target="library",
+            method="save_store_row",
+            kwargs={
+                "store_payload": {
+                    "store_name": "runtime-delete-store",
+                    "store_kind": "on_disk_existing_managed_drive",
+                    "store_access_protocol": "file",
+                    "store_root_uri": str(store_root.resolve()),
+                    "store_is_read_only": 0,
+                    "store_online_status": "online",
+                }
+            },
+        )
+
+        row_id = int(saved["store_id"])
+        deleted = runtime.invoke_command(
+            target="library",
+            method="delete_row",
+            kwargs={"table": "stores", "row_id": row_id},
+        )
+        assert deleted["store_name"] == "runtime-delete-store"
+        assert db.get_row_from_id("stores", row_id) is None
+
+
+def test_core_runtime_library_delete_impact_reports_direct_references(tmp_path) -> None:
+    db_path = tmp_path / "core_runtime_delete_impact.sqlite"
+    store_root = tmp_path / "runtime-impact-store"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type="SQLite",
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        runtime = CoreRuntime(
+            library=Library(database=db, close_database_on_close=False),
+            core_version="test-phase1",
+        )
+        saved = runtime.invoke_command(
+            target="library",
+            method="save_store_row",
+            kwargs={
+                "store_payload": {
+                    "store_name": "runtime-impact-store",
+                    "store_kind": "on_disk_existing_managed_drive",
+                    "store_access_protocol": "file",
+                    "store_root_uri": str(store_root.resolve()),
+                    "store_is_read_only": 0,
+                    "store_online_status": "online",
+                }
+            },
+        )
+        row_id = int(saved["store_id"])
+        folder = db.get_blank_row("folders")
+        folder["folder_store_id"] = row_id
+        folder["folder_name"] = "root"
+        folder["folder_relpath"] = "root"
+        folder.sync()
+
+        impact = runtime.invoke_query(
+            target="library",
+            method="describe_row_delete_impact",
+            kwargs={"table": "stores", "row_id": row_id},
+        )
+
+        assert impact["table"] == "stores"
+        assert impact["row_id"] == row_id
+        assert impact["reference_total"] >= 1
+        assert any(
+            item["table"] == "folders" and item["column"] == "folder_store_id" and int(item["count"]) >= 1
+            for item in impact["reference_counts"]
+        )
+        assert any(
+            item["table"] == "folders"
+            and item["column"] == "folder_store_id"
+            and item["sample_rows"]
+            and item["sample_rows"][0]["folder_relpath"] == "root"
+            for item in impact["reference_counts"]
+        )
+        assert impact["warning"] == "Delete may fail or cascade depending on schema constraints."
+
+
 def test_core_runtime_sync_store_start_submits_job(monkeypatch) -> None:
     @dataclass
     class _FakeDatabase:

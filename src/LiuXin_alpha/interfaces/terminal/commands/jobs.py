@@ -331,39 +331,86 @@ class JobsShowCommand(TerminalCommandAPI):
             wait_timeout=wait_timeout,
         )
 
-        browser.emit("Job {}".format(str(_get_job_field(info, "job_id", "") or "")))
-        browser.emit("  label: {}".format(str(_get_job_field(info, "label", "") or "")))
-        browser.emit("  state: {}".format(str(_get_job_field(info, "state", "") or "")))
-        browser.emit("  backend: {}".format(str(_get_job_field(info, "backend_name", "") or "")))
-        browser.emit("  submitted_at: {}".format(_format_ts(_get_job_field(info, "submitted_at", None))))
-        browser.emit("  started_at: {}".format(_format_ts(_get_job_field(info, "started_at", None))))
-        browser.emit("  finished_at: {}".format(_format_ts(_get_job_field(info, "finished_at", None))))
-        browser.emit("  duration_s: {}".format(_format_duration(_get_job_field(info, "duration_s", None))))
-        browser.emit("  timeout_s: {}".format(_get_job_field(info, "timeout_s", None)))
-        browser.emit("  no_output: {}".format("yes" if bool(_get_job_field(info, "no_output", False)) else "no"))
-        browser.emit("  log_path: {}".format(str(_get_job_field(info, "log_path", "") or "")))
+        browser.emit_detail_sections(
+            [
+                (
+                    "Overview",
+                    [
+                        ("label", str(_get_job_field(info, "label", "") or "")),
+                        ("state", str(_get_job_field(info, "state", "") or "")),
+                        ("backend", str(_get_job_field(info, "backend_name", "") or "")),
+                    ],
+                ),
+                (
+                    "Timing",
+                    [
+                        ("submitted_at", _format_ts(_get_job_field(info, "submitted_at", None))),
+                        ("started_at", _format_ts(_get_job_field(info, "started_at", None))),
+                        ("finished_at", _format_ts(_get_job_field(info, "finished_at", None))),
+                        ("duration_s", _format_duration(_get_job_field(info, "duration_s", None))),
+                        ("timeout_s", _get_job_field(info, "timeout_s", None)),
+                    ],
+                ),
+                (
+                    "Output",
+                    [
+                        ("no_output", "yes" if bool(_get_job_field(info, "no_output", False)) else "no"),
+                        ("log_path", str(_get_job_field(info, "log_path", "") or "")),
+                    ],
+                ),
+            ],
+            title="Job {}".format(str(_get_job_field(info, "job_id", "") or "")),
+            max_cell_width=120,
+        )
 
         execution = _as_job_execution_dict(_get_job_field(info, "execution", None))
         if execution is None:
-            browser.emit("  execution: <not finished>")
+            browser.emit("")
+            browser.emit(browser.render_detail_sections([("Execution", [("status", "<not finished>")])], max_cell_width=120))
             return True
 
-        browser.emit("  execution_ok: {}".format("yes" if bool(execution.get("ok", False)) else "no"))
-        browser.emit("  timed_out: {}".format("yes" if bool(execution.get("timed_out", False)) else "no"))
-        browser.emit("  aborted: {}".format("yes" if bool(execution.get("aborted", False)) else "no"))
-        browser.emit("  result_preview: {}".format(str(execution.get("result_preview", ""))))
+        browser.emit("")
+        browser.emit(
+            browser.render_detail_sections(
+                [
+                    (
+                        "Execution",
+                        [
+                            ("execution_ok", "yes" if bool(execution.get("ok", False)) else "no"),
+                            ("timed_out", "yes" if bool(execution.get("timed_out", False)) else "no"),
+                            ("aborted", "yes" if bool(execution.get("aborted", False)) else "no"),
+                            ("result_preview", str(execution.get("result_preview", ""))),
+                        ],
+                    )
+                ],
+                max_cell_width=120,
+            )
+        )
 
         tb = str(execution.get("traceback", "") or "").strip()
         if not tb:
             return True
         if show_traceback:
-            browser.emit("  traceback:")
-            for line in tb.splitlines():
-                browser.emit("    {}".format(line))
+            browser.emit("")
+            browser.emit("Traceback")
+            browser.emit(browser.render_table(["line"], [[line] for line in tb.splitlines()], max_cell_width=120))
         else:
             first_line = tb.splitlines()[0]
-            browser.emit("  traceback_preview: {}".format(first_line))
-            browser.emit("  (use --traceback for full traceback)")
+            browser.emit("")
+            browser.emit(
+                browser.render_detail_sections(
+                    [
+                        (
+                            "Traceback",
+                            [
+                                ("traceback_preview", first_line),
+                                ("hint", "use --traceback for full traceback"),
+                            ],
+                        )
+                    ],
+                    max_cell_width=120,
+                )
+            )
         return True
 
 
@@ -431,12 +478,19 @@ class JobsPanelCommand(TerminalCommandAPI):
 
         info_job_id = str(_get_job_field(info, "job_id", token) or token)
         browser.attach_job_output_panel(info_job_id)
-        browser.emit("Job output panel attached to {}.".format(info_job_id))
         info_log_path = str(_get_job_field(info, "log_path", "") or "")
-        if info_log_path:
-            browser.emit("  log_path: {}".format(info_log_path))
-        else:
-            browser.emit("  log_path: <none>")
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("log_path", info_log_path or "<none>"),
+                    ],
+                )
+            ],
+            title="Job output panel attached to {}.".format(info_job_id),
+            max_cell_width=120,
+        )
         return True
 
 

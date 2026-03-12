@@ -43,16 +43,25 @@ class SummaryCommand(TerminalCommandAPI):
             reverse=True,
         )
 
-        browser.emit("Database summary")
-        browser.emit("  database_path: {}".format(browser.database_path))
-        browser.emit("  tables: {}".format(len(tables)))
-        browser.emit("  rows_total_known: {}".format(total_rows))
+        overview_rows: list[tuple[str, object]] = [
+            ("database_path", browser.database_path),
+            ("tables", len(tables)),
+            ("rows_total_known", total_rows),
+        ]
         if unknown_count_tables:
-            browser.emit("  tables_with_unknown_count: {}".format(unknown_count_tables))
+            overview_rows.append(("tables_with_unknown_count", unknown_count_tables))
 
-        browser.emit("  largest_tables:")
-        for table, count in sorted_by_rows[:top_n]:
-            count_text = "?" if count is None else str(count)
-            browser.emit("    {} [{}]".format(table, count_text))
+        browser.emit_detail_sections(
+            [("Overview", overview_rows)],
+            title="Database summary",
+            max_cell_width=120,
+        )
+        browser.emit("")
+        browser.emit("Largest tables")
+        browser.emit(
+            browser.render_table(
+                ["table", "rows"],
+                [[table, "?" if count is None else str(count)] for table, count in sorted_by_rows[:top_n]],
+            )
+        )
         return True
-

@@ -104,16 +104,25 @@ class NewItemWizardCommand(TerminalCommandAPI):
                 if not proceed_duplicate:
                     raise ValueError("Item wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Item summary")
-        browser.emit("  manifestation_id: {}".format(item_manifestation_id if item_manifestation_id is not None else ""))
-        browser.emit("  type: {}".format(item_type or ""))
-        browser.emit("  inventory_code: {}".format(item_inventory_code or ""))
-        browser.emit("  source: {}".format(item_source or ""))
-        browser.emit(
-            "  acquired: date={} price_minor={}".format(
-                item_acquired_date or "",
-                item_acquired_price_minor if item_acquired_price_minor is not None else "",
-            )
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("manifestation_id", item_manifestation_id if item_manifestation_id is not None else ""),
+                        ("type", item_type or ""),
+                        ("inventory_code", item_inventory_code or ""),
+                        ("source", item_source or ""),
+                        ("acquired_date", item_acquired_date or ""),
+                        (
+                            "acquired_price_minor",
+                            item_acquired_price_minor if item_acquired_price_minor is not None else "",
+                        ),
+                    ],
+                )
+            ],
+            title="Item summary",
+            max_cell_width=120,
         )
         proceed = browser.prompt_yes_no("Create this item now?", default=True)
         if not proceed:
@@ -145,4 +154,3 @@ class NewItemWizardCommand(TerminalCommandAPI):
             )
         )
         return True
-

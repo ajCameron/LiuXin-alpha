@@ -20,6 +20,7 @@ from .db import DbUnlockCommand
 from .ingest import IngestDiskCommand
 from .jobs import JobsCancelCommand, JobsListCommand, JobsPanelCommand, JobsShowCommand
 from .link import LinkCommand, LinksCommand, UnlinkCommand
+from .mutate import DeleteCommand, EditCommand, SetCommand
 from .new_creator import NewCreatorWizardCommand
 from .new_expression import NewExpressionWizardCommand
 from .new_genre import NewGenreWizardCommand
@@ -82,6 +83,9 @@ DEFAULT_COMMAND_CLASSES = (
     QuitCommand,
     SummaryCommand,
     SearchCommand,
+    SetCommand,
+    EditCommand,
+    DeleteCommand,
     DbUnlockCommand,
     JobsListCommand,
     JobsShowCommand,
@@ -154,6 +158,9 @@ __all__ = [
     "IngestDiskCommand",
     "SummaryCommand",
     "SearchCommand",
+    "SetCommand",
+    "EditCommand",
+    "DeleteCommand",
     "DbUnlockCommand",
     "JobsListCommand",
     "JobsShowCommand",

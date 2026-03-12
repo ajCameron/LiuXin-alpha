@@ -442,37 +442,21 @@ class StoreShowCommand(TerminalCommandAPI):
         file_rows = _store_file_rows(browser, store_id)
 
         browser.emit("Store details")
-        browser.emit("  store_id: {}".format(store_id))
-        browser.emit("  store_name: {}".format(_store_name(row)))
-        browser.emit("  store_kind: {}".format(_row_value(row, "store_kind", "")))
-        browser.emit("  store_access_protocol: {}".format(_row_value(row, "store_access_protocol", "")))
-        browser.emit("  store_root_uri: {}".format(_row_value(row, "store_root_uri", "")))
-        browser.emit("  store_is_read_only: {}".format(_format_bool_flag(_row_value(row, "store_is_read_only", ""))))
-        browser.emit("  store_online_status: {}".format(_row_value(row, "store_online_status", "")))
-        browser.emit("  files_total: {}".format(len(file_rows)))
+        browser.emit("")
+        browser.emit(browser.render_row_details("stores", row, max_cell_width=120))
 
         ext_counter: Counter[str] = Counter()
         for file_row in file_rows:
             ext = str(_row_value(file_row, "file_extension", "")).strip().lower()
             if ext:
                 ext_counter[ext] += 1
+        inventory_rows: list[tuple[str, object]] = [("files_total", len(file_rows))]
         if ext_counter:
-            top_ext = ", ".join("{}:{}".format(ext, count) for ext, count in ext_counter.most_common(8))
-            browser.emit("  top_extensions: {}".format(top_ext))
-
-        capability_columns = [
-            "store_supports_random_read",
-            "store_supports_random_write",
-            "store_supports_delete",
-            "store_supports_folders",
-            "store_supports_hierarchical_list",
-            "store_supports_immutable_objects",
-        ]
-        for column in capability_columns:
-            value = _row_value(row, column, None)
-            if value is None:
-                continue
-            browser.emit("  {}: {}".format(column, _format_bool_flag(value)))
+            inventory_rows.append(
+                ("top_extensions", ", ".join("{}:{}".format(ext, count) for ext, count in ext_counter.most_common(8)))
+            )
+        browser.emit("")
+        browser.emit(browser.render_detail_sections([("Inventory", inventory_rows)], max_cell_width=120))
         return True
 
 

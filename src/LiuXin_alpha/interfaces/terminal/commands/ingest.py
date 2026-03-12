@@ -190,25 +190,40 @@ class IngestDiskCommand(TerminalCommandAPI):
             browser.emit(json.dumps(report.to_dict(), ensure_ascii=False, sort_keys=True, indent=2))
             return True
 
-        browser.emit("Ingest completed:")
-        browser.emit("  store_id: {}".format(report.store_row_id))
-        browser.emit("  store_name: {}".format(report.store_name))
-        browser.emit("  store_root_uri: {}".format(report.store_root_uri))
-        browser.emit("  scanned_files: {}".format(report.scanned_files))
-        browser.emit("  ebook_candidates: {}".format(report.ebook_candidates))
-        browser.emit("  skipped_non_ebook_files: {}".format(report.skipped_non_ebook_files))
-        browser.emit("  inserted_files: {}".format(report.inserted_files))
-        browser.emit("  updated_files: {}".format(report.updated_files))
-        browser.emit("  unchanged_files: {}".format(report.unchanged_files))
-        browser.emit("  linked_files: {}".format(report.linked_files))
-        browser.emit("  errors: {}".format(len(report.errors)))
+        browser.emit_detail_sections(
+            [
+                (
+                    "Store",
+                    [
+                        ("store_id", report.store_row_id),
+                        ("store_name", report.store_name),
+                        ("store_root_uri", report.store_root_uri),
+                    ],
+                ),
+                (
+                    "Results",
+                    [
+                        ("scanned_files", report.scanned_files),
+                        ("ebook_candidates", report.ebook_candidates),
+                        ("skipped_non_ebook_files", report.skipped_non_ebook_files),
+                        ("inserted_files", report.inserted_files),
+                        ("updated_files", report.updated_files),
+                        ("unchanged_files", report.unchanged_files),
+                        ("linked_files", report.linked_files),
+                        ("errors", len(report.errors)),
+                    ],
+                ),
+            ],
+            title="Ingest completed:",
+            max_cell_width=120,
+        )
         if report.errors:
             preview_count = min(5, len(report.errors))
-            browser.emit("  error_preview:")
-            for error in report.errors[:preview_count]:
-                browser.emit("    - {}".format(error))
+            browser.emit("")
+            browser.emit("Error preview")
+            browser.emit(browser.render_table(["error"], [[error] for error in report.errors[:preview_count]], max_cell_width=120))
             if len(report.errors) > preview_count:
-                browser.emit("    ... {} more".format(len(report.errors) - preview_count))
+                browser.emit("... {} more".format(len(report.errors) - preview_count))
         return True
 
 

@@ -75,11 +75,17 @@ class NewTagWizardCommand(TerminalCommandAPI):
             if not proceed_duplicate:
                 raise ValueError("Tag wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Tag summary")
-        browser.emit("  text: {}".format(tag_text))
-        browser.emit("  normalized: {}".format(tag_norm))
+        summary_rows: list[tuple[str, object]] = [
+            ("text", tag_text),
+            ("normalized", tag_norm),
+        ]
         if has_labels:
-            browser.emit("  description: {}".format(description or ""))
+            summary_rows.append(("description", description or ""))
+        browser.emit_detail_sections(
+            [("", summary_rows)],
+            title="Tag summary",
+            max_cell_width=120,
+        )
         proceed = browser.prompt_yes_no("Create this tag now?", default=True)
         if not proceed:
             raise ValueError("Tag wizard canceled.")
@@ -113,4 +119,3 @@ class NewTagWizardCommand(TerminalCommandAPI):
             )
         )
         return True
-

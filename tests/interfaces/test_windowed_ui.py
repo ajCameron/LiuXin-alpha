@@ -72,9 +72,9 @@ def test_windowed_ui_status_lines_surface_core_jobs_query_failures() -> None:
 
     lines = ui._build_status_lines()
 
-    assert "core: enabled" in lines
-    assert any(line.startswith("jobs: total=0") for line in lines)
-    assert any("jobs_error: core jobs.list failed: RuntimeError: rpc down for jobs.list" in line for line in lines)
+    assert any("core: enabled" in line for line in lines)
+    assert any(line.startswith("Jobs | total=0") for line in lines)
+    assert any("jobs_error=core jobs.list failed: RuntimeError: rpc down for jobs.list" in line for line in lines)
 
 
 def test_windowed_ui_job_output_lines_surface_core_job_query_failures() -> None:
@@ -84,9 +84,10 @@ def test_windowed_ui_job_output_lines_surface_core_job_query_failures() -> None:
 
     lines = ui._build_job_output_lines(max_lines=5)
 
-    assert lines == [
-        "Job output: job-123 | unavailable: core jobs.get failed: RuntimeError: rpc down for jobs.get"
-    ]
+    assert lines[0] == "Job output"
+    assert any("job_id=job-123" in line for line in lines)
+    assert any("status=unavailable" in line for line in lines)
+    assert any("core jobs.get failed: RuntimeError: rpc down for jobs.get" in line for line in lines)
 
 
 def test_windowed_ui_wrap_lines_for_width_preserves_blank_lines() -> None:
@@ -183,8 +184,8 @@ def test_windowed_ui_tab_completion_cycles_and_surfaces_matches() -> None:
 
     assert first is True
     assert ui._completion_hint is not None
-    assert any(line.startswith("completion:") for line in status_lines)
-    assert "matches: series, store, subject" in status_lines[-1]
+    assert any("completion:" in line for line in status_lines)
+    assert any("matches: series, store, subject" in line for line in status_lines)
     assert second is True
     assert third is True
     assert ui._current_input == "add series "

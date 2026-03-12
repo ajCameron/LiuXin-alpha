@@ -105,12 +105,22 @@ class NewSeriesWizardCommand(TerminalCommandAPI):
             if not proceed_duplicate:
                 raise ValueError("Series wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Series summary")
-        browser.emit("  series: {}".format(series_name))
-        browser.emit("  sort: {}".format(series_sort))
-        browser.emit("  phash: {}".format(series_phash))
-        browser.emit("  parent_id: {}".format(parent_id if parent_id is not None else ""))
-        browser.emit("  creator_agent_id: {}".format(creator_agent_id if creator_agent_id is not None else ""))
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("series", series_name),
+                        ("sort", series_sort),
+                        ("phash", series_phash),
+                        ("parent_id", parent_id if parent_id is not None else ""),
+                        ("creator_agent_id", creator_agent_id if creator_agent_id is not None else ""),
+                    ],
+                )
+            ],
+            title="Series summary",
+            max_cell_width=120,
+        )
         proceed = browser.prompt_yes_no("Create this series now?", default=True)
         if not proceed:
             raise ValueError("Series wizard canceled.")

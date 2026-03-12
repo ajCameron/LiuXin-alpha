@@ -92,21 +92,26 @@ class NewManifestationWizardCommand(TerminalCommandAPI):
                 if not proceed_duplicate:
                     raise ValueError("Manifestation wizard canceled to avoid duplicate entry.")
 
-        browser.emit("Manifestation summary")
-        browser.emit("  subtitle: {}".format(manifestation_subtitle or ""))
-        browser.emit("  carrier_type: {}".format(manifestation_carrier_type or ""))
-        browser.emit("  format_detail: {}".format(manifestation_format_detail or ""))
-        browser.emit(
-            "  publication: year={} date={}".format(
-                manifestation_pub_year if manifestation_pub_year is not None else "",
-                manifestation_pub_date or "",
-            )
-        )
-        browser.emit(
-            "  physical: page_count={} runtime_minutes={}".format(
-                manifestation_page_count if manifestation_page_count is not None else "",
-                manifestation_runtime_minutes if manifestation_runtime_minutes is not None else "",
-            )
+        browser.emit_detail_sections(
+            [
+                (
+                    "",
+                    [
+                        ("subtitle", manifestation_subtitle or ""),
+                        ("carrier_type", manifestation_carrier_type or ""),
+                        ("format_detail", manifestation_format_detail or ""),
+                        ("publication_year", manifestation_pub_year if manifestation_pub_year is not None else ""),
+                        ("publication_date", manifestation_pub_date or ""),
+                        ("page_count", manifestation_page_count if manifestation_page_count is not None else ""),
+                        (
+                            "runtime_minutes",
+                            manifestation_runtime_minutes if manifestation_runtime_minutes is not None else "",
+                        ),
+                    ],
+                )
+            ],
+            title="Manifestation summary",
+            max_cell_width=120,
         )
         proceed = browser.prompt_yes_no("Create this manifestation now?", default=True)
         if not proceed:
@@ -135,4 +140,3 @@ class NewManifestationWizardCommand(TerminalCommandAPI):
             )
         )
         return True
-
