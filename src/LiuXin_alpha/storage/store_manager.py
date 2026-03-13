@@ -164,7 +164,14 @@ class StorageManager(StorageAPI):
     # store registration / lookup
     # ----------------------------------------------------------------------------------
 
+    # Todo: This should probably be registered the store on the database
     def add_store(self, new_store: StoreAPI) -> None:
+        """
+        Add a created store to this manager.
+
+        :param new_store:
+        :return:
+        """
         if not isinstance(new_store, StoreAPI):
             raise TypeError("new_store must implement StoreAPI.")
 
@@ -190,6 +197,12 @@ class StorageManager(StorageAPI):
             new_store.startup()
 
     def remove_store(self, store_identifier: str) -> bool:
+        """
+        Remove a storage from the manager.
+
+        :param store_identifier:
+        :return:
+        """
         try:
             store = self.get_store(store_identifier)
         except KeyError:
@@ -214,6 +227,12 @@ class StorageManager(StorageAPI):
         return True
 
     def get_store(self, store_identifier: str) -> StoreAPI:
+        """
+        Retrieve a store from the manager for use.
+
+        :param store_identifier:
+        :return:
+        """
         identifier = str(store_identifier)
         matches: list[StoreAPI] = []
         seen_ids: set[int] = set()
@@ -240,6 +259,11 @@ class StorageManager(StorageAPI):
         return matches[0]
 
     def iter_stores(self) -> Iterator[StoreAPI]:
+        """
+        Iterate through the stores in this manager.
+
+        :return:
+        """
         return iter(tuple(self._stores))
 
     # ----------------------------------------------------------------------------------
@@ -253,6 +277,14 @@ class StorageManager(StorageAPI):
         *,
         preferred_store: Optional[str] = None,
     ) -> SingleFileAPI:
+        """
+        Add a file to storage - the manager tries to work out where.
+
+        :param file_bytes:
+        :param metadata:
+        :param preferred_store:
+        :return:
+        """
         if not self._stores:
             raise RuntimeError("No stores are registered with this StorageManager.")
 
@@ -282,6 +314,14 @@ class StorageManager(StorageAPI):
         *,
         preferred_store: Optional[str] = None,
     ) -> SingleFileAPI:
+        """
+        Pull a file back out of storage.
+
+        :param file_url:
+        :param metadata:
+        :param preferred_store:
+        :return:
+        """
         resolved_url = file_url or self._metadata_file_url(metadata)
         if resolved_url is None:
             raise ValueError("retrieve_file requires file_url or metadata containing one.")
@@ -310,6 +350,16 @@ class StorageManager(StorageAPI):
         *,
         preferred_store: Optional[str] = None,
     ) -> StoreLocationMixinAPI:
+        """
+        Retrieve  a "folder" from the database.
+
+        Folders are virtual constructs which may, or may not, actually exist on the folder store.
+        (Actually organizing books into folders on disk is a nice to have, but very hard to set up.
+        So we give creators the option of just not doing so).
+        :param folder_key:
+        :param preferred_store:
+        :return:
+        """
         if not self._stores:
             raise RuntimeError("No stores are registered with this StorageManager.")
 
@@ -329,6 +379,15 @@ class StorageManager(StorageAPI):
         metadata: Optional[MetadataContainerAPI] = None,
         file_container: Optional[SingleFileAPI] = None,
     ) -> bool:
+        """
+        Remove a file from storage.
+
+        Ideally will be almost never used.
+        :param file_url:
+        :param metadata:
+        :param file_container:
+        :return:
+        """
         resolved_url = file_url
         preferred_store: Optional[str] = None
 
@@ -360,6 +419,11 @@ class StorageManager(StorageAPI):
         return False
 
     def iter(self) -> Iterator[SingleFileAPI]:
+        """
+        Iter through the stores in this manager.
+
+        :return:
+        """
         for store in self._stores:
             try:
                 yield from store.iter()
@@ -473,6 +537,11 @@ class StorageManager(StorageAPI):
     # ----------------------------------------------------------------------------------
 
     def _clear_registry(self) -> None:
+        """
+        Clear the internal cache for this store.
+
+        :return:
+        """
         self._stores.clear()
         self._stores_by_uuid.clear()
         self._stores_by_name.clear()
@@ -496,8 +565,15 @@ class StorageManager(StorageAPI):
             candidate = self._row_get(row, "store_id")
         return self._to_int(candidate)
 
+    # Todo: These are all adaptors and should live somehwere else
     @staticmethod
     def _coerce_optional_str(value: Any) -> Optional[str]:
+        """
+        Coerce a given value to Option[str].
+
+        :param value:
+        :return:
+        """
         if value is None:
             return None
         text = str(value).strip()
@@ -514,6 +590,13 @@ class StorageManager(StorageAPI):
 
     @staticmethod
     def _to_int(value: Any) -> Optional[int]:
+        """
+        To int or None if value is None.
+
+        Does not attempt to parse text.
+        :param value:
+        :return:
+        """
         if value is None:
             return None
         try:
@@ -523,6 +606,13 @@ class StorageManager(StorageAPI):
 
     @staticmethod
     def _to_boolish(value: Any, default: bool = False) -> bool:
+        """
+        Coerce a value to a bool.
+
+        :param value:
+        :param default:
+        :return:
+        """
         if value is None:
             return default
         if isinstance(value, bool):
@@ -700,6 +790,12 @@ class StorageManager(StorageAPI):
         return NativeHtmlBackendOptions(**option_kwargs)
 
     def _resolve_backend_cls(self, row: Any) -> Optional[type[StoreAPI]]:
+        """
+        Return the backend class for the given row.
+
+        :param row:
+        :return:
+        """
         kind_raw = self._coerce_optional_str(self._row_get(row, "store_kind"))
         protocol_raw = self._coerce_optional_str(self._row_get(row, "store_access_protocol"))
         is_read_only = self._to_boolish(self._row_get(row, "store_is_read_only"), default=False)
@@ -746,19 +842,42 @@ class StorageManager(StorageAPI):
         Bind a numeric database store id to a manager store identifier.
 
         This is useful when metadata only carries `store_id`/`file_store_id`.
+
+        :param store_id:
+        :param store_identifier:
+        :return:
         """
         self._store_ids[int(store_id)] = str(store_identifier)
 
     def set_default_store(self, store_identifier: str) -> None:
+        """
+        Set the default store for this manager.
+
+        :param store_identifier:
+        :return:
+        """
         store = self.get_store(store_identifier)
         self._default_store_key = str(store.name)
 
     def default_store(self) -> StoreAPI:
+        """
+        Get the default store for this manager.
+
+        :return:
+        """
         if self._default_store_key is None:
             raise RuntimeError("No default store is configured.")
         return self.get_store(self._default_store_key)
 
     def _check_duplicate_key(self, key: str, value: str, new_store: StoreAPI) -> None:
+        """
+        Check for dupe keys when adding a Store to the internal cache.
+
+        :param key:
+        :param value:
+        :param new_store:
+        :return:
+        """
         if key == "name":
             existing = self._stores_by_name.get(value)
         elif key == "url":
@@ -778,6 +897,14 @@ class StorageManager(StorageAPI):
         metadata: Optional[MetadataContainerAPI],
         file_url: Optional[str],
     ) -> list[StoreAPI]:
+        """
+        Stores that fit the parameters of the given entry for storage.
+
+        :param preferred_store:
+        :param metadata:
+        :param file_url:
+        :return:
+        """
         stores: list[StoreAPI] = []
         seen: set[int] = set()
 
