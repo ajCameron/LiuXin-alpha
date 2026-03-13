@@ -29,22 +29,45 @@ from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
 def _now_ep_ms() -> int:
+    """
+    Get the epoch in miliseconds.
+
+    :return:
+    """
     return int(time.time() * 1000)
 
 
 def _epoch_ms_from_seconds(value: float | int | None) -> Optional[int]:
+    """
+    Calculate epoch ms from seconds.
+
+    :param value:
+    :return:
+    """
     if value is None:
         return None
     return int(float(value) * 1000.0)
 
 
 def _normalize_ebook_extensions(ebook_extensions: Optional[Iterable[str]]) -> set[str]:
+    """
+    Bring a set of extensions into standard form.
+
+    :param ebook_extensions:
+    :return:
+    """
     if ebook_extensions is None:
         ebook_extensions = BOOK_EXTENSIONS
     return {str(x).lower().lstrip(".") for x in ebook_extensions if str(x).strip()}
 
 
 def _normalize_root(path: str | os.PathLike[str]) -> pathlib.Path:
+    """
+    Bring a root path into standard form - with checking for existence and is_dir.
+
+    :param path:
+    :return:
+    """
     root = pathlib.Path(path).expanduser()
     if not root.exists():
         raise FileNotFoundError("Disk path does not exist: {!r}".format(str(root)))
@@ -54,10 +77,23 @@ def _normalize_root(path: str | os.PathLike[str]) -> pathlib.Path:
 
 
 def _table_columns(db, table_name: str) -> set[str]:
+    """
+    Get the columns for a given table.
+
+    :param db:
+    :param table_name:
+    :return:
+    """
     return set(db.get_column_headings(table_name))
 
 
 def _ensure_schema_support(db) -> tuple[set[str], set[str], set[str], set[str]]:
+    """
+    Check that the database has schema support for unmanaged add.
+
+    :param db:
+    :return:
+    """
     tables = set(db.get_tables())
     required_tables = {"stores", "files"}
     missing_tables = sorted(required_tables - tables)
@@ -236,7 +272,7 @@ def _update_file_row(row: Row, *, payload: dict[str, object], file_columns: set[
     row.sync()
     return True
 
-
+# Todo: Consolidate metadata methods
 def _ensure_file_store_link(
     db,
     *,
@@ -246,6 +282,17 @@ def _ensure_file_store_link(
     link_columns: set[str],
     linked_file_ids: set[int],
 ) -> bool:
+    """
+    Ensures that the file is linked to the given store.
+    
+    :param db: 
+    :param file_id: 
+    :param store_id: 
+    :param tables: 
+    :param link_columns: 
+    :param linked_file_ids: 
+    :return: 
+    """
     if "file_store_links" not in tables:
         return False
     required = {"file_store_link_file_id", "file_store_link_store_id"}
@@ -280,6 +327,17 @@ def register_existing_disk_as_unmanaged_store(
 ) -> UnmanagedDiskRegistrationReport:
     """
     Register ebook files under a disk path into `files` using one unmanaged store row.
+
+    :param db:
+    :param disk_path:
+    :param store_name:
+    :param ebook_extensions:
+    :param source_label:
+    :param compute_hash:
+    :param follow_symlinks:
+    :param attach_store_links:
+    :param refresh_storage_manager:
+    :return:
     """
     tables, _, file_columns, link_columns = _ensure_schema_support(db)
     store_row, backend = ensure_unmanaged_store_for_disk(db, disk_path=disk_path, store_name=store_name)
@@ -398,6 +456,11 @@ def register_existing_disk_with_database_path(
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Build the parser for the command line call of this script.
+
+    :return:
+    """
     parser = argparse.ArgumentParser(description="Register ebook files from an unmanaged disk into LiuXin files table.")
     parser.add_argument("--database", required=True, help="Path to the target LiuXin database file.")
     parser.add_argument("--disk", required=True, help="Root path of the existing disk/folder to index.")

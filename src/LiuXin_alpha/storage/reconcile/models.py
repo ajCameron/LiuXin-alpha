@@ -1,4 +1,6 @@
-"""Report dataclasses for storage/database reconciliation workflows."""
+"""
+Report dataclasses for storage/database reconciliation workflows.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +18,9 @@ def _now_ep_ms() -> int:
 class UnmanagedDiskRegistrationReport:
     """
     Summary of unmanaged disk registration into the database.
+
+    When an unmanaged disk is registered, it's files must be added to the database.
+    This class contains a report on that progress.
     """
 
     store_row_id: int

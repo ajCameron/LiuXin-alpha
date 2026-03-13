@@ -1,5 +1,9 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Profiles control conversion - these are preset conversion options for particular ereaders and other purposes.
+"""
+
 from __future__ import with_statement
 
 from LiuXin_alpha.utils.localization import trans as _
