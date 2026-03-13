@@ -65,6 +65,7 @@ from .show import (
 )
 from .summary import SummaryCommand
 from .sync import SyncStoreCommand
+from .telemetry import TelemetryPanelCommand
 from .top import TopCommand
 from .store_view import StoreFilesCommand, StoreListCommand, StoreShowCommand
 
@@ -91,6 +92,7 @@ DEFAULT_COMMAND_CLASSES = (
     JobsShowCommand,
     JobsCancelCommand,
     JobsPanelCommand,
+    TelemetryPanelCommand,
     TopCommand,
     LinkCommand,
     UnlinkCommand,
@@ -166,6 +168,7 @@ __all__ = [
     "JobsShowCommand",
     "JobsCancelCommand",
     "JobsPanelCommand",
+    "TelemetryPanelCommand",
     "SyncStoreCommand",
     "QuitCommand",
     "LinkCommand",

@@ -82,6 +82,9 @@ class StorageManager(StorageAPI):
         "wget_html_readonly": "wget_html_readonly",
         "wget_http_ro": "wget_html_readonly",
         "http_spider_ro": "wget_html_readonly",
+        "native_html_readonly": "native_html_readonly",
+        "native_http_ro": "native_html_readonly",
+        "http_native_ro": "native_html_readonly",
     }
 
     _STORE_BACKEND_IMPORTS: Mapping[str, tuple[str, str]] = {
@@ -112,6 +115,10 @@ class StorageManager(StorageAPI):
         "wget_html_readonly": (
             "LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly",
             "WgetHtmlReadOnlyStorageBackend",
+        ),
+        "native_html_readonly": (
+            "LiuXin_alpha.storage.store_backend_plugins.native_html_readonly",
+            "NativeHtmlReadOnlyStorageBackend",
         ),
     }
 
@@ -438,6 +445,10 @@ class StorageManager(StorageAPI):
                 options = self._build_wget_options_from_row(row)
                 if options is not None:
                     kwargs["options"] = options
+            elif backend_cls.__name__ == "NativeHtmlReadOnlyStorageBackend":
+                options = self._build_native_html_options_from_row(row)
+                if options is not None:
+                    kwargs["options"] = options
 
             try:
                 store = backend_cls(**kwargs)
@@ -637,6 +648,57 @@ class StorageManager(StorageAPI):
 
         return WgetBackendOptions(**option_kwargs)
 
+    def _build_native_html_options_from_row(self, row: Any):
+        raw_policy = self._row_get(row, "store_policy_json")
+        if raw_policy in (None, ""):
+            return None
+        try:
+            policy = json.loads(str(raw_policy))
+        except Exception:
+            return None
+        if not isinstance(policy, Mapping):
+            return None
+
+        native_policy: Mapping[str, Any]
+        nested = policy.get("native_html")
+        if isinstance(nested, Mapping):
+            native_policy = nested
+        else:
+            native_policy = policy
+
+        option_kwargs: dict[str, Any] = {}
+        if "timeout_s" in native_policy:
+            timeout_s = self._coerce_optional_float(native_policy.get("timeout_s"))
+            option_kwargs["timeout_s"] = timeout_s
+        if "max_http_requests_per_hour" in native_policy:
+            max_rph = self._coerce_optional_float(native_policy.get("max_http_requests_per_hour"))
+            option_kwargs["max_http_requests_per_hour"] = max_rph
+        if "recurse" in native_policy:
+            option_kwargs["recurse"] = self._to_boolish(native_policy.get("recurse"), default=True)
+        if "max_depth" in native_policy:
+            depth = self._to_int(native_policy.get("max_depth"))
+            option_kwargs["max_depth"] = depth
+        if "no_parent" in native_policy:
+            option_kwargs["no_parent"] = self._to_boolish(native_policy.get("no_parent"), default=True)
+        if "span_hosts" in native_policy:
+            option_kwargs["span_hosts"] = self._to_boolish(native_policy.get("span_hosts"), default=False)
+        if "respect_robots" in native_policy:
+            option_kwargs["respect_robots"] = self._to_boolish(native_policy.get("respect_robots"), default=True)
+        if "user_agent" in native_policy:
+            user_agent = self._coerce_optional_str(native_policy.get("user_agent"))
+            option_kwargs["user_agent"] = user_agent
+        if "max_html_bytes" in native_policy:
+            max_html_bytes = self._to_int(native_policy.get("max_html_bytes"))
+            if max_html_bytes is not None:
+                option_kwargs["max_html_bytes"] = max(1024, max_html_bytes)
+
+        if not option_kwargs:
+            return None
+
+        from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import NativeHtmlBackendOptions
+
+        return NativeHtmlBackendOptions(**option_kwargs)
+
     def _resolve_backend_cls(self, row: Any) -> Optional[type[StoreAPI]]:
         kind_raw = self._coerce_optional_str(self._row_get(row, "store_kind"))
         protocol_raw = self._coerce_optional_str(self._row_get(row, "store_access_protocol"))
@@ -656,6 +718,8 @@ class StorageManager(StorageAPI):
                 alias = "rclone_http_readonly"
             elif normalized_protocol == "wget":
                 alias = "wget_html_readonly"
+            elif normalized_protocol in {"native", "native_html"}:
+                alias = "native_html_readonly"
             elif normalized_protocol == "squashfs":
                 alias = "squashfs_readonly"
             elif normalized_protocol in {"sqlite", "sqlite3"}:

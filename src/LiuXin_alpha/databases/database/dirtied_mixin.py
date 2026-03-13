@@ -1,10 +1,143 @@
-
-
+import queue
+import threading
+import time
 import uuid
 
-from typing import Optional
+from collections import Counter, deque
+from typing import Any, Optional
 
 from LiuXin_alpha.utils.logging import default_log
+
+
+class DatabaseWriteTelemetry:
+    """Thread-safe recorder for lightweight database write telemetry."""
+
+    def __init__(self, *, max_recent_events: int = 200) -> None:
+        self._lock = threading.Lock()
+        self._recent_events: deque[dict[str, Any]] = deque(maxlen=max(20, int(max_recent_events)))
+        self._source_counts: Counter[str] = Counter()
+        self._table_counts: Counter[str] = Counter()
+        self._observed_total = 0
+
+    def record_event(
+        self,
+        *,
+        source: str,
+        table: str,
+        row_id: object,
+        reason: str = "",
+    ) -> None:
+        event = {
+            "timestamp": float(time.time()),
+            "source": str(source or "").strip() or "unknown",
+            "table": str(table or "").strip(),
+            "row_id": row_id,
+            "reason": str(reason or "").strip(),
+        }
+        with self._lock:
+            self._observed_total += 1
+            self._source_counts[event["source"]] += 1
+            if event["table"]:
+                self._table_counts[event["table"]] += 1
+            self._recent_events.append(event)
+
+    def snapshot(
+        self,
+        *,
+        queue_size: int = 0,
+        persisted_queue_size: int = 0,
+        recent_limit: int = 8,
+    ) -> dict[str, Any]:
+        with self._lock:
+            recent = list(self._recent_events)[-max(1, int(recent_limit)) :]
+            return {
+                "observed_total": int(self._observed_total),
+                "queue_size": int(queue_size),
+                "persisted_queue_size": int(persisted_queue_size),
+                "source_counts": dict(self._source_counts),
+                "table_counts": dict(self._table_counts),
+                "recent_events": [dict(event) for event in recent],
+            }
+
+
+class ObservedDirtyRecordsQueue(queue.Queue):
+    """Queue.Queue variant that records non-destructive telemetry on put()."""
+
+    def __init__(self, *args, telemetry: Optional[DatabaseWriteTelemetry] = None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._telemetry = telemetry
+
+    def put(self, item, block=True, timeout=None):  # noqa: ANN001 - queue API compatibility
+        super().put(item, block=block, timeout=timeout)
+        telemetry = self._telemetry
+        if telemetry is None:
+            return
+        table = ""
+        row_id = None
+        reason = ""
+        if isinstance(item, tuple):
+            if len(item) >= 1:
+                table = str(item[0] or "")
+            if len(item) >= 2:
+                row_id = item[1]
+            if len(item) >= 3:
+                reason = str(item[2] or "")
+        telemetry.record_event(
+            source="dirty_queue",
+            table=table,
+            row_id=row_id,
+            reason=reason,
+        )
+
+
+class TelemetryMaintainerProxy:
+    """Delegate maintenance callbacks while recording trigger-side telemetry."""
+
+    def __init__(self, target, telemetry: Optional[DatabaseWriteTelemetry]) -> None:
+        self._target = target
+        self._telemetry = telemetry
+
+    def dirty_record(self, table, row_id):  # noqa: ANN001 - callback compatibility
+        telemetry = self._telemetry
+        if telemetry is not None:
+            telemetry.record_event(
+                source="trigger_dirty_record",
+                table=str(table or ""),
+                row_id=row_id,
+                reason="DIRTY_RECORD",
+            )
+        return self._target.dirty_record(table, row_id)
+
+    def new_dirty_record(self, table, row_id):  # noqa: ANN001 - callback compatibility
+        telemetry = self._telemetry
+        if telemetry is not None:
+            telemetry.record_event(
+                source="trigger_new_dirty_record",
+                table=str(table or ""),
+                row_id=row_id,
+                reason="NEW_DIRTY_RECORD",
+            )
+        return self._target.new_dirty_record(table, row_id)
+
+    def dirty_interlink_record(self, update_type, table1, table2, table1_id, table2_id):  # noqa: ANN001
+        telemetry = self._telemetry
+        if telemetry is not None:
+            telemetry.record_event(
+                source="trigger_interlink",
+                table=str(table1 or ""),
+                row_id=table1_id,
+                reason="{} {}:{} -> {}:{}".format(
+                    str(update_type or "").strip() or "interlink",
+                    str(table1 or "").strip() or "<unknown>",
+                    table1_id,
+                    str(table2 or "").strip() or "<unknown>",
+                    table2_id,
+                ),
+            )
+        return self._target.dirty_interlink_record(update_type, table1, table2, table1_id, table2_id)
+
+    def __getattr__(self, name: str):
+        return getattr(self._target, name)
 
 
 class DatabaseDirtiedRecordsMixin:
@@ -33,6 +166,24 @@ class DatabaseDirtiedRecordsMixin:
         if include_persisted:
             q += self.get_persisted_dirtied_count()
         return q
+
+    def get_write_telemetry_snapshot(self, *, recent_limit: int = 8) -> dict[str, Any]:
+        """Return a lightweight live snapshot of observed database write activity."""
+        telemetry = getattr(self, "write_telemetry", None)
+        if telemetry is None:
+            return {
+                "observed_total": 0,
+                "queue_size": self.get_dirtied_count(include_persisted=False),
+                "persisted_queue_size": self.get_persisted_dirtied_count(),
+                "source_counts": {},
+                "table_counts": {},
+                "recent_events": [],
+            }
+        return telemetry.snapshot(
+            queue_size=self.get_dirtied_count(include_persisted=False),
+            persisted_queue_size=self.get_persisted_dirtied_count(),
+            recent_limit=recent_limit,
+        )
 
     def dirty_record(self, table: str, row_id: int, reason: str = "") -> None:
         """Enqueue a dirtied-record event for later processing.

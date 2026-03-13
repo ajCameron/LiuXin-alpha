@@ -109,6 +109,10 @@ class DatabaseDirtiedRecordsMixinAPI(abc.ABC):
     def persist_dirtied_records(self, *, limit: Optional[int] = None) -> int:
         ...
 
+    @abc.abstractmethod
+    def get_write_telemetry_snapshot(self, *, recent_limit: int = 8) -> dict[str, Any]:
+        ...
+
 class DatabaseSearchMixinAPI(abc.ABC):
     """Typed API for ``DatabaseSearchMixin``."""
 

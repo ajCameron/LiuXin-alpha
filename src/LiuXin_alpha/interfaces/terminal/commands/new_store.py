@@ -128,6 +128,20 @@ _STORE_KIND_PRESETS: tuple[_StoreKindPreset, ...] = (
         supports_checksums=False,
         supports_immutable_objects=False,
     ),
+    _StoreKindPreset(
+        kind="native_html_readonly",
+        label="Native HTML crawler remote (read-only)",
+        access_protocol="native_html",
+        read_only_default=True,
+        location_type="remote",
+        supports_folders=True,
+        supports_hierarchical_list=True,
+        supports_random_read=True,
+        supports_random_write=False,
+        supports_delete=False,
+        supports_checksums=False,
+        supports_immutable_objects=False,
+    ),
 )
 
 

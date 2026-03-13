@@ -13,6 +13,36 @@ class _FakeJobManager:
         return {"job_id": str(job_id), "state": "running"}
 
 
+class _FakeTelemetryDb:
+    def get_write_telemetry_snapshot(self, *, recent_limit: int = 8):
+        del recent_limit
+        return {
+            "observed_total": 5,
+            "queue_size": 2,
+            "persisted_queue_size": 1,
+            "source_counts": {
+                "dirty_queue": 3,
+                "trigger_dirty_record": 2,
+            },
+            "recent_events": [
+                {
+                    "timestamp": 1700000000.0,
+                    "source": "dirty_queue",
+                    "table": "files",
+                    "row_id": 42,
+                    "reason": "update",
+                },
+                {
+                    "timestamp": 1700000001.0,
+                    "source": "trigger_dirty_record",
+                    "table": "folders",
+                    "row_id": 7,
+                    "reason": "DIRTY_RECORD",
+                },
+            ],
+        }
+
+
 class _FakeBrowser:
     def __init__(self) -> None:
         self.database_path = "/tmp/test.sqlite"
@@ -20,6 +50,16 @@ class _FakeBrowser:
         self.window = None
         self.page_size = 20
         self.job_manager = _FakeJobManager()
+        self.db = _FakeTelemetryDb()
+        self._counts = {
+            "works": 0,
+            "expressions": 0,
+            "manifestations": 0,
+            "items": 0,
+            "files": 10,
+            "folders": 4,
+            "stores": 1,
+        }
 
     def supports_core_queries(self) -> bool:
         return True
@@ -28,7 +68,7 @@ class _FakeBrowser:
         raise RuntimeError("rpc down for {}".format(name))
 
     def get_table_row_count(self, _table: str):
-        return 0
+        return self._counts.get(_table, 0)
 
     def core_runtime_status_summary(self) -> str:
         return "core: enabled"
@@ -189,3 +229,33 @@ def test_windowed_ui_tab_completion_cycles_and_surfaces_matches() -> None:
     assert second is True
     assert third is True
     assert ui._current_input == "add series "
+
+
+def test_windowed_ui_telemetry_lines_surface_counts_and_recent_events() -> None:
+    browser = _FakeBrowser()
+    ui = _CursesUiDriver(None, config=WindowedUiConfig(), history_file=None)
+    ui.bind_browser(browser)
+    ui.set_telemetry_tables(("files", "folders"))
+
+    browser._counts["files"] = 12
+    browser._counts["folders"] = 5
+    lines = ui._build_telemetry_lines(max_lines=12)
+
+    assert lines[0] == "DB telemetry"
+    assert any("Activity | observed_total=5 | queue_depth=2 | persisted=1" in line for line in lines)
+    assert any("Tracking | files, folders" in line or "Tracking | files,folders" in line for line in lines)
+    assert any(line.startswith("files | total=12 | since=+2 | last=+2") for line in lines)
+    assert any(line.startswith("folders | total=5 | since=+1 | last=+1") for line in lines)
+    assert "Recent events" in lines
+    assert any("dirty_queue | files:42 | update" in line for line in lines)
+
+
+def test_windowed_ui_status_lines_surface_active_telemetry_panel() -> None:
+    browser = _FakeBrowser()
+    ui = _CursesUiDriver(None, config=WindowedUiConfig(), history_file=None)
+    ui.bind_browser(browser)
+    ui.set_telemetry_tables(("files", "folders"))
+
+    lines = ui._build_status_lines()
+
+    assert any("telemetry_panel=files,folders" in line for line in lines)

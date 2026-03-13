@@ -150,6 +150,36 @@ def test_database_dirty_record_does_not_enqueue_to_maintainer_queues(stopped_db)
         stopped_db.maintenance.main_table_dirtied_queue.get_nowait()
 
 
+def test_write_telemetry_snapshot_observes_dirty_queue(stopped_db):
+    table = "books" if "books" in stopped_db.dirtiable_tables else sorted(stopped_db.dirtiable_tables)[0]
+    before_total = int(stopped_db.get_write_telemetry_snapshot(recent_limit=5).get("observed_total", 0))
+
+    stopped_db.dirty_record(table, 321, reason="telemetry-test")
+
+    snapshot = stopped_db.get_write_telemetry_snapshot(recent_limit=5)
+    assert int(snapshot.get("observed_total", 0)) >= before_total + 1
+    recent = list(snapshot.get("recent_events", ()) or ())
+    assert recent
+    assert recent[-1]["source"] == "dirty_queue"
+    assert recent[-1]["table"] == table
+    assert recent[-1]["row_id"] == 321
+    assert recent[-1]["reason"] == "telemetry-test"
+
+
+def test_write_telemetry_snapshot_observes_trigger_callback_proxy(stopped_db):
+    table = "books" if "books" in stopped_db.main_tables else sorted(stopped_db.main_tables)[0]
+    _drain(stopped_db.maintenance.main_table_dirtied_queue)
+
+    stopped_db.driver.maintainer_callback.dirty_record(table, 654)
+
+    got = stopped_db.maintenance.main_table_dirtied_queue.get_nowait()
+    assert got == (table, 654)
+    snapshot = stopped_db.get_write_telemetry_snapshot(recent_limit=5)
+    recent = list(snapshot.get("recent_events", ()) or ())
+    assert recent
+    assert any(event["source"] == "trigger_dirty_record" and event["table"] == table for event in recent)
+
+
 def test_dirty_record_sql_function_is_registered_and_enqueues(stopped_db):
     """Calling the SQLite UDF should call Maintainer.dirty_record and enqueue an event."""
 

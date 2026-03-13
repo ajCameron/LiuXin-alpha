@@ -26,6 +26,7 @@ class WindowedUiConfig:
 
     status_refresh_s: float = 1.0
     status_height: int = 9
+    telemetry_panel_height: int = 9
     job_panel_height: int = 10
     max_console_lines: int = 4000
 
@@ -40,6 +41,7 @@ class _CursesUiDriver:
 
         self._stdscr = None
         self._status_win = None
+        self._telemetry_win = None
         self._job_output_win = None
         self._console_win = None
         self._status_last_render = 0.0
@@ -49,6 +51,10 @@ class _CursesUiDriver:
         self._current_input = ""
         self._history: list[str] = []
         self._history_cursor: Optional[int] = None
+        self._telemetry_tables: Optional[tuple[str, ...]] = None
+        self._telemetry_started_at: Optional[float] = None
+        self._telemetry_baseline_counts: dict[str, Optional[int]] = {}
+        self._telemetry_last_counts: dict[str, Optional[int]] = {}
         self._job_output_job_id: Optional[str] = None
         self._jobs_status_error: Optional[str] = None
         self._job_output_error: Optional[str] = None
@@ -61,6 +67,10 @@ class _CursesUiDriver:
         self._completion_token_end = 0
         self._completion_index: Optional[int] = None
         self.browser: Optional[TextDatabaseBrowser] = None
+
+    @staticmethod
+    def _default_telemetry_tables() -> tuple[str, ...]:
+        return ("files", "folders", "items", "works", "stores")
 
     @property
     def terminal_width(self) -> int:
@@ -83,6 +93,33 @@ class _CursesUiDriver:
 
     def clear_job_output_job(self) -> bool:
         return self.set_job_output_job(None)
+
+    def set_telemetry_tables(self, tables: Optional[tuple[str, ...] | list[str]] = None) -> bool:
+        normalized: list[str] = []
+        for raw in list(tables or self._default_telemetry_tables()):
+            token = str(raw).strip()
+            if token and token not in normalized:
+                normalized.append(token)
+        next_tables = tuple(normalized) if normalized else self._default_telemetry_tables()
+        changed = self._telemetry_tables != next_tables
+        self._telemetry_tables = next_tables
+        self._telemetry_started_at = time.time()
+        sampled = self._sample_telemetry_counts(next_tables)
+        self._telemetry_baseline_counts = dict(sampled)
+        self._telemetry_last_counts = dict(sampled)
+        self._rebuild_windows()
+        self._render(force_status=True)
+        return changed or bool(next_tables)
+
+    def clear_telemetry_panel(self) -> bool:
+        had = self._telemetry_tables is not None
+        self._telemetry_tables = None
+        self._telemetry_started_at = None
+        self._telemetry_baseline_counts = {}
+        self._telemetry_last_counts = {}
+        self._rebuild_windows()
+        self._render(force_status=True)
+        return had
 
     def clear_console_output(self) -> bool:
         had_content = bool(self._lines) or self._console_scroll_offset != 0
@@ -166,6 +203,13 @@ class _CursesUiDriver:
 
     def _console_content_width(self) -> int:
         win = self._console_win
+        if win is not None:
+            _, cols = win.getmaxyx()
+            return max(1, cols - 1)
+        return max(1, self.terminal_width - 1)
+
+    def _telemetry_content_width(self) -> int:
+        win = self._telemetry_win
         if win is not None:
             _, cols = win.getmaxyx()
             return max(1, cols - 1)
@@ -494,19 +538,59 @@ class _CursesUiDriver:
             self._render(force_status=False)
             return None
 
+    def _allocate_aux_panel_heights(self, *, rows: int, status_h: int) -> tuple[int, int]:
+        active: list[tuple[str, int]] = []
+        if self._telemetry_tables:
+            active.append(("telemetry", max(4, int(self.config.telemetry_panel_height))))
+        if self._job_output_job_id:
+            active.append(("job", max(4, int(self.config.job_panel_height))))
+        if not active:
+            return (0, 0)
+
+        remaining = max(0, int(rows) - int(status_h) - 3)
+        allocations = {"telemetry": 0, "job": 0}
+        if remaining < 4:
+            return (0, 0)
+
+        minimum_total = 4 * len(active)
+        if remaining < minimum_total:
+            for name, _desired in active:
+                if remaining < 4:
+                    break
+                allocations[name] = 4
+                remaining -= 4
+            return (allocations["telemetry"], allocations["job"])
+
+        extras: dict[str, int] = {}
+        for name, desired in active:
+            allocations[name] = 4
+            remaining -= 4
+            extras[name] = max(0, int(desired) - 4)
+        while remaining > 0 and any(extras[name] > 0 for name, _ in active):
+            for name, _desired in active:
+                if remaining <= 0:
+                    break
+                if extras[name] <= 0:
+                    continue
+                allocations[name] += 1
+                extras[name] -= 1
+                remaining -= 1
+        return (allocations["telemetry"], allocations["job"])
+
     def _rebuild_windows(self) -> None:
         if self._stdscr is None:
             return
         rows, cols = self._stdscr.getmaxyx()
         status_h = max(5, min(int(self.config.status_height), max(5, rows - 4)))
-        job_h = 0
-        if self._job_output_job_id:
-            remaining_after_status = max(3, rows - status_h)
-            if remaining_after_status >= 7:
-                job_h = max(4, min(int(self.config.job_panel_height), remaining_after_status - 3))
-        console_h = max(3, rows - status_h - job_h)
+        telemetry_h, job_h = self._allocate_aux_panel_heights(rows=rows, status_h=status_h)
+        console_h = max(3, rows - status_h - telemetry_h - job_h)
         self._status_win = curses.newwin(status_h, cols, 0, 0)
         y = status_h
+        if telemetry_h > 0:
+            self._telemetry_win = curses.newwin(telemetry_h, cols, y, 0)
+            y += telemetry_h
+        else:
+            self._telemetry_win = None
         if job_h > 0:
             self._job_output_win = curses.newwin(job_h, cols, y, 0)
             y += job_h
@@ -539,6 +623,26 @@ class _CursesUiDriver:
         except Exception as exc:
             self._jobs_status_error = self._format_error("local jobs unavailable", exc)
             return []
+
+    def _sample_telemetry_counts(self, tables: tuple[str, ...]) -> dict[str, Optional[int]]:
+        browser = self.browser
+        counts: dict[str, Optional[int]] = {}
+        for table in tables:
+            if browser is None:
+                counts[table] = None
+                continue
+            try:
+                value = browser.get_table_row_count(table)
+            except Exception:
+                value = None
+            counts[table] = None if value is None else int(value)
+        return counts
+
+    @staticmethod
+    def _format_count_delta(current: Optional[int], previous: Optional[int]) -> str:
+        if current is None or previous is None:
+            return "?"
+        return "{:+d}".format(int(current) - int(previous))
 
     def _get_job(self, job_id: str) -> object:
         self._job_output_error = None
@@ -622,8 +726,13 @@ class _CursesUiDriver:
         sections.append(("Jobs", job_rows))
         if self._jobs_status_error:
             sections.append(("Errors", [("jobs_error", self._jobs_status_error)]))
+        panel_rows: list[tuple[str, object]] = []
         if self._job_output_job_id:
-            sections.append(("Panels", [("job_panel", self._job_output_job_id)]))
+            panel_rows.append(("job_panel", self._job_output_job_id))
+        if self._telemetry_tables:
+            panel_rows.append(("telemetry_panel", ",".join(self._telemetry_tables)))
+        if panel_rows:
+            sections.append(("Panels", panel_rows))
         ui_rows: list[tuple[str, object]] = []
         if self._console_scroll_offset > 0:
             ui_rows.append(("console_scrollback", "+{} | PgUp/PgDn Home/End".format(self._console_scroll_offset)))
@@ -706,6 +815,88 @@ class _CursesUiDriver:
         lines.extend(tail)
         return lines[-max_lines:]
 
+    def _build_telemetry_lines(self, *, max_lines: int) -> list[str]:
+        if max_lines <= 0:
+            return []
+        tracked_tables = self._telemetry_tables
+        if not tracked_tables:
+            return []
+
+        browser = self.browser
+        db = getattr(browser, "db", None)
+        snapshot: dict[str, object] = {}
+        if db is not None and hasattr(db, "get_write_telemetry_snapshot"):
+            try:
+                snapshot = dict(db.get_write_telemetry_snapshot(recent_limit=max(2, max_lines)) or {})
+            except Exception as exc:
+                snapshot = {"recent_events": [], "snapshot_error": self._format_error("telemetry snapshot failed", exc)}
+
+        current_counts = self._sample_telemetry_counts(tracked_tables)
+        previous_counts = dict(self._telemetry_last_counts or {})
+        baseline_counts = dict(self._telemetry_baseline_counts or {})
+        self._telemetry_last_counts = dict(current_counts)
+
+        uptime_s = 0
+        if self._telemetry_started_at is not None:
+            uptime_s = max(0, int(time.time() - self._telemetry_started_at))
+
+        sections: list[tuple[str, list[tuple[str, object]]]] = [
+            (
+                "Activity",
+                [
+                    ("observed_total", snapshot.get("observed_total", 0)),
+                    ("queue_depth", snapshot.get("queue_size", 0)),
+                    ("persisted", snapshot.get("persisted_queue_size", 0)),
+                    ("uptime_s", uptime_s),
+                ],
+            ),
+            ("Tracking", [("", ", ".join(tracked_tables))]),
+        ]
+        if snapshot.get("snapshot_error"):
+            sections.append(("Errors", [("telemetry", snapshot.get("snapshot_error"))]))
+
+        source_counts = dict(snapshot.get("source_counts", {}) or {})
+        if source_counts:
+            segments = ["{}={}".format(key, source_counts[key]) for key in sorted(source_counts.keys())]
+            sections.append(("Sources", [("", " | ".join(segments))]))
+
+        for table in tracked_tables:
+            current = current_counts.get(table)
+            previous = previous_counts.get(table, current)
+            baseline = baseline_counts.get(table, current)
+            sections.append(
+                (
+                    table,
+                    [
+                        ("total", "?" if current is None else current),
+                        ("since", self._format_count_delta(current, baseline)),
+                        ("last", self._format_count_delta(current, previous)),
+                    ],
+                )
+            )
+
+        lines = self._render_compact_sections(sections, title="DB telemetry")
+        recent_events = list(snapshot.get("recent_events", ()) or ())
+        remaining = max(0, int(max_lines) - len(lines))
+        if remaining > 0 and recent_events:
+            lines.append("Recent events")
+            remaining -= 1
+            tail = recent_events[-remaining:] if remaining > 0 else []
+            for event in tail:
+                try:
+                    timestamp = time.strftime("%H:%M:%S", time.localtime(float(event.get("timestamp", 0.0))))
+                except Exception:
+                    timestamp = "--:--:--"
+                table = str(event.get("table", "") or "").strip() or "<unknown>"
+                row_id = event.get("row_id", "")
+                source = str(event.get("source", "") or "").strip() or "event"
+                reason = str(event.get("reason", "") or "").strip()
+                summary = "{} | {} | {}:{}".format(timestamp, source, table, row_id)
+                if reason:
+                    summary += " | {}".format(reason)
+                lines.append(summary)
+        return lines[:max_lines]
+
     def _render(self, *, force_status: bool) -> None:
         if self._stdscr is None:
             return
@@ -716,11 +907,21 @@ class _CursesUiDriver:
             else:
                 s_rows, s_cols = self._status_win.getmaxyx()
                 c_rows, c_cols = self._console_win.getmaxyx()
+                t_rows = 0
+                t_cols = cols
                 j_rows = 0
                 j_cols = cols
+                if self._telemetry_win is not None:
+                    t_rows, t_cols = self._telemetry_win.getmaxyx()
                 if self._job_output_win is not None:
                     j_rows, j_cols = self._job_output_win.getmaxyx()
-                if s_cols != cols or c_cols != cols or j_cols != cols or (s_rows + c_rows + j_rows) != rows:
+                if (
+                    s_cols != cols
+                    or c_cols != cols
+                    or t_cols != cols
+                    or j_cols != cols
+                    or (s_rows + c_rows + t_rows + j_rows) != rows
+                ):
                     self._rebuild_windows()
         except Exception:
             return
@@ -730,6 +931,7 @@ class _CursesUiDriver:
         should_render_status = force_status or ((now - self._status_last_render) >= refresh_interval)
         if should_render_status:
             self._render_status()
+            self._render_telemetry()
             self._status_last_render = now
         self._render_job_output()
         self._render_console()
@@ -786,6 +988,24 @@ class _CursesUiDriver:
             pass
         win.noutrefresh()
         curses.doupdate()
+
+    def _render_telemetry(self) -> None:
+        win = self._telemetry_win
+        if win is None:
+            return
+        win.erase()
+        rows, cols = win.getmaxyx()
+        lines = self._wrap_lines_for_width(
+            self._build_telemetry_lines(max_lines=max(1, rows)),
+            width=max(1, cols - 1),
+        )
+        tail = lines[-rows:]
+        for idx, text in enumerate(tail):
+            try:
+                win.addstr(idx, 0, text)
+            except Exception:
+                continue
+        win.noutrefresh()
 
     def _render_job_output(self) -> None:
         win = self._job_output_win
@@ -858,6 +1078,15 @@ class _WindowedTextDatabaseBrowser(TextDatabaseBrowser):
 
     def detach_job_output_panel(self) -> bool:  # type: ignore[override]
         return self._ui_driver.clear_job_output_job()
+
+    def supports_telemetry_panel(self) -> bool:  # type: ignore[override]
+        return True
+
+    def attach_telemetry_panel(self, tables: Optional[list[str] | tuple[str, ...]] = None) -> bool:  # type: ignore[override]
+        return self._ui_driver.set_telemetry_tables(tables)
+
+    def detach_telemetry_panel(self) -> bool:  # type: ignore[override]
+        return self._ui_driver.clear_telemetry_panel()
 
 
 def run_windowed_browser(

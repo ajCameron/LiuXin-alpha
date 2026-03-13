@@ -24,6 +24,11 @@ class UnmanagedDiskRegistrationReport:
     scanned_files: int = 0
     ebook_candidates: int = 0
     skipped_non_ebook_files: int = 0
+    crawler_urls_observed: int = 0
+    crawler_html_seen: int = 0
+    crawler_book_like_found: int = 0
+    crawler_html_rejected: int = 0
+    crawler_rejection_counts: dict[str, int] = dataclasses.field(default_factory=dict)
     inserted_files: int = 0
     updated_files: int = 0
     unchanged_files: int = 0

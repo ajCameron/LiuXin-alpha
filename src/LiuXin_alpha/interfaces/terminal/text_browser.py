@@ -1196,6 +1196,19 @@ class TextDatabaseBrowser:
         """Detach any active dedicated job output panel."""
         return False
 
+    def supports_telemetry_panel(self) -> bool:
+        """Whether this browser can route DB telemetry to a dedicated panel."""
+        return False
+
+    def attach_telemetry_panel(self, tables: Optional[Sequence[str]] = None) -> bool:
+        """Attach a dedicated telemetry panel, optionally scoped to specific tables."""
+        del tables
+        return False
+
+    def detach_telemetry_panel(self) -> bool:
+        """Detach any active dedicated telemetry panel."""
+        return False
+
     def clear_output(self) -> bool:
         """Clear terminal output buffer or screen when supported."""
         stream = self.output
@@ -2504,6 +2517,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Windowed UI dedicated job-output panel height in terminal rows (default: 10).",
     )
     parser.add_argument(
+        "--windowed-telemetry-panel-height",
+        type=int,
+        default=9,
+        help="Windowed UI dedicated telemetry panel height in terminal rows (default: 9).",
+    )
+    parser.add_argument(
         "--history-file",
         default=None,
         help=(
@@ -2534,6 +2553,7 @@ def run_windowed_text_browser(
     status_refresh_s: float = 1.0,
     status_height: int = 9,
     job_panel_height: int = 10,
+    telemetry_panel_height: int = 9,
 ) -> int:
     """Run the split-pane curses UI wrapper around the text browser."""
     from LiuXin_alpha.interfaces.terminal.windowed_ui import WindowedUiConfig, run_windowed_browser
@@ -2542,6 +2562,7 @@ def run_windowed_text_browser(
         status_refresh_s=float(status_refresh_s),
         status_height=max(5, int(status_height)),
         job_panel_height=max(4, int(job_panel_height)),
+        telemetry_panel_height=max(4, int(telemetry_panel_height)),
     )
     return run_windowed_browser(
         db,
@@ -2595,6 +2616,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     status_refresh_s=args.windowed_status_refresh_s,
                     status_height=args.windowed_status_height,
                     job_panel_height=args.windowed_job_panel_height,
+                    telemetry_panel_height=args.windowed_telemetry_panel_height,
                 )
 
             shell = TextDatabaseBrowser(

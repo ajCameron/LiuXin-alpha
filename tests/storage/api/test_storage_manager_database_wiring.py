@@ -175,6 +175,37 @@ def test_database_bootstrap_loads_single_file_sqlite_store(driver_spec, tmp_path
         assert got.as_bytes() == b"blob payload"
 
 
+def test_database_bootstrap_loads_native_html_readonly_store(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "storage_native_html.sqlite"
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="native_html_store",
+            kind="native_html_readonly",
+            root_uri="https://example.com/library/",
+            access_protocol="native_html",
+            is_read_only=1,
+        )
+
+        report = db.bootstrap_storage_manager(startup_on_add=False, clear_existing=True)
+        assert report.discovered_rows == 1
+        assert report.loaded_stores == 1
+        assert report.failed_rows == 0
+        assert report.skipped_rows == 0
+        assert db.storage is not None
+
+        store = db.storage.get_store("native_html_store")
+        assert store.uuid == "store-{}".format(store_id)
+        assert store.url == "https://example.com/library/"
+
+
 def test_database_bootstrap_loads_squashfs_readonly_store(driver_spec, tmp_path: Path) -> None:
     if shutil.which("mksquashfs") is None or shutil.which("unsquashfs") is None:
         pytest.skip("squashfs-tools not available in environment")

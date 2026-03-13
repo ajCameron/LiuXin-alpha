@@ -253,6 +253,10 @@ class DatabaseAPI(
     def persist_dirtied_records(self, *, limit: Optional[int] = None) -> int:
         """Persist queued dirtied-record events into the helper table; returns number persisted."""
 
+    @abc.abstractmethod
+    def get_write_telemetry_snapshot(self, *, recent_limit: int = 8) -> dict[str, Any]:
+        """Return lightweight live telemetry about observed database write activity."""
+
     # ---------------------------------------------------------------------------------------------
     # Search / retrieval
     # ---------------------------------------------------------------------------------------------

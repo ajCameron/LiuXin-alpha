@@ -109,6 +109,52 @@ def test_wget_backend_crawl_filters_scope_and_non_file_urls(monkeypatch) -> None
     ]
 
 
+def test_wget_backend_crawl_reports_observed_url_decisions(monkeypatch) -> None:
+    observed: list[dict[str, object]] = []
+    discovered = "\n".join(
+        [
+            "https://example.com/books/index",
+            "https://example.com/books/one.epub",
+            "https://example.com/books/guide.html",
+            "https://other.example.com/books/author.html",
+            "https://example.com/books/one.epub",
+        ]
+    )
+
+    def _fake_run_wget(args, **kwargs):
+        return _ok_wget_result(args=list(args), stdout=discovered)
+
+    monkeypatch.setattr(backend_module, "run_wget", _fake_run_wget)
+    store = WgetHtmlReadOnlyStorageBackend(
+        url="https://example.com/books/",
+        options=WgetBackendOptions(max_http_requests_per_hour=None),
+    )
+
+    urls = store.crawl_urls(force=True, observed_url_callback=observed.append)
+    assert urls == [
+        "https://example.com/books/one.epub",
+        "https://example.com/books/guide.html",
+    ]
+    assert [str(item.get("url")) for item in observed] == [
+        "https://example.com/books/index",
+        "https://example.com/books/one.epub",
+        "https://example.com/books/guide.html",
+        "https://other.example.com/books/author.html",
+    ]
+    assert [str(item.get("reason")) for item in observed] == [
+        "not_file_like",
+        "accepted",
+        "accepted",
+        "out_of_scope",
+    ]
+    assert [bool(item.get("accepted")) for item in observed] == [
+        False,
+        True,
+        True,
+        False,
+    ]
+
+
 def test_wget_backend_startup_checks_binary(monkeypatch) -> None:
     captured_args: list[list[str]] = []
 

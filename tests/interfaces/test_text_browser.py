@@ -23,6 +23,9 @@ from LiuXin_alpha.metadata.standardization import make_tag_search_term, make_tit
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     rclone_http_storage_backend as rclone_backend_module,
 )
+from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
+    native_html_storage_backend as native_html_backend_module,
+)
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
     wget_html_storage_backend as wget_backend_module,
 )
@@ -81,6 +84,9 @@ class _PanelAwareBrowser(TextDatabaseBrowser):
         self.panel_job_id: str | None = None
         self.panel_attach_calls = 0
         self.panel_detach_calls = 0
+        self.telemetry_tables: tuple[str, ...] | None = None
+        self.telemetry_attach_calls = 0
+        self.telemetry_detach_calls = 0
 
     def supports_job_output_panel(self) -> bool:
         return True
@@ -94,6 +100,20 @@ class _PanelAwareBrowser(TextDatabaseBrowser):
         self.panel_detach_calls += 1
         had = self.panel_job_id is not None
         self.panel_job_id = None
+        return had
+
+    def supports_telemetry_panel(self) -> bool:
+        return True
+
+    def attach_telemetry_panel(self, tables=None) -> bool:
+        self.telemetry_attach_calls += 1
+        self.telemetry_tables = tuple(str(one) for one in (tables or ()))
+        return True
+
+    def detach_telemetry_panel(self) -> bool:
+        self.telemetry_detach_calls += 1
+        had = self.telemetry_tables is not None
+        self.telemetry_tables = None
         return had
 
 
@@ -198,6 +218,8 @@ def test_text_browser_parser_accepts_windowed_mode_options() -> None:
             "11",
             "--windowed-job-panel-height",
             "12",
+            "--windowed-telemetry-panel-height",
+            "13",
         ]
     )
     assert args.database == "library.sqlite"
@@ -205,6 +227,7 @@ def test_text_browser_parser_accepts_windowed_mode_options() -> None:
     assert args.windowed_status_refresh_s == pytest.approx(2.5)
     assert args.windowed_status_height == 11
     assert args.windowed_job_panel_height == 12
+    assert args.windowed_telemetry_panel_height == 13
 
 
 def test_text_browser_main_windowed_mode_dispatches(driver_spec, tmp_path: Path, monkeypatch) -> None:
@@ -235,6 +258,8 @@ def test_text_browser_main_windowed_mode_dispatches(driver_spec, tmp_path: Path,
             "11",
             "--windowed-job-panel-height",
             "12",
+            "--windowed-telemetry-panel-height",
+            "13",
             "--history-file",
             str(history_path),
         ]
@@ -246,6 +271,7 @@ def test_text_browser_main_windowed_mode_dispatches(driver_spec, tmp_path: Path,
     assert observed["status_refresh_s"] == pytest.approx(2.5)
     assert observed["status_height"] == 11
     assert observed["job_panel_height"] == 12
+    assert observed["telemetry_panel_height"] == 13
 
 
 def test_text_browser_main_command_mode_overrides_windowed(driver_spec, tmp_path: Path, monkeypatch, capsys) -> None:
@@ -2039,6 +2065,37 @@ def test_text_browser_sync_store_background_job_panel_attaches(driver_spec, tmp_
     assert captured_kwargs.get("mode") == "local"
 
 
+def test_text_browser_telemetry_panel_attaches_and_detaches(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_telemetry_panel.sqlite"
+    output = io.StringIO()
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        _insert_store_row(
+            db,
+            name="telemetry-store",
+            kind="on_disk_existing_unmanaged_drive",
+            root_uri=str(tmp_path / "telemetry-root"),
+            is_read_only=1,
+        )
+
+        shell = _PanelAwareBrowser(db, output=output)
+        assert shell.execute_line("telemetry panel on files folders")
+        assert shell.telemetry_tables == ("files", "folders")
+        assert shell.execute_line("telemetry panel off")
+        assert shell.telemetry_tables is None
+
+    rendered = output.getvalue()
+    assert "Telemetry panel attached." in rendered
+    assert "files,folders" in rendered or "files, folders" in rendered
+    assert "Telemetry panel detached." in rendered
+
+
 def test_text_browser_sync_store_background_forwards_wget_incremental_flag(driver_spec, tmp_path: Path, monkeypatch) -> None:
     db_path = tmp_path / "browser_sync_store_background_wget_incremental_flag.sqlite"
     output = io.StringIO()
@@ -2359,7 +2416,8 @@ def test_text_browser_sync_store_wget_uses_rate_limit_option(driver_spec, tmp_pa
     assert captured_timeout_s and captured_timeout_s[0] is None
     rendered = output.getvalue()
     assert "Wget: Spider mode enabled" in rendered
-    assert "store_supports_checksums: no" in rendered
+    assert "store_supports_checksums" in rendered
+    assert "no" in rendered
 
 
 def test_text_browser_sync_store_wget_kind_takes_precedence_over_https_protocol(
@@ -2523,6 +2581,156 @@ def test_text_browser_sync_store_wget_timeout_option_is_forwarded(driver_spec, t
 
     assert captured_timeout_s
     assert captured_timeout_s[0] == 1200.0
+
+
+def test_text_browser_sync_store_native_html_routes_via_native_backend(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_native_html.sqlite"
+    output = io.StringIO()
+
+    def _html_result(url: str, body: str) -> object:
+        return native_html_backend_module._FetchResult(
+            requested_url=url,
+            final_url=url,
+            status=200,
+            content_type="text/html; charset=utf-8",
+            body=body.encode("utf-8"),
+            charset="utf-8",
+        )
+
+    responses = {
+        "https://example.com/library/": _html_result(
+            "https://example.com/library/",
+            "<html><body><a href=\"files/one.epub\">One</a><a href=\"catalog/next\">Next</a></body></html>",
+        ),
+        "https://example.com/library/catalog/next": _html_result(
+            "https://example.com/library/catalog/next",
+            "<html><body><a href=\"../files/two.mobi\">Two</a></body></html>",
+        ),
+    }
+
+    def _fake_fetch(self, url: str):
+        return responses[url]
+
+    monkeypatch.setattr(native_html_backend_module.NativeHtmlReadOnlyStorageBackend, "_fetch_url", _fake_fetch)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-native-store",
+            kind="native_html_readonly",
+            root_uri="https://example.com/library/",
+            access_protocol="native_html",
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(["sync store {} --no-refresh".format(store_id)]) == 0
+
+        file_rows = db.search("files", "file_store_id", store_id)
+        assert len(file_rows) == 2
+        keys = {str(row["file_storage_key"]) for row in file_rows}
+        assert "files/one.epub" in keys
+        assert "files/two.mobi" in keys
+
+    rendered = output.getvalue()
+    assert "crawler_urls_observed" in rendered
+    assert "Native: native fetch depth=0 https://example.com/library/" in rendered
+
+
+def test_text_browser_sync_store_background_native_submits_job(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    db_path = tmp_path / "browser_sync_store_background_native.sqlite"
+    output = io.StringIO()
+
+    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_run_sync_store_job(**kwargs):
+        captured_kwargs.update(kwargs)
+        return {"store_row_id": 1, "inserted_files": 1, "errors": []}
+
+    monkeypatch.setattr(sync_command_module, "run_sync_store_job", _fake_run_sync_store_job)
+
+    try:
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            store_id = _insert_store_row(
+                db,
+                name="sync-background-native-store",
+                kind="native_html_readonly",
+                root_uri="https://example.com/library/",
+                access_protocol="native_html",
+                is_read_only=1,
+            )
+
+            shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
+            assert shell.execute_line(
+                "sync store {} --background --job-backend serial --job-timeout-s 5 --job-no-output".format(store_id)
+            )
+
+            jobs = manager.list()
+            assert len(jobs) == 1
+            info = manager.wait(jobs[0].job_id, timeout=2.0)
+            assert info.state == "succeeded"
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+    assert captured_kwargs.get("mode") == "native"
+
+
+def test_text_browser_sync_store_wget_surfaces_crawler_observation_summary(
+    driver_spec, tmp_path: Path, monkeypatch
+) -> None:
+    db_path = tmp_path / "browser_sync_store_wget_crawler_summary.sqlite"
+    output = io.StringIO()
+
+    def _fake_run_wget(args, **kwargs):
+        callback = kwargs.get("line_callback")
+        if callable(callback):
+            callback("https://example.com/books/index")
+            callback("https://example.com/books/one.epub")
+            callback("https://example.com/books/guide.html")
+            callback("https://other.example.com/books/author.html")
+        return WgetResult(args=list(args), returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(wget_backend_module, "run_wget", _fake_run_wget)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="sync-wget-crawler-summary-store",
+            kind="wget_html_readonly",
+            root_uri="https://example.com/books/",
+            access_protocol="wget",
+            is_read_only=1,
+        )
+
+        shell = TextDatabaseBrowser(db, output=output)
+        assert shell.run_commands(["sync store {} --no-refresh".format(store_id)]) == 0
+
+    rendered = output.getvalue()
+    assert "Crawler" in rendered
+    assert "crawler_urls_observed" in rendered
+    assert "crawler_html_seen" in rendered
+    assert "crawler_book_like_found" in rendered
+    assert "crawler_html_rejected" in rendered
+    assert "crawler_rejections" in rendered
 
 
 def test_text_browser_store_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:

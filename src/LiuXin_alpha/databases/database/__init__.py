@@ -11,7 +11,6 @@ from __future__ import unicode_literals
 import re
 import os
 import pprint
-import queue as Queue
 from copy import deepcopy
 
 
@@ -39,7 +38,12 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.databases.database.rating_mixin import DatabaseRatingMixin
 from LiuXin_alpha.databases.database.null_rows_mixin import DatabaseNullRowsMixin
 from LiuXin_alpha.databases.database.metadata_mixin import DatabaseMetadataMixin
-from LiuXin_alpha.databases.database.dirtied_mixin import DatabaseDirtiedRecordsMixin
+from LiuXin_alpha.databases.database.dirtied_mixin import (
+    DatabaseDirtiedRecordsMixin,
+    DatabaseWriteTelemetry,
+    ObservedDirtyRecordsQueue,
+    TelemetryMaintainerProxy,
+)
 from LiuXin_alpha.databases.database.search_mixin import DatabaseSearchMixin
 from LiuXin_alpha.databases.database.interlink_mixin import DatabaseInterlinkRowsMixin
 from LiuXin_alpha.databases.database.intralink_mixin import DatabaseIntralinkRowsMixin
@@ -125,6 +129,9 @@ class Database(
         self.type = None
 
         self._macros = None
+        self.write_telemetry = DatabaseWriteTelemetry()
+        self.dirty_records_queue = ObservedDirtyRecordsQueue(telemetry=self.write_telemetry)
+        self._maintainer_callback_proxy = None
 
         # Fundamental constants for this database
         if existing_driver is None:
@@ -136,8 +143,6 @@ class Database(
         # Keyed with the table, value with True or False
         self._link_has_priority = dict()
 
-        # Queue for dirtied records
-        self.dirty_records_queue = Queue.Queue()
         # Persistent helper table for metadata sidecar write-out (historic name: metadata_dirtied_books)
         self._metadata_dirtied_table = "metadata_dirtied_books"
 
@@ -252,7 +257,8 @@ class Database(
         # Todo: What is going on here naming wise? Merge these two
         self.maintenance = Maintainer(self)
         self.maintainer = self.maintenance
-        self.driver.maintainer_callback = self.maintenance
+        self._maintainer_callback_proxy = TelemetryMaintainerProxy(self.maintenance, self.write_telemetry)
+        self.driver.maintainer_callback = self._maintainer_callback_proxy
         self.clean = self.maintenance.clean
 
         # Global database preferences - just a copy of the main program preferences, but can be overridden if needed
@@ -340,7 +346,8 @@ class Database(
         # Todo: What is going on here naming wise? Merge these two
         self.maintenance = Maintainer(self)
         self.maintainer = self.maintenance
-        self.driver.maintainer_callback = self.maintenance
+        self._maintainer_callback_proxy = TelemetryMaintainerProxy(self.maintenance, self.write_telemetry)
+        self.driver.maintainer_callback = self._maintainer_callback_proxy
         self.clean = self.maintenance.clean
 
         # Global database preferences - just a copy of the main program preferences, but can be overridden if needed
@@ -613,6 +620,8 @@ class Database(
             "_macros",
             "maintenance",
             "maintainer",
+            "write_telemetry",
+            "_maintainer_callback_proxy",
             "dirty_records_queue",
             "_link_has_priority",
             # Convenience aliases (see set_driver)

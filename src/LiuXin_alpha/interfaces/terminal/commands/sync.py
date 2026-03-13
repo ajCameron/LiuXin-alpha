@@ -10,16 +10,41 @@ from typing import Optional
 
 from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.utils.jobs import JobRequest
+from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import get_default_native_html_requests_per_hour
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import get_default_rclone_http_requests_per_hour
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import get_default_wget_http_requests_per_hour
 from LiuXin_alpha.storage.reconcile import (
     register_existing_disk_as_unmanaged_store,
     register_existing_disk_with_database_path,
+    register_native_html_readonly_store_files,
+    register_native_html_readonly_with_database_path,
     register_rclone_http_readonly_store_files,
     register_rclone_http_readonly_with_database_path,
     register_wget_html_readonly_store_files,
     register_wget_html_readonly_with_database_path,
 )
+
+
+def _crawler_progress_suffix(report) -> str:
+    observed = int(getattr(report, "crawler_urls_observed", 0) or 0)
+    if observed <= 0:
+        return ""
+    return (
+        " crawl_urls={} html_seen={} book_like={} rejected_html={}".format(
+            observed,
+            int(getattr(report, "crawler_html_seen", 0) or 0),
+            int(getattr(report, "crawler_book_like_found", 0) or 0),
+            int(getattr(report, "crawler_html_rejected", 0) or 0),
+        )
+    )
+
+
+def _crawler_rejection_summary(report) -> str:
+    counts = dict(getattr(report, "crawler_rejection_counts", {}) or {})
+    if not counts:
+        return ""
+    parts = ["{}={}".format(key, counts[key]) for key in sorted(counts.keys())]
+    return " | ".join(parts)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -406,6 +431,7 @@ def _parse_sync_store_options(args: list[str], *, usage: str) -> _SyncStoreOptio
 
 def _sync_job_progress_logger(event: str, report, details: dict[str, object], *, progress_every: int) -> None:
     scanned = int(getattr(report, "scanned_files", 0) or 0)
+    observed = int(getattr(report, "crawler_urls_observed", 0) or 0)
     if event == "start":
         print(
             "JOB sync started: mode={} store_id={} root={}".format(
@@ -430,11 +456,12 @@ def _sync_job_progress_logger(event: str, report, details: dict[str, object], *,
             flush=True,
         )
         return
-    if event == "scan":
+    if event in {"scan", "crawl-observation"}:
         n = max(1, int(progress_every))
-        if scanned == 1 or (scanned % n == 0):
+        tick = max(scanned, observed)
+        if tick == 1 or (tick % n == 0):
             print(
-                "JOB sync progress: scanned={} candidates={} inserted={} updated={} unchanged={} linked={} errors={}".format(
+                "JOB sync progress: scanned={} candidates={} inserted={} updated={} unchanged={} linked={} errors={}{}".format(
                     getattr(report, "scanned_files", 0),
                     getattr(report, "ebook_candidates", 0),
                     getattr(report, "inserted_files", 0),
@@ -442,13 +469,14 @@ def _sync_job_progress_logger(event: str, report, details: dict[str, object], *,
                     getattr(report, "unchanged_files", 0),
                     getattr(report, "linked_files", 0),
                     len(getattr(report, "errors", []) or []),
+                    _crawler_progress_suffix(report),
                 ),
                 flush=True,
             )
         return
     if event == "done":
         print(
-            "JOB sync completed: scanned={} candidates={} inserted={} updated={} unchanged={} linked={} errors={}".format(
+            "JOB sync completed: scanned={} candidates={} inserted={} updated={} unchanged={} linked={} errors={}{}".format(
                 getattr(report, "scanned_files", 0),
                 getattr(report, "ebook_candidates", 0),
                 getattr(report, "inserted_files", 0),
@@ -456,6 +484,7 @@ def _sync_job_progress_logger(event: str, report, details: dict[str, object], *,
                 getattr(report, "unchanged_files", 0),
                 getattr(report, "linked_files", 0),
                 len(getattr(report, "errors", []) or []),
+                _crawler_progress_suffix(report),
             ),
             flush=True,
         )
@@ -552,6 +581,30 @@ def run_sync_store_job(
         )
         return report.to_dict()
 
+    if mode_norm == "native":
+        report = register_native_html_readonly_with_database_path(
+            database_path=database_path,
+            remote_url=store_root_uri,
+            db_type=db_type,
+            store_name=store_name,
+            store_kind=store_kind,
+            max_http_requests_per_hour=max_http_requests_per_hour,
+            timeout_s=wget_timeout_s,
+            recurse=wget_recurse,
+            max_depth=wget_max_depth,
+            no_parent=wget_no_parent,
+            span_hosts=wget_span_hosts,
+            respect_robots=wget_respect_robots,
+            user_agent=wget_user_agent,
+            ebook_extensions=ebook_extensions,
+            source_label=source_label,
+            attach_store_links=attach_store_links,
+            refresh_storage_manager=refresh_storage_manager,
+            incremental_db_writes=bool(wget_incremental_db_writes),
+            progress_callback=callback,
+        )
+        return report.to_dict()
+
     if mode_norm == "local":
         report = register_existing_disk_with_database_path(
             database_path=database_path,
@@ -603,6 +656,8 @@ def _is_rclone_http_store(store_row) -> bool:
     protocol = str(store_row["store_access_protocol"] or "").strip().lower()
     if _is_wget_html_store(store_row):
         return False
+    if _is_native_html_store(store_row):
+        return False
     if kind in {"rclone_http_readonly", "rclone_http_ro", "http_ro"}:
         return True
     return protocol in {"http", "https", "rclone"}
@@ -614,6 +669,14 @@ def _is_wget_html_store(store_row) -> bool:
     if kind in {"wget_html_readonly", "wget_http_ro", "http_spider_ro"}:
         return True
     return protocol == "wget"
+
+
+def _is_native_html_store(store_row) -> bool:
+    kind = str(store_row["store_kind"] or "").strip().lower()
+    protocol = str(store_row["store_access_protocol"] or "").strip().lower()
+    if kind in {"native_html_readonly", "native_http_ro", "http_native_ro"}:
+        return True
+    return protocol in {"native", "native_html"}
 
 
 class SyncStoreCommand(TerminalCommandAPI):
@@ -655,11 +718,13 @@ class SyncStoreCommand(TerminalCommandAPI):
         store_kind_raw = str(store_row["store_kind"] or "").strip()
         store_kind = store_kind_raw or "on_disk_existing_unmanaged_drive"
         is_wget = _is_wget_html_store(store_row)
+        is_native = _is_native_html_store(store_row)
         is_rclone = _is_rclone_http_store(store_row)
 
         start_monotonic = time.monotonic()
         progress_state = {
             "last_scanned": 0,
+            "last_observed": 0,
             "last_emit_monotonic": 0.0,
         }
 
@@ -679,7 +744,7 @@ class SyncStoreCommand(TerminalCommandAPI):
                 return
             if event == "done":
                 browser.emit(
-                    "Sync progress: scanned={} candidates={} inserted={} updated={} unchanged={} linked={} errors={}".format(
+                    "Sync progress: scanned={} candidates={} inserted={} updated={} unchanged={} linked={} errors={}{}".format(
                         report.scanned_files,
                         report.ebook_candidates,
                         report.inserted_files,
@@ -687,6 +752,7 @@ class SyncStoreCommand(TerminalCommandAPI):
                         report.unchanged_files,
                         report.linked_files,
                         len(report.errors),
+                        _crawler_progress_suffix(report),
                     )
                 )
                 return
@@ -702,18 +768,28 @@ class SyncStoreCommand(TerminalCommandAPI):
             if event == "crawl-log":
                 line = str(details.get("line", "")).strip()
                 if line:
-                    browser.emit("Wget: {}".format(line))
+                    mode_label = str(details.get("mode", "") or "").strip()
+                    prefix = "Crawler"
+                    if mode_label == "wget":
+                        prefix = "Wget"
+                    elif mode_label == "native_html":
+                        prefix = "Native"
+                    browser.emit("{}: {}".format(prefix, line))
                 progress_state["last_emit_monotonic"] = now
                 return
+            observed = int(getattr(report, "crawler_urls_observed", 0) or 0)
             scanned = int(report.scanned_files)
-            delta = scanned - int(progress_state.get("last_scanned", 0))
+            delta = max(scanned, observed) - max(
+                int(progress_state.get("last_scanned", 0)),
+                int(progress_state.get("last_observed", 0)),
+            )
             last_emit = float(progress_state.get("last_emit_monotonic", 0.0))
             if delta < options.progress_every and (now - last_emit) < 2.0:
                 return
             elapsed = max(0.001, now - start_monotonic)
-            rate = float(scanned) / elapsed
+            rate = float(max(scanned, observed)) / elapsed
             browser.emit(
-                "Sync progress: scanned={} candidates={} inserted={} updated={} unchanged={} linked={} errors={} rate={:.1f}/s".format(
+                "Sync progress: scanned={} candidates={} inserted={} updated={} unchanged={} linked={} errors={} rate={:.1f}/s{}".format(
                     report.scanned_files,
                     report.ebook_candidates,
                     report.inserted_files,
@@ -722,9 +798,11 @@ class SyncStoreCommand(TerminalCommandAPI):
                     report.linked_files,
                     len(report.errors),
                     rate,
+                    _crawler_progress_suffix(report),
                 )
             )
             progress_state["last_scanned"] = scanned
+            progress_state["last_observed"] = observed
             progress_state["last_emit_monotonic"] = now
 
         rclone_args: list[str] = []
@@ -746,6 +824,12 @@ class SyncStoreCommand(TerminalCommandAPI):
                 if options.max_http_requests_per_hour is None
                 else options.max_http_requests_per_hour
             )
+        elif is_native:
+            effective_max_http_requests_per_hour = (
+                get_default_native_html_requests_per_hour()
+                if options.max_http_requests_per_hour is None
+                else options.max_http_requests_per_hour
+            )
         else:
             effective_max_http_requests_per_hour = options.max_http_requests_per_hour
 
@@ -754,6 +838,8 @@ class SyncStoreCommand(TerminalCommandAPI):
             source_label = "rclone_http_import"
         elif is_wget and source_label == "on_disk_unmanaged_import":
             source_label = "wget_html_import"
+        elif is_native and source_label == "on_disk_unmanaged_import":
+            source_label = "native_html_import"
 
         if options.background:
             if options.json_output:
@@ -762,7 +848,7 @@ class SyncStoreCommand(TerminalCommandAPI):
             if not database_path:
                 raise ValueError("Cannot submit background sync without a resolvable database path.")
             db_type = str(getattr(browser.db, "type", "") or "SQLite")
-            mode = "rclone" if is_rclone else ("wget" if is_wget else "local")
+            mode = "rclone" if is_rclone else ("wget" if is_wget else ("native" if is_native else "local"))
             store_id_value = int(store_row["store_id"])
             sync_kwargs = {
                 "database_path": database_path,
@@ -895,6 +981,29 @@ class SyncStoreCommand(TerminalCommandAPI):
                 incremental_db_writes=options.wget_incremental_db_writes,
                 progress_callback=_emit_progress_line,
             )
+        elif is_native:
+            if options.capture_hashes:
+                browser.emit("Note: --capture-hashes is ignored for native HTML crawler stores.")
+            report = register_native_html_readonly_store_files(
+                browser.db,
+                remote_url=store_root_uri,
+                store_name=store_name,
+                store_kind=store_kind,
+                max_http_requests_per_hour=effective_max_http_requests_per_hour,
+                timeout_s=options.wget_timeout_s,
+                recurse=options.wget_recurse,
+                max_depth=options.wget_max_depth,
+                no_parent=options.wget_no_parent,
+                span_hosts=options.wget_span_hosts,
+                respect_robots=options.wget_respect_robots,
+                user_agent=options.wget_user_agent,
+                ebook_extensions=options.ebook_extensions,
+                source_label=source_label,
+                attach_store_links=options.attach_store_links,
+                refresh_storage_manager=options.refresh_storage_manager,
+                incremental_db_writes=options.wget_incremental_db_writes,
+                progress_callback=_emit_progress_line,
+            )
         else:
             report = register_existing_disk_as_unmanaged_store(
                 browser.db,
@@ -961,10 +1070,30 @@ class SyncStoreCommand(TerminalCommandAPI):
                     else options.max_http_requests_per_hour,
                 )
             )
+        elif is_native:
+            transport_rows.append(
+                (
+                    "max_http_requests_per_hour",
+                    get_default_native_html_requests_per_hour()
+                    if options.max_http_requests_per_hour is None
+                    else options.max_http_requests_per_hour,
+                )
+            )
         if capabilities_rows:
             sections.append(("Capabilities", capabilities_rows))
         if transport_rows:
             sections.append(("Transport", transport_rows))
+        if is_wget or is_native:
+            crawler_rows: list[tuple[str, object]] = [
+                ("crawler_urls_observed", getattr(report, "crawler_urls_observed", 0)),
+                ("crawler_html_seen", getattr(report, "crawler_html_seen", 0)),
+                ("crawler_book_like_found", getattr(report, "crawler_book_like_found", 0)),
+                ("crawler_html_rejected", getattr(report, "crawler_html_rejected", 0)),
+            ]
+            rejection_summary = _crawler_rejection_summary(report)
+            if rejection_summary:
+                crawler_rows.append(("crawler_rejections", rejection_summary))
+            sections.append(("Crawler", crawler_rows))
         browser.emit_detail_sections(sections, title="Sync completed:", max_cell_width=120)
         if report.errors:
             preview_count = min(5, len(report.errors))

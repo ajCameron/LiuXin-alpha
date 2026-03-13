@@ -185,3 +185,37 @@ def test_register_wget_html_store_files_non_incremental_defers_writes(db, monkey
     assert report.inserted_files == 2
     assert report.errors == []
     assert counts_during_run == [0, 0]
+
+
+def test_register_wget_html_store_files_tracks_crawler_observation_counts(db, monkeypatch) -> None:
+    def _fake_run_wget(args, **kwargs):
+        callback = kwargs.get("line_callback")
+        assert callable(callback)
+        callback("https://example.com/books/index")
+        callback("https://example.com/books/one.epub")
+        callback("https://example.com/books/guide.html")
+        callback("https://other.example.com/books/author.html")
+        callback("https://example.com/books/one.epub")
+        return _ok_wget_result(args=list(args), stdout="")
+
+    monkeypatch.setattr(backend_module, "run_wget", _fake_run_wget)
+
+    report = register_wget_html_readonly_store_files(
+        db,
+        remote_url="https://example.com/books/",
+        store_name="wget_observation_counts",
+        refresh_storage_manager=False,
+    )
+
+    assert report.errors == []
+    assert report.scanned_files == 2
+    assert report.ebook_candidates == 2
+    assert report.inserted_files == 2
+    assert report.crawler_urls_observed == 4
+    assert report.crawler_html_seen == 2
+    assert report.crawler_book_like_found == 3
+    assert report.crawler_html_rejected == 1
+    assert report.crawler_rejection_counts == {
+        "not_file_like": 1,
+        "out_of_scope": 1,
+    }
