@@ -412,17 +412,17 @@ def test_text_browser_startup_warns_when_core_runtime_bootstrap_fails(
     assert shell.supports_core_commands() is False
 
 
-def test_sync_store_options_default_to_incremental_wget_db_writes() -> None:
+def test_sync_store_options_default_to_incremental_crawler_db_writes() -> None:
     options = sync_command_module._parse_sync_store_options(["1"], usage="sync store <id>")
-    assert options.wget_incremental_db_writes is True
+    assert options.crawler_incremental_db_writes is True
 
 
-def test_sync_store_options_can_disable_incremental_wget_db_writes() -> None:
+def test_sync_store_options_can_disable_incremental_crawler_db_writes() -> None:
     options = sync_command_module._parse_sync_store_options(
-        ["1", "--wget-no-incremental-db-writes"],
+        ["1", "--crawler-no-incremental-db-writes"],
         usage="sync store <id>",
     )
-    assert options.wget_incremental_db_writes is False
+    assert options.crawler_incremental_db_writes is False
 
 
 def test_text_browser_help_includes_registered_search_command(driver_spec, tmp_path: Path) -> None:
@@ -2011,7 +2011,7 @@ def test_text_browser_sync_store_background_submits_job(driver_spec, tmp_path: P
     assert captured_kwargs.get("mode") == "local"
     assert captured_kwargs.get("database_path") == str(db_path)
     assert captured_kwargs.get("db_type") == driver_spec.db_type
-    assert captured_kwargs.get("wget_incremental_db_writes") is True
+    assert captured_kwargs.get("crawler_incremental_db_writes") is True
 
 
 def test_text_browser_sync_store_background_job_panel_attaches(driver_spec, tmp_path: Path, monkeypatch) -> None:
@@ -2130,7 +2130,9 @@ def test_text_browser_sync_store_background_forwards_wget_incremental_flag(drive
 
             shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
             assert shell.execute_line(
-                "sync store {} --background --job-backend serial --wget-no-incremental-db-writes".format(store_id)
+                "sync store {} --background --job-backend serial --crawler-no-incremental-db-writes".format(
+                    store_id
+                )
             )
             jobs = manager.list()
             assert len(jobs) == 1
@@ -2139,7 +2141,7 @@ def test_text_browser_sync_store_background_forwards_wget_incremental_flag(drive
     finally:
         manager.shutdown(wait=True, cancel_pending=True)
 
-    assert captured_kwargs.get("wget_incremental_db_writes") is False
+    assert captured_kwargs.get("crawler_incremental_db_writes") is False
 
 
 def test_text_browser_sync_store_background_rejects_json_mode(driver_spec, tmp_path: Path) -> None:
@@ -2493,8 +2495,8 @@ def test_text_browser_sync_store_wget_listing_flags_are_forwarded(driver_spec, t
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.run_commands(
             [
-                "sync store {} --wget-max-depth 2 --wget-parent --wget-span-hosts "
-                "--wget-ignore-robots --wget-user-agent 'LiuXinTest/1.0' --wget-verbose "
+                "sync store {} --crawler-max-depth 2 --crawler-parent --crawler-span-hosts "
+                "--crawler-ignore-robots --crawler-user-agent 'LiuXinTest/1.0' --wget-verbose "
                 "--wget-arg=--timeout=5 --no-refresh".format(store_id),
             ]
         ) == 0
@@ -2577,7 +2579,7 @@ def test_text_browser_sync_store_wget_timeout_option_is_forwarded(driver_spec, t
         )
 
         shell = TextDatabaseBrowser(db, output=output)
-        assert shell.run_commands(["sync store {} --wget-timeout-s 1200 --no-refresh".format(store_id)]) == 0
+        assert shell.run_commands(["sync store {} --crawler-timeout-s 1200 --no-refresh".format(store_id)]) == 0
 
     assert captured_timeout_s
     assert captured_timeout_s[0] == 1200.0

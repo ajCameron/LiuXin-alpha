@@ -1,10 +1,25 @@
 # Working Memory Index
 
-Updated: 2026-03-12
+Updated: 2026-03-13
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [test-env-rerun-2026-03-13.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/test-env-rerun-2026-03-13.md)
+  Cleaned up the missing test dependency surface, added a minimal `past.builtins` shim, and reran the full suite for a cleaner post-env failure signal.
+
+- [crawler-default-preference-2026-03-13.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/crawler-default-preference-2026-03-13.md)
+  Remote HTML crawl rate defaults now use the shared `crawler_http_max_requests_per_hour_default` preference, with old backend-specific keys kept as fallback-only compatibility reads.
+
+- [ingest-consolidation-2026-03-13.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/ingest-consolidation-2026-03-13.md)
+  Remote HTML ingest now uses neutral `--crawler-*` terminal flags and a dedicated `RemoteHtmlRegistrationReport` under `ingest`.
+
+- [ingest-store-bootstrap-2026-03-13.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/ingest-store-bootstrap-2026-03-13.md)
+  HTML store bootstrap helpers now live in `ingest/remote_html`, and `storage/reconcile/store_db_sync.py` no longer owns the HTML backend setup path.
+
+- [ingest-public-api-2026-03-12.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/ingest-public-api-2026-03-12.md)
+  Public remote-HTML registration now lives under top-level `ingest`, with eager package imports removed from `ingest` and `storage` to avoid import cycles.
 
 - [discovery-sources-refactor-2026-03-12.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/discovery-sources-refactor-2026-03-12.md)
   Remote HTML crawling now lives under top-level `ingest/sources`, with the shared remote-HTML DB ingest loop moved into `ingest/pipelines` and the HTML store backends reduced to wrapper facades.

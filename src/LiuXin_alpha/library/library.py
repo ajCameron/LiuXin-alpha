@@ -16,6 +16,11 @@ from typing import Any, Mapping, Optional
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.ingest import (
+    RemoteHtmlRegistrationReport,
+    register_native_html_readonly_store_files,
+    register_wget_html_readonly_store_files,
+)
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
 from LiuXin_alpha.storage.api import SingleFileAPI, StoreAPI
 from LiuXin_alpha.storage.reconcile import (
@@ -27,9 +32,7 @@ from LiuXin_alpha.storage.reconcile import (
     publish_open_squashfs_store,
     publish_squashfs_archive_from_file_ids,
     register_existing_disk_as_unmanaged_store,
-    register_native_html_readonly_store_files,
     register_rclone_http_readonly_store_files,
-    register_wget_html_readonly_store_files,
 )
 from LiuXin_alpha.storage.store_manager import StorageBootstrapReport, StorageManager
 
@@ -472,7 +475,7 @@ class Library:
         source_label: str = "wget_html_import",
         attach_store_links: bool = True,
         refresh_storage_manager: bool = True,
-    ) -> UnmanagedDiskRegistrationReport:
+    ) -> RemoteHtmlRegistrationReport:
         return register_wget_html_readonly_store_files(
             self._database,
             remote_url=remote_url,
@@ -512,7 +515,7 @@ class Library:
         source_label: str = "native_html_import",
         attach_store_links: bool = True,
         refresh_storage_manager: bool = True,
-    ) -> UnmanagedDiskRegistrationReport:
+    ) -> RemoteHtmlRegistrationReport:
         return register_native_html_readonly_store_files(
             self._database,
             remote_url=remote_url,

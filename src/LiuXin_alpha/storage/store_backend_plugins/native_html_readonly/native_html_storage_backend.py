@@ -11,6 +11,7 @@ from LiuXin_alpha.ingest.sources.native_html import (
     NativeHtmlBackendOptions,
     NativeHtmlDiscoverySource,
     _FetchResult,
+    get_default_crawler_http_requests_per_hour,
     get_default_native_html_requests_per_hour,
 )
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
@@ -32,7 +33,7 @@ class NativeHtmlReadOnlyStorageBackend(StoreAPI, NativeHtmlDiscoverySource):
         StoreAPI.__init__(self, url=url, name=name, uuid=uuid)
         if options is None:
             options = NativeHtmlBackendOptions(
-                max_http_requests_per_hour=get_default_native_html_requests_per_hour(),
+                max_http_requests_per_hour=get_default_crawler_http_requests_per_hour(),
             )
         NativeHtmlDiscoverySource.__init__(self, url=self.url, options=options)
 
@@ -107,5 +108,6 @@ __all__ = [
     "NativeHtmlBackendOptions",
     "NativeHtmlReadOnlyStorageBackend",
     "_FetchResult",
+    "get_default_crawler_http_requests_per_hour",
     "get_default_native_html_requests_per_hour",
 ]

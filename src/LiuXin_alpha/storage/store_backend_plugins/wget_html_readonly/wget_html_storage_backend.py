@@ -10,6 +10,7 @@ from LiuXin_alpha.ingest.sources.wget_html import (
     WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,
     WgetBackendOptions,
     WgetHtmlDiscoverySource,
+    get_default_crawler_http_requests_per_hour,
     get_default_wget_http_requests_per_hour,
 )
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
@@ -32,7 +33,7 @@ class WgetHtmlReadOnlyStorageBackend(StoreAPI, WgetHtmlDiscoverySource):
         StoreAPI.__init__(self, url=url, name=name, uuid=uuid)
         if options is None:
             options = WgetBackendOptions(
-                max_http_requests_per_hour=get_default_wget_http_requests_per_hour(),
+                max_http_requests_per_hour=get_default_crawler_http_requests_per_hour(),
             )
         WgetHtmlDiscoverySource.__init__(self, url=self.url, options=options)
 
@@ -115,6 +116,7 @@ __all__ = [
     "WgetHtmlReadOnlyStorageBackend",
     "WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT",
     "WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY",
+    "get_default_crawler_http_requests_per_hour",
     "get_default_wget_http_requests_per_hour",
     "run_wget",
 ]

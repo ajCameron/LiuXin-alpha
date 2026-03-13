@@ -11,10 +11,10 @@ from urllib.parse import parse_qs, unquote, urlparse
 from LiuXin_alpha.constants.file_extensions import BOOK_EXTENSIONS
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import InputIntegrityError
-from LiuXin_alpha.storage.reconcile.models import UnmanagedDiskRegistrationReport
+from LiuXin_alpha.ingest.models import RemoteHtmlRegistrationReport
 
 
-ProgressCallback = Callable[[str, UnmanagedDiskRegistrationReport, dict[str, object]], None]
+ProgressCallback = Callable[[str, RemoteHtmlRegistrationReport, dict[str, object]], None]
 _HTML_LIKE_EXTENSIONS = {"htm", "html", "htmlz", "xhtm", "xhtml"}
 
 
@@ -182,7 +182,7 @@ def _emit_progress(
     progress_callback: Optional[ProgressCallback],
     *,
     event: str,
-    report: UnmanagedDiskRegistrationReport,
+    report: RemoteHtmlRegistrationReport,
     details: Optional[dict[str, object]] = None,
 ) -> None:
     if progress_callback is None:
@@ -275,10 +275,10 @@ def ingest_html_discovery_store_files(
     refresh_storage_manager: bool,
     incremental_db_writes: bool,
     progress_callback: Optional[ProgressCallback],
-) -> UnmanagedDiskRegistrationReport:
+) -> RemoteHtmlRegistrationReport:
     tables, _, file_columns, link_columns = _ensure_schema_support(db)
     store_id = int(store_row.row_id if store_row.row_id is not None else store_row["store_id"])
-    report = UnmanagedDiskRegistrationReport(
+    report = RemoteHtmlRegistrationReport(
         store_row_id=store_id,
         store_root_uri=str(store_url),
         store_name=str(store_name_value),

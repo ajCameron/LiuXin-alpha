@@ -5,6 +5,7 @@ from .wget_html_storage_backend import (
     WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,
     WgetBackendOptions,
     WgetHtmlReadOnlyStorageBackend,
+    get_default_crawler_http_requests_per_hour,
     get_default_wget_http_requests_per_hour,
 )
 from .wget_utils import WgetNotInstalledError
@@ -15,6 +16,6 @@ __all__ = [
     "WgetBackendOptions",
     "WgetHtmlReadOnlyStorageBackend",
     "WgetNotInstalledError",
+    "get_default_crawler_http_requests_per_hour",
     "get_default_wget_http_requests_per_hour",
 ]
-

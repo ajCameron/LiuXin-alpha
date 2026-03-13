@@ -52,14 +52,12 @@ That is the main low-hanging-fruit improvement over the current Faded Page-style
 The native path reuses the current generic spider controls already exposed in terminal sync:
 
 - `--max-http-requests-per-hour`
-- `--wget-max-depth`
-- `--wget-timeout-s`
-- `--wget-parent` / `--wget-no-parent`
-- `--wget-span-hosts`
-- `--wget-ignore-robots` / `--wget-respect-robots`
-- `--wget-user-agent`
-
-The names are not ideal for native mode, but they are usable immediately.
+- `--crawler-max-depth`
+- `--crawler-timeout-s`
+- `--crawler-parent` / `--crawler-no-parent`
+- `--crawler-span-hosts`
+- `--crawler-ignore-robots` / `--crawler-respect-robots`
+- `--crawler-user-agent`
 
 ## Validation
 

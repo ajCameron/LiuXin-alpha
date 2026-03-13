@@ -8,20 +8,21 @@ import time
 
 from typing import Optional
 
+from LiuXin_alpha.ingest import (
+    register_native_html_readonly_store_files,
+    register_native_html_readonly_with_database_path,
+    register_wget_html_readonly_store_files,
+    register_wget_html_readonly_with_database_path,
+)
+from LiuXin_alpha.ingest.sources import get_default_crawler_http_requests_per_hour
 from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.utils.jobs import JobRequest
-from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import get_default_native_html_requests_per_hour
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import get_default_rclone_http_requests_per_hour
-from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import get_default_wget_http_requests_per_hour
 from LiuXin_alpha.storage.reconcile import (
     register_existing_disk_as_unmanaged_store,
     register_existing_disk_with_database_path,
-    register_native_html_readonly_store_files,
-    register_native_html_readonly_with_database_path,
     register_rclone_http_readonly_store_files,
     register_rclone_http_readonly_with_database_path,
-    register_wget_html_readonly_store_files,
-    register_wget_html_readonly_with_database_path,
 )
 
 
@@ -60,16 +61,16 @@ class _SyncStoreOptions:
     max_http_requests_per_hour: Optional[float]
     rclone_http_no_slash: bool
     rclone_http_no_head: bool
-    wget_recurse: bool
-    wget_max_depth: Optional[int]
-    wget_timeout_s: Optional[float]
-    wget_no_parent: bool
-    wget_span_hosts: bool
-    wget_respect_robots: bool
-    wget_user_agent: Optional[str]
+    crawler_recurse: bool
+    crawler_max_depth: Optional[int]
+    crawler_timeout_s: Optional[float]
+    crawler_no_parent: bool
+    crawler_span_hosts: bool
+    crawler_respect_robots: bool
+    crawler_user_agent: Optional[str]
     wget_no_verbose: bool
     wget_args: tuple[str, ...]
-    wget_incremental_db_writes: bool
+    crawler_incremental_db_writes: bool
     background: bool
     job_backend: Optional[str]
     job_timeout_s: Optional[float]
@@ -129,16 +130,16 @@ def _parse_sync_store_options(args: list[str], *, usage: str) -> _SyncStoreOptio
     max_http_requests_per_hour: Optional[float] = None
     rclone_http_no_slash = False
     rclone_http_no_head = False
-    wget_recurse = True
-    wget_max_depth: Optional[int] = None
-    wget_timeout_s: Optional[float] = None
-    wget_no_parent = True
-    wget_span_hosts = False
-    wget_respect_robots = True
-    wget_user_agent: Optional[str] = None
+    crawler_recurse = True
+    crawler_max_depth: Optional[int] = None
+    crawler_timeout_s: Optional[float] = None
+    crawler_no_parent = True
+    crawler_span_hosts = False
+    crawler_respect_robots = True
+    crawler_user_agent: Optional[str] = None
     wget_no_verbose = False
     wget_args: list[str] = []
-    wget_incremental_db_writes = True
+    crawler_incremental_db_writes = True
     background = False
     job_backend: Optional[str] = None
     job_timeout_s: Optional[float] = None
@@ -197,71 +198,86 @@ def _parse_sync_store_options(args: list[str], *, usage: str) -> _SyncStoreOptio
             rclone_http_no_head = True
             idx += 1
             continue
-        if token == "--wget-recurse":
-            wget_recurse = True
+        if token in {"--crawler-recurse", "--wget-recurse"}:
+            crawler_recurse = True
             idx += 1
             continue
-        if token == "--wget-no-recurse":
-            wget_recurse = False
+        if token in {"--crawler-no-recurse", "--wget-no-recurse"}:
+            crawler_recurse = False
             idx += 1
             continue
-        if token == "--wget-max-depth" or token.startswith("--wget-max-depth="):
-            value, idx = _read_option_value(args, idx, option_name="--wget-max-depth")
+        if (
+            token == "--crawler-max-depth"
+            or token.startswith("--crawler-max-depth=")
+            or token == "--wget-max-depth"
+            or token.startswith("--wget-max-depth=")
+        ):
+            value, idx = _read_option_value(args, idx, option_name="--crawler-max-depth")
             text = str(value).strip().lower()
             if text in {"none", "inf", "infinite", "unbounded", "off", "disable", "disabled"}:
-                wget_max_depth = None
+                crawler_max_depth = None
                 continue
             try:
                 parsed_depth = int(text)
             except Exception:
-                raise ValueError("Option --wget-max-depth requires an integer value or 'none'.")
+                raise ValueError("Option --crawler-max-depth requires an integer value or 'none'.")
             if parsed_depth <= 0:
-                raise ValueError("Option --wget-max-depth must be >= 1.")
-            wget_max_depth = parsed_depth
+                raise ValueError("Option --crawler-max-depth must be >= 1.")
+            crawler_max_depth = parsed_depth
             continue
-        if token == "--wget-timeout-s" or token.startswith("--wget-timeout-s="):
-            value, idx = _read_option_value(args, idx, option_name="--wget-timeout-s")
+        if (
+            token == "--crawler-timeout-s"
+            or token.startswith("--crawler-timeout-s=")
+            or token == "--wget-timeout-s"
+            or token.startswith("--wget-timeout-s=")
+        ):
+            value, idx = _read_option_value(args, idx, option_name="--crawler-timeout-s")
             text = str(value).strip().lower()
             if text in {"none", "off", "disable", "disabled", "inf", "infinite"}:
-                wget_timeout_s = None
+                crawler_timeout_s = None
                 continue
             try:
                 parsed_timeout = float(text)
             except Exception:
-                raise ValueError("Option --wget-timeout-s requires a numeric value or 'none'.")
+                raise ValueError("Option --crawler-timeout-s requires a numeric value or 'none'.")
             if parsed_timeout <= 0:
-                raise ValueError("Option --wget-timeout-s must be > 0, or use 'none'.")
-            wget_timeout_s = parsed_timeout
+                raise ValueError("Option --crawler-timeout-s must be > 0, or use 'none'.")
+            crawler_timeout_s = parsed_timeout
             continue
-        if token == "--wget-no-parent":
-            wget_no_parent = True
+        if token in {"--crawler-no-parent", "--wget-no-parent"}:
+            crawler_no_parent = True
             idx += 1
             continue
-        if token == "--wget-parent":
-            wget_no_parent = False
+        if token in {"--crawler-parent", "--wget-parent"}:
+            crawler_no_parent = False
             idx += 1
             continue
-        if token == "--wget-span-hosts":
-            wget_span_hosts = True
+        if token in {"--crawler-span-hosts", "--wget-span-hosts"}:
+            crawler_span_hosts = True
             idx += 1
             continue
-        if token == "--wget-no-span-hosts":
-            wget_span_hosts = False
+        if token in {"--crawler-no-span-hosts", "--wget-no-span-hosts"}:
+            crawler_span_hosts = False
             idx += 1
             continue
-        if token == "--wget-ignore-robots":
-            wget_respect_robots = False
+        if token in {"--crawler-ignore-robots", "--wget-ignore-robots"}:
+            crawler_respect_robots = False
             idx += 1
             continue
-        if token == "--wget-respect-robots":
-            wget_respect_robots = True
+        if token in {"--crawler-respect-robots", "--wget-respect-robots"}:
+            crawler_respect_robots = True
             idx += 1
             continue
-        if token == "--wget-user-agent" or token.startswith("--wget-user-agent="):
-            value, idx = _read_option_value(args, idx, option_name="--wget-user-agent")
-            wget_user_agent = str(value).strip()
-            if not wget_user_agent:
-                raise ValueError("Option --wget-user-agent requires a non-blank value.")
+        if (
+            token == "--crawler-user-agent"
+            or token.startswith("--crawler-user-agent=")
+            or token == "--wget-user-agent"
+            or token.startswith("--wget-user-agent=")
+        ):
+            value, idx = _read_option_value(args, idx, option_name="--crawler-user-agent")
+            crawler_user_agent = str(value).strip()
+            if not crawler_user_agent:
+                raise ValueError("Option --crawler-user-agent requires a non-blank value.")
             continue
         if token == "--wget-verbose":
             wget_no_verbose = False
@@ -278,12 +294,12 @@ def _parse_sync_store_options(args: list[str], *, usage: str) -> _SyncStoreOptio
                 raise ValueError("Option --wget-arg requires a non-blank value.")
             wget_args.append(wget_arg)
             continue
-        if token == "--wget-incremental-db-writes":
-            wget_incremental_db_writes = True
+        if token in {"--crawler-incremental-db-writes", "--wget-incremental-db-writes"}:
+            crawler_incremental_db_writes = True
             idx += 1
             continue
-        if token == "--wget-no-incremental-db-writes":
-            wget_incremental_db_writes = False
+        if token in {"--crawler-no-incremental-db-writes", "--wget-no-incremental-db-writes"}:
+            crawler_incremental_db_writes = False
             idx += 1
             continue
         if token == "--background":
@@ -408,16 +424,16 @@ def _parse_sync_store_options(args: list[str], *, usage: str) -> _SyncStoreOptio
         max_http_requests_per_hour=max_http_requests_per_hour,
         rclone_http_no_slash=rclone_http_no_slash,
         rclone_http_no_head=rclone_http_no_head,
-        wget_recurse=wget_recurse,
-        wget_max_depth=wget_max_depth,
-        wget_timeout_s=wget_timeout_s,
-        wget_no_parent=wget_no_parent,
-        wget_span_hosts=wget_span_hosts,
-        wget_respect_robots=wget_respect_robots,
-        wget_user_agent=wget_user_agent,
+        crawler_recurse=crawler_recurse,
+        crawler_max_depth=crawler_max_depth,
+        crawler_timeout_s=crawler_timeout_s,
+        crawler_no_parent=crawler_no_parent,
+        crawler_span_hosts=crawler_span_hosts,
+        crawler_respect_robots=crawler_respect_robots,
+        crawler_user_agent=crawler_user_agent,
         wget_no_verbose=wget_no_verbose,
         wget_args=tuple(wget_args),
-        wget_incremental_db_writes=wget_incremental_db_writes,
+        crawler_incremental_db_writes=crawler_incremental_db_writes,
         background=background,
         job_backend=job_backend,
         job_timeout_s=job_timeout_s,
@@ -508,16 +524,16 @@ def run_sync_store_job(
     refresh_storage_manager: bool,
     max_http_requests_per_hour: Optional[float],
     rclone_args: tuple[str, ...],
-    wget_recurse: bool,
-    wget_max_depth: Optional[int],
-    wget_timeout_s: Optional[float],
-    wget_no_parent: bool,
-    wget_span_hosts: bool,
-    wget_respect_robots: bool,
-    wget_user_agent: Optional[str],
+    crawler_recurse: bool,
+    crawler_max_depth: Optional[int],
+    crawler_timeout_s: Optional[float],
+    crawler_no_parent: bool,
+    crawler_span_hosts: bool,
+    crawler_respect_robots: bool,
+    crawler_user_agent: Optional[str],
     wget_no_verbose: bool,
     wget_args: tuple[str, ...],
-    wget_incremental_db_writes: bool = True,
+    crawler_incremental_db_writes: bool = True,
     progress_output: bool = True,
     progress_every: int = 100,
 ) -> dict[str, object]:
@@ -564,19 +580,19 @@ def run_sync_store_job(
             store_kind=store_kind,
             max_http_requests_per_hour=max_http_requests_per_hour,
             wget_args=wget_args,
-            timeout_s=wget_timeout_s,
-            recurse=wget_recurse,
-            max_depth=wget_max_depth,
-            no_parent=wget_no_parent,
-            span_hosts=wget_span_hosts,
-            respect_robots=wget_respect_robots,
-            user_agent=wget_user_agent,
+            timeout_s=crawler_timeout_s,
+            recurse=crawler_recurse,
+            max_depth=crawler_max_depth,
+            no_parent=crawler_no_parent,
+            span_hosts=crawler_span_hosts,
+            respect_robots=crawler_respect_robots,
+            user_agent=crawler_user_agent,
             no_verbose=wget_no_verbose,
             ebook_extensions=ebook_extensions,
             source_label=source_label,
             attach_store_links=attach_store_links,
             refresh_storage_manager=refresh_storage_manager,
-            incremental_db_writes=bool(wget_incremental_db_writes),
+            incremental_db_writes=bool(crawler_incremental_db_writes),
             progress_callback=callback,
         )
         return report.to_dict()
@@ -589,18 +605,18 @@ def run_sync_store_job(
             store_name=store_name,
             store_kind=store_kind,
             max_http_requests_per_hour=max_http_requests_per_hour,
-            timeout_s=wget_timeout_s,
-            recurse=wget_recurse,
-            max_depth=wget_max_depth,
-            no_parent=wget_no_parent,
-            span_hosts=wget_span_hosts,
-            respect_robots=wget_respect_robots,
-            user_agent=wget_user_agent,
+            timeout_s=crawler_timeout_s,
+            recurse=crawler_recurse,
+            max_depth=crawler_max_depth,
+            no_parent=crawler_no_parent,
+            span_hosts=crawler_span_hosts,
+            respect_robots=crawler_respect_robots,
+            user_agent=crawler_user_agent,
             ebook_extensions=ebook_extensions,
             source_label=source_label,
             attach_store_links=attach_store_links,
             refresh_storage_manager=refresh_storage_manager,
-            incremental_db_writes=bool(wget_incremental_db_writes),
+            incremental_db_writes=bool(crawler_incremental_db_writes),
             progress_callback=callback,
         )
         return report.to_dict()
@@ -691,11 +707,11 @@ class SyncStoreCommand(TerminalCommandAPI):
         "sync store <store_id|store_name> [to-db] [--extensions epub,mobi] [--source <label>] "
         "[--no-hash] [--capture-hashes] [--max-http-requests-per-hour <prefs-default>] "
         "[--rclone-http-no-slash] [--rclone-http-no-head] "
-        "[--wget-no-recurse] [--wget-max-depth <n|none>] [--wget-timeout-s <sec|none>] "
-        "[--wget-parent|--wget-no-parent] "
-        "[--wget-span-hosts|--wget-no-span-hosts] [--wget-ignore-robots|--wget-respect-robots] "
-        "[--wget-user-agent <ua>] [--wget-verbose|--wget-no-verbose] [--wget-arg <arg> ...] "
-        "[--wget-incremental-db-writes|--wget-no-incremental-db-writes] "
+        "[--crawler-no-recurse] [--crawler-max-depth <n|none>] [--crawler-timeout-s <sec|none>] "
+        "[--crawler-parent|--crawler-no-parent] "
+        "[--crawler-span-hosts|--crawler-no-span-hosts] [--crawler-ignore-robots|--crawler-respect-robots] "
+        "[--crawler-user-agent <ua>] [--wget-verbose|--wget-no-verbose] [--wget-arg <arg> ...] "
+        "[--crawler-incremental-db-writes|--crawler-no-incremental-db-writes] "
         "[--background] [--job-backend process|serial] [--job-timeout-s <sec|none>] [--job-output|--job-no-output] "
         "[--job-panel|--no-job-panel] "
         "[--follow-symlinks] [--no-refresh] [--no-links] "
@@ -818,15 +834,9 @@ class SyncStoreCommand(TerminalCommandAPI):
                 if options.max_http_requests_per_hour is None
                 else options.max_http_requests_per_hour
             )
-        elif is_wget:
+        elif is_wget or is_native:
             effective_max_http_requests_per_hour = (
-                get_default_wget_http_requests_per_hour()
-                if options.max_http_requests_per_hour is None
-                else options.max_http_requests_per_hour
-            )
-        elif is_native:
-            effective_max_http_requests_per_hour = (
-                get_default_native_html_requests_per_hour()
+                get_default_crawler_http_requests_per_hour()
                 if options.max_http_requests_per_hour is None
                 else options.max_http_requests_per_hour
             )
@@ -866,16 +876,16 @@ class SyncStoreCommand(TerminalCommandAPI):
                 "refresh_storage_manager": options.refresh_storage_manager,
                 "max_http_requests_per_hour": effective_max_http_requests_per_hour,
                 "rclone_args": tuple(rclone_args),
-                "wget_recurse": options.wget_recurse,
-                "wget_max_depth": options.wget_max_depth,
-                "wget_timeout_s": options.wget_timeout_s,
-                "wget_no_parent": options.wget_no_parent,
-                "wget_span_hosts": options.wget_span_hosts,
-                "wget_respect_robots": options.wget_respect_robots,
-                "wget_user_agent": options.wget_user_agent,
+                "crawler_recurse": options.crawler_recurse,
+                "crawler_max_depth": options.crawler_max_depth,
+                "crawler_timeout_s": options.crawler_timeout_s,
+                "crawler_no_parent": options.crawler_no_parent,
+                "crawler_span_hosts": options.crawler_span_hosts,
+                "crawler_respect_robots": options.crawler_respect_robots,
+                "crawler_user_agent": options.crawler_user_agent,
                 "wget_no_verbose": options.wget_no_verbose,
                 "wget_args": options.wget_args,
-                "wget_incremental_db_writes": options.wget_incremental_db_writes,
+                "crawler_incremental_db_writes": options.crawler_incremental_db_writes,
                 "progress_output": not options.job_no_output,
                 "progress_every": options.progress_every,
             }
@@ -966,19 +976,19 @@ class SyncStoreCommand(TerminalCommandAPI):
                 store_kind=store_kind,
                 max_http_requests_per_hour=effective_max_http_requests_per_hour,
                 wget_args=options.wget_args,
-                recurse=options.wget_recurse,
-                max_depth=options.wget_max_depth,
-                timeout_s=options.wget_timeout_s,
-                no_parent=options.wget_no_parent,
-                span_hosts=options.wget_span_hosts,
-                respect_robots=options.wget_respect_robots,
-                user_agent=options.wget_user_agent,
+                recurse=options.crawler_recurse,
+                max_depth=options.crawler_max_depth,
+                timeout_s=options.crawler_timeout_s,
+                no_parent=options.crawler_no_parent,
+                span_hosts=options.crawler_span_hosts,
+                respect_robots=options.crawler_respect_robots,
+                user_agent=options.crawler_user_agent,
                 no_verbose=options.wget_no_verbose,
                 ebook_extensions=options.ebook_extensions,
                 source_label=source_label,
                 attach_store_links=options.attach_store_links,
                 refresh_storage_manager=options.refresh_storage_manager,
-                incremental_db_writes=options.wget_incremental_db_writes,
+                incremental_db_writes=options.crawler_incremental_db_writes,
                 progress_callback=_emit_progress_line,
             )
         elif is_native:
@@ -990,18 +1000,18 @@ class SyncStoreCommand(TerminalCommandAPI):
                 store_name=store_name,
                 store_kind=store_kind,
                 max_http_requests_per_hour=effective_max_http_requests_per_hour,
-                timeout_s=options.wget_timeout_s,
-                recurse=options.wget_recurse,
-                max_depth=options.wget_max_depth,
-                no_parent=options.wget_no_parent,
-                span_hosts=options.wget_span_hosts,
-                respect_robots=options.wget_respect_robots,
-                user_agent=options.wget_user_agent,
+                timeout_s=options.crawler_timeout_s,
+                recurse=options.crawler_recurse,
+                max_depth=options.crawler_max_depth,
+                no_parent=options.crawler_no_parent,
+                span_hosts=options.crawler_span_hosts,
+                respect_robots=options.crawler_respect_robots,
+                user_agent=options.crawler_user_agent,
                 ebook_extensions=options.ebook_extensions,
                 source_label=source_label,
                 attach_store_links=options.attach_store_links,
                 refresh_storage_manager=options.refresh_storage_manager,
-                incremental_db_writes=options.wget_incremental_db_writes,
+                incremental_db_writes=options.crawler_incremental_db_writes,
                 progress_callback=_emit_progress_line,
             )
         else:
@@ -1065,7 +1075,7 @@ class SyncStoreCommand(TerminalCommandAPI):
             transport_rows.append(
                 (
                     "max_http_requests_per_hour",
-                    get_default_wget_http_requests_per_hour()
+                    get_default_crawler_http_requests_per_hour()
                     if options.max_http_requests_per_hour is None
                     else options.max_http_requests_per_hour,
                 )
@@ -1074,7 +1084,7 @@ class SyncStoreCommand(TerminalCommandAPI):
             transport_rows.append(
                 (
                     "max_http_requests_per_hour",
-                    get_default_native_html_requests_per_hour()
+                    get_default_crawler_http_requests_per_hour()
                     if options.max_http_requests_per_hour is None
                     else options.max_http_requests_per_hour,
                 )

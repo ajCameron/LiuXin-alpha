@@ -657,11 +657,11 @@ class Preferences:
             1200,
             val_type="int",
         )
-        # Default throttle for wget HTML spider read-only mirror/listing operations.
+        # Default throttle for remote HTML crawler discovery operations.
         # Units: requests per hour (1200/hour == 20/minute).
         self.type_set(
             "Storage",
-            "wget_http_max_requests_per_hour_default",
+            "crawler_http_max_requests_per_hour_default",
             1200,
             val_type="int",
         )

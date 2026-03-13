@@ -21,6 +21,12 @@ from LiuXin_alpha.ingest.sources.api import (
     LogLineCallback,
     ObservedUrlCallback,
 )
+from LiuXin_alpha.ingest.sources.crawler_defaults import (
+    CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT,
+    CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,
+    LEGACY_NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY,
+    get_default_crawler_http_requests_per_hour,
+)
 from LiuXin_alpha.ingest.sources.html_common import (
     is_within_root_scope,
     looks_like_file_url,
@@ -28,22 +34,13 @@ from LiuXin_alpha.ingest.sources.html_common import (
     normalize_http_url,
 )
 
-NATIVE_HTML_MAX_REQUESTS_PER_HOUR_DEFAULT = 1200.0
-NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY = "native_html_max_requests_per_hour_default"
+NATIVE_HTML_MAX_REQUESTS_PER_HOUR_DEFAULT = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT
+NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY
 _HTML_CONTENT_TYPES = {"text/html", "application/xhtml+xml"}
 
 
 def get_default_native_html_requests_per_hour() -> float:
-    default = float(NATIVE_HTML_MAX_REQUESTS_PER_HOUR_DEFAULT)
-    try:
-        from LiuXin_alpha.preferences import preferences
-
-        raw = preferences.get(NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY, default)
-        if raw is None:
-            return default
-        return float(raw)
-    except Exception:
-        return default
+    return get_default_crawler_http_requests_per_hour(LEGACY_NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY)
 
 
 @dataclass
@@ -60,7 +57,9 @@ class NativeHtmlBackendOptions:
 
     def __post_init__(self) -> None:
         if self.max_http_requests_per_hour is None:
-            self.max_http_requests_per_hour = get_default_native_html_requests_per_hour()
+            self.max_http_requests_per_hour = get_default_crawler_http_requests_per_hour(
+                LEGACY_NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY
+            )
 
 
 @dataclass(frozen=True)
@@ -359,5 +358,6 @@ __all__ = [
     "NativeHtmlBackendOptions",
     "NativeHtmlDiscoverySource",
     "_FetchResult",
+    "get_default_crawler_http_requests_per_hour",
     "get_default_native_html_requests_per_hour",
 ]

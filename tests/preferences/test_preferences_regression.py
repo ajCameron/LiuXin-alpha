@@ -164,3 +164,21 @@ def test_storage_rclone_default_rate_limit_key_exists(
 
     prefs = prefs_mod.preferences
     assert int(prefs["rclone_http_max_requests_per_hour_default"]) == 1200
+
+
+@pytest.mark.parametrize("module_kind", ["alpha", "liuxin"])
+def test_storage_crawler_default_rate_limit_key_exists(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, module_kind: str
+):
+    """The shared crawler default rate limit should be present in preferences defaults."""
+    if module_kind == "liuxin":
+        pytest.importorskip("LiuXin_alpha")
+
+    prefs_mod = (
+        _reload_alpha_preferences(monkeypatch, tmp_path)
+        if module_kind == "alpha"
+        else _reload_liuxin_preferences(monkeypatch, tmp_path)
+    )
+
+    prefs = prefs_mod.preferences
+    assert int(prefs["crawler_http_max_requests_per_hour_default"]) == 1200

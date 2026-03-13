@@ -13,24 +13,21 @@ from LiuXin_alpha.ingest.sources.api import (
     LogLineCallback,
     ObservedUrlCallback,
 )
+from LiuXin_alpha.ingest.sources.crawler_defaults import (
+    CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT,
+    CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,
+    LEGACY_WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,
+    get_default_crawler_http_requests_per_hour,
+)
 from LiuXin_alpha.ingest.sources.html_common import is_within_root_scope, looks_like_file_url
 from LiuXin_alpha.ingest.sources.wget_utils import extract_http_urls_from_wget_output, run_wget
 
-WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT = 1200.0
-WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY = "wget_http_max_requests_per_hour_default"
+WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT
+WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY = CRAWLER_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY
 
 
 def get_default_wget_http_requests_per_hour() -> float:
-    default = float(WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT)
-    try:
-        from LiuXin_alpha.preferences import preferences
-
-        raw = preferences.get(WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY, default)
-        if raw is None:
-            return default
-        return float(raw)
-    except Exception:
-        return default
+    return get_default_crawler_http_requests_per_hour(LEGACY_WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY)
 
 
 @dataclass
@@ -50,7 +47,9 @@ class WgetBackendOptions:
 
     def __post_init__(self) -> None:
         if self.max_http_requests_per_hour is None:
-            self.max_http_requests_per_hour = get_default_wget_http_requests_per_hour()
+            self.max_http_requests_per_hour = get_default_crawler_http_requests_per_hour(
+                LEGACY_WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY
+            )
 
 
 class WgetHtmlDiscoverySource(DiscoverySourceAPI):
@@ -219,5 +218,6 @@ __all__ = [
     "WgetHtmlDiscoverySource",
     "WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT",
     "WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY",
+    "get_default_crawler_http_requests_per_hour",
     "get_default_wget_http_requests_per_hour",
 ]

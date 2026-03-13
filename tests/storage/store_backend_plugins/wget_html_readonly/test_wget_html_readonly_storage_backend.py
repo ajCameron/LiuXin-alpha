@@ -38,7 +38,7 @@ def test_wget_backend_default_rate_limit_reads_preferences(monkeypatch) -> None:
         return _ok_wget_result(args=list(args), stdout="https://example.com/books/one.epub")
 
     monkeypatch.setattr(backend_module, "run_wget", _fake_run_wget)
-    monkeypatch.setattr(backend_module, "get_default_wget_http_requests_per_hour", lambda: 300.0)
+    monkeypatch.setattr(backend_module, "get_default_crawler_http_requests_per_hour", lambda: 300.0)
 
     store = WgetHtmlReadOnlyStorageBackend(url="https://example.com/")
     store.crawl_urls(force=True)
@@ -47,7 +47,7 @@ def test_wget_backend_default_rate_limit_reads_preferences(monkeypatch) -> None:
     assert "--wait=12.000" in captured_args[0]
 
 
-def test_get_default_wget_http_requests_per_hour_falls_back_on_invalid_value(monkeypatch) -> None:
+def test_get_default_wget_http_requests_per_hour_falls_back_on_invalid_crawler_value(monkeypatch) -> None:
     import LiuXin_alpha.preferences as preferences_module
 
     original_get = preferences_module.preferences.get
@@ -60,6 +60,23 @@ def test_get_default_wget_http_requests_per_hour_falls_back_on_invalid_value(mon
     monkeypatch.setattr(preferences_module.preferences, "get", _fake_get)
     value = backend_module.get_default_wget_http_requests_per_hour()
     assert value == backend_module.WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT
+
+
+def test_get_default_wget_http_requests_per_hour_falls_back_to_legacy_wget_key(monkeypatch) -> None:
+    import LiuXin_alpha.preferences as preferences_module
+
+    original_get = preferences_module.preferences.get
+
+    def _fake_get(option: str, default=None):
+        if option == backend_module.WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY:
+            return default
+        if option == "wget_http_max_requests_per_hour_default":
+            return "300"
+        return original_get(option, default)
+
+    monkeypatch.setattr(preferences_module.preferences, "get", _fake_get)
+    value = backend_module.get_default_wget_http_requests_per_hour()
+    assert value == 300.0
 
 
 def test_wget_backend_can_disable_rate_limit_wait(monkeypatch) -> None:
