@@ -6,6 +6,7 @@ daemon wrapper.
 
 from __future__ import annotations
 
+import inspect
 import threading
 import uuid
 
@@ -13,6 +14,14 @@ from typing import Any, Callable, Mapping, Optional
 
 from LiuXin_alpha.core.api import CoreAPI
 from LiuXin_alpha.core.commands import CoreCommand, CoreCommandResult
+from LiuXin_alpha.core.description import (
+    CoreEndpointDescription,
+    CoreMethodDescription,
+    CoreParameterDescription,
+    CorePayloadFieldDescription,
+    CoreTargetDescription,
+)
+from LiuXin_alpha.core.dispatch import looks_like_write_method
 from LiuXin_alpha.core.errors import CoreDispatchError, CoreHandlerError, CoreShutdownError
 from LiuXin_alpha.core.events import CoreEvent, make_core_event
 from LiuXin_alpha.core.queries import CoreQuery, CoreQueryResult
@@ -44,6 +53,8 @@ class CoreRuntime(CoreAPI):
 
         self._command_handlers: dict[str, CommandHandler] = {}
         self._query_handlers: dict[str, QueryHandler] = {}
+        self._command_descriptions: dict[str, CoreEndpointDescription] = {}
+        self._query_descriptions: dict[str, CoreEndpointDescription] = {}
         self._event_subscribers: list[EventSubscriber] = []
 
         # Write-path serialization.
@@ -51,16 +62,111 @@ class CoreRuntime(CoreAPI):
         # Protects handler and subscriber maps.
         self._state_lock = threading.RLock()
 
-        self.register_command_handler("invoke", self._handle_invoke_command)
-        self.register_command_handler("shutdown", self._handle_shutdown_command)
-        self.register_command_handler("sync.store.start", self._handle_sync_store_start_command)
-        self.register_command_handler("sync.store.cancel", self._handle_sync_store_cancel_command)
-        self.register_command_handler("jobs.cancel", self._handle_jobs_cancel_command)
-        self.register_query_handler("invoke", self._handle_invoke_query)
-        self.register_query_handler("health", self._handle_health_query)
-        self.register_query_handler("jobs.list", self._handle_jobs_list_query)
-        self.register_query_handler("jobs.get", self._handle_jobs_get_query)
-        self.register_query_handler("jobs.wait", self._handle_jobs_wait_query)
+        self.register_command_handler(
+            "invoke",
+            self._handle_invoke_command,
+            summary="Invoke a write-path method on a hosted target.",
+            description="Generic escape hatch for library/database/storage write calls.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="target", required=True, field_type="string"),
+                CorePayloadFieldDescription(name="method", required=True, field_type="string"),
+                CorePayloadFieldDescription(name="args", field_type="array"),
+                CorePayloadFieldDescription(name="kwargs", field_type="object"),
+            ),
+            tags=("generic", "invoke"),
+            transport_stable=False,
+        )
+        self.register_command_handler(
+            "shutdown",
+            self._handle_shutdown_command,
+            summary="Shut the runtime down.",
+            tags=("lifecycle",),
+        )
+        self.register_command_handler(
+            "sync.store.start",
+            self._handle_sync_store_start_command,
+            summary="Submit a store sync as a managed background job.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="sync_kwargs", required=True, field_type="object"),
+                CorePayloadFieldDescription(name="job_timeout_s", field_type="number"),
+                CorePayloadFieldDescription(name="job_no_output", field_type="boolean"),
+                CorePayloadFieldDescription(name="job_backend", field_type="string"),
+                CorePayloadFieldDescription(name="label", field_type="string"),
+            ),
+            tags=("sync", "jobs"),
+        )
+        self.register_command_handler(
+            "sync.store.cancel",
+            self._handle_sync_store_cancel_command,
+            summary="Cancel a previously submitted sync job.",
+            payload_fields=(CorePayloadFieldDescription(name="job_id", required=True, field_type="string"),),
+            tags=("sync", "jobs"),
+        )
+        self.register_command_handler(
+            "jobs.cancel",
+            self._handle_jobs_cancel_command,
+            summary="Cancel an existing managed job.",
+            payload_fields=(CorePayloadFieldDescription(name="job_id", required=True, field_type="string"),),
+            tags=("jobs",),
+        )
+        self.register_query_handler(
+            "invoke",
+            self._handle_invoke_query,
+            summary="Invoke a read-path method on a hosted target.",
+            description="Generic escape hatch for library/database/storage query calls.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="target", required=True, field_type="string"),
+                CorePayloadFieldDescription(name="method", required=True, field_type="string"),
+                CorePayloadFieldDescription(name="args", field_type="array"),
+                CorePayloadFieldDescription(name="kwargs", field_type="object"),
+            ),
+            tags=("generic", "invoke"),
+            transport_stable=False,
+        )
+        self.register_query_handler(
+            "health",
+            self._handle_health_query,
+            summary="Return runtime health and registration state.",
+            tags=("lifecycle", "health"),
+        )
+        self.register_query_handler(
+            "api.describe",
+            self._handle_api_describe_query,
+            summary="Describe the available core API surface.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="include_targets", field_type="boolean"),
+                CorePayloadFieldDescription(name="target", field_type="string"),
+            ),
+            tags=("api", "introspection"),
+        )
+        self.register_query_handler(
+            "jobs.list",
+            self._handle_jobs_list_query,
+            summary="List managed jobs with optional filtering and pagination.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="states", field_type="array"),
+                CorePayloadFieldDescription(name="limit", field_type="integer"),
+                CorePayloadFieldDescription(name="offset", field_type="integer"),
+            ),
+            tags=("jobs",),
+        )
+        self.register_query_handler(
+            "jobs.get",
+            self._handle_jobs_get_query,
+            summary="Fetch one managed job by id.",
+            payload_fields=(CorePayloadFieldDescription(name="job_id", required=True, field_type="string"),),
+            tags=("jobs",),
+        )
+        self.register_query_handler(
+            "jobs.wait",
+            self._handle_jobs_wait_query,
+            summary="Wait for a managed job to finish.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="job_id", required=True, field_type="string"),
+                CorePayloadFieldDescription(name="timeout_s", field_type="number"),
+            ),
+            tags=("jobs",),
+        )
 
     @property
     def core_uuid(self) -> str:
@@ -91,19 +197,73 @@ class CoreRuntime(CoreAPI):
         self.emit_event("core.shutdown", {"reason": "explicit"})
         return 0
 
-    def register_command_handler(self, name: str, handler: CommandHandler) -> None:
+    @staticmethod
+    def _doc_summary(obj: Any) -> str:
+        doc = inspect.getdoc(obj) or ""
+        text = doc.strip()
+        if not text:
+            return ""
+        return text.splitlines()[0].strip()
+
+    @staticmethod
+    def _normalize_payload_fields(
+        payload_fields: tuple[CorePayloadFieldDescription, ...] | list[CorePayloadFieldDescription] | None,
+    ) -> tuple[CorePayloadFieldDescription, ...]:
+        if not payload_fields:
+            return ()
+        return tuple(payload_fields)
+
+    def register_command_handler(
+        self,
+        name: str,
+        handler: CommandHandler,
+        *,
+        summary: str | None = None,
+        description: str = "",
+        payload_fields: tuple[CorePayloadFieldDescription, ...] | list[CorePayloadFieldDescription] | None = None,
+        tags: tuple[str, ...] | list[str] | None = None,
+        transport_stable: bool = True,
+    ) -> None:
         token = str(name).strip().lower()
         if not token:
             raise ValueError("Command name cannot be blank.")
         with self._state_lock:
             self._command_handlers[token] = handler
+            self._command_descriptions[token] = CoreEndpointDescription(
+                name=token,
+                kind="command",
+                summary=str(summary if summary is not None else self._doc_summary(handler)),
+                description=str(description or ""),
+                payload_fields=self._normalize_payload_fields(payload_fields),
+                tags=tuple(str(tag) for tag in (tags or ())),
+                transport_stable=bool(transport_stable),
+            )
 
-    def register_query_handler(self, name: str, handler: QueryHandler) -> None:
+    def register_query_handler(
+        self,
+        name: str,
+        handler: QueryHandler,
+        *,
+        summary: str | None = None,
+        description: str = "",
+        payload_fields: tuple[CorePayloadFieldDescription, ...] | list[CorePayloadFieldDescription] | None = None,
+        tags: tuple[str, ...] | list[str] | None = None,
+        transport_stable: bool = True,
+    ) -> None:
         token = str(name).strip().lower()
         if not token:
             raise ValueError("Query name cannot be blank.")
         with self._state_lock:
             self._query_handlers[token] = handler
+            self._query_descriptions[token] = CoreEndpointDescription(
+                name=token,
+                kind="query",
+                summary=str(summary if summary is not None else self._doc_summary(handler)),
+                description=str(description or ""),
+                payload_fields=self._normalize_payload_fields(payload_fields),
+                tags=tuple(str(tag) for tag in (tags or ())),
+                transport_stable=bool(transport_stable),
+            )
 
     def subscribe(self, callback: EventSubscriber) -> Callable[[], None]:
         with self._state_lock:
@@ -244,21 +404,122 @@ class CoreRuntime(CoreAPI):
         )
         return self.execute_query(envelope).result
 
+    def _target_bindings(self) -> list[tuple[str, tuple[str, ...], str, Any]]:
+        bindings: list[tuple[str, tuple[str, ...], str, Any]] = [
+            ("library", ("library", "lib"), "Hosted library facade.", self.library),
+        ]
+        db = getattr(self.library, "database", None)
+        if db is not None:
+            bindings.append(("database", ("database", "db"), "Hosted database facade.", db))
+        storage = getattr(self.library, "storage", None)
+        if storage is not None:
+            bindings.append(("storage", ("storage", "stores", "store_manager"), "Hosted storage facade.", storage))
+        return bindings
+
+    def _normalize_target_filter(self, target: str | None) -> str | None:
+        if target is None:
+            return None
+        token = str(target).strip().lower()
+        if not token:
+            return None
+        for canonical_name, aliases, _summary, _obj in self._target_bindings():
+            if token == canonical_name or token in aliases:
+                return canonical_name
+        raise CoreDispatchError("Unknown target filter: {!r}".format(target))
+
     def _resolve_target(self, token: str) -> Any:
         key = str(token).strip().lower()
-        if key in {"library", "lib"}:
-            return self.library
-        if key in {"database", "db"}:
-            db = getattr(self.library, "database", None)
-            if db is None:
-                raise CoreDispatchError("Library has no `database` target.")
-            return db
-        if key in {"storage", "stores", "store_manager"}:
-            storage = getattr(self.library, "storage", None)
-            if storage is None:
-                raise CoreDispatchError("Library has no `storage` target.")
-            return storage
+        for canonical_name, aliases, _summary, obj in self._target_bindings():
+            if key == canonical_name or key in aliases:
+                return obj
         raise CoreDispatchError("Unknown invoke target: {!r}".format(token))
+
+    @staticmethod
+    def _describe_parameter(parameter: inspect.Parameter) -> CoreParameterDescription:
+        default = None if parameter.default is inspect.Signature.empty else parameter.default
+        annotation = None if parameter.annotation is inspect.Signature.empty else str(parameter.annotation)
+        return CoreParameterDescription(
+            name=str(parameter.name),
+            kind=str(parameter.kind.name).lower(),
+            required=parameter.default is inspect.Signature.empty,
+            default=default,
+            annotation=annotation,
+        )
+
+    def _describe_target_method(self, method_name: str, method: Any) -> CoreMethodDescription:
+        summary = self._doc_summary(method)
+        description = inspect.getdoc(method) or ""
+        parameters: tuple[CoreParameterDescription, ...] = ()
+        return_annotation: str | None = None
+        try:
+            signature = inspect.signature(method)
+        except Exception:
+            signature = None
+        if signature is not None:
+            params = []
+            for parameter in signature.parameters.values():
+                if parameter.name == "self":
+                    continue
+                params.append(self._describe_parameter(parameter))
+            parameters = tuple(params)
+            if signature.return_annotation is not inspect.Signature.empty:
+                return_annotation = str(signature.return_annotation)
+        return CoreMethodDescription(
+            name=str(method_name),
+            write=looks_like_write_method(method_name),
+            summary=summary,
+            description=description,
+            parameters=parameters,
+            return_annotation=return_annotation,
+        )
+
+    def _describe_target(self, *, target_name: str, aliases: tuple[str, ...], summary: str, target_obj: Any) -> CoreTargetDescription:
+        methods: list[CoreMethodDescription] = []
+        for attribute_name in sorted(dir(target_obj)):
+            if attribute_name.startswith("_"):
+                continue
+            try:
+                attribute = getattr(target_obj, attribute_name)
+            except Exception:
+                continue
+            if not callable(attribute):
+                continue
+            methods.append(self._describe_target_method(attribute_name, attribute))
+        return CoreTargetDescription(
+            name=target_name,
+            aliases=tuple(aliases),
+            summary=summary,
+            description=inspect.getdoc(target_obj) or "",
+            methods=tuple(methods),
+        )
+
+    def describe_api(self, *, include_targets: bool = True, target: str | None = None) -> dict[str, Any]:
+        normalized_target = self._normalize_target_filter(target)
+        with self._state_lock:
+            commands = [self._command_descriptions[name].to_dict() for name in sorted(self._command_descriptions)]
+            queries = [self._query_descriptions[name].to_dict() for name in sorted(self._query_descriptions)]
+
+        payload: dict[str, Any] = {
+            "core_uuid": self.core_uuid,
+            "core_version": self.core_version,
+            "commands": commands,
+            "queries": queries,
+        }
+        if include_targets:
+            targets = []
+            for target_name, aliases, summary, obj in self._target_bindings():
+                if normalized_target is not None and target_name != normalized_target:
+                    continue
+                targets.append(
+                    self._describe_target(
+                        target_name=target_name,
+                        aliases=aliases,
+                        summary=summary,
+                        target_obj=obj,
+                    ).to_dict()
+                )
+            payload["targets"] = targets
+        return payload
 
     @staticmethod
     def _extract_invoke_payload(payload: Mapping[str, Any]) -> tuple[str, str, tuple[Any, ...], dict[str, Any]]:
@@ -303,6 +564,13 @@ class CoreRuntime(CoreAPI):
             "registered_command_handlers": sorted(self._command_handlers.keys()),
             "registered_query_handlers": sorted(self._query_handlers.keys()),
         }
+
+    def _handle_api_describe_query(self, runtime: "CoreRuntime", query: CoreQuery) -> dict[str, Any]:
+        del runtime
+        payload = dict(query.payload or {})
+        include_targets = bool(payload.get("include_targets", True))
+        target = payload.get("target", None)
+        return self.describe_api(include_targets=include_targets, target=None if target is None else str(target))
 
     @staticmethod
     def _preview_value(value: Any, *, max_len: int = 400) -> str:

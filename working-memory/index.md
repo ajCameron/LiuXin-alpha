@@ -1,10 +1,16 @@
 # Working Memory Index
 
-Updated: 2026-03-13
+Updated: 2026-03-15
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [core-api-surface-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/core-api-surface-2026-03-15.md)
+  First explicit core API slice: descriptor models, `api.describe`, HTTP/proxy introspection, and a note that the next step is replacing generic `invoke` with named RPCs.
+
+- [full-suite-green-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/full-suite-green-2026-03-15.md)
+  Full suite is green again in the main repo, with the current pass/fail counts, latest passing report path, and a note that `LiuXin_alpha_data` has separate local changes not captured by the main repo commit.
 
 - [test-env-rerun-2026-03-13.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/test-env-rerun-2026-03-13.md)
   Cleaned up the missing test dependency surface, added a minimal `past.builtins` shim, and reran the full suite for a cleaner post-env failure signal.

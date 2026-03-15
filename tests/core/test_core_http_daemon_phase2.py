@@ -84,3 +84,23 @@ def test_core_http_daemon_events_next_poll_scaffold(
 
         assert "command.started" in seen_types
         assert "command.finished" in seen_types
+
+
+def test_core_http_daemon_and_remote_proxy_expose_api_description(
+    core_runtime_factory: Callable[..., CoreRuntime],
+    daemon_with_proxy_factory: Callable[..., AbstractContextManager[tuple[CoreHttpDaemon, RemoteLibraryProxy]]],
+    fetch_json: Callable[..., dict[str, Any]],
+) -> None:
+    runtime = core_runtime_factory(core_version="test-phase2")
+
+    with daemon_with_proxy_factory(runtime, endpoint_namespace="describe") as (daemon, proxy):
+        payload = fetch_json(daemon.describe_url + "?target=database&include_targets=1")
+        assert payload["ok"] is True
+        described = payload["result"]
+        assert described["core_version"] == "test-phase2"
+        assert [entry["name"] for entry in described["targets"]] == ["database"]
+
+        proxy_described = proxy.describe_api(target="storage")
+        assert [entry["name"] for entry in proxy_described["targets"]] == ["storage"]
+        query_names = {entry["name"] for entry in proxy_described["queries"]}
+        assert "api.describe" in query_names

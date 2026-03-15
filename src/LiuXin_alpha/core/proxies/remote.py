@@ -9,7 +9,7 @@ import urllib.request
 from typing import Any, Mapping
 
 from LiuXin_alpha.core.proxies.jobs import JobStatesArg, JobsProxyABC, normalize_job_states_arg
-from LiuXin_alpha.core.proxies.local import looks_like_write_method
+from LiuXin_alpha.core.dispatch import looks_like_write_method
 
 
 class RemoteProxyError(RuntimeError):
@@ -171,6 +171,13 @@ class RemoteLibraryProxy(_RemoteProxyBase):
         if not bool(response.get("ok", False)):
             raise RemoteProxyError("Health request failed: {}".format(response.get("error")))
         return dict(response.get("result", {}))
+
+    def describe_api(self, *, include_targets: bool = True, target: str | None = None) -> Mapping[str, Any]:
+        payload: dict[str, Any] = {"include_targets": bool(include_targets)}
+        if target is not None:
+            payload["target"] = str(target)
+        result = self._rpc_query("api.describe", payload=payload)
+        return dict(result if isinstance(result, dict) else {})
 
 
 __all__ = [

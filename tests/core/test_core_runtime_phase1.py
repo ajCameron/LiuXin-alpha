@@ -49,6 +49,38 @@ def test_core_runtime_emits_command_lifecycle_events(core_runtime_factory: Calla
     assert "command.finished" in event_types
 
 
+def test_core_runtime_api_describe_exposes_named_handlers_and_targets(
+    core_runtime_factory: Callable[..., CoreRuntime],
+) -> None:
+    runtime = core_runtime_factory(core_version="test-phase1")
+
+    described = runtime.describe_api()
+
+    assert described["core_version"] == "test-phase1"
+    command_names = {entry["name"] for entry in described["commands"]}
+    query_names = {entry["name"] for entry in described["queries"]}
+    assert "invoke" in command_names
+    assert "sync.store.start" in command_names
+    assert "health" in query_names
+    assert "api.describe" in query_names
+
+    targets = {entry["name"]: entry for entry in described["targets"]}
+    assert set(targets) >= {"library", "database", "storage"}
+
+    library_methods = {method["name"]: method for method in targets["library"]["methods"]}
+    database_methods = {method["name"]: method for method in targets["database"]["methods"]}
+    storage_methods = {method["name"]: method for method in targets["storage"]["methods"]}
+
+    assert library_methods["echo"]["write"] is False
+    assert library_methods["echo"]["parameters"][0]["name"] == "text"
+    assert database_methods["set_value"]["write"] is True
+    assert database_methods["get_value"]["write"] is False
+    assert storage_methods["ping"]["write"] is False
+
+    db_only = runtime.execute_query(CoreQuery(name="api.describe", payload={"target": "db"})).result
+    assert [entry["name"] for entry in db_only["targets"]] == ["database"]
+
+
 def test_local_proxy_auto_dispatches_read_and_write(core_runtime_factory: Callable[..., CoreRuntime]) -> None:
     runtime = core_runtime_factory(core_version="test-phase1")
     proxy = LocalLibraryProxy(runtime)
@@ -58,6 +90,7 @@ def test_local_proxy_auto_dispatches_read_and_write(core_runtime_factory: Callab
     assert proxy.database.get_value() == 19
     assert proxy.storage.ping() == "pong"
     assert proxy.health()["core_version"] == "test-phase1"
+    assert proxy.describe_api(target="library")["targets"][0]["name"] == "library"
     jobs_payload = proxy.jobs.list(limit=5, offset=0)
     assert "jobs" in jobs_payload
 

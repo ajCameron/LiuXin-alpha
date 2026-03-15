@@ -5,46 +5,10 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from LiuXin_alpha.core.commands import CoreCommand
+from LiuXin_alpha.core.dispatch import looks_like_write_method
 from LiuXin_alpha.core.proxies.jobs import JobStatesArg, JobsProxyABC, normalize_job_states_arg
 from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.core.runtime import CoreRuntime
-
-
-WRITE_PREFIXES = (
-    "add",
-    "create",
-    "delete",
-    "dirty",
-    "dupe",
-    "ensure",
-    "interlink",
-    "link",
-    "lock",
-    "persist",
-    "publish",
-    "refresh",
-    "register",
-    "remove",
-    "set",
-    "shutdown",
-    "sync",
-    "unlink",
-    "update",
-)
-
-WRITE_EXACT = {
-    "backup",
-    "bootstrap_storage_manager",
-    "close",
-}
-
-
-def looks_like_write_method(method_name: str) -> bool:
-    """Best-effort write-path classifier for proxy auto-dispatch."""
-    token = str(method_name).strip().lower()
-    if token in WRITE_EXACT:
-        return True
-    return token.startswith(WRITE_PREFIXES)
 
 
 class _LocalTargetProxy:
@@ -174,4 +138,11 @@ class LocalLibraryProxy(_LocalTargetProxy):
 
     def health(self) -> Mapping[str, Any]:
         envelope = CoreQuery(name="health")
+        return self._runtime.execute_query(envelope).result
+
+    def describe_api(self, *, include_targets: bool = True, target: str | None = None) -> Mapping[str, Any]:
+        payload: dict[str, Any] = {"include_targets": bool(include_targets)}
+        if target is not None:
+            payload["target"] = str(target)
+        envelope = CoreQuery(name="api.describe", payload=payload)
         return self._runtime.execute_query(envelope).result

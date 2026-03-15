@@ -33,10 +33,13 @@ class CoreAPI(abc.ABC):
         """Execute a read-path query envelope."""
 
     @abc.abstractmethod
+    def describe_api(self, *, include_targets: bool = True, target: str | None = None) -> dict[str, Any]:
+        """Return an inspectable description of the core API surface."""
+
+    @abc.abstractmethod
     def subscribe(self, callback: Callable[[CoreEvent], None]) -> Callable[[], None]:
         """Register an event subscriber and return an unsubscribe function."""
 
     @abc.abstractmethod
     def shutdown(self) -> int:
         """Perform runtime shutdown and return process-style exit code."""
-

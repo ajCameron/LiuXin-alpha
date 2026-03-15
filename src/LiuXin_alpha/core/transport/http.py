@@ -80,6 +80,10 @@ class CoreHttpDaemon:
         return self.base_url + "/health"
 
     @property
+    def describe_url(self) -> str:
+        return self.base_url + "/api/describe"
+
+    @property
     def query_url(self) -> str:
         return self.base_url + "/rpc/query"
 
@@ -158,6 +162,15 @@ class CoreHttpDaemon:
                 except Exception:
                     return float(default)
 
+            @staticmethod
+            def _safe_bool(value: str, default: bool) -> bool:
+                token = str(value).strip().lower()
+                if token in {"1", "true", "yes", "on"}:
+                    return True
+                if token in {"0", "false", "no", "off"}:
+                    return False
+                return bool(default)
+
             def do_GET(self) -> None:
                 rel_path = self._resolve_relative_path()
                 if rel_path is None:
@@ -170,6 +183,21 @@ class CoreHttpDaemon:
                 if rel_path == "/health":
                     try:
                         result = daemon.runtime.execute_query(CoreQuery(name="health")).result
+                    except Exception as exc:
+                        self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+                        return
+                    self._send_json(HTTPStatus.OK, {"ok": True, "result": result})
+                    return
+
+                if rel_path == "/api/describe":
+                    payload: dict[str, Any] = {
+                        "include_targets": self._safe_bool(query.get("include_targets", ["1"])[0], True),
+                    }
+                    target = str(query.get("target", [""])[0]).strip()
+                    if target:
+                        payload["target"] = target
+                    try:
+                        result = daemon.runtime.execute_query(CoreQuery(name="api.describe", payload=payload)).result
                     except Exception as exc:
                         self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
                         return

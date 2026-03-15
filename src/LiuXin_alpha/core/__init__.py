@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 from .commands import CoreCommand, CoreCommandResult
+from .description import (
+    CoreEndpointDescription,
+    CoreMethodDescription,
+    CoreParameterDescription,
+    CorePayloadFieldDescription,
+    CoreTargetDescription,
+)
 from .events import CoreEvent, make_core_event
 from .proxies import (
     JobStatesArg,
@@ -26,9 +33,14 @@ __all__ = [
     "CoreRuntime",
     "CoreCommand",
     "CoreCommandResult",
+    "CoreEndpointDescription",
+    "CoreMethodDescription",
+    "CoreParameterDescription",
+    "CorePayloadFieldDescription",
     "CoreQuery",
     "CoreQueryResult",
     "CoreEvent",
+    "CoreTargetDescription",
     "make_core_event",
     "JobStatesArg",
     "JobsProxyAPI",
