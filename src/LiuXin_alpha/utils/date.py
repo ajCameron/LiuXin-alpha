@@ -196,6 +196,17 @@ def parse_date(date_string, assume_utc=False, as_utc=True, default=None):
 
 
 def fix_only_date(val):
+    if val in ("", None):
+        return val
+    if isinstance(val, str):
+        raw = val.strip()
+        if not raw:
+            return raw
+        if re.match(r"^\d{4}$", raw):
+            return raw + "-01-01"
+        if re.match(r"^\d{4}-\d{2}$", raw):
+            return raw + "-01"
+        return raw
     n = val + timedelta(days=1)
     if n.month > val.month:
         val = val.replace(day=val.day - 1)
@@ -585,14 +596,18 @@ def replace_months(datestr, clang):
     return tmp
 
 
-def isoformat_timestamp():
+def isoformat_timestamp(stamp=None, assume_utc=True, as_utc=True):
     """
-    Returns the current datetime as an isoformat timestamp.
+    Returns the current datetime, or a supplied timestamp, as an isoformat timestamp.
     :return:
     """
     import datetime
 
-    return six_unicode(datetime.datetime.now().isoformat())
+    if stamp is None:
+        return six_unicode(datetime.datetime.now().isoformat())
+    if hasattr(stamp, "tzinfo"):
+        return isoformat(stamp, assume_utc=assume_utc, as_utc=as_utc)
+    return isoformat(utcfromtimestamp(stamp), assume_utc=True, as_utc=as_utc)
 
 
 def file_date():

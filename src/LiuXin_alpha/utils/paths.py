@@ -30,6 +30,36 @@ relpath = os.path.relpath
 # probably safe
 
 
+def make_long_path_useable(path):
+    """
+    Normalize a path for platforms that require explicit long-path prefixes.
+
+    On non-Windows systems this is a no-op.
+    """
+    path = os.fspath(path)
+    if os.name != "nt":
+        return path
+    if path.startswith("\\\\?\\"):
+        return path
+    abs_path = os.path.abspath(path)
+    if abs_path.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + abs_path.lstrip("\\")
+    return "\\\\?\\" + abs_path
+
+
+def find_mount_point(path):
+    """
+    Walk upward until the filesystem mount point is reached.
+    """
+    path = os.path.abspath(os.fspath(path))
+    while not os.path.ismount(path):
+        parent = os.path.dirname(path)
+        if parent == path:
+            break
+        path = parent
+    return path
+
+
 def splitext(path):
     """
     In LiuXin extensions are without the leading "."

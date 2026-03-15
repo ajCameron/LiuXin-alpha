@@ -156,11 +156,11 @@ def test_e1_filesystem_drift_fixture_expectations() -> None:
     assert isinstance(drift, list)
     codes = {d.get("code") for d in drift if isinstance(d, dict)}
 
-    # This fixture is designed to trigger multiple drift conditions.
-    assert "book_folder_case_mismatch" in codes or "missing_book_folder" in codes
+    # This fixture is designed to trigger multiple filesystem reconciliation conditions.
     assert "missing_format_file" in codes
     assert "missing_cover_file" in codes
     assert "orphan_file" in codes
+    assert "duplicate_format_files" in codes or "format_recovered_by_scan" in codes
 
 
 def test_e1_unicode_chaos_fixture_expectations() -> None:

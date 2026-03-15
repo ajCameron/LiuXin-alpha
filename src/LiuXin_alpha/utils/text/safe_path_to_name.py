@@ -51,7 +51,10 @@ def _sanitize_component(
 
     # Only allow: alnum, underscore, dash, dot (portable across major filesystems).
     # Everything else becomes the replacement.
-    s = re.sub(r"[^A-Za-z0-9_.-]+", replacement, s)
+    if allow_unicode:
+        s = re.sub(r"[^\w.-]+", replacement, s, flags=re.UNICODE)
+    else:
+        s = re.sub(r"[^A-Za-z0-9_.-]+", replacement, s)
 
     # Collapse runs of replacement / underscores / dashes a bit.
     s = re.sub(r"[-_]{2,}", lambda m: m.group(0)[0], s)
@@ -97,35 +100,30 @@ def safe_path_to_name(
     raw = raw.strip()
 
     is_win = _looks_like_windows_path(raw)
-    p = PureWindowsPath(raw) if is_win else PurePosixPath(raw)
-
     tokens: list[str] = []
 
     if is_win:
-        # PureWindowsPath.parts handles UNC anchors like '\\\\server\\share\\'
-        parts = list(p.parts)
-
-        # If absolute, encode the "anchor" (drive or UNC root) as a token.
-        anchor = p.anchor  # e.g. 'C:\\' or '\\\\server\\share\\'
-        if anchor:
-            if re.match(r"^[A-Za-z]:\\?$", anchor):
+        if raw.startswith("\\\\"):
+            unc_bits = [bit for bit in raw.lstrip("\\").split("\\") if bit]
+            if len(unc_bits) >= 2:
+                tokens.append(f"UNC_{unc_bits[0]}_{unc_bits[1]}")
+                tokens.extend(unc_bits[2:])
+            elif unc_bits:
+                tokens.append("UNC")
+                tokens.extend(unc_bits)
+            else:
+                tokens.append("UNC")
+        else:
+            p = PureWindowsPath(raw)
+            parts = list(p.parts)
+            anchor = p.anchor  # e.g. 'C:\\'
+            if anchor and re.match(r"^[A-Za-z]:\\?$", anchor):
                 tokens.append(anchor[0])  # 'C'
-            elif anchor.startswith("\\\\"):
-                # '\\\\server\\share\\' -> 'UNC_server_share'
-                unc = anchor.strip("\\")
-                unc_bits = [b for b in unc.split("\\") if b]
-                if len(unc_bits) >= 2:
-                    tokens.append(f"UNC_{unc_bits[0]}_{unc_bits[1]}")
-                else:
-                    tokens.append("UNC")
-
-        # Skip the anchor part in parts (it may appear as first element for UNC).
-        # Safer approach: remove any leading part that equals the anchor.
-        if parts and anchor and parts[0] == anchor:
-            parts = parts[1:]
-
-        tokens.extend(parts)
+            if parts and anchor and parts[0] == anchor:
+                parts = parts[1:]
+            tokens.extend(parts)
     else:
+        p = PurePosixPath(raw)
         if p.is_absolute():
             tokens.append("root")
         tokens.extend(p.parts[1:] if p.is_absolute() else p.parts)

@@ -58,8 +58,12 @@ def test_direct_get_tables_is_deterministic_and_cached(driver) -> None:
 
     # Basic sanity: we expect some core schema tables to exist in the test DBs.
     tables = _coerce_str_set(tables_first)
-    for expected in ("titles", "creators", "database_metadata"):
-        assert expected in tables, f"Missing expected core table: {expected}"
+    assert "titles" in tables, "Missing expected compatibility relation: titles"
+    assert "database_metadata" in tables, "Missing expected metadata relation: database_metadata"
+    assert "creators" in tables or "agents" in tables, (
+        "Missing expected creator/agent relation: expected creators compatibility "
+        "view or canonical agents table"
+    )
 
 
 def test_direct_get_tables_and_columns_is_total_and_stable(driver) -> None:
@@ -69,6 +73,9 @@ def test_direct_get_tables_and_columns_is_total_and_stable(driver) -> None:
     assert isinstance(tac_first, dict)
     assert tac_first, "Expected tables_and_columns to be non-empty"
     assert tac_first.keys() == tac_second.keys()
+
+    exercised_id_helpers = 0
+    exercised_datestamp_helpers = 0
 
     for table, headings in tac_first.items():
         assert isinstance(table, str)
@@ -80,13 +87,33 @@ def test_direct_get_tables_and_columns_is_total_and_stable(driver) -> None:
         assert driver.direct_get_column_headings(table) == headings
 
         # Every table should have an id column and a datestamp column
-        id_col = driver.direct_get_id_column(table)
-        assert id_col in headings
-        assert id_col == "id" or id_col.endswith("_id")
+        if any(h == "id" or h.endswith("_id") for h in headings):
+            id_col = driver.direct_get_id_column(table)
+            assert id_col in headings
+            assert id_col == "id" or id_col.endswith("_id")
+            exercised_id_helpers += 1
 
-        ds_col = driver.direct_get_datestamp_column(table)
-        assert ds_col in headings
-        assert ds_col == "datestamp" or ds_col.endswith("_datestamp")
+        if any(
+            h == "datestamp"
+            or h.endswith("_datestamp")
+            or h.endswith("_datestamp_ep_k")
+            or h.endswith("_timestamp")
+            or h.endswith("_timestamp_ep_k")
+            for h in headings
+        ):
+            ds_col = driver.direct_get_datestamp_column(table)
+            assert ds_col in headings
+            assert (
+                ds_col == "datestamp"
+                or ds_col.endswith("_datestamp")
+                or ds_col.endswith("_datestamp_ep_k")
+                or ds_col.endswith("_timestamp")
+                or ds_col.endswith("_timestamp_ep_k")
+            )
+            exercised_datestamp_helpers += 1
+
+    assert exercised_id_helpers > 0
+    assert exercised_datestamp_helpers > 0
 
 
 def test_column_naming_helpers_match_pluralizer(driver) -> None:

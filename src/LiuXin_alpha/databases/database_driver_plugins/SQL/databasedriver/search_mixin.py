@@ -2,6 +2,7 @@
 
 import sqlite3
 import random
+import re
 from copy import deepcopy
 
 from LiuXin_alpha.errors import LogicalError, InputIntegrityError, DatabaseIntegrityError, DatabaseDriverError
@@ -17,6 +18,17 @@ class SearchMixin:
     """
     Mixin for the search system.
     """
+
+    @staticmethod
+    def _coerce_search_text(value):
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            try:
+                return bytes(value).decode("utf-8")
+            except UnicodeDecodeError as e:
+                err_str = "search_table was passed bytes that were not valid utf-8.\n"
+                err_str += "value: " + repr(value) + "\n"
+                raise InputIntegrityError(err_str) from e
+        return force_unicode(value)
 
 
     def direct_get_random_row_dict(self, target_table, direct=False):
@@ -325,15 +337,25 @@ class SearchMixin:
         Returns a set of all hashes in the database.
         :return:
         """
-        file_hashes = self.direct_get_all_values(table="files", column="file_hash")
-        cf_hashes_1 = self.direct_get_all_values(table="compressed_files", column="compressed_file_hash_1")
-        cf_hashes_2 = self.direct_get_all_values(table="compressed_files", column="compressed_file_hash_2")
-        nb_hashes_1 = self.direct_get_all_values(table="new_books", column="new_book_hash_1")
-        nb_hashes_2 = self.direct_get_all_values(table="new_books", column="new_book_hash_2")
-        other_hashes = self.direct_get_all_values(table="hashes", column="hash")
-        return (
-            file_hashes.union(cf_hashes_1).union(cf_hashes_2).union(nb_hashes_1).union(nb_hashes_2).union(other_hashes)
-        )
+        candidate_columns_by_table = {
+            "files": ("file_hash", "file_hash_sha256", "file_hash_blake3"),
+            "compressed_files": ("compressed_file_hash_1", "compressed_file_hash_2"),
+            "new_books": ("new_book_hash_1", "new_book_hash_2"),
+            "hashes": ("hash",),
+        }
+
+        discovered_hashes = set()
+        for table, candidate_columns in candidate_columns_by_table.items():
+            try:
+                headings = set(self.direct_get_column_headings(table))
+            except Exception:
+                continue
+
+            for column in candidate_columns:
+                if column in headings:
+                    discovered_hashes.update(self.direct_get_all_values(table=table, column=column))
+
+        return {hash_value for hash_value in discovered_hashes if hash_value is not None}
 
     # Todo - Merge with direct_get_unique_values - after an upgrade to allow specify a table
     def direct_get_all_values(self, table, column):
@@ -395,7 +417,7 @@ class SearchMixin:
             try:
                 table = force_unicode(table)
                 column = force_unicode(column)
-                search_term = force_unicode(search_term)
+                search_term = self._coerce_search_text(search_term)
             except UnicodeDecodeError:
                 err_str = "search_table was passed something it couldn't coerce to unicode?\n"
                 err_str += "table: " + repr(table) + "\n"
@@ -407,7 +429,7 @@ class SearchMixin:
         elif (table is None) and (column is not None) and (search_term is not None):
             try:
                 column = force_unicode(column)
-                search_term = force_unicode(search_term)
+                search_term = self._coerce_search_text(search_term)
             except UnicodeDecodeError:
                 err_str = "search_table was passed something it couldn't coerce to unicode?\n"
                 err_str += "table: " + repr(table) + "\n"
@@ -427,10 +449,21 @@ class SearchMixin:
         conn = self.get_connection()
         c = conn.cursor()
 
-        stmt = "SELECT * FROM {} WHERE {} = ?;".format(table, column)
-
         results = []
+        if not self.validate_existing_table_name(table):
+            err_str = "table name passed into direct_search_table failed validation.\n"
+            err_str = default_log.log_variables(err_str, "ERROR", ("table", table))
+            conn.close()
+            raise InputIntegrityError(err_str)
+
         headings = self.direct_get_column_headings(table)
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", column or "") or column not in headings:
+            err_str = "requested column is not in the requested table.\n"
+            err_str = default_log.log_variables(err_str, "ERROR", ("table", table), ("column", column))
+            conn.close()
+            raise InputIntegrityError(err_str)
+
+        stmt = "SELECT * FROM {} WHERE {} = ?;".format(table, column)
         try:
 
             for row in c.execute(stmt, (search_term,)):

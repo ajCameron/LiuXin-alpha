@@ -149,7 +149,6 @@ def snapshot_calibre_library(library_root: Path) -> Dict[str, Any]:
     books: List[Dict[str, Any]] = []
     for b in reader.iter_book_payloads(
         include_formats=True,
-        include_files=False,
         include_cover_path=True,
         filesystem_reconcile=True,
         include_orphan_formats=False,
@@ -312,12 +311,23 @@ def _normalize_context_dict(ctx: Any) -> None:
         return
 
     for k, v in list(ctx.items()):
-        if not isinstance(v, str):
+        if isinstance(v, str):
+            s = v.replace("\\", "/")
+            idx = s.lower().find("calibre_library/")
+            if idx != -1:
+                ctx[k] = s[idx:]
             continue
-        s = v.replace("\\", "/")
-        idx = s.lower().find("calibre_library/")
-        if idx != -1:
-            ctx[k] = s[idx:]
+
+        if isinstance(v, list):
+            normalized = []
+            for item in v:
+                if isinstance(item, str):
+                    s = item.replace("\\", "/")
+                    idx = s.lower().find("calibre_library/")
+                    normalized.append(s[idx:] if idx != -1 else s)
+                else:
+                    normalized.append(item)
+            ctx[k] = normalized
         else:
             ctx[k] = s
 

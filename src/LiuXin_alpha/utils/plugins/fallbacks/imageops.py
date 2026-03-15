@@ -25,6 +25,7 @@ Notes:
 
 from __future__ import annotations
 
+import io
 import os
 import shutil
 import subprocess
@@ -185,6 +186,111 @@ def _cli_convert(inp: _Coerced, args: Sequence[str]) -> Any:
     if cp.returncode != 0:
         msg = (cp.stderr or b"").decode("utf-8", "ignore").strip()
         raise RuntimeError(msg or f"convert failed with code {cp.returncode}")
+    return _restore_out(bytes(cp.stdout or b""), inp)
+
+
+def _ppm_resize(data: bytes, width: int, height: int) -> bytes:
+    if not data.startswith(b"P6"):
+        raise ValueError("Unsupported PPM payload")
+
+    idx = 0
+    tokens: list[bytes] = []
+    data_len = len(data)
+
+    while len(tokens) < 4 and idx < data_len:
+        while idx < data_len and chr(data[idx]).isspace():
+            idx += 1
+        if idx < data_len and data[idx : idx + 1] == b"#":
+            while idx < data_len and data[idx : idx + 1] != b"\n":
+                idx += 1
+            continue
+        start = idx
+        while idx < data_len and not chr(data[idx]).isspace():
+            idx += 1
+        if start < idx:
+            tokens.append(data[start:idx])
+
+    if len(tokens) < 4 or tokens[0] != b"P6":
+        raise ValueError("Invalid PPM header")
+
+    src_w = int(tokens[1])
+    src_h = int(tokens[2])
+    maxval = int(tokens[3])
+    if maxval != 255:
+        raise ValueError("Unsupported PPM max value")
+
+    while idx < data_len and chr(data[idx]).isspace():
+        idx += 1
+
+    pixels = data[idx:]
+    expected = src_w * src_h * 3
+    if len(pixels) < expected:
+        raise ValueError("Truncated PPM payload")
+    pixels = pixels[:expected]
+
+    out = bytearray()
+    for y in range(height):
+        src_y = min(src_h - 1, int(y * src_h / max(height, 1)))
+        for x in range(width):
+            src_x = min(src_w - 1, int(x * src_w / max(width, 1)))
+            offset = (src_y * src_w + src_x) * 3
+            out.extend(pixels[offset : offset + 3])
+
+    header = f"P6\n{width} {height}\n255\n".encode("ascii")
+    return header + bytes(out)
+
+
+def resize(image: Any, width: int, height: int, fmt: str = "png") -> Any:
+    inp = _coerce_in(image)
+    width = int(width)
+    height = int(height)
+    out_fmt = str(fmt or "png").lower()
+
+    try:
+        from PIL import Image  # type: ignore[import-not-found]
+    except Exception:
+        Image = None
+
+    if Image is not None:
+        try:
+            with Image.open(io.BytesIO(inp.data)) as img:
+                resized = img.resize((width, height))
+                out = io.BytesIO()
+                pil_fmt = {
+                    "jpg": "JPEG",
+                    "jpeg": "JPEG",
+                    "png": "PNG",
+                    "ppm": "PPM",
+                    "gif": "GIF",
+                    "bmp": "BMP",
+                    "webp": "WEBP",
+                }.get(out_fmt, out_fmt.upper())
+                resized.save(out, format=pil_fmt)
+                return _restore_out(out.getvalue(), inp)
+        except Exception:
+            pass
+
+    if out_fmt == "ppm":
+        try:
+            return _restore_out(_ppm_resize(inp.data, width, height), inp)
+        except Exception:
+            pass
+
+    exe = _magick_convert()
+    if not exe:
+        raise RuntimeError("ImageMagick resize backend unavailable and no pure-Python fallback succeeded.")
+
+    base = os.path.basename(exe).lower()
+    out_target = f"{out_fmt}:-"
+    args = ["-resize", f"{width}x{height}!"]
+    if base == "magick":
+        cmd = [exe, "convert", "-", *args, out_target]
+    else:
+        cmd = [exe, "-", *args, out_target]
+    cp = subprocess.run(cmd, input=inp.data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if cp.returncode != 0:
+        msg = (cp.stderr or b"").decode("utf-8", "ignore").strip()
+        raise RuntimeError(msg or f"ImageMagick resize failed with code {cp.returncode}")
     return _restore_out(bytes(cp.stdout or b""), inp)
 
 

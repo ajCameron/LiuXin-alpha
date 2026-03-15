@@ -205,7 +205,7 @@ else:
     file_type_plugins += [HTMLMetadataReader]
 
 try:
-    from LiuXin_alpha.metadata.file_sources.txtz import get_metadata as txtz_get_metadata
+    from LiuXin_alpha.metadata.file_sources.extz import get_metadata as extz_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize EXTZMetadataReader - necessary functions couldn't be imported from "
@@ -664,7 +664,7 @@ else:
         author = "John Schember"
 
         def get_metadata(self, stream, ftype):
-            return txtz_get_metadata(stream)
+            return extz_get_metadata(stream)
 
     file_type_plugins += [TXTZMetadataReader]
 

@@ -1,14 +1,36 @@
 # tests/utils/test_resources.py
 from __future__ import annotations
 
+import importlib
+import os
+import sys
 from pathlib import Path
 
+import pytest
 
-def test_get_path_resolves_calibre_mime_types() -> None:
+
+@pytest.fixture()
+def resource_modules(monkeypatch: pytest.MonkeyPatch):
+    for key in ("LIUXIN_BASE_DIR", "LIUXIN_PREFS_DIR", "LIUXIN_CONFIG_DIR"):
+        monkeypatch.delenv(key, raising=False)
+
+    for name in (
+        "LiuXin_alpha.constants.paths",
+        "LiuXin_alpha.utils.resources",
+    ):
+        sys.modules.pop(name, None)
+
+    import LiuXin_alpha.constants.paths as paths
+    import LiuXin_alpha.utils.resources as resources
+
+    paths = importlib.reload(paths)
+    resources = importlib.reload(resources)
+    return paths, resources
+
+
+def test_get_path_resolves_calibre_mime_types(resource_modules) -> None:
     """P/get_path should resolve known calibre resources (e.g. mime.types)."""
-
-    from LiuXin_alpha.constants import paths
-    from LiuXin_alpha.utils import resources
+    paths, resources = resource_modules
 
     expected = Path(paths.LiuXin_calibre_resources_folder) / "mime.types"
     assert expected.is_file(), f"Expected calibre mime.types at {expected}"
@@ -25,9 +47,8 @@ def test_get_path_resolves_calibre_mime_types() -> None:
     assert Path(resources.P("mime.types")).samefile(expected)
 
 
-def test_get_image_path_resolves_under_images() -> None:
-    from LiuXin_alpha.constants import paths
-    from LiuXin_alpha.utils import resources
+def test_get_image_path_resolves_under_images(resource_modules) -> None:
+    paths, resources = resource_modules
 
     expected_images_dir = Path(paths.LiuXin_calibre_resources_folder) / "images"
     assert expected_images_dir.is_dir(), f"Expected images dir at {expected_images_dir}"

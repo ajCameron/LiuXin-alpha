@@ -44,10 +44,11 @@ class PathResolver:
         """
         Startup the resolver.
         """
-        from LiuXin_alpha.constants.paths import LiuXin_calibre_resources_folder
+        from LiuXin_alpha.constants.paths import LiuXin_calibre_resources_folder, LiuXin_data_folder
 
         config_dir = LiuXin_calibre_resources_folder
-        self.locations = [config_dir, ]
+        legacy_data_resources = os.path.join(LiuXin_data_folder, "calibre_resources")
+        self.locations = []
         self.cache = {}
 
         def suitable(path):
@@ -57,7 +58,16 @@ class PathResolver:
                 pass
             return False
 
-        self.default_path = config_dir
+        for candidate in (config_dir, legacy_data_resources):
+            if candidate in self.locations:
+                continue
+            if suitable(candidate):
+                self.locations.append(candidate)
+
+        if not self.locations:
+            self.locations.append(config_dir)
+
+        self.default_path = self.locations[0]
 
         dev_path = os.environ.get("CALIBRE_DEVELOP_FROM", None)
         self.using_develop_from = False
@@ -69,7 +79,7 @@ class PathResolver:
                 self.default_path = dev_path
                 self.using_develop_from = True
 
-        user_path = os.path.join(config_dir, "resources")
+        user_path = os.path.join(self.default_path, "resources")
         self.user_path = None
         if suitable(user_path):
             self.locations.insert(0, user_path)

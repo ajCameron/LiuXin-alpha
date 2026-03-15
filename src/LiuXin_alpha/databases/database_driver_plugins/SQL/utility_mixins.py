@@ -343,6 +343,11 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         else:
             requested_cols_norm = {str(x).strip().lower() for x in requested_cols}
 
+        def requested_col_enabled(name: str) -> bool:
+            return requested_cols_norm == "all" or (
+                isinstance(requested_cols_norm, set) and name in requested_cols_norm
+            )
+
         decrement_requested_cols = deepcopy(requested_cols_norm)
 
         if decrement_requested_cols == "all":
@@ -467,12 +472,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             # enforce uniqueness on just the pair (A,B). For role-style mappings, use
             # many_many_non_exclusive which uses (A,B,type) to allow multiple roles.
             has_type_col = (
-                requested_cols == "all"
-                or (
-                    requested_cols is not None
-                    and requested_cols != "all"
-                    and "type" in requested_cols
-                )
+                requested_cols_norm == "all"
+                or (isinstance(requested_cols_norm, set) and "type" in requested_cols_norm)
             )
 
             if link_type == "many_many":
@@ -487,7 +488,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 many_many_restrictions_list.append(many_many_restriction)
 
                 # If we have a priority column then ensure ordering on the secondary.
-                if requested_cols == "all" or "priority" in requested_cols:
+                if requested_col_enabled("priority"):
                     m_t_m_ordering = (
                         "\n    CONSTRAINT `{0}_well_ordered_on_secondary_{1}`\n"
                         "UNIQUE ({2}_{3}_id, {2}_priority)".format(
@@ -528,7 +529,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                     )
                 many_many_ne_restrictions_list.append(many_many_ne_restriction)
 
-                if requested_cols == "all" or "priority" in requested_cols:
+                if requested_col_enabled("priority"):
 
                     if has_type_col:
                         m_t_m_ordering = (
@@ -565,7 +566,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 )
                 one_many_restrictions_list.append(one_many_restriction)
 
-                if requested_cols == "all" or "priority" in requested_cols:
+                if requested_col_enabled("priority"):
 
                     o_t_m_ordering = (
                         "\n CONSTRAINT `{1}_well_ordered_on_{0}`\n"
@@ -587,7 +588,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 )
                 many_one_restrictions_list.append(many_one_restriction)
 
-                if requested_cols == "all" or "priority" in requested_cols:
+                if requested_col_enabled("priority"):
                     m_t_o_ordering = (
                         "\n CONSTRAINT `{0}_well_ordered_on_{1}`\n"
                         "   UNIQUE ({2}_{1}_id, {2}_priority)".format(table1_l_s, table2_l_s, column_name)
@@ -634,7 +635,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 raise NotImplementedError("link_type not recognized")
 
             # In the case where there are types specified, we must construct and populate a link type table for it
-            if (requested_cols == "all" or "type" in requested_cols) and allowed_types is not None:
+            if requested_col_enabled("type") and allowed_types is not None:
 
                 # Add in the foreign key linking out to the allowed_types table
                 att_name = self.get_allowed_types_table_name(table_name)

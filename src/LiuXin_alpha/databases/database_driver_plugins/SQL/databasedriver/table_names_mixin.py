@@ -141,7 +141,12 @@ class TableNamesMixin:
 
         candidate_ids = []
         for heading in headings:
-            if heading.endswith("_datestamp"):
+            if (
+                heading.endswith("_datestamp")
+                or heading.endswith("_datestamp_ep_k")
+                or heading.endswith("_timestamp")
+                or heading.endswith("_timestamp_ep_k")
+            ):
                 candidate_ids.append(heading)
         if len(candidate_ids) > 1:
             candidate_ids = sorted(candidate_ids, key=len)
@@ -271,8 +276,8 @@ class TableNamesMixin:
 
         return plural_singular_mapper(table_name)
 
-    # We assume that the row has an element ending with "_parent". This (it is hoped) is a pointer backwards up the tree
-    # to the row above it.
+    # Tree-like tables may use either a legacy ``*_parent`` column or a foreign-key-shaped
+    # ``*_parent_id`` column to point at the row above them.
     def get_parent_column_name(self, table_name):
         """
         Takes a table name. Works out if the table has an element ending in "_parent" and returns the parent column name
@@ -295,11 +300,16 @@ class TableNamesMixin:
 
         candidate_index = []
         for name in column_names:
-            if name.lower().endswith("_parent"):
+            lowered = name.lower()
+            if lowered.endswith("_parent") or lowered.endswith("_parent_id"):
                 candidate_index.append(name)
 
         if len(candidate_index) > 1:
-            err_str = "Multiple candidates found to be the _parent row.\n"
+            preferred_candidates = [name for name in candidate_index if name.lower().endswith("_parent_id")]
+            if len(preferred_candidates) == 1:
+                return preferred_candidates[0]
+
+            err_str = "Multiple candidates found to be the parent row pointer.\n"
             err_str += "All candidates: " + repr(candidate_index) + "\n"
             raise DatabaseIntegrityError(err_str)
         elif len(candidate_index) == 1:

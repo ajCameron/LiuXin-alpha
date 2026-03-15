@@ -25,6 +25,7 @@ class WorkContainer(WorkContainerAPI):
     def __init__(
         self,
         *,
+        word_id: Optional[int] = None,
         work_id: Optional[int] = None,
         work_type: Optional[str] = None,
         work_medium: Optional[str] = None,
@@ -41,6 +42,8 @@ class WorkContainer(WorkContainerAPI):
         work_modified_timestamp_ep_k: Optional[int] = None,
         work_scratch: Optional[str] = None,
     ) -> None:
+        if work_id is None and word_id is not None:
+            work_id = word_id
         self._work_id: Optional[int] = work_id
 
         self._work_type: Optional[str] = work_type
@@ -113,6 +116,9 @@ class WorkContainer(WorkContainerAPI):
             "work_modified_timestamp_ep_k": self.work_modified_timestamp_ep_k,
             "work_scratch": self.work_scratch,
         }
+
+    def to_mapping(self) -> dict[str, Any]:
+        return self.to_dict()
 
     # -------------------------
     # Core fields
@@ -296,6 +302,5 @@ class WorksContainer:
 
     def to_dicts(self) -> list[dict[str, Any]]:
         return [w.to_dict() for w in self._works]
-
 
 

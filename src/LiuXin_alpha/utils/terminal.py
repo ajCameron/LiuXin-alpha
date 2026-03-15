@@ -244,21 +244,19 @@ class ColoredStream(Detect):
 
 class ANSIStream(Detect):
 
-    ANSI_RE = re.compile(rb"\033\[((?:\d|;)*)([a-zA-Z])")
+    ANSI_RE = re.compile(r"\033\[((?:\d|;)*)([a-zA-Z])")
+    ANSI_RE_BYTES = re.compile(rb"\033\[((?:\d|;)*)([a-zA-Z])")
 
     def __init__(self, stream=None):
         super(ANSIStream, self).__init__(stream)
         self.encoding = getattr(self.stream, "encoding", "utf-8") or "utf-8"
 
     def write(self, text):
-        if isinstance(text, type("")):
-            text = text.encode(self.encoding, "replace")
-
         if not self.isatty:
             return self.strip_and_write(text)
 
         if self.isansi:
-            return self.stream.write(text)
+            return self._write_stream(text)
 
         if not self.isansi and self.set_console is None:
             return self.strip_and_write(text)
@@ -266,7 +264,17 @@ class ANSIStream(Detect):
         self.write_and_convert(text)
 
     def strip_and_write(self, text):
-        self.stream.write(self.ANSI_RE.sub(b"", text))
+        ansi_re = self.ANSI_RE_BYTES if isinstance(text, (bytes, bytearray)) else self.ANSI_RE
+        empty = b"" if isinstance(text, (bytes, bytearray)) else ""
+        return self._write_stream(ansi_re.sub(empty, text))
+
+    def _write_stream(self, text):
+        try:
+            return self.stream.write(text)
+        except TypeError:
+            if isinstance(text, (bytes, bytearray)):
+                return self.stream.write(bytes(text).decode(self.encoding, "replace"))
+            return self.stream.write(str(text).encode(self.encoding, "replace"))
 
     def write_and_convert(self, text):
         """
@@ -277,7 +285,8 @@ class ANSIStream(Detect):
         """
         self.last_state = (None, None, False)
         cursor = 0
-        for match in self.ANSI_RE.finditer(text):
+        ansi_re = self.ANSI_RE_BYTES if isinstance(text, (bytes, bytearray)) else self.ANSI_RE
+        for match in ansi_re.finditer(text):
             start, end = match.span()
             self.write_plain_text(text, cursor, start)
             self.convert_ansi(*match.groups())
@@ -295,7 +304,7 @@ class ANSIStream(Detect):
                     pass
                 else:
                     return self.write_unicode_text(utext)
-            self.stream.write(text)
+            self._write_stream(text)
 
     def convert_ansi(self, paramstring, command):
         params = self.extract_params(paramstring)
@@ -303,14 +312,15 @@ class ANSIStream(Detect):
 
     def extract_params(self, paramstring):
         def split(paramstring):
-            for p in paramstring.split(b";"):
+            separator = b";" if isinstance(paramstring, (bytes, bytearray)) else ";"
+            for p in paramstring.split(separator):
                 if p:
                     yield int(p)
 
         return tuple(split(paramstring))
 
     def call_win32(self, command, params):
-        if command != b"m":
+        if command not in (b"m", "m"):
             return
         fg, bg, bold = self.last_state
 

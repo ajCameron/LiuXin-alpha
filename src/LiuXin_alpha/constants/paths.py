@@ -118,8 +118,22 @@ LiuXin_debug_folder = str(Path(LiuXin_base_folder) / "LiuXin_debug")
 # Resources folder
 LiuXin_resources_folder = str(Path(LiuXin_base_folder) / "LiuXin_resources")
 
-# Path to the calibre resources folder (both names retained for compatibility)
-LiuXin_calibre_resources_folder = str(Path(LiuXin_resources_folder) / "calibre_resources")
+# Path to the calibre resources folder (both names retained for compatibility).
+# Prefer an existing resources tree so test isolation can point at either the
+# modern LiuXin_resources layout or the older LiuXin_data/calibre_resources
+# layout without leaking stale paths between reloads.
+_CALIBRE_RESOURCES_CANDIDATES = (
+    Path(LiuXin_resources_folder) / "calibre_resources",
+    Path(LiuXin_base_folder) / "LiuXin_data" / "calibre_resources",
+)
+for _candidate in _CALIBRE_RESOURCES_CANDIDATES:
+    if _candidate.exists():
+        _calibre_resources_path = _candidate
+        break
+else:
+    _calibre_resources_path = _CALIBRE_RESOURCES_CANDIDATES[0]
+
+LiuXin_calibre_resources_folder = str(_calibre_resources_path)
 LiuXin_calibre_resources = LiuXin_calibre_resources_folder
 
 # Data folders

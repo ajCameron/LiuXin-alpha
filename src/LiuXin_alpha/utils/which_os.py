@@ -22,11 +22,9 @@ isfrozen = hasattr(sys, "frozen")
 isunix = isosx or islinux
 isportable = os.environ.get("CALIBRE_PORTABLE_BUILD", None) is not None
 ispy3 = sys.version_info.major > 2
-isxp = iswindows and sys.getwindowsversion().major < 6
-
-# Deals with the fact that sys.getwindowsversion is not defined on all systems
 try:
-    pass
+    _windows_version = sys.getwindowsversion() if iswindows else None
 except AttributeError:
-    isxp = False
+    _windows_version = None
+isxp = iswindows and _windows_version is not None and _windows_version.major < 6
 is64bit = sys.maxsize > (1 << 32)

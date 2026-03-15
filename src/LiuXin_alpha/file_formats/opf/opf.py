@@ -102,10 +102,20 @@ def _sanitize_metadata_for_xml(mi):
     handing off to OPF2/OPF3 writers, so callers get robust behavior instead
     of hard lxml failures.
     """
-    try:
-        safe_mi = deepcopy(mi)
-    except Exception:
-        safe_mi = mi
+    safe_mi = None
+    for clone_method in ("deepcopy_metadata", "deepcopy"):
+        fn = getattr(mi, clone_method, None)
+        if callable(fn):
+            try:
+                safe_mi = fn()
+                break
+            except Exception:
+                safe_mi = None
+    if safe_mi is None:
+        try:
+            safe_mi = deepcopy(mi)
+        except Exception:
+            safe_mi = mi
 
     for attr in (
         "title",

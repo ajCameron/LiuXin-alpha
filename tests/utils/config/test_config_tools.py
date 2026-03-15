@@ -93,7 +93,17 @@ def _import_config_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture()
 def ct(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    return _import_config_tools(tmp_path, monkeypatch)
+    mod = _import_config_tools(tmp_path, monkeypatch)
+    try:
+        yield mod
+    finally:
+        _clear_modules(
+            "LiuXin_alpha.constants.paths",
+            "LiuXin_alpha.utils.resources",
+            "LiuXin_alpha.utils.config",
+            "LiuXin_alpha.utils.config.config_base",
+            "LiuXin_alpha.utils.config.config_tools",
+        )
 
 
 def test_to_json_datetime_roundtrip(ct) -> None:

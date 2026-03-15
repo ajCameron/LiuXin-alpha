@@ -20,10 +20,12 @@ from pathlib import Path
 import pytest
 
 
-def _sqlite_tables(db_path: Path) -> set[str]:
+def _sqlite_relations(db_path: Path) -> set[str]:
     conn = sqlite3.connect(str(db_path))
     try:
-        rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type IN ('table', 'view')"
+        ).fetchall()
         return {r[0] for r in rows}
     finally:
         conn.close()
@@ -58,7 +60,7 @@ def test_direct_create_new_database_produces_schema(driver_spec, tmp_path):
     try:
         tables = set(drv.direct_get_tables(force_refresh=True))
         assert "titles" in tables
-        assert "creators" in tables
+        assert "creators" in tables or "agents" in tables
         assert "database_metadata" in tables
         # Ensure the file is a valid SQLite database
         _assert_sqlite_integrity(db_path)
@@ -114,7 +116,10 @@ def test_direct_backup_creates_copy(driver_spec, provisioned_contract_db, tmp_pa
     _assert_sqlite_integrity(backup_path)
 
     # Basic schema presence check
-    assert "titles" in _sqlite_tables(backup_path)
+    relations = _sqlite_relations(backup_path)
+    assert "titles" in relations
+    assert "database_metadata" in relations
+    assert "creators" in relations or "agents" in relations
 
 
 def test_direct_self_delete_removes_db_file(driver_spec, tmp_path):

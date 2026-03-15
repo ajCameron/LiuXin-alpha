@@ -38,6 +38,8 @@ def py_set_converter(py_set_string):
     from LiuXin_alpha.errors import DatabaseDriverError
 
     py_set_string = deepcopy(py_set_string)
+    if isbytestring(py_set_string):
+        py_set_string = bytes(py_set_string).decode("utf-8", errors="replace")
     # Accounting for the way SQL escapes quotes
     py_set_string = py_set_string.replace("''", "'")
 
@@ -107,7 +109,7 @@ def py_list_converter(py_list_string):
     :param py_list_string:
     :return py_list:
     """
-    return json.dumps(py_list_string)
+    return json.loads(py_list_string)
 
 
 def py_list_adapter(py_list):
@@ -116,7 +118,7 @@ def py_list_adapter(py_list):
     :param py_list:
     :return:
     """
-    return json.loads(py_list)
+    return json.dumps(py_list)
 
 
 def py_dict_converter(py_dict_string: str) -> dict[str, str]:

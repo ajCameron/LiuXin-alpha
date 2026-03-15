@@ -87,7 +87,16 @@ def _import_config_base(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture()
 def cb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    return _import_config_base(tmp_path, monkeypatch)
+    mod = _import_config_base(tmp_path, monkeypatch)
+    try:
+        yield mod
+    finally:
+        _clear_modules(
+            "LiuXin_alpha.constants.paths",
+            "LiuXin_alpha.utils.resources",
+            "LiuXin_alpha.utils.config",
+            "LiuXin_alpha.utils.config.config_base",
+        )
 
 
 def test_optionset_has_get_update_and_smart_update(cb) -> None:

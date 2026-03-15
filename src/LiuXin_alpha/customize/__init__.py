@@ -529,6 +529,17 @@ class MetadataReaderPlugin(Plugin, _MetadataReaderPlugin):  # {{{
     A plugin that implements reading metadata from a set of file types.
     """
 
+    def __init__(self, plugin_path: Union[str, pathlib.Path, None], *args: Any, **kwargs: Any) -> None:
+        """
+        Initialize shared plugin state and metadata-reader flags.
+
+        `_MetadataReaderPlugin.__init__()` is defined as a cooperative mixin, but
+        `Plugin` comes first in this class' MRO, so the mixin constructor will not
+        run unless we wire the reader-specific state explicitly here.
+        """
+        super().__init__(plugin_path, *args, **kwargs)
+        self.quick = False
+
 
 class MetadataWriterPlugin(Plugin):
     """
@@ -554,7 +565,7 @@ class MetadataWriterPlugin(Plugin):
         :param args:
         :param kwargs:
         """
-        super().__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.apply_null = False
 

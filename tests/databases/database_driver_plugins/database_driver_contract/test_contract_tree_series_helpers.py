@@ -7,7 +7,8 @@ This module exercises the driver's generic "tree" helper behaviour:
 * ``direct_set_tree_ids(table)``
 
 Despite the method name referencing "series", the implementation is table-
-agnostic and works for any table that has exactly one ``*_parent`` column.
+agnostic and works for any table that has exactly one ``*_parent`` or
+``*_parent_id`` column.
 
 We test against two real schema tables:
 
@@ -44,16 +45,18 @@ def _fetch_row(driver, table: str, row_id: int) -> dict:
 def _make_subjects_chain(
     driver, *, root_value: str, child_value: str, grand_value: str
 ) -> Tuple[int, int, int]:
-    root_id = _insert_and_get_id(driver, "subjects", {"subject": root_value, "subject_parent": None})
-    child_id = _insert_and_get_id(driver, "subjects", {"subject": child_value, "subject_parent": root_id})
-    grand_id = _insert_and_get_id(driver, "subjects", {"subject": grand_value, "subject_parent": child_id})
+    parent_col = driver.get_parent_column_name("subjects")
+    root_id = _insert_and_get_id(driver, "subjects", {"subject": root_value, parent_col: None})
+    child_id = _insert_and_get_id(driver, "subjects", {"subject": child_value, parent_col: root_id})
+    grand_id = _insert_and_get_id(driver, "subjects", {"subject": grand_value, parent_col: child_id})
     return root_id, child_id, grand_id
 
 
 def _make_series_chain(driver, *, root_value, child_value, grand_value) -> Tuple[int, int, int]:
-    root_id = _insert_and_get_id(driver, "series", {"series": root_value, "series_parent": None})
-    child_id = _insert_and_get_id(driver, "series", {"series": child_value, "series_parent": root_id})
-    grand_id = _insert_and_get_id(driver, "series", {"series": grand_value, "series_parent": child_id})
+    parent_col = driver.get_parent_column_name("series")
+    root_id = _insert_and_get_id(driver, "series", {"series": root_value, parent_col: None})
+    child_id = _insert_and_get_id(driver, "series", {"series": child_value, parent_col: root_id})
+    grand_id = _insert_and_get_id(driver, "series", {"series": grand_value, parent_col: child_id})
     return root_id, child_id, grand_id
 
 

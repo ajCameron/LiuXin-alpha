@@ -14,7 +14,7 @@ from datetime import datetime
 from html.parser import HTMLParser
 from typing import Any
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.chardet import detect, xml_to_unicode
 from LiuXin_alpha.metadata.metadata import MetaData as Metadata
 from LiuXin_alpha.metadata.utils import check_isbn, string_to_authors
 from LiuXin_alpha.utils.calibre import isbytestring, replace_entities
@@ -90,6 +90,18 @@ def _coerce_text(raw: Any, encoding: str | None = None) -> str:
         data = bytes(raw)
         if encoding:
             return data.decode(encoding, "replace")
+        try:
+            info = detect(data) or {}
+        except Exception:
+            info = {}
+        guessed_encoding = str(info.get("encoding") or "").lower()
+        confidence = float(info.get("confidence") or 0.0)
+        has_c1_bytes = any(0x80 <= byte <= 0x9F for byte in data)
+        if has_c1_bytes and confidence < 0.2 and (not guessed_encoding or guessed_encoding.startswith("iso-8859")):
+            try:
+                return data.decode("cp1252", "replace")
+            except Exception:
+                pass
         return xml_to_unicode(data)[0]
     return str(raw)
 

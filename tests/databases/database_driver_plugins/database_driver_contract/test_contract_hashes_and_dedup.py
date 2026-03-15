@@ -27,6 +27,17 @@ from typing import Any, Dict, Iterable, List, Sequence, Tuple
 import pytest
 
 
+def _available_hash_columns(driver, table: str) -> list[str]:
+    headings = set(driver.direct_get_column_headings(table))
+    candidates_by_table = {
+        "files": ["file_hash", "file_hash_sha256", "file_hash_blake3"],
+        "compressed_files": ["compressed_file_hash_1", "compressed_file_hash_2"],
+        "new_books": ["new_book_hash_1", "new_book_hash_2"],
+        "hashes": ["hash"],
+    }
+    return [column for column in candidates_by_table[table] if column in headings]
+
+
 def _fetchall(cursor) -> list:
     try:
         return cursor.fetchall()
@@ -122,6 +133,9 @@ def test_direct_get_all_hashes_union_and_dedup(driver, pick_payload, assert_inte
     _disable_foreign_keys(driver)
     _clear_hash_tables(driver)
 
+    file_hash_columns = _available_hash_columns(driver, "files")
+    assert file_hash_columns, "Expected at least one file hash column"
+
     # Build deterministic test hashes. We intentionally include duplicates
     # across tables to ensure deduping is handled by the set semantics.
     h_shared_1 = pick_payload(100)
@@ -131,9 +145,11 @@ def test_direct_get_all_hashes_union_and_dedup(driver, pick_payload, assert_inte
     h_nb_only = pick_payload(104)
     h_other_only = pick_payload(105)
 
-    # files.file_hash
-    _insert_minimal_row(driver, "files", {"file_hash": h_shared_1})
-    _insert_minimal_row(driver, "files", {"file_hash": h_file_only})
+    # files.*hash*
+    primary_file_hash_column = file_hash_columns[0]
+    secondary_file_hash_column = file_hash_columns[1] if len(file_hash_columns) > 1 else primary_file_hash_column
+    _insert_minimal_row(driver, "files", {primary_file_hash_column: h_shared_1})
+    _insert_minimal_row(driver, "files", {secondary_file_hash_column: h_file_only})
 
     # compressed_files.compressed_file_hash_1 / _2
     _insert_minimal_row(
@@ -185,10 +201,14 @@ def test_direct_get_all_hashes_is_stable_and_updates(driver, pick_payload):
     _disable_foreign_keys(driver)
     _clear_hash_tables(driver)
 
+    file_hash_columns = _available_hash_columns(driver, "files")
+    assert file_hash_columns, "Expected at least one file hash column"
+    primary_file_hash_column = file_hash_columns[0]
+
     # Seed once.
     h1 = pick_payload(200)
     h2 = pick_payload(201)
-    _insert_minimal_row(driver, "files", {"file_hash": h1})
+    _insert_minimal_row(driver, "files", {primary_file_hash_column: h1})
     _insert_minimal_row(driver, "hashes", {"hash": h2})
 
     got1 = driver.direct_get_all_hashes()

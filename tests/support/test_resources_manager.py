@@ -46,6 +46,14 @@ class ProvisionedTestDatabase:
     db_path: Path
 
 
+@dataclass(frozen=True)
+class ProvisionedTestAssets:
+    """A concrete set of copied test assets provisioned for a single test."""
+
+    root: Path
+    paths: tuple[Path, ...]
+
+
 Builder = Callable[[Path], None]
 
 
@@ -136,6 +144,24 @@ class TestResourcesManager:
             raise FileNotFoundError(f"Provisioned bundle missing db file: {db_path}")
 
         return ProvisionedTestDatabase(name=name, root=provision_root, db_path=db_path)
+
+    def provision_test_books(self, *, dst_dir: Path, names: Optional[Sequence[str]] = None) -> ProvisionedTestAssets:
+        """Provision test ebook files into *dst_dir*."""
+
+        source_dir = _resolve_test_asset_source(
+            env_key="LIUXIN_TEST_BOOKS_DIR",
+            fallback_dirnames=("test_books", "md_test_books", "md_test_files"),
+        )
+        return _provision_test_assets(source_dir=source_dir, dst_dir=Path(dst_dir) / "test_books", names=names)
+
+    def provision_test_covers(self, *, dst_dir: Path, names: Optional[Sequence[str]] = None) -> ProvisionedTestAssets:
+        """Provision test cover image files into *dst_dir*."""
+
+        source_dir = _resolve_test_asset_source(
+            env_key="LIUXIN_TEST_COVERS_DIR",
+            fallback_dirnames=("test_covers", "covers"),
+        )
+        return _provision_test_assets(source_dir=source_dir, dst_dir=Path(dst_dir) / "test_covers", names=names)
 
     # ------------------------------------------------------------------
     # Internals
@@ -962,6 +988,62 @@ def _env_module_prefixes() -> list[str]:
         if p not in out:
             out.append(p)
     return out
+
+
+def _resolve_test_asset_source(*, env_key: str, fallback_dirnames: Sequence[str]) -> Path:
+    raw = os.environ.get(env_key)
+    if raw:
+        candidate = Path(raw).expanduser()
+        if candidate.is_dir():
+            return candidate
+        raise FileNotFoundError(f"{env_key} points to a missing directory: {candidate}")
+
+    data_dir = _default_liuxin_data_dir()
+    if data_dir is not None:
+        for dirname in fallback_dirnames:
+            candidate = data_dir / dirname
+            if candidate.is_dir():
+                return candidate
+
+    raise FileNotFoundError(
+        f"Unable to locate test assets for {env_key}. "
+        f"Set {env_key} or provide one of {list(fallback_dirnames)} under LIUXIN_DATA_DIR."
+    )
+
+
+def _provision_test_assets(
+    *,
+    source_dir: Path,
+    dst_dir: Path,
+    names: Optional[Sequence[str]] = None,
+) -> ProvisionedTestAssets:
+    dst_dir = Path(dst_dir)
+    if dst_dir.exists():
+        shutil.rmtree(dst_dir)
+    dst_dir.mkdir(parents=True, exist_ok=True)
+
+    selected: list[Path]
+    if names is None:
+        selected = sorted(path for path in source_dir.iterdir() if path.is_file())
+    else:
+        selected = []
+        missing: list[str] = []
+        for name in names:
+            candidate = source_dir / name
+            if candidate.is_file():
+                selected.append(candidate)
+            else:
+                missing.append(str(name))
+        if missing:
+            raise FileNotFoundError(f"Missing requested test assets in {source_dir}: {missing}")
+
+    copied: list[Path] = []
+    for src in selected:
+        dst = dst_dir / src.name
+        shutil.copy2(src, dst)
+        copied.append(dst)
+
+    return ProvisionedTestAssets(root=dst_dir, paths=tuple(copied))
 
 
 def _find_prebuilt_db(root: Path, name: str) -> Optional[Path]:
