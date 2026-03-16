@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from LiuXin_alpha.interfaces.terminal.windowed_ui import _CursesUiDriver, WindowedUiConfig
 
@@ -87,6 +88,26 @@ class _FakeBrowser:
                 candidates=("add", "add-store", "add_store"),
             )
         return _FakeCompletion(token_start=len(prefix), token_end=len(prefix), prefix="", candidates=())
+
+
+class _FakeLogJobManager:
+    def __init__(self, log_path: Path) -> None:
+        self._log_path = str(log_path)
+
+    def list(self):
+        return [{"job_id": "job-123", "state": "running", "log_path": self._log_path}]
+
+    def get(self, job_id: str):
+        return {"job_id": str(job_id), "state": "running", "log_path": self._log_path}
+
+
+class _FakeLocalJobBrowser(_FakeBrowser):
+    def __init__(self, log_path: Path) -> None:
+        super().__init__()
+        self.job_manager = _FakeLogJobManager(log_path)
+
+    def supports_core_queries(self) -> bool:
+        return False
 
 
 @dataclass(frozen=True)
@@ -259,3 +280,66 @@ def test_windowed_ui_status_lines_surface_active_telemetry_panel() -> None:
     lines = ui._build_status_lines()
 
     assert any("telemetry_panel=files,folders" in line for line in lines)
+
+
+def test_windowed_ui_visible_job_output_lines_follow_latest_by_default(tmp_path) -> None:
+    log_path = tmp_path / "job.log"
+    log_path.write_text("one\ntwo\nthree\nfour\n", encoding="utf-8")
+    ui = _CursesUiDriver(None, config=WindowedUiConfig(), history_file=None)
+    ui.bind_browser(_FakeLocalJobBrowser(log_path))
+    ui.set_job_output_job("job-123")
+
+    visible = ui._visible_job_output_lines(width=200, visible_rows=3)
+
+    assert visible == ["two", "three", "four"]
+
+
+def test_windowed_ui_job_output_scrollback_clamps_and_selects_older_lines(tmp_path) -> None:
+    log_path = tmp_path / "job.log"
+    log_path.write_text("one\ntwo\nthree\nfour\n", encoding="utf-8")
+    ui = _CursesUiDriver(None, config=WindowedUiConfig(), history_file=None)
+    ui.bind_browser(_FakeLocalJobBrowser(log_path))
+    ui.set_job_output_job("job-123")
+
+    changed = ui._scroll_job_output_relative(2, width=200, visible_rows=3)
+    visible = ui._visible_job_output_lines(width=200, visible_rows=3)
+
+    assert changed is True
+    assert ui._job_output_scroll_offset == 2
+    assert visible == ["Log tail", "one", "two"]
+
+    ui._scroll_job_output_relative(999, width=200, visible_rows=3)
+    assert ui._job_output_scroll_offset == max(0, len(ui._wrapped_job_output_lines(width=200)) - 3)
+
+
+def test_windowed_ui_job_scrollback_preserves_view_when_new_output_arrives(tmp_path) -> None:
+    log_path = tmp_path / "job.log"
+    log_path.write_text("one\ntwo\nthree\nfour\n", encoding="utf-8")
+    ui = _CursesUiDriver(None, config=WindowedUiConfig(), history_file=None)
+    ui.bind_browser(_FakeLocalJobBrowser(log_path))
+    ui.set_job_output_job("job-123")
+
+    ui._scroll_job_output_relative(2, width=200, visible_rows=3)
+    before = ui._visible_job_output_lines(width=200, visible_rows=3)
+    log_path.write_text("one\ntwo\nthree\nfour\nfive\n", encoding="utf-8")
+    after = ui._visible_job_output_lines(width=200, visible_rows=3)
+
+    assert before == ["Log tail", "one", "two"]
+    assert after == ["Log tail", "one", "two"]
+    assert ui._job_output_scroll_offset == 3
+
+
+def test_windowed_ui_status_lines_surface_job_focus_and_scrollback(tmp_path) -> None:
+    log_path = tmp_path / "job.log"
+    log_path.write_text("one\ntwo\nthree\nfour\n", encoding="utf-8")
+    ui = _CursesUiDriver(None, config=WindowedUiConfig(), history_file=None)
+    ui.bind_browser(_FakeLocalJobBrowser(log_path))
+    ui.set_job_output_job("job-123")
+
+    changed = ui._cycle_scroll_focus()
+    ui._scroll_job_output_relative(2, width=200, visible_rows=3)
+    lines = ui._build_status_lines()
+
+    assert changed is True
+    assert any("focus=job | F6 switch pane" in line for line in lines)
+    assert any("job_scrollback=+2 | PgUp/PgDn Home/End" in line for line in lines)

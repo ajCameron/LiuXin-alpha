@@ -281,7 +281,7 @@ class CalibrePathTable(CalibreOneToOneTable, BasePathTable):
         for book_row in db.get_all_rows("books"):
 
             # Acquire all the folders associated with each of the books
-            book_folder_rows = db.get_interlinked_rows(target_row=book_row, secondary_table="folders")
+            book_folder_rows = db.get_interlinked_rows(primary_row=book_row, secondary_table="folders")
 
             # Try to make location objects for each of the rows - if that fails then continue with the rows
             book_folder_locs = []

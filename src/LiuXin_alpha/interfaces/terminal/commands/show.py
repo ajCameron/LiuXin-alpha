@@ -122,7 +122,7 @@ def _get_linked_rows(browser, *, target_table: str, target_row, linked_table: st
     link_table = browser.db.driver_wrapper.get_link_table_name(linked_table, target_table)
     if not link_table:
         raise ValueError("No link table exists between {} and {}.".format(linked_table, target_table))
-    return browser.db.get_interlinked_rows(target_row=target_row, secondary_table=linked_table)
+    return browser.db.get_interlinked_rows(primary_row=target_row, secondary_table=linked_table)
 
 
 def _render_default_rows(browser, *, target_table: str, target_id: int, linked_table: str, rows):

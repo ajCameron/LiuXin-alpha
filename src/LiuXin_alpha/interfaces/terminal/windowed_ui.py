@@ -14,9 +14,9 @@ import time
 
 from collections import Counter, deque
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
+from LiuXin_alpha.interfaces.terminal.job_view import fetch_terminal_job_view, read_terminal_job_log_view
 from LiuXin_alpha.interfaces.terminal.text_browser import TextDatabaseBrowser
 
 
@@ -59,6 +59,10 @@ class _CursesUiDriver:
         self._jobs_status_error: Optional[str] = None
         self._job_output_error: Optional[str] = None
         self._console_scroll_offset = 0
+        self._job_output_scroll_offset = 0
+        self._job_output_last_wrap_width: Optional[int] = None
+        self._job_output_last_wrapped_count = 0
+        self._scroll_focus = "console"
         self._completion_hint: Optional[str] = None
         self._completion_matches: tuple[str, ...] = ()
         self._completion_base_input: Optional[str] = None
@@ -87,6 +91,12 @@ class _CursesUiDriver:
         normalized = str(job_id).strip() if job_id is not None else ""
         self._job_output_job_id = normalized or None
         changed = previous != self._job_output_job_id
+        if changed:
+            self._job_output_scroll_offset = 0
+            self._job_output_last_wrap_width = None
+            self._job_output_last_wrapped_count = 0
+        if self._job_output_job_id is None and self._scroll_focus == "job":
+            self._scroll_focus = "console"
         self._rebuild_windows()
         self._render(force_status=True)
         return changed
@@ -215,12 +225,26 @@ class _CursesUiDriver:
             return max(1, cols - 1)
         return max(1, self.terminal_width - 1)
 
+    def _job_output_content_width(self) -> int:
+        win = self._job_output_win
+        if win is not None:
+            _, cols = win.getmaxyx()
+            return max(1, cols - 1)
+        return max(1, self.terminal_width - 1)
+
     def _console_visible_log_rows(self) -> int:
         win = self._console_win
         if win is not None:
             rows, _ = win.getmaxyx()
             return max(1, rows - 1)
         return 10
+
+    def _job_output_visible_rows(self) -> int:
+        win = self._job_output_win
+        if win is not None:
+            rows, _ = win.getmaxyx()
+            return max(1, rows)
+        return max(1, int(self.config.job_panel_height))
 
     def _wrapped_console_lines(self, *, width: Optional[int] = None) -> list[str]:
         return self._wrap_lines_for_width(
@@ -276,6 +300,159 @@ class _CursesUiDriver:
         if changed:
             self._render(force_status=False)
         return changed
+
+    def _build_job_output_content_lines(self) -> list[str]:
+        job_id = str(self._job_output_job_id or "").strip()
+        if not job_id:
+            return []
+        if self.browser is None:
+            return self._render_compact_sections(
+                [("Job", [("job_id", job_id), ("status", "browser unavailable")])],
+                title="Job output",
+            )
+
+        try:
+            info = self._get_job(job_id)
+        except Exception as exc:
+            return self._render_compact_sections(
+                [
+                    ("Job", [("job_id", job_id), ("status", "unavailable")]),
+                    ("Error", [("", str(exc))]),
+                ],
+                title="Job output",
+            )
+
+        state = str(info.state or "")
+        log_view = read_terminal_job_log_view(info)
+        log_path = str(log_view.log_path or "")
+
+        lines: list[str] = self._render_compact_sections(
+            [
+                (
+                    "Job",
+                    [
+                        ("job_id", job_id),
+                        ("state", state),
+                        ("log_path", log_path or "<none>"),
+                    ],
+                )
+            ],
+            title="Job output",
+        )
+        if not log_view.lines:
+            lines.extend(self._render_compact_sections([("Output", [("", log_view.message)])]))
+            return lines
+
+        lines.append("Log tail")
+        lines.extend(log_view.lines)
+        return lines
+
+    def _build_job_output_lines(self, *, max_lines: int) -> list[str]:
+        if max_lines <= 0:
+            return []
+        lines = self._build_job_output_content_lines()
+        return lines[-max_lines:]
+
+    def _wrapped_job_output_lines(self, *, width: Optional[int] = None) -> list[str]:
+        return self._wrap_lines_for_width(
+            self._build_job_output_content_lines(),
+            width=max(1, self._job_output_content_width() if width is None else int(width)),
+        )
+
+    def _sync_job_output_scroll_state(self, *, wrapped_count: int, width: int, visible_rows: int) -> None:
+        if (
+            self._job_output_scroll_offset > 0
+            and self._job_output_last_wrap_width == width
+            and wrapped_count > self._job_output_last_wrapped_count
+        ):
+            self._job_output_scroll_offset += wrapped_count - self._job_output_last_wrapped_count
+        self._job_output_last_wrap_width = int(width)
+        self._job_output_last_wrapped_count = int(wrapped_count)
+        self._job_output_scroll_offset = self._clamp_scroll_offset(wrapped_count, visible_rows, self._job_output_scroll_offset)
+
+    def _visible_job_output_lines(
+        self,
+        *,
+        width: Optional[int] = None,
+        visible_rows: Optional[int] = None,
+    ) -> list[str]:
+        width_value = max(1, self._job_output_content_width() if width is None else int(width))
+        wrapped = self._wrapped_job_output_lines(width=width_value)
+        rows = self._job_output_visible_rows() if visible_rows is None else max(0, int(visible_rows))
+        self._sync_job_output_scroll_state(wrapped_count=len(wrapped), width=width_value, visible_rows=rows)
+        if rows <= 0:
+            return []
+        end = len(wrapped) - self._job_output_scroll_offset
+        start = max(0, end - rows)
+        return wrapped[start:end]
+
+    def _scroll_job_output_relative(
+        self,
+        delta: int,
+        *,
+        width: Optional[int] = None,
+        visible_rows: Optional[int] = None,
+    ) -> bool:
+        width_value = max(1, self._job_output_content_width() if width is None else int(width))
+        wrapped = self._wrapped_job_output_lines(width=width_value)
+        rows = self._job_output_visible_rows() if visible_rows is None else max(0, int(visible_rows))
+        self._sync_job_output_scroll_state(wrapped_count=len(wrapped), width=width_value, visible_rows=rows)
+        previous = self._job_output_scroll_offset
+        self._job_output_scroll_offset = self._clamp_scroll_offset(len(wrapped), rows, previous + int(delta))
+        changed = self._job_output_scroll_offset != previous
+        if changed:
+            self._render(force_status=False)
+        return changed
+
+    def _scroll_job_output_to_top(self, *, width: Optional[int] = None, visible_rows: Optional[int] = None) -> bool:
+        width_value = max(1, self._job_output_content_width() if width is None else int(width))
+        wrapped = self._wrapped_job_output_lines(width=width_value)
+        rows = self._job_output_visible_rows() if visible_rows is None else max(0, int(visible_rows))
+        self._sync_job_output_scroll_state(wrapped_count=len(wrapped), width=width_value, visible_rows=rows)
+        previous = self._job_output_scroll_offset
+        self._job_output_scroll_offset = self._clamp_scroll_offset(len(wrapped), rows, len(wrapped))
+        changed = self._job_output_scroll_offset != previous
+        if changed:
+            self._render(force_status=False)
+        return changed
+
+    def _scroll_job_output_to_bottom(self) -> bool:
+        previous = self._job_output_scroll_offset
+        self._job_output_scroll_offset = 0
+        changed = self._job_output_scroll_offset != previous
+        if changed:
+            self._render(force_status=False)
+        return changed
+
+    def _active_scroll_target(self) -> str:
+        if self._scroll_focus == "job" and self._job_output_job_id:
+            return "job"
+        return "console"
+
+    def _cycle_scroll_focus(self) -> bool:
+        targets = ["console"]
+        if self._job_output_job_id:
+            targets.append("job")
+        if len(targets) < 2:
+            return False
+        current = self._active_scroll_target()
+        next_index = (targets.index(current) + 1) % len(targets)
+        next_target = targets[next_index]
+        changed = next_target != self._scroll_focus
+        self._scroll_focus = next_target
+        if changed:
+            self._render(force_status=False)
+        return changed
+
+    @staticmethod
+    def _focus_toggle_key():
+        key_fn = getattr(curses, "KEY_F", None)
+        if callable(key_fn):
+            try:
+                return key_fn(6)
+            except Exception:
+                return getattr(curses, "KEY_F6", None)
+        return getattr(curses, "KEY_F6", None)
 
     @staticmethod
     def _shared_prefix(values: tuple[str, ...]) -> str:
@@ -425,20 +602,36 @@ class _CursesUiDriver:
                 self._complete_current_input(direction=-1)
                 continue
 
+            if ch == self._focus_toggle_key():
+                self._cycle_scroll_focus()
+                continue
+
             if ch == curses.KEY_PPAGE:
-                self._scroll_console_relative(self._console_visible_log_rows())
+                if self._active_scroll_target() == "job":
+                    self._scroll_job_output_relative(self._job_output_visible_rows())
+                else:
+                    self._scroll_console_relative(self._console_visible_log_rows())
                 continue
 
             if ch == curses.KEY_NPAGE:
-                self._scroll_console_relative(-self._console_visible_log_rows())
+                if self._active_scroll_target() == "job":
+                    self._scroll_job_output_relative(-self._job_output_visible_rows())
+                else:
+                    self._scroll_console_relative(-self._console_visible_log_rows())
                 continue
 
             if ch == curses.KEY_HOME:
-                self._scroll_console_to_top()
+                if self._active_scroll_target() == "job":
+                    self._scroll_job_output_to_top()
+                else:
+                    self._scroll_console_to_top()
                 continue
 
             if ch == curses.KEY_END:
-                self._scroll_console_to_bottom()
+                if self._active_scroll_target() == "job":
+                    self._scroll_job_output_to_bottom()
+                else:
+                    self._scroll_console_to_bottom()
                 continue
 
             if ch in (curses.KEY_BACKSPACE, "\b", "\x7f"):
@@ -598,12 +791,6 @@ class _CursesUiDriver:
             self._job_output_win = None
         self._console_win = curses.newwin(console_h, cols, y, 0)
 
-    @staticmethod
-    def _job_field(info: object, key: str, default=None):
-        if isinstance(info, dict):
-            return info.get(key, default)
-        return getattr(info, key, default)
-
     def _list_jobs(self) -> list[object]:
         self._jobs_status_error = None
         if self.browser is None:
@@ -644,22 +831,19 @@ class _CursesUiDriver:
             return "?"
         return "{:+d}".format(int(current) - int(previous))
 
-    def _get_job(self, job_id: str) -> object:
+    def _get_job(self, job_id: str):
         self._job_output_error = None
         if self.browser is None:
             raise RuntimeError("browser unavailable")
-        if hasattr(self.browser, "supports_core_queries") and bool(self.browser.supports_core_queries()):
-            try:
-                result = self.browser.execute_core_query("jobs.get", payload={"job_id": str(job_id)})
-                return (result or {}).get("job", {})
-            except Exception as exc:
-                message = self._format_error("core jobs.get failed", exc)
-                self._job_output_error = message
-                raise RuntimeError(message) from exc
         try:
-            return self.browser.job_manager.get(job_id)
+            return fetch_terminal_job_view(self.browser, job_id=str(job_id), do_wait=False, wait_timeout=None)
         except Exception as exc:
-            message = self._format_error("local job unavailable", exc)
+            label = (
+                "core jobs.get failed"
+                if hasattr(self.browser, "supports_core_queries") and bool(self.browser.supports_core_queries())
+                else "local job unavailable"
+            )
+            message = self._format_error(label, exc)
             self._job_output_error = message
             raise RuntimeError(message) from exc
 
@@ -718,7 +902,7 @@ class _CursesUiDriver:
             sections.append(("Rows", [("", " | ".join(table_counts))]))
 
         jobs = self._list_jobs()
-        counter = Counter(str(self._job_field(one, "state", "") or "") for one in jobs)
+        counter = Counter(str((one.get("state", "") if isinstance(one, dict) else getattr(one, "state", "")) or "") for one in jobs)
         job_rows: list[tuple[str, object]] = [("total", len(jobs))]
         if jobs:
             for key in sorted(counter.keys()):
@@ -734,86 +918,17 @@ class _CursesUiDriver:
         if panel_rows:
             sections.append(("Panels", panel_rows))
         ui_rows: list[tuple[str, object]] = []
+        if self._job_output_job_id:
+            ui_rows.append(("focus", "{} | F6 switch pane".format(self._active_scroll_target())))
         if self._console_scroll_offset > 0:
             ui_rows.append(("console_scrollback", "+{} | PgUp/PgDn Home/End".format(self._console_scroll_offset)))
+        if self._job_output_job_id and self._job_output_scroll_offset > 0:
+            ui_rows.append(("job_scrollback", "+{} | PgUp/PgDn Home/End".format(self._job_output_scroll_offset)))
         if self._completion_hint:
             ui_rows.append(("", self._completion_hint))
         if ui_rows:
             sections.append(("UI", ui_rows))
         return self._render_compact_sections(sections, title=title)
-
-    def _build_job_output_lines(self, *, max_lines: int) -> list[str]:
-        if max_lines <= 0:
-            return []
-        job_id = str(self._job_output_job_id or "").strip()
-        if not job_id:
-            return []
-        if self.browser is None:
-            return self._render_compact_sections(
-                [("Job", [("job_id", job_id), ("status", "browser unavailable")])],
-                title="Job output",
-            )[:max_lines]
-
-        try:
-            info = self._get_job(job_id)
-        except Exception as exc:
-            return self._render_compact_sections(
-                [
-                    ("Job", [("job_id", job_id), ("status", "unavailable")]),
-                    ("Error", [("", str(exc))]),
-                ],
-                title="Job output",
-            )[:max_lines]
-
-        state = str(self._job_field(info, "state", "") or "")
-        log_path = str(self._job_field(info, "log_path", "") or "")
-        execution = self._job_field(info, "execution", None)
-        if not log_path and execution is not None:
-            if isinstance(execution, dict):
-                log_path = str(execution.get("log_path", "") or "")
-            else:
-                log_path = str(getattr(execution, "log_path", "") or "")
-
-        lines: list[str] = self._render_compact_sections(
-            [
-                (
-                    "Job",
-                    [
-                        ("job_id", job_id),
-                        ("state", state),
-                        ("log_path", log_path or "<none>"),
-                    ],
-                )
-            ],
-            title="Job output",
-        )
-        if not log_path:
-            lines.extend(self._render_compact_sections([("Output", [("", "No log path is available for this job.")])]))
-            return lines[:max_lines]
-
-        path = Path(log_path)
-        if not path.exists():
-            lines.extend(self._render_compact_sections([("Output", [("", "Log file not found yet: {}".format(log_path))])]))
-            return lines[:max_lines]
-
-        try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-        except Exception as exc:
-            lines.extend(
-                self._render_compact_sections([("Output", [("", "Failed reading log {}: {}".format(log_path, exc))])])
-            )
-            return lines[:max_lines]
-
-        payload_lines = text.splitlines()
-        if not payload_lines:
-            lines.extend(self._render_compact_sections([("Output", [("", "(no log output yet)")])]))
-            return lines[:max_lines]
-
-        keep = max(1, max_lines - len(lines))
-        tail = payload_lines[-keep:]
-        lines.append("Log tail")
-        lines.extend(tail)
-        return lines[-max_lines:]
 
     def _build_telemetry_lines(self, *, max_lines: int) -> list[str]:
         if max_lines <= 0:
@@ -1013,12 +1128,8 @@ class _CursesUiDriver:
             return
         win.erase()
         rows, cols = win.getmaxyx()
-        lines = self._wrap_lines_for_width(
-            self._build_job_output_lines(max_lines=max(1, rows)),
-            width=max(1, cols - 1),
-        )
-        tail = lines[-rows:]
-        for idx, text in enumerate(tail):
+        lines = self._visible_job_output_lines(width=max(1, cols - 1), visible_rows=max(1, rows))
+        for idx, text in enumerate(lines):
             try:
                 win.addstr(idx, 0, text)
             except Exception:

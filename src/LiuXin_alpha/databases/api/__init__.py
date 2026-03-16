@@ -5,7 +5,8 @@ Import API contracts from this package root to avoid deep import paths.
 
 from __future__ import annotations
 
-from .base import DatabaseBuilderAPI, RowAPI
+from .row import RowAPI
+from .database_generator import DatabaseGeneratorAPI
 from .database import DatabaseAPI
 from .database_mixins import (
     DatabaseDirtiedRecordsMixinAPI,
@@ -25,7 +26,7 @@ from .maintenance import DatabaseCacheAPI, DatabaseMaintainerAPI, MaintenanceBot
 
 __all__ = [
     "DatabaseAPI",
-    "DatabaseBuilderAPI",
+    "DatabaseGeneratorAPI",
     "DatabaseCacheAPI",
     "DatabaseDirtiedRecordsMixinAPI",
     "DatabaseDriverAPI",

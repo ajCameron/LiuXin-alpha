@@ -346,7 +346,7 @@ class BookAndTitleAdderMixin:
 
         expression_row = None
         if work_id is not None:
-            linked_expressions = self.db.get_interlinked_rows(target_row=work_row, secondary_table="expressions")
+            linked_expressions = self.db.get_interlinked_rows(primary_row=work_row, secondary_table="expressions")
             if linked_expressions:
                 expression_row = linked_expressions[0]
 
@@ -381,7 +381,7 @@ class BookAndTitleAdderMixin:
 
         manifestation_row = None
         if work_id is not None:
-            linked_manifestations = self.db.get_interlinked_rows(target_row=expression_row, secondary_table="manifestations")
+            linked_manifestations = self.db.get_interlinked_rows(primary_row=expression_row, secondary_table="manifestations")
             if linked_manifestations:
                 manifestation_row = linked_manifestations[0]
 

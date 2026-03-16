@@ -10,10 +10,10 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr 
 
 def test_frbr_builder_is_concrete() -> None:
     """SQLiteDatabaseBuilder must be instantiable (not abstract)."""
-    assert not inspect.isabstract(frbr_gen.SQLiteDatabaseBuilder)
+    assert not inspect.isabstract(frbr_gen.SQLiteDatabaseGenerator)
 
     conn = sqlite3.connect(":memory:")
     try:
-        frbr_gen.SQLiteDatabaseBuilder(conn=conn)
+        frbr_gen.SQLiteDatabaseGenerator(conn=conn)
     finally:
         conn.close()

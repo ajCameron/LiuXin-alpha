@@ -615,7 +615,7 @@ def test_get_interlinked_rows_returns_secondary_rows_in_priority_order_when_pres
     _interlink(open_db, sh, primary=p, secondary=s_mid, priority=5, link_type=link_type)
     _interlink(open_db, sh, primary=p, secondary=s_hi, priority=9, link_type=link_type)
 
-    linked = open_db.get_interlinked_rows(target_row=p, secondary_table=sh.secondary_table)
+    linked = open_db.get_interlinked_rows(primary_row=p, secondary_table=sh.secondary_table)
     assert isinstance(linked, list)
     assert len(linked) == 3
     assert all(isinstance(r, Row) for r in linked)

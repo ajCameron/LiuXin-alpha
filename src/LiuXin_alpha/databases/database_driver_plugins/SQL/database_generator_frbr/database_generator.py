@@ -50,7 +50,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQ
 
 from LiuXin_alpha.constants.paths import LiuXin_database_folder as __database_folder__
 
-from LiuXin_alpha.databases.api import DatabaseBuilderAPI
+from LiuXin_alpha.databases.api import DatabaseGeneratorAPI
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 
@@ -194,7 +194,7 @@ def create_new_database(connection: sqlite3.Connection) -> None:
     """
     conn = connection
 
-    builder = SQLiteDatabaseBuilder(conn=conn)
+    builder = SQLiteDatabaseGenerator(conn=conn)
     builder.run()
 
 
@@ -260,7 +260,7 @@ def get_trigger_sql_files() -> list[pathlib.Path]:
 
 
 
-class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
+class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
     """
     Method to support the construction of a database.
     """
@@ -1278,7 +1278,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
     def get_interlink_constraint(self, link_pair: list[str]) -> dict[str, str]:
         """
-        Takes a pair of tables and returns a link table for it - if it exists.
+        Takes a pair of tables and returns it's link table constraints - if it exists.
 
         :param link_pair:
         :return:

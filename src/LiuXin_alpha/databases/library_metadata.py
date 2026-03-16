@@ -196,7 +196,7 @@ class MetadataFromBookRow(object):
         Note the id of the cover on the database if requested.
         :return:
         """
-        title_cover_rows = self.db.get_interlinked_rows(target_row=self.book_row, secondary_table="covers")
+        title_cover_rows = self.db.get_interlinked_rows(primary_row=self.book_row, secondary_table="covers")
         for cover_row in title_cover_rows:
 
             # Acquire path and add it to the md object
@@ -212,7 +212,7 @@ class MetadataFromBookRow(object):
         Note the id of the file on the database (if requested).
         :return:
         """
-        title_file_rows = self.db.get_interlinked_rows(target_row=self.book_row, secondary_table="files")
+        title_file_rows = self.db.get_interlinked_rows(primary_row=self.book_row, secondary_table="files")
         for file_row in title_file_rows:
 
             # Acquire the path to the asset and add it to the md object
@@ -227,7 +227,7 @@ class MetadataFromBookRow(object):
         Record the genres associated with the given title.
         :return:
         """
-        genre_rows = self.db.get_interlinked_rows(target_row=self.title_row, secondary_table="genres")
+        genre_rows = self.db.get_interlinked_rows(primary_row=self.title_row, secondary_table="genres")
         genre_rows.reverse()
 
         new_genres = OrderedDict()
@@ -282,7 +282,7 @@ class MetadataFromBookRow(object):
         book_title_row = self.title_row
 
         # Load the actual notes
-        note_rows = self.db.get_interlinked_rows(target_row=book_title_row, secondary_table="notes", type_filter="note")
+        note_rows = self.db.get_interlinked_rows(primary_row=book_title_row, secondary_table="notes", type_filter="note")
         notes = OrderedDict()
         for note_row in note_rows:
             notes[note_row["note"]] = note_row
@@ -294,7 +294,7 @@ class MetadataFromBookRow(object):
         :return:
         """
         comment_rows = self.db.get_interlinked_rows(
-            target_row=self.title_row, secondary_table="notes", type_filter="comment"
+            primary_row=self.title_row, secondary_table="notes", type_filter="comment"
         )
         comments = OrderedDict()
         for comment_row in comment_rows:
@@ -307,7 +307,7 @@ class MetadataFromBookRow(object):
         :return:
         """
         synopsis_rows = self.db.get_interlinked_rows(
-            target_row=self.title_row, secondary_table="notes", type_filter="synopses"
+            primary_row=self.title_row, secondary_table="notes", type_filter="synopses"
         )
         synopses = OrderedDict()
         for synopsis_row in synopsis_rows:
@@ -319,7 +319,7 @@ class MetadataFromBookRow(object):
         Add publishers to the return md object.
         :return:
         """
-        title_publisher_rows = self.db.get_interlinked_rows(target_row=self.title_row, secondary_table="publishers")
+        title_publisher_rows = self.db.get_interlinked_rows(primary_row=self.title_row, secondary_table="publishers")
         publishers = OrderedDict()
         for publisher_row in title_publisher_rows:
             publishers[publisher_row["publisher"]] = publisher_row
@@ -337,7 +337,7 @@ class MetadataFromBookRow(object):
         # the metadata object
         md_series = METADATA_NULL_VALUES["series"]
         md_series_index = METADATA_NULL_VALUES["series_index"]
-        title_series_rows = self.db.get_interlinked_rows(target_row=self.title_row, secondary_table="series")
+        title_series_rows = self.db.get_interlinked_rows(primary_row=self.title_row, secondary_table="series")
         for series_row in title_series_rows:
             # Add the series
             series_name = series_row["series"]
@@ -359,15 +359,15 @@ class MetadataFromBookRow(object):
         """
         # Transfer all the tags - for the moment ignoring if they're title, series, or creator tags
         md_tags = OrderedDict()
-        title_tag_rows = self.db.get_interlinked_rows(target_row=self.title_row, secondary_table="tags")
+        title_tag_rows = self.db.get_interlinked_rows(primary_row=self.title_row, secondary_table="tags")
         for tag_row in title_tag_rows:
             md_tags[tag_row["tag"]] = tag_row
 
         # Copy over all the creators tags
         creator_tag_rows = []
-        title_creator_rows = self.db.get_interlinked_rows(target_row=self.title_row, secondary_table="creators")
+        title_creator_rows = self.db.get_interlinked_rows(primary_row=self.title_row, secondary_table="creators")
         for creator_row in title_creator_rows:
-            creator_row_tags = self.db.get_interlinked_rows(target_row=creator_row, secondary_table="tags")
+            creator_row_tags = self.db.get_interlinked_rows(primary_row=creator_row, secondary_table="tags")
             creator_tag_rows += creator_row_tags
         for creator_tag_row in creator_tag_rows:
             md_tags[creator_tag_row["tag"]] = creator_tag_row
@@ -375,7 +375,7 @@ class MetadataFromBookRow(object):
         # Copy over the series tags
         series_tag_rows = []
         for series_row in title_series_rows:
-            series_tags = self.db.get_interlinked_rows(target_row=series_row, secondary_table="tags")
+            series_tags = self.db.get_interlinked_rows(primary_row=series_row, secondary_table="tags")
             series_tag_rows += series_tags
         for series_tag_row in series_tag_rows:
             md_tags[series_tag_row["tag"]] = series_tag_row
@@ -408,7 +408,7 @@ class MetadataFromBookRow(object):
         :return:
         """
         lang_rows = self.db.get_interlinked_rows(
-            target_row=self.title_row,
+            primary_row=self.title_row,
             secondary_table="languages",
             type_filter="primary",
         )
@@ -422,7 +422,7 @@ class MetadataFromBookRow(object):
         :return:
         """
         lang_rows = self.db.get_interlinked_rows(
-            target_row=self.title_row,
+            primary_row=self.title_row,
             secondary_table="languages",
             type_filter="contained_in",
         )
@@ -439,7 +439,7 @@ class MetadataFromBookRow(object):
         :return:
         """
         lang_rows = self.db.get_interlinked_rows(
-            target_row=self.title_row,
+            primary_row=self.title_row,
             secondary_table="languages",
             type_filter="available_language",
         )
@@ -474,7 +474,7 @@ class MetadataFromBookRow(object):
         Read values from the subjects table and add them to the metadata object.
         :return:
         """
-        title_series_rows = self.db.get_interlinked_rows(target_row=self.title_row, secondary_table="subjects")
+        title_series_rows = self.db.get_interlinked_rows(primary_row=self.title_row, secondary_table="subjects")
         title_series_rows.reverse()
 
         subject_dict = OrderedDict()

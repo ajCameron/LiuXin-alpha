@@ -6,6 +6,21 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [torrent-discovery-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/torrent-discovery-2026-03-15.md)
+  Standalone `.torrent` inventory now exists, producing torrent metadata, ebook-shaped file lists, stem-based logical-book groups, and alternate directory-based groups, with a later TODO for a torrent-backed store and on-demand client-driven downloads.
+
+- [fadedpage-wget-discovery-script-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/fadedpage-wget-discovery-script-2026-03-15.md)
+  Added a standalone stdlib-plus-`wget` Faded Page discovery script that streams resumable state into SQLite, refreshes a JSON export of ebook-shaped objects, emits explicit likely-book group records, and now includes rejection-reason counts in JSON.
+
+- [web-readonly-interface-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/web-readonly-interface-2026-03-15.md)
+  Added a new top-level `interfaces/web_readonly` package: stdlib WSGI browse/search/detail pages plus conservative file download handling for public-facing read-only use.
+
+- [interface-job-view-seam-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/interface-job-view-seam-2026-03-15.md)
+  Added a shared terminal job snapshot/log seam plus `jobs tail`, so the interface now has one job-output model for both textual commands and the windowed job pane.
+
+- [windowed-job-pane-scrollback-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/windowed-job-pane-scrollback-2026-03-15.md)
+  Windowed terminal job output pane now has scrollback/focus parity with the console pane, including `F6` focus switching and status-board hints.
+
 - [core-api-surface-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/core-api-surface-2026-03-15.md)
   First explicit core API slice: descriptor models, `api.describe`, HTTP/proxy introspection, and a note that the next step is replacing generic `invoke` with named RPCs.
 

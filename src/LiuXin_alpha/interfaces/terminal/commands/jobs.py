@@ -6,6 +6,12 @@ from datetime import datetime
 from typing import Optional
 
 from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.interfaces.terminal.job_view import (
+    fetch_terminal_job_view,
+    read_terminal_job_log_view,
+    resolve_terminal_job_log_path,
+    terminal_job_view_from_object,
+)
 
 
 def _safe_int(value: str) -> Optional[int]:
@@ -67,59 +73,6 @@ def _format_duration(value: float | None) -> str:
         return ""
 
 
-def _preview(value: object, *, max_len: int = 200) -> str:
-    text = repr(value)
-    if len(text) <= max_len:
-        return text
-    return text[: max(0, max_len - 3)] + "..."
-
-
-def _get_job_field(info: object, key: str, default=None):
-    if isinstance(info, dict):
-        return info.get(key, default)
-    return getattr(info, key, default)
-
-
-def _as_job_execution_dict(execution: object | None) -> dict[str, object] | None:
-    if execution is None:
-        return None
-    if isinstance(execution, dict):
-        payload = dict(execution)
-        if "result_preview" not in payload and "result" in payload:
-            payload["result_preview"] = _preview(payload.get("result"))
-        return payload
-    result = getattr(execution, "result", None)
-    return {
-        "ok": bool(getattr(execution, "ok", False)),
-        "timed_out": bool(getattr(execution, "timed_out", False)),
-        "aborted": bool(getattr(execution, "aborted", False)),
-        "traceback": str(getattr(execution, "traceback", "") or ""),
-        "log_path": str(getattr(execution, "log_path", "") or ""),
-        "result_preview": _preview(result),
-    }
-
-
-def _as_job_dict(info: object) -> dict[str, object]:
-    if isinstance(info, dict):
-        payload = dict(info)
-        payload["execution"] = _as_job_execution_dict(payload.get("execution"))
-        return payload
-    return {
-        "job_id": str(getattr(info, "job_id", "") or ""),
-        "label": str(getattr(info, "label", "") or ""),
-        "state": str(getattr(info, "state", "") or ""),
-        "backend_name": str(getattr(info, "backend_name", "") or ""),
-        "submitted_at": getattr(info, "submitted_at", None),
-        "started_at": getattr(info, "started_at", None),
-        "finished_at": getattr(info, "finished_at", None),
-        "duration_s": getattr(info, "duration_s", None),
-        "timeout_s": getattr(info, "timeout_s", None),
-        "no_output": bool(getattr(info, "no_output", False)),
-        "log_path": str(getattr(info, "log_path", "") or ""),
-        "execution": _as_job_execution_dict(getattr(info, "execution", None)),
-    }
-
-
 def _browser_jobs_list(browser, *, states: Optional[set[str]], limit: int, offset: int) -> tuple[list[dict[str, object]], int]:
     if hasattr(browser, "supports_core_queries") and bool(browser.supports_core_queries()):
         payload: dict[str, object] = {
@@ -135,34 +88,12 @@ def _browser_jobs_list(browser, *, states: Optional[set[str]], limit: int, offse
             total = int(total_raw)
         except Exception:
             total = len(jobs_raw)
-        return [_as_job_dict(one) for one in jobs_raw], total
+        return [terminal_job_view_from_object(one).__dict__ for one in jobs_raw], total
 
     all_jobs = browser.job_manager.list(states=states)
     total = len(all_jobs)
     window = all_jobs[offset : offset + limit]
-    return [_as_job_dict(one) for one in window], total
-
-
-def _browser_job_get(
-    browser,
-    *,
-    job_id: str,
-    do_wait: bool,
-    wait_timeout: Optional[float],
-) -> dict[str, object]:
-    if hasattr(browser, "supports_core_queries") and bool(browser.supports_core_queries()):
-        payload: dict[str, object] = {"job_id": str(job_id)}
-        if do_wait:
-            payload["timeout_s"] = wait_timeout
-        query_name = "jobs.wait" if do_wait else "jobs.get"
-        result = browser.execute_core_query(query_name, payload=payload)
-        return _as_job_dict((result or {}).get("job", {}))
-
-    if do_wait:
-        info = browser.job_manager.wait(job_id, timeout=wait_timeout)
-    else:
-        info = browser.job_manager.get(job_id)
-    return _as_job_dict(info)
+    return [terminal_job_view_from_object(one).__dict__ for one in window], total
 
 
 def _browser_job_cancel(browser, *, job_id: str) -> dict[str, object]:
@@ -236,14 +167,14 @@ class JobsListCommand(TerminalCommandAPI):
         for one in window:
             rows.append(
                 [
-                    str(_get_job_field(one, "job_id", "") or ""),
-                    str(_get_job_field(one, "label", "") or ""),
-                    str(_get_job_field(one, "state", "") or ""),
-                    str(_get_job_field(one, "backend_name", "") or ""),
-                    _format_ts(_get_job_field(one, "submitted_at", None)),
-                    _format_ts(_get_job_field(one, "started_at", None)),
-                    _format_ts(_get_job_field(one, "finished_at", None)),
-                    _format_duration(_get_job_field(one, "duration_s", None)),
+                    str(one.get("job_id", "") or ""),
+                    str(one.get("label", "") or ""),
+                    str(one.get("state", "") or ""),
+                    str(one.get("backend_name", "") or ""),
+                    _format_ts(one.get("submitted_at", None)),
+                    _format_ts(one.get("started_at", None)),
+                    _format_ts(one.get("finished_at", None)),
+                    _format_duration(one.get("duration_s", None)),
                 ]
             )
         browser.emit(browser.render_table(headers, rows, max_cell_width=44))
@@ -324,7 +255,7 @@ class JobsShowCommand(TerminalCommandAPI):
         if not job_id:
             raise ValueError("Usage: {}".format(self.usage))
 
-        info = _browser_job_get(
+        info = fetch_terminal_job_view(
             browser,
             job_id=job_id,
             do_wait=do_wait,
@@ -336,34 +267,34 @@ class JobsShowCommand(TerminalCommandAPI):
                 (
                     "Overview",
                     [
-                        ("label", str(_get_job_field(info, "label", "") or "")),
-                        ("state", str(_get_job_field(info, "state", "") or "")),
-                        ("backend", str(_get_job_field(info, "backend_name", "") or "")),
+                        ("label", str(info.label or "")),
+                        ("state", str(info.state or "")),
+                        ("backend", str(info.backend_name or "")),
                     ],
                 ),
                 (
                     "Timing",
                     [
-                        ("submitted_at", _format_ts(_get_job_field(info, "submitted_at", None))),
-                        ("started_at", _format_ts(_get_job_field(info, "started_at", None))),
-                        ("finished_at", _format_ts(_get_job_field(info, "finished_at", None))),
-                        ("duration_s", _format_duration(_get_job_field(info, "duration_s", None))),
-                        ("timeout_s", _get_job_field(info, "timeout_s", None)),
+                        ("submitted_at", _format_ts(info.submitted_at)),
+                        ("started_at", _format_ts(info.started_at)),
+                        ("finished_at", _format_ts(info.finished_at)),
+                        ("duration_s", _format_duration(info.duration_s)),
+                        ("timeout_s", info.timeout_s),
                     ],
                 ),
                 (
                     "Output",
                     [
-                        ("no_output", "yes" if bool(_get_job_field(info, "no_output", False)) else "no"),
-                        ("log_path", str(_get_job_field(info, "log_path", "") or "")),
+                        ("no_output", "yes" if bool(info.no_output) else "no"),
+                        ("log_path", resolve_terminal_job_log_path(info) or ""),
                     ],
                 ),
             ],
-            title="Job {}".format(str(_get_job_field(info, "job_id", "") or "")),
+            title="Job {}".format(str(info.job_id or "")),
             max_cell_width=120,
         )
 
-        execution = _as_job_execution_dict(_get_job_field(info, "execution", None))
+        execution = info.execution
         if execution is None:
             browser.emit("")
             browser.emit(browser.render_detail_sections([("Execution", [("status", "<not finished>")])], max_cell_width=120))
@@ -411,6 +342,105 @@ class JobsShowCommand(TerminalCommandAPI):
                     max_cell_width=120,
                 )
             )
+        return True
+
+
+class JobsTailCommand(TerminalCommandAPI):
+    """Show recent log output for one job."""
+
+    group = "jobs"
+    expose_direct = False
+    name = "tail"
+    aliases = ("log",)
+    summary = "Show recent log output for one job."
+    usage = "jobs tail <job_id> [lines] [--wait[=<sec|none>]]"
+
+    def execute(self, browser, args: list[str]) -> bool:
+        if not args:
+            raise ValueError("Usage: {}".format(self.usage))
+
+        job_id: Optional[str] = None
+        wait_timeout: Optional[float] = None
+        do_wait = False
+        line_limit = 20
+
+        idx = 0
+        while idx < len(args):
+            token = str(args[idx]).strip()
+            if token == "--wait":
+                do_wait = True
+                if idx + 1 < len(args) and not str(args[idx + 1]).strip().startswith("-"):
+                    raw = str(args[idx + 1]).strip().lower()
+                    if raw in {"none", "off", "disable", "disabled"}:
+                        wait_timeout = None
+                    else:
+                        parsed = _safe_float(raw)
+                        if parsed is None:
+                            raise ValueError("Option --wait expects a numeric value or 'none'.")
+                        wait_timeout = parsed
+                    idx += 2
+                    continue
+                wait_timeout = 30.0
+                idx += 1
+                continue
+            if token.startswith("--wait="):
+                do_wait = True
+                raw = token.split("=", 1)[1].strip().lower()
+                if raw in {"none", "off", "disable", "disabled"}:
+                    wait_timeout = None
+                else:
+                    parsed = _safe_float(raw)
+                    if parsed is None:
+                        raise ValueError("Option --wait expects a numeric value or 'none'.")
+                    wait_timeout = parsed
+                idx += 1
+                continue
+            if token.startswith("-"):
+                raise ValueError("Unknown option: {!r}".format(token))
+            if job_id is None:
+                job_id = token
+                idx += 1
+                continue
+            maybe_lines = _safe_int(token)
+            if maybe_lines is None:
+                raise ValueError("lines must be an integer")
+            line_limit = max(1, maybe_lines)
+            idx += 1
+
+        if not job_id:
+            raise ValueError("Usage: {}".format(self.usage))
+
+        info = fetch_terminal_job_view(
+            browser,
+            job_id=job_id,
+            do_wait=do_wait,
+            wait_timeout=wait_timeout,
+        )
+        log_view = read_terminal_job_log_view(info)
+
+        browser.emit_detail_sections(
+            [
+                (
+                    "Job",
+                    [
+                        ("job_id", info.job_id),
+                        ("state", info.state),
+                        ("log_path", log_view.log_path or "<none>"),
+                        ("status", log_view.status),
+                    ],
+                )
+            ],
+            title="Job tail {}".format(info.job_id),
+            max_cell_width=120,
+        )
+        browser.emit("")
+        if not log_view.lines:
+            browser.emit(browser.render_detail_sections([("Output", [("message", log_view.message)])], max_cell_width=120))
+            return True
+
+        tail = list(log_view.lines[-line_limit:])
+        browser.emit(browser.render_table(["line"], [[line] for line in tail], max_cell_width=120))
+        browser.emit("Summary: total_lines={} shown={}".format(len(log_view.lines), len(tail)))
         return True
 
 
@@ -472,13 +502,13 @@ class JobsPanelCommand(TerminalCommandAPI):
             return True
 
         try:
-            info = _browser_job_get(browser, job_id=token, do_wait=False, wait_timeout=None)
+            info = fetch_terminal_job_view(browser, job_id=token, do_wait=False, wait_timeout=None)
         except Exception as exc:
             raise ValueError("Unknown job id {!r}: {}".format(token, exc))
 
-        info_job_id = str(_get_job_field(info, "job_id", token) or token)
+        info_job_id = str(info.job_id or token)
         browser.attach_job_output_panel(info_job_id)
-        info_log_path = str(_get_job_field(info, "log_path", "") or "")
+        info_log_path = resolve_terminal_job_log_path(info)
         browser.emit_detail_sections(
             [
                 (
@@ -497,6 +527,7 @@ class JobsPanelCommand(TerminalCommandAPI):
 __all__ = [
     "JobsListCommand",
     "JobsShowCommand",
+    "JobsTailCommand",
     "JobsCancelCommand",
     "JobsPanelCommand",
 ]

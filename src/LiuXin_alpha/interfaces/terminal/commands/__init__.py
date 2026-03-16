@@ -18,7 +18,7 @@ from .core import (
 )
 from .db import DbUnlockCommand
 from .ingest import IngestDiskCommand
-from .jobs import JobsCancelCommand, JobsListCommand, JobsPanelCommand, JobsShowCommand
+from .jobs import JobsCancelCommand, JobsListCommand, JobsPanelCommand, JobsShowCommand, JobsTailCommand
 from .link import LinkCommand, LinksCommand, UnlinkCommand
 from .mutate import DeleteCommand, EditCommand, SetCommand
 from .new_creator import NewCreatorWizardCommand
@@ -90,6 +90,7 @@ DEFAULT_COMMAND_CLASSES = (
     DbUnlockCommand,
     JobsListCommand,
     JobsShowCommand,
+    JobsTailCommand,
     JobsCancelCommand,
     JobsPanelCommand,
     TelemetryPanelCommand,
@@ -166,6 +167,7 @@ __all__ = [
     "DbUnlockCommand",
     "JobsListCommand",
     "JobsShowCommand",
+    "JobsTailCommand",
     "JobsCancelCommand",
     "JobsPanelCommand",
     "TelemetryPanelCommand",

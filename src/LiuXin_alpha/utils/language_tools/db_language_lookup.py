@@ -377,10 +377,10 @@ def ensure_languages_seeded_and_locked(db_or_conn: Any) -> bool:
 
             # Reuse the generator's seeding logic so ordering/variants stay consistent.
             from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.database_generator import (
-                SQLiteDatabaseBuilder,
+                SQLiteDatabaseGenerator,
             )
 
-            builder = SQLiteDatabaseBuilder(conn=conn)
+            builder = SQLiteDatabaseGenerator(conn=conn)
             builder.seed_languages_table()
 
             # Refresh count
@@ -388,10 +388,10 @@ def ensure_languages_seeded_and_locked(db_or_conn: Any) -> bool:
 
         if needs_lock:
             from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.database_generator import (
-                SQLiteDatabaseBuilder,
+                SQLiteDatabaseGenerator,
             )
 
-            builder = SQLiteDatabaseBuilder(conn=conn)
+            builder = SQLiteDatabaseGenerator(conn=conn)
             builder._lock_table_read_only("languages", message="languages is read-only")
 
         if needs_seed or needs_lock:

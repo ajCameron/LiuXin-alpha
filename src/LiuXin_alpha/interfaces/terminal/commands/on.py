@@ -446,7 +446,7 @@ def _rollback_on_bulk_changes(
             if table == source_row.table:
                 continue
             try:
-                linked_rows = browser.db.get_interlinked_rows(target_row=source_row, secondary_table=table)
+                linked_rows = browser.db.get_interlinked_rows(primary_row=source_row, secondary_table=table)
             except Exception:
                 linked_rows = []
             if linked_rows:

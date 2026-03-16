@@ -612,7 +612,7 @@ def test_update_interlink_priority_reorders_ids_list_and_tuple_when_supported(op
     ordered = [s2.row_id, s3.row_id, s1.row_id]  # desired order (highest->lowest after update)
     open_db.update_interlink_priority(primary_row=p, secondary_table=sh.secondary_table, ordered_ids=ordered)
 
-    got = open_db.get_interlinked_rows(target_row=p, secondary_table=sh.secondary_table)
+    got = open_db.get_interlinked_rows(primary_row=p, secondary_table=sh.secondary_table)
     got_ids = [r.row_id for r in got]
     assert got_ids[:3] == ordered
 
@@ -620,7 +620,7 @@ def test_update_interlink_priority_reorders_ids_list_and_tuple_when_supported(op
     ordered2 = (s1.row_id, s2.row_id, s3.row_id)
     open_db.update_interlink_priority(primary_row=p, secondary_table=sh.secondary_table, ordered_ids=ordered2)
 
-    got2 = open_db.get_interlinked_rows(target_row=p, secondary_table=sh.secondary_table)
+    got2 = open_db.get_interlinked_rows(primary_row=p, secondary_table=sh.secondary_table)
     got2_ids = [r.row_id for r in got2]
     assert got2_ids[:3] == list(ordered2)
 
@@ -674,10 +674,10 @@ def test_unlink_all_removes_all_links(open_db):
     open_db.interlink_rows(primary_row=p, secondary_row=s2, priority="not_set")
     open_db.interlink_rows(primary_row=p, secondary_row=s3, priority="not_set")
 
-    assert len(open_db.get_interlinked_rows(target_row=p, secondary_table=sh.secondary_table)) == 3
+    assert len(open_db.get_interlinked_rows(primary_row=p, secondary_table=sh.secondary_table)) == 3
 
     open_db.unlink_all(primary_row=p, secondary_table=sh.secondary_table)
-    assert open_db.get_interlinked_rows(target_row=p, secondary_table=sh.secondary_table) == []
+    assert open_db.get_interlinked_rows(primary_row=p, secondary_table=sh.secondary_table) == []
 
 
 def test_unlink_all_type_filter_removes_only_matching_type_when_supported(open_db):
@@ -700,7 +700,7 @@ def test_unlink_all_type_filter_removes_only_matching_type_when_supported(open_d
 
     open_db.unlink_all(primary_row=p, secondary_table=sh.secondary_table, type_filter="alpha")
 
-    remaining = open_db.get_interlinked_rows(target_row=p, secondary_table=sh.secondary_table)
+    remaining = open_db.get_interlinked_rows(primary_row=p, secondary_table=sh.secondary_table)
     assert {r.row_id for r in remaining} == {s_b.row_id}
 
 

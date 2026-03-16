@@ -30,7 +30,7 @@ nullable = "false"
     )
 
     conn = sqlite3.connect(":memory:")
-    builder = dg.SQLiteDatabaseBuilder(conn=conn)
+    builder = dg.SQLiteDatabaseGenerator(conn=conn)
 
     with pytest.raises(TypeError, match=r"interlinks\[0\]\.nullable must be a TOML boolean"):
         builder.sanity_check_interlink_inputs()
@@ -56,7 +56,7 @@ nullable = "false"
         encoding="utf-8",
     )
 
-    builder = dg.SQLiteDatabaseBuilder(conn=conn)
+    builder = dg.SQLiteDatabaseGenerator(conn=conn)
 
     with pytest.raises(TypeError, match=r"intralinks\[0\]\.nullable must be a TOML boolean"):
         builder.get_requested_intralink_tables()

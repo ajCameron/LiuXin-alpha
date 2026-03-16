@@ -39,10 +39,10 @@ def test_add_creator_writes_agent_and_human_sidecar_with_links(open_db) -> None:
     assert human_row["human_agent_death_date"] == "2018-01-22"
     assert human_row["human_agent_family_name"] == "Guin"
 
-    language_rows = open_db.get_interlinked_rows(target_row=creator_row, secondary_table="languages")
+    language_rows = open_db.get_interlinked_rows(primary_row=creator_row, secondary_table="languages")
     assert language_rows
 
-    note_rows = open_db.get_interlinked_rows(target_row=creator_row, secondary_table="notes")
+    note_rows = open_db.get_interlinked_rows(primary_row=creator_row, secondary_table="notes")
     assert any("speculative fiction" in (row["note"] or "") for row in note_rows)
 
     entity_rows = open_db.search("entity_identifiers", "entity_identifier_entity_id", creator_row["agent_id"])

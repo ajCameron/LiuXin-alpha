@@ -1,4 +1,8 @@
-"""Top-level Database API contract."""
+"""
+Top-level Database API contract.
+
+All database like objects should descend from this API.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +10,7 @@ import abc
 
 from typing import Any, Iterable, Iterator, Optional, Union
 
-from .database_mixins import (
+from LiuXin_alpha.databases.api.database_mixins import (
     DatabaseDirtiedRecordsMixinAPI,
     DatabaseInterlinkRowsMixinAPI,
     DatabaseIntralinkRowsMixinAPI,
@@ -17,6 +21,7 @@ from .database_mixins import (
     DatabaseTreeMixinAPI,
     DatabaseTriggerHelpersAPI,
 )
+
 
 class DatabaseAPI(
     DatabaseRatingMixinAPI,
@@ -317,7 +322,7 @@ class DatabaseAPI(
     @abc.abstractmethod
     def get_interlinked_rows(
         self,
-        target_row: Optional["RowAPI"] = None,
+        primary_row: Optional["RowAPI"] = None,
         secondary_table: Optional[str] = None,
         type_filter: Optional[str] = None,
         **kwargs: Any,

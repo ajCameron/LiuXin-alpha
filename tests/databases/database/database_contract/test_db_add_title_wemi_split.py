@@ -49,13 +49,13 @@ def test_add_title_creates_work_expression_manifestation_items(open_db) -> None:
     assert work_row["work_type"] == "novel"
     assert work_row["work_discovery_note"] == "contract_test"
 
-    expression_rows = open_db.get_interlinked_rows(target_row=work_row, secondary_table="expressions")
+    expression_rows = open_db.get_interlinked_rows(primary_row=work_row, secondary_table="expressions")
     assert len(expression_rows) == 1
     expression_row = expression_rows[0]
     assert expression_row["expression_wordcount"] == 132560
     assert expression_row["expression_fiction_length_category"] == "novel"
 
-    manifestation_rows = open_db.get_interlinked_rows(target_row=expression_row, secondary_table="manifestations")
+    manifestation_rows = open_db.get_interlinked_rows(primary_row=expression_row, secondary_table="manifestations")
     assert len(manifestation_rows) == 1
     manifestation_row = manifestation_rows[0]
     assert manifestation_row["manifestation_pub_year"] == 1987
@@ -100,7 +100,7 @@ def test_add_title_override_updates_existing_work_chain(open_db) -> None:
     assert work_row["work_discovery_note"] == "second_pass"
     assert work_row["work_type"] == "novel"
 
-    expression_rows = open_db.get_interlinked_rows(target_row=work_row, secondary_table="expressions")
+    expression_rows = open_db.get_interlinked_rows(primary_row=work_row, secondary_table="expressions")
     assert len(expression_rows) == 1
-    manifestation_rows = open_db.get_interlinked_rows(target_row=expression_rows[0], secondary_table="manifestations")
+    manifestation_rows = open_db.get_interlinked_rows(primary_row=expression_rows[0], secondary_table="manifestations")
     assert len(manifestation_rows) == 1
