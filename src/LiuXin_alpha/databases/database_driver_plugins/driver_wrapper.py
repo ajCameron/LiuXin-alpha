@@ -647,6 +647,7 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
     def get_row_from_id(self, table, row_id):
         """
         Gets a row_dict directly from the DatabasePing.
+
         :param table:
         :param row_id:
         :return:
@@ -1004,11 +1005,10 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         """
         return self.driver.get_connection()
 
-    # Todo: row_dict has been outmoded - cut it out here
-    def get_random_row(self, table, row_dict=None, direct_access=False):
+    def get_random_row(self, table, direct_access=False):
         """
-        Returns a random row from the given table. If row_dict is True returns it in the form of a dictionary - if it's
-        False returns it in the form of a Row.
+        Returns a random row from the given table.
+
         Note DO NOT USE THIS WHEN CONSTRUCTING TEST DATABASES/FSM!
         The results of this method is platform dependant - so the test object will not be reproducible. This is rarely
         helpful.
@@ -1017,8 +1017,6 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         :param direct_access:
         :return:
         """
-        if row_dict is not None:
-            raise NotImplementedError("row_dict was unexpectedly not None")
         return self.driver.direct_get_random_row_dict(target_table=table, direct=direct_access)
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -1030,6 +1028,7 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
     def execute(self, sql, values=None):
         """
         Run SQL directly on the database.
+
         :param sql:
         :param values: Default to None
         :return:

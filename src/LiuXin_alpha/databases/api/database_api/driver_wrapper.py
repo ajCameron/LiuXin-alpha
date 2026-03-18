@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import abc
 
-from typing import Any, Iterable, Iterator, Optional, Union, TYPE_CHECKING
+from typing import Any, Iterable, Iterator, Optional, Union, TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
     from LiuXin_alpha.databases.api.macros import MacrosAPI
     from LiuXin_alpha.databases.api.row import RowAPI
 
@@ -390,161 +390,391 @@ class DatabaseDriverWrapperAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_column_base(self, table_name):
-        ...
+    def get_column_base(self, table_name: str) -> str:
+        """
+        Get the base name of a column.
+
+        :param table_name:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_column_headings(self, table):
-        ...
+    def get_column_headings(self, table: str) -> list[str]:
+        """
+        Get the column headings for a particular table.
+
+        :param table:
+        :return:
+        """
+
+    # Todo: This needs to go. No direct connections if we can help it.
+    @abc.abstractmethod
+    def get_connection(self) -> Any:
+        """
+        Get a direct connection to the database.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_connection(self):
-        ...
+    def get_datestamp_column(self, table: str) -> str:
+        """
+        Get the datestamp column for a particular table.
+
+        :param table:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_datestamp_column(self, table):
-        ...
+    def get_dirtied_count(self) -> int:
+        """
+        Get the number of dirtied records on the database.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_dirtied_count(self):
-        ...
+    def get_display_column(self, table_name: str) -> str:
+        """
+        Get the display column for a particular table.
+
+        :param table_name:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_display_column(self, table_name):
-        ...
+    def get_highest_id(self, target_table: str) -> int:
+        """
+        Get the highest id for a particular table.
+
+        :param target_table:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_highest_id(self, target_table):
-        ...
+    def get_id_column(self, table: str) -> str:
+        """
+        Get the id column from the database.
+
+        :param table:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_id_column(self, table):
-        ...
+    def get_id_from_row(self, row_dict: dict[str, Any]) -> int:
+        """
+        Extract and return the id from a given row.
+
+        :param row_dict:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_id_from_row(self, row_dict):
-        ...
+    def get_interlink_column(self, table1: str, table2: str, column_type: str) -> str:
+        """
+        Get the column in the interlink table defined by table1, table2 and the column type.
+
+        :param table1:
+        :param table2:
+        :param column_type:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_interlink_column(self, table1, table2, column_type):
-        ...
+    def get_interlinked_tables(self, table_name: str) -> list[str]:
+        """
+        Get all the tables interlinked to the given table.
+
+        :param table_name:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_interlinked_tables(self, table_name):
-        ...
+    def get_intralink_column(self, table: str, column_type: str) -> str:
+        """
+        Get a column name in the intralink table linking the table back to itself.
+
+        :param table:
+        :param column_type:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_intralink_column(self, table, column_type):
-        ...
+    def get_linear_row_list(self, start_row: dict[str, Any]) -> list[dict[str, Any]]:
+        """
+        Get a linear row list from a tree structure in the database.
+
+        :param start_row:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_linear_row_list(self, start_row):
-        ...
+    def get_link_column(self, table1: str, table2: str, column_type: str) -> str:
+        """
+        Get a link column in the link table linking the two tables - no guarantee there is one.
+
+        :param table1:
+        :param table2:
+        :param column_type:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_link_column(self, table1, table2, column_type):
-        ...
+    def get_link_table_name(self, table1: str, table2: str) -> str:
+        """
+        Get the link table name - no guarantee there is one.
+
+        :param table1:
+        :param table2:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_link_table_name(self, table1, table2):
-        ...
+    def get_parent_column(self, table_name: str) -> str:
+        """
+        Get the parent column from the database.
+
+        :param table_name:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_parent_column(self, table_name):
-        ...
+    def get_random_row(self, table: str, direct_access: bool = False) -> dict[str, Any]:
+        """
+        Get a random row from the database.
+
+        :param table:
+        :param row_dict:
+        :param direct_access:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_random_row(self, table, row_dict=None, direct_access=False):
-        ...
+    def get_record_count(self, target_table: str) -> int:
+        """
+        Get the raw record count for the target table.
+
+        :param target_table:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_record_count(self, target_table):
-        ...
+    def get_relation_type(self, name: str) -> Union[Literal["table"], Literal["view"]]:
+        """
+        Get the type of the name (e.g. 'table' or 'view').
+
+        :param name:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_relation_type(self, name: str) -> Optional[str]:
-        ...
+    def get_row_from_id(self, table: str, row_id: int) -> dict[str, Any]:
+        """
+        Retrieve and return a row_dict directly from the database.
+
+        :param table:
+        :param row_id:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_row_from_id(self, table, row_id):
-        ...
+    def get_scratch_column(self, table: str) -> str:
+        """
+        Get the scratch column for the given table.
+
+        :param table:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_scratch_column(self, table):
-        ...
+    def get_tables(self, force_refresh: bool=False) -> set[str]:
+        """
+        Return a set of all the tables in the database.
+
+        :param force_refresh:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_tables(self, force_refresh: bool=False):
-        ...
+    def get_tables_and_columns(self) -> dict[str, set[str]]:
+        """
+        Get a dict keyed with the table names and valued with the columns in them.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_tables_and_columns(self):
-        ...
+    def get_triggers(self) -> list[str]:
+        """
+        Return all the triggers declared on the database.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_triggers(self):
-        ...
+    def get_uuid(self) -> str:
+        """
+        Get the UUID of the database.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_uuid(self):
-        ...
+    def get_view_column_headings(self, view: str) -> list[str]:
+        """
+        Get the column headings for a particular view.
+
+        :param view:
+        :return:
+        """
+
+    # Todo: A ViewRowAPI
+    @abc.abstractmethod
+    def get_view_row_from_id(self, view: str, row_id: int) -> dict[str, Any]:
+        """
+        Get a view row from a particular view and id.
+
+        :param view:
+        :param row_id:
+        :return:
+        """
+
+    # Todo: Just error - don't given an option
+    @abc.abstractmethod
+    def identify_table_from_column(self, column_heading: str, error: bool = True) -> str:
+        """
+        Identify a table from the column.
+
+        Thanks to the schema, every column should appear in one, and only one table.
+        As such, this can deterministically pin a column to a table.
+        :param column_heading:
+        :param error:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_view_column_headings(self, view):
-        ...
+    def identify_table_from_row_dict(self, row_dict: dict[str, Any]) -> str:
+        """
+        Identify a table from the row dict.
 
-    @abc.abstractmethod
-    def get_view_row_from_id(self, view, row_id):
-        ...
-
-    @abc.abstractmethod
-    def identify_table_from_column(self, column_heading, error=True):
-        ...
-
-    @abc.abstractmethod
-    def identify_table_from_row_dict(self, row_dict):
-        ...
+        :param row_dict:
+        :return:
+        """
 
     @abc.abstractmethod
     def is_view(self, name: str) -> bool:
-        ...
+        """
+        Check to see if the name corresponds to a known view in the database.
+
+        :param name:
+        :return:
+        """
 
     @abc.abstractmethod
-    def link_main_tables(self, primary_table, secondary_table, link_type, link_properties=None):
-        ...
+    def link_main_tables(
+            self,
+            primary_table: str,
+            secondary_table: str,
+            link_type: Union[Literal["one_one", "many_one", "one_many", "many_many"]],
+            link_properties: Optional[Iterable[str]] = None) -> None:
+        """
+        Form a link from the primary table to the secondary table.
+
+        :param primary_table:
+        :param secondary_table:
+        :param link_type:
+        :param link_properties:
+        :return:
+        """
 
     @property
     @abc.abstractmethod
-    def macros(self) -> MacrosAPI:
-        ...
+    def macros(self) -> "MacrosAPI":
+        """
+        Get the macros class for this database.
+
+        :return:
+        """
+
+    # Todo: Check if it's it's null value, or NULL
+    @abc.abstractmethod
+    def nullify_column(self, table: str, row_id: int, column: str) -> None:
+        """
+        Set a particular cell in the database to it's null value.
+
+        :param table:
+        :param row_id:
+        :param column:
+        :return:
+        """
 
     @abc.abstractmethod
-    def nullify_column(self, table, row_id, column):
-        ...
+    def read_metadata(self, field: str) -> Any:
+        """
+        Read metadata stored in the metadata table of the database.
+
+        :param field:
+        :return:
+        """
 
     @abc.abstractmethod
-    def read_metadata(self, field):
-        ...
+    def search(self, table: str, column: str, search_term: Any) -> dict[str, Any]:
+        """
+        Execute a search query against the database.
+
+        :param table:
+        :param column:
+        :param search_term:
+        :return:
+        """
 
     @abc.abstractmethod
-    def search(self, table, column, search_term):
-        ...
+    def set_custom_column_metadata(
+            self,
+            num: int,
+            name: Optional[str] = None,
+            label: Optional[str] = None,
+            is_editable: Optional[bool] = None,
+            display: Optional[str] = None,
+            in_table: Optional[str] = None) -> None:
+        """
+        Set metadata for a custom column - writing to the custom columns table.
+
+        :param num:
+        :param name:
+        :param label:
+        :param is_editable:
+        :param display:
+        :param in_table:
+        :return:
+        """
 
     @abc.abstractmethod
-    def set_custom_column_metadata(self, num, name=None, label=None, is_editable=None, display=None, in_table=None):
-        ...
+    def set_full_column(self, table: str) -> None:
+        """
+        Set the full column entries for the given table with tree like structure.
 
-    @abc.abstractmethod
-    def set_full_column(self, table):
-        ...
+        :param table:
+        :return:
+        """
 
     @abc.abstractmethod
     def set_macros(self, new_macros: MacrosAPI) -> None:
-        ...
+        """
+        Set the underlying macros class for this method.
+
+        :param new_macros:
+        :return:
+        """
 
     @abc.abstractmethod
-    def set_tree_ids(self, table):
-        ...
+    def set_tree_ids(self, table: str) -> None:
+        """
+        Set the tree ids for the given table.
+
+        :param table:
+        :return:
+        """
 
     @abc.abstractmethod
     def set_uuid(self, new_force_value=None):

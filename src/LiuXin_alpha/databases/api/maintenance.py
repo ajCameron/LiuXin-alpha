@@ -11,7 +11,7 @@ try:
 except Exception:
     icu_lower = str.lower
 
-from .database import DatabaseAPI
+from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
 
 class DatabaseCacheAPI(abc.ABC):
     """API contract for cache objects tied to the database."""
