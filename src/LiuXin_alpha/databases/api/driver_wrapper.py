@@ -153,90 +153,241 @@ class DatabaseDriverWrapperAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def create_custom_column(self, name, datatype='text', is_multiple=False, label=None, editable=True, display=None, in_table='books', table=None, make_category=None):
-        ...
+    def create_custom_column(
+            self,
+            name: str,
+            datatype: str = 'text',
+            is_multiple: bool = False,
+            label: Optional[str] = None,
+            editable: bool = True,
+            display: Optional[str] = None,
+            in_table: str = 'books',
+            table=None, make_category=None):
+        """
+        Create a custom column in the database attatched to a table.
+
+        :param name:
+        :param datatype:
+        :param is_multiple:
+        :param label:
+        :param editable:
+        :param display:
+        :param in_table:
+        :param table:
+        :param make_category:
+        :return:
+        """
 
     @abc.abstractmethod
-    def create_new_main_table(self, table_name, column_headings=None, link_to=None, link_type=None, link_properties=None):
-        ...
+    def create_new_main_table(
+            self,
+            table_name: str,
+            column_headings: Optional[Iterable[str]] = None,
+            link_to: Optional[Union[str, Iterable[str]]] = None,
+            link_type: Optional[Iterable[str]] = None,
+            link_properties: Optional[Iterable[str]] = None):
+        """
+        Create a new main table in the database.
+
+        :param table_name:
+        :param column_headings:
+        :param link_to:
+        :param link_type:
+        :param link_properties:
+        :return:
+        """
 
     @staticmethod
     @abc.abstractmethod
-    def custom_table_names(num, in_table='books'):
-        ...
+    def custom_table_names(num: int, in_table: str = 'books') -> str:
+        """
+        Get a custom table name.
+
+        :param num:
+        :param in_table:
+        :return:
+        """
+
+    # Todo: Rename for greater clarity.
+    # Todo: Might want to return the affected ids
+    @abc.abstractmethod
+    def delete(
+            self,
+            target_table: str,
+            column: str,
+            value: Any) -> None:
+        """
+        Delete rows by column value.
+
+        :param target_table:
+        :param column:
+        :param value:
+        :return:
+        """
 
     @abc.abstractmethod
-    def delete(self, target_table, column, value):
-        ...
+    def delete_by_id(self, target_table: str, row_id: int) -> None:
+        """
+        Delete an entire row by id.
+
+        :param target_table:
+        :param row_id:
+        :return:
+        """
 
     @abc.abstractmethod
-    def delete_by_id(self, target_table, row_id):
-        ...
+    def delete_custom_column(self, num: str) -> None:
+        """
+        Delete a custom column specified by its num (id).
+
+        :param num:
+        :return:
+        """
 
     @abc.abstractmethod
-    def delete_custom_column(self, num):
-        ...
+    def deleted_marked_custom_columns(self) -> None:
+        """
+        Actually delete the custom columns which have been marked for delete.
 
-    @abc.abstractmethod
-    def deleted_marked_custom_columns(self):
-        ...
+        :return:
+        """
 
     @property
     @abc.abstractmethod
-    def direct_custom_tables(self):
-        ...
+    def direct_custom_tables(self) -> None:
+        """
+        Get whatever custom tables exist.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def direct_get_custom_extra(self, link_table, index):
-        ...
+    def direct_get_custom_extra(self, link_table: str, index: int) -> Any:
+        """
+        Get the value of the extra field for the custom link table.
+
+        :param link_table:
+        :param index:
+        :return:
+        """
 
     @abc.abstractmethod
-    def direct_get_custom_id_val_pairs(self, table):
-        ...
+    def direct_get_custom_id_val_pairs(self, table: str) -> Iterable[tuple[int, Any]]:
+        """
+        Get the custom_id value pairs for a table.
+
+        :param table:
+        :return:
+        """
 
     @abc.abstractmethod
-    def dirty_record(self, table, row_id, reason):
-        ...
+    def dirty_record(self, table: str, row_id: int, reason: str) -> None:
+        """
+        Note that a record has been dirtied.
+
+        :param table:
+        :param row_id:
+        :param reason:
+        :return:
+        """
 
     @abc.abstractmethod
-    def drop_all_triggers(self):
-        ...
+    def drop_all_triggers(self) -> None:
+        """
+        Drop all the triggers off the database.
+
+        USE WITH CARE!
+        :return:
+        """
 
     @abc.abstractmethod
-    def drop_triggers(self, triggers):
-        ...
+    def drop_triggers(self, triggers: list[str]) -> None:
+        """
+        Drop a specified list of triggers from the database.
+
+        :param triggers:
+        :return:
+        """
 
     @abc.abstractmethod
-    def ensure_row_has_id(self, row_dict):
-        ...
+    def ensure_row_has_id(self, row_dict: dict[str, Any]) -> dict[str, Any]:
+        """
+        Ensure a row dict has an id.
+
+        :param row_dict:
+        :return:
+        """
 
     @abc.abstractmethod
-    def execute(self, sql, values=None):
-        ...
+    def execute(self, sql: str, values=None):
+        """
+        Execute SQL on the database.
+
+        :param sql:
+        :param values:
+        :return:
+        """
 
     @abc.abstractmethod
-    def executemany(self, sql, values=None):
-        ...
+    def executemany(self, sql: list[str], values = None) -> None:
+        """
+        Execute a list of SQL statements on the database.
+
+        :param sql:
+        :param values:
+        :return:
+        """
 
     @abc.abstractmethod
-    def executescript(self, sqlscript):
-        ...
+    def executescript(self, sqlscript: str) -> None:
+        """
+        Execute a SQL script, which can include multiple statements.
+
+        :param sqlscript:
+        :return:
+        """
 
     @abc.abstractmethod
     def get(self, *args, **kw):
-        ...
+        """
+        Front end for the SQL connection get method.
+
+        :param args:
+        :param kw:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_all_hashes(self):
-        ...
+    def get_all_hashes(self) -> Iterable[str]:
+        """
+        Get all the hashes stored in the database.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_all_rows(self, table, sort_column=None, reverse=False):
-        ...
+    def get_all_rows(
+            self,
+            table: str,
+            sort_column: Optional[str] = None,
+            reverse: bool = False) -> Iterator[dict[str, Any]]:
+        """
+        Get all the rows off the database.
+
+        :param table:
+        :param sort_column:
+        :param reverse:
+        :return:
+        """
 
     @abc.abstractmethod
-    def get_blank_row(self, table):
-        ...
+    def get_blank_row(self, table: str) -> dict[str, Any]:
+        """
+        Get a blank row from the database.
+
+        :param table:
+        :return:
+        """
 
     @abc.abstractmethod
     def get_column_base(self, table_name):
