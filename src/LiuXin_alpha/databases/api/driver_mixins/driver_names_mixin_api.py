@@ -176,3 +176,15 @@ class DriverNamesMixinAPI(abc.ABC):
         :param test_name:
         :return:
         """
+
+
+    @staticmethod
+    @abc.abstractmethod
+    def _get_link_table_name_col_name(primary_table: str, secondary_table: str) -> tuple[str, str]:
+        """
+        Get the column name for a link table linking the two given tables.
+
+        :param primary_table:
+        :param secondary_table:
+        :return:
+        """

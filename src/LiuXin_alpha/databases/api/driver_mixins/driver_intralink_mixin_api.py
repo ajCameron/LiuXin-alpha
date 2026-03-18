@@ -10,7 +10,7 @@ class DriverIntralinkMixinAPI(abc.ABC):
     """
 
     @abc.abstractmethod
-    def build_allowed_types_table_intralink(
+    def direct_build_allowed_types_table_intralink(
             self,
             for_table: str,
             allowed_types: Optional[Iterable[str]] = None
@@ -23,9 +23,9 @@ class DriverIntralinkMixinAPI(abc.ABC):
         :return:
         """
 
-    # Todo: We're gonna need to rename SQL to SQLite at some point
+    # Todo: We're gonna need to rename SQL to SQLite - where appropriate
     @abc.abstractmethod
-    def build_intralink_table_sqlite(
+    def direct_build_intralink_table_sql(
             self,
             name: str,
             allowed_types: Optional[Iterable[str]] = None,

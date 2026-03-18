@@ -55,7 +55,7 @@ class SQLExecutionMixin:
         return last_row_id
 
 
-    def get_table_sqlite(self, table, conn=None):
+    def direct_get_table_sqlite(self, table, conn=None):
         """
         Gets the SQLite for the given table. Useful for debugging.
         :param table:

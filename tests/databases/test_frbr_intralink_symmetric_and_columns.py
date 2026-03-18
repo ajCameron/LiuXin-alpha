@@ -133,7 +133,7 @@ def test_intralink_builder_optional_columns_and_symmetric_types(tmp_path: pathli
         conn.commit()
 
         # Add the `{table}__types` reference table + guard triggers (FRBR style)
-        d.create_interlink_types_reference_table(
+        d.direct_create_interlink_types_reference_table(
             interlink_table_name="widget_widget_intralinks",
             interlink_column_base="widget_widget_intralink",
             allowed_types=["equivalent", "derived_from"],

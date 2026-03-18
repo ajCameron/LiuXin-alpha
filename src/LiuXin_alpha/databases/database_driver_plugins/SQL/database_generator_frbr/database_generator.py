@@ -1363,7 +1363,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         # If this interlink defines a permitted enumeration for the type column, materialise it into a
         # dedicated reference table `{interlink_table}__types` and enforce it via lightweight triggers.
         if allowed_types is not None:
-            self.create_interlink_types_reference_table(
+            self.direct_create_interlink_types_reference_table(
                 interlink_table_name=table_name,
                 interlink_column_base=column_name,
                 allowed_types=allowed_types,
@@ -1372,7 +1372,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
 
     
-    def create_interlink_types_reference_table(
+    def direct_create_interlink_types_reference_table(
         self,
         interlink_table_name: str,
         interlink_column_base: str,
@@ -1381,7 +1381,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
     ) -> None:
         """Delegate to the shared link-table utility mixin implementation."""
 
-        return super().create_interlink_types_reference_table(
+        return super().direct_create_interlink_types_reference_table(
             interlink_table_name=interlink_table_name,
             interlink_column_base=interlink_column_base,
             allowed_types=allowed_types,
@@ -1412,7 +1412,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         symmetric = self.intralink_symmetric_by_table.get(name_local, False)
         symmetric_types = self.intralink_symmetric_types_by_table.get(name_local)
 
-        sql_list = super().build_intralink_table_sqlite(
+        sql_list = super().direct_build_intralink_table_sql(
             name_local,
             allowed_types=allowed_types,
             requested_cols=requested_cols,
@@ -1435,17 +1435,17 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             target_row_name = plural_singular_mapper(target_table_name)
             row_name = f"{target_row_name}_{target_row_name}_intralink"
             intralink_table_name = f"{row_name}s"
-            self.create_interlink_types_reference_table(
+            self.direct_create_interlink_types_reference_table(
                 interlink_table_name=intralink_table_name,
                 interlink_column_base=row_name,
                 allowed_types=allowed_types,
                 connection=conn,
             )
 
-    def build_intralink_table_sqlite(self, name: str, **kwargs: Any) -> list[str]:
+    def direct_build_intralink_table_sql(self, name: str, **kwargs: Any) -> list[str]:
         """Delegate intralink SQL generation to the shared utility mixin."""
 
-        return super().build_intralink_table_sqlite(name, **kwargs)
+        return super().direct_build_intralink_table_sql(name, **kwargs)
 
     def get_requested_intralink_tables(self) -> set[str]:
         """Parse `intralink_table_requests.toml` and return requested intralink tables.

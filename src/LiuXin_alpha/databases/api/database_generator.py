@@ -73,7 +73,7 @@ class DatabaseGeneratorAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def _get_direct_link_main_tables_sqlite(self,
+    def direct_get_direct_link_main_tables_sql(self,
                                             primary_table: str,
                                             secondary_table: str,
                                             link_type: str='many_many',
@@ -154,7 +154,7 @@ class DatabaseGeneratorAPI(abc.ABC):
     # one-to-many: writing team operating under a single name (e.g. The Expanse)
     # Todo: We need links between org agents and human agents - "employed by" e.t.c
     @abc.abstractmethod
-    def build_allowed_types_table_intralink(self,
+    def direct_build_allowed_types_table_intralink(self,
                                             for_table: str,
                                             allowed_types: Optional[Iterable[str]] = None) -> list[str]:
         """
@@ -188,7 +188,7 @@ class DatabaseGeneratorAPI(abc.ABC):
 
     # Todo: Not clear why this signature is like this? Firm it up.
     @abc.abstractmethod
-    def build_intralink_table_sqlite(self, name: str, **kwargs: Any) -> list[str]:
+    def direct_build_intralink_table_sql(self, name: str, **kwargs: Any) -> list[str]:
         """
         Construct the list of statements needed to build an interlink table.
 
@@ -224,7 +224,7 @@ class DatabaseGeneratorAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def create_interlink_types_reference_table(
+    def direct_create_interlink_types_reference_table(
             self,
             interlink_table_name: str,
             interlink_column_base: str,

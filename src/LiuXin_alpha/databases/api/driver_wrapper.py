@@ -4,14 +4,33 @@ from __future__ import annotations
 
 import abc
 
-from typing import Any, Iterable, Iterator, Optional, Union
+from typing import Any, Iterable, Iterator, Optional, Union, TYPE_CHECKING
 
-from .macros import MacrosAPI
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.macros import MacrosAPI
+    from LiuXin_alpha.databases.api.row import RowAPI
+
 
 class DatabaseDriverWrapperAPI(abc.ABC):
-    """API contract for driver wrappers sitting between Database and DatabaseDriver."""
+    """
+    API contract for driver wrappers sitting between Database and DatabaseDriver.
+
+    DB and higher classes use the Row classes.
+    The driver, and lower, uses row_dicts.
+    This class serves as a bridge between them.
+
+    Eventually, we might want the database to talk to multiple drivers at the same time.
+    This layer is also to make that easier - when the time comes.
+    """
 
     def __init__(self, db: Optional["DatabaseAPI"] = None, macros: Optional["MacrosAPI"] = None) -> None:
+        """
+        Startup the driver wrapper.
+
+        :param db:
+        :param macros:
+        """
         self.db: Optional["DatabaseAPI"] = db
         if macros is not None:
             self.set_macros(macros)
@@ -25,52 +44,113 @@ class DatabaseDriverWrapperAPI(abc.ABC):
 
     @abc.abstractmethod
     def __del__(self) -> None:
-        ...
+        """
+        Break cycles in the driver and shut down.
+
+        :return:
+        """
 
     @abc.abstractmethod
     def _canonicalise_cc_in_table(self, in_table: str) -> str:
-        ...
+        """
+        Produce a canonical CC name for a custom column in a table.
+
+        :param in_table:
+        :return:
+        """
 
     @abc.abstractmethod
-    def _get_custom_column_row(self, in_table, cc_name):
-        ...
+    def _get_custom_column_row(self, in_table: str, cc_name: str) -> "RowAPI":
+        """
+        Get the row representing a custom column.
+
+        :param in_table:
+        :param cc_name:
+        :return:
+        """
 
     @abc.abstractmethod
-    def _walk(self, start_row, table, table_id_col, table_parent_col):
-        ...
+    def _walk(self, start_row: "RowAPI", table: str, table_id_col: str, table_parent_col: str) -> Iterable["RowAPI"]:
+        """
+        Front end for the tree walk method.
+
+        :param start_row:
+        :param table:
+        :param table_id_col:
+        :param table_parent_col:
+        :return:
+        """
 
     @abc.abstractmethod
-    def add_multiple_rows(self, row_dict_list):
-        ...
+    def add_multiple_rows(self, row_dict_list: list[dict[str, Any]]):
+        """
+        Add multiple rows to the database.
+
+        :param row_dict_list:
+        :return:
+        """
 
     @abc.abstractmethod
-    def add_row(self, row_dict):
-        ...
+    def add_row(self, row_dict: dict[str, Any]):
+        """
+        Add a single row to the database.
+
+        :param row_dict:
+        :return:
+        """
 
     @abc.abstractmethod
-    def break_cycles(self):
-        ...
+    def break_cycles(self) -> None:
+        """
+        Used as part of the shutdown to kill stale driver connections.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def check_for_intralink_table(self, table_name):
-        ...
+    def check_for_intralink_table(self, table_name: str) -> bool:
+        """
+        Check to see if the given table supports one (or more) intralink tables.
+
+        :param table_name:
+        :return:
+        """
 
     @abc.abstractmethod
-    def clear(self, target_table):
-        ...
+    def clear(self, target_table: str) -> None:
+        """
+        Delete every row of the given target_table.
+
+        :param target_table:
+        :return:
+        """
 
     @abc.abstractmethod
     def close(self) -> None:
-        ...
+        """
+        Shut down the driver.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def complete_row(self, partial_row):
-        ...
+    def complete_row(self, partial_row: dict[str, Any]) -> dict[str, Any]:
+        """
+        Take a partial row - which should include the id value - and retrieve the rest of the values for it.
 
+        :param partial_row:
+        :return:
+        """
+
+    # Todo: Issue deprecitation warnings from this - we want it gone
     @property
     @abc.abstractmethod
     def conn(self):
-        ...
+        """
+        Get the underlying connection to the database
+
+        :return:
+        """
 
     @abc.abstractmethod
     def create_custom_column(self, name, datatype='text', is_multiple=False, label=None, editable=True, display=None, in_table='books', table=None, make_category=None):

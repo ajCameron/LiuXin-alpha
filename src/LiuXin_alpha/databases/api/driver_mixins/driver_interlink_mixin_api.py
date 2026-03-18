@@ -18,10 +18,25 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :return:
         """
 
+    # Todo: Merge these methods
     @abc.abstractmethod
     def _build_allowed_types_table_interlink(self, for_table: str, allowed_types: Iterable[str]) -> str:
         """
         Build the allowed types table for an interlink table - which holds the allowed types the link can have.
+
+        :param for_table:
+        :param allowed_types:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def build_allowed_types_table_interlink(
+            self,
+            for_table: str,
+            allowed_types: Optional[Iterable[str]] = None
+    ) -> list[str]:
+        """
+        Build a set of statements for the allowed types of a given interlink table.
 
         :param for_table:
         :param allowed_types:
@@ -49,7 +64,7 @@ class DriverInterlinkMixinAPI(abc.ABC):
 
     # Todo: May not be a general drive method - should only be sql
     @abc.abstractmethod
-    def _get_direct_link_main_tables_sqlite(
+    def direct_get_direct_link_main_tables_sql(
             self,
             primary_table: str,
             secondary_table: str,
@@ -75,30 +90,8 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :return:
         """
 
-    @staticmethod
-    @abc.abstractmethod
-    def _get_link_table_name_col_name(primary_table: str, secondary_table: str) -> tuple[str, str]:
-        """
-        Get the column name for a link table linking the two given tables.
 
-        :param primary_table:
-        :param secondary_table:
-        :return:
-        """
 
-    @abc.abstractmethod
-    def build_allowed_types_table_interlink(
-            self,
-            for_table: str,
-            allowed_types: Optional[Iterable[str]] = None
-    ) -> list[str]:
-        """
-        Build a set of statements for the allowed types of a given interlink table.
-
-        :param for_table:
-        :param allowed_types:
-        :return:
-        """
 
     # Todo: Might want to be a private method - we do, eventually, want to be not SQL
     @abc.abstractmethod
@@ -122,7 +115,7 @@ class DriverInterlinkMixinAPI(abc.ABC):
 
     # Todo: A view showing type counts for intralinks/intralinks
     @abc.abstractmethod
-    def create_interlink_types_reference_table(
+    def direct_create_interlink_types_reference_table(
             self,
             interlink_table_name: str,
             interlink_column_base: str,

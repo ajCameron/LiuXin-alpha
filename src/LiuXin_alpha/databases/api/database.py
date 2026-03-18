@@ -8,19 +8,25 @@ from __future__ import annotations
 
 import abc
 
-from typing import Any, Iterable, Iterator, Optional, Union
+from typing import Any, Iterable, Iterator, Optional, Union, TYPE_CHECKING
 
 from LiuXin_alpha.databases.api.database_mixins import (
-    DatabaseDirtiedRecordsMixinAPI,
-    DatabaseInterlinkRowsMixinAPI,
-    DatabaseIntralinkRowsMixinAPI,
-    DatabaseMetadataMixinAPI,
     DatabaseNullRowsMixinAPI,
     DatabaseRatingMixinAPI,
-    DatabaseSearchMixinAPI,
-    DatabaseTreeMixinAPI,
-    DatabaseTriggerHelpersAPI,
 )
+from LiuXin_alpha.databases.api import DatabaseMetadataMixinAPI
+
+from LiuXin_alpha.databases.api.database_mixins.database_triggers_mixin_api import DatabaseTriggerHelpersAPI
+from LiuXin_alpha.databases.api.database_mixins.database_tree_mixin_api import DatabaseTreeMixinAPI
+from LiuXin_alpha.databases.api.database_mixins.database_interlink_mixin_api import DatabaseInterlinkRowsMixinAPI
+from LiuXin_alpha.databases.api.database_mixins.database_intralink_mixin_api import DatabaseIntralinkRowsMixinAPI
+from LiuXin_alpha.databases.api.database_mixins.database_search_mixin_api import DatabaseSearchMixinAPI
+from LiuXin_alpha.databases.api.database_mixins.database_dirty_records_mixin_api import DatabaseDirtiedRecordsMixinAPI
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.row import RowAPI
+    from LiuXin_alpha.databases.api.macros import MacrosAPI
+
 
 
 class DatabaseAPI(
@@ -148,39 +154,6 @@ class DatabaseAPI(
         """Return the category string for a table name (main/interlink/intralink/helper/custom/...)."""
 
     # ---------------------------------------------------------------------------------------------
-    # Database metadata (uuid/library_id/version)
-    # ---------------------------------------------------------------------------------------------
-    @property
-    @abc.abstractmethod
-    def uuid(self) -> str:
-        """Database UUID (used for cache keys, change detection, etc.)."""
-
-    @uuid.setter
-    @abc.abstractmethod
-    def uuid(self, value: str) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def library_id(self) -> str:
-        """Library UUID (unique identifier for the library itself)."""
-
-    @library_id.setter
-    @abc.abstractmethod
-    def library_id(self, value: str) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def database_version(self) -> str:
-        """Schema version string stored in the database."""
-
-    @database_version.setter
-    @abc.abstractmethod
-    def database_version(self, value: str) -> None:
-        ...
-
-    # ---------------------------------------------------------------------------------------------
     # Schema inspection helpers
     # ---------------------------------------------------------------------------------------------
     @abc.abstractmethod
@@ -234,226 +207,4 @@ class DatabaseAPI(
     def update_columns(self, values_map: Any, field: Optional[str] = None, table: Optional[str] = None) -> None:
         """Bulk update columns (pass-through to the wrapper)."""
 
-    # ---------------------------------------------------------------------------------------------
-    # Dirtied-record tracking
-    # ---------------------------------------------------------------------------------------------
-    @property
-    @abc.abstractmethod
-    def metadata_dirtied_table(self) -> str:
-        """Name of the helper table used to persist dirtied-record events."""
 
-    @abc.abstractmethod
-    def get_dirtied_count(self, *, include_persisted: bool = False) -> int:
-        """Return number of dirtied-record events in memory (and optionally persisted ones)."""
-
-    @abc.abstractmethod
-    def dirty_record(self, table: str, row_id: int, reason: str = "") -> None:
-        """Queue a dirtied-record event."""
-
-    @abc.abstractmethod
-    def get_persisted_dirtied_count(self) -> int:
-        """Return number of persisted dirtied-record events."""
-
-    @abc.abstractmethod
-    def persist_dirtied_records(self, *, limit: Optional[int] = None) -> int:
-        """Persist queued dirtied-record events into the helper table; returns number persisted."""
-
-    @abc.abstractmethod
-    def get_write_telemetry_snapshot(self, *, recent_limit: int = 8) -> dict[str, Any]:
-        """Return lightweight live telemetry about observed database write activity."""
-
-    # ---------------------------------------------------------------------------------------------
-    # Search / retrieval
-    # ---------------------------------------------------------------------------------------------
-    @abc.abstractmethod
-    def search(self, table: str, column: str, search_term: Any) -> list["RowAPI"]:
-        """Search a table for rows matching the given column == search_term (driver-specific matching)."""
-
-    @abc.abstractmethod
-    def multi_column_search(self, search_index: Any, iterator_return: bool = False) -> Any:
-        """Multi-column search helper (driver-dependent / may be incomplete)."""
-
-    @abc.abstractmethod
-    def get_unique(self, target_column: str) -> Any:
-        """Convenience wrapper for get_values_set()."""
-
-    @abc.abstractmethod
-    def get_values_set(self, target_column: str, iterator_return: bool = False) -> Any:
-        """Return the unique values for a column (as a set or iterator)."""
-
-    @abc.abstractmethod
-    def get_row_from_id(self, table: str, row_id: int) -> Optional["RowAPI"]:
-        """Return the row with the given id from table, or None if not found."""
-
-    @abc.abstractmethod
-    def get_random_row(self, table: str) -> "RowAPI":
-        """Return a randomly chosen row from a table."""
-
-    @abc.abstractmethod
-    def get_all_rows(
-        self,
-        table: str,
-        iterator_return: bool = True,
-        sort_column: Optional[str] = None,
-        reverse: bool = False,
-    ) -> Union[list["RowAPI"], Iterator["RowAPI"]]:
-        """Return all rows from a table as list or iterator."""
-
-    @abc.abstractmethod
-    def chunk_iterator(self, column: str, target_table: Optional[str] = None) -> Iterator[list["RowAPI"]]:
-        """Iterate over grouped chunks of rows based on unique values in a column."""
-
-    # ---------------------------------------------------------------------------------------------
-    # Interlink tables (many-to-many between two *different* tables)
-    # ---------------------------------------------------------------------------------------------
-    @abc.abstractmethod
-    def get_interlink_row(
-        self,
-        primary_row: "RowAPI",
-        secondary_row: "RowAPI",
-        onelink: bool = True,
-    ) -> Optional[Union["RowAPI", list["RowAPI"]]]:
-        """Return the interlink row(s) connecting two rows from different tables."""
-
-    @abc.abstractmethod
-    def get_interlink_rows(self, primary_row: "RowAPI", secondary_table: str) -> list["RowAPI"]:
-        """Return interlink rows connecting primary_row to any row in secondary_table."""
-
-    @abc.abstractmethod
-    def get_interlinked_rows(
-        self,
-        primary_row: Optional["RowAPI"] = None,
-        secondary_table: Optional[str] = None,
-        type_filter: Optional[str] = None,
-        **kwargs: Any,
-    ) -> list["RowAPI"]:
-        """Return the rows in secondary_table linked to target_row (optionally filtering by type)."""
-
-    @abc.abstractmethod
-    def get_interlink_values(self, target_row: "RowAPI", secondary_column: str) -> set[Any]:
-        """Return the values from a secondary column across all interlinks from target_row."""
-
-    @abc.abstractmethod
-    def interlink_rows(
-        self,
-        primary_row: "RowAPI",
-        secondary_row: "RowAPI",
-        priority: Optional[Union[int, float, str]] = "highest",
-        type: Optional[str] = None,
-        **col_value_pairs: Any,
-    ) -> "RowAPI":
-        """Create an interlink between two rows and return the created interlink row."""
-
-    @abc.abstractmethod
-    def dupe_interlinks(
-        self,
-        src_row: "RowAPI",
-        dst_row: "RowAPI",
-        swap_priorities: bool = False,
-        restrict_to_tables: Optional[Iterable[str]] = None,
-        force_priority: Optional[Union[int, float, str]] = None,
-    ) -> None:
-        """Duplicate interlinks from src_row to dst_row."""
-
-    @abc.abstractmethod
-    def swap_priorities(self, src_row: "RowAPI", dst_row_1: "RowAPI", dst_row_2: "RowAPI") -> None:
-        """Swap interlink priorities between dst_row_1 and dst_row_2 for the link anchored at src_row."""
-
-    @abc.abstractmethod
-    def update_interlink(
-        self,
-        primary_row: "RowAPI",
-        secondary_row: "RowAPI",
-        priority: Optional[Union[int, float, str]] = "unchanged",
-        **col_value_pairs: Any,
-    ) -> "RowAPI":
-        """Update (or create) an interlink between two rows (priority-aware)."""
-
-    @abc.abstractmethod
-    def update_interlink_priority(
-        self,
-        primary_row: "RowAPI",
-        secondary_table: str,
-        ordered_ids: Iterable[int],
-    ) -> None:
-        """Rewrite interlink priorities for primary_row -> secondary_table according to ordered secondary ids."""
-
-    @abc.abstractmethod
-    def unlink_interlink(self, primary_row: "RowAPI", secondary_row: "RowAPI") -> None:
-        """Remove an interlink between two rows."""
-
-    @abc.abstractmethod
-    def unlink_all(self, primary_row: "RowAPI", secondary_table: str, type_filter: Optional[str] = None) -> None:
-        """Remove all interlinks from primary_row to rows in secondary_table (optionally filtering by type)."""
-
-    # ---------------------------------------------------------------------------------------------
-    # Intralink tables (many-to-many within the *same* table)
-    # ---------------------------------------------------------------------------------------------
-    @abc.abstractmethod
-    def intralink_rows(self, primary_row: "RowAPI", secondary_row: "RowAPI", link_type: str) -> "RowAPI":
-        """Create an intralink between two rows from the same table."""
-
-    @abc.abstractmethod
-    def get_intralink_row(self, primary_row: "RowAPI", secondary_row: "RowAPI") -> Optional["RowAPI"]:
-        """Return the intralink row connecting two rows (or None if not present)."""
-
-    @abc.abstractmethod
-    def get_intralink_rows(
-        self,
-        row: "RowAPI",
-        primary: bool = True,
-        secondary: bool = True,
-        link_type_filter: Optional[str] = None,
-    ) -> list["RowAPI"]:
-        """Return intralink rows linked to the given row (primary/secondary direction flags)."""
-
-    @abc.abstractmethod
-    def get_intralinked_rows(
-        self,
-        primary_row: Optional["RowAPI"],
-        secondary_row: Optional["RowAPI"],
-    ) -> list["RowAPI"]:
-        """Return rows intralinked to primary_row/secondary_row (direction depends on driver_wrapper policy)."""
-
-    @abc.abstractmethod
-    def unlinked_intralink(self, primary_row: Optional["RowAPI"], secondary_row: Optional["RowAPI"]) -> None:
-        """Remove an intralink between two rows."""
-
-    # ---------------------------------------------------------------------------------------------
-    # Tree helpers (hierarchies expressed via intralinks)
-    # ---------------------------------------------------------------------------------------------
-    @abc.abstractmethod
-    def get_root_row(self, start_row: "RowAPI") -> "RowAPI":
-        """Return the root row for a tree anchored at start_row."""
-
-    @abc.abstractmethod
-    def get_root_series(self, start_row: "RowAPI") -> "RowAPI":
-        """Return the lineage from start_row up to the root (inclusive)."""
-
-    @abc.abstractmethod
-    def get_children(self, src_row: "RowAPI") -> list["RowAPI"]:
-        """Return immediate children of src_row in the tree."""
-
-    @abc.abstractmethod
-    def get_linear_row_list(self, start_row: "RowAPI") -> list["RowAPI"]:
-        """Return a linearized list of tree rows starting from start_row."""
-
-    @abc.abstractmethod
-    def get_all_tree_rows(self, start_row: "RowAPI", back_iterate: bool = True) -> set["RowAPI"]:
-        """Return all rows in the tree under start_row (optionally iterating 'backwards')."""
-
-    @abc.abstractmethod
-    def walk(self, start_row: "RowAPI") -> Iterator["RowAPI"]:
-        """Yield rows in the tree in a driver-defined walk order."""
-
-    @abc.abstractmethod
-    def search_tree(self, root_row: "RowAPI", for_ids: Iterable[int]) -> set[int]:
-        """Search a tree for particular row ids."""
-
-    @abc.abstractmethod
-    def nest_rows(self, parent_row: "RowAPI", child_rows: Union["RowAPI", Iterable["RowAPI"]]) -> None:
-        """Nest child rows under parent_row in the tree."""
-
-    @abc.abstractmethod
-    def delete_tree(self, parent_row: "RowAPI") -> None:
-        """Delete parent_row and all its descendants from the tree."""

@@ -171,7 +171,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         nullable_fks: bool = True,
     ):
 
-        link_sql_list, table_name = self._get_direct_link_main_tables_sqlite(
+        link_sql_list, table_name = self.direct_get_direct_link_main_tables_sql(
             primary_table=primary_table,
             secondary_table=secondary_table,
             link_type=link_type,
@@ -201,7 +201,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         # Return the generated table name for additional work
         return table_name
 
-    def _get_direct_link_main_tables_sqlite(
+    def direct_get_direct_link_main_tables_sql(
         self,
         primary_table: str,
         secondary_table: str,
@@ -751,7 +751,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         # We have a simple string to use instead of any generated restrictions - just use that
         # Todo: Eventually should be able to pull this out - it's becoming increasingly redundant
         if sql_override_restriction is None or isinstance(sql_override_restriction, basestring):
-            full_script, table_name = self._get_direct_link_main_tables_sqlite(
+            full_script, table_name = self.direct_get_direct_link_main_tables_sql(
                 primary_table=table1,
                 secondary_table=table2,
                 requested_cols=requested_cols,
@@ -767,7 +767,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             secondary_table = sql_override_restriction["secondary"]
             link_tyoe = sql_override_restriction["link_type"]
 
-            full_script, table_name = self._get_direct_link_main_tables_sqlite(
+            full_script, table_name = self.direct_get_direct_link_main_tables_sql(
                 primary_table=primary_table,
                 secondary_table=secondary_table,
                 link_type=link_tyoe,
@@ -880,7 +880,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
     # related SQL is produced in one place.
     # ---------------------------------------------------------------------
 
-    def create_interlink_types_reference_table(
+    def direct_create_interlink_types_reference_table(
         self,
         interlink_table_name: str,
         interlink_column_base: str,
@@ -939,7 +939,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         conn.commit()
 
 
-    def build_allowed_types_table_intralink(
+    def direct_build_allowed_types_table_intralink(
         self,
         for_table: str,
         allowed_types: Optional[Iterable[str]] = None,
@@ -984,7 +984,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         return [att_table_sqlite] + att_add_sqlite
 
 
-    def build_intralink_table_sqlite(
+    def direct_build_intralink_table_sql(
         self,
         name: str,
         allowed_types: Optional[Iterable[str]] = None,
@@ -997,7 +997,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
     ) -> list[str]:
         """Build SQLite for a self-link (intralink) table.
 
-        Backwards compatible with the historical signature ``build_intralink_table_sqlite(name, allowed_types=None)``.
+        Backwards compatible with the historical signature ``direct_build_intralink_table_sql(name, allowed_types=None)``.
 
         Enhancements for the FRBR generator:
           - requested_cols (interlink-style optional metadata columns, plus safe bespoke TEXT cols)
@@ -1047,12 +1047,12 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         fk_null_sql = "NULL" if nullable_fks else "NOT NULL"
 
         # Optional allowed-types table (legacy mode) OR types reference tables (FRBR mode).
-        # In FRBR mode we create `{table}__types` via `create_interlink_types_reference_table` at runtime,
+        # In FRBR mode we create `{table}__types` via `direct_create_interlink_types_reference_table` at runtime,
         # so do not emit an FK here.
         allowed_type_table_sqlite: list[str] = []
         at_foreign_key = ""
         if (allowed_types is not None) and (not use_reference_types_table):
-            allowed_type_table_sqlite = self.build_allowed_types_table_intralink(
+            allowed_type_table_sqlite = self.direct_build_allowed_types_table_intralink(
                 target_table_name, allowed_types=allowed_types
             )
             if allowed_type_table_sqlite:

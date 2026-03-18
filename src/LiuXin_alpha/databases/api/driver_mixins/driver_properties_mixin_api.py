@@ -76,7 +76,7 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
 
     # Todo: direct_*
     @abc.abstractmethod
-    def get_table_sqlite(self, table: str, conn: Any = None) -> str:
+    def direct_get_table_sqlite(self, table: str, conn: Any = None) -> str:
         """
         Get the SQLite which defines a table.
 

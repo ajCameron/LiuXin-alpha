@@ -14,7 +14,7 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
     """
 
     @abc.abstractmethod
-    def _get_custom_column_table_name(self, table, column_name):
+    def direct_get_custom_column_table_name(self, table: str, column_name: str) -> str:
         """
         Get the table name for a custom column to add the
 

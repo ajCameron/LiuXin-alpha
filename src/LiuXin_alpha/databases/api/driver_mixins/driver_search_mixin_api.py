@@ -147,7 +147,11 @@ class DriverSearchMixinAPI(abc.ABC):
 
 
     @abc.abstractmethod
-    def direct_search_table(self, table: Optional[str] = None, column: Optional[str] = None, search_term: Optional[Any]=None):
+    def direct_search_table(
+            self,
+            table: Optional[str] = None,
+            column: Optional[str] = None,
+            search_term: Optional[Any] = None) -> Iterable[dict[str, Any]]:
         """
         Preform a search on a single table in the database.
 
