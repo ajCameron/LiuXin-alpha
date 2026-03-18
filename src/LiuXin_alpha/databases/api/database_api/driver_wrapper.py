@@ -777,38 +777,100 @@ class DatabaseDriverWrapperAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def set_uuid(self, new_force_value=None):
-        ...
+    def set_uuid(self, new_force_value: Optional[str] = None) -> None:
+        """
+        Set the database UUID.
+
+        :param new_force_value:
+        :return:
+        """
 
     @abc.abstractmethod
-    def shell(self):
-        ...
+    def shell(self) -> None:
+        """
+        Drop into a database shell.
+
+        :return:
+        """
+
+    # Todo: I thiiinkk we know that it's string or number for all database entries
+    @abc.abstractmethod
+    def update_column(
+            self,
+            table: str,
+            row_id: int,
+            column: str,
+            new_value: Any) -> None:
+        """
+        Update a speicifc entry in a specific table and column.
+
+        :param table:
+        :param row_id:
+        :param column:
+        :param new_value:
+        :return:
+        """
 
     @abc.abstractmethod
-    def update_column(self, table, row_id, column, new_value):
-        ...
+    def update_columns(
+            self,
+            values_map: dict[int, Any],
+            field: Optional[str] = None,
+            table: Optional[str] = None) -> None:
+        """
+        Write a values map out to the database.
+
+        :param values_map:
+        :param field:
+        :param table:
+        :return:
+        """
+
+    # Todo: Where we say "num" in ref to custom columns, change it to cc_id or similar
+    @abc.abstractmethod
+    def update_custom_column(self, in_table: str, cc_name: str, value: Any) -> None:
+        """
+        Update a custom column in the database.
+
+        :param in_table:
+        :param cc_name:
+        :param value:
+        :return:
+        """
 
     @abc.abstractmethod
-    def update_columns(self, values_map, field=None, table=None):
-        ...
+    def update_row(self, row_dict: dict[str, Any]) -> None:
+        """
+        Update a row on the database from a row dict.
 
-    @abc.abstractmethod
-    def update_custom_column(self, in_table, cc_name, value):
-        ...
-
-    @abc.abstractmethod
-    def update_row(self, row_dict):
-        ...
+        :param row_dict:
+        :return:
+        """
 
     @property
     @abc.abstractmethod
-    def user_version(self):
-        ...
+    def user_version(self) -> str:
+        """
+        Get the user version of the database.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def walk(self, start_row):
-        ...
+    def walk(self, start_row: dict[str, Any]) -> Iterable[dict[str, Any]]:
+        """
+        Walk a tree like structure and yield every row in it.
+
+        :param start_row:
+        :return:
+        """
 
     @abc.abstractmethod
-    def write_metadata(self, field, value):
-        ...
+    def write_metadata(self, field: str, value: Any) -> None:
+        """
+        Write metadata to the database.
+
+        :param field:
+        :param value:
+        :return:
+        """
