@@ -121,7 +121,7 @@ class TreeMethodsMixin:
         """
         return self.get_linear_row_index(start_row)[0]
 
-    def get_all_tree_rows(self, start_row):
+    def direct_get_all_tree_rows(self, start_row):
         """
         Starts from a series. Walks up the series tree, and then walks back down, collecting all references in one set.
         This is going to take a number of database operations.
@@ -179,7 +179,7 @@ class TreeMethodsMixin:
         return return_str
 
     # Todo - Promote this to an actual method with tests
-    def __get_linear_index_of_columns(self, start_row, display_column):
+    def _get_linear_index_of_columns(self, start_row, display_column):
         """
         Takes a starting row. Calls get_linear_row_index to get a list of rows with order .......... ->
         grandparent_series -> parent_series -> series. Extracts the designated column from each of these rows to form a

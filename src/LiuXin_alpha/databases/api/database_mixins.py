@@ -604,39 +604,91 @@ class DatabaseTreeMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_linear_row_list(self, start_row: "RowAPI") -> list["RowAPI"]:
-        ...
+        """
+        Get all the rows in the tree we're in as a list.
+
+        :param start_row:
+        :return:
+        """
 
     @abc.abstractmethod
     def get_all_tree_rows(self, start_row: "RowAPI", back_iterate: bool = True) -> set["RowAPI"]:
-        ...
+        """
+        Get all the rows in the tree the start_row is in - from the start row down.
+
+        :param start_row:
+        :param back_iterate:
+        :return:
+        """
 
     @abc.abstractmethod
     def walk(self, start_row: "RowAPI") -> Iterator["RowAPI"]:
-        ...
+        """
+        Walk a tree from the start_row down.
+
+        :param start_row:
+        :return:
+        """
 
     @abc.abstractmethod
     def search_tree(self, root_row: "RowAPI", for_ids: Iterable[int]) -> set[int]:
-        ...
+        """
+        Search a tree rooted in the root for any instances of the given ids.
+
+        :param root_row:
+        :param for_ids:
+        :return:
+        """
 
     @abc.abstractmethod
     def nest_rows(self, parent_row: "RowAPI", child_rows: Union["RowAPI", Iterable["RowAPI"]]) -> None:
-        ...
+        """
+        Place the child rows under the parent row.
 
+        :param parent_row:
+        :param child_rows:
+        :return:
+        """
+
+    # Todo: The parent_row should be the root_row
     @abc.abstractmethod
     def delete_tree(self, parent_row: "RowAPI") -> None:
-        ...
+        """
+        Delete an entire tree
+
+        :param parent_row:
+        :return:
+        """
+
 
 class DatabaseTriggerHelpersAPI(abc.ABC):
-    """Typed API for trigger helper passthroughs exposed by ``Database``."""
+    """
+    Typed API for trigger helper passthroughs exposed by ``Database``.
+
+    Helper to deal with triggers.
+    """
 
     @abc.abstractmethod
-    def get_triggers(self) -> Any:
-        ...
+    def get_triggers(self) -> list[str]:
+        """
+        Return all the triggers on the database.
+
+        :return:
+        """
 
     @abc.abstractmethod
-    def drop_triggers(self, triggers: Any) -> Any:
-        ...
+    def drop_triggers(self, triggers: list[str]) -> bool:
+        """
+        Drop the given triggers from the database.
+
+        :param triggers:
+        :return:
+        """
 
     @abc.abstractmethod
     def drop_all_triggers(self) -> Any:
-        ...
+        """
+        Drop all triggers from the database.
+
+        :return:
+        """

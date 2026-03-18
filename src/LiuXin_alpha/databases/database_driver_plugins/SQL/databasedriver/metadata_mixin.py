@@ -359,7 +359,7 @@ class MetadataMethodMixin:
                 raise DatabaseIntegrityError(err_str)
             return True
 
-    def __initialize_md(self):
+    def _initialize_md(self):
         """
         Checks that the MetaData table has one and only one row.
         :return None: All changes are made internally to the database
@@ -407,7 +407,7 @@ class MetadataMethodMixin:
             raise ValueError(err_str)
 
         # After this method has been run there should be one and only one row in the 'database_metadata' table
-        self.__initialize_md()
+        self._initialize_md()
         md_rows = self.direct_get_all_rows("database_metadata")
         md_row = md_rows[0]
         md_row[n_md_field_name] = md_field_value
@@ -440,7 +440,7 @@ class MetadataMethodMixin:
             raise ValueError(err_str)
 
         # After this method has been run there should be one and only one row in the 'database_metadata' table
-        self.__initialize_md()
+        self._initialize_md()
         md_rows = self.direct_get_all_rows("database_metadata")
         md_row = md_rows[0]
         candidate_value = md_row[n_md_field_name]
