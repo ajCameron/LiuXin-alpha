@@ -4,7 +4,7 @@ import Queue
 import os
 import time
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from LiuXin_alpha.paths import LiuXin_data_folder
 

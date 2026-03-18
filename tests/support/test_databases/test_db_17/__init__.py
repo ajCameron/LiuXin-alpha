@@ -1,4 +1,4 @@
-from LiuXin_tests.test_databases.test_db_4 import TestDB4Builder
+from ..test_db_4 import TestDB4Builder
 
 
 def build_test_db(

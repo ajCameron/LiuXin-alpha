@@ -1,12 +1,9 @@
-import tqdm
+import LiuXin_alpha.utils.libraries.liuxin_tqdm as tqdm
 from copy import deepcopy
 from itertools import cycle
 
 
-from clint.textui import puts, colored
-
-from LiuXin_alpha.folder_stores.folderstore import FolderStore
-from LiuXin_alpha.folder_stores.folderstoremanager import FolderStoreManager
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from LiuXin_alpha.library.library import Library
 
@@ -14,12 +11,9 @@ from LiuXin_alpha.metadata.constants import CREATOR_CATEGORIES
 from LiuXin_alpha.metadata.constants import RATING_TYPES
 from LiuXin_alpha.metadata.constants import ALL_ID_TYPES
 
-from LiuXin_tests.test_objects import TestObjectsHandler
-from LiuXin_tests.test_databases import TestDatabaseBuilder
-from LiuXin_tests.test_utils.test_utils import BasicMetadataFramework
+from .. import TestDatabaseBuilder
+from .._legacy.tools import BasicMetadataFramework
 
-from LiuXin_alpha.utils.ptempfiles import get_ramdisk
-from LiuXin_alpha.utils.ptempfiles import ScratchFolderManager
 from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
 
 # Todo: There has to be code around here somewhere to write a database out to csv - find it and use it
@@ -185,13 +179,6 @@ class TestDB4Builder(TestDatabaseBuilder):
         self.synopsis_title_max = synopsis_title_max
         self.synopses_for_all_titles = synopses_for_all_titles
 
-        # Parameters to control building the test asset data
-        self.folder_store_count = folder_store_count
-
-        self.max_folders_for_book = max_folders_for_book
-        self.max_files_for_book = max_files_for_book
-        self.max_folders_for_series = max_folders_for_series
-
         # Random object sources (will be filled in later
         self.test_uuids = None
         self.test_rand_ints = None
@@ -208,13 +195,6 @@ class TestDB4Builder(TestDatabaseBuilder):
         # builds - so using sorted to ensure that
         self.all_id_types = sorted(list([t for t in ALL_ID_TYPES]))
         self.rating_types = sorted(list([t for t in RATING_TYPES]))
-
-        # Resources needed to build the test folder store managers
-        self.scratch_ram_disk = get_ramdisk()
-        self.scratch_folder_manager = ScratchFolderManager(make_in=self.scratch_ram_disk, only_derez_own=True)
-        self.path_dict = dict()
-
-        self.test_object_handler = TestObjectsHandler(scratch_file_handler=self.scratch_folder_manager)
 
         self.basic_md_framework = None
 
@@ -301,7 +281,7 @@ class TestDB4Builder(TestDatabaseBuilder):
                     are left at zero
         :return:
         """
-        from LiuXin_tests.test_constants import test_uuids
+        from .._legacy.constants import test_uuids
 
         self.test_uuids = cycle(iter(test_uuids))
         self.test_uuids_list = deepcopy(test_uuids)
@@ -311,7 +291,7 @@ class TestDB4Builder(TestDatabaseBuilder):
             for _ in range(advance_number):
                 self.test_uuids.next()
 
-        from LiuXin_tests.test_constants import rand_ints
+        from .._legacy.constants import rand_ints
 
         self.test_rand_ints = cycle(iter(rand_ints))
 
@@ -320,7 +300,7 @@ class TestDB4Builder(TestDatabaseBuilder):
             for _ in range(advance_number):
                 self.test_rand_ints.next()
 
-        from LiuXin_tests.test_constants import extended_rand_ints
+        from .._legacy.constants import extended_rand_ints
 
         self.test_extend_rand_ints = cycle(iter(extended_rand_ints))
 
@@ -329,7 +309,7 @@ class TestDB4Builder(TestDatabaseBuilder):
             for _ in range(advance_number):
                 self.test_extend_rand_ints.next()
 
-        from LiuXin_tests.test_constants import rand_size_ints
+        from .._legacy.constants import rand_size_ints
 
         self.test_rand_size_ints = cycle(iter(rand_size_ints))
 
@@ -338,7 +318,7 @@ class TestDB4Builder(TestDatabaseBuilder):
             for _ in range(advance_number):
                 self.test_rand_size_ints.next()
 
-        from LiuXin_tests.test_constants import rand_cent_ints
+        from .._legacy.constants import rand_cent_ints
 
         self.test_rand_cent_ints = cycle(iter(rand_cent_ints))
 
@@ -347,7 +327,7 @@ class TestDB4Builder(TestDatabaseBuilder):
             for _ in range(advance_number):
                 self.test_rand_cent_ints.next()
 
-        from LiuXin_tests.test_constants import rand_decade_ints
+        from .._legacy.constants import rand_decade_ints
 
         self.test_rand_decade_ints = cycle(iter(rand_decade_ints))
 
@@ -356,7 +336,7 @@ class TestDB4Builder(TestDatabaseBuilder):
             for _ in range(advance_number):
                 self.test_rand_decade_ints.next()
 
-        from LiuXin_tests.test_constants import rand_quad_ints
+        from .._legacy.constants import rand_quad_ints
 
         self.test_rand_quad_ints = cycle(iter(rand_quad_ints))
 
@@ -366,7 +346,7 @@ class TestDB4Builder(TestDatabaseBuilder):
                 self.test_rand_quad_ints.next()
 
         # ASSET DATA RANDOM FIELDS
-        from LiuXin_tests.test_constants import rand_size_ints
+        from .._legacy.constants import rand_size_ints
 
         self.rand_size_ints = cycle(iter(rand_size_ints))
 
@@ -375,7 +355,7 @@ class TestDB4Builder(TestDatabaseBuilder):
             for _ in range(advance_number):
                 self.rand_size_ints.next()
 
-        from LiuXin_tests.test_constants import rand_names_list
+        from .._legacy.constants import rand_names_list
 
         self.rand_names_list = cycle(iter(rand_names_list))
 
@@ -937,36 +917,6 @@ class TestDB4Builder(TestDatabaseBuilder):
 
             if self.verbose:
                 puts(colored.green("test title {} generated with book".format(test_title_row["title_id"])))
-
-    def generate_folder_stores(self, scratch_db):
-        """
-        Generate randomly populated folder store rows.
-        This will be built in a test folder store.
-        :param scratch_db:
-        :return:
-        """
-        self.path_dict = dict()
-        for folder_store_num in range(1, self.folder_store_count + 1):
-            test_fs = FolderStore(database=scratch_db, folder_store_row=None)
-
-            test_fs_name = "{}_{}".format("comp_test_db", folder_store_num)
-
-            new_fs_path = self.scratch_folder_manager.get_scratch_folder(
-                filename=test_fs_name, pinned=False, base_filename=True
-            )
-            new_entry_row = dict()
-            new_entry_row["folder_store_path"] = new_fs_path
-
-            test_fs.create(new_entry_row)
-            self.path_dict[int(test_fs.row["folder_store_id"])] = new_fs_path
-
-            del test_fs
-
-    #
-    # ------------------------------------------------------------------------------------------------------------------
-    # ------------------------------------------------------------------------------------------------------------------
-    #
-    # - GENERATE METADATA INTERLINKS
 
     def make_comment_creator_links(self, scratch_db):
         """
@@ -2429,43 +2379,13 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def generate_fake_asset_data(self, scratch_db):
         """
-        Populate the database with fake asset data.
-        :param test_db:
-        :return:
+        Legacy folder_stores-backed asset generation has been retired.
+
+        Current support DB provisioning uses the FRBR-native synthetic builders
+        in tests.support.test_resources_manager, and the provisioned DBs no
+        longer materialize a folder_stores table.
         """
-        test_db = scratch_db
-
-        # Clear the tables that will have test data inserted into them
-        test_db.driver_wrapper.clear("files")
-        test_db.driver_wrapper.clear("folders")
-        test_db.driver_wrapper.clear("file_folder_links")
-        test_db.driver_wrapper.clear("book_folder_links")
-        test_db.driver_wrapper.clear("book_file_links")
-
-        # Constants needed to construct the asset data
-        book_extensions = deepcopy(self.book_extensions)
-
-        self.generate_folder_stores(scratch_db)
-
-        # Associate a number for folders with each book
-        lx_random = LiuXinBadPseudoRandomGenerator(461534135)
-
-        # Build a list of the currently valid
-        table_id_col = scratch_db.driver_wrapper.get_id_column("folder_stores")
-        all_valid_ids = scratch_db.get_values_set(table_id_col, iterator_return=False)
-        try:
-            all_valid_ids.remove(0)
-        except KeyError:
-            pass
-        all_fs_ids_list = list([i for i in all_valid_ids])
-
-        test_fsm = FolderStoreManager(database=scratch_db, scratch_import_cache=True)
-
-        self.construct_book_folders(scratch_db, test_fsm, all_fs_ids_list)
-
-        self.add_random_formats(scratch_db, test_fsm, all_fs_ids_list, book_extensions)
-
-        return test_db
+        return scratch_db
 
     def add_new_main_tables(self, scatch_db):
         """
@@ -2524,114 +2444,6 @@ class TestDB4Builder(TestDatabaseBuilder):
             book_lm_datestamp_start_time += book_delta
 
             book_row.sync()
-
-    # ------------------------------------------------------------------------------------------------------------------
-    #
-    # - ASSET DATA CONSTRUCTION METHODS
-    def construct_book_folders(self, scratch_db, scratch_fsm, all_fs_ids_list):
-        """
-        Build a folder for some books on the database.
-        :return:
-        """
-        lx_random = LiuXinBadPseudoRandomGenerator(114785)
-
-        # Construct book folders
-        for book_row in scratch_db.get_all_rows("books"):
-
-            puts(colored.green("About to generate book folders for book {}".format(book_row["book_id"])))
-
-            # Determine the number of folders stores to try and make folders in
-            book_folder_count = lx_random.randint(0, self.max_folders_for_book)
-            for i in range(book_folder_count):
-                book_fs_id = lx_random.choice(all_fs_ids_list)
-
-                # Construct a folder for the book in the folder store manager
-                scratch_fsm.ensure_book_folder(
-                    book_row=book_row,
-                    allowed_fs_ids={
-                        book_fs_id,
-                    },
-                )
-
-    def add_random_formats(self, scratch_db, scratch_fsm, all_fs_ids_list, book_extensions):
-        """
-        Add random formats to the database.
-        :param scratch_db:
-        :param scratch_fsm:
-        :param all_fs_ids_list:
-        :return:
-        """
-        lx_random = LiuXinBadPseudoRandomGenerator(22345)
-
-        # Add formats to some books
-        for book_row in scratch_db.get_all_rows("books"):
-
-            book_id = book_row["book_id"]
-            puts(colored.green("About to generate book files for book {}".format(book_id)))
-
-            book_file_count = lx_random.randint(0, self.max_files_for_book)
-            for i in range(book_file_count):
-
-                book_fs_id = lx_random.choice(all_fs_ids_list)
-                book_ext = lx_random.choice(book_extensions)
-                test_file = self.test_object_handler.get_rand_test_file(file_ext=book_ext)
-
-                scratch_fsm.add.format(
-                    book_id=book_id,
-                    fmt=book_ext,
-                    stream=test_file,
-                    allowed_fs_ids={
-                        book_fs_id,
-                    },
-                )
-
-    def construct_series_folders(self, scratch_db, scratch_fsm, all_fs_ids_list):
-        """
-        Does the work of constructing series folders.
-        :param scratch_db:
-        :param scratch_fsm:
-        :return:
-        """
-        lx_random = LiuXinBadPseudoRandomGenerator(1117646)
-
-        # Construct series folders
-        for series_row in scratch_db.get_all_rows("series"):
-
-            series_folder_count = lx_random.randint(0, self.max_folders_for_series)
-            self.okay_print(
-                "About to generate {} folder for series {}".format(series_folder_count, series_row["series_id"])
-            )
-            for i in range(series_folder_count):
-
-                series_fs_id = lx_random.choice(all_fs_ids_list)
-
-                try:
-                    if int(series_row["series_id"]) != 5:
-                        scratch_fsm.ensure_series_folder(
-                            series_row=series_row,
-                            allowed_fs_ids={
-                                series_fs_id,
-                            },
-                        )
-                    else:
-                        # Todo: This was part of a debug step - SAFELY deactivate and remove
-                        scratch_fsm.error = True
-                        scratch_fsm.ensure_series_folder(
-                            series_row=series_row,
-                            allowed_fs_ids={
-                                series_fs_id,
-                            },
-                        )
-
-                except:
-                    err_msg = [
-                        "Failed to ensure a series folder",
-                        "series_fs_id: {}".format(series_fs_id),
-                        "series_id: {}".format(series_row["series_id"]),
-                    ]
-                    self.okay_print("\n".join(err_msg))
-                    raise
-
 
 def build_test_db(
     dst_file_path,
@@ -2720,7 +2532,9 @@ def generate_test_tree(
                     current_row[parent_pos] = this_row_parent_pos
 
                 if row_name_str is not None:
-                    current_row[table_col_base] = row_name_str.format(current_row.row_id, uuid_stream.next())
+                    current_row[table_col_base] = row_name_str.format(
+                        current_row.row_id, _advance_legacy_iterator(uuid_stream)
+                    )
 
                 current_row.sync()
 
@@ -2798,10 +2612,28 @@ def generate_test_tree_with_datestamps(
                     current_row[parent_pos] = this_row_parent_pos
 
                 if row_name_str is not None:
-                    current_row[table_col_base] = row_name_str.format(current_row.row_id, uuid_stream.next())
+                    current_row[table_col_base] = row_name_str.format(
+                        current_row.row_id, _advance_legacy_iterator(uuid_stream)
+                    )
 
                 current_row.sync()
 
                 current_layer_rows.append(current_row)
 
         previous_layer_rows = current_layer_rows
+
+
+def _advance_legacy_iterator(stream):
+    """Accept both Py2-style `.next()` objects and normal Python 3 iterators."""
+    if stream is None:
+        raise TypeError("uuid_stream is required when row_name_str is provided")
+    next_method = getattr(stream, "next", None)
+    if callable(next_method):
+        return next_method()
+    return next(stream)
+
+
+from .._tree_generators import (  # noqa: E402
+    generate_test_tree as generate_test_tree,
+    generate_test_tree_with_datestamps as generate_test_tree_with_datestamps,
+)

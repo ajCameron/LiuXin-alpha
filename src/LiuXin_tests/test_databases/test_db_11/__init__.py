@@ -2,7 +2,7 @@
 
 import os
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from LiuXin_alpha.folder_stores.folderstore import FolderStore
 from LiuXin_alpha.folder_stores.folderstoremanager import FolderStoreManager

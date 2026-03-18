@@ -1,6 +1,6 @@
 # Generates test_db_2 - which is a database with a number of empty blank custom columns
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from LiuXin_tests.test_databases.test_db_1 import test_db_1_folder as __folder__
 from LiuXin_tests.test_databases import TestDatabaseBuilder

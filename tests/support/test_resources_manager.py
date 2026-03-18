@@ -565,7 +565,7 @@ def _bundled_test_db_1_csv_dir() -> Path:
     try:  # pragma: no cover
         import importlib.util
 
-        spec = importlib.util.find_spec("LiuXin_tests.test_databases.test_db_1")
+        spec = importlib.util.find_spec("tests.support.test_databases.test_db_1")
         if spec is not None and spec.origin:
             p = Path(spec.origin).resolve().parent
             if p.is_dir():
@@ -574,7 +574,7 @@ def _bundled_test_db_1_csv_dir() -> Path:
         pass
 
     # Fallback to conventional repo layout.
-    return _repo_root() / "src" / "LiuXin_tests" / "test_databases" / "test_db_1"
+    return _repo_root() / "tests" / "support" / "test_databases" / "test_db_1"
 
 
 def _load_csv_fixture_into_db(conn, *, csv_dir: Path) -> None:

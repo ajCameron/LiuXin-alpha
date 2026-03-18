@@ -6,7 +6,7 @@ Properties for test DB 17.
 
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
-from LiuXin_tests.test_databases.test_db_properties.common_db_properties import (
+from .common_db_properties import (
     CommonDBProperties,
 )
 
@@ -15,6 +15,18 @@ class TestDB17Properties(CommonDBProperties):
     """
     Properties for the test_db_17 test database.
     """
+
+    alpha_focus_row_counts = {
+        "database_version": 1,
+        "works": 10,
+        "series": 1,
+        "expressions": 10,
+        "manifestations": 10,
+        "items": 10,
+        "files": 0,
+        "agents": 1,
+        "labels": 0,
+    }
 
     # ------------------------------------------------------------------------------------------------------------------
     #

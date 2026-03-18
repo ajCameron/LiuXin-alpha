@@ -207,6 +207,37 @@ def test_semantic_asset_profile_partition(provision_test_database) -> None:
 
 
 @pytest.mark.db
+@pytest.mark.parametrize(
+    ("db_name", "expected_folders", "expected_files"),
+    (
+        ("test_db_4", 0, 0),
+        ("test_db_11", 40, 120),
+    ),
+)
+def test_provisioned_profiles_do_not_materialize_legacy_folder_stores(
+    provision_test_database,
+    db_name: str,
+    expected_folders: int,
+    expected_files: int,
+) -> None:
+    provisioned = provision_test_database(db_name)
+    conn = sqlite3.connect(str(provisioned.db_path))
+    try:
+        folder_store_table = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'folder_stores' LIMIT 1;"
+        ).fetchone()
+        assert folder_store_table is None
+
+        folder_count = int(conn.execute("SELECT COUNT(*) FROM folders;").fetchone()[0])
+        file_count = int(conn.execute("SELECT COUNT(*) FROM files;").fetchone()[0])
+
+        assert folder_count == expected_folders
+        assert file_count == expected_files
+    finally:
+        conn.close()
+
+
+@pytest.mark.db
 def test_semantic_book_count_bands(provision_test_database) -> None:
     counts: dict[str, int] = {}
     for db_name in ("test_db_2", "test_db_16", "test_db_7", "test_db_8", "test_db_14", "test_db_17", "test_db_4", "test_db_20"):

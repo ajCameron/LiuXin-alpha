@@ -1,8 +1,8 @@
-import tqdm
+import LiuXin_alpha.utils.libraries.liuxin_tqdm as tqdm
 
 from LiuXin_alpha.exceptions import DatabaseIntegrityError
 
-from LiuXin_tests.test_databases.test_db_4 import TestDB4Builder
+from ..test_db_4 import TestDB4Builder
 
 
 class TestDB19Builder(TestDB4Builder):

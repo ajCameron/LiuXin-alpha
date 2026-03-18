@@ -2,7 +2,7 @@
 
 import os
 
-from LiuXin_tests.test_data.test_db_1 import build_test_db
+from . import build_test_db
 
 from LiuXin_alpha.utils.ptempfiles import get_scratch_folder
 

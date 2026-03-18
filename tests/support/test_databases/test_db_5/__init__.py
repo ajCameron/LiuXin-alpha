@@ -5,15 +5,15 @@ import shutil
 import sys
 from itertools import cycle
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from LiuXin_alpha.paths import LiuXin_data_folder
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 
-from LiuXin_tests.test_databases import file_load_test_database_backup
-from LiuXin_tests.test_databases import TestDatabaseBuilder
+from .. import file_load_test_database_backup
+from .. import TestDatabaseBuilder
 
 
 def build_test_db(
@@ -70,17 +70,17 @@ class TestDBFileAndFolderBuilder(TestDatabaseBuilder):
         scratch_db.driver_wrapper.clear("book_file_links")
 
         # Test sizes for the file_size field
-        from LiuXin_tests.test_constants import rand_size_ints
+        from .._legacy.constants import rand_size_ints
 
         rand_size_ints = cycle(iter(rand_size_ints))
 
         # Write some test data into the files and folders table
-        from LiuXin_tests.test_constants import rand_ints
+        from .._legacy.constants import rand_ints
 
         rand_iter = cycle(iter(rand_ints))
 
         # The name cycling
-        from LiuXin_tests.test_constants import rand_names_list
+        from .._legacy.constants import rand_names_list
 
         rand_names_list = cycle(iter(rand_names_list))
 

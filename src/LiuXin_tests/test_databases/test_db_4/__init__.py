@@ -4,12 +4,12 @@ Builds test database 4.
 """
 
 
-import tqdm
+import LiuXin_alpha.utils.libraries.liuxin_tqdm as tqdm
 from copy import deepcopy
 from itertools import cycle
 
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from LiuXin_alpha.folder_stores.folderstore import FolderStore
 from LiuXin_alpha.folder_stores.folderstoremanager import FolderStoreManager

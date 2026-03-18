@@ -10,7 +10,7 @@
 
 from itertools import cycle
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from LiuXin_alpha.databases.row import Row
 

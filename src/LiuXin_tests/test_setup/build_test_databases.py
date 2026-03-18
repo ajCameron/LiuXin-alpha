@@ -12,7 +12,7 @@ import shutil
 import time
 from functools import partial
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from LiuXin_alpha.constants.paths import LiuXin_data_folder
 

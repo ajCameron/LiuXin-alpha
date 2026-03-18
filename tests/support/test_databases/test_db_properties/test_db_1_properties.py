@@ -1,4 +1,4 @@
-from LiuXin_tests.test_databases.test_db_properties.common_db_properties import (
+from .common_db_properties import (
     CommonDBProperties,
 )
 
@@ -10,9 +10,21 @@ class TestDB1Properties(CommonDBProperties):
     Properties for test db 1 - which are also inherited by a lot of other tables.
     """
 
-    from LiuXin_tests.test_setup.constants import test_asset_version
+    from .._legacy.setup_constants import test_asset_version
 
     db_uuid = "test_test_db_1_{}".format(test_asset_version)
+
+    alpha_focus_row_counts = {
+        "database_version": 1,
+        "works": 25,
+        "series": 1,
+        "expressions": 25,
+        "manifestations": 25,
+        "items": 25,
+        "files": 0,
+        "agents": 1,
+        "labels": 0,
+    }
 
     theo_titles_table_hash = "282fbf2e169ee56635dc2874807356be"
 

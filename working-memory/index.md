@@ -1,10 +1,133 @@
 # Working Memory Index
 
-Updated: 2026-03-15
+Updated: 2026-03-16
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [db-property-remaining-clusters-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-remaining-clusters-2026-03-16.md)
+  Splits the remaining `16` DB-property salvage rows into real semantic clusters; the cleanest next target is the `secondary_uuid / content_level / loc_shelf` family.
+
+- [db-property-blank-optional-metadata-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-blank-optional-metadata-2026-03-16.md)
+  Added a live alpha-native contract for the current blank optional-metadata support DB profiles; useful coverage, but not enough to move the remaining legacy DB-property rows out of `salvage_existing`.
+
+- [db-property-simple-seam-review-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-simple-seam-review-2026-03-16.md)
+  Review of the smallest remaining DB-property salvage rows: only `test_db_13_properties.py` could be honestly promoted to `covered`; the others still carry stale or unreplaced legacy semantics.
+
+- [db-property-salvage-split-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-salvage-split-2026-03-16.md)
+  The DB-property corpus is now split honestly: all 26 support classes have live alpha subset coverage, 10 minimal legacy property rows moved to `covered`, and 16 larger semantic rows remain `salvage_existing`.
+
+- [db-property-alpha-subset-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-alpha-subset-2026-03-16.md)
+  The legacy DB-property support corpus now has a collected alpha-native live schema/count contract across all 26 support classes.
+
+- [db-property-support-registry-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-support-registry-2026-03-16.md)
+  First promotion slice for the `salvage_existing` DB-property corpus: the 26 support classes now live behind a registry and a collected structural/resource-manager contract, while the stale old value snapshots remain to be normalized.
+
+- [remaining-rewrite-deferral-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/remaining-rewrite-deferral-2026-03-16.md)
+  Records the decision to park the last five legacy rewrite rows instead of forcing fake migrations: `core_xmlrpc_compat` is deferred pending an explicit compat goal, and `folder_store_runtime` is blocked until a real replacement seam exists.
+
+- [legacy-support-harness-closure-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-support-harness-closure-2026-03-16.md)
+  Closed the old `legacy_support_harness` rewrite seam: five rows are now covered at active alpha helper/resource/macro tests, and two rows are retired as dead unittest/FSM scaffolding.
+
+- [remaining-rewrite-seams-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/remaining-rewrite-seams-2026-03-16.md)
+  Remaining legacy rewrite work is now down to two real seams: `core_xmlrpc_compat` and `folder_store_runtime`.
+
+- [relation-field-matrix-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/relation-field-matrix-2026-03-16.md)
+  Active Batch B replacement for the legacy cache relation-field self-tests: one live pytest matrix now pins one-to-many, many-to-one, and many-to-many adapter behavior across default, typed, and priority variants.
+
+- [custom-column-cache-semantics-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/custom-column-cache-semantics-2026-03-16.md)
+  Second active Batch A slice for the cache/emulation rewrite: a small non-gated cache test now pins direct custom/composite category visibility rules and one-to-one custom-column update validation.
+
+- [custom-column-field-matrix-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/custom-column-field-matrix-2026-03-16.md)
+  First implemented slice of the cache/emulation rewrite Batch A: the old datatype-specific custom-column field tests are now replaced by a compact live Calibre-emulation value matrix.
+
+- [cache-emulation-rewrite-checklist-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/cache-emulation-rewrite-checklist-2026-03-16.md)
+  Narrows the old `database_caches` / `databases_legacy` rewrite bucket into concrete batches, and reclassifies the obvious `covered` and `retire` rows before more test-port work starts.
+
+- [folder-store-builder-prune-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/folder-store-builder-prune-2026-03-16.md)
+  Pruned dead `FolderStore` / `FolderStoreManager` asset-generation branches from the legacy `test_db_4` and `test_db_11` support builders, and pinned the replacement contract at the resource-manager layer.
+
+- [folder-store-path-rewrite-slice-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/folder-store-path-rewrite-slice-2026-03-16.md)
+  Picks the next concrete rewrite slice after the first harness replacements: keep `folder_store_path` as a narrow builder/schema seam, separate it from DB-property salvage, and do that before jumping into the larger cache/emulation cluster.
+
+- [test-harness-rewrite-checklist-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/test-harness-rewrite-checklist-2026-03-16.md)
+  Splits the six legacy `test_harness` files into concrete outcomes and now records the first three direct replacements that have landed: collected tree-generator tests, a `TestObjectsHandler` smoke test, and a focused `replace_in_folder_store_path(...)` macro test.
+
+- [folder-stores-cleanup-boundary-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/folder-stores-cleanup-boundary-2026-03-16.md)
+  Records that there are no standalone legacy `folder_stores` test modules left in alpha to delete directly; only duplicate support artifacts remain, and they should be removed only during the broader duplicate-tree cleanup.
+
+- [cover-cache-triage-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/cover-cache-triage-2026-03-16.md)
+  Legacy cover-cache utility tests should not be ported yet: the old `LiuXin_alpha.folder_stores` implementation does not exist in this checkout, so any focused tests need to wait for a real replacement seam.
+
+- [folder-stores-rewrite-checklist-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/folder-stores-rewrite-checklist-2026-03-16.md)
+  Concrete replacement map for legacy `folder_stores` tests: identifies what is already covered in alpha, what should be retired, and the first real replacement slice to add next (`on_disk_existing_managed` write-contract tests).
+
+- [legacy-test-source-of-truth-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-source-of-truth-2026-03-16.md)
+  Records the decision that alpha is the only living home for tests we still care about: port or rewrite them into alpha, then delete the duplicate legacy copies from alpha once they are no longer needed.
+
+- [folder-stores-rewrite-plan-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/folder-stores-rewrite-plan-2026-03-16.md)
+  Splits legacy `folder_stores` out into its own rewrite stream, grouped by backend-contract, reconcile, and cover/cache behavior, so DB-property salvage does not get blocked on storage redesign.
+
+- [legacy-test-divergent-files-review-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-divergent-files-review-2026-03-16.md)
+  Reviewed the remaining `13` divergent DB-support file pairs: one is now identical again, most remaining drift is intentional alpha normalization, and three files preserve a real `SQLite_apsw` to `SQLite` adaptation that should be kept.
+
+- [folder-stores-rewrite-boundary-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/folder-stores-rewrite-boundary-2026-03-16.md)
+  Explicitly marks legacy `folder_stores` as a hard rewrite seam: after the utility shims, any remaining blockers there should be rewritten against current storage backends/API/reconcile flows, not shimmed.
+
+- [liuxin-tqdm-shim-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/liuxin-tqdm-shim-2026-03-16.md)
+  Added a thin `utils/libraries/liuxin_tqdm.py` wrapper so legacy DB builders can use `tqdm.tqdm(...)` semantics without requiring the real `tqdm` package.
+
+- [liuxin-clint-shim-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/liuxin-clint-shim-2026-03-16.md)
+  Added a thin `utils/libraries/liuxin_clint.py` wrapper so `puts`/`colored` fall back cleanly when `clint` is absent, and repointed the legacy DB-support imports at it.
+
+- [legacy-test-salvage-import-map-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-salvage-import-map-2026-03-16.md)
+  Import-rewrite queue for the legacy DB-support salvage batch is now complete: `tests/support/test_databases` no longer imports `LiuXin_tests`, package-root import works, and the next real blocker is the separate `folder_stores` rewrite boundary.
+
+- [legacy-test-salvage-checklist-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-salvage-checklist-2026-03-16.md)
+  Turned the `salvage_existing` bucket into a concrete normalization plan: `tests/support/test_databases` is the authoritative target, import decoupling is done, and the remaining work is promotion plus handling the now-understood divergent files.
+
+- [legacy-test-migration-plan-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-migration-plan-2026-03-16.md)
+  Inventoried the original LiuXin test suite into a first-pass migration manifest, with initial `covered` / `salvage_existing` / `rewrite` / `vendor_frozen` / `integration_frozen` / `retire` guesses for every original test file.
+
+- [image-backend-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/image-backend-2026-03-16.md)
+  Extracted a neutral `interfaces/images` backend so cover/image discovery, target resolution, and placeholder generation are shared directly across hosts.
+
+- [read-model-backend-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/read-model-backend-2026-03-16.md)
+  Extracted a neutral `interfaces/read_model` backend and wired the main read-only hosts to compose it.
+
+- [api-readonly-interface-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/api-readonly-interface-2026-03-16.md)
+  Added a new top-level `interfaces/api_readonly` package as the first standalone machine-facing JSON API over the shared read-only interface infrastructure.
+
+- [catalog-backend-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/catalog-backend-2026-03-16.md)
+  Extracted a shared `interfaces/catalog` backend so Calibre-shaped category/work/file/image discovery and payload shaping are no longer owned by `web_calibre_readonly`.
+
+- [acquisition-shared-api-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/acquisition-shared-api-2026-03-16.md)
+  Extracted the Calibre-compatible `/get/...` and `/legacy/get/...` acquisition path into a neutral `interfaces/acquisition` package with an explicit host API.
+
+- [opds-shared-api-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/opds-shared-api-2026-03-16.md)
+  Extracted the OPDS implementation into a neutral `interfaces/opds` package with an explicit host API so multiple interface modules can reuse the same route/feed logic.
+
+- [opds-readonly-interface-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/opds-readonly-interface-2026-03-16.md)
+  Added a new top-level `interfaces/opds_readonly` package as a narrow standalone OPDS/acquisition surface that reuses the Calibre-compatible OPDS implementation without carrying the HTML browse UI.
+
+- [web-calibre-readonly-interface-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/web-calibre-readonly-interface-2026-03-15.md)
+  Added a second top-level web surface, `interfaces/web_calibre_readonly`, which reuses the existing read-only backend but presents a Calibre mobile/content-server shaped home page, browse pages, and book pages.
+
+- [torrent-discovery-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/torrent-discovery-2026-03-15.md)
+  Standalone `.torrent` inventory now exists, producing torrent metadata, ebook-shaped file lists, stem-based logical-book groups, and alternate directory-based groups, with a later TODO for a torrent-backed store and on-demand client-driven downloads.
+
+- [fadedpage-wget-discovery-script-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/fadedpage-wget-discovery-script-2026-03-15.md)
+  Added a standalone stdlib-plus-`wget` Faded Page discovery script that streams resumable state into SQLite, refreshes a JSON export of ebook-shaped objects, emits explicit likely-book group records, and now includes rejection-reason counts in JSON.
+
+- [web-readonly-interface-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/web-readonly-interface-2026-03-15.md)
+  Added a new top-level `interfaces/web_readonly` package: stdlib WSGI browse/search/detail pages plus conservative file download handling for public-facing read-only use.
+
+- [interface-job-view-seam-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/interface-job-view-seam-2026-03-15.md)
+  Added a shared terminal job snapshot/log seam plus `jobs tail`, so the interface now has one job-output model for both textual commands and the windowed job pane.
+
+- [windowed-job-pane-scrollback-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/windowed-job-pane-scrollback-2026-03-15.md)
+  Windowed terminal job output pane now has scrollback/focus parity with the console pane, including `F6` focus switching and status-board hints.
 
 - [core-api-surface-2026-03-15.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/core-api-surface-2026-03-15.md)
   First explicit core API slice: descriptor models, `api.describe`, HTTP/proxy introspection, and a note that the next step is replacing generic `invoke` with named RPCs.

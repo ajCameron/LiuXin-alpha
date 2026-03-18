@@ -2,10 +2,10 @@
 
 import os
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
-from LiuXin_tests.test_databases import load_data
-from LiuXin_tests.test_databases import TestDatabaseBuilder
+from .. import load_data
+from .. import TestDatabaseBuilder
 
 from LiuXin_alpha.utils.file_ops.file_ops import checked_copy
 

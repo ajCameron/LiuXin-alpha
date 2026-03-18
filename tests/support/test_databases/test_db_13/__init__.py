@@ -3,11 +3,11 @@
 
 import os
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
-from LiuXin_tests.test_databases import load_data
-from LiuXin_tests.test_databases import TestDatabaseBuilder
-from LiuXin_tests.test_utils.test_utils import BasicMetadataFramework
+from .. import load_data
+from .. import TestDatabaseBuilder
+from .._legacy.tools import BasicMetadataFramework
 
 __folder__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 

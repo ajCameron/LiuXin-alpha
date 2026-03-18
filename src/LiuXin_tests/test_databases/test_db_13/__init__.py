@@ -3,7 +3,7 @@
 
 import os
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from LiuXin_tests.test_databases import load_data
 from LiuXin_tests.test_databases import TestDatabaseBuilder

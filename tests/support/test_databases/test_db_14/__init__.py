@@ -1,9 +1,9 @@
 # Generates test_db_14 - Only has the first 10 title rows (possibly including 0)
 
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
-from LiuXin_tests.test_databases.test_db_1 import test_db_1_folder as __folder__
-from LiuXin_tests.test_databases import TestDatabaseBuilder
+from ..test_db_1 import test_db_1_folder as __folder__
+from .. import TestDatabaseBuilder
 
 
 class TestDB2Builder(TestDatabaseBuilder):
