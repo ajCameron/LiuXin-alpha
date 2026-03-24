@@ -44,6 +44,20 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         self.dirtiable_tables = []
         self.dirty_records_queue = None
 
+        # Wrapper-level derived schema caches. The underlying driver already caches
+        # raw introspection; these caches avoid repeatedly re-deriving table/column
+        # relationships during row construction and browse/search workloads.
+        self._derived_schema_tables_and_columns_ref = None
+        self._derived_allowed_tables = set()
+        self._derived_table_columns = dict()
+        self._derived_column_to_tables = dict()
+        self._cached_column_base = dict()
+        self._cached_link_table_name = dict()
+        self._cached_intralink_table = dict()
+        self._cached_interlinked_tables = dict()
+        self._cached_identify_table_from_column = dict()
+        self._cached_identify_table_from_row_keys = dict()
+
         # Acquires a lock for the database that can be used in a with statement.
         self.lock = self.get_connection()
 
@@ -108,6 +122,46 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         except Exception:
             pass
 
+        self._clear_derived_schema_caches()
+
+    def _clear_derived_schema_caches(self) -> None:
+        self._derived_schema_tables_and_columns_ref = None
+        self._derived_allowed_tables = set()
+        self._derived_table_columns = dict()
+        self._derived_column_to_tables = dict()
+        self._cached_column_base = dict()
+        self._cached_link_table_name = dict()
+        self._cached_intralink_table = dict()
+        self._cached_interlinked_tables = dict()
+        self._cached_identify_table_from_column = dict()
+        self._cached_identify_table_from_row_keys = dict()
+
+    def _ensure_derived_schema_caches(self, tables_and_columns=None):
+        if tables_and_columns is None:
+            tables_and_columns = self.driver.direct_get_tables_and_columns()
+
+        if tables_and_columns is self._derived_schema_tables_and_columns_ref:
+            return tables_and_columns
+
+        self._clear_derived_schema_caches()
+        self._derived_schema_tables_and_columns_ref = tables_and_columns
+        self._derived_allowed_tables = set(tables_and_columns.keys())
+        self._derived_table_columns = {
+            str(table): frozenset(columns) for table, columns in tables_and_columns.items()
+        }
+
+        column_to_tables = dict()
+        for table, columns in tables_and_columns.items():
+            for column in columns:
+                column_to_tables.setdefault(column, []).append(table)
+        self._derived_column_to_tables = column_to_tables
+
+        return tables_and_columns
+
+    def get_allowed_tables_snapshot(self):
+        self._ensure_derived_schema_caches()
+        return self._derived_allowed_tables
+
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO GET COLUMNS NAMES FROM TABLES AND VISA VERSA START HERE
     # ------------------------------------------------------------------------------------------------------------------
@@ -118,7 +172,13 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         :param table_name:
         :return:
         """
-        return self.driver.direct_get_column_base(table_name)
+        cache_key = six_unicode(table_name).lower()
+        try:
+            return self._cached_column_base[cache_key]
+        except KeyError:
+            value = self.driver.direct_get_column_base(table_name)
+            self._cached_column_base[cache_key] = value
+            return value
 
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO GET BASIC INFORMATION ABOUT THE DATABASE START HERE
@@ -129,6 +189,8 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
 
         :return:
         """
+        if force_refresh:
+            self._clear_derived_schema_caches()
         return self.driver.direct_get_tables(force_refresh=force_refresh)
 
     def get_relation_type(self, name: str) -> Optional[str]:
@@ -176,7 +238,9 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         Returns a dictionary keyed by the table name with the column headings as the values.
         :return table_and_columns:
         """
-        return self.driver.direct_get_tables_and_columns()
+        tables_and_columns = self.driver.direct_get_tables_and_columns()
+        self._ensure_derived_schema_caches(tables_and_columns=tables_and_columns)
+        return tables_and_columns
 
     def get_highest_id(self, target_table):
         """
@@ -231,18 +295,22 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         :param table_name:
         :return False or intralink_table_name:
         """
+        self._ensure_derived_schema_caches()
         table_name = six_unicode(table_name).lower()
-        column_name_local = self.get_column_base(table_name)
 
-        intralink_name = "{0}_{0}_intralinks".format(column_name_local)
+        try:
+            return self._cached_intralink_table[table_name]
+        except KeyError:
+            column_name_local = self.get_column_base(table_name)
+            intralink_name = "{0}_{0}_intralinks".format(column_name_local)
 
-        # checks that the given table name and the generated table name are in the list of known table names
-        table_names = self.get_tables_and_columns().keys()
+            if (table_name in self._derived_allowed_tables) and (intralink_name in self._derived_allowed_tables):
+                result = intralink_name
+            else:
+                result = False
 
-        if (table_name in table_names) and (intralink_name in table_names):
-            return intralink_name
-        else:
-            return False
+            self._cached_intralink_table[table_name] = result
+            return result
 
     def get_interlinked_tables(self, table_name):
         """
@@ -251,12 +319,21 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         :param table_name:
         :return linked_tables:
         """
-        linked_tables = set()
-        for main_table in self.main_tables:
-            possible_interlink_table = self.get_link_table_name(main_table, table_name)
-            if possible_interlink_table in self.interlink_tables:
-                linked_tables.add(main_table)
-        return linked_tables
+        self._ensure_derived_schema_caches()
+        table_name = six_unicode(table_name).lower()
+
+        try:
+            cached = self._cached_interlinked_tables[table_name]
+            return set(cached)
+        except KeyError:
+            linked_tables = set()
+            for main_table in self.main_tables:
+                possible_interlink_table = self.get_link_table_name(main_table, table_name)
+                if possible_interlink_table in self.interlink_tables:
+                    linked_tables.add(main_table)
+
+            self._cached_interlinked_tables[table_name] = frozenset(linked_tables)
+            return linked_tables
 
     def get_link_table_name(self, table1, table2):
         """
@@ -266,29 +343,40 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         :param table2:
         :return link_table_name/False: The name of the link table, if valid, or false if the table doesn't exist.
         """
-        valid_tables = self.get_tables()
+        self._ensure_derived_schema_caches()
+        table1 = six_unicode(table1).lower()
+        table2 = six_unicode(table2).lower()
+        cache_key = (table1, table2)
 
-        if table1 != table2:
-            table1_row_name = self.get_column_base(table1)
-            table2_row_name = self.get_column_base(table2)
-            tables = [table1_row_name, table2_row_name]
-            tables.sort()
-            link_table_name = "{}_{}_links"
-            link_table_name = link_table_name.format(tables[0], tables[1])
+        try:
+            return self._cached_link_table_name[cache_key]
+        except KeyError:
+            valid_tables = self._derived_allowed_tables
 
-            if link_table_name not in valid_tables:
-                return False
+            if table1 != table2:
+                table1_row_name = self.get_column_base(table1)
+                table2_row_name = self.get_column_base(table2)
+                tables = [table1_row_name, table2_row_name]
+                tables.sort()
+                link_table_name = "{}_{}_links"
+                link_table_name = link_table_name.format(tables[0], tables[1])
+
+                if link_table_name not in valid_tables:
+                    result = False
+                else:
+                    result = link_table_name
             else:
-                return link_table_name
-        else:
-            table_row_name = self.get_column_base(table1)
-            link_table_name = "{}_{}_intralinks"
-            link_table_name = link_table_name.format(table_row_name, table_row_name)
+                table_row_name = self.get_column_base(table1)
+                link_table_name = "{}_{}_intralinks"
+                link_table_name = link_table_name.format(table_row_name, table_row_name)
 
-            if link_table_name not in valid_tables:
-                return False
-            else:
-                return link_table_name
+                if link_table_name not in valid_tables:
+                    result = False
+                else:
+                    result = link_table_name
+
+            self._cached_link_table_name[cache_key] = result
+            return result
 
     def get_interlink_column(self, table1, table2, column_type):
         """
@@ -774,22 +862,19 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         elif len(row_dict) == 0:
             return False
 
+        self._ensure_derived_schema_caches()
+        row_columns = frozenset(row_dict.keys())
+
+        try:
+            return self._cached_identify_table_from_row_keys[row_columns]
+        except KeyError:
+            pass
+
         # If the row could be from multiple rows then an error should be thrown
         candidate_matches = []
-        tables_and_columns = self.get_tables_and_columns()
-        tables = tables_and_columns.keys()
-        row_columns = row_dict.keys()
-
-        current_match = True
-        for table in tables:
-            # Using the known tables and columns to preform the test
-            current_columns = tables_and_columns[table]
-            for column in row_columns:
-                if column not in current_columns:
-                    current_match = False
-            if current_match:
+        for table, current_columns in self._derived_table_columns.items():
+            if row_columns.issubset(current_columns):
                 candidate_matches.append(table)
-            current_match = True
 
         if len(candidate_matches) > 1:
             err_str = "identify_table_from_row has produced multiple results.\n"
@@ -799,7 +884,9 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
             raise DatabaseIntegrityError(err_str)
         # You could validate the table name here - but it's produced from data off the table it should be valid anyway
         elif len(candidate_matches) == 1:
-            return candidate_matches[0]
+            result = candidate_matches[0]
+            self._cached_identify_table_from_row_keys[row_columns] = result
+            return result
         elif len(candidate_matches) == 0:
             err_str = "identify_table_from_row unable to find matching table\n"
             err_str += "row_dict: " + repr(row_dict) + "\n"
@@ -829,20 +916,31 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         :return:
         """
         column_heading = six_unicode(deepcopy(column_heading))
-        headings_and_columns = self.get_tables_and_columns()
-        tables = headings_and_columns.keys()
+        self._ensure_derived_schema_caches()
 
-        for table in tables:
-            column_headings = headings_and_columns[table]
-            if column_heading in column_headings:
-                return table
-        else:
-            err_str = "identify_table_from_column failed.\n"
-            err_str = default_log.log_variables(err_str, "INFO", ("column_heading", column_heading))
-            if error:
+        try:
+            cached = self._cached_identify_table_from_column[column_heading]
+            if cached is None and error:
+                err_str = "identify_table_from_column failed.\n"
+                err_str = default_log.log_variables(err_str, "INFO", ("column_heading", column_heading))
                 raise InputIntegrityError(err_str)
-            else:
-                return None
+            return cached
+        except KeyError:
+            pass
+
+        candidate_tables = self._derived_column_to_tables.get(column_heading)
+        if candidate_tables:
+            result = candidate_tables[0]
+            self._cached_identify_table_from_column[column_heading] = result
+            return result
+
+        err_str = "identify_table_from_column failed.\n"
+        err_str = default_log.log_variables(err_str, "INFO", ("column_heading", column_heading))
+        self._cached_identify_table_from_column[column_heading] = None
+        if error:
+            raise InputIntegrityError(err_str)
+        else:
+            return None
 
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO DEAL WITH TREE STRUCTURES IN TABLES

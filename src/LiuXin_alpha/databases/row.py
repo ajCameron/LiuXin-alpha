@@ -294,17 +294,18 @@ class Row(RowAPI):
         """
         row_dict = object.__getattribute__(self, "int_row_dict")
         if not row_dict:
-            allowed_tables = set([t for t in self.db.get_tables_and_columns().keys()])
+            allowed_tables = self.db.driver_wrapper.get_allowed_tables_snapshot()
             object.__setattr__(self, "allowed_tables", allowed_tables)
             return None
 
         table = self.db.driver_wrapper.identify_table_from_row_dict(row_dict)
         object.__setattr__(self, "_table", table)
 
-        allowed_tables = set([t for t in self.db.get_tables_and_columns().keys()])
+        allowed_tables = self.db.driver_wrapper.get_allowed_tables_snapshot()
         object.__setattr__(self, "allowed_tables", allowed_tables)
 
-        row_id = self.db.driver_wrapper.get_id_from_row(row_dict)
+        row_id_column = self.db.driver_wrapper.get_id_column(table)
+        row_id = row_dict.get(row_id_column)
         if row_id != 0:
             row_id = row_id if row_id else None
         elif row_id is None:

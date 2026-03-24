@@ -4,13 +4,13 @@ Date: 2026-03-16
 
 ## Summary
 
-After closing the `legacy_support_harness` seam, the manifest rewrite set is down to `5` rows.
+The manifest rewrite set now stands at `16` rows.
 
 Current manifest totals:
-- `covered`: `53`
-- `rewrite`: `5`
-- `salvage_existing`: `26`
-- `retire`: `24`
+- `covered`: `76`
+- `rewrite`: `16`
+- `salvage_existing`: `0`
+- `retire`: `16`
 - `integration_frozen`: `9`
 - `vendor_frozen`: `7`
 
@@ -27,10 +27,6 @@ Reason it stays `rewrite`:
 - alpha now has a different core/runtime/proxy/HTTP model
 - this should only move when there is an explicit compatibility claim to make
 
-Recommendation:
-- leave it alone for now
-- revisit only if XML-RPC compatibility or equivalent remote introspection becomes a deliberate product goal
-
 ### 2. `folder_store_runtime`
 
 Rows: `4`
@@ -42,24 +38,56 @@ Rows: `4`
 
 Reason it stays `rewrite`:
 - this is the old folder-store runtime surface, not a utility-dependency problem
-- parts of the old behavior are already retired
 - cover-cache still lacks a live alpha seam
 
-Recommendation:
-- do not touch this until there is a concrete replacement implementation seam
-- keep the focus on current storage backends, not fake compatibility
+### 3. `db_property_secondary_uuid_cluster`
 
-## What Closed
+Rows: `3`
 
-The old `legacy_support_harness` seam is no longer part of the rewrite backlog.
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_18_properties.py`
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_19_properties.py`
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_21_properties.py`
 
-That closure is recorded in:
-- [legacy-support-harness-closure-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-support-harness-closure-2026-03-16.md)
+Reference:
+- [db-property-secondary-uuid-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-secondary-uuid-cluster-2026-03-16.md)
+
+### 4. `db_property_identifier_cluster`
+
+Rows: `1`
+
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_20_properties.py`
+
+Reference:
+- [db-property-identifier-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-identifier-cluster-2026-03-16.md)
+
+### 5. `db_property_compatibility_projection_cluster`
+
+Rows: `5`
+
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_1_properties.py`
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_14_properties.py`
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_15_properties.py`
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_16_properties.py`
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_17_properties.py`
+
+Reference:
+- [db-property-compatibility-projection-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-compatibility-projection-cluster-2026-03-16.md)
+
+### 6. `db_property_rich_content_cluster`
+
+Rows: `2`
+
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_4_properties.py`
+- `src/LiuXin_tests/test_databases/test_db_properties/test_db_10_properties.py`
+
+Reference:
+- [db-property-rich-content-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-rich-content-cluster-2026-03-16.md)
 
 ## Recommended Next Step
 
-Do not invent a third seam.
+Do not invent another salvage stage.
 
-The remaining rewrite work is now explicitly one of:
+The remaining legacy-test work is now explicitly one of:
 1. defer `core_xmlrpc_compat` until there is a deliberate compatibility goal
 2. keep `folder_store_runtime` blocked until a real replacement implementation seam exists
+3. leave the DB-property rewrite families in `rewrite` until replacement builders/tests exist

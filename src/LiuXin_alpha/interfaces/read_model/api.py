@@ -307,9 +307,14 @@ class ReadModelBackend:
         }
         return payload
 
-    def work_metadata_payload(self, row) -> dict[str, object]:
+    def work_metadata_payload(
+        self,
+        row,
+        *,
+        related_rows_by_table: Optional[dict[str, list[object]]] = None,
+    ) -> dict[str, object]:
         row_id = _row_value(row, self.host._id_column("works") or "work_id")
-        related = self.host._related_rows_by_table(row)
+        related = related_rows_by_table if related_rows_by_table is not None else self.host._related_rows_by_table(row)
         format_rows = self.work_file_rows(related)
         formats = []
         format_metadata: dict[str, dict[str, object]] = {}

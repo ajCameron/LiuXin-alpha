@@ -55,6 +55,7 @@ class ProvisionedTestAssets:
 
 
 Builder = Callable[[Path], None]
+TEST_DB_BUNDLE_ROOT_TOKEN = "__LIUXIN_TEST_BUNDLE_ROOT__"
 
 
 @dataclass(frozen=True)
@@ -142,6 +143,8 @@ class TestResourcesManager:
         db_path = provision_root / db_filename
         if not db_path.exists():
             raise FileNotFoundError(f"Provisioned bundle missing db file: {db_path}")
+
+        _rewrite_bundle_root_tokens(db_path=db_path, provision_root=provision_root)
 
         return ProvisionedTestDatabase(name=name, root=provision_root, db_path=db_path)
 
@@ -372,7 +375,14 @@ class ImportedModuleDatabaseProvider:
                 continue
             try:
                 for mod in pkgutil.iter_modules(pkg_path):
-                    out.add(mod.name)
+                    if mod.name.startswith("_"):
+                        continue
+                    try:
+                        module = importlib.import_module(f"{prefix}.{mod.name}")
+                    except Exception:
+                        continue
+                    if _module_has_supported_db_entrypoint(module):
+                        out.add(mod.name)
             except Exception:
                 continue
         return out
@@ -380,8 +390,9 @@ class ImportedModuleDatabaseProvider:
     def can_provide(self, name: str) -> bool:
         for prefix in self._prefixes:
             try:
-                importlib.import_module(f"{prefix}.{name}")
-                return True
+                module = importlib.import_module(f"{prefix}.{name}")
+                if _module_has_supported_db_entrypoint(module):
+                    return True
             except Exception:
                 continue
         return False
@@ -397,8 +408,13 @@ class ImportedModuleDatabaseProvider:
                 last_exc = e
                 continue
 
-            # Preferred: module.populate_bundle(bundle_dir)
             populate = getattr(module, "populate_bundle", None)
+            builder = (
+                getattr(module, "build", None)
+                or getattr(module, "build_database", None)
+                or getattr(module, "build_test_database", None)
+            )
+
             if callable(populate):
                 populate(Path(bundle_dir))
                 preferred = Path(bundle_dir) / f"{name}.test_db"
@@ -411,12 +427,6 @@ class ImportedModuleDatabaseProvider:
                     f"populate_bundle() for '{name}' ran but did not create a unique .test_db in {bundle_dir}"
                 )
 
-            # Common builder names.
-            builder = (
-                getattr(module, "build", None)
-                or getattr(module, "build_database", None)
-                or getattr(module, "build_test_database", None)
-            )
             if callable(builder):
                 db_path = Path(bundle_dir) / f"{name}.test_db"
                 builder(Path(db_path))
@@ -480,6 +490,36 @@ def default_test_database_specs() -> Dict[str, TestDatabaseSpec]:
             builder=_build_test_db_13_blank,
             description="Schema + helper tables only (keeps required null rows).",
         ),
+        "benchmark_db_smoke": TestDatabaseSpec(
+            name="benchmark_db_smoke",
+            builder=_make_profiled_builder(
+                db_name="benchmark_db_smoke",
+                books=250,
+                folders=1000,
+                files=4000,
+            ),
+            description="Opt-in benchmark fixture: 250 books, 1000 folders, 4000 files.",
+        ),
+        "benchmark_db_medium": TestDatabaseSpec(
+            name="benchmark_db_medium",
+            builder=_make_profiled_builder(
+                db_name="benchmark_db_medium",
+                books=2500,
+                folders=10000,
+                files=40000,
+            ),
+            description="Benchmark fixture: 2500 books, 10000 folders, 40000 files.",
+        ),
+        "benchmark_db_large": TestDatabaseSpec(
+            name="benchmark_db_large",
+            builder=_make_profiled_builder(
+                db_name="benchmark_db_large",
+                books=10000,
+                folders=40000,
+                files=160000,
+            ),
+            description="Large benchmark fixture: 10000 books, 40000 folders, 160000 files.",
+        ),
     }
 
     # Cover the full historical `test_db_0..test_db_25` range with FRBR-native
@@ -542,7 +582,7 @@ def _legacy_test_db_profiles() -> Dict[str, Dict[str, int]]:
 
 def _make_profiled_builder(*, db_name: str, books: int, folders: int, files: int) -> Builder:
     def _builder(db_path: Path) -> None:
-        _build_profiled_test_db(
+        build_profiled_test_database(
             db_path=db_path,
             db_name=db_name,
             books=books,
@@ -551,6 +591,70 @@ def _make_profiled_builder(*, db_name: str, books: int, folders: int, files: int
         )
 
     return _builder
+
+
+def build_profiled_test_database(
+    *,
+    db_path: Path,
+    db_name: str,
+    books: int,
+    folders: int,
+    files: int,
+) -> None:
+    """Public helper for deterministic synthetic FRBR-native test DBs.
+
+    This is intended for opt-in benchmark and profiling workflows that want a
+    larger synthetic fixture without needing a dedicated legacy-style builder
+    module.
+    """
+
+    _build_profiled_test_db(
+        db_path=db_path,
+        db_name=db_name,
+        books=books,
+        folders=folders,
+        files=files,
+    )
+
+
+def _module_has_supported_db_entrypoint(module: object) -> bool:
+    return any(
+        callable(getattr(module, attr, None))
+        for attr in ("populate_bundle", "build", "build_database", "build_test_database")
+    )
+
+
+def _rewrite_bundle_root_tokens(*, db_path: Path, provision_root: Path) -> None:
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return
+
+    replacement = str(Path(provision_root).resolve())
+    token = TEST_DB_BUNDLE_ROOT_TOKEN
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        rewrites = (
+            ("stores", "store_root_uri"),
+            ("files", "file_original_path"),
+            ("images", "image_original_path"),
+            ("items", "item_source_path"),
+        )
+        for table, column in rewrites:
+            if not _table_exists(conn, table):
+                continue
+            columns = {str(row[1]) for row in _table_info(conn, table)}
+            if column not in columns:
+                continue
+            conn.execute(
+                f"UPDATE {table} "
+                f"SET {column} = REPLACE({column}, ?, ?) "
+                f"WHERE {column} IS NOT NULL AND instr({column}, ?) > 0;",
+                (token, replacement, token),
+            )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _bundled_test_db_1_csv_dir() -> Path:
@@ -971,11 +1075,11 @@ def _default_liuxin_data_dir() -> Optional[Path]:
 def _env_module_prefixes() -> list[str]:
     """Builder module prefixes used by ImportedModuleDatabaseProvider.
 
-    Defaults to `tests._support.test_databases` and can be extended via:
+    Defaults to `tests.support.test_databases` and can be extended via:
     $LIUXIN_TEST_DATABASE_BUILDER_PREFIXES (separator: ; , :)
     """
 
-    defaults = ["tests._support.test_databases"]
+    defaults = ["tests.support.test_databases", "tests._support.test_databases"]
     raw = os.environ.get("LIUXIN_TEST_DATABASE_BUILDER_PREFIXES", "")
     extra: list[str] = []
     for part in re.split(r"[;,:]", raw):

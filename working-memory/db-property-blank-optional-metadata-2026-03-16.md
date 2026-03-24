@@ -47,7 +47,8 @@ For those provisioned DBs, alpha now explicitly checks:
 
 ## What It Does Not Claim
 
-- It does **not** justify moving the remaining `16` legacy DB-property rows out of `salvage_existing`.
+- It did **not** by itself justify moving the final legacy DB-property salvage rows to `covered`.
+- It also does **not** justify pulling the `3` `secondary_uuid / content_level / loc_shelf` rows back out of `rewrite`.
 - The old rows still carry stale or unreplaced legacy semantics:
   - author maps
   - UUID expectations

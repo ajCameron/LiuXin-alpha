@@ -10,7 +10,7 @@ from LiuXin_alpha.folder_stores.folderstoremanager import FolderStoreManager
 from LiuXin_tests.test_databases import load_data
 from LiuXin_tests.test_databases.test_db_10 import add_complex_series_to_db
 from LiuXin_tests.test_databases import TestDatabaseBuilder
-from LiuXin_tests.test_objects import TestObjectsHandler
+from tests.support.test_databases._legacy.objects import TestObjectsHandler
 from LiuXin_tests.test_utils.test_utils import DatabaseValidator
 
 # Todo: Really need a means to kill ramdisks and remove all the entries in them

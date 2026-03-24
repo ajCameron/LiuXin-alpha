@@ -1,22 +1,52 @@
 # Working Memory Index
 
-Updated: 2026-03-16
+Updated: 2026-03-19
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [benchmark-harness-2026-03-19.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/benchmark-harness-2026-03-19.md)
+  Added the first alpha-native benchmark script suite for backend and WSGI hot paths, plus a combined JSON baseline artifact under `working-memory/test-results`.
+
+- [semantic-test-db-series-2026-03-18.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/semantic-test-db-series-2026-03-18.md)
+  Alpha-native semantic fixture families are now live for metadata, stores/assets, images/covers, custom columns, and identifiers, including `_db_1` expansions plus `pathological_relations_db_0` and `weird_data_db_0`, with imported-module discovery tightened so only supported builder-entrypoint modules participate by default.
+
+- [standard-test-db-gap-analysis-2026-03-18.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/standard-test-db-gap-analysis-2026-03-18.md)
+  Gap analysis for the standard `test_db_*` series: most names currently collapse to generic profiled fixtures, the first semantic-family expansion wave is now live, and the remaining standard-series question is whether a real `compat_projection_db` contract should exist at all.
+
+- [benchmark-test-database-plan-2026-03-18.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/benchmark-test-database-plan-2026-03-18.md)
+  Adds explicit alpha-native benchmark DBs as opt-in resources, wires them into the shared test-resource manager, and provides a standalone builder script for medium/large/custom benchmark corpora.
+
+- [legacy-duplicate-cleanup-wave-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-duplicate-cleanup-wave-2026-03-16.md)
+  First real alpha-side duplicate deletion wave: covered DB-property duplicates were removed from `src/LiuXin_tests/...`, and the legacy package now delegates those rows to the authoritative support copies while leaving only the rewrite family local.
+
+- [db-property-custom-column-profile-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-custom-column-profile-cluster-2026-03-16.md)
+  Confirms that `test_db_6`, `22`, `23`, `24`, and `25` are no longer a salvage backlog: live alpha fixtures now expose an explicitly empty custom-column profile, and current custom-column semantics are covered on active alpha seams, so that family moved to `covered`.
+
+- [db-property-rich-content-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-rich-content-cluster-2026-03-16.md)
+  Confirms that `test_db_4` and `10` are no longer honest salvage rows: live alpha fixtures only expose generated `titles` / `books` compatibility views and no rich synthetic-content maps, so that family moved to `rewrite`.
+
+- [db-property-compatibility-projection-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-compatibility-projection-cluster-2026-03-16.md)
+  Confirms that `test_db_1`, `14`, `15`, `16`, and `17` are no longer honest salvage rows: the live alpha fixtures only expose a narrow `titles` / `books` compatibility-view contract, not the old author-rich compatibility-builder semantics, so that family now belongs in `rewrite`.
+
+- [db-property-identifier-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-identifier-cluster-2026-03-16.md)
+  Confirms that `test_db_20` is no longer an honest salvage row: the live alpha fixture has empty identifier tables, empty identifier views, and no `identifier_title_links` table, so that seam now belongs in `rewrite`.
+
+- [db-property-secondary-uuid-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-secondary-uuid-cluster-2026-03-16.md)
+  Confirms that `test_db_18`, `19`, and `21` are no longer honest salvage rows: live alpha fixtures for those names do not materialize the old `secondary_uuid / content_level / loc_shelf` tables, so that family now belongs in `rewrite`.
+
 - [db-property-remaining-clusters-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-remaining-clusters-2026-03-16.md)
-  Splits the remaining `16` DB-property salvage rows into real semantic clusters; the cleanest next target is the `secondary_uuid / content_level / loc_shelf` family.
+  Records the final seven-row DB-property salvage split that is now fully resolved into `covered` and `rewrite`.
 
 - [db-property-blank-optional-metadata-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-blank-optional-metadata-2026-03-16.md)
-  Added a live alpha-native contract for the current blank optional-metadata support DB profiles; useful coverage, but not enough to move the remaining legacy DB-property rows out of `salvage_existing`.
+  Added a live alpha-native contract for the current blank optional-metadata support DB profiles; this was one of the supporting seams that helped close the DB-property salvage bucket.
 
 - [db-property-simple-seam-review-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-simple-seam-review-2026-03-16.md)
   Review of the smallest remaining DB-property salvage rows: only `test_db_13_properties.py` could be honestly promoted to `covered`; the others still carry stale or unreplaced legacy semantics.
 
 - [db-property-salvage-split-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-salvage-split-2026-03-16.md)
-  The DB-property corpus is now split honestly: all 26 support classes have live alpha subset coverage, 10 minimal legacy property rows moved to `covered`, and 16 larger semantic rows remain `salvage_existing`.
+  The DB-property corpus is now fully resolved: all 26 support classes have live alpha subset coverage, the salvage bucket is empty, and the remaining legacy rows are split honestly between `covered` and explicit `rewrite` families.
 
 - [db-property-alpha-subset-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-alpha-subset-2026-03-16.md)
   The legacy DB-property support corpus now has a collected alpha-native live schema/count contract across all 26 support classes.
@@ -25,13 +55,13 @@ Start here for active handoff notes. This index should stay short.
   First promotion slice for the `salvage_existing` DB-property corpus: the 26 support classes now live behind a registry and a collected structural/resource-manager contract, while the stale old value snapshots remain to be normalized.
 
 - [remaining-rewrite-deferral-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/remaining-rewrite-deferral-2026-03-16.md)
-  Records the decision to park the last five legacy rewrite rows instead of forcing fake migrations: `core_xmlrpc_compat` is deferred pending an explicit compat goal, and `folder_store_runtime` is blocked until a real replacement seam exists.
+  Records the current decision to park the remaining rewrite rows instead of forcing fake migrations: `core_xmlrpc_compat` is deferred pending an explicit compat goal, `folder_store_runtime` is blocked until a real replacement seam exists, and the removed DB-property builder families stay in `rewrite`.
 
 - [legacy-support-harness-closure-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-support-harness-closure-2026-03-16.md)
   Closed the old `legacy_support_harness` rewrite seam: five rows are now covered at active alpha helper/resource/macro tests, and two rows are retired as dead unittest/FSM scaffolding.
 
 - [remaining-rewrite-seams-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/remaining-rewrite-seams-2026-03-16.md)
-  Remaining legacy rewrite work is now down to two real seams: `core_xmlrpc_compat` and `folder_store_runtime`.
+  Remaining legacy rewrite work is now down to six real seams: `core_xmlrpc_compat`, `folder_store_runtime`, and the removed `secondary_uuid`, identifier, compatibility-projection, and rich-content DB-property families.
 
 - [relation-field-matrix-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/relation-field-matrix-2026-03-16.md)
   Active Batch B replacement for the legacy cache relation-field self-tests: one live pytest matrix now pins one-to-many, many-to-one, and many-to-many adapter behavior across default, typed, and priority variants.
@@ -85,7 +115,7 @@ Start here for active handoff notes. This index should stay short.
   Import-rewrite queue for the legacy DB-support salvage batch is now complete: `tests/support/test_databases` no longer imports `LiuXin_tests`, package-root import works, and the next real blocker is the separate `folder_stores` rewrite boundary.
 
 - [legacy-test-salvage-checklist-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-salvage-checklist-2026-03-16.md)
-  Turned the `salvage_existing` bucket into a concrete normalization plan: `tests/support/test_databases` is the authoritative target, import decoupling is done, and the remaining work is promotion plus handling the now-understood divergent files.
+  Records the completed normalization pass that closed the `salvage_existing` bucket: `tests/support/test_databases` is authoritative, import decoupling is done, and remaining legacy work is explicit rewrite or cleanup.
 
 - [legacy-test-migration-plan-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-migration-plan-2026-03-16.md)
   Inventoried the original LiuXin test suite into a first-pass migration manifest, with initial `covered` / `salvage_existing` / `rewrite` / `vendor_frozen` / `integration_frozen` / `retire` guesses for every original test file.
@@ -170,6 +200,11 @@ Start here for active handoff notes. This index should stay short.
 
 - [interface-findings-2026-03-11.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/interface-findings-2026-03-11.md)
   Terminal/interface review focused on windowed UI behavior, job/proxy issues, and the RPC transition boundary.
+
+- [optimization-pass-driver-wrapper-opds-2026-03-19.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/optimization-pass-driver-wrapper-opds-2026-03-19.md)
+  First targeted performance pass added wrapper-level derived-schema caches,
+  narrowed the OPDS metadata path, fixed benchmark setup overhead, and dropped
+  the measured hot paths from multi-second to sub-second / low-second ranges.
 
 ## Usage
 

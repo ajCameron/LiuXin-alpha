@@ -4,7 +4,7 @@ Properties for test db 20.
 """
 
 
-from LiuXin_tests.test_databases.test_db_properties.common_db_properties import (
+from tests.support.test_databases.test_db_properties.common_db_properties import (
     CommonDBProperties,
 )
 

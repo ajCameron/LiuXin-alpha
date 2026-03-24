@@ -6,7 +6,7 @@ Properties for the DB 17 test databas.
 
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
-from LiuXin_tests.test_databases.test_db_properties.common_db_properties import (
+from tests.support.test_databases.test_db_properties.common_db_properties import (
     CommonDBProperties,
 )
 

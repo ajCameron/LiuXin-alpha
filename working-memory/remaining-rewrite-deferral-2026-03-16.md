@@ -4,7 +4,7 @@ Date: 2026-03-16
 
 ## Decision
 
-Do not force the remaining `rewrite: 5` rows through fake compatibility work.
+Do not force the remaining `rewrite: 16` rows through fake compatibility work.
 
 They are intentionally parked as follows:
 
@@ -21,11 +21,28 @@ They are intentionally parked as follows:
   - reason: these target the removed legacy folder-store runtime
   - do not port until a real replacement implementation seam exists
 
+### Rewrite Boundary
+
+- `db_property_secondary_uuid_cluster`
+  - row count: `3`
+- `db_property_identifier_cluster`
+  - row count: `1`
+- `db_property_compatibility_projection_cluster`
+  - row count: `5`
+- `db_property_rich_content_cluster`
+  - row count: `2`
+
+Reason:
+
+- the old specialized builders behind those DB-property rows are no longer in the live provisioning path
+- the narrow current compatibility guards are worth pinning, but they are not the old builder outputs
+
 ## Practical Effect
 
-- No further legacy-test rewrite work should happen by default.
-- Future migration work should focus on:
-  - `salvage_existing`
+- no further legacy-test rewrite work should happen by default
+- there is no remaining `salvage_existing` bucket
+- future migration work should focus on:
+  - explicitly scoped `rewrite` seams
   - explicitly covered/retired rows
   - or genuinely new alpha-native tests
 
@@ -34,3 +51,4 @@ They are intentionally parked as follows:
 Resume only if one of these becomes true:
 1. a real replacement runtime for the old folder-store behavior exists
 2. XML-RPC or equivalent legacy remote-compat becomes a product goal
+3. a real replacement builder/test seam is defined for one of the remaining DB-property rewrite families

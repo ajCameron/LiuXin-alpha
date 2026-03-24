@@ -193,8 +193,26 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
             return self.catalog.works_for_linked_entity("series", item_token)
         return []
 
+    def _opds_related_rows_by_table(self, row) -> dict[str, list[object]]:
+        related: dict[str, list[object]] = {}
+        # OPDS entries only need a small subset of linked data. Avoid building the
+        # full generic related-entity graph for each work row.
+        for linked_table in ("expressions", "files", "labels", "series"):
+            if not self._table_exists(linked_table):
+                continue
+            try:
+                linked_rows = list(self.db.get_interlinked_rows(target_row=row, secondary_table=linked_table))
+            except Exception:
+                continue
+            if linked_rows:
+                related[linked_table] = linked_rows
+        return related
+
     def opds_work_metadata_payload(self, row) -> dict[str, object]:
-        return self.catalog.work_metadata_payload(row)
+        return self.catalog.read_model.work_metadata_payload(
+            row,
+            related_rows_by_table=self._opds_related_rows_by_table(row),
+        )
 
     def _serve_opds(self, path: str, query: dict[str, list[str]]) -> _Response:
         return self.opds_api.serve(path, query)

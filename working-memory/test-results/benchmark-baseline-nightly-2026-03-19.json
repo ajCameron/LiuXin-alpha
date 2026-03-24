@@ -1,0 +1,2034 @@
+{
+  "backend_reports": [
+    {
+      "created_utc": "2026-03-20T02:29:44+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-0ussrzp0/benchmark_db_smoke/benchmark_db_smoke.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-0ussrzp0/benchmark_db_smoke",
+        "source": "named:benchmark_db_smoke"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:29:44+00:00"
+      },
+      "inputs": {
+        "database": "",
+        "db_name": "benchmark_db_smoke",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "benchmark",
+        "scenario_names": [
+          "open_database",
+          "work_list_title",
+          "work_search_global",
+          "work_detail",
+          "file_download",
+          "image_bytes"
+        ],
+        "warmups": 1,
+        "work_id": 1
+      },
+      "results": [
+        {
+          "durations_ms": [
+            804.258,
+            785.778,
+            791.134,
+            807.034,
+            821.623
+          ],
+          "iterations": 5,
+          "max_ms": 821.623,
+          "mean_ms": 801.965,
+          "median_ms": 804.258,
+          "min_ms": 785.778,
+          "name": "open_database",
+          "sample": {
+            "works": 250
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1225.669,
+            1561.168,
+            1562.882,
+            1179.186,
+            1281.383
+          ],
+          "iterations": 5,
+          "max_ms": 1562.882,
+          "mean_ms": 1362.058,
+          "median_ms": 1281.383,
+          "min_ms": 1179.186,
+          "name": "work_list_title",
+          "sample": {
+            "count": 250,
+            "first_title": "benchmark_db_smoke title 001"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1135.566,
+            1293.388,
+            1604.234,
+            1612.061,
+            3277.072
+          ],
+          "iterations": 5,
+          "max_ms": 3277.072,
+          "mean_ms": 1784.464,
+          "median_ms": 1604.234,
+          "min_ms": 1135.566,
+          "name": "work_search_global",
+          "sample": {
+            "first_table": "works",
+            "query": "benchmark",
+            "total": 250
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1387.86,
+            1726.005,
+            1289.759,
+            1308.323,
+            1243.264
+          ],
+          "iterations": 5,
+          "max_ms": 1726.005,
+          "mean_ms": 1391.042,
+          "median_ms": 1308.323,
+          "min_ms": 1243.264,
+          "name": "work_detail",
+          "sample": {
+            "credits": 0,
+            "files": 16,
+            "related_tables": 2,
+            "title": "benchmark_db_smoke title 001"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            13.382,
+            13.161,
+            12.565,
+            12.493,
+            15.452
+          ],
+          "iterations": 5,
+          "max_ms": 15.452,
+          "mean_ms": 13.411,
+          "median_ms": 13.161,
+          "min_ms": 12.493,
+          "name": "file_download",
+          "sample": {
+            "body_bytes": 55,
+            "file_id": 1,
+            "status": "404 Not Found"
+          },
+          "warmups": 1
+        },
+        {
+          "name": "image_bytes",
+          "reason": "unsupported_or_missing_fixture_data",
+          "skipped": true
+        }
+      ],
+      "script": "benchmark_read_paths"
+    },
+    {
+      "created_utc": "2026-03-20T02:47:32+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-qfq6_1yy/benchmark_db_medium/benchmark_db_medium.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-qfq6_1yy/benchmark_db_medium",
+        "source": "named:benchmark_db_medium"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:47:32+00:00"
+      },
+      "inputs": {
+        "database": "",
+        "db_name": "benchmark_db_medium",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "benchmark",
+        "scenario_names": [
+          "open_database",
+          "work_list_title",
+          "work_search_global",
+          "work_detail",
+          "file_download",
+          "image_bytes"
+        ],
+        "warmups": 1,
+        "work_id": 1
+      },
+      "results": [
+        {
+          "durations_ms": [
+            776.138,
+            762.443,
+            760.463,
+            756.68,
+            758.406
+          ],
+          "iterations": 5,
+          "max_ms": 776.138,
+          "mean_ms": 762.826,
+          "median_ms": 760.463,
+          "min_ms": 756.68,
+          "name": "open_database",
+          "sample": {
+            "works": 2500
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            8954.521,
+            8881.487,
+            9198.089,
+            9083.842,
+            9113.455
+          ],
+          "iterations": 5,
+          "max_ms": 9198.089,
+          "mean_ms": 9046.279,
+          "median_ms": 9083.842,
+          "min_ms": 8881.487,
+          "name": "work_list_title",
+          "sample": {
+            "count": 2500,
+            "first_title": "benchmark_db_medium title 001"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            9639.011,
+            9592.414,
+            9938.026,
+            9718.942,
+            9829.959
+          ],
+          "iterations": 5,
+          "max_ms": 9938.026,
+          "mean_ms": 9743.671,
+          "median_ms": 9718.942,
+          "min_ms": 9592.414,
+          "name": "work_search_global",
+          "sample": {
+            "first_table": "works",
+            "query": "benchmark",
+            "total": 2500
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            973.316,
+            998.316,
+            974.301,
+            979.774,
+            990.649
+          ],
+          "iterations": 5,
+          "max_ms": 998.316,
+          "mean_ms": 983.271,
+          "median_ms": 979.774,
+          "min_ms": 973.316,
+          "name": "work_detail",
+          "sample": {
+            "credits": 0,
+            "files": 16,
+            "related_tables": 2,
+            "title": "benchmark_db_medium title 001"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            12.978,
+            12.448,
+            12.975,
+            13.278,
+            12.068
+          ],
+          "iterations": 5,
+          "max_ms": 13.278,
+          "mean_ms": 12.749,
+          "median_ms": 12.975,
+          "min_ms": 12.068,
+          "name": "file_download",
+          "sample": {
+            "body_bytes": 55,
+            "file_id": 1,
+            "status": "404 Not Found"
+          },
+          "warmups": 1
+        },
+        {
+          "name": "image_bytes",
+          "reason": "unsupported_or_missing_fixture_data",
+          "skipped": true
+        }
+      ],
+      "script": "benchmark_read_paths"
+    },
+    {
+      "created_utc": "2026-03-20T02:47:48+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-w2sjwj1o/metadata_rich_db_1/metadata_rich_db_1.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-w2sjwj1o/metadata_rich_db_1",
+        "source": "named:metadata_rich_db_1"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:47:48+00:00"
+      },
+      "inputs": {
+        "database": "",
+        "db_name": "metadata_rich_db_1",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "Metadata",
+        "scenario_names": [
+          "open_database",
+          "work_list_title",
+          "work_search_global",
+          "work_detail",
+          "file_download",
+          "image_bytes"
+        ],
+        "warmups": 1,
+        "work_id": 4
+      },
+      "results": [
+        {
+          "durations_ms": [
+            755.895,
+            757.414,
+            757.971,
+            752.112,
+            730.329
+          ],
+          "iterations": 5,
+          "max_ms": 757.971,
+          "mean_ms": 750.744,
+          "median_ms": 755.895,
+          "min_ms": 730.329,
+          "name": "open_database",
+          "sample": {
+            "works": 4
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            21.42,
+            20.983,
+            22.017,
+            20.831,
+            21.724
+          ],
+          "iterations": 5,
+          "max_ms": 22.017,
+          "mean_ms": 21.395,
+          "median_ms": 21.42,
+          "min_ms": 20.831,
+          "name": "work_list_title",
+          "sample": {
+            "count": 4,
+            "first_title": "Metadata Spectrum Four"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            21.811,
+            22.493,
+            21.715,
+            22.187,
+            21.938
+          ],
+          "iterations": 5,
+          "max_ms": 22.493,
+          "mean_ms": 22.029,
+          "median_ms": 21.938,
+          "min_ms": 21.715,
+          "name": "work_search_global",
+          "sample": {
+            "first_table": "works",
+            "query": "Metadata",
+            "total": 4
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1404.053,
+            1479.634,
+            1440.583,
+            1427.877,
+            1412.08
+          ],
+          "iterations": 5,
+          "max_ms": 1479.634,
+          "mean_ms": 1432.846,
+          "median_ms": 1427.877,
+          "min_ms": 1404.053,
+          "name": "work_detail",
+          "sample": {
+            "credits": 2,
+            "files": 0,
+            "related_tables": 9,
+            "title": "Metadata Spectrum Four"
+          },
+          "warmups": 1
+        },
+        {
+          "name": "file_download",
+          "reason": "unsupported_or_missing_fixture_data",
+          "skipped": true
+        },
+        {
+          "name": "image_bytes",
+          "reason": "unsupported_or_missing_fixture_data",
+          "skipped": true
+        }
+      ],
+      "script": "benchmark_read_paths"
+    },
+    {
+      "created_utc": "2026-03-20T02:48:00+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-554r2l73/stores_assets_db_1/stores_assets_db_1.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-554r2l73/stores_assets_db_1",
+        "source": "named:stores_assets_db_1"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:48:00+00:00"
+      },
+      "inputs": {
+        "database": "",
+        "db_name": "stores_assets_db_1",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "Store",
+        "scenario_names": [
+          "open_database",
+          "work_list_title",
+          "work_search_global",
+          "work_detail",
+          "file_download",
+          "image_bytes"
+        ],
+        "warmups": 1,
+        "work_id": 1
+      },
+      "results": [
+        {
+          "durations_ms": [
+            761.293,
+            761.783,
+            755.733,
+            770.809,
+            762.367
+          ],
+          "iterations": 5,
+          "max_ms": 770.809,
+          "mean_ms": 762.397,
+          "median_ms": 761.783,
+          "min_ms": 755.733,
+          "name": "open_database",
+          "sample": {
+            "works": 3
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            17.666,
+            17.421,
+            17.6,
+            17.646,
+            17.666
+          ],
+          "iterations": 5,
+          "max_ms": 17.666,
+          "mean_ms": 17.6,
+          "median_ms": 17.646,
+          "min_ms": 17.421,
+          "name": "work_list_title",
+          "sample": {
+            "count": 3,
+            "first_title": "Store Variant Book One"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            18.917,
+            18.831,
+            18.349,
+            18.811,
+            20.583
+          ],
+          "iterations": 5,
+          "max_ms": 20.583,
+          "mean_ms": 19.098,
+          "median_ms": 18.831,
+          "min_ms": 18.349,
+          "name": "work_search_global",
+          "sample": {
+            "first_table": "works",
+            "query": "Store",
+            "total": 3
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            797.844,
+            818.972,
+            789.636,
+            788.113,
+            789.302
+          ],
+          "iterations": 5,
+          "max_ms": 818.972,
+          "mean_ms": 796.773,
+          "median_ms": 789.636,
+          "min_ms": 788.113,
+          "name": "work_detail",
+          "sample": {
+            "credits": 0,
+            "files": 2,
+            "related_tables": 3,
+            "title": "Store Variant Book One"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            12.763,
+            12.19,
+            12.436,
+            12.597,
+            12.168
+          ],
+          "iterations": 5,
+          "max_ms": 12.763,
+          "mean_ms": 12.431,
+          "median_ms": 12.436,
+          "min_ms": 12.168,
+          "name": "file_download",
+          "sample": {
+            "body_bytes": 17,
+            "file_id": 1,
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            0.85,
+            0.721,
+            0.709,
+            0.76,
+            0.712
+          ],
+          "iterations": 5,
+          "max_ms": 0.85,
+          "mean_ms": 0.75,
+          "median_ms": 0.721,
+          "min_ms": 0.709,
+          "name": "image_bytes",
+          "sample": {
+            "body_bytes": 71,
+            "image_id": 1,
+            "source": "storage"
+          },
+          "warmups": 1
+        }
+      ],
+      "script": "benchmark_read_paths"
+    },
+    {
+      "created_utc": "2026-03-20T02:48:10+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-joihkyxc/images_covers_db_1/images_covers_db_1.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-joihkyxc/images_covers_db_1",
+        "source": "named:images_covers_db_1"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:48:10+00:00"
+      },
+      "inputs": {
+        "database": "",
+        "db_name": "images_covers_db_1",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "Cover",
+        "scenario_names": [
+          "open_database",
+          "work_list_title",
+          "work_search_global",
+          "work_detail",
+          "file_download",
+          "image_bytes"
+        ],
+        "warmups": 1,
+        "work_id": 4
+      },
+      "results": [
+        {
+          "durations_ms": [
+            764.691,
+            776.54,
+            773.727,
+            757.444,
+            758.302
+          ],
+          "iterations": 5,
+          "max_ms": 776.54,
+          "mean_ms": 766.141,
+          "median_ms": 764.691,
+          "min_ms": 757.444,
+          "name": "open_database",
+          "sample": {
+            "works": 4
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            20.578,
+            21.196,
+            21.26,
+            20.531,
+            21.454
+          ],
+          "iterations": 5,
+          "max_ms": 21.454,
+          "mean_ms": 21.004,
+          "median_ms": 21.196,
+          "min_ms": 20.531,
+          "name": "work_list_title",
+          "sample": {
+            "count": 4,
+            "first_title": "Cover Variant Book Four"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            21.844,
+            22.532,
+            21.971,
+            22.522,
+            23.048
+          ],
+          "iterations": 5,
+          "max_ms": 23.048,
+          "mean_ms": 22.383,
+          "median_ms": 22.522,
+          "min_ms": 21.844,
+          "name": "work_search_global",
+          "sample": {
+            "first_table": "works",
+            "query": "Cover",
+            "total": 4
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            636.882,
+            624.288,
+            660.541,
+            635.903,
+            634.08
+          ],
+          "iterations": 5,
+          "max_ms": 660.541,
+          "mean_ms": 638.339,
+          "median_ms": 635.903,
+          "min_ms": 624.288,
+          "name": "work_detail",
+          "sample": {
+            "credits": 0,
+            "files": 0,
+            "related_tables": 1,
+            "title": "Cover Variant Book Four"
+          },
+          "warmups": 1
+        },
+        {
+          "name": "file_download",
+          "reason": "unsupported_or_missing_fixture_data",
+          "skipped": true
+        },
+        {
+          "durations_ms": [
+            0.673,
+            0.642,
+            0.618,
+            0.604,
+            0.612
+          ],
+          "iterations": 5,
+          "max_ms": 0.673,
+          "mean_ms": 0.63,
+          "median_ms": 0.618,
+          "min_ms": 0.604,
+          "name": "image_bytes",
+          "sample": {
+            "body_bytes": 71,
+            "image_id": 3,
+            "source": "storage"
+          },
+          "warmups": 1
+        }
+      ],
+      "script": "benchmark_read_paths"
+    },
+    {
+      "created_utc": "2026-03-20T02:48:27+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-_d4j0_0h/pathological_relations_db_0/pathological_relations_db_0.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-_d4j0_0h/pathological_relations_db_0",
+        "source": "named:pathological_relations_db_0"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:48:27+00:00"
+      },
+      "inputs": {
+        "database": "",
+        "db_name": "pathological_relations_db_0",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "Pathological",
+        "scenario_names": [
+          "open_database",
+          "work_list_title",
+          "work_search_global",
+          "work_detail",
+          "file_download",
+          "image_bytes"
+        ],
+        "warmups": 1,
+        "work_id": 1
+      },
+      "results": [
+        {
+          "durations_ms": [
+            770.41,
+            763.187,
+            758.163,
+            780.016,
+            791.075
+          ],
+          "iterations": 5,
+          "max_ms": 791.075,
+          "mean_ms": 772.57,
+          "median_ms": 770.41,
+          "min_ms": 758.163,
+          "name": "open_database",
+          "sample": {
+            "works": 8
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            35.138,
+            35.325,
+            35.815,
+            35.73,
+            40.291
+          ],
+          "iterations": 5,
+          "max_ms": 40.291,
+          "mean_ms": 36.46,
+          "median_ms": 35.73,
+          "min_ms": 35.138,
+          "name": "work_list_title",
+          "sample": {
+            "count": 8,
+            "first_title": "Pathological Relation Book 01"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            37.707,
+            37.353,
+            37.813,
+            39.181,
+            47.062
+          ],
+          "iterations": 5,
+          "max_ms": 47.062,
+          "mean_ms": 39.823,
+          "median_ms": 37.813,
+          "min_ms": 37.353,
+          "name": "work_search_global",
+          "sample": {
+            "first_table": "works",
+            "query": "Pathological",
+            "total": 8
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1335.021,
+            1300.934,
+            1295.417,
+            1517.582,
+            1310.167
+          ],
+          "iterations": 5,
+          "max_ms": 1517.582,
+          "mean_ms": 1351.824,
+          "median_ms": 1310.167,
+          "min_ms": 1295.417,
+          "name": "work_detail",
+          "sample": {
+            "credits": 3,
+            "files": 0,
+            "related_tables": 6,
+            "title": "Pathological Relation Book 01"
+          },
+          "warmups": 1
+        },
+        {
+          "name": "file_download",
+          "reason": "unsupported_or_missing_fixture_data",
+          "skipped": true
+        },
+        {
+          "name": "image_bytes",
+          "reason": "unsupported_or_missing_fixture_data",
+          "skipped": true
+        }
+      ],
+      "script": "benchmark_read_paths"
+    },
+    {
+      "created_utc": "2026-03-20T02:48:39+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-an7m8g2l/weird_data_db_0/weird_data_db_0.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-an7m8g2l/weird_data_db_0",
+        "source": "named:weird_data_db_0"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:48:39+00:00"
+      },
+      "inputs": {
+        "database": "",
+        "db_name": "weird_data_db_0",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "Niño",
+        "scenario_names": [
+          "open_database",
+          "work_list_title",
+          "work_search_global",
+          "work_detail",
+          "file_download",
+          "image_bytes"
+        ],
+        "warmups": 1,
+        "work_id": 1
+      },
+      "results": [
+        {
+          "durations_ms": [
+            766.609,
+            758.92,
+            722.788,
+            736.695,
+            760.298
+          ],
+          "iterations": 5,
+          "max_ms": 766.609,
+          "mean_ms": 749.062,
+          "median_ms": 758.92,
+          "min_ms": 722.788,
+          "name": "open_database",
+          "sample": {
+            "works": 3
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            19.63,
+            19.224,
+            18.613,
+            18.473,
+            19.244
+          ],
+          "iterations": 5,
+          "max_ms": 19.63,
+          "mean_ms": 19.037,
+          "median_ms": 19.224,
+          "min_ms": 18.473,
+          "name": "work_list_title",
+          "sample": {
+            "count": 3,
+            "first_title": "El Niño — édition finale"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            18.616,
+            17.942,
+            17.854,
+            17.814,
+            17.966
+          ],
+          "iterations": 5,
+          "max_ms": 18.616,
+          "mean_ms": 18.038,
+          "median_ms": 17.942,
+          "min_ms": 17.814,
+          "name": "work_search_global",
+          "sample": {
+            "first_table": "works",
+            "query": "Niño",
+            "total": 1
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            935.246,
+            910.155,
+            891.545,
+            891.308,
+            907.132
+          ],
+          "iterations": 5,
+          "max_ms": 935.246,
+          "mean_ms": 907.077,
+          "median_ms": 907.132,
+          "min_ms": 891.308,
+          "name": "work_detail",
+          "sample": {
+            "credits": 0,
+            "files": 1,
+            "related_tables": 5,
+            "title": "El Niño — édition finale"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            12.058,
+            12.379,
+            12.371,
+            12.106,
+            12.165
+          ],
+          "iterations": 5,
+          "max_ms": 12.379,
+          "mean_ms": 12.216,
+          "median_ms": 12.165,
+          "min_ms": 12.058,
+          "name": "file_download",
+          "sample": {
+            "body_bytes": 28,
+            "file_id": 1,
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            0.772,
+            0.692,
+            0.666,
+            0.648,
+            0.675
+          ],
+          "iterations": 5,
+          "max_ms": 0.772,
+          "mean_ms": 0.691,
+          "median_ms": 0.675,
+          "min_ms": 0.648,
+          "name": "image_bytes",
+          "sample": {
+            "body_bytes": 71,
+            "image_id": 1,
+            "source": "storage"
+          },
+          "warmups": 1
+        }
+      ],
+      "script": "benchmark_read_paths"
+    }
+  ],
+  "created_utc": "2026-03-20T02:54:00+00:00",
+  "environment": {
+    "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+    "hostname": "DESKTOP-6LRDEPU",
+    "python": "3.12.3",
+    "timestamp_utc": "2026-03-20T02:54:00+00:00"
+  },
+  "inputs": {
+    "backend_targets": [
+      "benchmark_db_smoke",
+      "benchmark_db_medium",
+      "metadata_rich_db_1",
+      "stores_assets_db_1",
+      "images_covers_db_1",
+      "pathological_relations_db_0",
+      "weird_data_db_0"
+    ],
+    "interface_targets": [
+      "metadata_rich_db_1",
+      "stores_assets_db_1",
+      "images_covers_db_1",
+      "weird_data_db_0"
+    ],
+    "iterations": 5,
+    "profile": "nightly",
+    "warmups": 1
+  },
+  "interface_reports": [
+    {
+      "created_utc": "2026-03-20T02:50:36+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-at5cpx_6/metadata_rich_db_1/metadata_rich_db_1.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-at5cpx_6/metadata_rich_db_1",
+        "source": "named:metadata_rich_db_1"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:50:36+00:00"
+      },
+      "inputs": {
+        "apps": [
+          "web",
+          "api",
+          "opds"
+        ],
+        "database": "",
+        "db_name": "metadata_rich_db_1",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "Metadata",
+        "warmups": 1,
+        "work_id": 4
+      },
+      "results": [
+        {
+          "durations_ms": [
+            1359.492,
+            1409.206,
+            1354.555,
+            1381.099,
+            1428.066
+          ],
+          "iterations": 5,
+          "max_ms": 1428.066,
+          "mean_ms": 1386.484,
+          "median_ms": 1381.099,
+          "min_ms": 1354.555,
+          "name": "web:home",
+          "sample": {
+            "body_bytes": 46089,
+            "path": "/",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            180.152,
+            186.619,
+            184.093,
+            182.135,
+            182.645
+          ],
+          "iterations": 5,
+          "max_ms": 186.619,
+          "mean_ms": 183.129,
+          "median_ms": 182.645,
+          "min_ms": 180.152,
+          "name": "web:search",
+          "sample": {
+            "body_bytes": 28169,
+            "path": "/search?global_q=Metadata",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1684.926,
+            1743.795,
+            1669.685,
+            1684.322,
+            1840.905
+          ],
+          "iterations": 5,
+          "max_ms": 1840.905,
+          "mean_ms": 1724.727,
+          "median_ms": 1684.926,
+          "min_ms": 1669.685,
+          "name": "web:work_detail",
+          "sample": {
+            "body_bytes": 12909,
+            "path": "/tables/works/4",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1856.854,
+            1975.95,
+            1883.283,
+            1840.337,
+            1827.648
+          ],
+          "iterations": 5,
+          "max_ms": 1975.95,
+          "mean_ms": 1876.814,
+          "median_ms": 1856.854,
+          "min_ms": 1827.648,
+          "name": "api:index",
+          "sample": {
+            "body_bytes": 433,
+            "path": "/api",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            3259.48,
+            3328.248,
+            3642.005,
+            3345.084,
+            3520.691
+          ],
+          "iterations": 5,
+          "max_ms": 3642.005,
+          "mean_ms": 3419.102,
+          "median_ms": 3345.084,
+          "min_ms": 3259.48,
+          "name": "api:works",
+          "sample": {
+            "body_bytes": 1821,
+            "path": "/api/works?sort=title&limit=25",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1435.866,
+            1427.657,
+            1436.404,
+            1413.664,
+            1436.182
+          ],
+          "iterations": 5,
+          "max_ms": 1436.404,
+          "mean_ms": 1429.955,
+          "median_ms": 1435.866,
+          "min_ms": 1413.664,
+          "name": "api:work_detail",
+          "sample": {
+            "body_bytes": 3895,
+            "path": "/api/works/4",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            188.206,
+            189.628,
+            186.902,
+            175.697,
+            177.171
+          ],
+          "iterations": 5,
+          "max_ms": 189.628,
+          "mean_ms": 183.521,
+          "median_ms": 186.902,
+          "min_ms": 175.697,
+          "name": "api:search",
+          "sample": {
+            "body_bytes": 4114,
+            "path": "/api/search?q=Metadata",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            0.056,
+            0.064,
+            0.041,
+            0.04,
+            0.038
+          ],
+          "iterations": 5,
+          "max_ms": 0.064,
+          "mean_ms": 0.048,
+          "median_ms": 0.041,
+          "min_ms": 0.038,
+          "name": "opds:root",
+          "sample": {
+            "body_bytes": 1727,
+            "path": "/opds",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            4267.317,
+            4408.452,
+            4743.201,
+            4501.936,
+            4337.543
+          ],
+          "iterations": 5,
+          "max_ms": 4743.201,
+          "mean_ms": 4451.69,
+          "median_ms": 4408.452,
+          "min_ms": 4267.317,
+          "name": "opds:titles",
+          "sample": {
+            "body_bytes": 3712,
+            "path": "/opds/navcatalog/4f7469746c65",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            4338.983,
+            4346.359,
+            4548.354,
+            4655.469,
+            4405.169
+          ],
+          "iterations": 5,
+          "max_ms": 4655.469,
+          "mean_ms": 4458.867,
+          "median_ms": 4405.169,
+          "min_ms": 4338.983,
+          "name": "opds:search",
+          "sample": {
+            "body_bytes": 3699,
+            "path": "/opds/search/4d65746164617461",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        }
+      ],
+      "script": "benchmark_interface_paths"
+    },
+    {
+      "created_utc": "2026-03-20T02:51:40+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-1s4ch0ij/stores_assets_db_1/stores_assets_db_1.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-1s4ch0ij/stores_assets_db_1",
+        "source": "named:stores_assets_db_1"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:51:40+00:00"
+      },
+      "inputs": {
+        "apps": [
+          "web",
+          "api",
+          "opds"
+        ],
+        "database": "",
+        "db_name": "stores_assets_db_1",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "Store",
+        "warmups": 1,
+        "work_id": 1
+      },
+      "results": [
+        {
+          "durations_ms": [
+            1381.34,
+            1447.33,
+            1387.146,
+            1388.311,
+            1421.856
+          ],
+          "iterations": 5,
+          "max_ms": 1447.33,
+          "mean_ms": 1405.196,
+          "median_ms": 1388.311,
+          "min_ms": 1381.34,
+          "name": "web:home",
+          "sample": {
+            "body_bytes": 46086,
+            "path": "/",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            120.768,
+            118.75,
+            116.165,
+            118.122,
+            118.494
+          ],
+          "iterations": 5,
+          "max_ms": 120.768,
+          "mean_ms": 118.46,
+          "median_ms": 118.494,
+          "min_ms": 116.165,
+          "name": "web:search",
+          "sample": {
+            "body_bytes": 26121,
+            "path": "/search?global_q=Store",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            984.337,
+            993.341,
+            1004.125,
+            965.639,
+            984.417
+          ],
+          "iterations": 5,
+          "max_ms": 1004.125,
+          "mean_ms": 986.372,
+          "median_ms": 984.417,
+          "min_ms": 965.639,
+          "name": "web:work_detail",
+          "sample": {
+            "body_bytes": 10148,
+            "path": "/tables/works/1",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            242.26,
+            245.696,
+            245.429,
+            244.631,
+            247.469
+          ],
+          "iterations": 5,
+          "max_ms": 247.469,
+          "mean_ms": 245.097,
+          "median_ms": 245.429,
+          "min_ms": 242.26,
+          "name": "api:index",
+          "sample": {
+            "body_bytes": 432,
+            "path": "/api",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1463.968,
+            1467.655,
+            1680.464,
+            1877.826,
+            1604.078
+          ],
+          "iterations": 5,
+          "max_ms": 1877.826,
+          "mean_ms": 1618.798,
+          "median_ms": 1604.078,
+          "min_ms": 1463.968,
+          "name": "api:works",
+          "sample": {
+            "body_bytes": 928,
+            "path": "/api/works?sort=title&limit=25",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1554.048,
+            1138.85,
+            896.836,
+            905.15,
+            896.811
+          ],
+          "iterations": 5,
+          "max_ms": 1554.048,
+          "mean_ms": 1078.339,
+          "median_ms": 905.15,
+          "min_ms": 896.811,
+          "name": "api:work_detail",
+          "sample": {
+            "body_bytes": 2256,
+            "path": "/api/works/1",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            132.027,
+            138.541,
+            136.608,
+            136.265,
+            145.439
+          ],
+          "iterations": 5,
+          "max_ms": 145.439,
+          "mean_ms": 137.776,
+          "median_ms": 136.608,
+          "min_ms": 132.027,
+          "name": "api:search",
+          "sample": {
+            "body_bytes": 2602,
+            "path": "/api/search?q=Store",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            0.051,
+            0.045,
+            0.042,
+            0.042,
+            0.041
+          ],
+          "iterations": 5,
+          "max_ms": 0.051,
+          "mean_ms": 0.044,
+          "median_ms": 0.042,
+          "min_ms": 0.041,
+          "name": "opds:root",
+          "sample": {
+            "body_bytes": 1727,
+            "path": "/opds",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            2172.69,
+            2204.168,
+            2030.176,
+            2067.202,
+            2035.118
+          ],
+          "iterations": 5,
+          "max_ms": 2204.168,
+          "mean_ms": 2101.871,
+          "median_ms": 2067.202,
+          "min_ms": 2030.176,
+          "name": "opds:titles",
+          "sample": {
+            "body_bytes": 2961,
+            "path": "/opds/navcatalog/4f7469746c65",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            2089.851,
+            2351.812,
+            2102.195,
+            2121.943,
+            2385.814
+          ],
+          "iterations": 5,
+          "max_ms": 2385.814,
+          "mean_ms": 2210.323,
+          "median_ms": 2121.943,
+          "min_ms": 2089.851,
+          "name": "opds:search",
+          "sample": {
+            "body_bytes": 2933,
+            "path": "/opds/search/53746f7265",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            829.527,
+            286.533,
+            575.874,
+            405.497,
+            506.703
+          ],
+          "iterations": 5,
+          "max_ms": 829.527,
+          "mean_ms": 520.827,
+          "median_ms": 506.703,
+          "min_ms": 286.533,
+          "name": "opds:download",
+          "sample": {
+            "body_bytes": 17,
+            "path": "/get/epub/1/main",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        }
+      ],
+      "script": "benchmark_interface_paths"
+    },
+    {
+      "created_utc": "2026-03-20T02:52:57+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-qvvmgr9v/images_covers_db_1/images_covers_db_1.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-qvvmgr9v/images_covers_db_1",
+        "source": "named:images_covers_db_1"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:52:57+00:00"
+      },
+      "inputs": {
+        "apps": [
+          "web",
+          "api",
+          "opds"
+        ],
+        "database": "",
+        "db_name": "images_covers_db_1",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "Cover",
+        "warmups": 1,
+        "work_id": 4
+      },
+      "results": [
+        {
+          "durations_ms": [
+            1649.211,
+            1513.742,
+            1510.085,
+            1500.433,
+            1496.216
+          ],
+          "iterations": 5,
+          "max_ms": 1649.211,
+          "mean_ms": 1533.937,
+          "median_ms": 1510.085,
+          "min_ms": 1496.216,
+          "name": "web:home",
+          "sample": {
+            "body_bytes": 46086,
+            "path": "/",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            111.929,
+            108.199,
+            102.926,
+            102.349,
+            107.426
+          ],
+          "iterations": 5,
+          "max_ms": 111.929,
+          "mean_ms": 106.566,
+          "median_ms": 107.426,
+          "min_ms": 102.349,
+          "name": "web:search",
+          "sample": {
+            "body_bytes": 24363,
+            "path": "/search?global_q=Cover",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            844.816,
+            795.74,
+            830.37,
+            855.3,
+            914.331
+          ],
+          "iterations": 5,
+          "max_ms": 914.331,
+          "mean_ms": 848.112,
+          "median_ms": 844.816,
+          "min_ms": 795.74,
+          "name": "web:work_detail",
+          "sample": {
+            "body_bytes": 8965,
+            "path": "/tables/works/4",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            283.185,
+            343.808,
+            331.831,
+            358.581,
+            340.683
+          ],
+          "iterations": 5,
+          "max_ms": 358.581,
+          "mean_ms": 331.617,
+          "median_ms": 340.683,
+          "min_ms": 283.185,
+          "name": "api:index",
+          "sample": {
+            "body_bytes": 432,
+            "path": "/api",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            2060.231,
+            2031.605,
+            2028.083,
+            2054.836,
+            2035.449
+          ],
+          "iterations": 5,
+          "max_ms": 2060.231,
+          "mean_ms": 2042.041,
+          "median_ms": 2035.449,
+          "min_ms": 2028.083,
+          "name": "api:works",
+          "sample": {
+            "body_bytes": 1145,
+            "path": "/api/works?sort=title&limit=25",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            705.283,
+            688.546,
+            679.285,
+            790.15,
+            2241.977
+          ],
+          "iterations": 5,
+          "max_ms": 2241.977,
+          "mean_ms": 1021.048,
+          "median_ms": 705.283,
+          "min_ms": 679.285,
+          "name": "api:work_detail",
+          "sample": {
+            "body_bytes": 717,
+            "path": "/api/works/4",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            179.151,
+            187.116,
+            159.191,
+            197.389,
+            207.49
+          ],
+          "iterations": 5,
+          "max_ms": 207.49,
+          "mean_ms": 186.068,
+          "median_ms": 187.116,
+          "min_ms": 159.191,
+          "name": "api:search",
+          "sample": {
+            "body_bytes": 1574,
+            "path": "/api/search?q=Cover",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            0.071,
+            0.061,
+            0.058,
+            0.055,
+            0.088
+          ],
+          "iterations": 5,
+          "max_ms": 0.088,
+          "mean_ms": 0.066,
+          "median_ms": 0.061,
+          "min_ms": 0.055,
+          "name": "opds:root",
+          "sample": {
+            "body_bytes": 1727,
+            "path": "/opds",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            2748.078,
+            3551.61,
+            4229.644,
+            4238.303,
+            2753.068
+          ],
+          "iterations": 5,
+          "max_ms": 4238.303,
+          "mean_ms": 3504.141,
+          "median_ms": 3551.61,
+          "min_ms": 2748.078,
+          "name": "opds:titles",
+          "sample": {
+            "body_bytes": 3068,
+            "path": "/opds/navcatalog/4f7469746c65",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            2654.346,
+            2597.876,
+            2732.557,
+            2824.203,
+            3239.082
+          ],
+          "iterations": 5,
+          "max_ms": 3239.082,
+          "mean_ms": 2809.613,
+          "median_ms": 2732.557,
+          "min_ms": 2597.876,
+          "name": "opds:search",
+          "sample": {
+            "body_bytes": 3040,
+            "path": "/opds/search/436f766572",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        }
+      ],
+      "script": "benchmark_interface_paths"
+    },
+    {
+      "created_utc": "2026-03-20T02:54:00+00:00",
+      "database": {
+        "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-lfqwejnw/weird_data_db_0/weird_data_db_0.test_db",
+        "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-lfqwejnw/weird_data_db_0",
+        "source": "named:weird_data_db_0"
+      },
+      "environment": {
+        "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+        "hostname": "DESKTOP-6LRDEPU",
+        "python": "3.12.3",
+        "timestamp_utc": "2026-03-20T02:54:00+00:00"
+      },
+      "inputs": {
+        "apps": [
+          "web",
+          "api",
+          "opds"
+        ],
+        "database": "",
+        "db_name": "weird_data_db_0",
+        "iterations": 5,
+        "query": "",
+        "resolved_query": "Niño",
+        "warmups": 1,
+        "work_id": 1
+      },
+      "results": [
+        {
+          "durations_ms": [
+            1763.674,
+            1591.559,
+            1553.028,
+            1573.088,
+            1516.098
+          ],
+          "iterations": 5,
+          "max_ms": 1763.674,
+          "mean_ms": 1599.489,
+          "median_ms": 1573.088,
+          "min_ms": 1516.098,
+          "name": "web:home",
+          "sample": {
+            "body_bytes": 46086,
+            "path": "/",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            165.007,
+            151.073,
+            143.026,
+            137.407,
+            131.022
+          ],
+          "iterations": 5,
+          "max_ms": 165.007,
+          "mean_ms": 145.507,
+          "median_ms": 143.026,
+          "min_ms": 131.022,
+          "name": "web:search",
+          "sample": {
+            "body_bytes": 23172,
+            "path": "/search?global_q=Niño",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1150.665,
+            1210.763,
+            1194.345,
+            1238.805,
+            1237.419
+          ],
+          "iterations": 5,
+          "max_ms": 1238.805,
+          "mean_ms": 1206.399,
+          "median_ms": 1210.763,
+          "min_ms": 1150.665,
+          "name": "web:work_detail",
+          "sample": {
+            "body_bytes": 10716,
+            "path": "/tables/works/1",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            555.321,
+            535.936,
+            552.276,
+            574.275,
+            548.337
+          ],
+          "iterations": 5,
+          "max_ms": 574.275,
+          "mean_ms": 553.229,
+          "median_ms": 552.276,
+          "min_ms": 535.936,
+          "name": "api:index",
+          "sample": {
+            "body_bytes": 432,
+            "path": "/api",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1639.684,
+            2221.827,
+            2043.162,
+            2286.476,
+            2123.222
+          ],
+          "iterations": 5,
+          "max_ms": 2286.476,
+          "mean_ms": 2062.874,
+          "median_ms": 2123.222,
+          "min_ms": 1639.684,
+          "name": "api:works",
+          "sample": {
+            "body_bytes": 986,
+            "path": "/api/works?sort=title&limit=25",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            956.515,
+            1022.662,
+            945.22,
+            1016.37,
+            1027.839
+          ],
+          "iterations": 5,
+          "max_ms": 1027.839,
+          "mean_ms": 993.721,
+          "median_ms": 1016.37,
+          "min_ms": 945.22,
+          "name": "api:work_detail",
+          "sample": {
+            "body_bytes": 2188,
+            "path": "/api/works/1",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            150.814,
+            137.265,
+            133.348,
+            131.095,
+            129.712
+          ],
+          "iterations": 5,
+          "max_ms": 150.814,
+          "mean_ms": 136.447,
+          "median_ms": 133.348,
+          "min_ms": 129.712,
+          "name": "api:search",
+          "sample": {
+            "body_bytes": 834,
+            "path": "/api/search?q=Niño",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            0.051,
+            0.044,
+            0.042,
+            0.04,
+            0.039
+          ],
+          "iterations": 5,
+          "max_ms": 0.051,
+          "mean_ms": 0.043,
+          "median_ms": 0.042,
+          "min_ms": 0.039,
+          "name": "opds:root",
+          "sample": {
+            "body_bytes": 1727,
+            "path": "/opds",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            2183.959,
+            2662.618,
+            2123.75,
+            2076.91,
+            2226.434
+          ],
+          "iterations": 5,
+          "max_ms": 2662.618,
+          "mean_ms": 2254.734,
+          "median_ms": 2183.959,
+          "min_ms": 2076.91,
+          "name": "opds:titles",
+          "sample": {
+            "body_bytes": 2868,
+            "path": "/opds/navcatalog/4f7469746c65",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            1042.312,
+            1046.06,
+            876.819,
+            783.886,
+            816.508
+          ],
+          "iterations": 5,
+          "max_ms": 1046.06,
+          "mean_ms": 913.117,
+          "median_ms": 876.819,
+          "min_ms": 783.886,
+          "name": "opds:search",
+          "sample": {
+            "body_bytes": 1408,
+            "path": "/opds/search/4e69c3b16f",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        },
+        {
+          "durations_ms": [
+            348.548,
+            270.078,
+            248.836,
+            242.71,
+            263.111
+          ],
+          "iterations": 5,
+          "max_ms": 348.548,
+          "mean_ms": 274.657,
+          "median_ms": 263.111,
+          "min_ms": 242.71,
+          "name": "opds:download",
+          "sample": {
+            "body_bytes": 28,
+            "path": "/get/epub/1/main",
+            "status": "200 OK"
+          },
+          "warmups": 1
+        }
+      ],
+      "script": "benchmark_interface_paths"
+    }
+  ],
+  "script": "benchmark_baseline_suite"
+}

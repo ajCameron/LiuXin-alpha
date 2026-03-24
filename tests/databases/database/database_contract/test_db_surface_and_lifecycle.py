@@ -357,3 +357,52 @@ def test_set_driver_then_close_cleans_new_driver(open_db, db_metadata: dict, dri
     assert getattr(db.driver_wrapper, "lock", None) is None
     _assert_any_operation_fails(conn)
     _assert_any_operation_fails(lock_conn)
+
+
+def test_wrapper_derived_schema_caches_reset_on_force_refresh(open_db, monkeypatch):
+    """Wrapper-level derived schema caches should avoid redundant recompute and reset on refresh."""
+
+    wrapper = open_db.driver_wrapper
+
+    pair = None
+    for left in sorted(wrapper.main_tables):
+        for right in sorted(wrapper.main_tables):
+            left_base = wrapper.driver.direct_get_column_base(left)
+            right_base = wrapper.driver.direct_get_column_base(right)
+            if left == right:
+                candidate = "{}_{}_intralinks".format(left_base, left_base)
+            else:
+                ordered = sorted([left_base, right_base])
+                candidate = "{}_{}_links".format(ordered[0], ordered[1])
+            if candidate in wrapper.interlink_tables or candidate in wrapper.intralink_tables:
+                pair = (left, right)
+                break
+        if pair is not None:
+            break
+
+    if pair is None:
+        pytest.skip("No linkable table pair found in this contract DB")
+
+    calls = {"count": 0}
+    original = wrapper.driver.direct_get_column_base
+
+    def counted(table_name):
+        calls["count"] += 1
+        return original(table_name)
+
+    monkeypatch.setattr(wrapper.driver, "direct_get_column_base", counted)
+
+    first = wrapper.get_link_table_name(*pair)
+    assert first
+    after_first = calls["count"]
+    assert after_first > 0
+
+    second = wrapper.get_link_table_name(*pair)
+    assert second == first
+    assert calls["count"] == after_first
+
+    wrapper.get_tables(force_refresh=True)
+
+    third = wrapper.get_link_table_name(*pair)
+    assert third == first
+    assert calls["count"] > after_first

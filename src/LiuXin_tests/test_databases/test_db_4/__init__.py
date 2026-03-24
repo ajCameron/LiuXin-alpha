@@ -20,7 +20,7 @@ from LiuXin_alpha.metadata.constants import CREATOR_CATEGORIES
 from LiuXin_alpha.metadata.constants import RATING_TYPES
 from LiuXin_alpha.metadata.constants import ALL_ID_TYPES
 
-from LiuXin_tests.test_objects import TestObjectsHandler
+from tests.support.test_databases._legacy.objects import TestObjectsHandler
 from LiuXin_tests.test_databases import TestDatabaseBuilder
 from LiuXin_tests.test_utils.test_utils import BasicMetadataFramework
 
