@@ -11,11 +11,14 @@ from __future__ import annotations
 import abc
 import datetime
 
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Iterator, Optional, Union, TYPE_CHECKING
 
+from LiuXin_alpha.errors import NoSuchPropertyForLinkException
 
-# Todo: This does not need to be here.
-# Todo: Rename to "DatabaseGeneratorAPI"
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api import DatabaseAPI
+    from LiuXin_alpha.databases.db_types import MainTableName, InterlinkTableID
+
 
 
 class RowAPI(abc.ABC):
@@ -51,6 +54,7 @@ class RowAPI(abc.ABC):
             self,
             database: "DatabaseAPI",
             row_dict: Optional[dict[str, str]] = None,
+            *,
             read_only: bool=False) -> None:
         """
         Startup the row with information off the database.
@@ -287,3 +291,228 @@ class RowAPI(abc.ABC):
 
         :return:
         """
+
+
+# Todo: ensure driver has a direct_get_allowed_types method.
+class InterlinkRowAPI(RowAPI):
+    """
+    Specialized row for an interlink row.
+    """
+    src_table: MainTableName
+    dst_table: MainTableName
+
+    # Properties of the link
+    _has_priority: bool = False
+    priority_col: str
+
+    _has_primary: bool = False
+    primary_col: str
+
+    _has_type: bool = False
+    _allowed_types: list[str]
+    type_col: str
+
+    _has_origin: bool = False
+    origin_col: str
+
+    _has_policy: bool = False
+    policy_col: str
+
+    _has_data: bool = False
+    data_col: str
+
+    _has_index: bool = False
+    index_col: str
+
+    def __init__(
+            self,
+            database: "DatabaseAPI",
+            row_dict: Optional[dict[str, str]] = None,
+            *,
+            read_only: bool=False,
+            src_table: MainTableName,
+            dst_table: MainTableName
+    ) -> None:
+        """
+        Startup the row with information off the database.
+
+        :param database:
+        :param row_dict:
+        :param read_only:
+        :param src_table:
+        :param dst_table:
+        """
+        super().__init__(database=database, row_dict=row_dict, read_only=read_only)
+
+        self.src_table = src_table
+        self.dst_table = dst_table
+
+    @property
+    def priority(self) -> int:
+        """
+        Return the priority of this link.
+
+        :return:
+        """
+        if not self._has_priority:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support priority.")
+        return int(self.row_dict.get(self.priority_col))
+
+    @priority.setter
+    def priority(self, new_priority: int) -> None:
+        """
+        Return the priority of this link.
+
+        :return:
+        """
+        if not self._has_priority:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support priority.")
+        self.row_dict[self.priority_col] = int(new_priority)
+
+    @property
+    def primary(self) -> bool:
+        """
+        Return if this link is primary or not
+
+        :return:
+        """
+        if not self._has_primary:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support primary.")
+        return bool(self.row_dict.get(self.primary_col))
+
+    @primary.setter
+    def primary(self, new_primary: bool) -> None:
+        """
+        Set if the link is primary or not.
+
+        :param new_primary:
+        :return:
+        """
+        if not self._has_primary:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support primary.")
+        self.row_dict[self.primary_col] = new_primary
+
+    @property
+    @abc.abstractmethod
+    def type(self) -> str:
+        """
+        Return the type of this link.
+
+        :return:
+        """
+        if not self._has_type:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support type.")
+        return str(self.row_dict.get(self.type_col))
+
+    @type.setter
+    def type(self, new_type: str) -> None:
+        """
+        Try and set the type of this link.
+
+        :param new_type:
+        :return:
+        """
+        if not self._has_type:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support type.")
+
+        assert new_type in self._allowed_types, f"{new_type = } not in allowed_types = {self._allowed_types}"
+
+    @property
+    def origin(self) -> str:
+        """
+        Return the origin of this link.
+
+        :return:
+        """
+        if not self._has_origin:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support origin.")
+
+        return str(self.row_dict.get(self.origin_col))
+
+    @origin.setter
+    def origin(self, new_origin: str) -> None:
+        """
+        Set the origin of this link.
+
+        :param new_origin:
+        :return:
+        """
+        if not self._has_origin:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support origin.")
+
+        self.row_dict[self.origin_col] = str(new_origin)
+
+    @property
+    def policy(self) -> str:
+        """
+        Return the policy of this link.
+
+        :return:
+        """
+        if not self._has_policy:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support policy.")
+
+        return str(self.row_dict.get(self.policy_col))
+
+    @policy.setter
+    def policy(self, new_policy: str) -> None:
+        """
+        Set the policy for the link row - if supported.
+
+        :param new_policy:
+        :return:
+        """
+        if not self._has_policy:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support policy.")
+
+        self.row_dict[self.policy_col] = str(new_policy)
+
+    @property
+    def data(self) -> str:
+        """
+        Return the data of this link.
+
+        :return:
+        """
+        if not self._has_data:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support data.")
+
+        return str(self.row_dict.get(self.data_col))
+
+    @data.setter
+    def data(self, new_data: str) -> None:
+        """
+        Set the data for this link.
+
+        :param new_data:
+        :return:
+        """
+        if not self._has_data:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support data.")
+
+        self.row_dict[self.data_col] = str(new_data)
+
+    @property
+    def index(self) -> str:
+        """
+        Return the index of this link.
+
+        :return:
+        """
+        if not self._has_index:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support index.")
+
+        return str(self.row_dict.get(self.index_col))
+
+    @index.setter
+    def index(self, new_index: str) -> None:
+        """
+        Set the index of this link.
+
+        :param new_index:
+        :return:
+        """
+        if not self._has_index:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support index.")
+
+        self.row_dict[self.index_col] = str(new_index)

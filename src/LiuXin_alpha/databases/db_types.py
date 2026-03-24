@@ -25,6 +25,8 @@ SrcTableID = TableID
 # - The "secondary" table that the main table is linked to
 DstTableID = TableID
 
+InterlinkTableID = TableID
+
 # Some of the specific tables MUST return, for some of their functions, an id in a specific table
 # (e.g. The "covers" tables).
 # These classes represent ids in these tables

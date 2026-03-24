@@ -250,6 +250,7 @@ class CalibreOneToOneTable(BaseOneToOneTable):
 class CalibrePathTable(CalibreOneToOneTable, BasePathTable):
     """
     Contains a Location object for every book folder on the database.
+
     Each book_id has a tuple of the Locations of the folders associated with it.
     """
 

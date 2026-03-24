@@ -201,12 +201,15 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         self.read_maps(db)
 
     def update_precheck(
-        self, book_id_item_id_map: dict[SrcTableID, Optional[DstTableID]], id_map_update: dict[DstTableID, Optional[T]]
+            self,
+            book_id_item_id_map: dict[SrcTableID, Optional[DstTableID]],
+            id_map_update: dict[DstTableID, Optional[T]]
     ) -> None:
         """
         Check that an update is of a valid form before writing it out to the cache and the database.
 
-        Called when you know the ids you want to assign to the book after the update. Checks those ids are valid.
+        Called when you know the ids you want to assign to the book after the update.
+        Checks those ids are valid.
         No changes will be made to the :param book_id_item_id_map: (e.g. if the map is valued with tuples - not lists
         as expected - this will not be corrected.
         Raised InvalidCacheUpdate if the cache update is invalid in some way.
@@ -306,6 +309,8 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
 
         :param book_id_item_id_map:
         :param id_map_update:
+        :param dirtied:
+
         :return:
         """
         id_map_update = dict() if id_map_update is None else id_map_update
