@@ -6,6 +6,9 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [web-readwrite-interface-2026-03-19.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/web-readwrite-interface-2026-03-19.md)
+  Added a first local-first HTML mutation surface under `interfaces/web_readwrite`, reusing the read-only browse/search/detail stack while adding generic create/edit/delete pages for real tables.
+
 - [benchmark-harness-2026-03-19.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/benchmark-harness-2026-03-19.md)
   Added the first alpha-native benchmark script suite for backend and WSGI hot paths, plus a combined JSON baseline artifact under `working-memory/test-results`.
 
