@@ -10,6 +10,11 @@ from typing import Generic, Optional, TypeVar, overload, TYPE_CHECKING
 from LiuXin_alpha.databases.api.cache_api.tables.link_tables.link_table_base import CacheLinkTableBaseAPI, TableTypes, T
 
 if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.cache_api.tables.table_updates import (
+        OneOneInterLinkTableUpdate,
+        OneOneInterLinkTableUpdateResults)
+
     from LiuXin_alpha.databases.db_types import SrcTableID, DstTableID
 
 
@@ -29,11 +34,9 @@ class CacheOneToOneLinkTableAPI(CacheLinkTableBaseAPI):
 
     @abc.abstractmethod
     def update(
-            self,
-            primary_id_secondary_id_map: dict[SrcTableID, DstTableID],
-            secondary_id_map_update: dict[DstTableID, Optional[T]],
-            dirtied: Optional[set[SrcTableID]] = None,
-    ) -> None:
+        self,
+        update: OneOneInterLinkTableUpdate,
+    ) -> OneOneInterLinkTableUpdateResults:
         """
         Preform an update of the database and cache.
 
@@ -45,49 +48,39 @@ class CacheOneToOneLinkTableAPI(CacheLinkTableBaseAPI):
         - update_cache - updates this object
         - update_db - write the update out to the db
 
-        :param primary_id_secondary_id_map:
-        :param secondary_id_map_update:
-        :param dirtied:
-        :return:
+        :param update:
+        :return result:
         """
 
     @abc.abstractmethod
     def update_preflight(
         self,
-        primary_id_secondary_id_map: dict[SrcTableID, DstTableID],
-        secondary_id_map_update: dict[DstTableID, Optional[T]],
-        dirtied: Optional[set[SrcTableID]] = None,
-    ) -> tuple[dict[SrcTableID, set[DstTableID]], set[SrcTableID]]:
+        update: OneOneInterLinkTableUpdate,
+    ) -> OneOneInterLinkTableUpdate:
         """
         Bring the update into a form where it can be more easily written out to the database.
 
-        :param primary_id_secondary_id_map:
-        :param secondary_id_map_update:
-        :param dirtied:
-
-        :return:
+        :param update:
+        :return updated_update: The update once it's been brought into normal form.
         """
 
     @abc.abstractmethod
     def update_precheck(
         self,
-        primary_id_secondary_id_map: dict[SrcTableID, DstTableID],
-        secondary_id_map_update: dict[DstTableID, Optional[T]]
+        update: OneOneInterLinkTableUpdate,
     ) -> bool:
         """
         Check that an update is of a valid form before writing it out to the cache and the database.
 
-        :param primary_id_secondary_id_map:
-        :param secondary_id_map_update:
+        :param update:
 
-        :return:
+        :return : Does the proposed update pass or not?
         """
 
     @abc.abstractmethod
     def update_db(
         self,
-        primary_id_secondary_id_map: dict[SrcTableID, DstTableID],
-        secondary_id_map_update: dict[DstTableID, Optional[T]]
+        update: OneOneInterLinkTableUpdate,
     ) -> bool:
         """
         Preform an update on the database itself.
@@ -103,8 +96,7 @@ class CacheOneToOneLinkTableAPI(CacheLinkTableBaseAPI):
     @abc.abstractmethod
     def update_cache(
         self,
-        primary_id_secondary_id_map: dict[SrcTableID, Optional[set[DstTableID]]],
-        secondary_id_map_update: dict[DstTableID, Optional[T]]
+        update: OneOneInterLinkTableUpdate
     ) -> bool:
         """
         Preform an update on the database itself.

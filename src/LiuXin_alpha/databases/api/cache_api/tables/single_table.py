@@ -13,6 +13,7 @@ from LiuXin_alpha.databases.api.cache_api.tables.base_table import CacheBaseTabl
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.db_types import MainTableID
 
 
 class CacheSingleTableAPI(CacheBaseTableAPI):
@@ -112,6 +113,14 @@ class CacheSingleTableAPI(CacheBaseTableAPI):
 
         :param column:
         :param value:
+        :return:
+        """
+
+    def get_col_value_from_id(self, table_id: MainTableID) -> Any:
+        """
+        Get the column value for a specific id.
+
+        :param table_id:
         :return:
         """
 

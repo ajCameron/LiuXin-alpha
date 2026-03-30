@@ -99,5 +99,6 @@ class CacheLinkTableBaseAPI(CacheBaseTableAPI, Generic[T]):
     def get_secondary_id_primary_id_map(self) -> dict[int, int]:
         """
         Dict keyed with the secondary id and valued with the primary id.-
+
         :return:
         """

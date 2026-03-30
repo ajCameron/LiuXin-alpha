@@ -6,7 +6,10 @@ May be superseded by a global typing module in utils later.
 
 from enum import Enum
 
-from typing import Optional, Any, Literal
+from typing import Optional, Any, Literal, Union
+
+from LiuXin_alpha.databases.maintenance_bot import Maintainer
+
 try:
     from typing_extensions import TypedDict, NotRequired
 except ImportError:
@@ -17,20 +20,22 @@ TriStateBool = Optional[bool]
 # Keyed with the book_id and valued with a list of the languages for that book - or None
 LangMap = dict[int, Optional[list[str]]]
 
-TableID = int
+MainTableID = int
+
+MainTableColumnName = str
 
 # Fields are a mapping between two tables - each of these tables has IDs
 # - The "main" table the field is in
-SrcTableID = TableID
+SrcTableID = MainTableID
 # - The "secondary" table that the main table is linked to
-DstTableID = TableID
+DstTableID = MainTableID
 
-InterlinkTableID = TableID
+InterlinkTableID = MainTableID
 
 # Some of the specific tables MUST return, for some of their functions, an id in a specific table
 # (e.g. The "covers" tables).
 # These classes represent ids in these tables
-CoverID = TableID
+CoverID = MainTableID
 
 
 # e.g. for the "Tags" field - which is a ManyToManyField
@@ -144,3 +149,14 @@ RatingInt = Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 
 # Todo: Translated string - string which can be translated - stores original value as well
+
+InterlinkExtraTypes = Union[
+    Literal["priority"],
+    Literal["primary"],
+    Literal["type"],
+    Literal["origin"],
+    Literal["policy"],
+    Literal["data"],
+    Literal["index"]]
+
+
