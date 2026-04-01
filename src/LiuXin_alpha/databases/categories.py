@@ -198,7 +198,7 @@ def get_categories(dbcache, sort="name", book_ids=None, icon_map=None, first_let
     :param first_letter_sort:
     :return:
     """
-    from LiuXin_alpha.databases.tags_icons import TagsIcons
+    from LiuXin_alpha.interfaces.tags_icons import TagsIcons
 
     if icon_map is not None and type(icon_map) != TagsIcons:
         raise TypeError("icon_map passed to get_categories must be of type TagIcons")
