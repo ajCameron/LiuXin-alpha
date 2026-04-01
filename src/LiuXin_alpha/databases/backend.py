@@ -20,7 +20,7 @@ from LiuXin_alpha.utils.logging import default_log
 
 from LiuXin_alpha.utils.which_os import iswindows
 
-from LiuXin_alpha.databases.caches.calibre.cache import CalibreCache
+from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
 
 from LiuXin_alpha.databases.dbprefs import DBPrefs
 from LiuXin_alpha.databases.metadata_tools.add import Add

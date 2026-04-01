@@ -80,7 +80,7 @@ except ModuleNotFoundError:
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
-from LiuXin_alpha.databases.caches.utils import run_plugins_on_import
+from LiuXin_alpha.library.caches.utils import run_plugins_on_import
 
 builtin_names = frozenset([p.name for p in builtin_plugins])
 

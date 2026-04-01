@@ -6,13 +6,15 @@ import abc
 
 from typing import Any, Iterable, Iterator, Optional, Union, TYPE_CHECKING, Literal
 
+from LiuXin_alpha.databases.api.database_api.driver_wrapper_mixins.schema_introspection_api import SchemaIntrospectionAPI
+
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
     from LiuXin_alpha.databases.api.macros import MacrosAPI
     from LiuXin_alpha.databases.api.row import RowAPI
 
 
-class DatabaseDriverWrapperAPI(abc.ABC):
+class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
     """
     API contract for driver wrappers sitting between Database and DatabaseDriver.
 

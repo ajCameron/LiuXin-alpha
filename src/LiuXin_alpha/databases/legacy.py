@@ -23,7 +23,7 @@ from LiuXin_alpha.databases.adding import (
     add_news,
 )
 from LiuXin_alpha.databases.backend import DB
-from LiuXin_alpha.databases.caches.calibre.cache import CalibreCache
+from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
 from LiuXin_alpha.databases.categories import CATEGORY_SORTS
 from LiuXin_alpha.exceptions import NoSuchFormat
 from LiuXin_alpha.folder_stores.location import Location
@@ -32,7 +32,7 @@ from LiuXin_alpha.utils.date import utcnow
 from LiuXin_alpha.utils.icu import lower as icu_lower
 from LiuXin_alpha.utils.logger import default_log
 from LiuXin_alpha.utils.search_query_parser import set_saved_searches
-from LiuXin_alpha.databases.caches.calibre.view import CalibreView
+from LiuXin_alpha.library.caches.calibre.view import CalibreView
 from LiuXin_alpha.metadata import validate_identifier
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 

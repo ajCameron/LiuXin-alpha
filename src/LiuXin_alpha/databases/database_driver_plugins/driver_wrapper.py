@@ -2,7 +2,8 @@
 """
 The driver wrapper provides some utility methods around the driver to improve convenience.
 """
-from __future__ import unicode_literals
+
+from __future__ import unicode_literals, annotations
 
 from typing import Optional
 
@@ -15,6 +16,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import smart_dictionary_merge, get_unique_id
 from LiuXin_alpha.databases.api import DatabaseDriverWrapperAPI, MacrosAPI
+from LiuXin_alpha.databases.schema_specs import StorageColumnSpec, StorageTableSpec, StorageColumnSpec
 
 
 class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
@@ -48,6 +50,116 @@ class DriverWrapper(CustomColumnsDriverWrapperMixin, DatabaseDriverWrapperAPI):
         self.lock = self.get_connection()
 
         super(DriverWrapper, self).__init__(db=db, macros=None)
+
+    def get_table_spec(self, table: str, force_refresh: bool = False) -> StorageTableSpec:
+        if force_refresh:
+            self._clear_derived_schema_caches()
+
+        relation_type = self.get_relation_type(table)
+        if relation_type is None:
+            raise ValueError(f"No such relation: {table!r}")
+
+        columns: list[StorageColumnSpec] = []
+        headings = (
+            self.get_view_column_headings(table)
+            if relation_type == "view"
+            else self.get_column_headings(table)
+        )
+
+        declared_types = {}
+        if hasattr(self.driver, "_get_declared_types_for_table") and relation_type == "table":
+            try:
+                declared_types = self.driver._get_declared_types_for_table(table)
+            except Exception:
+                declared_types = {}
+
+        for ordinal, col in enumerate(headings):
+            declared = declared_types.get(col)
+            affinity = None
+            if declared and hasattr(self.driver, "_sqlite_affinity"):
+                try:
+                    affinity = self.driver._sqlite_affinity(declared)
+                except Exception:
+                    affinity = None
+
+            columns.append(
+                StorageColumnSpec(
+                    name=col,
+                    ordinal=ordinal,
+                    declared_type=declared,
+                    affinity=affinity,
+                    nullable=True,  # tighten later with PRAGMA table_info
+                )
+            )
+
+        return StorageTableSpec(
+            name=table,
+            relation_kind=RelationKind(relation_type),
+            columns=tuple(columns),
+            id_column=self.get_id_column(table) if relation_type == "table" else None,
+            parent_column=self.get_parent_column(table) if relation_type == "table" else None,
+            datestamp_column=self.get_datestamp_column(table) if relation_type == "table" else None,
+            scratch_column=self.get_scratch_column(table) if relation_type == "table" else None,
+            is_main_table=table in getattr(self, "main_tables", ()),
+            is_link_table=table in getattr(self, "interlink_tables", ()),
+            is_intralink_table=table in getattr(self, "intralink_tables", ()),
+            linked_tables=tuple(sorted(self.get_interlinked_tables(table))) if relation_type == "table" else (),
+        )
+
+    def get_link_spec(self, table1: str, table2: str, *, force_refresh: bool = False) -> Optional[StorageLinkSpec]:
+        if force_refresh:
+            self._clear_derived_schema_caches()
+
+        link_table = self.get_link_table_name(table1, table2)
+        if not link_table:
+            return None
+
+        primary_link_col = self.get_link_column(table1, table2, self.get_id_column(table1))
+        secondary_link_col = self.get_link_column(table1, table2, self.get_id_column(table2))
+
+        try:
+            priority_link_col = self.get_link_column(table1, table2, "priority")
+        except Exception:
+            priority_link_col = None
+
+        try:
+            type_link_col = self.get_link_column(table1, table2, "type")
+        except Exception:
+            type_link_col = None
+
+        link_columns = set(self.get_column_headings(link_table))
+        used = {primary_link_col, secondary_link_col}
+        if priority_link_col:
+            used.add(priority_link_col)
+        if type_link_col:
+            used.add(type_link_col)
+
+        extra_specs = tuple(
+            col for col in self.get_table_spec(link_table).columns
+            if col.name not in used
+        )
+
+        allowed_types_table = None
+        for cand in (f"{link_table}__types", f"allowed_types__{link_table}"):
+            if cand in set(self.get_tables(force_refresh=False)):
+                allowed_types_table = cand
+                break
+
+        return StorageLinkSpec(
+            primary_table=table1,
+            secondary_table=table2,
+            link_table=link_table,
+            primary_id_col=self.get_id_column(table1),
+            secondary_id_col=self.get_id_column(table2),
+            primary_link_col=primary_link_col,
+            secondary_link_col=secondary_link_col,
+            priority_link_col=priority_link_col,
+            type_link_col=type_link_col,
+            ordered=priority_link_col is not None,
+            typed=type_link_col is not None,
+            allowed_types_table=allowed_types_table,
+            extra_link_columns=extra_specs,
+        )
 
     def __del__(self) -> None:
         try:

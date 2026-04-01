@@ -17,7 +17,7 @@ from LiuXin_alpha.utils.date import utcfromtimestamp
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.utils.logger import default_log
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
-from LiuXin_alpha.databases.caches.calibre.cache import CalibreCache
+from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 __license__ = "GPL v3"
