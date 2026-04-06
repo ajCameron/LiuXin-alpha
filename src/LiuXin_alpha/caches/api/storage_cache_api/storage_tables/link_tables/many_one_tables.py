@@ -9,22 +9,18 @@ import dataclasses
 
 from typing import Optional, TYPE_CHECKING, Sequence, Any
 
-from LiuXin_alpha.databases.api.storage_cache_api.storage_tables.link_tables.link_table_base import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.link_table_base import (
     StorageCacheLinkTableBaseAPI,
-    TableTypes,
-    T,
 )
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.db_types import (
-        MainTableName,
-        InterLinkTableName,
         InterlinkTableID,
         SrcTableID,
         DstTableID,
         TableColumnName,
     )
-    from LiuXin_alpha.databases.api.storage_cache_api.storage_tables.table_updates import (
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.table_updates import (
         ManyOneInterlinkTableUpdate,
         ManyOneInterLinkTableUpdateResults,
     )

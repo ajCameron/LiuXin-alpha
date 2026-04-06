@@ -1,4 +1,3 @@
-
 """
 Represents a single table on the database.
 """
@@ -7,16 +6,16 @@ from __future__ import annotations
 
 import abc
 
-from typing import TYPE_CHECKING, Mapping, Sequence, Tuple, Union, Any, Optional, Iterable
+from typing import TYPE_CHECKING, Mapping, Sequence, Any, Optional, Iterable
 
-from LiuXin_alpha.databases.api.storage_cache_api.storage_tables.base_table import StorageCacheBaseTableAPI
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.base_table import StorageCacheBaseTableAPI
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
     from LiuXin_alpha.databases.db_types import MainTableID
 
 
-class StorageStorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
+class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
     """
     Represents a single table on the database.
 
@@ -94,7 +93,7 @@ class StorageStorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
         """
         Returns all the values for the given column - in their order.
 
-        Elsewhere, in Views, youn can sort. Here you just get the raw values.
+        Elsewhere, in Views, you can sort. Here you just get the raw values.
         :param column:
         :return:
         """
@@ -212,4 +211,6 @@ class StorageStorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
         :return:
         """
 
-    # ----------------
+
+# Backwards-compatible alias while the typo is cleaned out elsewhere.
+StorageStorageCacheSingleTableAPI = StorageCacheSingleTableAPI

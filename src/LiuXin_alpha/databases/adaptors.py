@@ -28,11 +28,12 @@ from LiuXin_alpha.utils.libraries.iso639.iso639_tools import canonicalize_lang
 from LiuXin_alpha.utils.logging import default_log
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    dict_iteritems as iteritems,
+    six_unicode,
+    six_unicode as unicode)
 
-# ----------------------------------------------------------------------------------------------------------------------
+# ---------------------------
 #
 # - DATABASE ENTRY CONVERTERS
 

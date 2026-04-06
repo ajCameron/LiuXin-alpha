@@ -14,7 +14,7 @@ from LiuXin_alpha.databases import (
     get_data_as_dict,
 )
 from LiuXin_alpha.databases.adaptors import clean_identifier, get_series_values
-from LiuXin_alpha.databases.adding import (
+from LiuXin_alpha.ingest.adding import (
     find_books_in_directory,
     import_book_directory_multiple,
     import_book_directory,
@@ -22,7 +22,7 @@ from LiuXin_alpha.databases.adding import (
     add_catalog,
     add_news,
 )
-from LiuXin_alpha.databases.backend import DB
+from LiuXin_alpha.library.backend import DB
 from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
 from LiuXin_alpha.databases.categories import CATEGORY_SORTS
 from LiuXin_alpha.exceptions import NoSuchFormat

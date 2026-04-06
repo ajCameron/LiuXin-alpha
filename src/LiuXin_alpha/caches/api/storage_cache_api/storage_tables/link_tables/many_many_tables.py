@@ -1,6 +1,5 @@
 """
-One-to-many tables link one src item to many dst items.
-Each dst item may be linked to at most one src item.
+Many-to-many tables link many items to many others.
 """
 from __future__ import annotations
 
@@ -9,48 +8,45 @@ import dataclasses
 
 from typing import Optional, TYPE_CHECKING, Sequence, Any
 
-from LiuXin_alpha.databases.api.storage_cache_api.storage_tables.link_tables.link_table_base import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.link_table_base import (
     StorageCacheLinkTableBaseAPI,
-    TableTypes,
-    T,
+)
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.one_many_tables import (
+    OneManyLink,
 )
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.db_types import (
-        MainTableName,
-        InterLinkTableName,
-        InterlinkTableID,
         SrcTableID,
         DstTableID,
         TableColumnName,
     )
-    from LiuXin_alpha.databases.api.storage_cache_api.storage_tables.table_updates import (
-        OneManyInterlinkTableUpdate,
-        OneManyInterLinkTableUpdateResults,
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.table_updates import (
+        ManyManyInterlinkTableUpdate,
+        ManyManyInterLinkTableUpdateResults,
     )
     from LiuXin_alpha.databases.api.row import RowAPI, InterlinkRowAPI
 
 
 @dataclasses.dataclass(slots=True)
-class OneManyLink:
+class ManyManyLink(OneManyLink):
     """
-    Represents one edge in a one-to-many relationship.
+    Represents one edge in a many-to-many relationship.
+
+    This is the normalized object-level view of a link, distinct from the raw
+    interlink row.
     """
 
-    src_id: "SrcTableID"
-    dst_id: "DstTableID"
-    link_row_id: Optional["InterlinkTableID"] = None
-    link_type: Optional[str] = None
-    priority: Optional[int | float] = None
 
 
-class StorageCacheOneManyGetterAPI(abc.ABC):
+
+class StorageCacheManyManyGetterAPI(abc.ABC):
     """
-    Common read/query methods for one-to-many link tables.
+    Common read/query methods for many-to-many link tables.
     """
 
     # -------------------
-    # - EXISTENCE / PREDICATES
+    # - EXISTENCE / LINK OBJECT GETTERS
 
     @abc.abstractmethod
     def has_link(
@@ -69,44 +65,32 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def has_src(
-        self,
-        dst_id: "DstTableID",
-        type_filter: Optional[str] = None,
-    ) -> bool:
-        """
-        Return True if the given dst id is linked to any src id.
-
-        :param dst_id:
-        :param type_filter:
-        :return:
-        """
-
-    @abc.abstractmethod
-    def has_dsts(
-        self,
-        src_id: "SrcTableID",
-        type_filter: Optional[str] = None,
-    ) -> bool:
-        """
-        Return True if the given src id is linked to any dst ids.
-
-        :param src_id:
-        :param type_filter:
-        :return:
-        """
-
-    # -------------------
-    # - NORMALIZED LINK OBJECT GETTERS
-
-    @abc.abstractmethod
     def get_link(
         self,
         src_id: "SrcTableID",
         dst_id: "DstTableID",
-    ) -> Optional[OneManyLink]:
+        insist_on_singular: bool = True,
+    ) -> Optional[ManyManyLink]:
         """
-        Return the normalized link object between the given src and dst ids.
+        Return a normalized link object between the given src and dst ids.
+
+        If duplicate link rows are permitted by the table and multiple matches
+        exist, implementations should error when insist_on_singular is True.
+
+        :param src_id:
+        :param dst_id:
+        :param insist_on_singular:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_links(
+        self,
+        src_id: "SrcTableID",
+        dst_id: "DstTableID",
+    ) -> Sequence[ManyManyLink]:
+        """
+        Return all normalized link objects between the given src and dst ids.
 
         :param src_id:
         :param dst_id:
@@ -119,7 +103,7 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         src_id: "SrcTableID",
         require_ordering: bool = False,
         type_filter: Optional[str] = None,
-    ) -> Sequence[OneManyLink]:
+    ) -> Sequence[ManyManyLink]:
         """
         Return normalized link objects for all links originating at src_id.
 
@@ -130,17 +114,17 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_link_for_dst(
+    def get_links_for_dst(
         self,
         dst_id: "DstTableID",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
-    ) -> Optional[OneManyLink]:
+    ) -> Sequence[ManyManyLink]:
         """
-        Return the normalized link object for the given dst id.
-
-        Because this is a one-to-many relation, a dst may have at most one src.
+        Return normalized link objects for all links terminating at dst_id.
 
         :param dst_id:
+        :param require_ordering:
         :param type_filter:
         :return:
         """
@@ -153,60 +137,49 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         self,
         src_id: "SrcTableID",
         dst_id: "DstTableID",
+        insist_on_singular: bool = True,
     ) -> Optional["InterlinkRowAPI"]:
         """
-        Return the raw interlink row between the given src and dst ids.
+        Get a single raw link row between the given src and dst ids.
+
+        If duplicate link rows are permitted by the table and multiple matches
+        exist, implementations should error when insist_on_singular is True.
 
         :param src_id:
         :param dst_id:
+        :param insist_on_singular:
         :return:
         """
 
     @abc.abstractmethod
-    def get_link_rows_for_src(
+    def get_link_rows(
         self,
         src_id: "SrcTableID",
-        require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        dst_id: "DstTableID",
     ) -> Sequence["InterlinkRowAPI"]:
         """
-        Return raw interlink rows for all links originating at src_id.
+        Get all raw link rows between the given src and dst ids.
 
         :param src_id:
-        :param require_ordering:
-        :param type_filter:
-        :return:
-        """
-
-    @abc.abstractmethod
-    def get_link_row_for_dst(
-        self,
-        dst_id: "DstTableID",
-        type_filter: Optional[str] = None,
-    ) -> Optional["InterlinkRowAPI"]:
-        """
-        Return the raw interlink row for the given dst id.
-
-        Because this is a one-to-many relation, a dst may have at most one src.
-
         :param dst_id:
-        :param type_filter:
         :return:
         """
 
     # -------------------
-    # - DST -> SRC (SINGULAR) GETTERS
+    # - SRC TABLE GETTERS
 
     @abc.abstractmethod
-    def get_src_id(
+    def get_src_ids(
         self,
         dst_id: "DstTableID",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
-    ) -> Optional["SrcTableID"]:
+    ) -> Sequence["SrcTableID"]:
         """
-        Return the src id linked to a dst id.
+        Return the src ids linked to a dst id.
 
         :param dst_id:
+        :param require_ordering:
         :param type_filter:
         :return:
         """
@@ -216,29 +189,31 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         self,
         dst_value: Any,
         dst_column: "TableColumnName",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> Sequence["SrcTableID"]:
         """
         Search the dst table for a value, and return the src ids corresponding to it.
 
-        Note that multiple dst rows may match the given value, so this method is plural.
-
         :param dst_value:
         :param dst_column:
+        :param require_ordering:
         :param type_filter:
         :return:
         """
 
     @abc.abstractmethod
-    def get_src_row(
+    def get_src_rows(
         self,
         dst_id: "DstTableID",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
-    ) -> Optional["RowAPI"]:
+    ) -> Sequence["RowAPI"]:
         """
-        Return the src row linked to a dst id.
+        Return the src rows linked to a dst id.
 
         :param dst_id:
+        :param require_ordering:
         :param type_filter:
         :return:
         """
@@ -248,6 +223,7 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         self,
         dst_value: Any,
         dst_column: "TableColumnName",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> Sequence["RowAPI"]:
         """
@@ -255,28 +231,31 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
 
         :param dst_value:
         :param dst_column:
+        :param require_ordering:
         :param type_filter:
         :return:
         """
 
     @abc.abstractmethod
-    def get_src_value(
+    def get_src_values(
         self,
         dst_id: "DstTableID",
         src_column: "TableColumnName",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
-    ) -> Any:
+    ) -> Sequence[Any]:
         """
-        Return the value from src_column for the src row linked to the given dst id.
+        Return values from src_column for rows linked to the given dst id.
 
         :param dst_id:
         :param src_column:
+        :param require_ordering:
         :param type_filter:
         :return:
         """
 
     # -------------------
-    # - SRC -> DST (PLURAL) GETTERS
+    # - DST TABLE GETTERS
 
     @abc.abstractmethod
     def get_dst_ids(
@@ -365,13 +344,14 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         """
 
 
-class StorageCacheOneToManyLinkTable(
+class StorageCacheManyToManyLinkTable(
     StorageCacheLinkTableBaseAPI,
-    StorageCacheOneManyGetterAPI,
+    StorageCacheManyManyGetterAPI,
 ):
     """
-    Represents a one-to-many table that links one src item to many dst items.
+    Represents a many-to-many table that links many items to many others.
 
+    These are very common; a basic example would be tags.
     Ordering and typing are capabilities of the concrete table/schema, not of
     this API class identity.
     """
@@ -379,8 +359,8 @@ class StorageCacheOneToManyLinkTable(
     @abc.abstractmethod
     def update(
         self,
-        update: "OneManyInterlinkTableUpdate",
-    ) -> "OneManyInterLinkTableUpdateResults":
+        update: "ManyManyInterlinkTableUpdate",
+    ) -> "ManyManyInterLinkTableUpdateResults":
         """
         Perform an update of the database and cache.
 
@@ -398,8 +378,8 @@ class StorageCacheOneToManyLinkTable(
     @abc.abstractmethod
     def update_preflight(
         self,
-        update: "OneManyInterlinkTableUpdate",
-    ) -> "OneManyInterlinkTableUpdate":
+        update: "ManyManyInterlinkTableUpdate",
+    ) -> "ManyManyInterlinkTableUpdate":
         """
         Bring the update into a form where it can be more easily written out.
 
@@ -410,7 +390,7 @@ class StorageCacheOneToManyLinkTable(
     @abc.abstractmethod
     def update_precheck(
         self,
-        update: "OneManyInterlinkTableUpdate",
+        update: "ManyManyInterlinkTableUpdate",
     ) -> bool:
         """
         Check that an update is valid before writing it out.
@@ -422,7 +402,7 @@ class StorageCacheOneToManyLinkTable(
     @abc.abstractmethod
     def update_db(
         self,
-        update: "OneManyInterlinkTableUpdate",
+        update: "ManyManyInterlinkTableUpdate",
     ) -> bool:
         """
         Perform the update on the database itself.
@@ -434,7 +414,7 @@ class StorageCacheOneToManyLinkTable(
     @abc.abstractmethod
     def update_cache(
         self,
-        update: "OneManyInterlinkTableUpdate",
+        update: "ManyManyInterlinkTableUpdate",
     ) -> bool:
         """
         Perform the update on the cache itself.

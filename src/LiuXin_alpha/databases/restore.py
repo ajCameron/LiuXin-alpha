@@ -10,7 +10,7 @@ from operator import itemgetter
 from threading import Thread
 
 from LiuXin_alpha.constants import filesystem_encoding
-from LiuXin_alpha.databases.backend import DB, DBPrefs
+from LiuXin_alpha.library.backend import DB, DBPrefs
 from LiuXin_alpha.file_formats.opf.opf2 import OPF
 from LiuXin_alpha.utils.calibre import isbytestring
 from LiuXin_alpha.utils.date import utcfromtimestamp

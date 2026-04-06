@@ -3825,7 +3825,7 @@ def loc_from_formats_field(formats_field, book_id, fmt):
 
 # Todo: This needs to actually be written and tested for a calibre library
 def import_library(library_key, importer, library_path, progress=None, abort=None):
-    from LiuXin_alpha.databases.backend import DB
+    from LiuXin_alpha.library.backend import DB
 
     metadata = importer.metadata[library_key]
     total = metadata["total"]

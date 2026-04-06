@@ -9,14 +9,12 @@ from __future__ import annotations
 
 import abc
 
-from typing import TYPE_CHECKING, TypeVar, Generic, Literal, Union
+from typing import TYPE_CHECKING, TypeVar, Generic
 
-from LiuXin_alpha.databases.api.storage_cache_api.storage_tables.base_table import StorageCacheBaseTableAPI
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.base_table import StorageCacheBaseTableAPI
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
-    from LiuXin_alpha.databases.api.storage_cache_api.storage_tables.base_table import TableTypes
-    from LiuXin_alpha.databases.db_types import SrcTableID, DstTableID
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.base_table import TableTypes
 
 T = TypeVar("T")
 
