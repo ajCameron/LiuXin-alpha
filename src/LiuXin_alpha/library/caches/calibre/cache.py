@@ -80,7 +80,7 @@ from LiuXin_alpha.library.caches.calibre.fields import (
 )
 from LiuXin_alpha.library.caches.calibre.tables.base import CalibreVirtualTable
 from LiuXin_alpha.interfaces.categories import get_categories
-from LiuXin_alpha.databases.lazy import FormatMetadata, FormatsList, ProxyMetadata
+from LiuXin_alpha.library.lazy import FormatMetadata, FormatsList, ProxyMetadata
 from LiuXin_alpha.utils.python_tools import uniq
 
 from LiuXin_alpha.errors import NoSuchFormat
@@ -122,7 +122,7 @@ from LiuXin_alpha.customize.cache import BaseCache
 from LiuXin_alpha.library.caches.utils import read_api, write_api
 from LiuXin_alpha.databases.search import Search
 
-from LiuXin_alpha.databases.library_metadata import Metadata as LibraryMetadata
+from LiuXin_alpha.library.library_metadata import Metadata as LibraryMetadata
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"

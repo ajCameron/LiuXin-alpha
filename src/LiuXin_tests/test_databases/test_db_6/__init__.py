@@ -51,7 +51,7 @@ class TestDBCustomColumns(TestDatabaseBuilder):
         # Todo: Metadata should be a property
         live_database_path = scratch_db.metadata["database_path"]
 
-        from LiuXin_alpha.databases.legacy import LibraryDatabase
+        from LiuXin_alpha.library.legacy import LibraryDatabase
 
         live_legacy_database = LibraryDatabase(library_path=live_database_path)
 

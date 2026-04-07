@@ -41,8 +41,8 @@ from LiuXin_alpha.databases.utils import cleanup_tags
 from past.builtins import basestring
 
 
-# In the nicest possible way, yet another bloody database interface. Built on the backend, which is, in turn, built
-# on the database.
+# In the nicest possible way, yet another ------- database interface.
+# Built on the backend, which is, in turn, built on the database.
 # This is used by the calibre gui to access the database. Provides some extra utility functions.
 
 

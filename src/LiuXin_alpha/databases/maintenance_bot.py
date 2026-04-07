@@ -20,6 +20,8 @@
 # 3) Update metadata - add to metadata by using the internet (with use-throttling, so this bot doesn;t DDOS any service)
 # 4) Update some fields of the database which are two laborious or involvved to easily update with triggers.
 
+from __future__ import annotations
+
 import pprint
 import queue as Queue
 import time
@@ -28,7 +30,7 @@ import weakref
 from collections import defaultdict
 from copy import deepcopy
 
-from typing import Iterable, Optional, Any
+from typing import Iterable, Optional, Any, TYPE_CHECKING
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 
@@ -42,12 +44,19 @@ from LiuXin_alpha.utils.language_tools.lx_name_manip import author_to_author_sor
 from LiuXin_alpha.utils.logging import LiuXin_debug_print, default_log
 from LiuXin_alpha.utils.localization import trans as _
 
-from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseMaintainerAPI, MaintenanceBotAPI, RowAPI
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api import (
+        DatabaseAPI,
+        DatabaseMaintainerAPI,
+        MaintenanceBotAPI,
+        RowAPI)
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __author__ = "Cameron"
 
+
+# Todo: I mean, some kinda plugin system is probably a good idea...
 
 # Todo: Load this out of continue_state, or preferences
 DATABASE_CHECKED = False
@@ -57,9 +66,9 @@ class Maintainer(DatabaseMaintainerAPI):
     """
     Interface between the database and the maintenance bot.
     """
-    db: DatabaseAPI
+    db: "DatabaseAPI"
 
-    def __init__(self, db: DatabaseAPI) -> None:
+    def __init__(self, db: "DatabaseAPI") -> None:
         """
         Attach the database to the maintainer which will work on it.
 
@@ -275,10 +284,12 @@ class MaintenanceBot(threading.Thread, MaintenanceBotAPI):
 
             pass
 
-    def run(self):
-        """Main maintenance loop.
+    def run(self) -> None:
+        """
+        Main maintenance loop.
 
-        Uses a short scheduling sleep so stop() can take effect quickly (important for tests and clean shutdown),
+        Uses a short scheduling sleep so stop() can take effect quickly
+        (important for tests and clean shutdown),
         while still throttling work to roughly `self.interval` seconds per processed record.
         """
         next_tick = time.monotonic()

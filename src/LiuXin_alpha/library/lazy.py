@@ -53,8 +53,11 @@ def resolved(f):
     return wrapper
 
 
-class MutableBase(object):
-    def __int__(self):
+class MutableBase:
+    """
+    Mutable base class.
+    """
+    def __int__(self) -> None:
         self._values = []
 
     def __str__(self):
@@ -86,6 +89,9 @@ class MutableBase(object):
 
 
 class FormatMetadata(MutableBase, MutableMapping):
+    """
+    Maps available formats to the ids that correspond to them.
+    """
     def __init__(self, db, id_, formats):
         self._dbwref = weakref.ref(db)
         self._id = id_

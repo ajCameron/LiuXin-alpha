@@ -1,3 +1,13 @@
+
+"""
+Means for the database to notify us when things happen.
+"""
+
+# Todo: Rip this out (to the extent it's in) and replace with an event bus
+
+from __future__ import annotations
+
+
 def dummy_notify(event, ids, cc_class):
     """
     Dummy for the notify class
