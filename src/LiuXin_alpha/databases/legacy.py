@@ -24,7 +24,7 @@ from LiuXin_alpha.ingest.adding import (
 )
 from LiuXin_alpha.library.backend import DB
 from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
-from LiuXin_alpha.databases.categories import CATEGORY_SORTS
+from LiuXin_alpha.interfaces.categories import CATEGORY_SORTS
 from LiuXin_alpha.exceptions import NoSuchFormat
 from LiuXin_alpha.folder_stores.location import Location
 from LiuXin_alpha.utils.calibre import force_unicode

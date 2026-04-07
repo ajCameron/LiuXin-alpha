@@ -14,7 +14,7 @@ from LiuXin_alpha.utils.calibre_compat.metadata.calibre_metadata_constants impor
     ALL_METADATA_FIELDS,
 )
 
-from LiuXin_alpha.databases.field_metadata import FieldMetadata
+from LiuXin_alpha.interfaces.field_metadata import FieldMetadata
 
 from LiuXin_alpha.utils.logging import prints
 from LiuXin_alpha.utils.text.icu import sort_key, lower as icu_lower
@@ -23,7 +23,7 @@ from LiuXin_alpha.utils.localization import trans as _
 # Py2/Py3 comparability layer
 from LiuXin_alpha.utils.libraries.liuxin_six import (
     dict_iteritems as iteritems, dict_iterkeys as iterkeys,
-    dict_itervalues as itervalues, six_unicode, basestring)
+    six_unicode, basestring)
 
 
 # Special sets used to optimize the performance of getting and setting

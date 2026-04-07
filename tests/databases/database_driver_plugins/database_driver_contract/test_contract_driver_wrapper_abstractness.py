@@ -10,8 +10,8 @@ def test_driver_wrapper_imports_from_repo_src_and_is_concrete() -> None:
     Fail early (without constructing a Database) if we are importing the wrong DriverWrapper
     or if it is still abstract due to a missing @property macros implementation.
     """
-    import LiuXin_alpha.databases.database_driver_plugins.driver_wrapper as m
-    from LiuXin_alpha.databases.database_driver_plugins.driver_wrapper import DriverWrapper
+    import LiuXin_alpha.databases.driver_wrapper as m
+    from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 
     got_file = Path(m.__file__).resolve()
     repo_root = Path(__file__).resolve().parents[3]  # .../tests/databases/driver_contract -> repo root
@@ -50,7 +50,7 @@ def test_driver_wrapper_can_instantiate_with_minimal_driver_stub() -> None:
     Reproduce the instantiation path without needing the heavy Database fixture.
     This catches the exact TypeError you're seeing ('abstract method macros') in a tight unit test.
     """
-    from LiuXin_alpha.databases.database_driver_plugins.driver_wrapper import DriverWrapper
+    from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 
     class _DummyLock:
         def commit(self) -> None:

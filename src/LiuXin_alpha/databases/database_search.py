@@ -1,7 +1,16 @@
-from __future__ import unicode_literals, print_function
+
+"""
+Execute a search on the database - including in multiple locations.
+"""
+
+# Todo: Actually write this mess.
+
+
+from __future__ import unicode_literals, print_function, annotations
 
 # Storing some code (full union search code) which might be handy for SQL
 
+from typing import TYPE_CHECKING
 
 import os
 import sqlite3
@@ -11,31 +20,38 @@ import sys
 import codecs
 from copy import deepcopy
 
-from LiuXin_alpha.paths import LiuXin_data_sources
-from LiuXin_alpha.utils.general_ops.io_ops import select_from_options
-from LiuXin_alpha.utils.general_ops.io_ops import LiuXin_print
-from LiuXin_alpha.utils.general_ops.io_ops import LiuXin_debug_print
+from LiuXin_alpha.constants.paths import LiuXin_data_sources
+from LiuXin_alpha.constants import VERBOSE_DEBUG
 
-VERBOSE_DEBUG = True
-from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.databases.SQLite.databasedriver import DatabaseDriver
 from LiuXin_alpha.utils.search_query_parser import SearchQueryParser
-from LiuXin_alpha.utils.general_ops.language_tools import plural_singular_mapper
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
-from LiuXin_alpha.exceptions import LogicalError
-from LiuXin_alpha.exceptions import InputIntegrityError
-from LiuXin_alpha.exceptions import DatabaseIntegrityError
+from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.errors import LogicalError, InputIntegrityError, DatabaseIntegrityError
+
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
 
 
-class DatabaseSearch(object):
+class DatabaseSearch:
     """
     Test bench for a class to search the database.
     """
 
-    def __init__(self):
+    db: "DatabaseAPI"
+
+    def __init__(self, db: "DatabaseAPI") -> None:
+        """
+        Startup the search class and attach to the given database.
+
+        :param db:
+        """
+
+        self.db = db
+
         self.final_stmt = None
         self.locations = {
             "all": None,
@@ -59,11 +75,10 @@ class DatabaseSearch(object):
         self.parser = SearchQueryParser(self.locations)
         self.parsed_test = self.parser.parse(self.test_query)
         self.locations = self.populate_all_locations(self.locations)
-        print(self.locations)
 
         # Properties of the database are needed when constructing the SQL for the locations search
-        self.db = Database()
         self.categorized_tables = self.db.get_categorized_tables()
+
         self.tables = (
             self.categorized_tables["main"]
             .union(self.categorized_tables["intralink"])
@@ -73,10 +88,7 @@ class DatabaseSearch(object):
 
         self.locational_search(self.parsed_test)
 
-        print(self.categorized_tables["interlink"])
         self.build_total_joined_table()
-
-        print(self.final_stmt)
 
     # Ideally this would be done with an outer join - but that functionality is not available in SQLITE
     # Instead two left joins are used, and the statement is broken down into a load of individual statements for
@@ -87,25 +99,25 @@ class DatabaseSearch(object):
     # Starting from the innermost token e.g all:"David Weber". This will have form [u'token', u'all', u'"David Weber"']
     # The following statements need to be executed.
     # FROM `titles` SELECT * WHERE titles.title = "David Weber"
-    def locational_search(self, parsed_query):
+    def locational_search(self, parsed_query: list[str]):
         """
-        Takes an index parsed from a search query - builds an appropriate search query from that parsed query and
-        executes it on the database.
+        Takes an index parsed from a search query - builds amd executes a query from that on the database.
+
         Currently, if the row is not linked to a title row, it will be ignored.
         :param parsed_query: A query parsed by the SearchQueryParser.
         :return:
         """
         parsed_query = deepcopy(parsed_query)
-        locations = self.locations
         if self.locations is None:
             wrn_str = "DatabaseDriver doesn't have locations loaded.\n"
-            LiuXin_debug_print(wrn_str)
+            raise NotImplementedError(wrn_str)
 
         # The tables which will be needed to include in the inner join can be calculated from the required locations
         required_locations = set()
 
         # Scans down looking for an instance of an index of the form ['string', 'string', 'string'] to transform them
-        while not isinstance(parsed_query, unicode):
+        while not isinstance(parsed_query, six_unicode):
+
             # index_location - used to specify a position within the parsed query tree structure
             index_location = []
             current_level = parsed_query
@@ -145,9 +157,7 @@ class DatabaseSearch(object):
         final_stmt = "SELECT titles.title_id FROM `titles` \n\n" + inner_joins + " WHERE " + parsed_query + ";"
         self.final_stmt = final_stmt
 
-        print(inner_joins)
-        print(parsed_query)
-        print(required_locations)
+        raise NotImplementedError(final_stmt)
 
     @staticmethod
     def can_index_be_transformed(target_index):
@@ -189,7 +199,7 @@ class DatabaseSearch(object):
             search_index = []
             for column in searchable_columns:
                 this_term = ""
-                column_table = self.__identify_table_from_column(column)
+                column_table = self._identify_table_from_column(column)
                 this_term += column_table + "." + column + "=" + "'" + target_index[2] + "'"
                 search_index.append(this_term)
             search_term = "( " + " OR ".join(search_index)
@@ -212,6 +222,7 @@ class DatabaseSearch(object):
     def populate_all_locations(locations_dict):
         """
         Receives a location_dict - populates the all field (creating it if it isn't set)
+
         :return:
         """
         if "all" in locations_dict:
@@ -227,7 +238,7 @@ class DatabaseSearch(object):
                 if VERBOSE_DEBUG:
                     wrn_str = "Location dictionary has value without an __iter__ method.\n"
                     wrn_str += "This is assumed to be a string.\n"
-                    LiuXin_debug_print(wrn_str)
+
                     all_columns_set.add(columns)
                 else:
                     all_columns_set.add(columns)
@@ -323,6 +334,7 @@ class DatabaseSearch(object):
     def get_id_column(self, table):
         """
         Every table in the database should have an id column.
+
         Currently assumes that there is a column with a name ending in id and that if this is true for multiple rows
         that the shortest string ending in id is the id string. Should be tested every time a new column is added.
         :param table:
@@ -349,12 +361,12 @@ class DatabaseSearch(object):
         else:
             return candidate_ids[0]
 
-    def __identify_table_from_column(self, column_heading, headings_and_columns=None, print_error=True):
+    # Todo: Move over to the generic names mixin
+    def _identify_table_from_column(self, column_heading: str) -> str:
         """
         Takes a column heading (and optionally a headings and columns dict). Works out the table it falls into.
+
         :param column_heading: Each column heading should be unique in the database
-        :param headings_and_columns: COMPLETELY SUPERFLUOUS
-        :param print_error: Will be replaced with LiuXin debug print
         :return:
         """
         headings_and_columns_local = self.tables_and_columns
@@ -365,19 +377,19 @@ class DatabaseSearch(object):
             if column_heading in column_headings:
                 return table
         else:
-            if VERBOSE_DEBUG:
-                err_str = "identify_table_from_column failed.\n"
-                err_str += repr(column_heading) + " was not recognized.\n"
-                raise InputIntegrityError(err_str)
-            else:
-                raise InputIntegrityError
+            err_str = "identify_table_from_column failed.\n"
+            err_str += repr(column_heading) + " was not recognized.\n"
+            raise InputIntegrityError(err_str)
 
+    # Todo: This should actually, y'know, work
     @staticmethod
-    def sanitize_string_for_sql(string):
+    def sanitize_string_for_sql(string: str) -> str:
         """
         Makes a string safe for searching in the database.
+
         :param string:
         :return:
         """
         string = deepcopy(string)
         string = string.strip()
+        return string

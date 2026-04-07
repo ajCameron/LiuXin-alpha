@@ -20,9 +20,30 @@ TriStateBool = Optional[bool]
 # Keyed with the book_id and valued with a list of the languages for that book - or None
 LangMap = dict[int, Optional[list[str]]]
 
+# Table classification types
+# - Main
 MainTableID = int
-
+MainTableName = str
 MainTableColumnName = str
+
+# - Interlink
+InterlinkTableID = int
+InterLinkTableName = str
+InterlinkTableColumnName = str
+
+# - Intralink
+IntraLinkTableID = int
+IntraLinkTableName = str
+IntraLinkTableColumnName = str
+
+# - Helper
+HelperTableID = int
+HelperTableName = str
+HelperTableColumnName = str
+
+
+TableColumnName = str
+
 
 # Fields are a mapping between two tables - each of these tables has IDs
 # - The "main" table the field is in
@@ -30,7 +51,7 @@ SrcTableID = MainTableID
 # - The "secondary" table that the main table is linked to
 DstTableID = MainTableID
 
-InterlinkTableID = MainTableID
+
 
 # Some of the specific tables MUST return, for some of their functions, an id in a specific table
 # (e.g. The "covers" tables).
@@ -119,21 +140,6 @@ class TableTypesEnum(Enum):
     MANY_ONE: int = 1
     MANY_MANY: int = 2
     ONE_MANY: int = 3
-
-
-MainTableName = str
-
-
-InterLinkTableName = str
-
-
-IntraLinkTableName = str
-
-
-HelperTableName = str
-
-
-TableColumnName = str
 
 
 UUIDStr = str

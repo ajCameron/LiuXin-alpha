@@ -173,7 +173,6 @@ class RowAPI(abc.ABC):
         :return:
         """
 
-
     @abc.abstractmethod
     def to_jsonable(
         self,
@@ -253,6 +252,15 @@ class RowAPI(abc.ABC):
     def refresh_db_properties(self) -> None:
         """
         Refresh the internally cached db properties of this row.
+
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def row_id(self) -> int:
+        """
+        Return this row as a dictionary of values.
 
         :return:
         """

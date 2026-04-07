@@ -176,7 +176,7 @@ def parse_date(date_string, assume_utc=False, as_utc=True, default=None):
     :param default: Missing fields are filled in from default. If None, the
     current date is used.
     """
-    from liuxin_dateutil.parser import parse
+    from LiuXin_alpha.utils.libraries.liuxin_dateutil.parser import parse
 
     if not date_string:
         return UNDEFINED_DATE

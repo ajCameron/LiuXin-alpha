@@ -19,7 +19,7 @@ from LiuXin_alpha.databases.db_types import (
     DstTableID,
     TableColumnName,
 )
-from LiuXin_alpha.databases.field_metadata import calibre_name_to_liuxin_name
+from LiuXin_alpha.interfaces.field_metadata import calibre_name_to_liuxin_name
 
 from LiuXin_alpha.errors import DatabaseIntegrityError
 

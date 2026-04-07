@@ -58,7 +58,7 @@ if _LIBS.exists() and str(_LIBS) not in sys.path:
 from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
 from LiuXin_alpha.databases.custom_columns import CustomColumns
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.databases.field_metadata import FieldMetadata
+from LiuXin_alpha.interfaces.field_metadata import FieldMetadata
 
 from LiuXin_alpha.library.caches.calibre.tables.one_one_tables import CalibreOneToOneTable
 from LiuXin_alpha.library.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable

@@ -69,7 +69,8 @@ from LiuXin_alpha.library.caches.utils import api
 
 from LiuXin_alpha.library.caches.calibre.tables import calibre_create_table
 
-from LiuXin_alpha.databases.constants import SPOOL_SIZE, _get_next_series_num_for_list
+from LiuXin_alpha.databases.constants import SPOOL_SIZE
+from LiuXin_alpha.databases.utils import _get_next_series_num_for_list
 
 from LiuXin_alpha.databases.adaptors import get_series_values
 from LiuXin_alpha.library.caches.calibre.fields import (
@@ -78,7 +79,7 @@ from LiuXin_alpha.library.caches.calibre.fields import (
     InvalidLinkTable,
 )
 from LiuXin_alpha.library.caches.calibre.tables.base import CalibreVirtualTable
-from LiuXin_alpha.databases.categories import get_categories
+from LiuXin_alpha.interfaces.categories import get_categories
 from LiuXin_alpha.databases.lazy import FormatMetadata, FormatsList, ProxyMetadata
 from LiuXin_alpha.utils.python_tools import uniq
 

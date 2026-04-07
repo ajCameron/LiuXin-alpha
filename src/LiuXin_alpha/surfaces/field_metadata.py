@@ -1,3 +1,13 @@
+
+"""
+Contains metadata on derived and built in fields.
+
+Fields are, in many cases, a useful abstraction when it comes to display.
+They're intimately connected with the database - both in what they display and the user's preferences as to them.
+As such they - just about - get to be database objects.
+"""
+
+
 import traceback
 from collections import OrderedDict
 
@@ -8,6 +18,8 @@ from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 from LiuXin_alpha.preferences import preferences as tweaks
 from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower
 from LiuXin_alpha.utils.localization import _
+
+from LiuXin_alpha.databases.constants import VALID_DATA_TYPES
 
 
 # Todo: Probably shouldn't live here.
@@ -41,6 +53,8 @@ def calibre_name_to_liuxin_name(table_name: str) -> str:
 # Todo: "in_table" and "main_table" have become degenerate - need to remove them
 def _builtin_field_metadata():
     """
+    Contains infomation about the builtin, existing fields.
+
     This is a function so that changing the UI language allows newly created field metadata objects to have correctly
     translated labels for builtin fields.
     Contains information needed to read from the various tables.
@@ -652,6 +666,8 @@ def _builtin_field_metadata():
 
 class FieldMetadata(dict):
     """
+    Stores info about a defined field on the database.
+
     key: the key to the dictionary is:
     - for standard fields, the metadata field name.
     - for custom fields, the metadata field name prefixed by '#'
@@ -661,6 +677,7 @@ class FieldMetadata(dict):
 
     datatype: the type of information in the field. Valid values are listed in
     VALID_DATA_TYPES below.
+
     is_multiple: valid for the text datatype. If {}, the field is to be
     treated as a single term. If not None, it contains a dict of the form
             {'cache_to_list': ',',
@@ -704,26 +721,19 @@ class FieldMetadata(dict):
 
     """
 
-    VALID_DATA_TYPES = frozenset(
-        [
-            None,
-            "rating",
-            "text",
-            "comments",
-            "datetime",
-            "int",
-            "float",
-            "bool",
-            "series",
-            "composite",
-            "enumeration",
-        ]
-    )
+    VALID_DATA_TYPES: frozenset[str] = VALID_DATA_TYPES
 
     # search labels that are not db columns
     search_items = ["all", "search"]
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Startup the field metadata.
+
+        Field metadata is composed of
+         - builtin fields - hard coded and always exist
+         - user defined fields - stored in the database - can be anything
+        """
         super(FieldMetadata, self).__init__()
         self._field_metadata = _builtin_field_metadata()
         self._tb_cats = OrderedDict()

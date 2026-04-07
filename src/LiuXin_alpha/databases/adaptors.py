@@ -3,6 +3,7 @@
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
+import datetime
 import re
 
 from functools import partial
@@ -11,6 +12,7 @@ from datetime import datetime
 from typing import Optional, AnyStr, Union, Literal, Callable, Iterable
 
 from LiuXin_alpha.constants import preferred_encoding
+from LiuXin_alpha.errors import InvalidUpdate
 
 from LiuXin_alpha.utils.date import (
     parse_only_date,
@@ -31,7 +33,7 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.liuxin_six import (
     dict_iteritems as iteritems,
     six_unicode,
-    six_unicode as unicode)
+    six_unicode as unicode, unicode)
 
 # ---------------------------
 #
@@ -214,7 +216,7 @@ def clean_identifier(typ: AnyStr, val: AnyStr) -> tuple[str, AnyStr]:
 
 def adapt_identifiers(to_tuple: Callable[[str, ], dict[str, str]], x: Union[dict[str, str], str]) -> dict[str, str]:
     """
-    Adapt an x dict/str into a indentifer string.
+    Adapt an x dict/str into an identifier string.
 
     :param to_tuple:
     :param x:
@@ -230,7 +232,25 @@ def adapt_identifiers(to_tuple: Callable[[str, ], dict[str, str]], x: Union[dict
     return ans
 
 
-def get_adapter(name, metadata):
+def get_adapter(name: Union[
+    Literal["text"],
+    Literal["series"],
+    Literal["datetime"],
+    Literal["int"],
+    Literal["float"],
+    Literal["bool"],
+    Literal["comments"],
+    Literal["rating"],
+    Literal["enumeration"],
+    Literal["composite"],
+    Literal["title"],
+    Literal["author_sort"],
+    Literal["authors"],
+    Literal["timestamp"],
+    Literal["last_modified"],
+    Literal["series_index"],
+    Literal["languages"],
+    Literal["identifiers"]], metadata):
     """
     Return an adaptor appropriate for the given field.
 
@@ -303,3 +323,127 @@ def get_adapter(name, metadata):
         return partial(adapt_identifiers, ans)
 
     return ans
+
+
+def cc_adapt_text(x, d):
+    if d["is_multiple"]:
+        if x is None:
+            return []
+        if isinstance(x, (str, unicode, bytes)):
+            x = x.split(d["multiple_seps"]["ui_to_list"])
+        try:
+            x = [y.strip() for y in x if y.strip()]
+        except Exception as e:
+            err_str = "Cannot process - error while trying to strip individual tokens"
+            err_str = default_log.log_exception(err_str, e, "ERROR", ("x", x))
+            raise InvalidUpdate(err_str)
+
+        x = [y.decode(preferred_encoding, "replace") if not isinstance(y, unicode) else y for y in x]
+        return [" ".join(y.split()) for y in x]
+    else:
+        if x is None or isinstance(x, (str, unicode, bytes)):
+            return x if x is None or isinstance(x, unicode) else x.decode(preferred_encoding, "replace")
+        else:
+            raise InvalidUpdate("Invalid update type for this adaptor - x: {} - d: {}".format(x, d))
+
+
+# Todo: Upgrade to also handle unix datestamps
+def cc_adapt_datetime(x, d):
+    """
+    Adapt a string into a datetime object
+
+    :param x:
+    :param d:
+    :return:
+    """
+    if isinstance(x, (str, bytes)):
+        try:
+            x = parse_date(x, assume_utc=False, as_utc=False)
+        except:
+            raise InvalidUpdate("Unexpected case passed to adapt_datetime - x: {} - d: {}".format(x, d))
+
+    elif x is True or x is False:
+        raise InvalidUpdate("Unexpected case passed to adapt_datetime - bool - x: {} - d: {}".format(x, d))
+
+    elif isinstance(x, (int, float)):
+        raise InvalidUpdate(
+            "Unexpected case passed to adapt_datetime - int or float - x: {} - d: {}" "".format(x, d)
+        )
+
+    return x
+
+
+# Todo: There are several methods to do this in the code base - consolidate
+def cc_adapt_bool(x, d):
+    """
+    Attempts to coerce a string into a bool.
+    :param x:
+    :param d:
+    :return:
+    """
+    if isinstance(x, (str, unicode, bytes)):
+        x = x.lower()
+        if x == "true" or x == "1":
+            x = True
+        elif x == "false" or x == "0":
+            x = False
+        elif x == "none":
+            x = None
+        else:
+            try:
+                x = bool(int(x))
+            except:
+                raise InvalidUpdate("adapt_bool has failed - x: {} - d: {}".format(x, d))
+    elif isinstance(x, float):
+        raise InvalidUpdate("adapt_bool has failed - x: {} - d: {}".format(x, d))
+    elif isinstance(x, datetime.datetime):
+        raise InvalidUpdate("adapt_bool has failed - x: {} - d: {}".format(x, d))
+    return x
+
+
+def cc_adapt_enum(x, d):
+    """
+    Adapt a enummeration type field - which is just text, so calls adapt_text instead/
+    :param x:
+    :param d:
+    :return:
+    """
+    v = cc_adapt_text(x, d)
+    if not v:
+        v = None
+    return v
+
+
+def cc_adapt_number(x, d):
+    if x is None:
+        return None
+    if x is True or x is False:
+        raise InvalidUpdate("adapt_number has been passed a bool - {}".format(x))
+    if isinstance(x, (str, unicode, bytes)):
+        if x.lower() == "none":
+            return None
+    if d["datatype"] == "int":
+        try:
+            return int(x)
+        except:
+            raise InvalidUpdate(
+                "adapt_number has been passed an object it can't deal with - x: {} - d: {}" "".format(x, d)
+            )
+
+    try:
+        return float(x)
+    except:
+        raise InvalidUpdate(
+            "adapt_number has been passed an object it can't deal with - x: {} - d: {}" "".format(x, d)
+        )
+
+
+def cc_adapt_rating(x, d):
+    if x is None:
+        return None
+    if x is True or x is False:
+        raise InvalidUpdate("Unexpected update type - x: {} - d: {}".format(x, d))
+    try:
+        return min(10.0, max(0.0, float(x)))
+    except (ValueError, TypeError):
+        raise InvalidUpdate("Unexpected update type - x: {} - d: {}".format(x, d))

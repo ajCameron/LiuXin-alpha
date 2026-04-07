@@ -3,9 +3,12 @@
 
 """
 Lazy provides proxy method for the database which only do work when they're needed.
+
+Avoid doing stats on all files in a book when getting metadata for that book.
+Speeds up calibre startup with large libraries/libraries on a network share, with a composite custom column.
 """
 
-from __future__ import division, absolute_import, print_function
+from __future__ import division, absolute_import, print_function, annotations
 
 import weakref
 from collections.abc import MutableMapping, MutableSequence
@@ -33,13 +36,14 @@ __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
-"""
-Avoid doing stats on all files in a book when getting metadata for that book.
-Speeds up calibre startup with large libraries/libraries on a network share, with a composite custom column.
-"""
-
 
 def resolved(f):
+    """
+    Decorator to call _resolve on access.
+
+    :param f:
+    :return:
+    """
     def wrapper(self, *args, **kwargs):
         if getattr(self, "_must_resolve", True):
             self._resolve()
