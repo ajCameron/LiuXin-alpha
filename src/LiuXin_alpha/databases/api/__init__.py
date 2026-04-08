@@ -31,7 +31,13 @@ from LiuXin_alpha.databases.api.database_api.database_mixins.database_triggers_m
 from LiuXin_alpha.databases.api.database_api.driver import DatabaseDriverAPI
 from LiuXin_alpha.databases.api.database_api.driver_wrapper import DatabaseDriverWrapperAPI
 from LiuXin_alpha.databases.api.macros import MacrosAPI
-from LiuXin_alpha.databases.api.maintenance import DatabaseMaintainerAPI, MaintenanceBotAPI
+from LiuXin_alpha.databases.api.maintenance import (
+    DatabaseMaintainerAPI,
+    MaintenanceBotAPI,
+    MaintenanceCallbackSinkAPI,
+    MaintenancePluginAPI,
+    MaintenanceServiceAPI,
+)
 
 
 __all__ = [
@@ -51,5 +57,8 @@ __all__ = [
     "DatabaseTriggerHelpersAPI",
     "MacrosAPI",
     "MaintenanceBotAPI",
+    "MaintenanceCallbackSinkAPI",
+    "MaintenancePluginAPI",
+    "MaintenanceServiceAPI",
     "RowAPI",
 ]

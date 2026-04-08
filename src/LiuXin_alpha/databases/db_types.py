@@ -8,8 +8,6 @@ from enum import Enum
 
 from typing import Optional, Any, Literal, Union
 
-from LiuXin_alpha.databases.maintenance_bot import Maintainer
-
 try:
     from typing_extensions import TypedDict, NotRequired
 except ImportError:

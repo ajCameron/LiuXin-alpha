@@ -258,7 +258,7 @@ class RowAPI(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def row_id(self) -> int:
+    def row_id(self) -> Optional[int]:
         """
         Return this row as a dictionary of values.
 

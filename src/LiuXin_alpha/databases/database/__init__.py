@@ -24,7 +24,7 @@ from LiuXin_alpha.databases.database.constants import HELPER_TABLES
 from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
 from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.databases.maintenance_bot import Maintainer
+from LiuXin_alpha.databases.maintenance import Maintainer
 from LiuXin_alpha.databases.database.custom_columns_mixin import CustomColumnDatabaseMixin
 
 from LiuXin_alpha.errors import InputIntegrityError

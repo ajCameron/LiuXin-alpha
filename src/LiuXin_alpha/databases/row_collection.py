@@ -1,6 +1,10 @@
-from __future__ import unicode_literals
 
-__author__ = "Cameron"
+"""
+A collection of row objects.
+
+A section of the database.
+For example, all rows linked to an item would count as a RowCollection.
+"""
 
 # Intended to serve as an intermediary between metadata and the database itself.
 # Once the plugin architecture is written, the manager should bear at least the methods below to this method
@@ -25,11 +29,13 @@ __author__ = "Cameron"
 # Row_Collection["table"]["table_id"]["column_name"] - returns the specified column
 # Row_Collection["table"]["something"]["column_name"] - creates a new row
 
+from __future__ import unicode_literals, annotations
+
 from copy import deepcopy
 import pprint
 
-# A RowCollection is intended to be a a store of Row objects. Errors will be thrown if you attempt to add something
-# which is not a row object or try and store one improperly
+from typing import TYPE_CHECKING, Union, Optional, Any
+
 from LiuXin_alpha.databases.row import Row
 
 from LiuXin_alpha.utils.logging import LiuXin_debug_print
@@ -40,20 +46,37 @@ from LiuXin_alpha.errors import InputIntegrityError, LogicalError
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.row import RowAPI
 
-class RowCollection(object):
+
+__author__ = "Cameron"
+
+
+
+class RowCollection:
     """
     Intended to serve as an "elegant" bridge between the database itself and the metadata object.
+
     Intended to act as a container for all relevant rows off the database.
     Can be seeded with a title row - or left blank.
     """
 
-    def __init__(self, seed_row, target_database=None):
+    def __init__(
+            self,
+            seed_row: Optional["RowAPI"] = None,
+            target_database: Optional["DatabaseAPI"] = None
+    ) -> None:
         """
-        Takes either a seed row, or nothing. If a seed row is present (and is not on the DO_NOT_SEED list) calls the
-        database and picks up all rows which reference the given object. Puts them all in one place for easy access.
-        :param: seed_row: If a Row is given the collection is all rows which link to that row. If None is given then
-        the collection is left blank.
+        Takes either a seed row, or nothing.
+
+        If a seed row is present (and is not on the DO_NOT_SEED list) calls the database and picks up all rows which
+        reference the given object.
+        Puts them all in one place for easy access.
+
+        :param: seed_row: If a Row is given the collection is all rows which link to that row.
+                          If None is given then the collection is left blank.
         :param seed_row: Either a row_dict, or a Row. If a Row uses the primary_row_dict instead.
         :param target_database:
         """
@@ -116,16 +139,18 @@ class RowCollection(object):
         # object once during it's lifetime
         self.__fingerprint = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         String representation of the RowCollection - to be used with the print function.
+
         :return:
         """
-        return self.__unicode__().encode("utf-8")
+        return self.__unicode__()
 
-    def __unicode__(self):
+    def __unicode__(self) -> str:
         """
-        Returns a unicode representation of this RowCollection.
+        Returns a Unicode representation of this RowCollection.
+
         This is only a summary of the information stored in the RowCollection - for everything the RowCollection
         contains use self.uni_full_dump()
         :return:
@@ -133,7 +158,7 @@ class RowCollection(object):
         ans = []
         _data = object.__getattribute__(self, "_data")
 
-        def uni_format(x, y):
+        def uni_format(x: Any, y: Any) -> None:
             candidate = None
             try:
                 candidate = "%-20s: %s" % (six_unicode(x), six_unicode(y))
@@ -180,7 +205,8 @@ class RowCollection(object):
 
     def __getattr__(self, item):
         """
-        Allows a attribute like interface to some of the derived quantities.
+        Allows an attribute like interface to some of the derived quantities.
+
         :param item:
         :return:
         """

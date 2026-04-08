@@ -70,6 +70,21 @@ class Row(RowAPI):
         """
         return self._table
 
+    @property
+    def row_id(self) -> Optional[int]:
+        """
+        Return the id for this row.
+
+        :return:
+        """
+        # If the id column is present but None, omit it so SQLite assigns an id.
+        id_col = self.db.driver_wrapper.get_id_column(self.table)
+
+        try:
+            return self.row_dict[id_col]
+        except KeyError:
+            return None
+
     def make_read_only(self):
         """
         Makes the row read only.
