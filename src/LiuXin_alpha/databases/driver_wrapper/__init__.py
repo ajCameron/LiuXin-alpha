@@ -28,9 +28,10 @@ from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_view_mixin import Driv
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_tree_mixin import DriverWrapperTreeMixin
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_metadata_mixin import DriverWrapperMetadataMixin
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_search_mixin import DriverWrapperSearchMixin
+from LiuXin_alpha.databases.api.database_api.driver_wrapper import DatabaseDriverWrapperAPI
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api import DatabaseDriverWrapperAPI, MacrosAPI, DatabaseAPI, DatabaseDriverAPI
+    from LiuXin_alpha.databases.api import MacrosAPI, DatabaseAPI, DatabaseDriverAPI
 
 
 class DriverWrapper(

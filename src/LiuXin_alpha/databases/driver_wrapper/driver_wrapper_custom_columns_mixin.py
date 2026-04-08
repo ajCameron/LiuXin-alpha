@@ -1,6 +1,6 @@
 import re
 
-from LiuXin_alpha.databases.custom_columns import CUSTOM_DATA_TYPES
+from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import to_json_str

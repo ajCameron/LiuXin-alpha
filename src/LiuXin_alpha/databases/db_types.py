@@ -140,6 +140,12 @@ class TableTypesEnum(Enum):
     ONE_MANY: int = 3
 
 
+ONE_ONE = TableTypesEnum.ONE_ONE.value
+MANY_ONE = TableTypesEnum.MANY_ONE.value
+MANY_MANY = TableTypesEnum.MANY_MANY.value
+ONE_MANY = TableTypesEnum.ONE_MANY.value
+
+
 UUIDStr = str
 
 

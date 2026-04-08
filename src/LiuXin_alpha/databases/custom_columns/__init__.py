@@ -21,14 +21,14 @@ from LiuXin_alpha.databases.adaptors import (
     cc_adapt_enum,
     cc_adapt_number,
     cc_adapt_rating)
-from LiuXin_alpha.databases.driver_wrapper import CustomColumnsDriverWrapperMixin
+from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_custom_columns_mixin import CustomColumnsDriverWrapperMixin
 from LiuXin_alpha.databases.notify import dummy_notify, dummy_dirtied
 
 from LiuXin_alpha.databases.utils import cleanup_tags, _get_next_series_num_for_list, _get_series_values
 
 from LiuXin_alpha.errors import InvalidUpdate
 
-from LiuXin_alpha.interfaces.field_metadata import FieldMetadata
+from LiuXin_alpha.databases.field_metadata_bridge import FieldMetadata
 
 from LiuXin_alpha.utils.logging import prints, default_log
 
@@ -52,20 +52,7 @@ if TYPE_CHECKING:
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-CUSTOM_DATA_TYPES = frozenset(
-    [
-        "rating",
-        "text",  # Actually the equivalent of tags
-        "comments",
-        "datetime",
-        "int",
-        "float",
-        "bool",
-        "series",
-        "composite",
-        "enumeration",
-    ]
-)
+from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 
 # NOTES ON CUSTOM_DATA_TYPES
 # enumeration - can take any of a pre set range of values - this range is stored in the view field of the custom columns

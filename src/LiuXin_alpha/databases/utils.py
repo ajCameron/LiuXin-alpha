@@ -15,6 +15,7 @@ from LiuXin_alpha.preferences import preferences
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types, dict_iteritems as iteritems
 
 from LiuXin_alpha.constants import preferred_encoding
+from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower
@@ -25,20 +26,6 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-CUSTOM_DATA_TYPES: frozenset[str] = frozenset(
-    [
-        "rating",
-        "text",
-        "comments",
-        "datetime",
-        "int",
-        "float",
-        "bool",
-        "series",
-        "composite",
-        "enumeration",
-    ]
-)
 
 
 def force_to_bool(val: Any) -> Optional[bool]:

@@ -6,20 +6,23 @@ __docformat__ = "restructuredtext en"
 
 SPOOL_SIZE = 30 * 1024 * 1024
 
-# Todo: This is a constant, and we've seen it before.
-
+# Core recognized metadata / field datatypes used across database, surface and
+# custom-column compatibility layers.
 VALID_DATA_TYPES = frozenset(
-        [
-            None,
-            "rating",
-            "text",
-            "comments",
-            "datetime",
-            "int",
-            "float",
-            "bool",
-            "series",
-            "composite",
-            "enumeration",
-        ]
-    )
+    [
+        None,
+        "rating",
+        "text",
+        "comments",
+        "datetime",
+        "int",
+        "float",
+        "bool",
+        "series",
+        "composite",
+        "enumeration",
+    ]
+)
+
+# Custom columns intentionally exclude the None sentinel used by VALID_DATA_TYPES.
+CUSTOM_DATA_TYPES = frozenset(x for x in VALID_DATA_TYPES if x is not None)

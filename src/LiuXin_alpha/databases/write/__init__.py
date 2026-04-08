@@ -12,7 +12,7 @@ much of the complicatons of setting up and preforming writes to the database.
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
-from LiuXin_alpha.customize.cache.base_tables import ONE_MANY, MANY_ONE, MANY_MANY
+from LiuXin_alpha.databases.db_types import ONE_MANY, MANY_ONE, MANY_MANY
 from LiuXin_alpha.databases.write.base_writer import BaseWriter
 from LiuXin_alpha.databases.write.generic_writers.many_to_many_writer import ManyToManyWriter
 from LiuXin_alpha.databases.write.generic_writers.many_to_one_writer import ManyToOneWriter
