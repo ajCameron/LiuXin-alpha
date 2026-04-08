@@ -73,49 +73,50 @@ def make_folder_name(folder_row):
         original_name = folder_row["folder_original_name"]
         folder_id = folder_row.get_row_id("folders")
         alpha_string = get_random_alpha_string(5)
-        return original_name + " - LX_0_" + alpha_string + "_" + folder_id
+        return original_name + " - LX_0_" + alpha_string + "_" + six_unicode(folder_id)
 
-    folder_row_dict = folder_row.get_row("folders")
-    folder_row_collection = RowCollection(seed_row=folder_row_dict, target_database=folder_row.db)
-    folder_row_collection.sort_all_row_indices()
     folder_row_id = folder_row.get_row_id("folders")
+    db = folder_row.db
 
-    if folder_row_collection["creators"]:
-        creator_rows = folder_row_collection["creators"]
+    creator_rows = db.get_linked_rows(folder_row, "creators")
+    if creator_rows:
         creator_names = []
         creator_ids = []
         for row in creator_rows:
-            creator_ids.append(row.get_row_id("creators"))
+            creator_ids.append(six_unicode(row.get_row_id("creators")))
             creator_names.append(row["creator"])
         creator_names_string = " & ".join(creator_names)
         creator_ids_string = "_".join(creator_ids)
         alpha_string = get_random_alpha_string(5)
 
-        return creator_names_string + " - LX_4_" + creator_ids_string + "_" + alpha_string + "_" + folder_row_id
+        return creator_names_string + " - LX_4_" + creator_ids_string + "_" + alpha_string + "_" + six_unicode(folder_row_id)
 
-    elif folder_row_collection["series"]:
-        series_row = folder_row_collection.get_first_linked_row("series")
+    series_rows = db.get_linked_rows(folder_row, "series")
+    if series_rows:
+        series_row = db.get_first_linked_row(folder_row, "series")
         series = series_row["series"]
         series_id = series_row.get_row_id("series")
         alpha_string = get_random_alpha_string(5)
 
-        return series + " - LX_3_" + series_id + "_" + alpha_string + "_" + folder_row_id
+        return series + " - LX_3_" + six_unicode(series_id) + "_" + alpha_string + "_" + six_unicode(folder_row_id)
 
-    elif folder_row_collection["titles"]:
-        title_row = folder_row_collection.get_first_linked_row("titles")
+    title_rows = db.get_linked_rows(folder_row, "titles")
+    if title_rows:
+        title_row = db.get_first_linked_row(folder_row, "titles")
         title = title_row["title"]
         title_id = title_row.get_row_id("titles")
         alpha_string = get_random_alpha_string(5)
 
-        return title + " - LX_2_" + title_id + "_" + alpha_string + "_" + folder_row_id
+        return title + " - LX_2_" + six_unicode(title_id) + "_" + alpha_string + "_" + six_unicode(folder_row_id)
 
-    elif folder_row_collection["files"]:
+    file_rows = db.get_linked_rows(folder_row, "files")
+    if file_rows:
         # If there are just files associated with this object, but nothing else, fall back on default behavior
         folder_row_id = folder_row["folder_id"]
         folder_row_o_name = folder_row["folder_original_name"]
         alpha_string = get_random_alpha_string(5)
 
-        return folder_row_o_name + " - LX_0_" + alpha_string + "_" + folder_row_id
+        return folder_row_o_name + " - LX_0_" + alpha_string + "_" + six_unicode(folder_row_id)
 
     else:
 
@@ -123,7 +124,7 @@ def make_folder_name(folder_row):
         folder_row_o_name = folder_row["folder_original_name"]
         alpha_string = get_random_alpha_string(5)
 
-        return folder_row_o_name + " - LX_0_" + alpha_string + "_" + folder_row_id
+        return folder_row_o_name + " - LX_0_" + alpha_string + "_" + six_unicode(folder_row_id)
 
 
 # An LX file name should have the following structure
@@ -142,37 +143,35 @@ def make_file_name(file_row):
         file_id = file_row.get_row_id("folders")
         alpha_string = get_random_alpha_string(5)
         extension = file_row["file_extension"]
-        return sanitize_object_names(original_name + " - LX_0_" + alpha_string + "_" + file_id + extension)
+        return sanitize_object_names(original_name + " - LX_0_" + alpha_string + "_" + six_unicode(file_id) + extension)
 
-    file_row_dict = file_row.get_row("files")
     database = file_row.db
-    file_row_collection = RowCollection(seed_row=file_row_dict, target_database=database)
 
-    series_row = file_row_collection.get_first_linked_row("series")
-    creator_row = file_row_collection.get_first_linked_row("creators")
-    title_row = file_row_collection.get_first_linked_row("")
+    series_row = database.get_first_linked_row(file_row, "series")
+    creator_row = database.get_first_linked_row(file_row, "creators")
+    title_row = database.get_first_linked_row(file_row, "titles")
     file_extension = file_row["file_extension"]
 
     creator_token = ""
     if creator_row is not None:
         creator_row_id = creator_row["creator_id"]
         creator_name = creator_row["creator"]
-        creator_token += "[" + creator_name + " - LX_4_" + creator_row_id + "]"
+        creator_token += "[" + creator_name + " - LX_4_" + six_unicode(creator_row_id) + "]"
 
     series_token = ""
     if series_row is not None:
         series_row_id = series_row["series_id"]
         series_number = series_row["series_number"]
         series = series_row["series"]
-        series_token += "[" + series + " - " + series_number + " - LX_3_" + series_row_id + "]"
+        series_token += "[" + series + " - " + six_unicode(series_number) + " - LX_3_" + six_unicode(series_row_id) + "]"
 
     title_token = ""
     if title_row is not None:
         title_row_id = title_row["title_id"]
         title = title_row["title"]
-        title_token += "[" + title + " - LX_2_" + title_row_id + "]"
+        title_token += "[" + title + " - LX_2_" + six_unicode(title_row_id) + "]"
 
-    file_token = " - LX_1_" + get_random_alpha_string(5) + file_row["file_id"]
+    file_token = " - LX_1_" + get_random_alpha_string(5) + six_unicode(file_row["file_id"])
     return sanitize_object_names(creator_token + series_token + title_token + file_token + file_extension)
 
 

@@ -77,6 +77,10 @@ class Row(RowAPI):
 
         :return:
         """
+        cached_row_id = getattr(self, "_row_id", None)
+        if cached_row_id is not None or cached_row_id == 0:
+            return cached_row_id
+
         # If the id column is present but None, omit it so SQLite assigns an id.
         id_col = self.db.driver_wrapper.get_id_column(self.table)
 
@@ -84,6 +88,11 @@ class Row(RowAPI):
             return self.row_dict[id_col]
         except KeyError:
             return None
+
+    @row_id.setter
+    def row_id(self, value: Optional[int]) -> None:
+        """Cache the row id when the implementation needs to set it explicitly."""
+        object.__setattr__(self, "_row_id", value)
 
     def make_read_only(self):
         """

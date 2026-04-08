@@ -1,26 +1,24 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import unicode_literals, division, absolute_import, print_function, annotations
 
 import re
 import weakref
 from collections import deque
-from datetime import timedelta
 from functools import partial
 
 from LiuXin_alpha.constants import preferred_encoding
-
-from LiuXin_alpha.databases.utils import force_to_bool
+from LiuXin_alpha.databases.search.field_searches.boolean_search import BooleanSearch
+from LiuXin_alpha.databases.search.field_searches.date_search import DateSearch
+from LiuXin_alpha.databases.search.field_searches.numeric_search import NumericSearch
 
 from LiuXin_alpha.utils.config.config_base import prefs
-from LiuXin_alpha.utils.date import parse_date, UNDEFINED_DATE, now, dt_as_local
 from LiuXin_alpha.utils.text.icu import lower as icu_lower, primary_contains, sort_key
 from LiuXin_alpha.utils.localization import _, lang_map, canonicalize_lang
 from LiuXin_alpha.utils.search_query_parser import SearchQueryParser, ParseException
 
-from LiuXin_alpha.utils.libraries.liuxin_six import basestring, iterkeys
-
+from LiuXin_alpha.utils.libraries.liuxin_six import basestring, iterkeys, six_unicode as unicode
 
 
 __license__ = "GPL v3"
@@ -37,6 +35,7 @@ REGEXP_MATCH = 2
 def _matchkind(query):
     """
     Determines the type of search to be run from a query.
+
     :param query:
     :return:
     """
@@ -64,6 +63,7 @@ matchkind = _matchkind
 def _match(query, value, matchkind, use_primary_find_in_search=True):
     """
     Generates matches based on the query.
+
     :param query:
     :param value:
     :param matchkind: CONTAINS, REGEXP or EQUALS
@@ -116,328 +116,10 @@ def _match(query, value, matchkind, use_primary_find_in_search=True):
 match = _match
 
 
-class DateSearch(object):  # {{{
-    def __init__(self):
-        self.operators = {
-            "=": (1, self.eq),
-            "!=": (2, self.ne),
-            ">": (1, self.gt),
-            ">=": (2, self.ge),
-            "<": (1, self.lt),
-            "<=": (2, self.le),
-        }
-        self.local_today = {"_today", "today", icu_lower(_("today"))}
-        self.local_yesterday = {"_yesterday", "yesterday", icu_lower(_("yesterday"))}
-        self.local_thismonth = {"_thismonth", "thismonth", icu_lower(_("thismonth"))}
-        self.daysago_pat = re.compile(r"(%s|daysago|_daysago)$" % _("daysago"))
-
-    def eq(self, dbdate, query, field_count):
-        """
-        Is the result of the date search equal.
-        :param dbdate:
-        :param query:
-        :param field_count:
-        :return:
-        """
-        if dbdate.year == query.year:
-            if field_count == 1:
-                return True
-            if dbdate.month == query.month:
-                if field_count == 2:
-                    return True
-                return dbdate.day == query.day
-        return False
-
-    def ne(self, *args):
-        """
-        Is the result of the date search not equal.
-        :param args:
-        :return:
-        """
-        return not self.eq(*args)
-
-    def gt(self, dbdate, query, field_count):
-        if dbdate.year > query.year:
-            return True
-        if field_count > 1 and dbdate.year == query.year:
-            if dbdate.month > query.month:
-                return True
-            return field_count == 3 and dbdate.month == query.month and dbdate.day > query.day
-        return False
-
-    def le(self, *args):
-        return not self.gt(*args)
-
-    def lt(self, dbdate, query, field_count):
-        if dbdate.year < query.year:
-            return True
-        if field_count > 1 and dbdate.year == query.year:
-            if dbdate.month < query.month:
-                return True
-            return field_count == 3 and dbdate.month == query.month and dbdate.day < query.day
-        return False
-
-    def ge(self, *args):
-        return not self.lt(*args)
-
-    def __call__(self, query, field_iter):
-        matches = set()
-        if len(query) < 2:
-            return matches
-
-        if query == "false":
-            for v, book_ids in field_iter():
-                if isinstance(v, (str, unicode)):
-                    v = parse_date(v)
-                if v is None or v <= UNDEFINED_DATE:
-                    matches |= book_ids
-            return matches
-
-        if query == "true":
-            for v, book_ids in field_iter():
-                if isinstance(v, (str, unicode)):
-                    v = parse_date(v)
-                if v is not None and v > UNDEFINED_DATE:
-                    matches |= book_ids
-            return matches
-
-        relop = None
-        for k, op in self.operators.iteritems():
-            if query.startswith(k):
-                p, relop = op
-                query = query[p:]
-        if relop is None:
-            relop = self.operators["="][-1]
-
-        if query in self.local_today:
-            qd = now()
-            field_count = 3
-        elif query in self.local_yesterday:
-            qd = now() - timedelta(1)
-            field_count = 3
-        elif query in self.local_thismonth:
-            qd = now()
-            field_count = 2
-        else:
-            m = self.daysago_pat.search(query)
-            if m is not None:
-                num = query[: -len(m.group(1))]
-                try:
-                    qd = now() - timedelta(int(num))
-                except:
-                    raise ParseException(_("Number conversion error: {0}").format(num))
-                field_count = 3
-            else:
-                try:
-                    qd = parse_date(query, as_utc=False)
-                except:
-                    raise ParseException(_("Date conversion error: {0}").format(query))
-                if "-" in query:
-                    field_count = query.count("-") + 1
-                else:
-                    field_count = query.count("/") + 1
-
-        for v, book_ids in field_iter():
-            if isinstance(v, (str, unicode)):
-                v = parse_date(v)
-            if v is not None and relop(dt_as_local(v), qd, field_count):
-                matches |= book_ids
-
-        return matches
-
-
 # }}}
 
 
-class NumericSearch(object):  # {{{
-    """
-    Search the database for a numeric object subject to certain constraints.
-    """
-
-    def __init__(self):
-        self.operators = {
-            "=": (1, lambda r, q: r == q),
-            ">": (1, lambda r, q: r is not None and r > q),
-            "<": (1, lambda r, q: r is not None and r < q),
-            "!=": (2, lambda r, q: r != q),
-            ">=": (2, lambda r, q: r is not None and r >= q),
-            "<=": (2, lambda r, q: r is not None and r <= q),
-        }
-
-    def __call__(self, query, field_iter, location, datatype, candidates, is_many=False):
-        matches = set()
-        if not query:
-            return matches
-
-        q = ""
-        cast = adjust = lambda x: x
-        dt = datatype
-
-        if is_many and query in {"true", "false"}:
-            valcheck = lambda x: True
-            if datatype == "rating":
-                valcheck = lambda x: x is not None and x > 0
-            found = set()
-            for val, book_ids in field_iter():
-                if valcheck(val):
-                    found |= book_ids
-            return found if query == "true" else candidates - found
-
-        if query == "false":
-            if location == "cover":
-                relop = lambda x, y: not bool(x)
-            else:
-                relop = lambda x, y: x is None
-        elif query == "true":
-            if location == "cover":
-                relop = lambda x, y: bool(x)
-            else:
-                relop = lambda x, y: x is not None
-        else:
-            relop = None
-            for k, op in self.operators.iteritems():
-                if query.startswith(k):
-                    p, relop = op
-                    query = query[p:]
-            if relop is None:
-                p, relop = self.operators["="]
-
-            cast = int
-            if dt == "rating":
-                cast = lambda x: 0 if x is None else int(x)
-                adjust = lambda x: x / 2
-            elif dt in ("float", "composite"):
-                cast = float
-
-            mult = 1.0
-            if len(query) > 1:
-                mult = query[-1].lower()
-                mult = {"k": 1024.0, "m": 1024.0**2, "g": 1024.0**3}.get(mult, 1.0)
-                if mult != 1.0:
-                    query = query[:-1]
-            else:
-                mult = 1.0
-
-            try:
-                q = cast(query) * mult
-            except:
-                raise ParseException(_("Non-numeric value in query: {0}").format(query))
-
-        qfalse = query == "false"
-        for val, book_ids in field_iter():
-            if val is None:
-                if qfalse:
-                    matches |= book_ids
-                continue
-            try:
-                v = cast(val)
-            except:
-                v = None
-            if v:
-                v = adjust(v)
-            if relop(v, q):
-                matches |= book_ids
-        return matches
-
-
 # }}}
-
-
-class BooleanSearch(object):  # {{{
-    def __init__(self):
-        self.local_no = icu_lower(_("no"))
-        self.local_yes = icu_lower(_("yes"))
-        self.local_unchecked = icu_lower(_("unchecked"))
-        self.local_checked = icu_lower(_("checked"))
-        self.local_empty = icu_lower(_("empty"))
-        self.local_blank = icu_lower(_("blank"))
-        self.local_bool_values = {
-            self.local_no,
-            self.local_unchecked,
-            "_no",
-            "false",
-            "no",
-            "unchecked",
-            "_unchecked",
-            self.local_yes,
-            self.local_checked,
-            "checked",
-            "_checked",
-            "_yes",
-            "true",
-            "yes",
-            self.local_empty,
-            self.local_blank,
-            "blank",
-            "_blank",
-            "_empty",
-            "empty",
-        }
-
-    def __call__(self, query, field_iter, bools_are_tristate):
-        matches = set()
-        if query not in self.local_bool_values:
-            raise ParseException(_('Invalid boolean query "{0}"').format(query))
-        for val, book_ids in field_iter():
-            val = force_to_bool(val)
-            if not bools_are_tristate:
-                if val is None or not val:  # item is None or set to false
-                    if query in {
-                        self.local_no,
-                        self.local_unchecked,
-                        "unchecked",
-                        "_unchecked",
-                        "no",
-                        "_no",
-                        "false",
-                    }:
-                        matches |= book_ids
-                else:  # item is explicitly set to true
-                    if query in {
-                        self.local_yes,
-                        self.local_checked,
-                        "checked",
-                        "_checked",
-                        "yes",
-                        "_yes",
-                        "true",
-                    }:
-                        matches |= book_ids
-            else:
-                if val is None:
-                    if query in {
-                        self.local_empty,
-                        self.local_blank,
-                        "blank",
-                        "_blank",
-                        "empty",
-                        "_empty",
-                        "false",
-                    }:
-                        matches |= book_ids
-                elif not val:  # is not None and false
-                    if query in {
-                        self.local_no,
-                        self.local_unchecked,
-                        "unchecked",
-                        "_unchecked",
-                        "no",
-                        "_no",
-                        "true",
-                    }:
-                        matches |= book_ids
-                else:  # item is not None and true
-                    if query in {
-                        self.local_yes,
-                        self.local_checked,
-                        "checked",
-                        "_checked",
-                        "yes",
-                        "_yes",
-                        "true",
-                    }:
-                        matches |= book_ids
-        return matches
 
 
 # }}}
@@ -1077,29 +759,30 @@ class Search(object):
 
         return result
 
-    # @staticmethod
-    # def populate_all_locations(locations_dict):
-    #     """
-    #     Receives a location_dict - populates the all field (creating it if it isn't set)
-    #     :return:
-    #     """
-    #     if u'all' in locations_dict:
-    #         del locations_dict[u'all']
-    #
-    #     all_columns_set = set()
-    #     for location in locations_dict:
-    #         columns = locations_dict[location]
-    #         if hasattr(columns, '__iter__'):
-    #             for column in columns:
-    #                 all_columns_set.add(column)
-    #         else:
-    #             if VERBOSE_DEBUG:
-    #                 wrn_str = "Location dictionary has value without an __iter__ method.\n"
-    #                 wrn_str += "This is assumed to be a string.\n"
-    #                 LiuXin_debug_print(wrn_str)
-    #                 all_columns_set.add(columns)
-    #             else:
-    #                 all_columns_set.add(columns)
-    #
-    #     locations_dict[u'all'] = tuple(all_columns_set)
-    #     return locations_dict
+    @staticmethod
+    def populate_all_locations(locations_dict):
+        """
+        Receives a location_dict - populates the all field (creating it if it isn't set)
+
+        :return:
+        """
+        if u'all' in locations_dict:
+            del locations_dict[u'all']
+
+        all_columns_set = set()
+        for location in locations_dict:
+            columns = locations_dict[location]
+            if hasattr(columns, '__iter__'):
+                for column in columns:
+                    all_columns_set.add(column)
+            else:
+                if VERBOSE_DEBUG:
+                    wrn_str = "Location dictionary has value without an __iter__ method.\n"
+                    wrn_str += "This is assumed to be a string.\n"
+                    LiuXin_debug_print(wrn_str)
+                    all_columns_set.add(columns)
+                else:
+                    all_columns_set.add(columns)
+
+        locations_dict[u'all'] = tuple(all_columns_set)
+        return locations_dict
