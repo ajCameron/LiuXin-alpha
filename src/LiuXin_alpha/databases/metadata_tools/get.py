@@ -34,7 +34,7 @@ class BackendGetter:
         :param rows:
         :return:
         """
-        cn_rows = self.db.get_interlinked_rows(target_row=resource_row, secondary_table="comments")
+        cn_rows = self.db.get_interlinked_rows(primary_row=resource_row, secondary_table="comments")
 
         if all:
             if rows:
@@ -59,7 +59,7 @@ class BackendGetter:
                      resource and the series, and the second element being the series row.
         :return:
         """
-        rs_rows = self.db.get_interlinked_rows(target_row=resource_row, secondary_table="series")
+        rs_rows = self.db.get_interlinked_rows(primary_row=resource_row, secondary_table="series")
 
         rs_row_list = []
         if all:
@@ -100,7 +100,7 @@ class BackendGetter:
         :type all: bool
         :return:
         """
-        sn_rows = self.db.get_interlinked_rows(target_row=resource_row, secondary_table="synopses")
+        sn_rows = self.db.get_interlinked_rows(primary_row=resource_row, secondary_table="synopses")
 
         if all:
             if rows:

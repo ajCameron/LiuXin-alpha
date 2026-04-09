@@ -97,7 +97,7 @@ class AddingMixin:
                 "ERROR",
                 ("row_dict", row_dict),
                 ("target_table", target_table),
-                ("table_sqlite", self.get_table_sqlite(table=target_table, conn=conn)),
+                ("table_sqlite", self.direct_get_table_sqlite(table=target_table, conn=conn)),
             )
             raise DatabaseIntegrityError(err_str)
         finally:
@@ -199,7 +199,7 @@ class AddingMixin:
                 "ERROR",
                 ("row_dict_list", row_dict_list),
                 ("target_table", target_table),
-                ("table_sqlite", self.get_table_sqlite(table=target_table, conn=conn)),
+                ("table_sqlite", self.direct_get_table_sqlite(table=target_table, conn=conn)),
                 ("stmt", stmt),
                 ("values", values),
             )

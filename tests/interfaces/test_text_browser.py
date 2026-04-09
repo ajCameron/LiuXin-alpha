@@ -486,6 +486,7 @@ def test_text_browser_jobs_group_lists_subcommands(driver_spec, tmp_path: Path) 
     assert "Available `jobs` subcommands:" in rendered
     assert "jobs list" in rendered
     assert "jobs show" in rendered
+    assert "jobs tail" in rendered
     assert "jobs cancel" in rendered
     assert "jobs panel" in rendered
 
@@ -826,6 +827,46 @@ def run():
     rendered = output.getvalue()
     assert "Job output panel attached to {}".format(job_id) in rendered
     assert "Job output panel detached." in rendered
+
+
+def test_text_browser_jobs_tail_shows_recent_log_lines(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "browser_jobs_tail.sqlite"
+    output = io.StringIO()
+    manager = InMemoryJobManager(max_workers=1, default_backend="process")
+    try:
+        source = """
+def run():
+    print("tail first")
+    print("tail second")
+    print("tail third")
+    return 1
+"""
+        job_id = manager.submit(
+            JobRequest(module_name=source, function_name="run", module_is_source_code=True),
+            no_output=False,
+            label="tail-test",
+            timeout=5.0,
+        )
+        manager.wait(job_id, timeout=5.0)
+
+        with Database(
+            metadata={"database_path": str(db_path)},
+            db_type=driver_spec.db_type,
+            create=True,
+            backup=False,
+            storage_startup_on_add=False,
+        ) as db:
+            shell = TextDatabaseBrowser(db, output=output, job_manager=manager)
+            assert shell.execute_line("jobs tail {} 2".format(job_id))
+    finally:
+        manager.shutdown(wait=True, cancel_pending=True)
+
+    rendered = output.getvalue()
+    assert "Job tail {}".format(job_id) in rendered
+    assert "tail second" in rendered
+    assert "tail third" in rendered
+    assert "tail first" not in rendered
+    assert "Summary: total_lines=" in rendered
 
 
 def test_text_browser_default_commands_and_aliases_registered(driver_spec, tmp_path: Path) -> None:

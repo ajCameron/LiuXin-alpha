@@ -7,7 +7,7 @@ class TriggersMixin:
     Mixin for methods to handle triggers.
     """
 
-    def direct_get_triggers(self):
+    def direct_get_triggers(self) -> list[str]:
         """
         Returns a list of all triggers defined on the database.
         Returns an empty set if there are

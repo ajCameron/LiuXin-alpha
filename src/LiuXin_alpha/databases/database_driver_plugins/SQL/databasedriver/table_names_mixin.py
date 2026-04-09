@@ -320,9 +320,10 @@ class TableNamesMixin:
             raise LogicalError
 
     @staticmethod
-    def _validate_table_name(table_name):
+    def _validate_table_name(table_name: str) -> bool:
         """
         Validate that the given table name is valid.
+
         :param table_name: The name of the table to preform validation for.
         :return:
         """

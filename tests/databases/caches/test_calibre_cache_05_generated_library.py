@@ -22,10 +22,10 @@ if not _ENABLE:
     )
 
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.databases.field_metadata import FieldMetadata
+from LiuXin_alpha.interfaces.field_metadata import FieldMetadata
 
 try:
-    from LiuXin_alpha.databases.caches.calibre.cache import CalibreCache
+    from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
 except ModuleNotFoundError as e:
     # Some minimal test environments omit optional calibre-compat deps.
     pytest.skip(f"Skipping CalibreCache smoke test; missing dependency: {e}", allow_module_level=True)

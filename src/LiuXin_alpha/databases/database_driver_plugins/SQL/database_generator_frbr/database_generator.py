@@ -50,7 +50,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQ
 
 from LiuXin_alpha.constants.paths import LiuXin_database_folder as __database_folder__
 
-from LiuXin_alpha.databases.api import DatabaseBuilderAPI
+from LiuXin_alpha.databases.api import DatabaseGeneratorAPI
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 
@@ -194,7 +194,7 @@ def create_new_database(connection: sqlite3.Connection) -> None:
     """
     conn = connection
 
-    builder = SQLiteDatabaseBuilder(conn=conn)
+    builder = SQLiteDatabaseGenerator(conn=conn)
     builder.run()
 
 
@@ -260,7 +260,7 @@ def get_trigger_sql_files() -> list[pathlib.Path]:
 
 
 
-class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
+class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
     """
     Method to support the construction of a database.
     """
@@ -1278,7 +1278,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
     def get_interlink_constraint(self, link_pair: list[str]) -> dict[str, str]:
         """
-        Takes a pair of tables and returns a link table for it - if it exists.
+        Takes a pair of tables and returns it's link table constraints - if it exists.
 
         :param link_pair:
         :return:
@@ -1363,7 +1363,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         # If this interlink defines a permitted enumeration for the type column, materialise it into a
         # dedicated reference table `{interlink_table}__types` and enforce it via lightweight triggers.
         if allowed_types is not None:
-            self.create_interlink_types_reference_table(
+            self.direct_create_interlink_types_reference_table(
                 interlink_table_name=table_name,
                 interlink_column_base=column_name,
                 allowed_types=allowed_types,
@@ -1372,7 +1372,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
 
 
     
-    def create_interlink_types_reference_table(
+    def direct_create_interlink_types_reference_table(
         self,
         interlink_table_name: str,
         interlink_column_base: str,
@@ -1381,7 +1381,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
     ) -> None:
         """Delegate to the shared link-table utility mixin implementation."""
 
-        return super().create_interlink_types_reference_table(
+        return super().direct_create_interlink_types_reference_table(
             interlink_table_name=interlink_table_name,
             interlink_column_base=interlink_column_base,
             allowed_types=allowed_types,
@@ -1412,7 +1412,7 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
         symmetric = self.intralink_symmetric_by_table.get(name_local, False)
         symmetric_types = self.intralink_symmetric_types_by_table.get(name_local)
 
-        sql_list = super().build_intralink_table_sqlite(
+        sql_list = super().direct_build_intralink_table_sql(
             name_local,
             allowed_types=allowed_types,
             requested_cols=requested_cols,
@@ -1435,17 +1435,17 @@ class SQLiteDatabaseBuilder(SQLiteTableLinkingMixin, DatabaseBuilderAPI):
             target_row_name = plural_singular_mapper(target_table_name)
             row_name = f"{target_row_name}_{target_row_name}_intralink"
             intralink_table_name = f"{row_name}s"
-            self.create_interlink_types_reference_table(
+            self.direct_create_interlink_types_reference_table(
                 interlink_table_name=intralink_table_name,
                 interlink_column_base=row_name,
                 allowed_types=allowed_types,
                 connection=conn,
             )
 
-    def build_intralink_table_sqlite(self, name: str, **kwargs: Any) -> list[str]:
+    def direct_build_intralink_table_sql(self, name: str, **kwargs: Any) -> list[str]:
         """Delegate intralink SQL generation to the shared utility mixin."""
 
-        return super().build_intralink_table_sqlite(name, **kwargs)
+        return super().direct_build_intralink_table_sql(name, **kwargs)
 
     def get_requested_intralink_tables(self) -> set[str]:
         """Parse `intralink_table_requests.toml` and return requested intralink tables.

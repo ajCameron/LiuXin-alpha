@@ -22,18 +22,21 @@ from LiuXin_alpha.constants.paths import LiuXin_default_database
 from LiuXin_alpha.databases.database.constants import HELPER_TABLES
 
 from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
-from LiuXin_alpha.databases.database_driver_plugins.driver_wrapper import DriverWrapper
+from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.databases.maintenance_bot import Maintainer
-from LiuXin_alpha.databases.custom_columns import CustomColumnDatabaseMixin
+from LiuXin_alpha.databases.database.custom_columns_mixin import CustomColumnDatabaseMixin
 
 from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
 from LiuXin_alpha.preferences import preferences
-from LiuXin_alpha.storage.store_manager import StorageBootstrapReport, StorageManager
 
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.databases.runtime import (
+    StorageBootstrapReport,
+    bootstrap_storage_manager as _bootstrap_storage_manager,
+    initialise_database_runtime,
+)
 
 from LiuXin_alpha.databases.database.rating_mixin import DatabaseRatingMixin
 from LiuXin_alpha.databases.database.null_rows_mixin import DatabaseNullRowsMixin
@@ -48,6 +51,7 @@ from LiuXin_alpha.databases.database.search_mixin import DatabaseSearchMixin
 from LiuXin_alpha.databases.database.interlink_mixin import DatabaseInterlinkRowsMixin
 from LiuXin_alpha.databases.database.intralink_mixin import DatabaseIntralinkRowsMixin
 from LiuXin_alpha.databases.database.tree_mixin import DatabaseTreeMixin
+from LiuXin_alpha.databases.database.linked_rows_mixin import DatabaseLinkedRowsMixin
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -70,6 +74,7 @@ class Database(
     DatabaseInterlinkRowsMixin,
     DatabaseIntralinkRowsMixin,
     DatabaseTreeMixin,
+    DatabaseLinkedRowsMixin,
     DatabaseAPI,
 ):
     """
@@ -254,23 +259,11 @@ class Database(
         self.check_rating_table()
         self.ensure_null_rows()
 
-        # Todo: What is going on here naming wise? Merge these two
-        self.maintenance = Maintainer(self)
-        self.maintainer = self.maintenance
-        self._maintainer_callback_proxy = TelemetryMaintainerProxy(self.maintenance, self.write_telemetry)
-        self.driver.maintainer_callback = self._maintainer_callback_proxy
-        self.clean = self.maintenance.clean
-
-        # Global database preferences - just a copy of the main program preferences, but can be overridden if needed
-        # Todo: This is confusing with the preferences stored in the database - call those db prefs
-        self.preferences = preferences
-
-        # As this probably hasn't been done for the existing driver - load a reference to this database into the macros
-        # and the driver - the two places that it should be needed
-        # Todo: This should be handled by properties
-        self.driver_wrapper.db = self
-        self.driver.db = self
-        self.macros.db = self
+        initialise_database_runtime(
+            self,
+            callback_proxy_cls=TelemetryMaintainerProxy,
+            preferences_obj=preferences,
+        )
 
     def standard_init(self, metadata=None, db_type="SQLite", create=False, backup=True):
         """
@@ -371,36 +364,16 @@ class Database(
         """
         Build or refresh the StorageManager from rows in the `stores` table.
 
-        If `strict` is False, bootstrap errors are logged and returned in the
-        report without raising.
+        Runtime/composition work lives in ``LiuXin_alpha.databases.runtime`` so
+        the database core can stay focused on database concerns.
         """
-        if self.storage is None:
-            self.storage = StorageManager(startup_on_add=startup_on_add)
-
-        try:
-            report = self.storage.load_from_database(
-                self,
-                include_offline=include_offline,
-                clear_existing=clear_existing,
-            )
-        except Exception as exc:
-            if strict:
-                raise
-            default_log.log_exception(
-                "Storage manager bootstrap failed.",
-                exc,
-                "WARNING",
-                ("database_path", self.metadata.get("database_path") if self.metadata else None),
-            )
-            report = StorageBootstrapReport(
-                discovered_rows=0,
-                loaded_stores=0,
-                skipped_rows=0,
-                failed_rows=1,
-            )
-
-        self.storage_bootstrap_report = report
-        return report
+        return _bootstrap_storage_manager(
+            self,
+            startup_on_add=startup_on_add,
+            include_offline=include_offline,
+            clear_existing=clear_existing,
+            strict=strict,
+        )
 
 
     def set_driver(self, new_driver: DatabaseDriverAPI) -> None:

@@ -6,10 +6,27 @@ Used to detected if metadata sets for an object has changed.
 (Conceptually a good idea - not sure how practical).
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Optional
+
 from copy import deepcopy
 
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.row import RowAPI
 
-def _row_value(row, key, default=None):
+
+# Todo: There has to be better ways to do this
+def _row_value(row: Any, key: str, default: Optional[Any] = None) -> Any:
+    """
+    Agnostic value getter from a row.
+
+    :param row:
+    :param key:
+    :param default:
+    :return:
+    """
     if isinstance(row, dict):
         return row.get(key, default)
     try:
@@ -20,7 +37,7 @@ def _row_value(row, key, default=None):
         return default
 
 
-def generate_book_fingerprint(db, book_row):
+def generate_book_fingerprint(db: "DatabaseAPI", book_row: "RowAPI") -> set[str]:
     """
     The union of all the things the book is linked to - with all the things the title is linked to.
 
@@ -30,6 +47,7 @@ def generate_book_fingerprint(db, book_row):
     """
     title_id = _row_value(book_row, "book_title", None)
     if title_id is None:
+
         # In FRBR-era schemas, books can be keyed directly by book_id/title_id.
         title_id = _row_value(book_row, "book_id", None)
 
@@ -48,7 +66,7 @@ def generate_book_fingerprint(db, book_row):
         try:
             if not db.driver_wrapper.get_link_table_name("books", table):
                 continue
-            linked_rows = db.get_interlinked_rows(target_row=book_row, secondary_table=table)
+            linked_rows = db.get_interlinked_rows(primary_row=book_row, secondary_table=table)
         except Exception:
             continue
         for row in linked_rows:
@@ -57,7 +75,7 @@ def generate_book_fingerprint(db, book_row):
     return fingerprint
 
 
-def generate_title_fingerprint(db, title_row):
+def generate_title_fingerprint(db: "DatabaseAPI", title_row: "RowAPI") -> set[str]:
     """
     Generates a fingerprint for the given title_row.
 
@@ -89,7 +107,7 @@ def generate_title_fingerprint(db, title_row):
     return fingerprint
 
 
-def generate_one_title_fingerprint(db, title_row):
+def generate_one_title_fingerprint(db: "DatabaseAPI", title_row: "RowAPI") -> set[str]:
     """
     Generates a fingerprint based off a single title.
 
@@ -107,7 +125,7 @@ def generate_one_title_fingerprint(db, title_row):
         try:
             if not db.driver_wrapper.get_link_table_name("titles", table):
                 continue
-            linked_rows = db.get_interlinked_rows(target_row=title_row, secondary_table=table)
+            linked_rows = db.get_interlinked_rows(primary_row=title_row, secondary_table=table)
         except Exception:
             continue
         for row in linked_rows:

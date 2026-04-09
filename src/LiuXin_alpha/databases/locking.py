@@ -5,14 +5,14 @@
 Additional lock methods and utility wrappers.
 """
 
-
-from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import unicode_literals, division, absolute_import, print_function, annotations
 
 import traceback
 import sys
 from functools import wraps
 from threading import Lock, Condition, current_thread
-from typing import ParamSpec, TypeVar, Callable
+
+from typing import ParamSpec, TypeVar, Callable, Any, Self
 
 from LiuXin_alpha.preferences import preferences as tweaks
 
@@ -61,7 +61,7 @@ def create_locks():
     return wrapper(l), wrapper(l, is_shared=False)
 
 
-class SHLock(object):  # {{{
+class SHLock:  # {{{
     """
     Shareable lock class. Used to implement the Multiple readers-single writer
     paradigm. As best as I can tell, neither writer nor reader starvation
@@ -228,15 +228,29 @@ class SHLock(object):  # {{{
 # }}}
 
 
-class RWLockWrapper(object):
-    def __init__(self, shlock, is_shared=True):
+class RWLockWrapper:
+    """
+    Wrapper for the lock.
+    """
+    def __init__(self, shlock, is_shared: bool = True) -> None:
+        """
+        Startup the wrapper lock.
+
+        :param shlock:
+        :param is_shared:
+        """
         self._shlock = shlock
         self._is_shared = is_shared
 
-    def acquire(self):
+    def acquire(self) -> None:
+        """
+        Acquire the lock.
+
+        :return:
+        """
         self._shlock.acquire(shared=self._is_shared)
 
-    def release(self, *args):
+    def release(self, *args) -> None:
         self._shlock.release()
 
     __enter__ = acquire
@@ -251,10 +265,21 @@ class DebugRWLockWrapper(RWLockWrapper):
     Lock object with debug printing.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
+        """
+        Store the RW lock.
+
+        :param args:
+        :param kwargs:
+        """
         RWLockWrapper.__init__(self, *args, **kwargs)
 
-    def acquire(self):
+    def acquire(self) -> None:
+        """
+        acquire with debug printing.
+
+        :return:
+        """
         print("#" * 120, file=sys.stderr)
         print(
             "acquire called: thread id:",
@@ -269,6 +294,12 @@ class DebugRWLockWrapper(RWLockWrapper):
         print("_" * 120, file=sys.stderr)
 
     def release(self, *args):
+        """
+        Release the RW lock with debug printing.
+
+        :param args:
+        :return:
+        """
         print("*" * 120, file=sys.stderr)
         print(
             "release called: thread id:",
@@ -294,12 +325,25 @@ class DebugRWLockWrapper(RWLockWrapper):
     __exit__ = release
 
 
-class SafeReadLock(object):
-    def __init__(self, read_lock):
+class SafeReadLock:
+    """
+    Read lock which, when used as a context manager, does not re-raise errors.
+    """
+    def __init__(self, read_lock) -> None:
+        """
+        Startup the lock.
+
+        :param read_lock:
+        """
         self.read_lock = read_lock
         self.acquired = False
 
-    def acquire(self):
+    def acquire(self) -> Self:
+        """
+        Acquire the lock.
+
+        :return:
+        """
         try:
             self.read_lock.acquire()
         except DowngradeLockError:

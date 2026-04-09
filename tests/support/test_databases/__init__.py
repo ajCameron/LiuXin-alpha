@@ -1102,7 +1102,7 @@ def test_apply_tags(test_library, test_db):
     for tag_str in crypt_tags:
         test_library.apply.tag(tag=tag_str, resource=title_row)
 
-    tag_rows = test_db.get_interlinked_rows(target_row=title_row, secondary_table="tags")
+    tag_rows = test_db.get_interlinked_rows(primary_row=title_row, secondary_table="tags")
     tag_val_set = set([r["tag"] for r in tag_rows])
     if crypt_tags == tag_val_set:
         puts(colored.green("tags retrieved from the database where the ones written to it"))
@@ -1126,7 +1126,7 @@ def test_apply_tags(test_library, test_db):
     for tag_str in discworld_tags:
         test_library.apply.tag(tag=tag_str, resource=disc_row)
 
-    series_tag_rows = test_db.get_interlinked_rows(target_row=disc_row, secondary_table="tags")
+    series_tag_rows = test_db.get_interlinked_rows(primary_row=disc_row, secondary_table="tags")
     series_tag_val = set(r["tag"] for r in series_tag_rows)
     if discworld_tags == series_tag_val:
         puts(colored.green("tags retrieved from the database for a series where the ones written to it"))

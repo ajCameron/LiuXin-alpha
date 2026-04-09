@@ -43,7 +43,7 @@ def generate_book_fingerprint(db, book_row):
         try:
             if not db.driver_wrapper.get_link_table_name("books", table):
                 continue
-            linked_rows = db.get_interlinked_rows(target_row=book_row, secondary_table=table)
+            linked_rows = db.get_interlinked_rows(primary_row=book_row, secondary_table=table)
         except Exception:
             continue
         for row in linked_rows:
@@ -100,7 +100,7 @@ def generate_one_title_fingerprint(db, title_row):
         try:
             if not db.driver_wrapper.get_link_table_name("titles", table):
                 continue
-            linked_rows = db.get_interlinked_rows(target_row=title_row, secondary_table=table)
+            linked_rows = db.get_interlinked_rows(primary_row=title_row, secondary_table=table)
         except Exception:
             continue
         for row in linked_rows:

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import LiuXin_alpha.databases.adding as adding_module
-from LiuXin_alpha.databases.adding import find_books_in_directory, listdir, splitext
+import LiuXin_alpha.ingest.adding as adding_module
+from LiuXin_alpha.ingest.adding import find_books_in_directory, listdir, splitext
 
 
 class TestAddingAPI:

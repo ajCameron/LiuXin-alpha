@@ -6,7 +6,8 @@ May be superseded by a global typing module in utils later.
 
 from enum import Enum
 
-from typing import Optional, Any, Literal
+from typing import Optional, Any, Literal, Union
+
 try:
     from typing_extensions import TypedDict, NotRequired
 except ImportError:
@@ -17,18 +18,43 @@ TriStateBool = Optional[bool]
 # Keyed with the book_id and valued with a list of the languages for that book - or None
 LangMap = dict[int, Optional[list[str]]]
 
-TableID = int
+# Table classification types
+# - Main
+MainTableID = int
+MainTableName = str
+MainTableColumnName = str
+
+# - Interlink
+InterlinkTableID = int
+InterLinkTableName = str
+InterlinkTableColumnName = str
+
+# - Intralink
+IntraLinkTableID = int
+IntraLinkTableName = str
+IntraLinkTableColumnName = str
+
+# - Helper
+HelperTableID = int
+HelperTableName = str
+HelperTableColumnName = str
+
+
+TableColumnName = str
+
 
 # Fields are a mapping between two tables - each of these tables has IDs
 # - The "main" table the field is in
-SrcTableID = TableID
+SrcTableID = MainTableID
 # - The "secondary" table that the main table is linked to
-DstTableID = TableID
+DstTableID = MainTableID
+
+
 
 # Some of the specific tables MUST return, for some of their functions, an id in a specific table
 # (e.g. The "covers" tables).
 # These classes represent ids in these tables
-CoverID = TableID
+CoverID = MainTableID
 
 
 # e.g. for the "Tags" field - which is a ManyToManyField
@@ -114,19 +140,10 @@ class TableTypesEnum(Enum):
     ONE_MANY: int = 3
 
 
-MainTableName = str
-
-
-InterLinkTableName = str
-
-
-IntraLinkTableName = str
-
-
-HelperTableName = str
-
-
-TableColumnName = str
+ONE_ONE = TableTypesEnum.ONE_ONE.value
+MANY_ONE = TableTypesEnum.MANY_ONE.value
+MANY_MANY = TableTypesEnum.MANY_MANY.value
+ONE_MANY = TableTypesEnum.ONE_MANY.value
 
 
 UUIDStr = str
@@ -142,3 +159,14 @@ RatingInt = Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 
 # Todo: Translated string - string which can be translated - stores original value as well
+
+InterlinkExtraTypes = Union[
+    Literal["priority"],
+    Literal["primary"],
+    Literal["type"],
+    Literal["origin"],
+    Literal["policy"],
+    Literal["data"],
+    Literal["index"]]
+
+

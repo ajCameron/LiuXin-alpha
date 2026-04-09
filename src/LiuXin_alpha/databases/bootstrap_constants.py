@@ -1,4 +1,5 @@
-"""Small, dependency-light constants used during DB bootstrap.
+"""
+Small, dependency-light constants used during DB bootstrap.
 
 These are intentionally kept in their own module so they can be imported by
 both production code and test utilities without pulling in the full Database

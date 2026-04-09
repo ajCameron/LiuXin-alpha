@@ -1,3 +1,4 @@
+
 """Macros API contract."""
 
 from __future__ import annotations
@@ -5,14 +6,23 @@ from __future__ import annotations
 import abc
 import sqlite3
 
-from typing import Optional
+from typing import Optional, Union, TYPE_CHECKING, Any, Iterable
+import datetime
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+
 
 
 class MacrosAPI(abc.ABC):
-    """Abstract API for SQL macros implementations."""
+    """
+    Abstract API for SQL macros implementations.
+
+    Macros are complex operations which can be sped up by implementing them in SQL.
+    """
 
     @abc.abstractmethod
-    def __init__(self, db):
+    def __init__(self, db: "DatabaseAPI") -> None:
         ...
 
     @staticmethod
@@ -340,12 +350,21 @@ class MacrosAPI(abc.ABC):
     def get_cc_id_value_from_cc_id(self, table: str, old_id: int) -> tuple[int, str]:
         ...
 
+    # Todo: This seems to be an interface weirdness
     @abc.abstractmethod
-    def get_cc_lt_books_from_lt_value(self, lt: str, value: Union[str, int, datetime.datetime], conn: Optional[sqlite3.Connection]=None) -> Iterable[int]:
+    def get_cc_lt_books_from_lt_value(
+            self,
+            lt: str,
+            value: Union[str, int, float, datetime.datetime],
+            conn: Optional[sqlite3.Connection]=None) -> list[list[int]]:
         ...
 
     @abc.abstractmethod
-    def get_cc_series_index_indices(self, cc_series_link_table: str, series_id: int, conn: Optional[sqlite3.Connection]=None) -> tuple[Union[float, int], ...]:
+    def get_cc_series_index_indices(
+            self,
+            cc_series_link_table: str,
+            series_id: int,
+            conn: Optional[sqlite3.Connection] = None) -> tuple[Union[float, int], ...]:
         ...
 
     @abc.abstractmethod

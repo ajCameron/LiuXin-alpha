@@ -43,16 +43,14 @@ from LiuXin_alpha.databases.db_types import (
     DataTypes,
     TableTypes,
     MainTableName,
-    HelperTableName,
     InterLinkTableName,
-    IntraLinkTableName,
     TableColumnName,
     UUIDStr,
     SpecificFormat,
     GenericFormat,
     MetadataDisplayDict,
 )
-from LiuXin_alpha.databases.field_metadata import calibre_name_to_liuxin_name
+from LiuXin_alpha.interfaces.field_metadata import calibre_name_to_liuxin_name
 from LiuXin_alpha.utils.logging import default_log
 
 ONE_ONE, MANY_ONE, MANY_MANY, ONE_MANY = range(4)

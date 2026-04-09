@@ -148,6 +148,21 @@ class LiuXinDatabaseException(LiuXinException):
     """
     Base LiuXin database exception - should be at the root of every database exception.
     """
+    pass
+
+
+class WrongTypedOfTableException(LiuXinDatabaseException):
+    """
+    You have assumed this table is of the wrong type.
+    """
+    pass
+
+
+class NoSuchPropertyForLinkException(LiuXinDatabaseException):
+    """
+    You have tried to acces/set a property that does not exist on the link.
+    """
+    pass
 
 
 class InvalidUpdate(LiuXinDatabaseException):
@@ -343,6 +358,12 @@ class CacheLoadError(CacheError):
 
 class NotInCache(CacheError):
     pass
+
+
+class WrongTypeOfCacheTable(CacheError):
+    """
+    Attempting to call a method on a table which makes no sense for it.
+    """
 
 
 

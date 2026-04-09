@@ -125,7 +125,7 @@ class SQLiteCustomColumnsDriverMixin:
             target_table_col_name = self._get_table_col_base(target_table)
 
             # The table name - includes the name of the table linked to and the name of the custom column
-            custom_col_table = self._get_custom_column_table_name(target_table, custom_column_name)
+            custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
             assert custom_col_table not in self.tables, "cannot create custom column - it already exists"
 
             cc_sqlite_template = """
@@ -209,7 +209,7 @@ class SQLiteCustomColumnsDriverMixin:
 
         # Create a custom table to hold the custom column data - then link it over to the main table which it's supposed
         # to be a custom column in
-        custom_col_table = self._get_custom_column_table_name(target_table, custom_column_name)
+        custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
 
         # Make the new main table which will be used to hold the custom column information
         self.direct_create_new_main_table(table_name=custom_col_table, column_headings=None)
@@ -273,7 +273,7 @@ class SQLiteCustomColumnsDriverMixin:
 
         # Create a custom table to hold the custom column data - then link it over to the main table which it's supposed
         # to be a custom column in
-        custom_col_table = self._get_custom_column_table_name(target_table, custom_column_name)
+        custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
 
         # Make the new main table which will be used to hold the custom column information
         self.direct_create_new_main_table(table_name=custom_col_table, column_headings=None)
@@ -306,7 +306,7 @@ class SQLiteCustomColumnsDriverMixin:
 
         # Create a custom table to hold the custom column data - then link it over to the main table which it's supposed
         # to be a custom column in
-        custom_col_table = self._get_custom_column_table_name(target_table, custom_column_name)
+        custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
 
         # Make the new main table which will be used to hold the custom column information
         self.direct_create_new_main_table(table_name=custom_col_table, column_headings=None)
@@ -323,7 +323,7 @@ class SQLiteCustomColumnsDriverMixin:
 
         return custom_col_table
 
-    def _get_custom_column_table_name(self, table, column_name):
+    def direct_get_custom_column_table_name(self, table, column_name):
         """
         Returns the name of a table to be used to store the given custom column.
         The name of the table contains information as to the name of the custom column and the table it's being applied

@@ -675,9 +675,10 @@ class SearchMixin:
 
 
     @staticmethod
-    def can_index_be_transformed(target_index):
+    def can_index_be_transformed(target_index) -> bool:
         """
         Tests to see if an index can be transformed into pure string form.
+
         :param target_index:
         :return:
         """

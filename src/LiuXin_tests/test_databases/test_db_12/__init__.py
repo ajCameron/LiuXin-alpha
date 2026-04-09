@@ -156,7 +156,7 @@ def add_complex_series_to_db(scratch_db):
     md_framework.apply.series(series=dark_tide_series_row, series_index=1, resource_row=title_row)
     md_framework.add.book(title_row=title_row)
 
-    dt_title_rows = scratch_db.get_interlinked_rows(target_row=dark_tide_series_row, secondary_table="titles")
+    dt_title_rows = scratch_db.get_interlinked_rows(primary_row=dark_tide_series_row, secondary_table="titles")
     assert len(dt_title_rows) == 1
 
     return scratch_db

@@ -12,6 +12,6 @@ class TestCacheImportAPIs:
 
         :return:
         """
-        from LiuXin_alpha.databases.caches.base_calibre.fields import BaseField
+        from LiuXin_alpha.library.caches.base_calibre.fields import BaseField
 
         assert BaseField is not None

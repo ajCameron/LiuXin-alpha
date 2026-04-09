@@ -65,10 +65,8 @@ class FactoryMethodsMixin:
 
         db = title_row.db
 
-        title_row_collection = RowCollection(title_row)
-
         # Loading the title sections
-        title_row_dict = title_row_collection["titles"][0]
+        title_row_dict = db.get_linked_rows(title_row, "titles")[0]
         _data["title"] = title_row_dict["title"]
         _data["title_sort"] = title_row_dict["title"]
         _data["wordcount"] = title_row_dict["title_wordcount"]
@@ -76,7 +74,6 @@ class FactoryMethodsMixin:
 
         # Transfer tables which have a standard interface (one column needed from each - associate the name of that
         # column with the id of the entry in that table)
-        main_tables = deepcopy(db.get_categorized_tables()["main"])
         standard_tables = [
             "genres",
             "notes",
@@ -89,8 +86,8 @@ class FactoryMethodsMixin:
 
         for table in standard_tables:
 
-            standard_rows = title_row_collection[table]
-            standard_display_column = db.get_display_column(table)
+            standard_rows = db.get_linked_rows(title_row, table)
+            standard_display_column = db.driver_wrapper.get_display_column(table)
             for standard_link in standard_rows:
                 dis_value = standard_link[standard_display_column]
 
@@ -107,7 +104,7 @@ class FactoryMethodsMixin:
                     else:
                         raise KeyError(f"Error on table {table}") from e
 
-        creator_rows = title_row_collection["creators"]
+        creator_rows = db.get_linked_rows(title_row, "creators")
         for creator_link in creator_rows:
             creator_type = creator_link["creator_title_link_type"]
             if creator_type is None:
@@ -126,12 +123,7 @@ class FactoryMethodsMixin:
                 _data[creator_type][creator_name] = creator_link
             else:
                 raise LogicalError
-        try:
-            main_tables.remove("creators")
-        except ValueError:
-            pass
-
-        identifier_rows = title_row_collection["identifiers"]
+        identifier_rows = db.get_linked_rows(title_row, "identifiers")
         for id_link in identifier_rows:
             id_type = id_link["identifier_type"]
             id_value = id_link["identifier"]
@@ -166,7 +158,7 @@ class FactoryMethodsMixin:
                 _data[final_id_type] = set()
                 _data[final_id_type].add(id_value)
 
-        lang_rows = title_row_collection["languages"]
+        lang_rows = db.get_linked_rows(title_row, "languages")
         if len(lang_rows) > 0:
             lang_row = lang_rows[0]
             _data["language"] = lang_row["language"]
@@ -175,7 +167,7 @@ class FactoryMethodsMixin:
             _data["languages_available"][lang_name] = lang_link
 
         # If an entry is below the top level of the publishers table, it's considered an imprint.
-        pub_rows = title_row_collection["publishers"]
+        pub_rows = db.get_linked_rows(title_row, "publishers")
         for pub_link in pub_rows:
             pub_name = pub_link["publisher"]
             pub_parent = pub_link["publisher_parent"]
@@ -193,7 +185,7 @@ class FactoryMethodsMixin:
 
         # The series rows are loaded as normal. The series index is given for the position of the title in the first
         # series it's linked to.
-        series_rows = title_row_collection["series"]
+        series_rows = db.get_linked_rows(title_row, "series")
         if len(series_rows) > 0:
             main_series_row = series_rows[0]
             _data["series_index"] = main_series_row["series_title_link_priority"]
