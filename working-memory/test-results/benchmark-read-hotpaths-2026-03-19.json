@@ -1,0 +1,63 @@
+{
+  "created_utc": "2026-03-20T18:00:08+00:00",
+  "database": {
+    "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-il6zshj0/benchmark_db_medium/benchmark_db_medium.test_db",
+    "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-il6zshj0/benchmark_db_medium",
+    "source": "named:benchmark_db_medium"
+  },
+  "environment": {
+    "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+    "hostname": "DESKTOP-6LRDEPU",
+    "python": "3.12.3",
+    "timestamp_utc": "2026-03-20T18:00:08+00:00"
+  },
+  "inputs": {
+    "database": "",
+    "db_name": "benchmark_db_medium",
+    "iterations": 1,
+    "query": "",
+    "resolved_query": "benchmark",
+    "scenario_names": [
+      "work_list_title",
+      "work_search_global"
+    ],
+    "warmups": 0,
+    "work_id": 1
+  },
+  "results": [
+    {
+      "durations_ms": [
+        275.126
+      ],
+      "iterations": 1,
+      "max_ms": 275.126,
+      "mean_ms": 275.126,
+      "median_ms": 275.126,
+      "min_ms": 275.126,
+      "name": "work_list_title",
+      "sample": {
+        "count": 2500,
+        "first_title": "benchmark_db_medium title 001"
+      },
+      "warmups": 0
+    },
+    {
+      "durations_ms": [
+        867.667
+      ],
+      "iterations": 1,
+      "max_ms": 867.667,
+      "mean_ms": 867.667,
+      "median_ms": 867.667,
+      "min_ms": 867.667,
+      "name": "work_search_global",
+      "sample": {
+        "first_table": "works",
+        "query": "benchmark",
+        "total": 2500
+      },
+      "warmups": 0
+    }
+  ],
+  "script": "benchmark_read_paths"
+}

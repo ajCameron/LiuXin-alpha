@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-03-15
+Updated: 2026-03-19
 
 Start here for active handoff notes. This index should stay short.
 
@@ -62,6 +62,11 @@ Start here for active handoff notes. This index should stay short.
 
 - [interface-findings-2026-03-11.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/interface-findings-2026-03-11.md)
   Terminal/interface review focused on windowed UI behavior, job/proxy issues, and the RPC transition boundary.
+
+- [optimization-pass-driver-wrapper-opds-2026-03-19.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/optimization-pass-driver-wrapper-opds-2026-03-19.md)
+  First targeted performance pass added wrapper-level derived-schema caches,
+  narrowed the OPDS metadata path, fixed benchmark setup overhead, and dropped
+  the measured hot paths from multi-second to sub-second / low-second ranges.
 
 ## Usage
 

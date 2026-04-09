@@ -8,21 +8,8 @@ import sys
 import re
 from builtins import zip as izip
 
-try:
-    from clint.textui import puts
-    from clint.textui import colored as clint_colored
-except ModuleNotFoundError:
-    def puts(message):
-        print(message)
-
-    class _NoColor:
-        def __getattr__(self, name):
-            def _passthrough(message):
-                return message
-
-            return _passthrough
-
-    clint_colored = _NoColor()
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts
+from LiuXin_alpha.utils.libraries.liuxin_clint import colored as clint_colored
 
 from typing import Optional, Iterable, Tuple
 

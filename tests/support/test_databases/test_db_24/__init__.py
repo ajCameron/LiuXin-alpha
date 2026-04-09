@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from LiuXin_tests.test_databases.test_db_23 import TestDB23Builer
+from ..test_db_23 import TestDB23Builer
 
 
 class TestDB24Builder(TestDB23Builer):

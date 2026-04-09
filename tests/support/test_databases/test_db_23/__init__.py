@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from LiuXin_tests.test_databases.test_db_22 import TestDB22Builer
+from ..test_db_22 import TestDB22Builer
 
 from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
 

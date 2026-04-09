@@ -1,4 +1,4 @@
-from LiuXin_tests.test_databases.test_db_properties.common_db_properties import (
+from .common_db_properties import (
     CommonDBProperties,
 )
 
@@ -7,6 +7,18 @@ class TestDB18Properties(CommonDBProperties):
     """
     Properties for the test_db_18 test database.
     """
+
+    alpha_focus_row_counts = {
+        "database_version": 1,
+        "works": 30,
+        "series": 1,
+        "expressions": 30,
+        "manifestations": 30,
+        "items": 30,
+        "files": 0,
+        "agents": 1,
+        "labels": 0,
+    }
 
     theo_loc_shelf_number_columns = [
         "loc_shelf_number_id",

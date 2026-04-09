@@ -1,0 +1,98 @@
+{
+  "created_utc": "2026-03-20T17:58:12+00:00",
+  "database": {
+    "db_path": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-xaafgece/metadata_rich_db_1/metadata_rich_db_1.test_db",
+    "provision_root": "/home/blackjane/LiuXin-alpha-wsl/.tmp/liuxin-benchmark-xaafgece/metadata_rich_db_1",
+    "source": "named:metadata_rich_db_1"
+  },
+  "environment": {
+    "cwd": "/home/blackjane/LiuXin-alpha-wsl",
+    "hostname": "DESKTOP-6LRDEPU",
+    "python": "3.12.3",
+    "timestamp_utc": "2026-03-20T17:58:12+00:00"
+  },
+  "inputs": {
+    "apps": [
+      "opds"
+    ],
+    "database": "",
+    "db_name": "metadata_rich_db_1",
+    "iterations": 7,
+    "query": "",
+    "resolved_query": "Metadata",
+    "warmups": 2,
+    "work_id": 4
+  },
+  "results": [
+    {
+      "durations_ms": [
+        0.103,
+        0.057,
+        0.04,
+        0.037,
+        0.036,
+        0.035,
+        0.034
+      ],
+      "iterations": 7,
+      "max_ms": 0.103,
+      "mean_ms": 0.049,
+      "median_ms": 0.037,
+      "min_ms": 0.034,
+      "name": "opds:root",
+      "sample": {
+        "body_bytes": 1727,
+        "path": "/opds",
+        "status": "200 OK"
+      },
+      "warmups": 2
+    },
+    {
+      "durations_ms": [
+        2139.108,
+        2094.224,
+        2049.383,
+        2198.57,
+        2244.983,
+        2107.526,
+        2080.734
+      ],
+      "iterations": 7,
+      "max_ms": 2244.983,
+      "mean_ms": 2130.647,
+      "median_ms": 2107.526,
+      "min_ms": 2049.383,
+      "name": "opds:titles",
+      "sample": {
+        "body_bytes": 3712,
+        "path": "/opds/navcatalog/4f7469746c65",
+        "status": "200 OK"
+      },
+      "warmups": 2
+    },
+    {
+      "durations_ms": [
+        2084.378,
+        2113.866,
+        2128.101,
+        2118.174,
+        2055.248,
+        2116.644,
+        2161.14
+      ],
+      "iterations": 7,
+      "max_ms": 2161.14,
+      "mean_ms": 2111.079,
+      "median_ms": 2116.644,
+      "min_ms": 2055.248,
+      "name": "opds:search",
+      "sample": {
+        "body_bytes": 3699,
+        "path": "/opds/search/4d65746164617461",
+        "status": "200 OK"
+      },
+      "warmups": 2
+    }
+  ],
+  "script": "benchmark_interface_paths"
+}

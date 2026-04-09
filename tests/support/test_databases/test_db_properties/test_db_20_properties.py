@@ -4,7 +4,7 @@
 Test DB 20 properties.
 """
 
-from LiuXin_tests.test_databases.test_db_properties.common_db_properties import (
+from .common_db_properties import (
     CommonDBProperties,
 )
 
@@ -16,6 +16,18 @@ class TestDB20Properties(CommonDBProperties):
     """
     Properties for the test_db_20 test database.
     """
+
+    alpha_focus_row_counts = {
+        "database_version": 1,
+        "works": 60,
+        "series": 1,
+        "expressions": 60,
+        "manifestations": 60,
+        "items": 60,
+        "files": 0,
+        "agents": 1,
+        "labels": 0,
+    }
 
     theo_main_tables = {
         "folders",

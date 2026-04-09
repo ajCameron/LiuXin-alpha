@@ -1,13 +1,25 @@
-from LiuXin_tests.test_databases.test_db_properties.common_db_properties import (
+from .common_db_properties import (
     CommonDBProperties,
 )
 
-from LiuXin_tests.test_databases.test_db_properties.test_db_22_properties import (
+from .test_db_22_properties import (
     TestDB22Properties,
 )
 
 
 class TestDB23Properties(TestDB22Properties):
+
+    alpha_focus_row_counts = {
+        "database_version": 1,
+        "works": 30,
+        "series": 1,
+        "expressions": 30,
+        "manifestations": 30,
+        "items": 30,
+        "files": 0,
+        "agents": 1,
+        "labels": 0,
+    }
 
     existing_triggers = [
         "update_callback_on_titles",

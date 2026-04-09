@@ -2,7 +2,7 @@
 
 import os
 
-from LiuXin_tests.test_databases import TestDatabaseBuilder
+from .. import TestDatabaseBuilder
 
 __folder__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 

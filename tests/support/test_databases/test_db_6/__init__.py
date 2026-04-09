@@ -1,7 +1,7 @@
 # Test database with some basic, empty custom columns
 
-from LiuXin_tests.test_databases import TestDatabaseBuilder
-from LiuXin_tests.test_databases import load_data
+from .. import TestDatabaseBuilder
+from .. import load_data
 
 
 class TestDBCustomColumns(TestDatabaseBuilder):

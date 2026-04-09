@@ -1,4 +1,4 @@
-from LiuXin_tests.test_databases.test_db_19 import TestDB19Builder
+from ..test_db_19 import TestDB19Builder
 
 
 class TestDB21Builer(TestDB19Builder):

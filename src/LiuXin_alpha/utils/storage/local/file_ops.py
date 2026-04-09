@@ -222,7 +222,7 @@ def file_hasher(file_in, block_size=64):
 
     size = file_size(file_in)
 
-    file_in_pointer = open(file_in, "r")
+    file_in_pointer = open(file_in, "rb")
 
     buf = file_in_pointer.read(block_size)
     while len(buf) > 0:

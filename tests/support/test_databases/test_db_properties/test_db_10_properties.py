@@ -1,9 +1,21 @@
-from LiuXin_tests.test_databases.test_db_properties.common_db_properties import (
+from .common_db_properties import (
     CommonDBProperties,
 )
 
 
 class TestDB10Properties(CommonDBProperties):
+
+    alpha_focus_row_counts = {
+        "database_version": 1,
+        "works": 20,
+        "series": 1,
+        "expressions": 20,
+        "manifestations": 20,
+        "items": 20,
+        "files": 0,
+        "agents": 1,
+        "labels": 0,
+    }
 
     theo_title_count = 98
     theo_series_count = 42

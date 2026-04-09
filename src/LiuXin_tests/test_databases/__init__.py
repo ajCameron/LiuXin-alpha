@@ -32,7 +32,7 @@ import time
 import string
 import sys
 from copy import deepcopy
-from clint.textui import puts, colored
+from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from LiuXin_alpha.constants.file_extensions import BOOK_EXTENSIONS_DOTTED
 from LiuXin_alpha.constants.paths import LiuXin_data_folder, LiuXin_default_database

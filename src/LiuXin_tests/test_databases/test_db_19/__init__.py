@@ -1,4 +1,4 @@
-import tqdm
+import LiuXin_alpha.utils.libraries.liuxin_tqdm as tqdm
 
 from LiuXin_alpha.exceptions import DatabaseIntegrityError
 
