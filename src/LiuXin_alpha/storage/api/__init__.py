@@ -26,11 +26,18 @@ from LiuXin_alpha.storage.api.modes_api import (
     OpenTextModeUpdating,
     OpenTextModeWriting,
 )
+from LiuXin_alpha.storage.api.policy_apis import (
+    BackupPolicy,
+    DistinctBy,
+    ReplicationMode,
+    ReplicationPlan,
+    ReplicationPolicy,
+    ReplicationStatus,
+)
 from LiuXin_alpha.storage.api.storage_api import (
     StoreAPI,
     StoreCheckStatus,
     StoreStatus,
-    StorageManagerAPI,
 )
 from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
 
@@ -41,6 +48,12 @@ __all__ = [
     "FileDescriptorOrPath",
     "FileOpenerTypeMixin",
     "FileStatus",
+    "BackupPolicy",
+    "DistinctBy",
+    "ReplicationMode",
+    "ReplicationPlan",
+    "ReplicationPolicy",
+    "ReplicationStatus",
     "OpenBinaryMode",
     "OpenBinaryModeReading",
     "OpenBinaryModeUpdating",
@@ -54,7 +67,6 @@ __all__ = [
     "StoreAPI",
     "StoreCheckStatus",
     "StoreStatus",
-    "StorageManagerAPI",
     "StoreLocationMixinAPI",
     "StrOrBytesPath",
     "SyncNativePretendAsyncLocation",
