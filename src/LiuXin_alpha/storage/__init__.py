@@ -1,5 +1,8 @@
 """
 Storage subsystem public entry points.
+
+The storage subsystem is responsible for storing files of all types.
+
 """
 
 from __future__ import annotations

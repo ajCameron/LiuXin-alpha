@@ -6,15 +6,15 @@ Import contracts from this package root to avoid deep import paths.
 
 from __future__ import annotations
 
-from .file_api import FileOpenerTypeMixin, FileStatus, SingleFileAPI
-from .location_api import (
+from LiuXin_alpha.storage.api.file_api import FileOpenerTypeMixin, FileStatus, SingleFileAPI
+from LiuXin_alpha.storage.api.location_api import (
     AsyncNativePretendSyncLocation,
     FileDescriptorOrPath,
     StoreLocationMixinAPI,
     StrOrBytesPath,
     SyncNativePretendAsyncLocation,
 )
-from .modes_api import (
+from LiuXin_alpha.storage.api.modes_api import (
     AsyncBinaryFile,
     AsyncTextFile,
     OpenBinaryMode,
@@ -26,13 +26,13 @@ from .modes_api import (
     OpenTextModeUpdating,
     OpenTextModeWriting,
 )
-from .storage_api import (
+from LiuXin_alpha.storage.api.storage_api import (
     StoreAPI,
     StoreCheckStatus,
     StoreStatus,
-    StorageAPI,
     StorageManagerAPI,
 )
+from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
 
 __all__ = [
     "AsyncBinaryFile",
@@ -50,7 +50,7 @@ __all__ = [
     "OpenTextModeUpdating",
     "OpenTextModeWriting",
     "SingleFileAPI",
-    "StorageAPI",
+    "StorageManagerAPI",
     "StoreAPI",
     "StoreCheckStatus",
     "StoreStatus",

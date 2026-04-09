@@ -15,6 +15,7 @@ import pprint
 from typing import TYPE_CHECKING, Any, Iterator, Optional
 
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
+from LiuXin_alpha.storage.api import StorageManagerAPI
 from LiuXin_alpha.utils.logging.api import EventLogAPI
 
 if TYPE_CHECKING:
@@ -30,17 +31,24 @@ class StoreCheckStatus:
 
     # Store identity/marker verification (where applicable).
     store_marker_file: bool = False
+
     # Read-path health.
     read: bool = False
+
     # Write-path health.
     write: bool = False
+
+    # Update
+    # - We might end up using WORM media
+    update: bool = False
+
     # Additional backend-specific checks.
     sundry: bool = False
 
     @property
     def all_ok(self) -> bool:
         """True when all core checks passed."""
-        return self.store_marker_file and self.read and self.write and self.sundry
+        return self.store_marker_file and self.read and self.update and self.write and self.sundry
 
 
 @dataclasses.dataclass
@@ -118,7 +126,13 @@ class StoreAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_file(self, file_url: str) -> "SingleFileAPI":
-        """Return a file container for the given file URL."""
+        """
+        Return a file container for the given file URL.
+
+        The storage_manager is not
+        :param file_url:
+        :return:
+        """
 
     @property
     def url(self) -> str:
@@ -184,8 +198,23 @@ class StoreAPI(abc.ABC):
         file_bytes: bytes,
         *,
         metadata: Optional[MetadataContainerAPI] = None,
+        add_sidecar_opf: bool = False,
     ) -> "SingleFileAPI":
-        """Store file bytes inside this store."""
+        """
+        Store a single file in the store.
+
+        Different stores store files in different ways.
+        Sometimes, when they're given a metadata object, they can take account of this when storing the files to make
+        a more human-friendly store.
+        (e.g. some on disk stores might store files inside folders labeled with their author and title).
+
+        :param file_bytes: The file itself to store in byte form
+        :param metadata: The metadata associated with the file - for human friendly storage.
+                         If provided.
+        :param add_sidecar_opf: Write the given metadata out as a sidecar file
+
+        :return:
+        """
         raise PermissionError("This store does not support writing files.")
 
     def delete_file(self, file_url: str) -> bool:
@@ -206,84 +235,12 @@ class StoreAPI(abc.ABC):
         return self.true_files()
 
 
-class StorageAPI(abc.ABC):
-    """
-    Contract for the storage manager/front-end.
-
-    This is the user-facing storage API. It coordinates multiple stores and
-    hides physical placement details from callers.
-    """
-
-    @abc.abstractmethod
-    def add_store(self, new_store: StoreAPI) -> None:
-        """Register a store with the manager."""
-
-    @abc.abstractmethod
-    def remove_store(self, store_identifier: str) -> bool:
-        """Remove one store by UUID/name/url."""
-
-    @abc.abstractmethod
-    def get_store(self, store_identifier: str) -> StoreAPI:
-        """Resolve one store by UUID/name/url."""
-
-    @abc.abstractmethod
-    def iter_stores(self) -> Iterator[StoreAPI]:
-        """Iterate all registered stores."""
-
-    @abc.abstractmethod
-    def add_file(
-        self,
-        file_bytes: bytes,
-        metadata: Optional[MetadataContainerAPI] = None,
-        *,
-        preferred_store: Optional[str] = None,
-    ) -> "SingleFileAPI":
-        """
-        Store a file in managed storage.
-
-        The manager decides final placement unless `preferred_store` is supplied.
-        """
-
-    @abc.abstractmethod
-    def retrieve_file(
-        self,
-        file_url: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
-        *,
-        preferred_store: Optional[str] = None,
-    ) -> "SingleFileAPI":
-        """Return a file handle/container for a stored file."""
-
-    @abc.abstractmethod
-    def retrieve_folder(
-        self,
-        folder_key: str,
-        *,
-        preferred_store: Optional[str] = None,
-    ) -> "StoreLocationMixinAPI":
-        """Return a virtual folder location for the requested folder key."""
-
-    @abc.abstractmethod
-    def delete_file(
-        self,
-        file_url: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
-        file_container: Optional["SingleFileAPI"] = None,
-    ) -> bool:
-        """Delete a stored file by URL, metadata lookup, or existing file container."""
-
-    @abc.abstractmethod
-    def iter(self) -> Iterator["SingleFileAPI"]:
-        """Iterate files visible to the manager."""
-
-
 # `StorageManagerAPI` is the intent-revealing name used in the docs.
-StorageManagerAPI = StorageAPI
+StorageManagerAPI = StorageManagerAPI
 
 __all__ = [
     "StoreAPI",
     "StoreCheckStatus",
     "StoreStatus",
-    "StorageAPI",
     "StorageManagerAPI",
 ]

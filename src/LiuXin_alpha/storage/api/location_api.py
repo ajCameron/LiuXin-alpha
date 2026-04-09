@@ -15,7 +15,20 @@ from concurrent.futures import Future
 from LiuXin_alpha.storage.api.storage_api import StoreAPI
 
 from os import PathLike
-from typing import TypeAlias, Any, Iterator, Self, AsyncIterator, overload, TextIO, BinaryIO, IO, cast, Callable, TypeVar
+from typing import (
+    TypeAlias,
+    Any,
+    Iterator,
+    Self,
+    AsyncIterator,
+    overload,
+    TextIO,
+    BinaryIO,
+    IO,
+    cast,
+    Callable,
+    TypeVar,
+    TYPE_CHECKING)
 
 from LiuXin_alpha.storage.api.modes_api import OpenTextMode, OpenBinaryMode, AsyncTextFile, AsyncBinaryFile
 
@@ -25,6 +38,7 @@ StrOrBytesPath: TypeAlias = str | bytes | PathLike[str] | PathLike[bytes]
 FileDescriptorOrPath: TypeAlias = int | str | bytes | PathLike[str] | PathLike[bytes]
 
 
+# Todo: Want relative and absolute? Have relative.
 class StoreLocationMixinAPI(ABC):
     """
     ABC mixin for a Path-like object backed by a "store" (local pack, S3, HTTP, etc.).
@@ -33,6 +47,8 @@ class StoreLocationMixinAPI(ABC):
 
     Intended usage:
         class MyStorePath(StorePathMixin, pathlib.PurePosixPath): ...
+
+    Intended to have a very similar interface to
     """
 
     _tokens: list[str]
@@ -97,20 +113,37 @@ class StoreLocationMixinAPI(ABC):
 
     @property
     def drive(self) -> str:
-        """Always empty: store-relative Locations have no drive."""
+        """
+        Always empty: store-relative Locations have no drive.
+
+        Preserved for compatibility with pathlib.Path.
+        """
         return ""
 
     @property
     def root(self) -> str:
-        """Always empty: store-relative Locations have no root."""
+        """
+        Always empty: store-relative Locations have no root.
+
+        Preserved for compatibility with pathlib.Path
+        """
         return ""
 
     @property
     def anchor(self) -> str:
-        """Always empty: store-relative Locations have no anchor."""
+        """
+        Always empty: store-relative Locations have no anchor.
+        """
         return ""
 
     def is_absolute(self) -> bool:
+        """
+        Is this path absolute?
+
+        Currently, always returns False.
+        (If True, then we'd need to include the store location details).
+        :return:
+        """
         return False
 
     def is_reserved(self) -> bool:
@@ -120,6 +153,11 @@ class StoreLocationMixinAPI(ABC):
 
     @property
     def parts(self) -> tuple[str, ...]:
+        """
+        Path components as a tuple.
+
+        :return:
+        """
         return tuple(self._tokens)
 
     @property
@@ -223,7 +261,7 @@ class StoreLocationMixinAPI(ABC):
         p = self._pure().with_suffix(suffix)
         return self.__class__(*p.parts, store=self._store)
 
-    def relative_to(self, other: StrOrBytesPath | "StoreLocationMixinAPI") -> Self:
+    def relative_to(self, other: "StrOrBytesPath | StoreLocationMixinAPI") -> Self:
         if isinstance(other, StoreLocationMixinAPI):
             if other.store is not self.store:
                 raise ValueError("Cannot compute relative path across different stores.")
@@ -237,7 +275,7 @@ class StoreLocationMixinAPI(ABC):
         rel = self._pure().relative_to(base)
         return self.__class__(*rel.parts, store=self._store)
 
-    def is_relative_to(self, other: StrOrBytesPath | "StoreLocationMixinAPI") -> bool:
+    def is_relative_to(self, other: "StrOrBytesPath | StoreLocationMixinAPI") -> bool:
         try:
             self.relative_to(other)
             return True

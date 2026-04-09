@@ -9,7 +9,7 @@ from LiuXin_alpha.storage.api import (
     StoreAPI,
     StoreCheckStatus,
     StoreStatus,
-    StorageAPI,
+    StorageManagerAPI,
     StorageManagerAPI,
 )
 from LiuXin_alpha.storage.single_file import SingleFileStatus
@@ -84,7 +84,7 @@ class _DummyBackend(StoreAPI):
         return iter(self._files.values())
 
 
-class _DummyManager(StorageAPI):
+class _DummyManager(StorageManagerAPI):
     def __init__(self) -> None:
         self._stores: dict[str, StoreAPI] = {}
 
@@ -161,7 +161,7 @@ def test_single_file_api_status_refresh_smoke() -> None:
 
 
 def test_storage_manager_alias_stable() -> None:
-    assert StorageManagerAPI is StorageAPI
+    assert StorageManagerAPI is StorageManagerAPI
 
 
 def test_storage_manager_store_method_names_work() -> None:

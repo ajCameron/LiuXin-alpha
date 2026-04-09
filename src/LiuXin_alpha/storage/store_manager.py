@@ -20,7 +20,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from typing import TYPE_CHECKING, Any, Optional
 
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
-from LiuXin_alpha.storage.api import SingleFileAPI, StoreAPI, StoreLocationMixinAPI, StorageAPI
+from LiuXin_alpha.storage.api import SingleFileAPI, StoreAPI, StoreLocationMixinAPI, StorageManagerAPI
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
@@ -48,7 +48,7 @@ class StorageBootstrapReport:
         return self.failed_rows == 0
 
 
-class StorageManager(StorageAPI):
+class StorageManager(StorageManagerAPI):
     """
     Default in-process storage manager.
 
