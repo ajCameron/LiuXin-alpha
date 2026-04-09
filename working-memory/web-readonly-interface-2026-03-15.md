@@ -111,3 +111,9 @@ Notes:
 TODO:
 - Refine work credits once the allowed role/type vocabulary for agent/work interlinks is stabilized; current web layer renders ordered contributors but does not invent schema-invalid role values.
 - Extend file downloads further once more store backends expose reliable direct byte access; current web path now works for storage-manager-backed stores such as local managed/unmanaged stores and single-file blob stores, but discovery-only HTML stores still only support redirect/fallback behavior.
+- Keep improving machine-value presentation on detail pages; the current pass now humanizes epoch-ms timestamps, pretty-prints visible JSON fields, and renders URI/path/storage-key style values as code in the shared detail-card layer.
+- The same machine-value cleanup now also applies to browse/exact-search table cells for the shared tabular renderer, with humanized timestamps and code-style URI/path/JSON previews where those columns are shown.
+
+Latest validation update:
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readonly.py`
+  - `13 passed`

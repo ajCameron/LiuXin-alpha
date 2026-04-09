@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import mimetypes
 import posixpath
 import re
 import sys
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Callable, Iterable, Iterator, Optional
 from urllib.parse import parse_qs, quote, unquote, urljoin
@@ -485,6 +487,87 @@ class ReadOnlyWebApplication:
         if isinstance(value, (dict, list, tuple, set)):
             return _short_text(repr(value), width=400)
         return str(value)
+
+    @staticmethod
+    def _detail_value_kind(column: str) -> str:
+        lowered = str(column or "").lower()
+        if "json" in lowered:
+            return "json"
+        if lowered.endswith("_timestamp_ep_k") or (lowered.endswith("_ep_k") and "datestamp" in lowered):
+            return "timestamp_ms"
+        if any(token in lowered for token in ("uri", "url")):
+            return "uri"
+        if any(token in lowered for token in ("path", "location", "storage_key")):
+            return "path"
+        return "text"
+
+    @staticmethod
+    def _pretty_json_text(value: object) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            return str(value or "")
+        return json.dumps(parsed, ensure_ascii=False, indent=2, sort_keys=True)
+
+    @staticmethod
+    def _format_epoch_ms_value(value: object) -> tuple[str, str] | None:
+        if value in (None, ""):
+            return None
+        raw = str(value).strip()
+        if not raw:
+            return None
+        try:
+            epoch_ms = int(float(raw))
+        except Exception:
+            return None
+        try:
+            pretty = datetime.fromtimestamp(epoch_ms / 1000.0, UTC).strftime("%Y-%m-%d %H:%M UTC")
+        except Exception:
+            return None
+        return pretty, raw
+
+    def _render_detail_value_html(self, *, column: str, value: object, code_values: bool) -> str:
+        value_text = self._stringify_detail_value(value)
+        if value_text == "":
+            return "<span class='empty'>&mdash;</span>"
+        kind = self._detail_value_kind(column)
+        if kind == "json":
+            pretty_json = self._pretty_json_text(value)
+            return "<pre class='field-value field-value-block'><code>{}</code></pre>".format(_escape(pretty_json))
+        if kind == "timestamp_ms":
+            formatted = self._format_epoch_ms_value(value)
+            if formatted is not None:
+                pretty, raw = formatted
+                return "<div class='field-stack'><span class='field-value'>{}</span><div class='meta'><code>{}</code></div></div>".format(
+                    _escape(pretty),
+                    _escape(raw),
+                )
+        if kind in {"uri", "path"} or code_values:
+            return "<code>{}</code>".format(_escape(value_text))
+        return "<span class='field-value'>{}</span>".format(_escape(value_text))
+
+    def _render_browse_value_html(self, *, column: str, value: object) -> str:
+        value_text = self._stringify_detail_value(value)
+        if value_text == "":
+            return "<span class='empty'>&mdash;</span>"
+        kind = self._detail_value_kind(column)
+        if kind == "json":
+            pretty_json = _short_text(self._pretty_json_text(value), width=140)
+            return "<code>{}</code>".format(_escape(pretty_json))
+        if kind == "timestamp_ms":
+            formatted = self._format_epoch_ms_value(value)
+            if formatted is not None:
+                pretty, raw = formatted
+                return "<div class='field-stack'><span class='field-value'>{}</span><div class='meta'><code>{}</code></div></div>".format(
+                    _escape(_short_text(pretty, width=72)),
+                    _escape(raw),
+                )
+        if kind in {"uri", "path"}:
+            return "<code>{}</code>".format(_escape(_short_text(value_text, width=120)))
+        return _escape(_short_text(value_text, width=72))
 
     def _row_dict(self, table: str, row) -> dict[str, object]:
         return {column: _row_value(row, column) for column in self._visible_columns(table)}
@@ -1181,12 +1264,7 @@ class ReadOnlyWebApplication:
             value_text = self._stringify_detail_value(row_data.get(column))
             if not include_empty and value_text == "":
                 continue
-            if value_text == "":
-                rendered = "<span class='empty'>&mdash;</span>"
-            elif code_values:
-                rendered = "<code>{}</code>".format(_escape(value_text))
-            else:
-                rendered = "<span class='field-value'>{}</span>".format(_escape(value_text))
+            rendered = self._render_detail_value_html(column=column, value=row_data.get(column), code_values=code_values)
             detail_rows.append("<tr><td>{}</td><td>{}</td></tr>".format(_escape(column), rendered))
         return "".join(detail_rows)
 
@@ -1792,7 +1870,7 @@ class ReadOnlyWebApplication:
     }}
     th, td {{
       text-align: left;
-      padding: 0.55rem 0.6rem;
+      padding: 0.55rem 1.2rem;
       border-bottom: 1px solid var(--line);
       vertical-align: top;
       white-space: normal;
@@ -1896,6 +1974,17 @@ class ReadOnlyWebApplication:
       overflow-wrap: anywhere;
       word-break: break-word;
     }}
+    .field-value-block {{
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      font: inherit;
+    }}
+    .field-stack {{
+      display: grid;
+      gap: 0.2rem;
+    }}
     .related-section {{ margin-top: 0.85rem; }}
     .related-section h3 {{ margin: 0 0 0.35rem 0; }}
     .pill-list {{
@@ -1952,7 +2041,7 @@ class ReadOnlyWebApplication:
       header h1 {{ font-size: 1.6rem; }}
       .hero-title {{ font-size: 1.55rem; }}
       table {{ font-size: 0.9rem; }}
-      th, td {{ padding: 0.45rem 0.5rem; }}
+      th, td {{ padding: 0.45rem 1rem; }}
       .detail-table td:first-child {{ width: auto; min-width: 9rem; }}
     }}
   </style>
@@ -2153,8 +2242,7 @@ class ReadOnlyWebApplication:
         for row in rows:
             cells: list[str] = []
             for column in columns:
-                value = _short_text(_row_value(row, column), width=72)
-                cells.append("<td>{}</td>".format(_escape(value)))
+                cells.append("<td>{}</td>".format(self._render_browse_value_html(column=column, value=_row_value(row, column))))
             href = self._row_href(table, row)
             cells.append("<td>{}</td>".format("<a href='{}'>open</a>".format(_escape(href)) if href else ""))
             row_html.append("<tr>{}</tr>".format("".join(cells)))
@@ -2413,7 +2501,7 @@ class ReadOnlyWebApplication:
             for row in visible_matches:
                 cells: list[str] = []
                 for one in columns:
-                    cells.append("<td>{}</td>".format(_escape(_short_text(_row_value(row, one), width=72))))
+                    cells.append("<td>{}</td>".format(self._render_browse_value_html(column=one, value=_row_value(row, one))))
                 href = self._row_href(table, row)
                 cells.append("<td>{}</td>".format("<a href='{}'>open</a>".format(_escape(href)) if href else ""))
                 rows_html.append("<tr>{}</tr>".format("".join(cells)))

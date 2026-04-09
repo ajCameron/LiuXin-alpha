@@ -474,6 +474,111 @@ def test_web_readonly_hides_sensitive_store_columns(driver_spec, tmp_path: Path)
         assert "store_policy_json" not in text
 
 
+def test_web_readonly_detail_pages_format_machine_values(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "web_readonly_machine_values.sqlite"
+    payload = b"machine value payload"
+    file_path = tmp_path / "deep" / "sample.epub"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_bytes(payload)
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_row = Row.from_idless_row_dict(
+            db,
+            row_dict={
+                "store_name": "Machine Store",
+                "store_kind": "filesystem",
+                "store_access_protocol": "file",
+                "store_root_uri": "file:///srv/liuxin/library",
+                "store_policy_json": '{"mode":"strict","retry":2}',
+                "store_last_seen_online_timestamp_ep_k": 1742387640000,
+            },
+            table="stores",
+        )
+        store_id = int(store_row["store_id"])
+        file_row = Row.from_idless_row_dict(
+            db,
+            row_dict={
+                "file_store_id": store_id,
+                "file_storage_key": "books/sample.epub",
+                "file_name": "sample.epub",
+                "file_original_path": str(file_path),
+                "file_last_seen_timestamp_ep_k": 1742387640000,
+                "file_source": "local-test",
+            },
+            table="files",
+        )
+        file_id = int(file_row["file_id"])
+        app = ReadOnlyWebApplication(
+            db,
+            config=ReadOnlyWebConfig(
+                title="Machine Values",
+                hidden_column_tokens=(),
+            ),
+        )
+
+        status, _headers, body = _call_app(app, "/tables/stores/{}".format(store_id))
+        assert status == "200 OK"
+        text = body.decode("utf-8")
+        assert "2025-03-19 12:34 UTC" in text
+        assert "<code>1742387640000</code>" in text
+        assert "<code>file:///srv/liuxin/library</code>" in text
+        assert "store_policy_json" in text
+        assert "<pre class='field-value field-value-block'><code>{" in text
+        assert "&quot;mode&quot;: &quot;strict&quot;" in text
+        assert "&quot;retry&quot;: 2" in text
+
+        status, _headers, body = _call_app(app, "/tables/files/{}".format(file_id))
+        assert status == "200 OK"
+        text = body.decode("utf-8")
+        assert "2025-03-19 12:34 UTC" in text
+        assert "<code>books/sample.epub</code>" in text
+        assert "<code>{}</code>".format(str(file_path)) in text
+
+
+def test_web_readonly_browse_cells_format_machine_values(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "web_readonly_browse_machine_values.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        Row.from_idless_row_dict(
+            db,
+            row_dict={
+                "work_title": "Browse Machine Work",
+                "work_canonical_title": "Browse Machine Work",
+                "work_sort_title": "Browse Machine Work",
+                "work_source_created_datestamp_ep_k": 1742387640000,
+            },
+            table="works",
+        )
+        app = ReadOnlyWebApplication(db, config=ReadOnlyWebConfig(title="Browse Values", hidden_column_tokens=()))
+
+        assert "<code>file:///srv/liuxin/library</code>" == app._render_browse_value_html(column="store_root_uri", value="file:///srv/liuxin/library")
+        assert "&quot;mode&quot;: &quot;strict&quot;" in app._render_browse_value_html(column="store_policy_json", value='{"mode":"strict","retry":2}')
+        assert "<code>/srv/liuxin/books/sample.epub</code>" == app._render_browse_value_html(column="file_original_path", value="/srv/liuxin/books/sample.epub")
+
+        status, _headers, body = _call_app(app, "/tables/works")
+        assert status == "200 OK"
+        text = body.decode("utf-8")
+        assert "2025-03-19 12:34 UTC" in text
+        assert "<code>1742387640000</code>" in text
+
+        status, _headers, body = _call_app(app, "/search?table=works&column=work_title&q=Browse%20Machine%20Work")
+        assert status == "200 OK"
+        text = body.decode("utf-8")
+        assert "2025-03-19 12:34 UTC" in text
+        assert "<code>1742387640000</code>" in text
+
+
 def test_web_readonly_row_page_renders_specialized_linked_entities(driver_spec, tmp_path: Path) -> None:
     db_path = tmp_path / "web_readonly_linked.sqlite"
     with Database(

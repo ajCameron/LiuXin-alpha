@@ -122,10 +122,10 @@ def _collect_static_regex_patterns(path: Path) -> set[str]:
     return patterns
 
 
-def test_regex_modules_do_not_emit_invalid_escape_syntax_warnings() -> None:
+def test_regex_modules_do_not_emit_invalid_escape_syntax_warnings(project_root: Path) -> None:
     targets = (
-        Path("src/LiuXin_alpha/file_formats/conversion/utils.py"),
-        Path("src/LiuXin_alpha/file_formats/txt/processor.py"),
+        project_root / "src/LiuXin_alpha/file_formats/conversion/utils.py",
+        project_root / "src/LiuXin_alpha/file_formats/txt/processor.py",
     )
     for target in targets:
         source = target.read_text(encoding="utf-8")
@@ -141,8 +141,12 @@ def test_regex_modules_do_not_emit_invalid_escape_syntax_warnings() -> None:
         ("src/LiuXin_alpha/file_formats/txt/processor.py", 20),
     ],
 )
-def test_static_regex_literals_compile_under_unicode_stress(relative_path: str, min_expected: int) -> None:
-    patterns = _collect_static_regex_patterns(Path(relative_path))
+def test_static_regex_literals_compile_under_unicode_stress(
+    relative_path: str,
+    min_expected: int,
+    project_root: Path,
+) -> None:
+    patterns = _collect_static_regex_patterns(project_root / relative_path)
     assert len(patterns) >= min_expected
     corpus = " ".join(UNICODE_SENTENCES)
     for pattern in patterns:

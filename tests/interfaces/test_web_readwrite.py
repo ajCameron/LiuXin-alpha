@@ -594,6 +594,41 @@ def test_web_readwrite_uses_date_datetime_json_and_path_widgets(driver_spec, tmp
         assert "Invalid JSON for store_policy_json" in body.decode("utf-8")
 
 
+def test_web_readwrite_table_and_search_pages_inherit_machine_value_formatting(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "web_readwrite_machine_values.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        Row.from_idless_row_dict(
+            db,
+            row_dict={
+                "work_title": "Write Browse Machine Work",
+                "work_canonical_title": "Write Browse Machine Work",
+                "work_sort_title": "Write Browse Machine Work",
+                "work_source_created_datestamp_ep_k": 1742387640000,
+            },
+            table="works",
+        )
+        app = ReadWriteWebApplication(db, config=ReadWriteWebConfig(title="Write Test"))
+
+        status, _headers, body = _call_app(app, "/tables/works")
+        assert status == "200 OK"
+        text = body.decode("utf-8")
+        assert "2025-03-19 12:34 UTC" in text
+        assert "<code>1742387640000</code>" in text
+        assert "Create row" in text
+
+        status, _headers, body = _call_app(app, "/search?table=works&column=work_title&q=Write%20Browse%20Machine%20Work")
+        assert status == "200 OK"
+        text = body.decode("utf-8")
+        assert "2025-03-19 12:34 UTC" in text
+        assert "<code>1742387640000</code>" in text
+
+
 def test_web_readwrite_respects_trigger_locked_reference_tables(driver_spec, tmp_path: Path) -> None:
     db_path = tmp_path / "web_readwrite_readonly_reference.sqlite"
     with Database(

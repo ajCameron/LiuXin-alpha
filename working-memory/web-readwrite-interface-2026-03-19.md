@@ -431,6 +431,26 @@ The write interface now renders:
 - `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
   - `12 passed`
 
+## Tenth Slice
+
+Locked in browse/search machine-value formatting parity with the read-only interface.
+
+### Implementation Note
+
+No separate runtime formatter was added to `web_readwrite`.
+
+Instead, the write interface continues to inherit:
+
+- the shared browse-cell formatter from `web_readonly`
+- the shared exact-search result table renderer from `web_readonly`
+
+and now has direct regression coverage proving that inherited parity.
+
+### Validation Update
+
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+  - `13 passed`
+
 ## Eighth Slice
 
 Extended the inline allowed-values help from `agents.agent_type` to all constrained select fields in the write interface.
