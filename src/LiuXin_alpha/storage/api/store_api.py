@@ -24,6 +24,21 @@ if TYPE_CHECKING:
 
 
 @dataclasses.dataclass
+class StoreSpec:
+    """
+    A specification for an individual store.
+
+    Should be subclassed for each individual store type.
+    We expect considerable amount of more specs to be added.
+    """
+    # Basic properties
+    store_id: int
+    store_uuid: str
+    store_url: str
+
+
+
+@dataclasses.dataclass
 class StoreCheckStatus:
     """
     Outcome of store self-check probes.
