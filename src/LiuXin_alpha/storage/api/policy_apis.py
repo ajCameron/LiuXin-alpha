@@ -143,10 +143,10 @@ class BackupPolicy:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicationStatus:
     """
-    Snapshot of how one file currently relates to a replication policy.
+    Snapshot of how one managed digital asset currently relates to a replication policy.
     """
 
-    file_identifier: Optional[str]
+    digital_asset_identifier: Optional[str]
     policy_name: str
     present_store_identifiers: tuple[str, ...] = ()
     healthy_store_identifiers: tuple[str, ...] = ()
@@ -160,10 +160,10 @@ class ReplicationStatus:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicationPlan:
     """
-    Planner output describing the next storage actions needed.
+    Planner output describing the next storage actions needed for one managed digital asset.
     """
 
-    file_identifier: Optional[str]
+    digital_asset_identifier: Optional[str]
     policy_name: str
     stores_to_add: tuple[str, ...] = ()
     stores_to_remove: tuple[str, ...] = ()

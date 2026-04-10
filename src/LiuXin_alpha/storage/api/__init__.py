@@ -7,6 +7,7 @@ Import contracts from this package root to avoid deep import paths.
 from __future__ import annotations
 
 from LiuXin_alpha.storage.api.file_api import FileOpenerTypeMixin, FileStatus, SingleFileAPI
+from LiuXin_alpha.storage.api.info_containers_api import DigitalAssetReplicationCluster
 from LiuXin_alpha.storage.api.location_api import (
     AsyncNativePretendSyncLocation,
     FileDescriptorOrPath,
@@ -47,6 +48,7 @@ __all__ = [
     "AsyncTextFile",
     "FileDescriptorOrPath",
     "FileOpenerTypeMixin",
+    "DigitalAssetReplicationCluster",
     "FileStatus",
     "BackupPolicy",
     "DistinctBy",

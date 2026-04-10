@@ -1,8 +1,11 @@
-
 """
-Base classes to assist typing in the storage subsystem.
+Base type aliases for identifiers in the storage subsystem.
+
+These names intentionally track the new storage model:
+items -> digital_assets -> asset_replicas
 """
 
 StoreID = int
-
-FileID = int
+DigitalAssetID = int
+AssetReplicaID = int
+DigitalAssetCompositionID = int

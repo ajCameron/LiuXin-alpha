@@ -1,44 +1,32 @@
+"""
+Containers for information about managed digital assets and storage state.
+"""
 
-"""
-Containers for info about storage and stores.
-"""
+from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
 import dataclasses
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.storage.storage_types import FileID
+    from LiuXin_alpha.storage.storage_types import DigitalAssetID
     from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
 
 
-@dataclasses.dataclass
-class ReplicationCluster:
+@dataclasses.dataclass(slots=True)
+class DigitalAssetReplicationCluster:
     """
-    A replication cluster is a collection of files which are - nominally - identical.
+    Informational container describing nominally identical managed digital assets.
 
-    These files
-     - will have different ids
-     - should have the same hash and size
-
-    For internal use by the manager - as a rule, provides more granular detail than should be needed.
+    This is intentionally more granular than most callers should need. It remains
+    useful for diagnostics and low-level reconciliation work.
     """
 
-    file_locs: dict[FileID, "StoreLocationMixinAPI"]
-
+    digital_asset_locs: dict["DigitalAssetID", "StoreLocationMixinAPI"]
     replication_level: int
-
-    file_hash: str
+    digital_asset_hash: str
 
     @property
-    def file_ids(self) -> set[FileID]:
-        """
-        Get all the FileIDs in the replication cluster.
-
-        :return:
-        """
-        return set(_ for _ in self.file_locs.keys())
-
-
-
-
+    def digital_asset_ids(self) -> set["DigitalAssetID"]:
+        """Return the managed digital asset ids in the cluster."""
+        return set(self.digital_asset_locs.keys())

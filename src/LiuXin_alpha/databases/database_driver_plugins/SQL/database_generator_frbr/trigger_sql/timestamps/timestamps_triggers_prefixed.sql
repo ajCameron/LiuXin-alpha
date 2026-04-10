@@ -210,14 +210,24 @@ BEGIN
   WHERE `folder_id` = NEW.`folder_id`;
 END;
 
--- Auto-update modified timestamps for files
-CREATE TRIGGER IF NOT EXISTS `trg_files_file_touch_modified`
-AFTER UPDATE ON `files`
-WHEN NEW.`file_modified_timestamp_ep_k` = OLD.`file_modified_timestamp_ep_k`
+-- Auto-update modified timestamps for digital_assets
+CREATE TRIGGER IF NOT EXISTS `trg_digital_assets_touch_modified`
+AFTER UPDATE ON `digital_assets`
+WHEN NEW.`digital_asset_modified_timestamp_ep_k` = OLD.`digital_asset_modified_timestamp_ep_k`
 BEGIN
-  UPDATE `files`
-  SET `file_modified_timestamp_ep_k` = (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
-  WHERE `file_id` = NEW.`file_id`;
+  UPDATE `digital_assets`
+  SET `digital_asset_modified_timestamp_ep_k` = (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+  WHERE `digital_asset_id` = NEW.`digital_asset_id`;
+END;
+
+-- Auto-update modified timestamps for asset_replicas
+CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_touch_modified`
+AFTER UPDATE ON `asset_replicas`
+WHEN NEW.`asset_replica_modified_timestamp_ep_k` = OLD.`asset_replica_modified_timestamp_ep_k`
+BEGIN
+  UPDATE `asset_replicas`
+  SET `asset_replica_modified_timestamp_ep_k` = (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+  WHERE `asset_replica_id` = NEW.`asset_replica_id`;
 END;
 
 -- Auto-update modified timestamps for devices

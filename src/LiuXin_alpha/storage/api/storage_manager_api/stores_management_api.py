@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import abc
 
-from typing import TYPE_CHECKING, Union, Iterator
+from typing import TYPE_CHECKING, Iterator
 
 if TYPE_CHECKING:
 
@@ -57,7 +57,7 @@ class StoresManagerAPI(abc.ABC):
         *,
         delete_from_db: bool = False) -> bool:
         """
-        Remove one store by UUID/name/url/ID.
+        Remove one store by id/name/url/uuid.
 
         :param store_id: The identifier of the store to remove.
         :param delete_from_db: Not only remove the store from this manager, but also delete it from the db.
