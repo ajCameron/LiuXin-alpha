@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `digital_asset_workflow_events` (
 
   -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
   -- Application logic can enforce presence later.
-  `digital_asset_workflow_event_file_id` INTEGER NULL,
+  `digital_asset_workflow_event_digital_asset_id` INTEGER NULL,
   `digital_asset_workflow_event_step_id` INTEGER NULL,
 
   `digital_asset_workflow_event_from_status` TEXT NULL,
@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS `digital_asset_workflow_events` (
   `digital_asset_workflow_event_source_modified_datestamp_ep_k` INTEGER NULL,
   `digital_asset_workflow_event_scratch` TEXT NULL,
 
-  CONSTRAINT `digital_asset_workflow_events_file_fk`
-    FOREIGN KEY (`digital_asset_workflow_event_file_id`)
+  CONSTRAINT `digital_asset_workflow_events_digital_asset_fk`
+    FOREIGN KEY (`digital_asset_workflow_event_digital_asset_id`)
     REFERENCES `digital_assets`(`digital_asset_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
@@ -53,6 +53,6 @@ CREATE TABLE IF NOT EXISTS `digital_asset_workflow_events` (
 
 
 CREATE INDEX IF NOT EXISTS `idx_digital_asset_workflow_events_file_step_time`
-ON `digital_asset_workflow_events`(`digital_asset_workflow_event_file_id`, `digital_asset_workflow_event_step_id`, `digital_asset_workflow_event_created_timestamp_ep_k`);
+ON `digital_asset_workflow_events`(`digital_asset_workflow_event_digital_asset_id`, `digital_asset_workflow_event_step_id`, `digital_asset_workflow_event_created_timestamp_ep_k`);
 
 -- BREAK

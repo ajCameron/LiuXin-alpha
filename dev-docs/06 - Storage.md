@@ -160,3 +160,17 @@ Checksum capability note:
 
 
 
+
+
+## Current storage graph
+
+Storage now reasons in three layers:
+
+- `items` are the library-facing exemplars
+- `digital_assets` are the managed payloads
+- `asset_replicas` are the concrete copies on stores
+
+Composite payloads use `digital_asset_compositions`.
+Semantic roles such as `primary_payload` and `cover` live on the item<->digital_asset link, not on the asset row itself.
+
+Replication and backup policy are now first-class tables and can be assigned directly to digital assets.

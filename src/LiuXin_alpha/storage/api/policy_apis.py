@@ -173,9 +173,27 @@ class ReplicationPlan:
 
 __all__ = [
     "BackupPolicy",
+    "BackupPolicyRecord",
     "DistinctBy",
     "ReplicationMode",
     "ReplicationPlan",
     "ReplicationPolicy",
+    "ReplicationPolicyRecord",
     "ReplicationStatus",
 ]
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class ReplicationPolicyRecord:
+    """Persisted replication policy row."""
+
+    replication_policy_id: Optional[int]
+    policy: ReplicationPolicy
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class BackupPolicyRecord:
+    """Persisted backup policy row."""
+
+    backup_policy_id: Optional[int]
+    policy: BackupPolicy

@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS `stores` (
   -- Storage policy
   `store_storage_mask` INTEGER NULL,    -- broad classification bitmask
   `store_policy_json` TEXT NULL,        -- fine-grained 'block'/'prefer' rules
+  `store_failure_domain` TEXT NULL,     -- fault-isolation bucket for replica spread
+  `store_region` TEXT NULL,             -- geographic/administrative placement bucket
+  `store_tags_json` TEXT NULL,          -- lightweight label set used by policy resolution
 
   -- State / notes
   `store_online_status` TEXT NULL,      -- 'online', 'offline', 'retired'

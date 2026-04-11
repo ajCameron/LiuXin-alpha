@@ -19,9 +19,8 @@ CREATE TABLE IF NOT EXISTS `digital_assets` (
   `digital_asset_auto_name` TEXT NULL,
   `digital_asset_use_auto_name` INTEGER DEFAULT 1,
 
-  -- Type / role / classification
+  -- Type / classification
   `digital_asset_mime_type` TEXT NULL,
-  `digital_asset_role` TEXT NULL,
   `digital_asset_media_category` TEXT NULL,
   `digital_asset_class_mask` INTEGER NULL,
   `digital_asset_visibility_mask` INTEGER NULL,
@@ -43,6 +42,10 @@ CREATE TABLE IF NOT EXISTS `digital_assets` (
   `digital_asset_original_name` TEXT NULL,
   `digital_asset_original_path` TEXT NULL,
 
+  -- Policy assignment
+  `digital_asset_replication_policy_id` INTEGER NULL,
+  `digital_asset_backup_policy_id` INTEGER NULL,
+
   -- Processing / lineage placeholders
   `digital_asset_conversion_settings` TEXT NULL,
   `digital_asset_processed` INTEGER NULL DEFAULT 0,
@@ -56,7 +59,19 @@ CREATE TABLE IF NOT EXISTS `digital_assets` (
   `digital_asset_scratch` TEXT NULL,
 
   CONSTRAINT `digital_asset_kind_check`
-    CHECK (`digital_asset_kind` IS NULL OR `digital_asset_kind` IN ('atomic', 'composite'))
+    CHECK (`digital_asset_kind` IS NULL OR `digital_asset_kind` IN ('atomic', 'composite')),
+
+  CONSTRAINT `digital_asset_replication_policy_fk`
+    FOREIGN KEY (`digital_asset_replication_policy_id`)
+    REFERENCES `replication_policies` (`replication_policy_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+
+  CONSTRAINT `digital_asset_backup_policy_fk`
+    FOREIGN KEY (`digital_asset_backup_policy_id`)
+    REFERENCES `backup_policies` (`backup_policy_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
 );
 
 -- BREAK
@@ -86,8 +101,14 @@ ON `digital_assets` (`digital_asset_visibility_mask`);
 -- BREAK
 -- BREAK
 
-CREATE INDEX IF NOT EXISTS `idx_digital_assets_role`
-ON `digital_assets` (`digital_asset_role`);
+CREATE INDEX IF NOT EXISTS `idx_digital_assets_replication_policy_id`
+ON `digital_assets` (`digital_asset_replication_policy_id`);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_digital_assets_backup_policy_id`
+ON `digital_assets` (`digital_asset_backup_policy_id`);
 
 -- BREAK
 -- BREAK
@@ -119,6 +140,7 @@ CREATE TABLE IF NOT EXISTS `asset_replicas` (
   `asset_replica_observed_size_bytes` INTEGER NULL,
   `asset_replica_observed_hash_sha256` TEXT NULL,
   `asset_replica_observed_hash_blake3` TEXT NULL,
+  `asset_replica_failure_reason` TEXT NULL,
 
   `asset_replica_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `asset_replica_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),

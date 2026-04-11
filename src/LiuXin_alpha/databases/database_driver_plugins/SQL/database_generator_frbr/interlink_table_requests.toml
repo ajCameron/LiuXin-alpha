@@ -564,11 +564,28 @@ Allows you to assign a cover, or other type of image, to an individual managed d
 left_table = "digital_assets"
 right_table = "items"
 link_type = "many_to_many"
-requested_columns = ["priority", "type",]
+requested_columns = ["priority", "type", "origin", "primary"]
 nullable = true
+types = [
+  "primary_payload",
+  "cover",
+  "page_scan",
+  "ocr_text",
+  "metadata_sidecar",
+  "preview",
+  "thumbnail",
+  "supplement",
+  "source_archive",
+  "derived_output",
+  "transcript",
+  "caption_track",
+]
 rationale = """
 Items are assigned managed digital assets.
 This is the point where item-level bibliographic identity meets durable storage-managed payloads.
+
+The link `type` captures the semantic role of the asset for this specific item.
+This keeps semantic attachment rules out of the `digital_assets` table itself.
 """
 
 [[interlinks]]

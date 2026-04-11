@@ -1,13 +1,20 @@
-"""
-Public storage API surface.
-
-Import contracts from this package root to avoid deep import paths.
-"""
+"""Public storage API surface."""
 
 from __future__ import annotations
 
 from LiuXin_alpha.storage.api.file_api import FileOpenerTypeMixin, FileStatus, SingleFileAPI
-from LiuXin_alpha.storage.api.info_containers_api import DigitalAssetReplicationCluster
+from LiuXin_alpha.storage.api.info_containers_api import (
+    AssetReplicaRecord,
+    AssetReplicaRow,
+    DigitalAssetCompositionMemberRecord,
+    DigitalAssetCompositionMemberRow,
+    DigitalAssetRecord,
+    DigitalAssetReplicationCluster,
+    DigitalAssetRow,
+    FixedTableStorageRow,
+    ItemDigitalAssetLinkRecord,
+    ItemDigitalAssetLinkRow,
+)
 from LiuXin_alpha.storage.api.location_api import (
     AsyncNativePretendSyncLocation,
     FileDescriptorOrPath,
@@ -29,33 +36,37 @@ from LiuXin_alpha.storage.api.modes_api import (
 )
 from LiuXin_alpha.storage.api.policy_apis import (
     BackupPolicy,
+    BackupPolicyRecord,
     DistinctBy,
     ReplicationMode,
     ReplicationPlan,
     ReplicationPolicy,
+    ReplicationPolicyRecord,
     ReplicationStatus,
 )
-from LiuXin_alpha.storage.api.storage_api import (
-    StoreAPI,
-    StoreCheckStatus,
-    StoreStatus,
-)
+from LiuXin_alpha.storage.api.storage_api import StoreAPI, StoreCheckStatus, StoreSpec, StoreStatus
 from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
 
 __all__ = [
+    "AssetReplicaRecord",
+    "AssetReplicaRow",
     "AsyncBinaryFile",
     "AsyncNativePretendSyncLocation",
     "AsyncTextFile",
+    "BackupPolicy",
+    "BackupPolicyRecord",
+    "DigitalAssetCompositionMemberRecord",
+    "DigitalAssetCompositionMemberRow",
+    "DigitalAssetRecord",
+    "DigitalAssetRow",
+    "DigitalAssetReplicationCluster",
+    "DistinctBy",
     "FileDescriptorOrPath",
     "FileOpenerTypeMixin",
-    "DigitalAssetReplicationCluster",
     "FileStatus",
-    "BackupPolicy",
-    "DistinctBy",
-    "ReplicationMode",
-    "ReplicationPlan",
-    "ReplicationPolicy",
-    "ReplicationStatus",
+    "FixedTableStorageRow",
+    "ItemDigitalAssetLinkRecord",
+    "ItemDigitalAssetLinkRow",
     "OpenBinaryMode",
     "OpenBinaryModeReading",
     "OpenBinaryModeUpdating",
@@ -64,12 +75,18 @@ __all__ = [
     "OpenTextModeReading",
     "OpenTextModeUpdating",
     "OpenTextModeWriting",
+    "ReplicationMode",
+    "ReplicationPlan",
+    "ReplicationPolicy",
+    "ReplicationPolicyRecord",
+    "ReplicationStatus",
     "SingleFileAPI",
     "StorageManagerAPI",
     "StoreAPI",
     "StoreCheckStatus",
-    "StoreStatus",
     "StoreLocationMixinAPI",
+    "StoreSpec",
+    "StoreStatus",
     "StrOrBytesPath",
     "SyncNativePretendAsyncLocation",
 ]

@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS `digital_asset_workflow` (
 
   -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
   -- Application logic can enforce presence later.
-  `digital_asset_workflow_file_id` INTEGER NULL,
+  `digital_asset_workflow_digital_asset_id` INTEGER NULL,
   `digital_asset_workflow_step_id` INTEGER NULL,
 
   `digital_asset_workflow_status` TEXT NOT NULL DEFAULT 'todo',
@@ -32,8 +32,8 @@ CREATE TABLE IF NOT EXISTS `digital_asset_workflow` (
 
   `digital_asset_workflow_scratch` TEXT NULL,
 
-  CONSTRAINT `digital_asset_workflow_file_fk`
-    FOREIGN KEY (`digital_asset_workflow_file_id`)
+  CONSTRAINT `digital_asset_workflow_digital_asset_fk`
+    FOREIGN KEY (`digital_asset_workflow_digital_asset_id`)
     REFERENCES `digital_assets`(`digital_asset_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
@@ -58,9 +58,9 @@ CREATE TABLE IF NOT EXISTS `digital_asset_workflow` (
 -- BREAK
 
 
--- One row per (file, step)
+-- One row per (digital_asset, step)
 CREATE UNIQUE INDEX IF NOT EXISTS `idx_digital_asset_workflow_unique`
-ON `digital_asset_workflow`(`digital_asset_workflow_file_id`, `digital_asset_workflow_step_id`);
+ON `digital_asset_workflow`(`digital_asset_workflow_digital_asset_id`, `digital_asset_workflow_step_id`);
 
 -- BREAK
 -- BREAK
@@ -73,7 +73,7 @@ ON `digital_asset_workflow`(`digital_asset_workflow_status`, `digital_asset_work
 -- BREAK
 
 
-CREATE INDEX IF NOT EXISTS `idx_digital_asset_workflow_by_file`
-ON `digital_asset_workflow`(`digital_asset_workflow_file_id`);
+CREATE INDEX IF NOT EXISTS `idx_digital_asset_workflow_by_digital_asset`
+ON `digital_asset_workflow`(`digital_asset_workflow_digital_asset_id`);
 
 -- BREAK
