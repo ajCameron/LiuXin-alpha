@@ -19,6 +19,64 @@ def _views(conn: sqlite3.Connection) -> set[str]:
     return {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='view';")}
 
 
+def _insert_atomic_asset_bundle(
+    cur: sqlite3.Cursor,
+    *,
+    item_id: int,
+    store_id: int,
+    storage_key: str,
+    link_type: str = "primary_payload",
+    size_bytes: int | None = None,
+    media_category: str | None = None,
+    folder_id: int | None = None,
+    name: str | None = None,
+) -> tuple[int, int]:
+    cur.execute(
+        "INSERT INTO digital_assets (digital_asset_name, digital_asset_size_bytes, digital_asset_media_category) VALUES (?, ?, ?);",
+        (name or storage_key.rsplit('/', 1)[-1], size_bytes, media_category),
+    )
+    digital_asset_id = int(cur.lastrowid)
+
+    cur.execute(
+        "INSERT INTO digital_asset_item_links (digital_asset_item_link_digital_asset_id, digital_asset_item_link_item_id, digital_asset_item_link_type, digital_asset_item_link_priority, digital_asset_item_link_primary, digital_asset_item_link_origin) VALUES (?, ?, ?, ?, ?, ?);",
+        (digital_asset_id, item_id, link_type, 0, 1 if link_type == 'primary_payload' else 0, 'test'),
+    )
+
+    cur.execute(
+        "INSERT INTO asset_replicas (asset_replica_digital_asset_id, asset_replica_store_id, asset_replica_folder_id, asset_replica_storage_key, asset_replica_mode) VALUES (?, ?, ?, ?, ?);",
+        (digital_asset_id, store_id, folder_id, storage_key, 'active'),
+    )
+    asset_replica_id = int(cur.lastrowid)
+    return digital_asset_id, asset_replica_id
+
+
+def _insert_composite_asset_bundle(
+    cur: sqlite3.Cursor,
+    *,
+    item_id: int,
+    composite_name: str,
+    member_asset_ids: list[int],
+) -> int:
+    cur.execute(
+        "INSERT INTO composite_digital_assets (composite_digital_asset_name, composite_digital_asset_media_category) VALUES (?, ?);",
+        (composite_name, 'audiobook'),
+    )
+    composite_id = int(cur.lastrowid)
+
+    cur.execute(
+        "INSERT INTO composite_digital_asset_item_links (composite_digital_asset_item_link_composite_digital_asset_id, composite_digital_asset_item_link_item_id, composite_digital_asset_item_link_type, composite_digital_asset_item_link_priority, composite_digital_asset_item_link_primary, composite_digital_asset_item_link_origin) VALUES (?, ?, ?, ?, ?, ?);",
+        (composite_id, item_id, 'primary_payload', 0, 1, 'test'),
+    )
+
+    for seq, digital_asset_id in enumerate(member_asset_ids, start=1):
+        cur.execute(
+            "INSERT INTO composite_digital_asset_digital_asset_links (composite_digital_asset_digital_asset_link_composite_digital_asset_id, composite_digital_asset_digital_asset_link_digital_asset_id, composite_digital_asset_digital_asset_link_type, composite_digital_asset_digital_asset_link_origin, composite_digital_asset_digital_asset_link_sequence_number, composite_digital_asset_digital_asset_link_is_required) VALUES (?, ?, ?, ?, ?, ?);",
+            (composite_id, digital_asset_id, 'chapter', 'test', seq, 1),
+        )
+
+    return composite_id
+
+
 def test_frbr_generator_creates_wemi_views(tmp_path: pathlib.Path) -> None:
     db_path = tmp_path / "frbr_views_smoke.db"
     conn = sqlite3.connect(str(db_path))
@@ -39,6 +97,7 @@ def test_frbr_generator_creates_wemi_views(tmp_path: pathlib.Path) -> None:
             "books_v",
             "books",
             "agent_credits_v",
+            "digital_asset_inventory_v",
             "file_inventory_v",
             "book_publishers_v",
             "publishers_v",
@@ -145,7 +204,7 @@ def test_identifiers_v_unifies_entity_and_item_identifiers(tmp_path: pathlib.Pat
         conn.close()
 
 
-def test_file_inventory_v_projects_files_with_ray_context(tmp_path: pathlib.Path) -> None:
+def test_file_inventory_v_projects_assets_with_ray_context(tmp_path: pathlib.Path) -> None:
     """Inventory: files should be projected with (ray/book) context."""
 
     db_path = tmp_path / "frbr_file_inventory_view.db"
@@ -200,17 +259,28 @@ def test_file_inventory_v_projects_files_with_ray_context(tmp_path: pathlib.Path
         )
         folder_id = cur.lastrowid
 
-        cur.execute(
-            "INSERT INTO files (file_item_id, file_store_id, file_folder_id, file_storage_key, file_role, file_size_bytes) VALUES (?, ?, ?, ?, ?, ?);",
-            (item_id, store_id, folder_id, "books/dune.epub", "content", 100),
+        digital_asset_content_id, file_content_id = _insert_atomic_asset_bundle(
+            cur,
+            item_id=item_id,
+            store_id=store_id,
+            folder_id=folder_id,
+            storage_key="books/dune.epub",
+            link_type="primary_payload",
+            size_bytes=100,
+            name="dune.epub",
         )
-        file_content_id = cur.lastrowid
 
-        cur.execute(
-            "INSERT INTO files (file_item_id, file_store_id, file_folder_id, file_storage_key, file_role, file_media_category, file_size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?);",
-            (item_id, store_id, folder_id, "books/cover.jpg", "cover", "cover", 10),
+        digital_asset_cover_id, file_cover_id = _insert_atomic_asset_bundle(
+            cur,
+            item_id=item_id,
+            store_id=store_id,
+            folder_id=folder_id,
+            storage_key="books/cover.jpg",
+            link_type="cover",
+            size_bytes=10,
+            media_category="cover",
+            name="cover.jpg",
         )
-        file_cover_id = cur.lastrowid
 
         conn.commit()
 
@@ -293,11 +363,15 @@ def test_ingest_audit_v_unifies_item_and_file_events(tmp_path: pathlib.Path) -> 
         )
         store_id = cur.lastrowid
 
-        cur.execute(
-            "INSERT INTO files (file_item_id, file_store_id, file_storage_key, file_role, file_size_bytes) VALUES (?, ?, ?, ?, ?);",
-            (item_id, store_id, "books/dune.epub", "content", 100),
+        digital_asset_id, file_id = _insert_atomic_asset_bundle(
+            cur,
+            item_id=item_id,
+            store_id=store_id,
+            storage_key="books/dune.epub",
+            link_type="primary_payload",
+            size_bytes=100,
+            name="dune.epub",
         )
-        file_id = cur.lastrowid
 
         # Workflow step
         cur.execute(
@@ -308,8 +382,8 @@ def test_ingest_audit_v_unifies_item_and_file_events(tmp_path: pathlib.Path) -> 
 
         # Events
         cur.execute(
-            "INSERT INTO file_workflow_events (file_workflow_event_file_id, file_workflow_event_step_id, file_workflow_event_from_status, file_workflow_event_to_status, file_workflow_event_actor, file_workflow_event_tool, file_workflow_event_run_id, file_workflow_event_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
-            (file_id, step_id, "todo", "done", "tester", "unit", "run-1", "file ok"),
+            "INSERT INTO digital_asset_workflow_events (digital_asset_workflow_event_digital_asset_id, digital_asset_workflow_event_step_id, digital_asset_workflow_event_from_status, digital_asset_workflow_event_to_status, digital_asset_workflow_event_actor, digital_asset_workflow_event_tool, digital_asset_workflow_event_run_id, digital_asset_workflow_event_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+            (digital_asset_id, step_id, "todo", "done", "tester", "unit", "run-1", "file ok"),
         )
 
         cur.execute(
@@ -328,7 +402,7 @@ def test_ingest_audit_v_unifies_item_and_file_events(tmp_path: pathlib.Path) -> 
         ).fetchall()
 
         assert rows == [
-            ("file", ray_id, ray_id, item_id, file_id, "ingest", "todo", "done", "tester", "unit", "run-1", "file ok", "file:///vault/books/dune.epub"),
+            ("digital_asset", ray_id, ray_id, item_id, digital_asset_id, "ingest", "todo", "done", "tester", "unit", "run-1", "file ok", "file:///vault/books/dune.epub"),
             ("item", ray_id, ray_id, item_id, None, "ingest", "todo", "done", "tester", "unit", "run-1", "item ok", None),
         ]
 
@@ -336,7 +410,7 @@ def test_ingest_audit_v_unifies_item_and_file_events(tmp_path: pathlib.Path) -> 
         rows2 = conn.execute(
             "SELECT audit_scope, step_code FROM ingest_audit ORDER BY audit_scope;"
         ).fetchall()
-        assert rows2 == [("file", "ingest"), ("item", "ingest")]
+        assert rows2 == [("digital_asset", "ingest"), ("item", "ingest")]
 
     finally:
         conn.close()
@@ -388,13 +462,24 @@ def test_books_v_compatibility_projection(tmp_path: pathlib.Path) -> None:
         cur.execute("INSERT INTO stores (store_name, store_kind) VALUES (?, ?);", ("test-store", "filesystem"))
         store_id = cur.lastrowid
 
-        cur.execute(
-            "INSERT INTO files (file_item_id, file_store_id, file_storage_key, file_role, file_size_bytes) VALUES (?, ?, ?, ?, ?);",
-            (item_id, store_id, "dune.epub", "content", 100),
+        _insert_atomic_asset_bundle(
+            cur,
+            item_id=item_id,
+            store_id=store_id,
+            storage_key="dune.epub",
+            link_type="primary_payload",
+            size_bytes=100,
+            name="dune.epub",
         )
-        cur.execute(
-            "INSERT INTO files (file_item_id, file_store_id, file_storage_key, file_role, file_media_category, file_size_bytes) VALUES (?, ?, ?, ?, ?, ?);",
-            (item_id, store_id, "cover.jpg", "cover", "cover", 10),
+        _insert_atomic_asset_bundle(
+            cur,
+            item_id=item_id,
+            store_id=store_id,
+            storage_key="cover.jpg",
+            link_type="cover",
+            media_category="cover",
+            size_bytes=10,
+            name="cover.jpg",
         )
 
         conn.commit()
@@ -437,6 +522,74 @@ def test_books_v_compatibility_projection(tmp_path: pathlib.Path) -> None:
     finally:
         conn.close()
 
+
+
+def test_books_v_and_inventory_expand_composite_item_assets(tmp_path: pathlib.Path) -> None:
+    """Composite item links should expand through to atomic asset inventory and book size."""
+
+    db_path = tmp_path / "frbr_composite_inventory_view.db"
+    conn = sqlite3.connect(str(db_path))
+    try:
+        conn.execute("PRAGMA foreign_keys = ON;")
+        frbr_gen.create_new_database(conn)
+
+        cur = conn.cursor()
+        cur.execute("INSERT INTO works (work_title, work_canonical_title) VALUES (?, ?);", ("Dune Audio", "Dune Audio"))
+        work_id = cur.lastrowid
+        cur.execute("INSERT INTO expressions (expression_label, expression_year) VALUES (?, ?);", ("audio", 1987))
+        expression_id = cur.lastrowid
+        cur.execute("INSERT INTO manifestations (manifestation_edition_statement, manifestation_pub_year) VALUES (?, ?);", ("Audio release", 1988))
+        manifestation_id = cur.lastrowid
+
+        we_table, we_base = ColumnNameMixin.get_interlink_table_name("works", "expressions")
+        em_table, em_base = ColumnNameMixin.get_interlink_table_name("expressions", "manifestations")
+        cur.execute(
+            f"INSERT INTO `{we_table}` (`{we_base}_work_id`, `{we_base}_expression_id`, `{we_base}_priority`, `{we_base}_primary`, `{we_base}_origin`) VALUES (?, ?, ?, ?, ?);",
+            (work_id, expression_id, 0, 1, "test"),
+        )
+        cur.execute(
+            f"INSERT INTO `{em_table}` (`{em_base}_expression_id`, `{em_base}_manifestation_id`, `{em_base}_priority`, `{em_base}_primary`, `{em_base}_origin`) VALUES (?, ?, ?, ?, ?);",
+            (expression_id, manifestation_id, 0, 1, "test"),
+        )
+
+        cur.execute("INSERT INTO items (item_manifestation_id, item_type) VALUES (?, ?);", (manifestation_id, "digital"))
+        item_id = int(cur.lastrowid)
+        cur.execute("INSERT INTO stores (store_name, store_kind, store_root_uri) VALUES (?, ?, ?);", ("archive", "filesystem", "file:///vault"))
+        store_id = int(cur.lastrowid)
+
+        chapter1_id, replica1_id = _insert_atomic_asset_bundle(
+            cur, item_id=item_id, store_id=store_id, storage_key="audio/ch1.mp3", link_type="supplement", size_bytes=50, name="ch1.mp3"
+        )
+        chapter2_id, replica2_id = _insert_atomic_asset_bundle(
+            cur, item_id=item_id, store_id=store_id, storage_key="audio/ch2.mp3", link_type="supplement", size_bytes=70, name="ch2.mp3"
+        )
+        # These are members of the composite; remove direct item links so we exercise the composite path only.
+        cur.execute("DELETE FROM digital_asset_item_links WHERE digital_asset_item_link_digital_asset_id IN (?, ?);", (chapter1_id, chapter2_id))
+
+        composite_id = _insert_composite_asset_bundle(
+            cur,
+            item_id=item_id,
+            composite_name="Dune audiobook",
+            member_asset_ids=[chapter1_id, chapter2_id],
+        )
+
+        conn.commit()
+
+        ray_id = f"{work_id}:{expression_id}:{manifestation_id}"
+        row = conn.execute("SELECT book_size FROM books_v WHERE book_id = ?;", (ray_id,)).fetchone()
+        assert row is not None
+        assert row[0] == 120
+
+        rows = conn.execute(
+            "SELECT digital_asset_id, asset_replica_id, composite_digital_asset_id, digital_asset_attachment_scope, composite_member_sequence_number FROM digital_asset_inventory_v WHERE ray_id = ? ORDER BY composite_member_sequence_number;",
+            (ray_id,),
+        ).fetchall()
+        assert rows == [
+            (chapter1_id, replica1_id, composite_id, "composite_member", 1),
+            (chapter2_id, replica2_id, composite_id, "composite_member", 2),
+        ]
+    finally:
+        conn.close()
 
 def test_wemi_rays_v_projects_expected_fields(tmp_path: pathlib.Path) -> None:
     """Insert a minimal WEMI chain and confirm the ray view returns one row."""

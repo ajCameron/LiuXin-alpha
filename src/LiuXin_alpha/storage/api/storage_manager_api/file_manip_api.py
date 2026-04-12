@@ -1,4 +1,4 @@
-"""Digital asset access/update methods for the storage manager."""
+"""Atomic digital asset access/update methods for the storage manager."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class DigitalAssetsManagerAPI(abc.ABC):
-    """CRUD and payload access for managed digital assets."""
+    """CRUD and payload access for atomic managed digital assets."""
 
     @abc.abstractmethod
     def create_digital_asset(self, digital_asset: "DigitalAssetRecord") -> "DigitalAssetRecord":

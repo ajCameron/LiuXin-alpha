@@ -2,14 +2,10 @@
 
 -- -----------------------------------------------------
 -- Table `digital_assets`
--- One row per managed digital asset.
--- Atomic assets represent one byte-bearing managed payload.
--- Composite assets represent an ordered logical assembly of other assets.
+-- One row per atomic, byte-bearing managed digital asset.
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `digital_assets` (
   `digital_asset_id` INTEGER PRIMARY KEY,
-
-  `digital_asset_kind` TEXT NULL DEFAULT 'atomic', -- 'atomic' | 'composite'
 
   -- Naming / descriptive hints
   `digital_asset_name` TEXT NULL,
@@ -26,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `digital_assets` (
   `digital_asset_visibility_mask` INTEGER NULL,
   `digital_asset_critical` INTEGER NULL DEFAULT 1,
 
-  -- Size / integrity (normally for atomic assets; composites may leave these NULL)
+  -- Size / integrity
   `digital_asset_size_bytes` INTEGER NULL,
   `digital_asset_hash_sha256` TEXT NULL,
   `digital_asset_hash_blake3` TEXT NULL,
@@ -58,9 +54,6 @@ CREATE TABLE IF NOT EXISTS `digital_assets` (
 
   `digital_asset_scratch` TEXT NULL,
 
-  CONSTRAINT `digital_asset_kind_check`
-    CHECK (`digital_asset_kind` IS NULL OR `digital_asset_kind` IN ('atomic', 'composite')),
-
   CONSTRAINT `digital_asset_replication_policy_fk`
     FOREIGN KEY (`digital_asset_replication_policy_id`)
     REFERENCES `replication_policies` (`replication_policy_id`)
@@ -79,12 +72,6 @@ CREATE TABLE IF NOT EXISTS `digital_assets` (
 
 CREATE INDEX IF NOT EXISTS `idx_digital_assets_hash_sha256`
 ON `digital_assets` (`digital_asset_hash_sha256`);
-
--- BREAK
--- BREAK
-
-CREATE INDEX IF NOT EXISTS `idx_digital_assets_kind`
-ON `digital_assets` (`digital_asset_kind`);
 
 -- BREAK
 -- BREAK
@@ -109,6 +96,56 @@ ON `digital_assets` (`digital_asset_replication_policy_id`);
 
 CREATE INDEX IF NOT EXISTS `idx_digital_assets_backup_policy_id`
 ON `digital_assets` (`digital_asset_backup_policy_id`);
+
+-- BREAK
+-- BREAK
+
+-- -----------------------------------------------------
+-- Table `composite_digital_assets`
+-- One row per logical multipart assembly of atomic digital assets.
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `composite_digital_assets` (
+  `composite_digital_asset_id` INTEGER PRIMARY KEY,
+
+  `composite_digital_asset_name` TEXT NULL,
+  `composite_digital_asset_media_type` TEXT NULL,
+  `composite_digital_asset_media_category` TEXT NULL,
+  `composite_digital_asset_source` TEXT NULL,
+
+  `composite_digital_asset_replication_policy_id` INTEGER NULL,
+  `composite_digital_asset_backup_policy_id` INTEGER NULL,
+
+  `composite_digital_asset_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `composite_digital_asset_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
+  `composite_digital_asset_source_created_datestamp_ep_k` INTEGER NULL,
+  `composite_digital_asset_source_modified_datestamp_ep_k` INTEGER NULL,
+
+  `composite_digital_asset_scratch` TEXT NULL,
+
+  CONSTRAINT `composite_digital_asset_replication_policy_fk`
+    FOREIGN KEY (`composite_digital_asset_replication_policy_id`)
+    REFERENCES `replication_policies` (`replication_policy_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+
+  CONSTRAINT `composite_digital_asset_backup_policy_fk`
+    FOREIGN KEY (`composite_digital_asset_backup_policy_id`)
+    REFERENCES `backup_policies` (`backup_policy_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_composite_digital_assets_replication_policy_id`
+ON `composite_digital_assets` (`composite_digital_asset_replication_policy_id`);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_composite_digital_assets_backup_policy_id`
+ON `composite_digital_assets` (`composite_digital_asset_backup_policy_id`);
 
 -- BREAK
 -- BREAK
@@ -207,66 +244,5 @@ ON `asset_replicas` (`asset_replica_mode`);
 
 CREATE INDEX IF NOT EXISTS `idx_asset_replicas_observed_hash_sha256`
 ON `asset_replicas` (`asset_replica_observed_hash_sha256`);
-
--- BREAK
--- BREAK
-
--- -----------------------------------------------------
--- Table `digital_asset_compositions`
--- Ordered membership links for composite digital assets.
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `digital_asset_compositions` (
-  `digital_asset_composition_id` INTEGER PRIMARY KEY,
-
-  `digital_asset_composition_parent_asset_id` INTEGER NULL,
-  `digital_asset_composition_member_asset_id` INTEGER NULL,
-  `digital_asset_composition_sequence_number` INTEGER NULL,
-  `digital_asset_composition_role` TEXT NULL,
-  `digital_asset_composition_label` TEXT NULL,
-  `digital_asset_composition_is_required` INTEGER NOT NULL DEFAULT 1,
-
-  `digital_asset_composition_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `digital_asset_composition_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
-  `digital_asset_composition_source_created_datestamp_ep_k` INTEGER NULL,
-  `digital_asset_composition_source_modified_datestamp_ep_k` INTEGER NULL,
-
-  `digital_asset_composition_scratch` TEXT NULL,
-
-  CONSTRAINT `digital_asset_composition_parent_fk`
-    FOREIGN KEY (`digital_asset_composition_parent_asset_id`)
-    REFERENCES `digital_assets`(`digital_asset_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
-
-  CONSTRAINT `digital_asset_composition_member_fk`
-    FOREIGN KEY (`digital_asset_composition_member_asset_id`)
-    REFERENCES `digital_assets`(`digital_asset_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
-
-  CONSTRAINT `digital_asset_composition_no_self`
-    CHECK (`digital_asset_composition_parent_asset_id` != `digital_asset_composition_member_asset_id`),
-
-  CONSTRAINT `digital_asset_composition_required_bool`
-    CHECK (`digital_asset_composition_is_required` IN (0,1))
-);
-
--- BREAK
--- BREAK
-
-CREATE UNIQUE INDEX IF NOT EXISTS `idx_digital_asset_compositions_parent_member`
-ON `digital_asset_compositions` (`digital_asset_composition_parent_asset_id`, `digital_asset_composition_member_asset_id`);
-
--- BREAK
--- BREAK
-
-CREATE UNIQUE INDEX IF NOT EXISTS `idx_digital_asset_compositions_parent_sequence`
-ON `digital_asset_compositions` (`digital_asset_composition_parent_asset_id`, `digital_asset_composition_sequence_number`);
-
--- BREAK
--- BREAK
-
-CREATE INDEX IF NOT EXISTS `idx_digital_asset_compositions_member_asset_id`
-ON `digital_asset_compositions` (`digital_asset_composition_member_asset_id`);
 
 -- BREAK

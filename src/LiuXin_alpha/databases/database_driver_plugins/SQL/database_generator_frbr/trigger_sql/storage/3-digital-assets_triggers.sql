@@ -1,6 +1,6 @@
 
 -- =====================================================
--- asset_replicas: path / store / asset-kind invariants
+-- asset_replicas: path / store invariants
 -- =====================================================
 
 CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_storage_key_must_be_relative`
@@ -53,27 +53,6 @@ BEGIN
 END;
 
 
-CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_atomic_assets_only`
-BEFORE INSERT ON `asset_replicas`
-WHEN NEW.`asset_replica_digital_asset_id` IS NOT NULL
-BEGIN
-  SELECT CASE
-    WHEN (SELECT `digital_asset_kind` FROM `digital_assets` WHERE `digital_asset_id` = NEW.`asset_replica_digital_asset_id`) = 'composite'
-    THEN RAISE(ABORT, 'asset_replicas may only reference atomic digital_assets')
-  END;
-END;
-
-CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_atomic_assets_only_upd`
-BEFORE UPDATE OF `asset_replica_digital_asset_id` ON `asset_replicas`
-WHEN NEW.`asset_replica_digital_asset_id` IS NOT NULL
-BEGIN
-  SELECT CASE
-    WHEN (SELECT `digital_asset_kind` FROM `digital_assets` WHERE `digital_asset_id` = NEW.`asset_replica_digital_asset_id`) = 'composite'
-    THEN RAISE(ABORT, 'asset_replicas may only reference atomic digital_assets')
-  END;
-END;
-
-
 CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_mode_supported_by_store`
 BEFORE INSERT ON `asset_replicas`
 WHEN NEW.`asset_replica_store_id` IS NOT NULL
@@ -105,68 +84,5 @@ BEGIN
     WHEN NEW.`asset_replica_mode` = 'archive'
       AND COALESCE((SELECT `store_supports_archive_replica_mode` FROM `stores` WHERE `store_id` = NEW.`asset_replica_store_id`), 0) != 1
     THEN RAISE(ABORT, 'asset_replicas.asset_replica_mode=archive is not supported by the target store')
-  END;
-END;
-
-
-CREATE TRIGGER IF NOT EXISTS `trg_digital_asset_compositions_parent_must_be_composite`
-BEFORE INSERT ON `digital_asset_compositions`
-WHEN NEW.`digital_asset_composition_parent_asset_id` IS NOT NULL
-BEGIN
-  SELECT CASE
-    WHEN (SELECT `digital_asset_kind` FROM `digital_assets` WHERE `digital_asset_id` = NEW.`digital_asset_composition_parent_asset_id`) != 'composite'
-    THEN RAISE(ABORT, 'digital_asset_compositions parent asset must be kind=composite')
-  END;
-END;
-
-CREATE TRIGGER IF NOT EXISTS `trg_digital_asset_compositions_parent_must_be_composite_upd`
-BEFORE UPDATE OF `digital_asset_composition_parent_asset_id` ON `digital_asset_compositions`
-WHEN NEW.`digital_asset_composition_parent_asset_id` IS NOT NULL
-BEGIN
-  SELECT CASE
-    WHEN (SELECT `digital_asset_kind` FROM `digital_assets` WHERE `digital_asset_id` = NEW.`digital_asset_composition_parent_asset_id`) != 'composite'
-    THEN RAISE(ABORT, 'digital_asset_compositions parent asset must be kind=composite')
-  END;
-END;
-
-
-CREATE TRIGGER IF NOT EXISTS `trg_digital_asset_compositions_no_cycles`
-BEFORE INSERT ON `digital_asset_compositions`
-WHEN NEW.`digital_asset_composition_parent_asset_id` IS NOT NULL
- AND NEW.`digital_asset_composition_member_asset_id` IS NOT NULL
-BEGIN
-  SELECT CASE
-    WHEN EXISTS (
-      WITH RECURSIVE `anc`(`id`) AS (
-        SELECT NEW.`digital_asset_composition_member_asset_id`
-        UNION ALL
-        SELECT `dac`.`digital_asset_composition_member_asset_id`
-        FROM `digital_asset_compositions` `dac`
-        JOIN `anc` ON `dac`.`digital_asset_composition_parent_asset_id` = `anc`.`id`
-      )
-      SELECT 1 FROM `anc` WHERE `id` = NEW.`digital_asset_composition_parent_asset_id` LIMIT 1
-    )
-    THEN RAISE(ABORT, 'digital_asset_compositions cycle detected')
-  END;
-END;
-
-CREATE TRIGGER IF NOT EXISTS `trg_digital_asset_compositions_no_cycles_upd`
-BEFORE UPDATE OF `digital_asset_composition_parent_asset_id`, `digital_asset_composition_member_asset_id` ON `digital_asset_compositions`
-WHEN NEW.`digital_asset_composition_parent_asset_id` IS NOT NULL
- AND NEW.`digital_asset_composition_member_asset_id` IS NOT NULL
-BEGIN
-  SELECT CASE
-    WHEN EXISTS (
-      WITH RECURSIVE `anc`(`id`) AS (
-        SELECT NEW.`digital_asset_composition_member_asset_id`
-        UNION ALL
-        SELECT `dac`.`digital_asset_composition_member_asset_id`
-        FROM `digital_asset_compositions` `dac`
-        JOIN `anc` ON `dac`.`digital_asset_composition_parent_asset_id` = `anc`.`id`
-        WHERE `dac`.`digital_asset_composition_id` != OLD.`digital_asset_composition_id`
-      )
-      SELECT 1 FROM `anc` WHERE `id` = NEW.`digital_asset_composition_parent_asset_id` LIMIT 1
-    )
-    THEN RAISE(ABORT, 'digital_asset_compositions cycle detected')
   END;
 END;

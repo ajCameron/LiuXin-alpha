@@ -74,13 +74,22 @@ class _DummyBackend(StoreAPI):
     def get_file(self, file_url: str) -> _DummyFile:
         return self._files[file_url]
 
-    def add_file(self, file_bytes: bytes, *, metadata=None) -> _DummyFile:
-        key = "dummy://{}".format(len(self._files) + 1)
+    def replica_exists(self, replica_url: str) -> bool:
+        return self.file_exists(replica_url)
+
+    def get_replica(self, replica_url: str) -> _DummyFile:
+        return self.get_file(replica_url)
+
+    def put_replica(self, file_bytes: bytes, *, storage_key: str | None = None, metadata=None, add_sidecar_opf: bool = False) -> _DummyFile:
+        key = storage_key or "dummy://{}".format(len(self._files) + 1)
         file_obj = _DummyFile(key, payload=file_bytes)
         self._files[key] = file_obj
         return file_obj
 
-    def true_files(self):
+    def add_file(self, file_bytes: bytes, *, metadata=None) -> _DummyFile:
+        return self.put_replica(file_bytes=file_bytes, metadata=metadata)
+
+    def iter_replicas(self):
         return iter(self._files.values())
 
 
@@ -88,18 +97,175 @@ class _DummyManager(StorageManagerAPI):
     def __init__(self) -> None:
         self._stores: dict[str, StoreAPI] = {}
 
-    def add_store(self, new_store: StoreAPI) -> None:
+    def create_store(self, new_store_spec):
+        backend = _DummyBackend(new_store_spec.url)
+        self.add_store(backend)
+        return backend
+
+    def add_store(self, new_store: StoreAPI) -> bool:
         self._stores[new_store.name] = new_store
+        return True
 
-    def remove_store(self, store_identifier: str) -> bool:
-        return self._stores.pop(store_identifier, None) is not None
+    def remove_store(self, store_id, *, delete_from_db: bool = False) -> bool:
+        return self._stores.pop(store_id, None) is not None
 
-    def get_store(self, store_identifier: str) -> StoreAPI:
+    def get_store(self, store_identifier) -> StoreAPI:
         return self._stores[store_identifier]
+
+    def get_store_spec_from_db(self, store_id):
+        raise NotImplementedError
 
     def iter_stores(self):
         return iter(self._stores.values())
 
+    def create_digital_asset(self, digital_asset):
+        return digital_asset
+
+    def get_digital_asset(self, digital_asset_id):
+        raise NotImplementedError
+
+    def update_digital_asset(self, digital_asset):
+        return digital_asset
+
+    def delete_digital_asset(self, digital_asset_id) -> bool:
+        return False
+
+    def iter_digital_assets(self):
+        return iter(())
+
+    def materialize_digital_asset(self, digital_asset_id, file_bytes: bytes, *, preferred_store_id=None, metadata=None):
+        raise NotImplementedError
+
+    def open_digital_asset(self, digital_asset_id, *, preferred_store_id=None):
+        raise NotImplementedError
+
+    def create_composite_digital_asset(self, composite_digital_asset):
+        return composite_digital_asset
+
+    def get_composite_digital_asset(self, composite_digital_asset_id):
+        raise NotImplementedError
+
+    def update_composite_digital_asset(self, composite_digital_asset):
+        return composite_digital_asset
+
+    def delete_composite_digital_asset(self, composite_digital_asset_id) -> bool:
+        return False
+
+    def iter_composite_digital_assets(self):
+        return iter(())
+
+    def create_asset_replica(self, asset_replica):
+        return asset_replica
+
+    def get_asset_replica(self, asset_replica_id):
+        raise NotImplementedError
+
+    def update_asset_replica(self, asset_replica):
+        return asset_replica
+
+    def delete_asset_replica(self, asset_replica_id) -> bool:
+        return False
+
+    def iter_asset_replicas(self):
+        return iter(())
+
+    def iter_digital_asset_replicas(self, digital_asset_id):
+        return iter(())
+
+    def iter_store_replicas(self, store_id):
+        return iter(())
+
+    def create_item_digital_asset_link(self, link):
+        return link
+
+    def get_item_digital_asset_link(self, digital_asset_item_link_id):
+        raise NotImplementedError
+
+    def update_item_digital_asset_link(self, link):
+        return link
+
+    def delete_item_digital_asset_link(self, digital_asset_item_link_id) -> bool:
+        return False
+
+    def iter_item_digital_asset_links(self, item_id):
+        return iter(())
+
+    def iter_digital_asset_item_links(self, digital_asset_id):
+        return iter(())
+
+    def open_item_primary_asset(self, item_id, *, preferred_store_id=None):
+        raise NotImplementedError
+
+    def create_item_composite_digital_asset_link(self, link):
+        return link
+
+    def get_item_composite_digital_asset_link(self, composite_digital_asset_item_link_id):
+        raise NotImplementedError
+
+    def update_item_composite_digital_asset_link(self, link):
+        return link
+
+    def delete_item_composite_digital_asset_link(self, composite_digital_asset_item_link_id) -> bool:
+        return False
+
+    def iter_item_composite_digital_asset_links(self, item_id):
+        return iter(())
+
+    def iter_composite_digital_asset_item_links(self, composite_digital_asset_id):
+        return iter(())
+
+    def create_composite_digital_asset_member_link(self, link):
+        return link
+
+    def get_composite_digital_asset_member_link(self, composite_digital_asset_member_link_id):
+        raise NotImplementedError
+
+    def update_composite_digital_asset_member_link(self, link):
+        return link
+
+    def delete_composite_digital_asset_member_link(self, composite_digital_asset_member_link_id) -> bool:
+        return False
+
+    def iter_composite_digital_asset_members(self, composite_digital_asset_id):
+        return iter(())
+
+    def iter_digital_asset_composites(self, digital_asset_id):
+        return iter(())
+
+    def create_replication_policy(self, policy):
+        return policy
+
+    def get_replication_policy(self, replication_policy_id):
+        raise NotImplementedError
+
+    def update_replication_policy(self, replication_policy_id, policy):
+        return policy
+
+    def iter_replication_policies(self):
+        return iter(())
+
+    def create_backup_policy(self, policy):
+        return policy
+
+    def get_backup_policy(self, backup_policy_id):
+        raise NotImplementedError
+
+    def update_backup_policy(self, backup_policy_id, policy):
+        return policy
+
+    def iter_backup_policies(self):
+        return iter(())
+
+    def set_digital_asset_policies(self, digital_asset_id, *, replication_policy_id=None, backup_policy_id=None):
+        raise NotImplementedError
+
+    def assess_replication(self, digital_asset_id):
+        raise NotImplementedError
+
+    def plan_replication(self, digital_asset_id):
+        raise NotImplementedError
+
+    # Back-compat convenience helpers retained in some tests/callers.
     def add_file(self, file_bytes: bytes, metadata=None, *, preferred_store: str | None = None):
         store_key = preferred_store or next(iter(self._stores))
         return self._stores[store_key].add_file(file_bytes=file_bytes, metadata=metadata)

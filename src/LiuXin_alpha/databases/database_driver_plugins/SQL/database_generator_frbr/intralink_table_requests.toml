@@ -61,7 +61,7 @@ Data, here, are the conversion settings (including versions - ideally producing 
 Another managed digital asset has been compressed to produce this one.
 Data, here, is the compression settings (including versions).
 
-Composite assemblies now live in `digital_asset_compositions` rather than as an intralink type.
+Composite assemblies now live in the normal interlink table between `composite_digital_assets` and `digital_assets` rather than as an intralink type.
 
 """
 

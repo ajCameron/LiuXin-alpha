@@ -365,6 +365,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                   `{0}_policy` TEXT NULL,
                   `{0}_data` TEXT NULL,
                   `{0}_index` TEXT NULL,
+                  `{0}_sequence_number` INTEGER NULL,
+                  `{0}_is_required` INTEGER DEFAULT 1,
                   `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
                   `{0}_scratch` TEXT NULL 
                   """
@@ -416,6 +418,14 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             if "index" in decrement_requested_cols:
                 link_rows_header += "\n      `{0}_index` TEXT NULL,"
                 decrement_requested_cols.remove("index")
+
+            if "sequence_number" in decrement_requested_cols:
+                link_rows_header += "\n      `{0}_sequence_number` INTEGER NULL,"
+                decrement_requested_cols.remove("sequence_number")
+
+            if "is_required" in decrement_requested_cols:
+                link_rows_header += "\n      `{0}_is_required` INTEGER DEFAULT 1,"
+                decrement_requested_cols.remove("is_required")
 
             # Any remaining requested columns are treated as bespoke TEXT columns, provided they are safe SQL identifiers.
             for extra_col in sorted(decrement_requested_cols):
@@ -693,6 +703,16 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 column_name,
             )
             full_script.append(right_index_stmt)
+
+        if requested_col_enabled("sequence_number"):
+            sequence_index_stmt = (
+                "CREATE UNIQUE INDEX IF NOT EXISTS {2}_{0}_sequence_idx ON {2}s ({2}_{0}_id, {2}_sequence_number);"
+            ).format(
+                table1_l_s,
+                table2_l_s,
+                column_name,
+            )
+            full_script.append(sequence_index_stmt)
 
         return full_script, table_name
 
@@ -1083,6 +1103,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             _add_optional("type", "TEXT NULL")
         if req == "all" or (req != "all" and "index" in req):
             _add_optional("index", "TEXT NULL")
+        if req == "all" or (req != "all" and "sequence_number" in req):
+            _add_optional("sequence_number", "INTEGER NULL")
+        if req == "all" or (req != "all" and "is_required" in req):
+            _add_optional("is_required", "INTEGER DEFAULT 1")
         if req == "all" or (req != "all" and "origin" in req):
             _add_optional("origin", "TEXT NULL")
         if req == "all" or (req != "all" and "policy" in req):

@@ -332,6 +332,12 @@ class InterlinkRowAPI(RowAPI):
     _has_index: bool = False
     index_col: str
 
+    _has_sequence_number: bool = False
+    sequence_number_col: str
+
+    _has_is_required: bool = False
+    is_required_col: str
+
     def __init__(
             self,
             database: "DatabaseAPI",
@@ -524,3 +530,31 @@ class InterlinkRowAPI(RowAPI):
             raise NoSuchPropertyForLinkException(f"{self.table} does not support index.")
 
         self.row_dict[self.index_col] = str(new_index)
+
+    @property
+    def sequence_number(self) -> int:
+        """Return the sequence number of this link."""
+        if not self._has_sequence_number:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support sequence_number.")
+        return int(self.row_dict.get(self.sequence_number_col))
+
+    @sequence_number.setter
+    def sequence_number(self, new_sequence_number: int) -> None:
+        """Set the sequence number of this link."""
+        if not self._has_sequence_number:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support sequence_number.")
+        self.row_dict[self.sequence_number_col] = int(new_sequence_number)
+
+    @property
+    def is_required(self) -> bool:
+        """Return whether this link is marked as required."""
+        if not self._has_is_required:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support is_required.")
+        return bool(self.row_dict.get(self.is_required_col))
+
+    @is_required.setter
+    def is_required(self, new_is_required: bool) -> None:
+        """Set whether this link is required."""
+        if not self._has_is_required:
+            raise NoSuchPropertyForLinkException(f"{self.table} does not support is_required.")
+        self.row_dict[self.is_required_col] = int(bool(new_is_required))

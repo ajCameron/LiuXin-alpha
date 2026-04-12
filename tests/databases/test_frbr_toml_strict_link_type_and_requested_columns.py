@@ -28,6 +28,10 @@ def _copy_frbr_resources(tmp_root: pathlib.Path) -> pathlib.Path:
     return tmp_root
 
 
+def _without_main_triggers(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(frbr_gen, "get_trigger_sql_files", lambda: [], raising=True)
+
+
 def test_interlink_unknown_link_type_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
     root = _copy_frbr_resources(tmp_path / "frbr_specs_bad_link_type")
     toml_path = root / "interlink_table_requests.toml"
@@ -43,6 +47,7 @@ def test_interlink_unknown_link_type_fails(monkeypatch: pytest.MonkeyPatch, tmp_
     toml_path.write_text(toml_text, encoding="utf-8")
 
     monkeypatch.setattr(frbr_gen, "__folder__", str(root), raising=True)
+    _without_main_triggers(monkeypatch)
 
     conn = sqlite3.connect(":memory:")
     try:
@@ -70,6 +75,7 @@ def test_non_exclusive_requires_type_when_requested_columns_provided(
     toml_path.write_text(toml_text, encoding="utf-8")
 
     monkeypatch.setattr(frbr_gen, "__folder__", str(root), raising=True)
+    _without_main_triggers(monkeypatch)
 
     conn = sqlite3.connect(":memory:")
     try:
@@ -95,6 +101,7 @@ def test_interlink_unknown_requested_column_fails(monkeypatch: pytest.MonkeyPatc
     toml_path.write_text(toml_text, encoding="utf-8")
 
     monkeypatch.setattr(frbr_gen, "__folder__", str(root), raising=True)
+    _without_main_triggers(monkeypatch)
 
     conn = sqlite3.connect(":memory:")
     try:
@@ -118,6 +125,7 @@ def test_intralink_unknown_requested_column_fails(monkeypatch: pytest.MonkeyPatc
     toml_path.write_text(toml_text, encoding="utf-8")
 
     monkeypatch.setattr(frbr_gen, "__folder__", str(root), raising=True)
+    _without_main_triggers(monkeypatch)
 
     conn = sqlite3.connect(":memory:")
     try:

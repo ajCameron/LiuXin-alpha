@@ -1,4 +1,4 @@
-"""Composite digital asset membership methods for the storage manager."""
+"""Composite digital asset membership link methods for the storage manager."""
 
 from __future__ import annotations
 
@@ -7,42 +7,51 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.storage.api.info_containers_api import DigitalAssetCompositionMemberRecord
-    from LiuXin_alpha.storage.storage_types import DigitalAssetCompositionID, DigitalAssetID
+    from LiuXin_alpha.storage.api.info_containers_api import CompositeDigitalAssetMemberLinkRecord
+    from LiuXin_alpha.storage.storage_types import CompositeDigitalAssetID, CompositeDigitalAssetMemberLinkID, DigitalAssetID
 
 
-class DigitalAssetCompositionsManagerAPI(abc.ABC):
-    """Access and update ordered membership inside composite digital assets."""
+class CompositeDigitalAssetMembersManagerAPI(abc.ABC):
+    """Access and update ordered membership links inside composite digital assets."""
 
     @abc.abstractmethod
-    def create_digital_asset_composition_member(
+    def create_composite_digital_asset_member_link(
         self,
-        member: "DigitalAssetCompositionMemberRecord",
-    ) -> "DigitalAssetCompositionMemberRecord":
+        link: "CompositeDigitalAssetMemberLinkRecord",
+    ) -> "CompositeDigitalAssetMemberLinkRecord":
         ...
 
     @abc.abstractmethod
-    def get_digital_asset_composition_member(
+    def get_composite_digital_asset_member_link(
         self,
-        digital_asset_composition_id: "DigitalAssetCompositionID",
-    ) -> "DigitalAssetCompositionMemberRecord":
+        composite_digital_asset_member_link_id: "CompositeDigitalAssetMemberLinkID",
+    ) -> "CompositeDigitalAssetMemberLinkRecord":
         ...
 
     @abc.abstractmethod
-    def update_digital_asset_composition_member(
+    def update_composite_digital_asset_member_link(
         self,
-        member: "DigitalAssetCompositionMemberRecord",
-    ) -> "DigitalAssetCompositionMemberRecord":
+        link: "CompositeDigitalAssetMemberLinkRecord",
+    ) -> "CompositeDigitalAssetMemberLinkRecord":
         ...
 
     @abc.abstractmethod
-    def delete_digital_asset_composition_member(self, digital_asset_composition_id: "DigitalAssetCompositionID") -> bool:
+    def delete_composite_digital_asset_member_link(
+        self,
+        composite_digital_asset_member_link_id: "CompositeDigitalAssetMemberLinkID",
+    ) -> bool:
         ...
 
     @abc.abstractmethod
-    def iter_digital_asset_members(self, parent_digital_asset_id: "DigitalAssetID") -> Iterator["DigitalAssetCompositionMemberRecord"]:
+    def iter_composite_digital_asset_members(
+        self,
+        composite_digital_asset_id: "CompositeDigitalAssetID",
+    ) -> Iterator["CompositeDigitalAssetMemberLinkRecord"]:
         ...
 
     @abc.abstractmethod
-    def iter_digital_asset_parents(self, member_digital_asset_id: "DigitalAssetID") -> Iterator["DigitalAssetCompositionMemberRecord"]:
+    def iter_digital_asset_composites(
+        self,
+        digital_asset_id: "DigitalAssetID",
+    ) -> Iterator["CompositeDigitalAssetMemberLinkRecord"]:
         ...

@@ -581,11 +581,49 @@ types = [
   "caption_track",
 ]
 rationale = """
-Items are assigned managed digital assets.
+Items are assigned atomic managed digital assets.
 This is the point where item-level bibliographic identity meets durable storage-managed payloads.
+"""
 
-The link `type` captures the semantic role of the asset for this specific item.
-This keeps semantic attachment rules out of the `digital_assets` table itself.
+[[interlinks]]
+left_table = "composite_digital_assets"
+right_table = "items"
+link_type = "many_to_many"
+requested_columns = ["priority", "type", "origin", "primary"]
+nullable = true
+types = [
+  "primary_payload",
+  "supplement",
+  "source_archive",
+  "derived_output",
+  "transcript",
+  "caption_track",
+]
+rationale = """
+Items may also be assigned composite digital assets.
+This allows one item to point at a multipart assembly such as an audiobook split across many files.
+"""
+
+[[interlinks]]
+left_table = "composite_digital_assets"
+right_table = "digital_assets"
+link_type = "many_to_many"
+requested_columns = ["type", "origin", "sequence_number", "is_required"]
+nullable = true
+types = [
+  "member",
+  "chapter",
+  "track",
+  "disc_member",
+  "part",
+]
+rationale = """
+Composite digital assets are assembled from one or more atomic digital assets.
+This uses the normal link-table machinery rather than a bespoke membership table.
+
+ - sequence_number orders the members inside the composite
+ - is_required marks whether a given member is mandatory for the composite to be usable
+ - type captures the semantic role of the member inside the composite
 """
 
 [[interlinks]]
