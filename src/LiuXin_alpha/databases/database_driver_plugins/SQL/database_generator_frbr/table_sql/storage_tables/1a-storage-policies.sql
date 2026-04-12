@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS `replication_policies` (
   CONSTRAINT `replication_policy_mode_check` CHECK (`replication_policy_mode` IN ('active','backup','archive'))
 );
 
+-- BREAK
+-- BREAK
+
 CREATE INDEX IF NOT EXISTS `idx_replication_policies_name`
 ON `replication_policies` (`replication_policy_name`);
 
@@ -78,5 +81,10 @@ CREATE TABLE IF NOT EXISTS `backup_policies` (
   CONSTRAINT `backup_policy_mode_check` CHECK (`backup_policy_mode` IN ('backup','archive'))
 );
 
+-- BREAK
+-- BREAK
+
 CREATE INDEX IF NOT EXISTS `idx_backup_policies_name`
 ON `backup_policies` (`backup_policy_name`);
+
+-- BREAK

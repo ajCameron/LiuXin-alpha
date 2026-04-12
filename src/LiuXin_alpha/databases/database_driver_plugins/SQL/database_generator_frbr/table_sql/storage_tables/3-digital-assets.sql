@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS `asset_replicas` (
   `asset_replica_folder_id` INTEGER NULL,
 
   `asset_replica_storage_key` TEXT NULL,
+  `asset_replica_mode` TEXT NOT NULL DEFAULT 'active',
 
   `asset_replica_name` TEXT NULL,
   `asset_replica_base_name` TEXT NULL,
@@ -165,7 +166,10 @@ CREATE TABLE IF NOT EXISTS `asset_replicas` (
     FOREIGN KEY (`asset_replica_folder_id`)
     REFERENCES `folders` (`folder_id`)
     ON DELETE SET NULL
-    ON UPDATE CASCADE
+    ON UPDATE CASCADE,
+
+  CONSTRAINT `asset_replica_mode_check`
+    CHECK (`asset_replica_mode` IN ('active', 'backup', 'archive'))
 );
 
 -- BREAK
@@ -183,8 +187,20 @@ ON `asset_replicas` (`asset_replica_digital_asset_id`);
 -- BREAK
 -- BREAK
 
+CREATE INDEX IF NOT EXISTS `idx_asset_replicas_store_id`
+ON `asset_replicas` (`asset_replica_store_id`);
+
+-- BREAK
+-- BREAK
+
 CREATE INDEX IF NOT EXISTS `idx_asset_replicas_folder_id`
 ON `asset_replicas` (`asset_replica_folder_id`);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_asset_replicas_mode`
+ON `asset_replicas` (`asset_replica_mode`);
 
 -- BREAK
 -- BREAK
@@ -246,5 +262,11 @@ ON `digital_asset_compositions` (`digital_asset_composition_parent_asset_id`, `d
 
 CREATE UNIQUE INDEX IF NOT EXISTS `idx_digital_asset_compositions_parent_sequence`
 ON `digital_asset_compositions` (`digital_asset_composition_parent_asset_id`, `digital_asset_composition_sequence_number`);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_digital_asset_compositions_member_asset_id`
+ON `digital_asset_compositions` (`digital_asset_composition_member_asset_id`);
 
 -- BREAK

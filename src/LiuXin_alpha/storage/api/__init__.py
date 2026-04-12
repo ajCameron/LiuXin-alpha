@@ -11,10 +11,10 @@ from LiuXin_alpha.storage.api.info_containers_api import (
     DigitalAssetRecord,
     DigitalAssetReplicationCluster,
     DigitalAssetRow,
-    FixedTableStorageRow,
     ItemDigitalAssetLinkRecord,
     ItemDigitalAssetLinkRow,
 )
+from LiuXin_alpha.databases.row import FixedTableStorageRow
 from LiuXin_alpha.storage.api.location_api import (
     AsyncNativePretendSyncLocation,
     FileDescriptorOrPath,
@@ -64,7 +64,6 @@ __all__ = [
     "FileDescriptorOrPath",
     "FileOpenerTypeMixin",
     "FileStatus",
-    "FixedTableStorageRow",
     "ItemDigitalAssetLinkRecord",
     "ItemDigitalAssetLinkRow",
     "OpenBinaryMode",

@@ -115,3 +115,80 @@ Important invariants now enforced in SQL/triggers include:
 - link tables carry semantic attachment roles
 - composition is explicit
 - derivation is separate
+
+
+## Replica modes and why they exist
+
+Not every replica is meant to count the same way.
+The schema therefore needs an explicit replica mode on each physical copy.
+A replica should not just answer “where does this asset exist?”, but also “what kind of copy is this meant to be?”.
+
+Typical modes are:
+
+- `active` — a live readable copy that may satisfy normal reads
+- `backup` — a recoverable copy that counts toward backup policy but is not preferred for normal reads
+- `archive` — a cold or deep-archive copy, such as tape
+- `cache` — a transient convenience copy that should not count toward durable policy
+- `transient` — a short-lived work copy created by an operation
+- `unmanaged` — an observed copy that exists but is not yet policy-managed
+
+This matters because the same store may be suitable for some modes and not others.
+For example:
+
+- a local SSD cache store may support `active` and `cache`, but not `archive`
+- a tape store may support `archive`, but not `active`
+- a slow read-only mirror may support `backup` or `archive`, but not `active`
+
+The database should therefore track both:
+
+- the mode of each `asset_replica`
+- which replica modes each `store` can support
+
+A practical field name for the store side is something like `store_supported_replica_modes_json`.
+That can later be normalized if it starts to hurt, but it is enough to express “this store can hold archive copies but should never be selected for live replicas”.
+
+## Policy inheritance and defaults
+
+Direct policy assignment on `digital_assets` is useful, but not sufficient on its own.
+The database also needs a durable notion of default policy at the storage-location level.
+
+The likely first step is explicit foreign keys such as:
+
+- `stores.store_default_replication_policy_id`
+- `stores.store_default_backup_policy_id`
+- `folders.folder_default_replication_policy_id`
+- `folders.folder_default_backup_policy_id`
+
+This makes policy resolution legible and queryable.
+It is better than scattering important defaults only through code or opaque JSON blobs.
+
+A useful rule of thumb is:
+
+- policy rows describe desired state
+- default-policy foreign keys describe where that policy comes from when an asset has no explicit override
+- replica rows describe what physical copies actually exist now
+
+## Composite and atomic asset rules
+
+Composite assets are logical assemblies, not directly replicated byte objects.
+The database should therefore enforce a few hard rules:
+
+- only `atomic` digital assets may have `asset_replicas`
+- composition parents must be `composite`
+- composition members must be `atomic` unless a later use-case genuinely needs nested composites
+- composition graphs must not contain cycles
+
+This keeps multipart payloads clean.
+For example, a multi-file audiobook can be represented as one composite digital asset whose ordered members are atomic MP3 assets.
+The tape copy, SSD copy, and NAS copy then live on the member assets, not on the composite row itself.
+
+## Useful indexes
+
+The new shape also implies a few practical indexes:
+
+- index `asset_replicas` by `digital_asset_id`
+- index `asset_replicas` by `store_id`
+- index `digital_asset_compositions` by `member_asset_id` for reverse lookups
+- keep `parent + sequence_number` indexed for ordered multipart traversal
+
+These are not glamorous, but they matter once repair, reconciliation, or reverse-membership queries start happening at scale.

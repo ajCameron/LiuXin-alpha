@@ -569,6 +569,14 @@ Series tree table, including nested/parent series.
 
 ## Storage tables
 ### `stores`
+
+- `store_failure_domain`: groups stores that fail together; replication should spread copies across different failure domains when required.
+- `store_region`: broad geographic or logical region used for placement policy.
+- `store_tags_json`: free-form tags used by policy resolution to prefer or exclude stores.
+- `store_supported_replica_modes_json`: which replica modes this store can satisfy, e.g. `active`, `backup`, `archive`, `cache`. This stops tape or cache stores being counted for the wrong policy purpose.
+- `store_default_replication_policy_id`: default live-copy policy for assets placed here when no more specific override exists.
+- `store_default_backup_policy_id`: default backup/archive policy for assets placed here when no more specific override exists.
+
 Logical storage backends such as filesystems, NAS, tape, HTTP, or rclone targets.
 | Field | Type | Purpose |
 |---|---|---|
@@ -711,6 +719,8 @@ Storage-managed digital payloads; atomic assets hold bytes, composite assets hol
 | `digital_asset_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
 
 ### `asset_replicas`
+
+- `asset_replica_mode`: what kind of copy this is. Expected values include `active`, `backup`, `archive`, `cache`, `transient`, and `unmanaged`.
 Observed physical copies of digital assets on particular stores.
 | Field | Type | Purpose |
 |---|---|---|
@@ -737,6 +747,8 @@ Observed physical copies of digital assets on particular stores.
 | `asset_replica_scratch` | `TEXT` | Scratch/debug/import-workspace field; not intended for stable semantics. |
 
 ### `digital_asset_compositions`
+
+This table should also be indexed for reverse lookup by member asset so the system can answer “what composites include this member?”.
 Ordered membership links for composite digital assets.
 | Field | Type | Purpose |
 |---|---|---|

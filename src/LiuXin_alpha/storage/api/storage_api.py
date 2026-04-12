@@ -39,6 +39,13 @@ class StoreSpec:
     store_region: Optional[str] = None
     store_tags: tuple[str, ...] = ()
 
+    store_default_replication_policy_id: Optional[int] = None
+    store_default_backup_policy_id: Optional[int] = None
+
+    store_supports_active_replica_mode: bool = True
+    store_supports_backup_replica_mode: bool = True
+    store_supports_archive_replica_mode: bool = True
+
     store_is_read_only: bool = False
     store_supports_folders: bool = True
     store_policy_json: Optional[str] = None

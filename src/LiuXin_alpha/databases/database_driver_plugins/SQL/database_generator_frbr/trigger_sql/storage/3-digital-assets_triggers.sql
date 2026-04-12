@@ -1,4 +1,3 @@
--- BREAK
 
 -- =====================================================
 -- asset_replicas: path / store / asset-kind invariants
@@ -32,8 +31,6 @@ BEGIN
   END;
 END;
 
--- BREAK
--- BREAK
 
 CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_folder_must_match_store`
 BEFORE INSERT ON `asset_replicas`
@@ -55,8 +52,6 @@ BEGIN
   END;
 END;
 
--- BREAK
--- BREAK
 
 CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_atomic_assets_only`
 BEFORE INSERT ON `asset_replicas`
@@ -78,8 +73,41 @@ BEGIN
   END;
 END;
 
--- BREAK
--- BREAK
+
+CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_mode_supported_by_store`
+BEFORE INSERT ON `asset_replicas`
+WHEN NEW.`asset_replica_store_id` IS NOT NULL
+BEGIN
+  SELECT CASE
+    WHEN NEW.`asset_replica_mode` = 'active'
+      AND COALESCE((SELECT `store_supports_active_replica_mode` FROM `stores` WHERE `store_id` = NEW.`asset_replica_store_id`), 0) != 1
+    THEN RAISE(ABORT, 'asset_replicas.asset_replica_mode=active is not supported by the target store')
+    WHEN NEW.`asset_replica_mode` = 'backup'
+      AND COALESCE((SELECT `store_supports_backup_replica_mode` FROM `stores` WHERE `store_id` = NEW.`asset_replica_store_id`), 0) != 1
+    THEN RAISE(ABORT, 'asset_replicas.asset_replica_mode=backup is not supported by the target store')
+    WHEN NEW.`asset_replica_mode` = 'archive'
+      AND COALESCE((SELECT `store_supports_archive_replica_mode` FROM `stores` WHERE `store_id` = NEW.`asset_replica_store_id`), 0) != 1
+    THEN RAISE(ABORT, 'asset_replicas.asset_replica_mode=archive is not supported by the target store')
+  END;
+END;
+
+CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_mode_supported_by_store_upd`
+BEFORE UPDATE OF `asset_replica_mode`, `asset_replica_store_id` ON `asset_replicas`
+WHEN NEW.`asset_replica_store_id` IS NOT NULL
+BEGIN
+  SELECT CASE
+    WHEN NEW.`asset_replica_mode` = 'active'
+      AND COALESCE((SELECT `store_supports_active_replica_mode` FROM `stores` WHERE `store_id` = NEW.`asset_replica_store_id`), 0) != 1
+    THEN RAISE(ABORT, 'asset_replicas.asset_replica_mode=active is not supported by the target store')
+    WHEN NEW.`asset_replica_mode` = 'backup'
+      AND COALESCE((SELECT `store_supports_backup_replica_mode` FROM `stores` WHERE `store_id` = NEW.`asset_replica_store_id`), 0) != 1
+    THEN RAISE(ABORT, 'asset_replicas.asset_replica_mode=backup is not supported by the target store')
+    WHEN NEW.`asset_replica_mode` = 'archive'
+      AND COALESCE((SELECT `store_supports_archive_replica_mode` FROM `stores` WHERE `store_id` = NEW.`asset_replica_store_id`), 0) != 1
+    THEN RAISE(ABORT, 'asset_replicas.asset_replica_mode=archive is not supported by the target store')
+  END;
+END;
+
 
 CREATE TRIGGER IF NOT EXISTS `trg_digital_asset_compositions_parent_must_be_composite`
 BEFORE INSERT ON `digital_asset_compositions`
@@ -101,8 +129,6 @@ BEGIN
   END;
 END;
 
--- BREAK
--- BREAK
 
 CREATE TRIGGER IF NOT EXISTS `trg_digital_asset_compositions_no_cycles`
 BEFORE INSERT ON `digital_asset_compositions`

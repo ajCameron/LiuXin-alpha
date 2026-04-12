@@ -174,3 +174,62 @@ Composite payloads use `digital_asset_compositions`.
 Semantic roles such as `primary_payload` and `cover` live on the item<->digital_asset link, not on the asset row itself.
 
 Replication and backup policy are now first-class tables and can be assigned directly to digital assets.
+
+
+## Replica modes and store suitability
+
+The storage schema now distinguishes between the *kind* of copy a replica is and the *kind* of copies a store can legitimately hold.
+This is important because not all stores are suitable for all policy goals.
+
+Examples:
+
+- a fast local SSD may be suitable for `active` and `cache` replicas
+- a network mirror may be suitable for `backup`, but poor for `active`
+- tape may be suitable for `archive`, but not for `active`
+
+This means a storage policy is not just “how many copies should exist?”.
+It is also “how many copies of which mode should exist, and on what kinds of stores?”.
+
+In practice, this means the database needs to know two separate things:
+
+- each `asset_replica` has a replica mode such as `active`, `backup`, `archive`, `cache`, `transient`, or `unmanaged`
+- each `store` advertises which replica modes it supports
+
+A replica only counts toward a policy if its mode and its store both make sense for that policy.
+A tape copy may satisfy an archive requirement without satisfying a live-read replication requirement.
+A transient local work copy should not silently count as durable backup.
+
+## Policy resolution
+
+Storage policy resolution now has three layers:
+
+- explicit policy on the `digital_asset`
+- default policy on the enclosing storage location (`folder`, then `store`)
+- global fallback policy
+
+This is meant to keep the desired-state model queryable and durable in the database, rather than hiding important decisions in Python alone.
+
+## Atomic assets, composite assets, and replicas
+
+The storage model distinguishes between:
+
+- atomic digital assets — one directly replicated byte-bearing payload
+- composite digital assets — one logical multipart payload assembled from ordered members
+
+Replicas belong to atomic assets.
+Composite assets are resolved by following composition membership to their members.
+This is what lets a multi-file audiobook be treated as one library-facing thing while still allowing each MP3 to be hashed, replicated, verified, and healed independently.
+
+## What storage should count as success
+
+A healthy storage system must be able to answer more than “is there a file somewhere?”.
+It should be able to answer:
+
+- is there at least one readable active copy?
+- does the asset meet its replication floor?
+- does it meet its backup/archive expectations?
+- are the existing copies on stores that are actually suitable for their intended mode?
+- are composite members complete and ordered?
+
+That is the practical reason the schema now separates items, digital assets, replicas, composition, and policy.
+It lets storage reason about physical reality without dragging library meaning down into backend mechanics.
