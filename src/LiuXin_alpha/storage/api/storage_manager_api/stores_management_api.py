@@ -5,7 +5,7 @@ import abc
 from typing import TYPE_CHECKING, Iterator
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.storage.api.storage_api import StoreAPI, StoreSpec
+    from LiuXin_alpha.storage.api import StoreAPI, StoreSpec
     from LiuXin_alpha.storage.storage_types import StoreID
 
 

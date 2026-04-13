@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.storage.api.info_containers_api import CompositeDigitalAssetRecord
+    from LiuXin_alpha.storage.api.info_containers_api import CompositeDigitalAssetRow
     from LiuXin_alpha.storage.storage_types import CompositeDigitalAssetID
 
 
@@ -17,22 +17,22 @@ class CompositeDigitalAssetsManagerAPI(abc.ABC):
     @abc.abstractmethod
     def create_composite_digital_asset(
         self,
-        composite_digital_asset: "CompositeDigitalAssetRecord",
-    ) -> "CompositeDigitalAssetRecord":
+        composite_digital_asset: "CompositeDigitalAssetRow",
+    ) -> "CompositeDigitalAssetRow":
         ...
 
     @abc.abstractmethod
     def get_composite_digital_asset(
         self,
         composite_digital_asset_id: "CompositeDigitalAssetID",
-    ) -> "CompositeDigitalAssetRecord":
+    ) -> "CompositeDigitalAssetRow":
         ...
 
     @abc.abstractmethod
     def update_composite_digital_asset(
         self,
-        composite_digital_asset: "CompositeDigitalAssetRecord",
-    ) -> "CompositeDigitalAssetRecord":
+        composite_digital_asset: "CompositeDigitalAssetRow",
+    ) -> "CompositeDigitalAssetRow":
         ...
 
     @abc.abstractmethod
@@ -40,5 +40,5 @@ class CompositeDigitalAssetsManagerAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def iter_composite_digital_assets(self) -> Iterator["CompositeDigitalAssetRecord"]:
+    def iter_composite_digital_assets(self) -> Iterator["CompositeDigitalAssetRow"]:
         ...

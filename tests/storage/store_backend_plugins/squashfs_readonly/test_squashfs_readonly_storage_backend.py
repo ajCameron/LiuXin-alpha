@@ -7,7 +7,7 @@ import subprocess
 
 import pytest
 
-from LiuXin_alpha.storage.api.storage_api import StoreStatus
+from LiuXin_alpha.storage.api import StoreStatus
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import (
     SquashfsReadOnlyStorageBackend,
 )

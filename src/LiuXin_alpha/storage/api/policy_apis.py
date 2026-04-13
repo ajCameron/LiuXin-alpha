@@ -69,14 +69,19 @@ class ReplicationPolicy:
 
         if self.min_copies < 1:
             raise ValueError("min_copies must be >= 1.")
+
         if target < self.min_copies:
             raise ValueError("target_copies must be >= min_copies.")
+
         if self.max_copies_per_bucket < 1:
             raise ValueError("max_copies_per_bucket must be >= 1.")
+
         if self.synchronous_write_copies < 1:
             raise ValueError("synchronous_write_copies must be >= 1.")
+
         if self.synchronous_write_copies > target:
             raise ValueError("synchronous_write_copies cannot exceed target_copies.")
+
         if not self.distinct_by:
             raise ValueError("distinct_by must contain at least one dimension.")
 
@@ -147,13 +152,21 @@ class ReplicationStatus:
     """
 
     digital_asset_identifier: Optional[str]
+
     policy_name: str
+
     present_store_identifiers: tuple[str, ...] = ()
+
     healthy_store_identifiers: tuple[str, ...] = ()
+
     copy_count: int = 0
+
     healthy_copy_count: int = 0
+
     meets_minimum: bool = False
+
     meets_target: bool = False
+
     errors: tuple[str, ...] = ()
 
 

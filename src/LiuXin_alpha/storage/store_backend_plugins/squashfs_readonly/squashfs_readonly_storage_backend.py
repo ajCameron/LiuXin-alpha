@@ -17,7 +17,7 @@ import time
 from typing import Dict, Iterator, Optional, Type
 
 from LiuXin_alpha.storage.api.file_api import SingleFileAPI
-from LiuXin_alpha.storage.api.storage_api import StoreAPI, StoreCheckStatus, StoreStatus
+from LiuXin_alpha.storage.api import StoreAPI, StoreCheckStatus, StoreStatus
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_readonly_single_file import (
     SquashfsReadOnlySingleFile,

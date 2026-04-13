@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Iterator, Optional
 
-from LiuXin_alpha.storage.api.storage_api import StoreAPI, StoreCheckStatus, StoreStatus
+from ...api import StoreAPI, StoreCheckStatus, StoreStatus
 from LiuXin_alpha.ingest.sources.wget_html import (
     WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT,
     WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,

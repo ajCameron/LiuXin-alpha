@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pathlib
 
-from LiuXin_alpha.metadata.api import WorkStorageHints
+from LiuXin_alpha.metadata.api import ItemStorageHints, WorkStorageHints
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like import (
     OnDiskCalibreLikeStorageBackend,
 )
@@ -148,3 +148,28 @@ def test_calibre_like_uses_storage_hints_when_direct_fields_absent(tmp_path) -> 
 
     assert pathlib.Path(file_obj.file_url) == expected
     assert row["file_storage_key"] == "Greg Egan/Permutation City (5)/Permutation City - Greg Egan.mobi"
+
+
+def test_calibre_like_uses_item_storage_hints_when_available(tmp_path) -> None:
+    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
+
+    class _ItemHintsOnlyMetadata:
+        def storage_hints(self) -> ItemStorageHints:
+            return ItemStorageHints(
+                item_id=44,
+                work_id=5,
+                title="Permutation City",
+                primary_agents=("Greg Egan",),
+                file_formats=("EPUB",),
+                preferred_filename_stem="Permutation City - Greg Egan",
+            )
+
+    file_obj = store.add_file(b"hints", metadata=_ItemHintsOnlyMetadata())
+    expected = (
+        tmp_path
+        / "Greg Egan"
+        / "Permutation City (5)"
+        / "Permutation City - Greg Egan.epub"
+    ).resolve()
+
+    assert pathlib.Path(file_obj.file_url) == expected

@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, Optional, Sequence, Type
 
-from LiuXin_alpha.storage.api.storage_api import StoreAPI, StoreCheckStatus, StoreStatus
+from ...api import StoreAPI, StoreCheckStatus, StoreStatus
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 from LiuXin_alpha.utils.logging.event_logs.in_memory_list import InMemoryEventLog
 

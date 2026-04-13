@@ -35,7 +35,11 @@ class StorageManagerAPI(
     StoragePoliciesManagerAPI,
     abc.ABC,
 ):
-    """Top-level user-facing storage API."""
+    """
+    Top-level user-facing storage API.
+
+    Composited of mixins to provide domain functionality.
+    """
 
     db: "DatabaseAPI"
 

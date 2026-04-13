@@ -4,7 +4,7 @@ import pathlib
 
 import pytest
 
-from LiuXin_alpha.storage.api.storage_api import StoreStatus
+from LiuXin_alpha.storage.api import StoreStatus
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive import (
     OnDiskUnmanagedStorageBackend,
 )

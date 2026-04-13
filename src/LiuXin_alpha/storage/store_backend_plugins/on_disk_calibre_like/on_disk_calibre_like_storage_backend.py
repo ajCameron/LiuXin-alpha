@@ -21,7 +21,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any, Optional, Type
 
 from LiuXin_alpha.storage.api.file_api import SingleFileAPI
-from LiuXin_alpha.storage.api.storage_api import StoreStatus
+from LiuXin_alpha.storage.api import StoreStatus
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like.on_disk_calibre_like_location import (
     OnDiskCalibreLikeStoreLocation,
 )

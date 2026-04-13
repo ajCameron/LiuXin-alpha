@@ -12,7 +12,7 @@ import threading
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
 
-from LiuXin_alpha.storage.api.storage_api import StoreAPI
+from LiuXin_alpha.storage.api import StoreAPI
 
 from os import PathLike
 from typing import (

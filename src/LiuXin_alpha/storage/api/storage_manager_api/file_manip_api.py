@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from LiuXin_alpha.metadata.api import MetadataContainerAPI
     from LiuXin_alpha.storage.api.file_api import SingleFileAPI
-    from LiuXin_alpha.storage.api.info_containers_api import AssetReplicaRecord, DigitalAssetRecord
+    from LiuXin_alpha.storage.api.info_containers_api import AssetReplicaRow, DigitalAssetRow
     from LiuXin_alpha.storage.storage_types import DigitalAssetID, ItemID, StoreID
 
 
@@ -17,15 +17,15 @@ class DigitalAssetsManagerAPI(abc.ABC):
     """CRUD and payload access for atomic managed digital assets."""
 
     @abc.abstractmethod
-    def create_digital_asset(self, digital_asset: "DigitalAssetRecord") -> "DigitalAssetRecord":
+    def create_digital_asset(self, digital_asset: "DigitalAssetRow") -> "DigitalAssetRow":
         ...
 
     @abc.abstractmethod
-    def get_digital_asset(self, digital_asset_id: "DigitalAssetID") -> "DigitalAssetRecord":
+    def get_digital_asset(self, digital_asset_id: "DigitalAssetID") -> "DigitalAssetRow":
         ...
 
     @abc.abstractmethod
-    def update_digital_asset(self, digital_asset: "DigitalAssetRecord") -> "DigitalAssetRecord":
+    def update_digital_asset(self, digital_asset: "DigitalAssetRow") -> "DigitalAssetRow":
         ...
 
     @abc.abstractmethod
@@ -33,7 +33,7 @@ class DigitalAssetsManagerAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def iter_digital_assets(self) -> Iterator["DigitalAssetRecord"]:
+    def iter_digital_assets(self) -> Iterator["DigitalAssetRow"]:
         ...
 
     @abc.abstractmethod
@@ -44,7 +44,7 @@ class DigitalAssetsManagerAPI(abc.ABC):
         *,
         preferred_store_id: Optional["StoreID"] = None,
         metadata: Optional["MetadataContainerAPI"] = None,
-    ) -> "AssetReplicaRecord":
+    ) -> "AssetReplicaRow":
         """Write bytes for one managed digital asset to a concrete store as a replica."""
 
     @abc.abstractmethod

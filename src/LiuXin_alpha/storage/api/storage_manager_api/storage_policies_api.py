@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.storage.api.info_containers_api import DigitalAssetRecord
+    from LiuXin_alpha.storage.api.info_containers_api import DigitalAssetRow
     from LiuXin_alpha.storage.api.policy_apis import (
         BackupPolicy,
         BackupPolicyRecord,
@@ -69,7 +69,7 @@ class StoragePoliciesManagerAPI(abc.ABC):
         *,
         replication_policy_id: Optional["ReplicationPolicyID"] = None,
         backup_policy_id: Optional["BackupPolicyID"] = None,
-    ) -> "DigitalAssetRecord":
+    ) -> "DigitalAssetRow":
         ...
 
     @abc.abstractmethod
