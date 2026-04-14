@@ -3,38 +3,21 @@ from __future__ import annotations
 import abc
 from typing import Union
 
-from LiuXin_alpha.storage.api import StoreLocationMixinAPI, SingleFileAPI
+from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
 
 
 class StoreBackendReadFilesAPI(abc.ABC):
+    """Read concrete files/replicas from one store."""
 
     @abc.abstractmethod
     def get_file(
-            self,
-            file_url: Union[str, "StoreLocationMixinAPI"]) -> "SingleFileAPI":
-        """
-        Get the file in the form of a single file API.
+        self,
+        file_url: Union[str, StoreLocationMixinAPI],
+    ) -> StoreLocationMixinAPI:
+        """Return a concrete location handle for one file in this store."""
 
-        :param file_url:
-        :return:
-        """
+    def get_url(self, file_url: str) -> StoreLocationMixinAPI:
+        return self.get_file(file_url)
 
-    @abc.abstractmethod
-    def get_url(self, file_url: str) -> "SingleFileAPI":
-        """
-        Return a single file from a URL.
-
-        :param file_url:
-        :return:
-        """
-
-    @abc.abstractmethod
-    def get_file_content(
-            self,
-            file_url: Union[str, "StoreLocationMixinAPI"]) -> bytes:
-        """
-        Get the contents of the file in the form of bytes.
-
-        :param file_url:
-        :return:
-        """
+    def get_replica(self, replica_url: str) -> StoreLocationMixinAPI:
+        return self.get_file(replica_url)

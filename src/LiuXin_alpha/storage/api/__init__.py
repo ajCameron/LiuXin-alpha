@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from LiuXin_alpha.storage.api.file_api import FileOpenerTypeMixin, FileStatus, SingleFileAPI
+from LiuXin_alpha.storage.api.file_api import FileOpenerTypeMixin, FileStatus
 from LiuXin_alpha.storage.api.info_containers_api import (
     AssetReplicaRow,
     AssetReplicaRow,
@@ -88,7 +88,6 @@ __all__ = [
     "ReplicationPolicy",
     "ReplicationPolicyRecord",
     "ReplicationStatus",
-    "SingleFileAPI",
     "StorageManagerAPI",
     "StoreAPI",
     "StoreCheckStatus",

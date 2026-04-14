@@ -1,9 +1,4 @@
-"""
-Compatibility import surface for store API contracts.
-
-Note - a "replica" is a replica of a digital asset in a store.
-It's a file - or thing which can act like a file.
-"""
+"""Compatibility import surface for store API contracts."""
 
 from __future__ import annotations
 
@@ -11,91 +6,49 @@ import abc
 import pprint
 from typing import Optional, Iterator, TYPE_CHECKING
 
+from LiuXin_alpha.storage.api.store_api.storage_backend_api import StoreBackendAPI
+
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
-    from LiuXin_alpha.storage.api import StoreStatus, SingleFileAPI
-    from LiuXin_alpha.storage.api.store_api.storage_backend_api import StoreBackendAPI
-    from LiuXin_alpha.storage.api.store_api.store_db_api import StoreDBAPI
+    from LiuXin_alpha.storage.api import StoreStatus
+    from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
 
 
-class StoreAPI(StoreBackendAPI, StoreDBAPI):
-    """
-    Contract for one physical/logical store.
-
-    Stores speak in terms of concrete replica objects identified by store-relative
-    storage keys. They do not resolve bibliographic identity or replication policy.
-
-    Stores are intended for stand alone and StorageManager driver operation.
-    As such, they are composed of two mixins.
-    One to handle the raw file access.
-    The other to deal with database interface.
-    """
+class StoreAPI(StoreBackendAPI):
+    """Contract for one physical/logical store."""
 
     _url: str
     _name: str
     _uuid: Optional[str]
-
-    _db: "DatabaseAPI"
+    _db: "DatabaseAPI | None"
 
     def __init__(
-            self,
-            url: str,
-            db: "DatabaseAPI",
-            name: Optional[str] = None,
-            store_uuid: Optional[str] = None,
-
+        self,
+        url: str,
+        db: "DatabaseAPI | None" = None,
+        name: Optional[str] = None,
+        uuid: Optional[str] = None,
     ) -> None:
-        """
-        Startup the store.
-
-        Optionally attaching it to a db.
-
-        :param url:
-        :param db:
-        :param name:
-        :param store_uuid:
-        """
-
         self.set_url(url)
         self._name = name if name is not None else self.url_to_name(url)
-        self._uuid = store_uuid
-
+        self._uuid = uuid
         self._db = db
 
     @abc.abstractmethod
     def url_to_name(self, url: str) -> str:
-        """
-        Generate a stable human-friendly name from a store URL.
-
-        :param url: Url to resolve - either this store, or a file
-        """
+        ...
 
     @abc.abstractmethod
     def startup(self) -> "StoreStatus":
-        """
-        Bring the store online.
-        """
+        ...
 
     @abc.abstractmethod
     def self_test(self) -> "StoreStatus":
-        """
-        Run store health checks and return a status snapshot.
-        """
+        ...
 
     @abc.abstractmethod
     def status(self) -> "StoreStatus":
-        """
-        Return current store status.
-        """
-
-    @abc.abstractmethod
-    def file_url_exists(self, file_url: str) -> bool:
-        """
-        Check whether a specific file url actually exists at the given url.
-
-        :param file_url:
-        :return:
-        """
+        ...
 
     @property
     def url(self) -> str:
@@ -125,6 +78,10 @@ class StoreAPI(StoreBackendAPI, StoreDBAPI):
         raise AttributeError("Cannot directly set the uuid of a store.")
 
     @property
+    def db(self) -> "DatabaseAPI | None":
+        return self._db
+
+    @property
     def online(self) -> bool:
         try:
             return self.status().online
@@ -141,8 +98,8 @@ class StoreAPI(StoreBackendAPI, StoreDBAPI):
     def status_str(self) -> str:
         return pprint.pformat(self.status())
 
-    def iter_replicas(self) -> Iterator["SingleFileAPI"]:
-        return iter(())
+    def iter_replicas(self) -> Iterator["StoreLocationMixinAPI"]:
+        return self.true_files()
 
-    def iter(self) -> Iterator["SingleFileAPI"]:
-        return self.iter_replicas()
+    def iter(self) -> Iterator["StoreLocationMixinAPI"]:
+        return self.true_files()

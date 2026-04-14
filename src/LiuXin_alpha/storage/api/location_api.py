@@ -29,6 +29,7 @@ from typing import (
     TYPE_CHECKING)
 
 from LiuXin_alpha.storage.api.modes_api import OpenTextMode, OpenBinaryMode, AsyncTextFile, AsyncBinaryFile
+from LiuXin_alpha.storage.single_file import SingleFileStatus
 
 if TYPE_CHECKING:
     from LiuXin_alpha.storage.api import StoreAPI
@@ -297,6 +298,67 @@ class StoreLocationMixinAPI(ABC):
 
     def __fspath__(self) -> str:
         return self.as_store_key()
+
+    @property
+    def file_url(self) -> str:
+        """Canonical backend URL/key for this concrete location."""
+        return self.as_store_key()
+
+    @property
+    def status(self) -> SingleFileStatus | None:
+        return getattr(self, "_file_status", None)
+
+    def _required_status(self, *, refresh: bool = False) -> SingleFileStatus:
+        status = getattr(self, "_file_status", None)
+        if refresh or status is None:
+            status = self.recheck_status()
+        if status is None:
+            raise AttributeError("Location has no available status for {!r}".format(self.file_url))
+        return status
+
+    def recheck_status(self) -> SingleFileStatus:
+        getter = getattr(self.store, "get_file_status", None)
+        if not callable(getter):
+            raise AttributeError("Store {!r} does not expose get_file_status().".format(self.store))
+        status = getter(self)
+        setattr(self, "_file_status", status)
+        return status
+
+    @property
+    def uuid(self) -> str | None:
+        status = getattr(self, "_file_status", None)
+        return None if status is None else status.uuid
+
+    @property
+    def cached_size(self) -> int | None:
+        status = getattr(self, "_file_status", None)
+        return None if status is None else status.size
+
+    @property
+    def cached_hash(self) -> str | None:
+        status = getattr(self, "_file_status", None)
+        return None if status is None else status.hash
+
+    @property
+    def size(self) -> int:
+        return self._required_status(refresh=True).size
+
+    @property
+    def hash(self) -> str:
+        return self._required_status(refresh=True).hash
+
+    @property
+    def url(self) -> str:
+        status = getattr(self, "_file_status", None)
+        if status is not None:
+            return status.url
+        return self.file_url
+
+    def as_bytes(self) -> bytes:
+        return self.read_bytes()
+
+    def as_string(self) -> str:
+        return self.read_bytes().decode("utf-8", "replace")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, StoreLocationMixinAPI):

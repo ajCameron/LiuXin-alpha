@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Iterator, Optional
 
-from ...api import StoreAPI, StoreCheckStatus, StoreStatus
+from ...api import StoreAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
 from LiuXin_alpha.ingest.sources.wget_html import (
     WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT,
     WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,
@@ -15,11 +15,12 @@ from LiuXin_alpha.ingest.sources.wget_html import (
 )
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
-from .wget_html_single_file import WgetHtmlReadOnlySingleFile
+from .wget_html_location import WgetHtmlReadOnlyStoreLocation
 from .wget_utils import run_wget
 
 
 class WgetHtmlReadOnlyStorageBackend(StoreAPI, WgetHtmlDiscoverySource):
+    location_cls = WgetHtmlReadOnlyStoreLocation
     """Read-only store facade for wget-discovered remote file URLs."""
 
     def __init__(
@@ -91,11 +92,45 @@ class WgetHtmlReadOnlyStorageBackend(StoreAPI, WgetHtmlDiscoverySource):
             },
         )
 
+    @property
+    def root_path(self) -> str:
+        return self.url
+
+    def location(self, *tokens: str) -> WgetHtmlReadOnlyStoreLocation:
+        return self.location_cls(*tokens, store=self)
+
+    def _location_from_url(self, file_url: str | StoreLocationMixinAPI) -> WgetHtmlReadOnlyStoreLocation:
+        if isinstance(file_url, StoreLocationMixinAPI):
+            if file_url.store is self:
+                return file_url
+            file_url = file_url.file_url
+        url = str(file_url).strip()
+        base = self.url.rstrip("/") + "/"
+        if url.startswith(base):
+            rel = url[len(base):]
+            return self.location(*[part for part in rel.split("/") if part])
+        return self.location(*[part for part in url.split("/") if part])
+
     def status(self) -> StoreStatus:
         return self.self_test()
 
-    def get_file(self, file_url: str) -> WgetHtmlReadOnlySingleFile:
-        return WgetHtmlReadOnlySingleFile(file_url=str(file_url), store=self, exists_hint=True)
+    def file_size(self, file_url: str | StoreLocationMixinAPI) -> int | None:
+        if self.file_exists(file_url):
+            return 0
+        return None
+
+    def get_file_status(self, file_url: str | StoreLocationMixinAPI):
+        from LiuXin_alpha.storage.single_file import SingleFileStatus
+        url = self._location_from_url(file_url).as_store_key()
+        return SingleFileStatus(
+            url=url,
+            check_exists_function=lambda _url: bool(self.file_exists(url)),
+            check_size_function=lambda _url: 0,
+            check_hash_function=lambda _url: "",
+        )
+
+    def get_file(self, file_url: str | StoreLocationMixinAPI) -> WgetHtmlReadOnlyStoreLocation:
+        return self._location_from_url(file_url)
 
     def add_file(self, *args, **kwargs):
         raise PermissionError("Wget HTML backend is read-only")
@@ -103,11 +138,11 @@ class WgetHtmlReadOnlyStorageBackend(StoreAPI, WgetHtmlDiscoverySource):
     def delete_file(self, *args, **kwargs):
         raise PermissionError("Wget HTML backend is read-only")
 
-    def true_files(self) -> Iterator[WgetHtmlReadOnlySingleFile]:
+    def true_files(self) -> Iterator[WgetHtmlReadOnlyStoreLocation]:
         for url in self.discover_urls(force=False):
             yield self.get_file(url)
 
-    def iter(self) -> Iterator[WgetHtmlReadOnlySingleFile]:
+    def iter(self) -> Iterator[WgetHtmlReadOnlyStoreLocation]:
         return self.true_files()
 
 

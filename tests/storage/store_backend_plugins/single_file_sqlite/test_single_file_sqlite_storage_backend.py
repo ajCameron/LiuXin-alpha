@@ -31,7 +31,7 @@ def test_single_file_sqlite_add_get_and_delete_roundtrip(tmp_path: pathlib.Path)
     assert store.file_exists(file_one.file_url) is True
     assert file_one.as_bytes() == payload
     assert file_one.as_string() == payload.decode("utf-8")
-    assert file_one.store == store.name
+    assert file_one.store is store
 
     assert store.delete_file(file_one.file_url) is True
     assert store.file_exists(file_one.file_url) is False

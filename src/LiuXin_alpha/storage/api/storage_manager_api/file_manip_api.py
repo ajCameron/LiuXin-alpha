@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from LiuXin_alpha.metadata.api import MetadataContainerAPI
-    from LiuXin_alpha.storage.api.file_api import SingleFileAPI
+    from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
     from LiuXin_alpha.storage.api.info_containers_api import AssetReplicaRow, DigitalAssetRow
     from LiuXin_alpha.storage.storage_types import DigitalAssetID, ItemID, StoreID
 
@@ -53,7 +53,7 @@ class DigitalAssetsManagerAPI(abc.ABC):
         digital_asset_id: "DigitalAssetID",
         *,
         preferred_store_id: Optional["StoreID"] = None,
-    ) -> "SingleFileAPI":
+    ) -> "StoreLocationMixinAPI":
         ...
 
     @abc.abstractmethod
@@ -62,5 +62,5 @@ class DigitalAssetsManagerAPI(abc.ABC):
         item_id: "ItemID",
         *,
         preferred_store_id: Optional["StoreID"] = None,
-    ) -> "SingleFileAPI":
+    ) -> "StoreLocationMixinAPI":
         ...

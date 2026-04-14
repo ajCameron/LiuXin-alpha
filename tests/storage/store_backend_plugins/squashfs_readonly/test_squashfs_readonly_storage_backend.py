@@ -56,7 +56,7 @@ def test_squashfs_readonly_file_lookup_and_read(tmp_path: pathlib.Path) -> None:
     assert store.file_exists("missing.txt") is False
 
     file_obj = store.get_file(canonical)
-    assert file_obj.store == store.name
+    assert file_obj.store is store
     assert file_obj.as_bytes() == b"EPUB-DATA"
 
 

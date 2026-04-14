@@ -20,13 +20,9 @@ import uuid
 from collections.abc import Iterable, Mapping
 from typing import Any, Optional, Type
 
-from LiuXin_alpha.storage.api.file_api import SingleFileAPI
 from LiuXin_alpha.storage.api import StoreStatus
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like.on_disk_calibre_like_location import (
     OnDiskCalibreLikeStoreLocation,
-)
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like.on_disk_calibre_like_single_file import (
-    OnDiskCalibreLikeSingleFile,
 )
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_storage_backend import (
     OnDiskExistingManagedStorageBackend,
@@ -60,7 +56,6 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
     """
 
     location_cls: Type[OnDiskCalibreLikeStoreLocation] = OnDiskCalibreLikeStoreLocation
-    single_file_cls: Type[OnDiskCalibreLikeSingleFile] = OnDiskCalibreLikeSingleFile
 
     _sanitize_re = re.compile(r'[<>:"/\\|?*]+')
     _control_char_re = re.compile(r"[\x00-\x1f]+")
@@ -103,7 +98,7 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
             status.details["store_id"] = self._store_id
         return status
 
-    def add_file(self, file_bytes: bytes, *, metadata=None) -> SingleFileAPI:
+    def add_file(self, file_bytes: bytes, *, metadata=None) -> OnDiskCalibreLikeStoreLocation:
         placement = self._extract_placement_metadata(metadata)
 
         relative_dir = pathlib.Path(placement.author_component) / placement.book_folder_name

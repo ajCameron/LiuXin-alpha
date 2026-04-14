@@ -29,7 +29,7 @@ def test_on_disk_existing_managed_add_file_and_get_file(tmp_path: pathlib.Path) 
     assert pathlib.Path(file_one.file_url).exists() is True
     assert file_one.as_bytes() == payload
     assert file_one.as_string() == payload.decode("utf-8")
-    assert file_one.store == store.name
+    assert file_one.store is store
 
 
 def test_on_disk_existing_managed_delete_file(tmp_path: pathlib.Path) -> None:

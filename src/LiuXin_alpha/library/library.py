@@ -23,7 +23,7 @@ from LiuXin_alpha.ingest import (
 )
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
 from LiuXin_alpha.metadata.containers import ItemMetadataContainer, ItemMetadataHydrator
-from LiuXin_alpha.storage.api import SingleFileAPI, StoreAPI
+from LiuXin_alpha.storage.api import StoreAPI, StoreLocationMixinAPI
 from LiuXin_alpha.storage.reconcile import (
     SquashfsArchivePublishReport,
     SquashfsDesignationReport,
@@ -391,7 +391,7 @@ class Library:
         metadata: Optional[MetadataContainerAPI] = None,
         *,
         preferred_store: Optional[str] = None,
-    ) -> SingleFileAPI:
+    ) -> StoreLocationMixinAPI:
         return self.storage.add_file(file_bytes=file_bytes, metadata=metadata, preferred_store=preferred_store)
 
     def retrieve_file(
@@ -400,18 +400,18 @@ class Library:
         metadata: Optional[MetadataContainerAPI] = None,
         *,
         preferred_store: Optional[str] = None,
-    ) -> SingleFileAPI:
+    ) -> StoreLocationMixinAPI:
         return self.storage.retrieve_file(file_url=file_url, metadata=metadata, preferred_store=preferred_store)
 
     def delete_file(
         self,
         file_url: Optional[str] = None,
         metadata: Optional[MetadataContainerAPI] = None,
-        file_container: Optional[SingleFileAPI] = None,
+        file_container: Optional[StoreLocationMixinAPI] = None,
     ) -> bool:
         return self.storage.delete_file(file_url=file_url, metadata=metadata, file_container=file_container)
 
-    def iter_files(self) -> Iterator[SingleFileAPI]:
+    def iter_files(self) -> Iterator[StoreLocationMixinAPI]:
         return self.storage.iter()
 
     def register_unmanaged_disk(

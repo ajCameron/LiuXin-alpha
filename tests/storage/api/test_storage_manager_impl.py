@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import os
 
 from dataclasses import dataclass
@@ -7,38 +8,89 @@ from typing import Optional
 
 import pytest
 
-from LiuXin_alpha.storage.api import SingleFileAPI, StoreAPI, StoreCheckStatus, StoreStatus
+from LiuXin_alpha.storage.api import StoreAPI, StoreCheckStatus, StoreStatus, SyncNativePretendAsyncLocation
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 from LiuXin_alpha.storage.store_manager import StorageManager
 
 
-class _DummyFile(SingleFileAPI):
-    def __init__(self, file_url: str, payload: bytes, *, store: Optional[str]) -> None:
-        super().__init__(file_url=file_url, file_status=None, store=store)
+class _DummyLocation(SyncNativePretendAsyncLocation):
+    def __init__(self, key: str, *, store, payload: bytes) -> None:
         self._payload = payload
+        rel = key
+        prefix = store.url.rstrip("/") + "/"
+        if rel.startswith(prefix):
+            rel = rel[len(prefix):]
+        super().__init__(*[part for part in rel.split("/") if part], store=store)
 
-    def recheck_status(self) -> SingleFileStatus:
+    def as_store_key(self) -> str:
+        rel = self.as_posix()
+        return self.store.url.rstrip("/") + ("/" + rel if rel else "")
+
+    def _status(self) -> SingleFileStatus:
         size = len(self._payload)
-        self.file_status = SingleFileStatus(
-            url=self.file_url,
+        return SingleFileStatus(
+            url=self.as_store_key(),
             exists=True,
             size=size,
-            file_hash="size-{}".format(size),
+            file_hash=f"size-{size}",
             check_exists_function=lambda _url: True,
             check_size_function=lambda _url: size,
-            check_hash_function=lambda _url: "size-{}".format(size),
+            check_hash_function=lambda _url: f"size-{size}",
         )
-        return self.file_status
 
-    def as_string(self) -> str:
-        return self._payload.decode("utf-8")
+    def recheck_status(self) -> SingleFileStatus:
+        status = self._status()
+        setattr(self, "_file_status", status)
+        return status
 
-    def as_bytes(self) -> bytes:
-        return self._payload
+    def exists(self) -> bool:
+        return True
+
+    def is_file(self) -> bool:
+        return True
+
+    def is_dir(self) -> bool:
+        return False
+
+    def stat(self):
+        raise NotImplementedError
+
+    def mkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        raise PermissionError
+
+    def unlink(self, missing_ok: bool = False) -> None:
+        raise PermissionError
+
+    def rmdir(self) -> None:
+        raise PermissionError
+
+    def rename(self, target):
+        raise PermissionError
+
+    def replace(self, target):
+        raise PermissionError
+
+    def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
+        raise PermissionError
+
+    def iterdir(self):
+        return iter(())
+
+    def glob(self, pattern: str):
+        return iter(())
+
+    def rglob(self, pattern: str):
+        return iter(())
+
+    def open(self, mode: str = "r", buffering: int = -1, encoding: str | None = None, errors: str | None = None, newline: str | None = None):
+        raw = io.BytesIO(self._payload)
+        if "b" in mode:
+            return raw
+        return io.TextIOWrapper(raw, encoding=encoding or "utf-8", errors=errors or "strict", newline=newline)
 
 
 @dataclass
-class _DummyLocation:
+class _DummyFolderLocation:
     key: str
     store: str
 
@@ -56,9 +108,13 @@ class _DummyStore(StoreAPI):
         super().__init__(url=url, name=name, uuid=uuid)
         self._writable = writable
         self._supports_location = supports_location
-        self._files: dict[str, _DummyFile] = {}
+        self._files: dict[str, bytes] = {}
         self.startup_calls = 0
         self.add_calls = 0
+
+    @property
+    def root_path(self) -> str:
+        return self.url
 
     def url_to_name(self, url: str) -> str:
         base = os.path.basename(url.rstrip("/"))
@@ -92,36 +148,57 @@ class _DummyStore(StoreAPI):
             return file_url
         return self.url.rstrip("/") + "/" + file_url.lstrip("/")
 
+    def location(self, *tokens: str):
+        if not self._supports_location:
+            raise NotImplementedError
+        return _DummyFolderLocation("/".join(tokens), self.name)
+
     def file_exists(self, file_url: str) -> bool:
         return self._normalize_url(file_url) in self._files
 
-    def get_file(self, file_url: str) -> _DummyFile:
-        return self._files[self._normalize_url(file_url)]
+    def file_size(self, file_url: str) -> int | None:
+        key = self._normalize_url(file_url)
+        if key not in self._files:
+            return None
+        return len(self._files[key])
 
-    def add_file(self, file_bytes: bytes, *, metadata=None) -> _DummyFile:
+    def get_file_status(self, file_url: str) -> SingleFileStatus:
+        key = self._normalize_url(file_url)
+        if key not in self._files:
+            raise FileNotFoundError(key)
+        size = len(self._files[key])
+        return SingleFileStatus(
+            url=key,
+            exists=True,
+            size=size,
+            file_hash=f"size-{size}",
+            check_exists_function=lambda _url: True,
+            check_size_function=lambda _url: size,
+            check_hash_function=lambda _url: f"size-{size}",
+        )
+
+    def get_file(self, file_url: str) -> _DummyLocation:
+        key = self._normalize_url(file_url)
+        return _DummyLocation(key, store=self, payload=self._files[key])
+
+    def add_file(self, file_bytes: bytes, *, metadata=None) -> _DummyLocation:
         self.add_calls += 1
         if not self._writable:
             raise PermissionError("store is read-only")
-        key = "{}/f{}.bin".format(self.url.rstrip("/"), len(self._files) + 1)
-        file_obj = _DummyFile(key, payload=file_bytes, store=self.name)
-        self._files[key] = file_obj
-        return file_obj
+        key = f"{self.url.rstrip('/')}/f{len(self._files) + 1}.bin"
+        self._files[key] = file_bytes
+        return self.get_file(key)
 
     def delete_file(self, file_url: str) -> bool:
         key = self._normalize_url(file_url)
         return self._files.pop(key, None) is not None
 
     def true_files(self):
-        return iter(self._files.values())
-
-    def location(self, *tokens: str):
-        if not self._supports_location:
-            raise NotImplementedError
-        return _DummyLocation("/".join(tokens), self.name)
+        return iter(self.get_file(key) for key in self._files)
 
     def seed_file(self, relative_or_absolute: str, payload: bytes) -> str:
         key = self._normalize_url(relative_or_absolute)
-        self._files[key] = _DummyFile(key, payload=payload, store=self.name)
+        self._files[key] = payload
         return key
 
 
@@ -150,7 +227,7 @@ def test_storage_manager_add_file_falls_through_read_only_store() -> None:
 
     file_obj = manager.add_file(b"payload")
 
-    assert file_obj.store == "rw"
+    assert file_obj.store is rw
     assert ro.add_calls == 1
     assert rw.add_calls == 1
     assert rw.file_exists(file_obj.file_url) is True
@@ -171,7 +248,7 @@ def test_storage_manager_retrieve_file_uses_metadata_url_and_store_hint() -> Non
 
 def test_storage_manager_retrieve_file_accepts_storage_key_with_store_id_binding() -> None:
     left = _DummyStore(url="dummy://left", name="left", uuid="uuid-left")
-    right = _DummyStore(url="dummy://right", name="right", uuid="uuid-right")
+    right = _DummyStore(url="dummy://right", name="right", uuid="uuid-rw")
     left.seed_file("nested/book.epub", b"left")
     right.seed_file("nested/book.epub", b"right")
 
@@ -180,7 +257,7 @@ def test_storage_manager_retrieve_file_accepts_storage_key_with_store_id_binding
 
     got = manager.retrieve_file(metadata={"file_storage_key": "nested/book.epub", "file_store_id": 7})
     assert got.as_bytes() == b"right"
-    assert got.store == "right"
+    assert got.store is right
 
 
 def test_storage_manager_retrieve_folder_uses_preferred_store() -> None:
@@ -190,7 +267,7 @@ def test_storage_manager_retrieve_folder_uses_preferred_store() -> None:
     manager = StorageManager(stores=[one, two], startup_on_add=False)
     folder = manager.retrieve_folder("authors/Asimov", preferred_store="two")
 
-    assert isinstance(folder, _DummyLocation)
+    assert isinstance(folder, _DummyFolderLocation)
     assert folder.key == "authors/Asimov"
     assert folder.store == "two"
 

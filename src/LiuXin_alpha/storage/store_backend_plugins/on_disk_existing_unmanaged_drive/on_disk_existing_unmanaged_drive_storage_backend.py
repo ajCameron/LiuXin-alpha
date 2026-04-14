@@ -9,16 +9,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.storage.api.file_api import SingleFileAPI
 from LiuXin_alpha.storage.api import StoreStatus
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_storage_backend import (
     OnDiskExistingManagedStorageBackend,
 )
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_existing_unmanaged_drive_location import (
     OnDiskUnmanagedStoreLocation,
-)
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_existing_unmanaged_drive_single_file import (
-    OnDiskUnmanagedSingleFile,
 )
 
 
@@ -28,7 +24,6 @@ class OnDiskUnmanagedStorageBackend(OnDiskExistingManagedStorageBackend):
     """
 
     location_cls = OnDiskUnmanagedStoreLocation
-    single_file_cls = OnDiskUnmanagedSingleFile
 
     def __init__(self, url: str, name: Optional[str] = None, uuid: Optional[str] = None) -> None:
         super().__init__(url=url, name=name, uuid=uuid)
@@ -44,7 +39,7 @@ class OnDiskUnmanagedStorageBackend(OnDiskExistingManagedStorageBackend):
         self._cached_status = status
         return status
 
-    def add_file(self, file_bytes: bytes, *, metadata=None) -> SingleFileAPI:
+    def add_file(self, file_bytes: bytes, *, metadata=None) -> OnDiskUnmanagedStoreLocation:
         raise PermissionError("OnDiskUnmanagedStorageBackend is read-only.")
 
     def delete_file(self, file_url: str) -> bool:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Iterator, Optional
 
-from ...api import StoreAPI, StoreCheckStatus, StoreStatus
+from ...api import StoreAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
 from LiuXin_alpha.ingest.sources.native_html import (
     NATIVE_HTML_MAX_REQUESTS_PER_HOUR_DEFAULT,
     NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY,
@@ -16,10 +16,11 @@ from LiuXin_alpha.ingest.sources.native_html import (
 )
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
-from .native_html_single_file import NativeHtmlReadOnlySingleFile
+from .native_html_location import NativeHtmlReadOnlyStoreLocation
 
 
 class NativeHtmlReadOnlyStorageBackend(StoreAPI, NativeHtmlDiscoverySource):
+    location_cls = NativeHtmlReadOnlyStoreLocation
     """Read-only store facade for native HTML-discovered remote file URLs."""
 
     def __init__(
@@ -91,13 +92,47 @@ class NativeHtmlReadOnlyStorageBackend(StoreAPI, NativeHtmlDiscoverySource):
             },
         )
 
+    @property
+    def root_path(self) -> str:
+        return self.url
+
+    def location(self, *tokens: str) -> NativeHtmlReadOnlyStoreLocation:
+        return self.location_cls(*tokens, store=self)
+
+    def _location_from_url(self, file_url: str | StoreLocationMixinAPI) -> NativeHtmlReadOnlyStoreLocation:
+        if isinstance(file_url, StoreLocationMixinAPI):
+            if file_url.store is self:
+                return file_url
+            file_url = file_url.file_url
+        url = str(file_url).strip()
+        base = self.url.rstrip("/") + "/"
+        if url.startswith(base):
+            rel = url[len(base):]
+            return self.location(*[part for part in rel.split("/") if part])
+        return self.location(*[part for part in url.split("/") if part])
+
     def status(self) -> StoreStatus:
         return self.self_test()
 
-    def get_file(self, file_url: str) -> NativeHtmlReadOnlySingleFile:
-        return NativeHtmlReadOnlySingleFile(file_url=file_url, store=self)
+    def file_size(self, file_url: str | StoreLocationMixinAPI) -> int | None:
+        if self.file_exists(file_url):
+            return 0
+        return None
 
-    def true_files(self) -> Iterator[NativeHtmlReadOnlySingleFile]:
+    def get_file_status(self, file_url: str | StoreLocationMixinAPI):
+        from LiuXin_alpha.storage.single_file import SingleFileStatus
+        url = self._location_from_url(file_url).as_store_key()
+        return SingleFileStatus(
+            url=url,
+            check_exists_function=lambda _url: bool(self.file_exists(url)),
+            check_size_function=lambda _url: 0,
+            check_hash_function=lambda _url: "",
+        )
+
+    def get_file(self, file_url: str | StoreLocationMixinAPI) -> NativeHtmlReadOnlyStoreLocation:
+        return self._location_from_url(file_url)
+
+    def true_files(self) -> Iterator[NativeHtmlReadOnlyStoreLocation]:
         for url in list(self._crawl_cache_urls or ()):
             yield self.get_file(url)
 
