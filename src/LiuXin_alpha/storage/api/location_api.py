@@ -12,8 +12,6 @@ import threading
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
 
-from LiuXin_alpha.storage.api import StoreAPI
-
 from os import PathLike
 from typing import (
     TypeAlias,
@@ -31,6 +29,9 @@ from typing import (
     TYPE_CHECKING)
 
 from LiuXin_alpha.storage.api.modes_api import OpenTextMode, OpenBinaryMode, AsyncTextFile, AsyncBinaryFile
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.storage.api import StoreAPI
 
 T = TypeVar("T")
 
@@ -53,9 +54,9 @@ class StoreLocationMixinAPI(ABC):
 
     _tokens: list[str]
 
-    _store: StoreAPI
+    _store: "StoreAPI"
 
-    def __init__(self, *args: str, store: StoreAPI) -> None:
+    def __init__(self, *args: str, store: "StoreAPI") -> None:
         """
         Startup the class - including any tokens for the location.
 

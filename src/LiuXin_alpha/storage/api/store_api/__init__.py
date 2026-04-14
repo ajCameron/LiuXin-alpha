@@ -1,4 +1,9 @@
-"""Compatibility import surface for store API contracts."""
+"""
+Compatibility import surface for store API contracts.
+
+Note - a "replica" is a replica of a digital asset in a store.
+It's a file - or thing which can act like a file.
+"""
 
 from __future__ import annotations
 
@@ -6,42 +11,14 @@ import abc
 import pprint
 from typing import Optional, Iterator, TYPE_CHECKING
 
-from LiuXin_alpha.metadata.api import MetadataContainerAPI
-from LiuXin_alpha.storage.api import StoreStatus, SingleFileAPI, StoreLocationMixinAPI
-
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.storage.api import StoreStatus, SingleFileAPI
+    from LiuXin_alpha.storage.api.store_api.storage_backend_api import StoreBackendAPI
+    from LiuXin_alpha.storage.api.store_api.store_db_api import StoreDBAPI
 
 
-class StoreBackendAPI(abc.ABC):
-    """
-    Responsible for actually accessing raw files.
-
-    This is split out from the database methods in the store because we want to use this for other purposes.
-    E.g. to allow us to
-    - read from archives
-    - read from remote FTP servers
-    e.t.c.
-    """
-    @abc.abstractmethod
-    def add_file(self, file_bytes: bytes, *, metadata = None, url: Optional[str] = None) -> SingleFileAPI:
-        """
-        Write a file out to the store.
-
-        :param file_bytes:
-        :param metadata:
-        :param url:
-
-        :return:
-        """
-
-
-
-
-
-
-
-class StoreAPI(abc.ABC):
+class StoreAPI(StoreBackendAPI, StoreDBAPI):
     """
     Contract for one physical/logical store.
 
@@ -120,15 +97,6 @@ class StoreAPI(abc.ABC):
         :return:
         """
 
-    @abc.abstractmethod
-    def get_url(self, fiule_url: str) -> "SingleFileAPI":
-        """
-        Return a single file from a URL.
-
-        :param fiule_url:
-        :return:
-        """
-
     @property
     def url(self) -> str:
         return self._url
@@ -172,25 +140,6 @@ class StoreAPI(abc.ABC):
 
     def status_str(self) -> str:
         return pprint.pformat(self.status())
-
-    def location(self, *tokens: str) -> "StoreLocationMixinAPI":
-        raise NotImplementedError("This store does not expose Location objects.")
-
-    def put_replica(
-        self,
-        file_bytes: bytes,
-        *,
-        storage_key: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
-        add_sidecar_opf: bool = False,
-    ) -> "SingleFileAPI":
-        raise PermissionError("This store does not support writing replicas.")
-
-    def update_replica(self, storage_key: str, file_bytes: bytes) -> bool:
-        raise PermissionError("This store does not support replica updates.")
-
-    def delete_replica(self, storage_key: str) -> bool:
-        raise PermissionError("This store does not support replica deletion.")
 
     def iter_replicas(self) -> Iterator["SingleFileAPI"]:
         return iter(())

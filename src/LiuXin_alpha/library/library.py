@@ -22,6 +22,7 @@ from LiuXin_alpha.ingest import (
     register_wget_html_readonly_store_files,
 )
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
+from LiuXin_alpha.metadata.containers import ItemMetadataContainer, ItemMetadataHydrator
 from LiuXin_alpha.storage.api import SingleFileAPI, StoreAPI
 from LiuXin_alpha.storage.reconcile import (
     SquashfsArchivePublishReport,
@@ -156,6 +157,24 @@ class Library:
         if row is None:
             return None
         return self._row_to_plain_dict(row)
+
+    def get_item_metadata(
+        self,
+        *,
+        item_id: int | None = None,
+        source_row: Mapping[str, Any] | Row | None = None,
+    ) -> ItemMetadataContainer:
+        """Return one concrete item metadata bundle.
+
+        Callers may provide either an ``item_id`` or an already-fetched row/view
+        that carries ``item_id`` plus optional WEMI ids.
+        """
+        hydrator = ItemMetadataHydrator(self._database)
+        if item_id is not None:
+            return hydrator.from_item_id(int(item_id))
+        if source_row is not None:
+            return hydrator.from_source_row(source_row)
+        raise ValueError("Provide either `item_id` or `source_row`.")
 
     def update_row_fields(
         self,

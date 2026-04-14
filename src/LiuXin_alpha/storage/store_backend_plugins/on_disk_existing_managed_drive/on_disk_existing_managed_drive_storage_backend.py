@@ -147,12 +147,12 @@ class OnDiskExistingManagedStorageBackend(StoreAPI):
         self._cached_status = status
         return status
 
-    def status(self) -> StoreStatus:
+    def status(self) -> "StoreStatus":
         if self._cached_status is None:
             return self.self_test()
         return self._cached_status
 
-    def location(self, *tokens: str) -> OnDiskExistingManagedStoreLocation:
+    def location(self, *tokens: str) -> "OnDiskExistingManagedStoreLocation":
         return self.location_cls(*tokens, store=self)
 
     def file_exists(self, file_url: str) -> bool:
