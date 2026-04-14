@@ -145,6 +145,7 @@ class BackupPolicy:
         return self.target_backup_copies
 
 
+# Todo: We want a backup status?
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicationStatus:
     """
@@ -170,6 +171,7 @@ class ReplicationStatus:
     errors: tuple[str, ...] = ()
 
 
+# Todo: Backup plan?
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicationPlan:
     """

@@ -34,13 +34,13 @@ class ItemDigitalAssetsManagerAPI(abc.ABC):
             self,
             item_id: int,
             asset_id: DigitalAssetID,
-            priority: Union[Literal["highest"], Literal["lowest"]],
+            priority: Union[Literal["highest"], Literal["lowest"], int],
             link_type: str,
             origin: str,
             primary: bool = False
             ):
         """
-        We're linking an item to a digital asset (either a composite or atomic).
+        We're linking an item to an atomic digital asset.
 
         :param item_id:
         :param asset_id:
@@ -68,16 +68,36 @@ class ItemDigitalAssetsManagerAPI(abc.ABC):
         self,
         link: "DigitalAssetItemLinkRow",
     ) -> "DigitalAssetItemLinkRow":
-        ...
+        """
+        Write changes to the digital asset out to the database.
+
+        :param link:
+        :return:
+        """
 
     @abc.abstractmethod
     def delete_item_digital_asset_link(self, digital_asset_item_link_id: "DigitalAssetItemLinkID") -> bool:
-        ...
+        """
+        Break a link between an item and a digital asset by the link id.
+
+        :param digital_asset_item_link_id:
+        :return:
+        """
 
     @abc.abstractmethod
     def iter_item_digital_asset_links(self, item_id: "ItemID") -> Iterator["DigitalAssetItemLinkRow"]:
-        ...
+        """
+        Iter over all the link rows between an item and a digital asset.
+
+        :param item_id:
+        :return:
+        """
 
     @abc.abstractmethod
     def iter_digital_asset_item_links(self, digital_asset_id: "DigitalAssetID") -> Iterator["DigitalAssetItemLinkRow"]:
-        ...
+        """
+        Iter over all the assets linked to a digitial item.
+
+        :param digital_asset_id:
+        :return:
+        """

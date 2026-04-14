@@ -6,12 +6,26 @@ import abc
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.storage.api.storage_manager_api.stores_management_api import StoresManagerAPI
+from LiuXin_alpha.storage.api.storage_manager_api.storage_policies_api import StoragePoliciesManagerAPI
+from LiuXin_alpha.storage.api.storage_manager_api.item_digital_assets_api import ItemDigitalAssetsManagerAPI
+from LiuXin_alpha.storage.api.storage_manager_api.item_composite_digital_assets_api import ItemCompositeDigitalAssetsManagerAPI
+from LiuXin_alpha.storage.api.storage_manager_api.file_manip_api import DigitalAssetsFileManagerAPI
+from LiuXin_alpha.storage.api.storage_manager_api.digital_asset_compositions_api import CompositeDigitalAssetMembersManagerAPI
+from LiuXin_alpha.storage.api.storage_manager_api.asset_replicas_api import AssetReplicasManagerAPI
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
 
 
-class StorageManagerAPI(StoresManagerAPI, abc.ABC):
+class StorageManagerAPI(
+    StoresManagerAPI,
+    StoragePoliciesManagerAPI,
+    ItemDigitalAssetsManagerAPI,
+    ItemCompositeDigitalAssetsManagerAPI,
+    DigitalAssetsFileManagerAPI,
+    CompositeDigitalAssetMembersManagerAPI,
+    AssetReplicasManagerAPI,
+    abc.ABC):
     """Top-level user-facing storage manager API.
 
     At this stage this contract covers store orchestration plus direct file access.

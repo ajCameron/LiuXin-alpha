@@ -406,6 +406,7 @@ __all__ = [
     "CompositeDigitalAssetItemLinkRow",
     "CompositeDigitalAssetMemberLinkRow",
     "CompositeDigitalAssetMemberLinkRow",
+    "CompositeDigitalAsset",
     "CompositeDigitalAssetRow",
     "CompositeDigitalAssetRow",
     "DigitalAssetItemLinkRow",
@@ -413,6 +414,7 @@ __all__ = [
     "DigitalAssetRow",
     "DigitalAssetReplicationCluster",
     "DigitalAssetRow",
+    "ReplicationPolicy"
 ]
 
 
