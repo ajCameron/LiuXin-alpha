@@ -61,10 +61,14 @@ def test_on_disk_unmanaged_drive_iter_locations_iterates_recursively(tmp_path: p
 
 def test_on_disk_unmanaged_drive_is_read_only(tmp_path: pathlib.Path) -> None:
     store = OnDiskUnmanagedStorageBackend(url=str(tmp_path))
+    loc = store.location("example.txt")
+    assert loc.location_capabilities.read_only is True
     with pytest.raises(PermissionError):
         store.write_bytes(b"cannot write")
     with pytest.raises(PermissionError):
         store.delete(str(tmp_path / "nope.txt"))
+    with pytest.raises(PermissionError):
+        loc.write_bytes(b"cannot write")
 
 
 def test_on_disk_unmanaged_drive_startup_and_status_reports_read_only(tmp_path: pathlib.Path) -> None:

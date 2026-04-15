@@ -9,7 +9,7 @@ from datetime import datetime
 import pathlib
 from typing import Any, Dict, Iterator, Self
 
-from LiuXin_alpha.storage.api.location_api import SyncNativePretendAsyncLocation
+from LiuXin_alpha.storage.api.location_api import ReadOnlySyncNativePretendAsyncLocation
 
 from .rclone_utils import run_rclone_json, which_rclone
 
@@ -93,7 +93,7 @@ class _RcloneCatStream(io.RawIOBase):
             super().close()
 
 
-class RcloneHttpReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
+class RcloneHttpReadOnlyStoreLocation(ReadOnlySyncNativePretendAsyncLocation):
     """A Path-like Location over an rclone filesystem (HTTP remote is the primary target).
 
     This implements the *full* Location contract surface, but mutating methods

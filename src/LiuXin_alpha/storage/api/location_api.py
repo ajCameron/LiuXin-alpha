@@ -11,6 +11,7 @@ import pathlib
 import threading
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
+from dataclasses import dataclass
 
 from os import PathLike
 from typing import (
@@ -38,6 +39,59 @@ T = TypeVar("T")
 
 StrOrBytesPath: TypeAlias = str | bytes | PathLike[str] | PathLike[bytes]
 FileDescriptorOrPath: TypeAlias = int | str | bytes | PathLike[str] | PathLike[bytes]
+
+
+@dataclass(frozen=True, slots=True)
+class LocationCapabilities:
+    """Advertised behaviour surface for one Location object.
+
+    This is deliberately more granular than a single read-only flag. Tests and
+    higher layers can inspect what the location *claims* to allow, then assert
+    either success or a loud PermissionError.
+    """
+
+    can_stat: bool = True
+    can_iterdir: bool = True
+    can_glob: bool = True
+    can_open_read: bool = True
+    can_open_write: bool = True
+    can_open_append: bool = True
+    can_mkdir: bool = True
+    can_touch: bool = True
+    can_unlink: bool = True
+    can_rmdir: bool = True
+    can_rename: bool = True
+    can_replace: bool = True
+
+    @property
+    def supports_mutation(self) -> bool:
+        return any((
+            self.can_open_write,
+            self.can_open_append,
+            self.can_mkdir,
+            self.can_touch,
+            self.can_unlink,
+            self.can_rmdir,
+            self.can_rename,
+            self.can_replace,
+        ))
+
+    @property
+    def read_only(self) -> bool:
+        return not self.supports_mutation
+
+
+READ_WRITE_LOCATION_CAPABILITIES = LocationCapabilities()
+READ_ONLY_LOCATION_CAPABILITIES = LocationCapabilities(
+    can_open_write=False,
+    can_open_append=False,
+    can_mkdir=False,
+    can_touch=False,
+    can_unlink=False,
+    can_rmdir=False,
+    can_rename=False,
+    can_replace=False,
+)
 
 
 # Todo: Want relative and absolute? Have relative.
@@ -298,6 +352,11 @@ class StoreLocationMixinAPI(ABC):
 
     def __fspath__(self) -> str:
         return self.as_store_key()
+
+    @property
+    def location_capabilities(self) -> LocationCapabilities:
+        """Advertised capability surface for this concrete Location."""
+        return READ_WRITE_LOCATION_CAPABILITIES
 
     @property
     def file_url(self) -> str:
@@ -945,3 +1004,54 @@ class SyncNativePretendAsyncLocation(StoreLocationMixinAPI):
         return _AsyncOpenFromSync(
             lambda: self.open(mode=mode, buffering=buffering, encoding=encoding, errors=errors, newline=newline)
         )
+
+
+class ReadOnlySyncNativePretendAsyncLocation(SyncNativePretendAsyncLocation, ABC):
+    """Sync-native Location base for backends that must never mutate in place.
+
+    Subclasses still implement their normal non-mutating filesystem/path view
+    methods, but mutation entry points now advertise read-only capabilities and
+    fail loudly and consistently.
+    """
+
+    @property
+    def location_capabilities(self) -> LocationCapabilities:
+        return READ_ONLY_LOCATION_CAPABILITIES
+
+    def _read_only_error(self, action: str) -> PermissionError:
+        return PermissionError(f"{self.__class__.__name__} is read-only; cannot {action}.")
+
+    def _assert_read_mode(self, mode: str) -> None:
+        write_flags = {"w", "a", "x", "+"}
+        if any(flag in mode for flag in write_flags):
+            raise self._read_only_error(f"open with mode {mode!r}")
+
+    def mkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        raise self._read_only_error("create directories")
+
+    def unlink(self, missing_ok: bool = False) -> None:
+        raise self._read_only_error("delete files")
+
+    def rmdir(self) -> None:
+        raise self._read_only_error("remove directories")
+
+    def rename(self, target: str | os.PathLike[str]) -> Self:
+        raise self._read_only_error("rename locations")
+
+    def replace(self, target: str | os.PathLike[str]) -> Self:
+        raise self._read_only_error("replace locations")
+
+    def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
+        raise self._read_only_error("touch files")
+
+    def write_bytes(self, data: bytes) -> int:
+        raise self._read_only_error("write bytes")
+
+    def write_text(
+        self,
+        data: str,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> int:
+        raise self._read_only_error("write text")

@@ -8,10 +8,10 @@ import stat as statmod
 from typing import Iterator, Self
 from urllib.parse import urljoin
 
-from LiuXin_alpha.storage.api.location_api import SyncNativePretendAsyncLocation
+from LiuXin_alpha.storage.api.location_api import ReadOnlySyncNativePretendAsyncLocation
 
 
-class NativeHtmlReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
+class NativeHtmlReadOnlyStoreLocation(ReadOnlySyncNativePretendAsyncLocation):
     """Path-like location for one native-HTML-discovered remote URL."""
 
     def _discovered_urls(self) -> list[str]:

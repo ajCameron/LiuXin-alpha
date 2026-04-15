@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_location import (
-    OnDiskUnmanagedStoreLocation,
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
+    OnDiskExistingManagedStoreLocation,
 )
 
 from .conftest import AsyncOnDiskLocation, fs_path
@@ -20,7 +20,7 @@ class TestLocationGlobAndIter:
         fs_path(store, "top", "a.txt").write_text("a", encoding="utf-8")
         fs_path(store, "top", "nested", "b.txt").write_text("b", encoding="utf-8")
 
-        top = OnDiskUnmanagedStoreLocation("top", store=store)
+        top = OnDiskExistingManagedStoreLocation("top", store=store)
         children = list(top.iterdir())
         keys = {c.as_store_key() for c in children}
 
@@ -35,7 +35,7 @@ class TestLocationGlobAndIter:
         fs_path(store, "g", "two.md").write_text("2", encoding="utf-8")
         fs_path(store, "g", "three.txt").write_text("3", encoding="utf-8")
 
-        g = OnDiskUnmanagedStoreLocation("g", store=store)
+        g = OnDiskExistingManagedStoreLocation("g", store=store)
         matches = list(g.glob("*.txt"))
         assert {m.as_store_key() for m in matches} == {
             str(fs_path(store, "g", "one.txt")),
@@ -49,7 +49,7 @@ class TestLocationGlobAndIter:
         fs_path(store, "r", "b", "y.txt").write_text("y", encoding="utf-8")
         fs_path(store, "r", "b", "y.md").write_text("z", encoding="utf-8")
 
-        r = OnDiskUnmanagedStoreLocation("r", store=store)
+        r = OnDiskExistingManagedStoreLocation("r", store=store)
         matches = list(r.rglob("*.txt"))
         assert {m.as_store_key() for m in matches} == {
             str(fs_path(store, "r", "a", "x.txt")),

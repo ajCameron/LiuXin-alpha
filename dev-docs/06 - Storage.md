@@ -307,3 +307,14 @@ Not the other way around.
 Plugins should not import the manager.
 Containers should not become plugin subclasses.
 The public `storage.api` barrel is for external callers; internal storage code should prefer direct sibling imports.
+
+
+## Location capability advertisement
+
+Read-only plugins must return read-only `Location` subclasses as well as refusing mutation at the plugin layer.
+A `LocationCapabilities` dataclass is now part of the storage contract so tests and higher layers can inspect
+what a location advertises (`can_open_write`, `can_unlink`, `can_rename`, etc.) instead of guessing from the
+backend type.
+
+This is intentionally stricter than a single boolean. A plugin may be readable but not iterable, or readable and
+iterable but not appendable, and the location capability surface is where that nuance belongs.

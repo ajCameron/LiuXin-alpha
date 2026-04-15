@@ -8,10 +8,10 @@ import os
 import stat as statmod
 from typing import Iterator, Self
 
-from LiuXin_alpha.storage.api.location_api import SyncNativePretendAsyncLocation
+from LiuXin_alpha.storage.api.location_api import ReadOnlySyncNativePretendAsyncLocation
 
 
-class SquashfsReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
+class SquashfsReadOnlyStoreLocation(ReadOnlySyncNativePretendAsyncLocation):
     """Path-like location inside one read-only SquashFS archive."""
 
     def _internal_path(self) -> str:
@@ -120,6 +120,7 @@ class SquashfsReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
         errors: str | None = None,
         newline: str | None = None,
     ):
+        self._assert_read_mode(mode)
         if any(flag in mode for flag in ("w", "a", "+", "x")):
             raise PermissionError("SquashFS locations are read-only.")
         payload = self.store.read_file_bytes(self)
