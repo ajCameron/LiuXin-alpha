@@ -49,6 +49,8 @@ from LiuXin_alpha.storage.api.policy_apis import (
     ReplicationStatus,
 )
 from LiuXin_alpha.storage.api.store_api import StoreAPI
+from LiuXin_alpha.storage.api.store_container_api import StoreContainerAPI
+from LiuXin_alpha.storage.api.store_plugin_api import StorePluginAPI
 from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
 
 __all__ = [
@@ -89,6 +91,8 @@ __all__ = [
     "ReplicationPolicyRecord",
     "ReplicationStatus",
     "StorageManagerAPI",
+    "StoreContainerAPI",
+    "StorePluginAPI",
     "StoreAPI",
     "StoreCheckStatus",
     "StoreLocationMixinAPI",

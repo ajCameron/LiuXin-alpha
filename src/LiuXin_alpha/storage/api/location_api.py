@@ -32,7 +32,7 @@ from LiuXin_alpha.storage.api.modes_api import OpenTextMode, OpenBinaryMode, Asy
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.storage.api import StoreAPI
+    from LiuXin_alpha.storage.api.store_plugin_api import StorePluginAPI
 
 T = TypeVar("T")
 
@@ -55,9 +55,9 @@ class StoreLocationMixinAPI(ABC):
 
     _tokens: list[str]
 
-    _store: "StoreAPI"
+    _store: "StorePluginAPI"
 
-    def __init__(self, *args: str, store: "StoreAPI") -> None:
+    def __init__(self, *args: str, store: "StorePluginAPI") -> None:
         """
         Startup the class - including any tokens for the location.
 
@@ -85,12 +85,12 @@ class StoreLocationMixinAPI(ABC):
     # ---- Core backend plumbing ----
 
     @property
-    def store(self) -> StoreAPI:
+    def store(self) -> StorePluginAPI:
         """Backend handle (client/session/repo/etc.)."""
         return self._store
 
     @store.setter
-    def store(self, store: StoreAPI) -> None:
+    def store(self, store: StorePluginAPI) -> None:
         """
         Refuses to update the store.
 

@@ -23,6 +23,24 @@ if TYPE_CHECKING:
 class DigitalAssetsFileManagerAPI(abc.ABC):
     """CRUD and payload access for atomic managed digital assets."""
 
+    def locate_digital_asset(
+        self,
+        digital_asset_id: "DigitalAssetID",
+        *,
+        preferred_store_id: Optional["StoreID"] = None,
+    ) -> "StoreLocationMixinAPI":
+        """Preferred name for resolving one digital asset to a concrete Location."""
+        return self.open_digital_asset(digital_asset_id, preferred_store_id=preferred_store_id)
+
+    def locate_item_primary_asset(
+        self,
+        item_id: "ItemID",
+        *,
+        preferred_store_id: Optional["StoreID"] = None,
+    ) -> "StoreLocationMixinAPI":
+        """Preferred name for resolving the primary asset for one item."""
+        return self.open_item_primary_asset(item_id, preferred_store_id=preferred_store_id)
+
     @abc.abstractmethod
     def materialize_composite_digital_asset(
             self, composite_digital_asset_id: "CompositeDigitalAssetID",
