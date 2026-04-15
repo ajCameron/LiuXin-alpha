@@ -385,3 +385,23 @@ The important separation of concerns is:
 - stores are places bytes can live
 - backup workflows are processes that stage and emit artifacts
 - backup artifacts are still normal stored payloads and can later be linked into digital-asset/replica rows
+
+
+## Backup presence and pack stores
+
+Completed pack artifacts such as SquashFS files are treated as stores in their own right once registered.
+That lets the DB answer two distinct questions cleanly:
+
+- where does this backup artifact live / how can it be opened as a store?
+- which source files or replicas are covered by that completed backup store?
+
+The durable coverage answer lives in `backup_presence_links`, not in the workflow rows themselves.
+Those links are intentionally protected and immutable by default. A live source file may disappear later; the historical fact that it was packed into a specific backup store should not be silently editable away.
+
+A practical end-to-end shape is therefore:
+
+- source drive indexed as a local unmanaged store
+- planner groups indexed files into pack-sized backup workflow specs
+- workflow builds `.sqsh` artifact
+- artifact is registered as a read-only backup store
+- `backup_presence_links` tie source files/replicas to that completed backup store

@@ -79,6 +79,9 @@ CREATE TABLE IF NOT EXISTS `backup_workflow_sources` (
   `backup_workflow_source_archive_path` TEXT NOT NULL,
   `backup_workflow_source_expected_size` INTEGER NULL,
   `backup_workflow_source_expected_hash` TEXT NULL,
+  `backup_workflow_source_file_id` INTEGER NULL,
+  `backup_workflow_source_asset_replica_id` INTEGER NULL,
+  `backup_workflow_source_store_id` INTEGER NULL,
 
   `backup_workflow_source_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `backup_workflow_source_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),

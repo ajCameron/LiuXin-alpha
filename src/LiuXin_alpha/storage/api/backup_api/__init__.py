@@ -15,6 +15,7 @@ from LiuXin_alpha.storage.api.backup_api.backup_workflow_models import (
     BackupWorkflowStepKind,
 )
 from LiuXin_alpha.storage.api.backup_api.backup_workflow_rows import (
+    BackupPresenceLinkRow,
     BackupWorkflowOutputRow,
     BackupWorkflowRow,
     BackupWorkflowSourceRow,
@@ -32,6 +33,7 @@ __all__ = [
     "BackupWorkflowSpec",
     "BackupWorkflowStatus",
     "BackupWorkflowStepKind",
+    "BackupPresenceLinkRow",
     "BackupWorkflowOutputRow",
     "BackupWorkflowRow",
     "BackupWorkflowSourceRow",

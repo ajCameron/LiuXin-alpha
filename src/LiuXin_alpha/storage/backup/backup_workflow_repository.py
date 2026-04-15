@@ -21,6 +21,7 @@ from LiuXin_alpha.storage.api.backup_api.backup_workflow_models import (
     BackupWorkflowStepKind,
 )
 from LiuXin_alpha.storage.api.backup_api.backup_workflow_rows import (
+    BackupPresenceLinkRow,
     BackupWorkflowOutputRow,
     BackupWorkflowRow,
     BackupWorkflowSourceRow,
@@ -83,6 +84,9 @@ class BackupWorkflowRepository:
                     "backup_workflow_source_archive_path": source.archive_path or "",
                     "backup_workflow_source_expected_size": source.expected_size,
                     "backup_workflow_source_expected_hash": source.expected_hash,
+                    "backup_workflow_source_file_id": source.source_file_id,
+                    "backup_workflow_source_asset_replica_id": source.source_asset_replica_id,
+                    "backup_workflow_source_store_id": source.source_store_id,
                 },
             )
         return workflow_row
@@ -185,6 +189,45 @@ class BackupWorkflowRepository:
         )
 
     # ------------------------------------------------------------------
+    # Backup-presence link persistence
+    # ------------------------------------------------------------------
+    def record_backup_presence_link(
+        self,
+        *,
+        backup_store_id: int,
+        source: BackupSourceSpec,
+        archive_path: str,
+        workflow_id: int | None = None,
+        output_url: str | None = None,
+        link_type: str = "packed_presence",
+        is_protected: bool = True,
+        is_immutable: bool = True,
+    ) -> BackupPresenceLinkRow:
+        existing = self.db.search("backup_presence_links", "backup_presence_link_backup_store_id", int(backup_store_id))
+        for row in existing:
+            same_archive = str(row["backup_presence_link_archive_path"]) == str(archive_path)
+            same_ident = str(row["backup_presence_link_source_identifier"]) == str(source.source_identifier)
+            if same_archive and same_ident:
+                return BackupPresenceLinkRow.from_row_id(self.db, int(row["backup_presence_link_id"]))
+        return BackupPresenceLinkRow.from_idless_row_dict(
+            self.db,
+            row_dict={
+                "backup_presence_link_backup_store_id": int(backup_store_id),
+                "backup_presence_link_workflow_id": workflow_id,
+                "backup_presence_link_source_identifier": source.source_identifier,
+                "backup_presence_link_source_kind": source.source_kind.value,
+                "backup_presence_link_source_file_id": source.source_file_id,
+                "backup_presence_link_source_asset_replica_id": source.source_asset_replica_id,
+                "backup_presence_link_source_store_id": source.source_store_id,
+                "backup_presence_link_archive_path": archive_path,
+                "backup_presence_link_type": link_type,
+                "backup_presence_link_output_url": output_url,
+                "backup_presence_link_is_protected": 1 if is_protected else 0,
+                "backup_presence_link_is_immutable": 1 if is_immutable else 0,
+            },
+        )
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
     def _delete_existing_sources(self, workflow_id: int) -> None:
@@ -198,6 +241,9 @@ class BackupWorkflowRepository:
             archive_path=self._coerce_optional_str(row["backup_workflow_source_archive_path"]),
             expected_size=self._coerce_optional_int(row["backup_workflow_source_expected_size"]),
             expected_hash=self._coerce_optional_str(row["backup_workflow_source_expected_hash"]),
+            source_file_id=self._coerce_optional_int(row.get("backup_workflow_source_file_id") if hasattr(row, "get") else row["backup_workflow_source_file_id"]),
+            source_asset_replica_id=self._coerce_optional_int(row.get("backup_workflow_source_asset_replica_id") if hasattr(row, "get") else row["backup_workflow_source_asset_replica_id"]),
+            source_store_id=self._coerce_optional_int(row.get("backup_workflow_source_store_id") if hasattr(row, "get") else row["backup_workflow_source_store_id"]),
         )
 
     def _source_result_to_jsonable(self, result: BackupSourceResult) -> dict[str, Any]:

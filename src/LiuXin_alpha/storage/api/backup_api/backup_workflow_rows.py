@@ -59,9 +59,23 @@ class BackupWorkflowOutputRow(FixedTableStorageRow):
         self.primary_id = value
 
 
+class BackupPresenceLinkRow(FixedTableStorageRow):
+    TABLE_NAME = "backup_presence_links"
+    ID_COLUMN = "backup_presence_link_id"
+
+    @property
+    def backup_presence_link_id(self) -> Optional[int]:
+        return self[self.ID_COLUMN]
+
+    @backup_presence_link_id.setter
+    def backup_presence_link_id(self, value: Optional[int]) -> None:
+        self.primary_id = value
+
+
 __all__ = [
     "BackupWorkflowRow",
     "BackupWorkflowSourceRow",
     "BackupWorkflowStateRow",
     "BackupWorkflowOutputRow",
+    "BackupPresenceLinkRow",
 ]

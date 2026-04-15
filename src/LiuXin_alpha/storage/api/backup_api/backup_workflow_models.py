@@ -46,13 +46,21 @@ class BackupWorkflowStepKind(StrEnum):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupSourceSpec:
-    """Declarative designation of one source to include in a backup artifact."""
+    """Declarative designation of one source to include in a backup artifact.
+
+    `source_identifier` remains the durable source locator used by the workflow
+    itself. Optional ids let later orchestration layers tie the source back to a
+    DB-tracked file / replica row without forcing raw store plugins to know about
+    the database."""
 
     source_kind: BackupSourceKind
     source_identifier: str
     archive_path: str | None = None
     expected_size: int | None = None
     expected_hash: str | None = None
+    source_file_id: int | None = None
+    source_asset_replica_id: int | None = None
+    source_store_id: int | None = None
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
