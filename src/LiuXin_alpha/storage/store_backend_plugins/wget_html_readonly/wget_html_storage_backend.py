@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Iterator, Optional
 
-from ...api import StoreAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
+from ...api import StorePluginAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
 from LiuXin_alpha.ingest.sources.wget_html import (
     WGET_HTTP_MAX_REQUESTS_PER_HOUR_DEFAULT,
     WGET_HTTP_MAX_REQUESTS_PER_HOUR_PREF_KEY,
@@ -19,7 +19,7 @@ from .wget_html_location import WgetHtmlReadOnlyStoreLocation
 from .wget_utils import run_wget
 
 
-class WgetHtmlReadOnlyStorageBackend(StoreAPI, WgetHtmlDiscoverySource):
+class WgetHtmlReadOnlyStorageBackend(StorePluginAPI, WgetHtmlDiscoverySource):
     location_cls = WgetHtmlReadOnlyStoreLocation
     """Read-only store facade for wget-discovered remote file URLs."""
 
@@ -31,7 +31,7 @@ class WgetHtmlReadOnlyStorageBackend(StoreAPI, WgetHtmlDiscoverySource):
         uuid: Optional[str] = None,
         options: WgetBackendOptions | None = None,
     ) -> None:
-        StoreAPI.__init__(self, url=url, name=name, uuid=uuid)
+        StorePluginAPI.__init__(self, url=url, name=name, uuid=uuid)
         if options is None:
             options = WgetBackendOptions(
                 max_http_requests_per_hour=get_default_crawler_http_requests_per_hour(),

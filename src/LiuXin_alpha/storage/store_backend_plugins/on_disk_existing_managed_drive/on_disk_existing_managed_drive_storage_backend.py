@@ -14,7 +14,7 @@ import uuid
 
 from typing import Iterator, Optional, Type
 
-from LiuXin_alpha.storage.api import StoreAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
+from LiuXin_alpha.storage.api import StorePluginAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
     OnDiskExistingManagedStoreLocation,
 )
@@ -26,7 +26,7 @@ from LiuXin_alpha.utils.storage.local.local_store_smoke_test import StorageIOSmo
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
-class OnDiskExistingManagedStorageBackend(StoreAPI):
+class OnDiskExistingManagedStorageBackend(StorePluginAPI):
     """
     Represents a managed local directory store.
 

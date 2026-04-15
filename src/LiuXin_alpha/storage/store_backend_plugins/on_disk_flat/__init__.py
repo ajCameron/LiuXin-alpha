@@ -5,10 +5,10 @@ Flat stores every file very simply - in a single folder with its name the LiuXin
 Mostly for testing purposes.
 """
 
-from LiuXin_alpha.storage.api import StoreAPI
+from LiuXin_alpha.storage.api import StorePluginAPI
 
 
-class OnDiskFlatStorageBackend(StoreAPI):
+class OnDiskFlatStorageBackend(StorePluginAPI):
     """
     A flat file store - just stores every file it's given in a single folder.
     """

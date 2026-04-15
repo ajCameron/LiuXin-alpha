@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Iterator, Optional
 
-from ...api import StoreAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
+from ...api import StorePluginAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
 from LiuXin_alpha.ingest.sources.native_html import (
     NATIVE_HTML_MAX_REQUESTS_PER_HOUR_DEFAULT,
     NATIVE_HTML_MAX_REQUESTS_PER_HOUR_PREF_KEY,
@@ -19,7 +19,7 @@ from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 from .native_html_location import NativeHtmlReadOnlyStoreLocation
 
 
-class NativeHtmlReadOnlyStorageBackend(StoreAPI, NativeHtmlDiscoverySource):
+class NativeHtmlReadOnlyStorageBackend(StorePluginAPI, NativeHtmlDiscoverySource):
     location_cls = NativeHtmlReadOnlyStoreLocation
     """Read-only store facade for native HTML-discovered remote file URLs."""
 
@@ -31,7 +31,7 @@ class NativeHtmlReadOnlyStorageBackend(StoreAPI, NativeHtmlDiscoverySource):
         uuid: Optional[str] = None,
         options: NativeHtmlBackendOptions | None = None,
     ) -> None:
-        StoreAPI.__init__(self, url=url, name=name, uuid=uuid)
+        StorePluginAPI.__init__(self, url=url, name=name, uuid=uuid)
         if options is None:
             options = NativeHtmlBackendOptions(
                 max_http_requests_per_hour=get_default_crawler_http_requests_per_hour(),

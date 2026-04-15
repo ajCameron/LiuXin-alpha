@@ -1,118 +1,65 @@
 from __future__ import annotations
 
 import abc
-
-from typing import TYPE_CHECKING, Iterator
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.storage.api import StoreAPI, StoreSpec
+    from LiuXin_alpha.storage.api.info_containers_api import StoreSpec
     from LiuXin_alpha.storage.api.store_container_api import StoreContainerAPI
-    from LiuXin_alpha.storage.storage_types import StoreID
+    from LiuXin_alpha.storage.api.store_plugin_api import StorePluginAPI
+    from LiuXin_alpha.storage.storage_types import StoreID, StoreRef
 
 
 class StoresManagerAPI(abc.ABC):
-    """API for the storage manager component which handles stores."""
+    """Store orchestration API for the storage manager."""
 
     @abc.abstractmethod
     def get_store_spec_from_db(self, store_id: "StoreID") -> "StoreSpec":
-        """
-        Load the storage spec from a row on the database.
-
-        :param store_id:
-        :return:
-        """
+        ...
 
     @abc.abstractmethod
-    def create_store(self, new_store_spec: "StoreSpec") -> "StoreAPI":
-        """
-        Create and return a store.
-        
-        :param new_store_spec: 
-        :return: 
-        """
+    def create_store_plugin(self, store_spec: "StoreSpec") -> "StorePluginAPI":
+        ...
 
     @abc.abstractmethod
-    def add_store(self, new_store: "StoreAPI") -> bool:
-        """
-        Add a store to the internal cache.
-        
-        :param new_store: 
-        :return: 
-        """
+    def build_store_container(self, store_spec: "StoreSpec") -> "StoreContainerAPI":
+        ...
 
     @abc.abstractmethod
-    def remove_store(self, store_id: "StoreID", *, delete_from_db: bool = False) -> bool:
-        """
-        Remove a store from the internal cache.
-
-        :param store_id:
-        :param delete_from_db:
-        :return:
-        """
+    def register_store_container(self, store_container: "StoreContainerAPI") -> bool:
+        ...
 
     @abc.abstractmethod
-    def get_store(self, store_identifier: "StoreID") -> "StoreAPI":
-        """
-        Get a store from the internal cache.
-
-        :param store_identifier:
-        :return:
-        """
+    def unregister_store_container(self, store_ref: "StoreRef", *, delete_from_db: bool = False) -> bool:
+        ...
 
     @abc.abstractmethod
-    def iter_stores(self) -> Iterator["StoreAPI"]:
-        """
-        Iterate over all available stores.
+    def get_store_container(self, store_ref: "StoreRef") -> "StoreContainerAPI":
+        ...
 
-        :return:
-        """
-
-
-    # ------------------------------------------------------------------
-    # Preferred managed-store/container naming
-    # ------------------------------------------------------------------
-
-    def load_store_container(self, new_store_spec: "StoreSpec") -> "StoreContainerAPI":
-        """Create/load one managed store container from a store spec."""
-        maybe_store = self.create_store(new_store_spec)
-        from LiuXin_alpha.storage.store_container import StoreContainer
-
-        if isinstance(maybe_store, StoreContainer):
-            return maybe_store
-        return StoreContainer.from_plugin(maybe_store, db=getattr(self, "db", None), store_id=new_store_spec.store_id)
+    @abc.abstractmethod
+    def iter_store_containers(self) -> Iterator["StoreContainerAPI"]:
+        ...
 
     def load_store_container_from_db(self, store_id: "StoreID") -> "StoreContainerAPI":
-        """Load a managed store container from the database-backed spec."""
-        return self.load_store_container(self.get_store_spec_from_db(store_id))
+        return self.build_store_container(self.get_store_spec_from_db(store_id))
 
-    def register_store_container(self, new_store_container: "StoreContainerAPI") -> bool:
-        """Register one managed store container with the manager."""
-        return bool(self.add_store(new_store_container.plugin))
+    def get_store_plugin(self, store_ref: "StoreRef") -> "StorePluginAPI":
+        return self.get_store_container(store_ref).plugin
 
-    def unregister_store_container(self, store_id: "StoreID", *, delete_from_db: bool = False) -> bool:
-        """Unregister one managed store container from the manager."""
-        return self.remove_store(store_id, delete_from_db=delete_from_db)
+    def iter_store_plugins(self) -> Iterator["StorePluginAPI"]:
+        for store_container in self.iter_store_containers():
+            yield store_container.plugin
 
-    def get_store_container(self, store_identifier: "StoreID") -> "StoreContainerAPI":
-        """Return the managed store container for one configured store."""
-        from LiuXin_alpha.storage.store_container import StoreContainer
+    @abc.abstractmethod
+    def bind_store_id(self, store_id: "StoreID", store_ref: "StoreRef") -> None:
+        ...
 
-        maybe_store = self.get_store(store_identifier)
-        if isinstance(maybe_store, StoreContainer):
-            return maybe_store
-        store_id: int | None
-        try:
-            store_id = int(store_identifier)
-        except Exception:
-            store_id = None
-        return StoreContainer.from_plugin(maybe_store, db=getattr(self, "db", None), store_id=store_id)
+    @abc.abstractmethod
+    def set_default_store(self, store_ref: "StoreRef") -> None:
+        ...
 
-    def iter_store_containers(self) -> Iterator["StoreContainerAPI"]:
-        """Iterate over managed store containers."""
-        from LiuXin_alpha.storage.store_container import StoreContainer
-
-        for store in self.iter_stores():
-            if isinstance(store, StoreContainer):
-                yield store
-                continue
-            yield StoreContainer.from_plugin(store, db=getattr(self, "db", None))
+    @abc.abstractmethod
+    def get_default_store_container(self) -> "StoreContainerAPI":
+        ...

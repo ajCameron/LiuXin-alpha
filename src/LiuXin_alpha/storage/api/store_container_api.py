@@ -1,15 +1,17 @@
-"""API contracts for one configured store container.
+"""Managed store container API.
 
-A store container is the managed/orchestrated view of a store. It wraps one and
-only one `StorePluginAPI` and exposes database/spec/status level behaviour.
+A store container represents one configured store. It owns exactly one raw
+plugin and the database/spec/status state around that plugin.
 """
 
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Iterator, Optional
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Optional
 
 from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
+from LiuXin_alpha.storage.single_file import SingleFileStatus
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
@@ -18,14 +20,7 @@ if TYPE_CHECKING:
 
 
 class StoreContainerAPI(abc.ABC):
-    """Managed wrapper around one configured storage plugin.
-
-    Responsibilities:
-    - hold the declared store spec
-    - hold one, and only one, raw storage plugin
-    - expose status/probe methods for orchestration
-    - provide database-oriented store lifecycle hooks
-    """
+    """Managed wrapper around one and only one configured plugin."""
 
     @property
     @abc.abstractmethod
@@ -63,16 +58,15 @@ class StoreContainerAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def self_test(self) -> "StoreStatus":
+    def probe(self) -> "StoreStatus":
         ...
 
     @abc.abstractmethod
     def status(self, *, refresh: bool = False) -> "StoreStatus":
         ...
 
-    @abc.abstractmethod
-    def refresh_status(self) -> "StoreStatus":
-        ...
+    def close(self) -> None:
+        self.plugin.close()
 
     def location(self, *tokens: str) -> StoreLocationMixinAPI:
         return self.plugin.location(*tokens)
@@ -83,7 +77,10 @@ class StoreContainerAPI(abc.ABC):
     def exists(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
         return self.plugin.exists(file_identifier)
 
-    def stat(self, file_identifier: str | StoreLocationMixinAPI):
+    def file_size(self, file_identifier: str | StoreLocationMixinAPI) -> int | None:
+        return self.plugin.file_size(file_identifier)
+
+    def stat(self, file_identifier: str | StoreLocationMixinAPI) -> SingleFileStatus:
         return self.plugin.stat(file_identifier)
 
     def iter_locations(self) -> Iterator[StoreLocationMixinAPI]:
@@ -91,6 +88,13 @@ class StoreContainerAPI(abc.ABC):
 
     def write_bytes(self, file_bytes: bytes, *, metadata=None, location: str | None = None) -> StoreLocationMixinAPI:
         return self.plugin.write_bytes(file_bytes=file_bytes, metadata=metadata, location=location)
+
+    def copy_within_store(
+        self,
+        src_location: str | StoreLocationMixinAPI,
+        dst_location: str | StoreLocationMixinAPI,
+    ) -> StoreLocationMixinAPI:
+        return self.plugin.copy_within_plugin(src_location, dst_location)
 
     def delete(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
         return self.plugin.delete(file_identifier)

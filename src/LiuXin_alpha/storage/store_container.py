@@ -16,13 +16,6 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass(slots=True)
 class StoreContainer(StoreContainerAPI):
-    """Default lightweight store container.
-
-    This is intentionally small: it gives the rest of the system one coherent
-    object to talk to while the wider storage implementation catches up with the
-    refined API split.
-    """
-
     _plugin: StorePluginAPI
     _spec: StoreSpec
     _db: "DatabaseAPI | None" = None
@@ -44,7 +37,7 @@ class StoreContainer(StoreContainerAPI):
         self._status_cache = self.plugin.startup()
         return self._status_cache
 
-    def self_test(self) -> StoreStatus:
+    def probe(self) -> StoreStatus:
         self._status_cache = self.plugin.self_test()
         return self._status_cache
 
@@ -53,14 +46,10 @@ class StoreContainer(StoreContainerAPI):
             self._status_cache = self.plugin.status()
         return self._status_cache
 
-    def refresh_status(self) -> StoreStatus:
-        self._status_cache = self.plugin.status()
-        return self._status_cache
-
     def reload_spec_from_db(self) -> StoreSpec:
         if self.db is None or self.spec.store_id is None:
             raise RuntimeError("StoreContainer is not bound to a database-backed store row.")
-        raise NotImplementedError("StoreContainer.reload_spec_from_db() needs a store-row loader.")
+        raise NotImplementedError("StoreContainer.reload_spec_from_db() needs store-row loader semantics.")
 
     def save_spec_to_db(self) -> StoreSpec:
         if self.db is None:
@@ -84,7 +73,7 @@ class StoreContainer(StoreContainerAPI):
             store_id=store_id,
             store_uuid=plugin.uuid,
             store_name=plugin.name,
-            store_kind=getattr(plugin, "plugin_kind", type(plugin).__name__),
+            store_kind=plugin.plugin_kind,
             store_url=plugin.url,
             store_root_uri=plugin.url,
         )

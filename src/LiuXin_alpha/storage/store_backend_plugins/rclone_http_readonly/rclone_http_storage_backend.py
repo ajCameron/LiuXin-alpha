@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, Optional, Sequence, Type
 
-from ...api import StoreAPI, StoreCheckStatus, StoreLocationMixinAPI, StoreStatus
+from ...api import StorePluginAPI, StoreCheckStatus, StoreLocationMixinAPI, StoreStatus
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 from LiuXin_alpha.utils.logging.event_logs.in_memory_list import InMemoryEventLog
 
@@ -85,7 +85,7 @@ class RcloneBackendOptions:
             self.max_http_requests_per_hour = get_default_rclone_http_requests_per_hour()
 
 
-class RcloneHttpReadOnlyStorageBackend(StoreAPI):
+class RcloneHttpReadOnlyStorageBackend(StorePluginAPI):
     """Read-only StorageBackend powered by `rclone`'s HTTP remote.
 
     `url` is an rclone filesystem (fs) string, e.g.

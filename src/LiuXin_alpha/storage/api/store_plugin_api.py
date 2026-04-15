@@ -1,42 +1,138 @@
-"""Preferred API contract for one raw storage plugin.
+"""Raw storage plugin API.
 
-For now this extends the legacy `StoreAPI` surface while tightening the naming
-around raw file/location operations. The long-term intent is that plugin code
-should target this interface, while store containers and the storage manager own
-all database/orchestration concerns.
+A store plugin talks to one physical medium or remote endpoint. It should know
+nothing about database rows, item graphs, replica policy, or orchestration.
 """
 
 from __future__ import annotations
 
+import abc
+import pprint
 from collections.abc import Iterator
+from typing import TYPE_CHECKING, Optional
 
 from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
-from LiuXin_alpha.storage.api.store_api import StoreAPI
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 
+if TYPE_CHECKING:
+    from LiuXin_alpha.storage.api.info_containers_api import StoreStatus
 
-class StorePluginAPI(StoreAPI):
-    """Preferred raw-plugin naming layered on top of the legacy store API."""
+
+class StorePluginAPI(abc.ABC):
+    """Contract for one raw storage plugin bound to one root location."""
+
+    _url: str
+    _name: str
+    _uuid: Optional[str]
+
+    def __init__(
+        self,
+        *,
+        url: str,
+        name: Optional[str] = None,
+        uuid: Optional[str] = None,
+    ) -> None:
+        self.set_url(url)
+        self._name = name if name is not None else self.url_to_name(url)
+        self._uuid = uuid
 
     @property
     def plugin_kind(self) -> str:
         return type(self).__name__
 
+    @abc.abstractmethod
+    def url_to_name(self, url: str) -> str:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def root_path(self):
+        ...
+
+    @abc.abstractmethod
+    def startup(self) -> "StoreStatus":
+        ...
+
+    @abc.abstractmethod
+    def self_test(self) -> "StoreStatus":
+        ...
+
+    @abc.abstractmethod
+    def status(self) -> "StoreStatus":
+        ...
+
     def close(self) -> None:
         return None
 
+    @property
+    def url(self) -> str:
+        return self._url
+
+    @url.setter
+    def url(self, url: str) -> None:
+        raise AttributeError("Cannot directly set the url of a store plugin.")
+
+    def set_url(self, new_url: str) -> None:
+        self._url = str(new_url)
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, name: str) -> None:
+        raise AttributeError("Cannot directly set the name of a store plugin.")
+
+    @property
+    def uuid(self) -> Optional[str]:
+        return self._uuid
+
+    @uuid.setter
+    def uuid(self, uuid: str) -> None:
+        raise AttributeError("Cannot directly set the uuid of a store plugin.")
+
+    @property
+    def online(self) -> bool:
+        try:
+            return self.status().online
+        except Exception:
+            return False
+
+    @property
+    def checked(self) -> bool:
+        try:
+            return bool(self.status().checked)
+        except Exception:
+            return False
+
+    def status_str(self) -> str:
+        return pprint.pformat(self.status())
+
+    @abc.abstractmethod
+    def location(self, *tokens: str) -> StoreLocationMixinAPI:
+        ...
+
+    @abc.abstractmethod
     def locate(self, file_identifier: str | StoreLocationMixinAPI) -> StoreLocationMixinAPI:
-        return self.get_file(file_identifier)
+        ...
 
+    @abc.abstractmethod
     def exists(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
-        return self.file_exists(file_identifier)
+        ...
 
+    @abc.abstractmethod
+    def file_size(self, file_identifier: str | StoreLocationMixinAPI) -> int | None:
+        ...
+
+    @abc.abstractmethod
     def stat(self, file_identifier: str | StoreLocationMixinAPI) -> SingleFileStatus:
-        return self.get_file_status(file_identifier)
+        ...
 
+    @abc.abstractmethod
     def iter_locations(self) -> Iterator[StoreLocationMixinAPI]:
-        return self.true_files()
+        ...
 
+    @abc.abstractmethod
     def write_bytes(
         self,
         file_bytes: bytes,
@@ -44,19 +140,18 @@ class StorePluginAPI(StoreAPI):
         metadata=None,
         location: str | None = None,
     ) -> StoreLocationMixinAPI:
-        return self.add_file(file_bytes=file_bytes, metadata=metadata, url=location)
+        ...
 
-    def copy_within_store(
+    def copy_within_plugin(
         self,
         src_location: str | StoreLocationMixinAPI,
         dst_location: str | StoreLocationMixinAPI,
     ) -> StoreLocationMixinAPI:
-        src_key = src_location.as_store_key() if isinstance(src_location, StoreLocationMixinAPI) else str(src_location)
-        dst_key = dst_location.as_store_key() if isinstance(dst_location, StoreLocationMixinAPI) else str(dst_location)
-        return self.dupe_file_in_store(src_key, dst_key)
+        raise PermissionError("This store plugin does not support in-plugin copies.")
 
+    @abc.abstractmethod
     def delete(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
-        return self.delete_file(file_identifier)
+        ...
 
     def update_bytes(
         self,
@@ -65,5 +160,4 @@ class StorePluginAPI(StoreAPI):
         *,
         append: bool = False,
     ) -> bool:
-        key = file_identifier.as_store_key() if isinstance(file_identifier, StoreLocationMixinAPI) else str(file_identifier)
-        return self.update_file(key, file_bytes=file_bytes, append=append)
+        raise PermissionError("This store plugin does not support in-place updates.")

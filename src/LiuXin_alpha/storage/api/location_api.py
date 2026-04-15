@@ -317,9 +317,9 @@ class StoreLocationMixinAPI(ABC):
         return status
 
     def recheck_status(self) -> SingleFileStatus:
-        getter = getattr(self.store, "get_file_status", None)
+        getter = getattr(self.store, "stat", None)
         if not callable(getter):
-            raise AttributeError("Store {!r} does not expose get_file_status().".format(self.store))
+            raise AttributeError("Store {!r} does not expose stat().".format(self.store))
         status = getter(self)
         setattr(self, "_file_status", status)
         return status

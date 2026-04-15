@@ -10,7 +10,7 @@ import time
 
 from typing import Iterator, Optional, Type
 
-from LiuXin_alpha.storage.api import StoreAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
+from LiuXin_alpha.storage.api import StorePluginAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 from LiuXin_alpha.storage.store_backend_plugins.single_file_sqlite.single_file_sqlite_location import (
     SingleFileSqliteStoreLocation,
@@ -20,7 +20,7 @@ from LiuXin_alpha.utils.storage.local.local_store_properties import get_free_byt
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
-class SingleFileSqliteStorageBackend(StoreAPI):
+class SingleFileSqliteStorageBackend(StorePluginAPI):
     """Read/write store that keeps every payload in one SQLite file as SHA256-keyed blobs."""
 
     location_cls: Type[SingleFileSqliteStoreLocation] = SingleFileSqliteStoreLocation

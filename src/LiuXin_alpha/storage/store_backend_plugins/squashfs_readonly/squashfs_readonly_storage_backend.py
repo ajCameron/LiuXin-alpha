@@ -16,7 +16,7 @@ import time
 
 from typing import Dict, Iterator, Optional, Type
 
-from LiuXin_alpha.storage.api import StoreAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
+from LiuXin_alpha.storage.api import StorePluginAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_readonly_location import (
     SquashfsReadOnlyStoreLocation,
@@ -26,7 +26,7 @@ from LiuXin_alpha.utils.storage.local.local_store_properties import get_free_byt
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
-class SquashfsReadOnlyStorageBackend(StoreAPI):
+class SquashfsReadOnlyStorageBackend(StorePluginAPI):
     """
     Read-only archive backend over `unsquashfs`.
     """

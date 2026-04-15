@@ -7,6 +7,7 @@ items -> composite_digital_assets -> composite_digital_asset_digital_asset_links
 """
 
 StoreID = int
+StoreRef = int | str
 ItemID = int
 DigitalAssetID = int
 CompositeDigitalAssetID = int

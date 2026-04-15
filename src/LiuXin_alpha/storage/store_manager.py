@@ -1,12 +1,7 @@
-"""
-Concrete storage manager implementation.
+"""Concrete storage manager implementation.
 
-`StorageManager` orchestrates a set of concrete stores and exposes the
-user-facing storage API:
-- register/remove stores
-- place files in writable stores
-- resolve/retrieve files from stores
-- return store-relative folder/location handles
+`StorageManager` orchestrates configured store containers and routes file/location
+operations to the most appropriate underlying plugin.
 """
 
 from __future__ import annotations
@@ -20,15 +15,24 @@ from collections.abc import Iterable, Iterator, Mapping
 from typing import TYPE_CHECKING, Any, Optional
 
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
-from LiuXin_alpha.storage.api import StoreAPI, StoreLocationMixinAPI, StorageManagerAPI, StoreSpec
+from LiuXin_alpha.storage.api import (
+    StoreContainerAPI,
+    StoreLocationMixinAPI,
+    StorageManagerAPI,
+    StorePluginAPI,
+    StoreSpec,
+)
+from LiuXin_alpha.storage.store_container import StoreContainer
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
+    from LiuXin_alpha.storage.storage_types import StoreRef
 
 
 @dataclasses.dataclass(slots=True)
 class StorageBootstrapIssue:
     """Details for one row that could not be loaded into the storage manager."""
+
     store_id: Optional[int]
     store_name: Optional[str]
     reason: str
@@ -37,6 +41,7 @@ class StorageBootstrapIssue:
 @dataclasses.dataclass(slots=True)
 class StorageBootstrapReport:
     """Aggregate results of loading stores from database rows."""
+
     discovered_rows: int = 0
     loaded_stores: int = 0
     skipped_rows: int = 0
@@ -49,13 +54,10 @@ class StorageBootstrapReport:
 
 
 class StorageManager(StorageManagerAPI):
-    """
-    Default in-process storage manager.
+    """Default in-process storage manager.
 
-    Store lookup identifiers:
-    - store UUID
-    - store name
-    - store URL
+    The manager owns store containers, not raw plugins. Lookups accept a store id,
+    uuid, name, or URL. File-facing operations return `Location` objects.
     """
 
     _STORE_KIND_ALIASES: Mapping[str, str] = {
@@ -124,24 +126,28 @@ class StorageManager(StorageManagerAPI):
 
     def __init__(
         self,
-        stores: Optional[Iterable[StoreAPI]] = None,
+        stores: Optional[Iterable[StoreContainerAPI | StorePluginAPI]] = None,
         *,
         db: "DatabaseAPI | None" = None,
         startup_on_add: bool = True,
     ) -> None:
         super().__init__(db=db)
-
-        self._stores: list[StoreAPI] = []
-        self._stores_by_uuid: dict[str, StoreAPI] = {}
-        self._stores_by_name: dict[str, StoreAPI] = {}
-        self._stores_by_url: dict[str, StoreAPI] = {}
+        self._store_containers: list[StoreContainerAPI] = []
+        self._containers_by_uuid: dict[str, StoreContainerAPI] = {}
+        self._containers_by_name: dict[str, StoreContainerAPI] = {}
+        self._containers_by_url: dict[str, StoreContainerAPI] = {}
         self._store_ids: dict[int, str] = {}
         self._default_store_key: Optional[str] = None
         self._startup_on_add = bool(startup_on_add)
 
         if stores is not None:
             for store in stores:
-                self.add_store(store)
+                if isinstance(store, StoreContainerAPI):
+                    self.register_store_container(store)
+                elif isinstance(store, StorePluginAPI):
+                    self.register_store_container(StoreContainer.from_plugin(store, db=db))
+                else:
+                    raise TypeError("stores must contain StoreContainerAPI or StorePluginAPI instances.")
 
     @classmethod
     def from_database(
@@ -152,9 +158,6 @@ class StorageManager(StorageManagerAPI):
         include_offline: bool = False,
         clear_existing: bool = True,
     ) -> tuple["StorageManager", StorageBootstrapReport]:
-        """
-        Construct a manager and populate it from the database `stores` table.
-        """
         manager = cls(db=db, startup_on_add=startup_on_add)
         report = manager.load_from_database(
             db,
@@ -163,68 +166,129 @@ class StorageManager(StorageManagerAPI):
         )
         return manager, report
 
-    # ----------------------------------------------------------------------------------
-    # store registration / lookup
-    # ----------------------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Store/container orchestration
+    # ------------------------------------------------------------------
 
-    def add_store(self, new_store: StoreAPI) -> None:
-        if not isinstance(new_store, StoreAPI):
-            raise TypeError("new_store must implement StoreAPI.")
+    def create_store_plugin(self, store_spec: StoreSpec) -> StorePluginAPI:
+        backend_cls = self._resolve_backend_cls(store_spec)
+        if backend_cls is None:
+            raise ValueError(
+                "Unsupported store kind/protocol: {!r} / {!r}".format(
+                    store_spec.store_kind,
+                    store_spec.store_access_protocol,
+                )
+            )
 
-        key_name = str(new_store.name)
-        key_url = str(new_store.url)
-        key_uuid = str(new_store.uuid) if new_store.uuid is not None else None
+        root_uri = store_spec.store_root_uri or store_spec.store_url
+        if not root_uri:
+            raise ValueError("StoreSpec must provide store_root_uri or store_url.")
 
-        self._check_duplicate_key("name", key_name, new_store)
-        self._check_duplicate_key("url", key_url, new_store)
+        kwargs: dict[str, Any] = {
+            "url": str(root_uri),
+            "name": store_spec.store_name,
+            "uuid": store_spec.store_uuid,
+        }
+
+        if backend_cls.__name__ == "OnDiskCalibreLikeStorageBackend":
+            kwargs["database"] = self.db
+            if store_spec.store_id is not None:
+                kwargs["store_id"] = int(store_spec.store_id)
+        elif backend_cls.__name__ == "RcloneHttpReadOnlyStorageBackend":
+            options = self._build_rclone_options_from_row(store_spec)
+            if options is not None:
+                kwargs["options"] = options
+        elif backend_cls.__name__ == "WgetHtmlReadOnlyStorageBackend":
+            options = self._build_wget_options_from_row(store_spec)
+            if options is not None:
+                kwargs["options"] = options
+        elif backend_cls.__name__ == "NativeHtmlReadOnlyStorageBackend":
+            options = self._build_native_html_options_from_row(store_spec)
+            if options is not None:
+                kwargs["options"] = options
+
+        plugin = backend_cls(**kwargs)
+        if not isinstance(plugin, StorePluginAPI):
+            raise TypeError(
+                "Backend class {!r} is not yet migrated to StorePluginAPI.".format(backend_cls.__name__)
+            )
+        return plugin
+
+    def build_store_container(self, store_spec: StoreSpec) -> StoreContainerAPI:
+        plugin = self.create_store_plugin(store_spec)
+        store_container = StoreContainer(_plugin=plugin, _spec=store_spec, _db=self.db)
+        self.register_store_container(store_container)
+        if store_spec.store_id is not None:
+            self.bind_store_id(int(store_spec.store_id), store_container.store_name)
+        return store_container
+
+    def register_store_container(self, store_container: StoreContainerAPI) -> bool:
+        key_name = str(store_container.store_name)
+        key_url = str(store_container.store_url)
+        key_uuid = str(store_container.store_uuid) if store_container.store_uuid is not None else None
+
+        self._check_duplicate_key("name", key_name, store_container)
+        self._check_duplicate_key("url", key_url, store_container)
         if key_uuid is not None:
-            self._check_duplicate_key("uuid", key_uuid, new_store)
+            self._check_duplicate_key("uuid", key_uuid, store_container)
 
-        self._stores.append(new_store)
-        self._stores_by_name[key_name] = new_store
-        self._stores_by_url[key_url] = new_store
+        self._store_containers.append(store_container)
+        self._containers_by_name[key_name] = store_container
+        self._containers_by_url[key_url] = store_container
         if key_uuid is not None:
-            self._stores_by_uuid[key_uuid] = new_store
+            self._containers_by_uuid[key_uuid] = store_container
 
         if self._default_store_key is None:
             self._default_store_key = key_name
 
         if self._startup_on_add:
-            new_store.startup()
+            store_container.startup()
+        return True
 
-    def remove_store(self, store_identifier: str) -> bool:
+    def unregister_store_container(self, store_ref: "StoreRef", *, delete_from_db: bool = False) -> bool:
         try:
-            store = self.get_store(store_identifier)
+            store_container = self.get_store_container(store_ref)
         except KeyError:
             return False
 
-        self._stores = [st for st in self._stores if st is not store]
-        self._stores_by_name.pop(str(store.name), None)
-        self._stores_by_url.pop(str(store.url), None)
-        if store.uuid is not None:
-            self._stores_by_uuid.pop(str(store.uuid), None)
+        self._store_containers = [st for st in self._store_containers if st is not store_container]
+        self._containers_by_name.pop(str(store_container.store_name), None)
+        self._containers_by_url.pop(str(store_container.store_url), None)
+        if store_container.store_uuid is not None:
+            self._containers_by_uuid.pop(str(store_container.store_uuid), None)
 
-        dead_ids = [store_id for store_id, identifier in self._store_ids.items() if identifier == store_identifier]
+        dead_ids = [store_id for store_id, identifier in self._store_ids.items() if identifier == str(store_ref)]
         for store_id in dead_ids:
             self._store_ids.pop(store_id, None)
 
-        if not self._stores:
+        if delete_from_db:
+            try:
+                store_container.delete_from_db()
+            except NotImplementedError:
+                pass
+
+        if not self._store_containers:
             self._default_store_key = None
             return True
 
-        if self._default_store_key in (store_identifier, str(store.name), str(store.uuid), str(store.url)):
-            self._default_store_key = str(self._stores[0].name)
+        if self._default_store_key in (
+            str(store_ref),
+            str(store_container.store_name),
+            str(store_container.store_uuid),
+            str(store_container.store_url),
+        ):
+            self._default_store_key = str(self._store_containers[0].store_name)
         return True
 
-    def get_store(self, store_identifier: str) -> StoreAPI:
-        identifier = str(store_identifier)
-        matches: list[StoreAPI] = []
+    def get_store_container(self, store_ref: "StoreRef") -> StoreContainerAPI:
+        identifier = str(store_ref)
+        matches: list[StoreContainerAPI] = []
         seen_ids: set[int] = set()
 
         for lookup in (
-            self._stores_by_uuid.get(identifier),
-            self._stores_by_name.get(identifier),
-            self._stores_by_url.get(identifier),
+            self._containers_by_uuid.get(identifier),
+            self._containers_by_name.get(identifier),
+            self._containers_by_url.get(identifier),
         ):
             if lookup is None:
                 continue
@@ -235,15 +299,158 @@ class StorageManager(StorageManagerAPI):
             matches.append(lookup)
 
         if not matches:
-            raise KeyError("Unknown store identifier: {!r}".format(store_identifier))
+            raise KeyError("Unknown store identifier: {!r}".format(store_ref))
         if len(matches) > 1:
-            raise KeyError(
-                "Ambiguous store identifier {!r}; matches multiple stores.".format(store_identifier)
-            )
+            raise KeyError("Ambiguous store identifier {!r}; matches multiple stores.".format(store_ref))
         return matches[0]
 
-    def iter_stores(self) -> Iterator[StoreAPI]:
-        return iter(tuple(self._stores))
+    def iter_store_containers(self) -> Iterator[StoreContainerAPI]:
+        return iter(tuple(self._store_containers))
+
+    def bind_store_id(self, store_id: int, store_ref: "StoreRef") -> None:
+        self._store_ids[int(store_id)] = str(store_ref)
+
+    def set_default_store(self, store_ref: "StoreRef") -> None:
+        store_container = self.get_store_container(store_ref)
+        self._default_store_key = str(store_container.store_name)
+
+    def get_default_store_container(self) -> StoreContainerAPI:
+        if self._default_store_key is None:
+            raise RuntimeError("No default store is configured.")
+        return self.get_store_container(self._default_store_key)
+
+    def close(self) -> None:
+        for store_container in tuple(self._store_containers):
+            try:
+                store_container.close()
+            except Exception:
+                continue
+
+    # ------------------------------------------------------------------
+    # File/location orchestration
+    # ------------------------------------------------------------------
+
+    def store_bytes(
+        self,
+        file_bytes: bytes,
+        metadata: Optional[MetadataContainerAPI] = None,
+        *,
+        preferred_store: "StoreRef | None" = None,
+    ) -> StoreLocationMixinAPI:
+        if not self._store_containers:
+            raise RuntimeError("No stores are registered with this StorageManager.")
+
+        errors: list[str] = []
+        for store_container in self._candidate_store_containers(
+            preferred_store=preferred_store,
+            metadata=metadata,
+            file_url=None,
+        ):
+            try:
+                return store_container.write_bytes(file_bytes=file_bytes, metadata=metadata)
+            except (PermissionError, NotImplementedError) as exc:
+                errors.append("{}: {}".format(store_container.store_name, exc))
+                continue
+            except Exception as exc:  # pragma: no cover
+                errors.append("{}: {!r}".format(store_container.store_name, exc))
+                continue
+
+        raise RuntimeError(
+            "No writable store accepted the file. Errors: {}".format("; ".join(errors) if errors else "<none>")
+        )
+
+    def locate_file(
+        self,
+        file_url: Optional[str] = None,
+        metadata: Optional[MetadataContainerAPI] = None,
+        *,
+        preferred_store: "StoreRef | None" = None,
+    ) -> StoreLocationMixinAPI:
+        resolved_url = file_url or self._metadata_file_url(metadata)
+        if resolved_url is None:
+            raise ValueError("locate_file requires file_url or metadata containing one.")
+
+        checked_any = False
+        for store_container in self._candidate_store_containers(
+            preferred_store=preferred_store,
+            metadata=metadata,
+            file_url=resolved_url,
+        ):
+            checked_any = True
+            try:
+                if not store_container.exists(resolved_url):
+                    continue
+                return store_container.locate(resolved_url)
+            except Exception:
+                continue
+
+        if not checked_any:
+            raise RuntimeError("No stores are registered with this StorageManager.")
+        raise FileNotFoundError("File could not be resolved from any store: {!r}".format(resolved_url))
+
+    def locate_folder(
+        self,
+        folder_key: str,
+        *,
+        preferred_store: "StoreRef | None" = None,
+    ) -> StoreLocationMixinAPI:
+        if not self._store_containers:
+            raise RuntimeError("No stores are registered with this StorageManager.")
+
+        for store_container in self._candidate_store_containers(preferred_store=preferred_store, metadata=None, file_url=None):
+            try:
+                return store_container.location(folder_key)
+            except NotImplementedError:
+                continue
+            except Exception:
+                continue
+
+        raise NotImplementedError("No registered store can provide folder/location handles.")
+
+    def delete_location(
+        self,
+        file_url: Optional[str] = None,
+        metadata: Optional[MetadataContainerAPI] = None,
+        location: Optional[StoreLocationMixinAPI] = None,
+    ) -> bool:
+        resolved_url = file_url
+        preferred_store: "StoreRef | None" = None
+
+        if location is not None:
+            resolved_url = resolved_url or location.file_url
+            store_name = getattr(getattr(location, "store", None), "name", None)
+            if store_name is not None:
+                preferred_store = str(store_name)
+
+        if resolved_url is None:
+            resolved_url = self._metadata_file_url(metadata)
+        if resolved_url is None:
+            raise ValueError("delete_location requires file_url, metadata, or location.")
+
+        for store_container in self._candidate_store_containers(
+            preferred_store=preferred_store,
+            metadata=metadata,
+            file_url=resolved_url,
+        ):
+            try:
+                if not store_container.exists(resolved_url):
+                    continue
+                return bool(store_container.delete(resolved_url))
+            except Exception:
+                continue
+
+        return False
+
+    def iter_locations(self) -> Iterator[StoreLocationMixinAPI]:
+        for store_container in self._store_containers:
+            try:
+                yield from store_container.iter_locations()
+            except Exception:
+                continue
+
+    # ------------------------------------------------------------------
+    # Database bootstrap / specs
+    # ------------------------------------------------------------------
 
     def get_store_spec_from_db(self, store_id: int) -> StoreSpec:
         if self.db is None:
@@ -283,173 +490,6 @@ class StorageManager(StorageManagerAPI):
             store_scratch=self._coerce_optional_str(self._row_get(row, "store_scratch")),
         )
 
-    def create_store(self, new_store_spec: StoreSpec) -> StoreAPI:
-        backend_cls = self._resolve_backend_cls(new_store_spec)
-        if backend_cls is None:
-            raise ValueError(
-                "Unsupported store kind/protocol: {!r} / {!r}".format(
-                    new_store_spec.store_kind,
-                    new_store_spec.store_access_protocol,
-                )
-            )
-
-        root_uri = new_store_spec.store_root_uri or new_store_spec.store_url
-        if not root_uri:
-            raise ValueError("StoreSpec must provide store_root_uri or store_url.")
-
-        kwargs: dict[str, Any] = {
-            "url": str(root_uri),
-            "name": new_store_spec.store_name,
-            "uuid": new_store_spec.store_uuid,
-        }
-
-        if backend_cls.__name__ == "OnDiskCalibreLikeStorageBackend":
-            kwargs["database"] = self.db
-            if new_store_spec.store_id is not None:
-                kwargs["store_id"] = int(new_store_spec.store_id)
-        elif backend_cls.__name__ == "RcloneHttpReadOnlyStorageBackend":
-            options = self._build_rclone_options_from_row(new_store_spec)
-            if options is not None:
-                kwargs["options"] = options
-        elif backend_cls.__name__ == "WgetHtmlReadOnlyStorageBackend":
-            options = self._build_wget_options_from_row(new_store_spec)
-            if options is not None:
-                kwargs["options"] = options
-        elif backend_cls.__name__ == "NativeHtmlReadOnlyStorageBackend":
-            options = self._build_native_html_options_from_row(new_store_spec)
-            if options is not None:
-                kwargs["options"] = options
-
-        store = backend_cls(**kwargs)
-        self.add_store(store)
-        if new_store_spec.store_id is not None:
-            self.bind_store_id(int(new_store_spec.store_id), store.name)
-        return store
-
-    # ----------------------------------------------------------------------------------
-    # file CRUD
-    # ----------------------------------------------------------------------------------
-
-    def add_file(
-        self,
-        file_bytes: bytes,
-        metadata: Optional[MetadataContainerAPI] = None,
-        *,
-        preferred_store: Optional[str] = None,
-    ) -> StoreLocationMixinAPI:
-        if not self._stores:
-            raise RuntimeError("No stores are registered with this StorageManager.")
-
-        errors: list[str] = []
-        for store in self._candidate_stores(
-            preferred_store=preferred_store,
-            metadata=metadata,
-            file_url=None,
-        ):
-            try:
-                return store.add_file(file_bytes=file_bytes, metadata=metadata)
-            except (PermissionError, NotImplementedError) as exc:
-                errors.append("{}: {}".format(store.name, exc))
-                continue
-            except Exception as exc:  # pragma: no cover - defensive; backend dependent
-                errors.append("{}: {!r}".format(store.name, exc))
-                continue
-
-        raise RuntimeError(
-            "No writable store accepted the file. Errors: {}".format("; ".join(errors) if errors else "<none>")
-        )
-
-    def retrieve_file(
-        self,
-        file_url: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
-        *,
-        preferred_store: Optional[str] = None,
-    ) -> StoreLocationMixinAPI:
-        resolved_url = file_url or self._metadata_file_url(metadata)
-        if resolved_url is None:
-            raise ValueError("retrieve_file requires file_url or metadata containing one.")
-
-        checked_any = False
-        for store in self._candidate_stores(
-            preferred_store=preferred_store,
-            metadata=metadata,
-            file_url=resolved_url,
-        ):
-            checked_any = True
-            try:
-                if not store.file_exists(resolved_url):
-                    continue
-                return store.get_file(resolved_url)
-            except Exception:
-                continue
-
-        if not checked_any:
-            raise RuntimeError("No stores are registered with this StorageManager.")
-        raise FileNotFoundError("File could not be resolved from any store: {!r}".format(resolved_url))
-
-    def retrieve_folder(
-        self,
-        folder_key: str,
-        *,
-        preferred_store: Optional[str] = None,
-    ) -> StoreLocationMixinAPI:
-        if not self._stores:
-            raise RuntimeError("No stores are registered with this StorageManager.")
-
-        for store in self._candidate_stores(preferred_store=preferred_store, metadata=None, file_url=None):
-            try:
-                return store.location(folder_key)
-            except NotImplementedError:
-                continue
-            except Exception:
-                continue
-
-        raise NotImplementedError("No registered store can provide folder/location handles.")
-
-    def delete_file(
-        self,
-        file_url: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
-        file_container: Optional[StoreLocationMixinAPI] = None,
-    ) -> bool:
-        resolved_url = file_url
-        preferred_store: Optional[str] = None
-
-        if file_container is not None:
-            resolved_url = resolved_url or file_container.file_url
-            preferred_store = file_container.store if isinstance(file_container.store, str) else getattr(file_container.store, "name", None)
-
-        resolved_url = resolved_url or self._metadata_file_url(metadata)
-        if resolved_url is None:
-            raise ValueError("delete_file requires file_url, metadata containing one, or a file_container.")
-
-        for store in self._candidate_stores(
-            preferred_store=preferred_store,
-            metadata=metadata,
-            file_url=resolved_url,
-        ):
-            try:
-                if not store.file_exists(resolved_url):
-                    continue
-            except Exception:
-                continue
-
-            try:
-                return bool(store.delete_file(resolved_url))
-            except (PermissionError, NotImplementedError):
-                continue
-            except Exception:
-                continue
-        return False
-
-    def iter(self) -> Iterator[StoreLocationMixinAPI]:
-        for store in self._stores:
-            try:
-                yield from store.iter()
-            except Exception:
-                continue
-
     def load_from_database(
         self,
         db: "DatabaseAPI",
@@ -457,11 +497,6 @@ class StorageManager(StorageManagerAPI):
         include_offline: bool = False,
         clear_existing: bool = True,
     ) -> StorageBootstrapReport:
-        """
-        Populate this manager from the database `stores` table.
-
-        Rows with unknown `store_kind` values are skipped and reported.
-        """
         report = StorageBootstrapReport()
 
         tables = set(db.get_tables())
@@ -483,84 +518,39 @@ class StorageManager(StorageManagerAPI):
             online_status = self._coerce_optional_str(self._row_get(row, "store_online_status"))
             if (not include_offline) and online_status is not None and online_status.lower() == "offline":
                 report.skipped_rows += 1
-                report.issues.append(
-                    StorageBootstrapIssue(store_id=store_id, store_name=store_name, reason="store marked offline")
-                )
+                report.issues.append(StorageBootstrapIssue(store_id=store_id, store_name=store_name, reason="store marked offline"))
                 continue
-
-            root_uri = self._coerce_optional_str(self._row_get(row, "store_root_uri"))
-            if not root_uri:
-                report.skipped_rows += 1
-                report.issues.append(
-                    StorageBootstrapIssue(
-                        store_id=store_id,
-                        store_name=store_name,
-                        reason="store_root_uri is missing",
-                    )
-                )
-                continue
-
-            backend_cls = self._resolve_backend_cls(row)
-            if backend_cls is None:
-                report.skipped_rows += 1
-                report.issues.append(
-                    StorageBootstrapIssue(
-                        store_id=store_id,
-                        store_name=store_name,
-                        reason="unsupported store kind/protocol",
-                    )
-                )
-                continue
-
-            kwargs: dict[str, Any] = {"url": root_uri}
-            if store_name:
-                kwargs["name"] = store_name
-            if store_id is not None:
-                kwargs["uuid"] = "store-{}".format(store_id)
-            if backend_cls.__name__ == "OnDiskCalibreLikeStorageBackend":
-                kwargs["database"] = db
-                if store_id is not None:
-                    kwargs["store_id"] = store_id
-            elif backend_cls.__name__ == "RcloneHttpReadOnlyStorageBackend":
-                options = self._build_rclone_options_from_row(row)
-                if options is not None:
-                    kwargs["options"] = options
-            elif backend_cls.__name__ == "WgetHtmlReadOnlyStorageBackend":
-                options = self._build_wget_options_from_row(row)
-                if options is not None:
-                    kwargs["options"] = options
-            elif backend_cls.__name__ == "NativeHtmlReadOnlyStorageBackend":
-                options = self._build_native_html_options_from_row(row)
-                if options is not None:
-                    kwargs["options"] = options
 
             try:
-                store = backend_cls(**kwargs)
-                self.add_store(store)
-                if store_id is not None:
-                    self.bind_store_id(store_id, store.name)
+                store_spec = self.get_store_spec_from_db(int(store_id)) if store_id is not None else None
+            except Exception as exc:
+                report.failed_rows += 1
+                report.issues.append(StorageBootstrapIssue(store_id=store_id, store_name=store_name, reason="failed to load store spec: {!r}".format(exc)))
+                continue
+
+            if store_spec is None or not (store_spec.store_root_uri or store_spec.store_url):
+                report.skipped_rows += 1
+                report.issues.append(StorageBootstrapIssue(store_id=store_id, store_name=store_name, reason="store_root_uri is missing"))
+                continue
+
+            try:
+                self.build_store_container(store_spec)
                 report.loaded_stores += 1
             except Exception as exc:
                 report.failed_rows += 1
-                report.issues.append(
-                    StorageBootstrapIssue(
-                        store_id=store_id,
-                        store_name=store_name,
-                        reason="failed to load store: {!r}".format(exc),
-                    )
-                )
+                report.issues.append(StorageBootstrapIssue(store_id=store_id, store_name=store_name, reason="failed to load store: {!r}".format(exc)))
 
         return report
 
-    # ----------------------------------------------------------------------------------
-    # helpers
-    # ----------------------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
     def _clear_registry(self) -> None:
-        self._stores.clear()
-        self._stores_by_uuid.clear()
-        self._stores_by_name.clear()
-        self._stores_by_url.clear()
+        self._store_containers.clear()
+        self._containers_by_uuid.clear()
+        self._containers_by_name.clear()
+        self._containers_by_url.clear()
         self._store_ids.clear()
         self._default_store_key = None
 
@@ -648,31 +638,20 @@ class StorageManager(StorageManagerAPI):
             if isinstance(args, (list, tuple)):
                 option_kwargs["rclone_args"] = tuple(str(x) for x in args)
         if "timeout_s" in rclone_policy:
-            timeout_s = self._coerce_optional_float(rclone_policy.get("timeout_s"))
-            option_kwargs["timeout_s"] = timeout_s
+            option_kwargs["timeout_s"] = self._coerce_optional_float(rclone_policy.get("timeout_s"))
         if "max_http_requests_per_hour" in rclone_policy:
-            max_rph = self._coerce_optional_float(rclone_policy.get("max_http_requests_per_hour"))
-            option_kwargs["max_http_requests_per_hour"] = max_rph
+            option_kwargs["max_http_requests_per_hour"] = self._coerce_optional_float(rclone_policy.get("max_http_requests_per_hour"))
         if "apply_rclone_tpslimit" in rclone_policy:
-            option_kwargs["apply_rclone_tpslimit"] = self._to_boolish(
-                rclone_policy.get("apply_rclone_tpslimit"),
-                default=True,
-            )
+            option_kwargs["apply_rclone_tpslimit"] = self._to_boolish(rclone_policy.get("apply_rclone_tpslimit"), default=True)
         if "rclone_tpslimit_burst" in rclone_policy:
             burst = self._to_int(rclone_policy.get("rclone_tpslimit_burst"))
             if burst is not None:
                 option_kwargs["rclone_tpslimit_burst"] = max(1, burst)
         if "enforce_global_rate_limit" in rclone_policy:
-            option_kwargs["enforce_global_rate_limit"] = self._to_boolish(
-                rclone_policy.get("enforce_global_rate_limit"),
-                default=True,
-            )
-
+            option_kwargs["enforce_global_rate_limit"] = self._to_boolish(rclone_policy.get("enforce_global_rate_limit"), default=True)
         if not option_kwargs:
             return None
-
         from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import RcloneBackendOptions
-
         return RcloneBackendOptions(**option_kwargs)
 
     def _build_wget_options_from_row(self, row: Any):
@@ -685,14 +664,7 @@ class StorageManager(StorageManagerAPI):
             return None
         if not isinstance(policy, Mapping):
             return None
-
-        wget_policy: Mapping[str, Any]
-        nested = policy.get("wget")
-        if isinstance(nested, Mapping):
-            wget_policy = nested
-        else:
-            wget_policy = policy
-
+        wget_policy: Mapping[str, Any] = policy.get("wget") if isinstance(policy.get("wget"), Mapping) else policy
         option_kwargs: dict[str, Any] = {}
         if "wget_exe" in wget_policy:
             exe = self._coerce_optional_str(wget_policy.get("wget_exe"))
@@ -703,16 +675,13 @@ class StorageManager(StorageManagerAPI):
             if isinstance(args, (list, tuple)):
                 option_kwargs["wget_args"] = tuple(str(x) for x in args)
         if "timeout_s" in wget_policy:
-            timeout_s = self._coerce_optional_float(wget_policy.get("timeout_s"))
-            option_kwargs["timeout_s"] = timeout_s
+            option_kwargs["timeout_s"] = self._coerce_optional_float(wget_policy.get("timeout_s"))
         if "max_http_requests_per_hour" in wget_policy:
-            max_rph = self._coerce_optional_float(wget_policy.get("max_http_requests_per_hour"))
-            option_kwargs["max_http_requests_per_hour"] = max_rph
+            option_kwargs["max_http_requests_per_hour"] = self._coerce_optional_float(wget_policy.get("max_http_requests_per_hour"))
         if "recurse" in wget_policy:
             option_kwargs["recurse"] = self._to_boolish(wget_policy.get("recurse"), default=True)
         if "max_depth" in wget_policy:
-            depth = self._to_int(wget_policy.get("max_depth"))
-            option_kwargs["max_depth"] = depth
+            option_kwargs["max_depth"] = self._to_int(wget_policy.get("max_depth"))
         if "no_parent" in wget_policy:
             option_kwargs["no_parent"] = self._to_boolish(wget_policy.get("no_parent"), default=True)
         if "span_hosts" in wget_policy:
@@ -720,16 +689,14 @@ class StorageManager(StorageManagerAPI):
         if "respect_robots" in wget_policy:
             option_kwargs["respect_robots"] = self._to_boolish(wget_policy.get("respect_robots"), default=True)
         if "user_agent" in wget_policy:
-            user_agent = self._coerce_optional_str(wget_policy.get("user_agent"))
-            option_kwargs["user_agent"] = user_agent
-        if "no_verbose" in wget_policy:
-            option_kwargs["no_verbose"] = self._to_boolish(wget_policy.get("no_verbose"), default=True)
-
+            option_kwargs["user_agent"] = self._coerce_optional_str(wget_policy.get("user_agent"))
+        if "max_html_bytes" in wget_policy:
+            max_html_bytes = self._to_int(wget_policy.get("max_html_bytes"))
+            if max_html_bytes is not None:
+                option_kwargs["max_html_bytes"] = max(1024, max_html_bytes)
         if not option_kwargs:
             return None
-
         from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import WgetBackendOptions
-
         return WgetBackendOptions(**option_kwargs)
 
     def _build_native_html_options_from_row(self, row: Any):
@@ -742,26 +709,16 @@ class StorageManager(StorageManagerAPI):
             return None
         if not isinstance(policy, Mapping):
             return None
-
-        native_policy: Mapping[str, Any]
-        nested = policy.get("native_html")
-        if isinstance(nested, Mapping):
-            native_policy = nested
-        else:
-            native_policy = policy
-
+        native_policy: Mapping[str, Any] = policy.get("native_html") if isinstance(policy.get("native_html"), Mapping) else policy
         option_kwargs: dict[str, Any] = {}
         if "timeout_s" in native_policy:
-            timeout_s = self._coerce_optional_float(native_policy.get("timeout_s"))
-            option_kwargs["timeout_s"] = timeout_s
+            option_kwargs["timeout_s"] = self._coerce_optional_float(native_policy.get("timeout_s"))
         if "max_http_requests_per_hour" in native_policy:
-            max_rph = self._coerce_optional_float(native_policy.get("max_http_requests_per_hour"))
-            option_kwargs["max_http_requests_per_hour"] = max_rph
+            option_kwargs["max_http_requests_per_hour"] = self._coerce_optional_float(native_policy.get("max_http_requests_per_hour"))
         if "recurse" in native_policy:
             option_kwargs["recurse"] = self._to_boolish(native_policy.get("recurse"), default=True)
         if "max_depth" in native_policy:
-            depth = self._to_int(native_policy.get("max_depth"))
-            option_kwargs["max_depth"] = depth
+            option_kwargs["max_depth"] = self._to_int(native_policy.get("max_depth"))
         if "no_parent" in native_policy:
             option_kwargs["no_parent"] = self._to_boolish(native_policy.get("no_parent"), default=True)
         if "span_hosts" in native_policy:
@@ -769,21 +726,17 @@ class StorageManager(StorageManagerAPI):
         if "respect_robots" in native_policy:
             option_kwargs["respect_robots"] = self._to_boolish(native_policy.get("respect_robots"), default=True)
         if "user_agent" in native_policy:
-            user_agent = self._coerce_optional_str(native_policy.get("user_agent"))
-            option_kwargs["user_agent"] = user_agent
+            option_kwargs["user_agent"] = self._coerce_optional_str(native_policy.get("user_agent"))
         if "max_html_bytes" in native_policy:
             max_html_bytes = self._to_int(native_policy.get("max_html_bytes"))
             if max_html_bytes is not None:
                 option_kwargs["max_html_bytes"] = max(1024, max_html_bytes)
-
         if not option_kwargs:
             return None
-
         from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import NativeHtmlBackendOptions
-
         return NativeHtmlBackendOptions(**option_kwargs)
 
-    def _resolve_backend_cls(self, row: Any) -> Optional[type[StoreAPI]]:
+    def _resolve_backend_cls(self, row: Any) -> Optional[type[Any]]:
         kind_raw = self._coerce_optional_str(self._row_get(row, "store_kind"))
         protocol_raw = self._coerce_optional_str(self._row_get(row, "store_access_protocol"))
         is_read_only = self._to_boolish(self._row_get(row, "store_is_read_only"), default=False)
@@ -791,14 +744,9 @@ class StorageManager(StorageManagerAPI):
         normalized_kind = kind_raw.lower() if kind_raw else None
         normalized_protocol = protocol_raw.lower() if protocol_raw else None
 
-        alias = None
-        if normalized_kind is not None:
-            alias = self._STORE_KIND_ALIASES.get(normalized_kind)
-
+        alias = self._STORE_KIND_ALIASES.get(normalized_kind) if normalized_kind is not None else None
         if alias is None:
-            if normalized_protocol in {"http", "https"}:
-                alias = "rclone_http_readonly"
-            elif normalized_protocol == "rclone":
+            if normalized_protocol in {"http", "https", "rclone"}:
                 alias = "rclone_http_readonly"
             elif normalized_protocol == "wget":
                 alias = "wget_html_readonly"
@@ -810,99 +758,72 @@ class StorageManager(StorageManagerAPI):
                 alias = "single_file_sqlite"
             elif normalized_protocol in {"file", "nfs", "smb"}:
                 alias = "on_disk_existing_unmanaged_drive" if is_read_only else "on_disk_existing_managed_drive"
-
         if alias is None:
             return None
-
         spec = self._STORE_BACKEND_IMPORTS.get(alias)
         if spec is None:
             return None
-
         module_name, class_name = spec
         module = importlib.import_module(module_name)
-        backend_cls = getattr(module, class_name, None)
-        if backend_cls is None:
-            return None
-        return backend_cls
+        return getattr(module, class_name, None)
 
-    def bind_store_id(self, store_id: int, store_identifier: str) -> None:
-        """
-        Bind a numeric database store id to a manager store identifier.
-
-        This is useful when metadata only carries `store_id`/`file_store_id`.
-        """
-        self._store_ids[int(store_id)] = str(store_identifier)
-
-    def set_default_store(self, store_identifier: str) -> None:
-        store = self.get_store(store_identifier)
-        self._default_store_key = str(store.name)
-
-    def default_store(self) -> StoreAPI:
-        if self._default_store_key is None:
-            raise RuntimeError("No default store is configured.")
-        return self.get_store(self._default_store_key)
-
-    def _check_duplicate_key(self, key: str, value: str, new_store: StoreAPI) -> None:
+    def _check_duplicate_key(self, key: str, value: str, new_store_container: StoreContainerAPI) -> None:
         if key == "name":
-            existing = self._stores_by_name.get(value)
+            existing = self._containers_by_name.get(value)
         elif key == "url":
-            existing = self._stores_by_url.get(value)
+            existing = self._containers_by_url.get(value)
         elif key == "uuid":
-            existing = self._stores_by_uuid.get(value)
-        else:  # pragma: no cover - internal invariant
+            existing = self._containers_by_uuid.get(value)
+        else:  # pragma: no cover
             raise ValueError("Unsupported key type: {!r}".format(key))
-
-        if existing is not None and existing is not new_store:
+        if existing is not None and existing is not new_store_container:
             raise ValueError("Duplicate store {}: {!r}".format(key, value))
 
-    def _candidate_stores(
+    def _candidate_store_containers(
         self,
         *,
-        preferred_store: Optional[str],
+        preferred_store: "StoreRef | None",
         metadata: Optional[MetadataContainerAPI],
         file_url: Optional[str],
-    ) -> list[StoreAPI]:
-        stores: list[StoreAPI] = []
+    ) -> list[StoreContainerAPI]:
+        store_containers: list[StoreContainerAPI] = []
         seen: set[int] = set()
 
-        def _append(candidate: StoreAPI) -> None:
+        def _append(candidate: StoreContainerAPI) -> None:
             marker = id(candidate)
             if marker in seen:
                 return
             seen.add(marker)
-            stores.append(candidate)
+            store_containers.append(candidate)
 
-        if preferred_store:
-            _append(self.get_store(preferred_store))
+        if preferred_store is not None:
+            _append(self.get_store_container(preferred_store))
 
         for identifier in self._metadata_store_identifiers(metadata):
             try:
-                _append(self.get_store(identifier))
+                _append(self.get_store_container(identifier))
             except KeyError:
                 continue
 
         if file_url:
-            for store in self._stores:
-                if self._file_url_belongs_to_store(file_url=file_url, store=store):
-                    _append(store)
+            for store_container in self._store_containers:
+                if self._file_url_belongs_to_store(file_url=file_url, store_container=store_container):
+                    _append(store_container)
 
-        if not preferred_store and self._default_store_key:
+        if preferred_store is None and self._default_store_key:
             try:
-                _append(self.get_store(self._default_store_key))
+                _append(self.get_store_container(self._default_store_key))
             except KeyError:
                 pass
 
-        for store in self._stores:
-            _append(store)
-
-        return stores
+        for store_container in self._store_containers:
+            _append(store_container)
+        return store_containers
 
     def _metadata_sources(self, metadata: Optional[MetadataContainerAPI]) -> list[Any]:
         if metadata is None:
             return []
-
         sources: list[Any] = [metadata]
-
         hints_fn = getattr(metadata, "storage_hints", None)
         if callable(hints_fn):
             try:
@@ -914,12 +835,10 @@ class StorageManager(StorageManagerAPI):
                 extra = self._get_value(hints, "extra")
                 if isinstance(extra, Mapping):
                     sources.append(extra)
-
         if isinstance(metadata, Mapping):
             extra = metadata.get("extra")
             if isinstance(extra, Mapping):
                 sources.append(extra)
-
         return sources
 
     def _get_metadata_value(self, metadata: Optional[MetadataContainerAPI], *keys: str) -> Any:
@@ -937,15 +856,7 @@ class StorageManager(StorageManagerAPI):
         return getattr(source, key, None)
 
     def _metadata_file_url(self, metadata: Optional[MetadataContainerAPI]) -> Optional[str]:
-        value = self._get_metadata_value(
-            metadata,
-            "file_url",
-            "url",
-            "file_path",
-            "path",
-            "file_storage_key",
-            "storage_key",
-        )
+        value = self._get_metadata_value(metadata, "file_url", "url", "file_path", "path", "file_storage_key", "storage_key")
         if value is None:
             file_row = self._get_metadata_value(metadata, "file_row")
             if file_row is not None:
@@ -954,9 +865,7 @@ class StorageManager(StorageManagerAPI):
                     value = self._get_value(file_row, "file_path")
                 if value is None:
                     value = self._get_value(file_row, "file_storage_key")
-        if value is None:
-            return None
-        return str(value)
+        return None if value is None else str(value)
 
     def _metadata_store_identifiers(self, metadata: Optional[MetadataContainerAPI]) -> Iterator[str]:
         for key in (
@@ -978,26 +887,21 @@ class StorageManager(StorageManagerAPI):
                     yield str(one)
                 continue
             yield str(value)
-
         numeric_id = self._get_metadata_value(metadata, "file_store_id", "store_id")
         if numeric_id is None:
             return
         try:
-            store_identifier = self._store_ids[int(numeric_id)]
+            yield self._store_ids[int(numeric_id)]
         except Exception:
             return
-        yield store_identifier
 
     @staticmethod
-    def _file_url_belongs_to_store(file_url: str, store: StoreAPI) -> bool:
-        # Fast exact/prefix check for URL-ish backends.
-        store_url = str(store.url)
+    def _file_url_belongs_to_store(file_url: str, store_container: StoreContainerAPI) -> bool:
+        store_url = str(store_container.store_url)
         if file_url == store_url:
             return True
         if file_url.startswith(store_url.rstrip("/") + "/"):
             return True
-
-        # Local-path check for on-disk backends.
         try:
             f_path = pathlib.Path(file_url).expanduser().resolve(strict=False)
             s_path = pathlib.Path(store_url).expanduser().resolve(strict=False)
