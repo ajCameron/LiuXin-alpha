@@ -15,6 +15,16 @@ from importlib import import_module
 from typing import Any
 
 from LiuXin_alpha.storage.store_container import StoreContainer
+from LiuXin_alpha.storage.errors import (
+    CalibreLikeImplicitOverwriteError,
+    FlatStoreImplicitOverwriteError,
+    ManagedDriveImplicitOverwriteError,
+    SqliteBlobImplicitOverwriteError,
+    SquashfsBuildImplicitOverwriteError,
+    StorageError,
+    StorageImplicitOverwriteError,
+    StorageWriteError,
+)
 from LiuXin_alpha.storage.store_manager import (
     StorageBootstrapIssue,
     StorageBootstrapReport,
@@ -28,6 +38,14 @@ __all__ = [
     "StorageBootstrapIssue",
     "StoreContainer",
     "StorageBootstrapReport",
+    "StorageError",
+    "StorageWriteError",
+    "StorageImplicitOverwriteError",
+    "ManagedDriveImplicitOverwriteError",
+    "CalibreLikeImplicitOverwriteError",
+    "FlatStoreImplicitOverwriteError",
+    "SqliteBlobImplicitOverwriteError",
+    "SquashfsBuildImplicitOverwriteError",
     "reconcile",
 ]
 

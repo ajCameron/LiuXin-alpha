@@ -1,9 +1,19 @@
 """Managed local-disk store plugin.
 
-This plugin talks directly to one writable directory on local storage. It owns
-no database logic, no replica semantics, and no item/digital-asset concepts.
-Its job is simply to resolve store-relative locations, report file status, and
-perform byte-oriented operations inside one managed root.
+This plugin is for the case where LiuXin is allowed to *take over* one existing
+directory tree on local storage. It treats the configured root as managed
+territory: existing files remain valid locations, explicit writes can target any
+store-relative path, and implicit writes land in a reserved LiuXin-managed area
+at the store root.
+
+Strict boundary notes
+- one plugin, one writable root directory
+- no database logic
+- no replica or item semantics
+- explicit writes may target any path inside the root
+- implicit writes never spray files into the visible root; they go under a
+  reserved LiuXin-managed subdirectory using a deterministic hash-based layout
+- implicit writes must never silently overwrite an existing incompatible file
 """
 
 from __future__ import annotations
@@ -16,6 +26,7 @@ import uuid
 from typing import Iterator, Optional, Type
 
 from LiuXin_alpha.storage.api import StorePluginAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
+from LiuXin_alpha.storage.errors import ManagedDriveImplicitOverwriteError
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
     OnDiskExistingManagedStoreLocation,
 )
@@ -30,10 +41,17 @@ from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 class OnDiskExistingManagedStorageBackend(StorePluginAPI):
     """Writable plugin for one managed directory tree on local disk.
 
-    The plugin treats the configured root as a hard boundary. All string inputs
-    are interpreted either as store-relative keys or as absolute paths that must
-    still resolve inside that root.
+    Existing files are part of the store and can be addressed directly. When the
+    caller writes bytes without an explicit destination, the payload is stored in
+    a reserved hidden area at ``<root>/.liuxin/managed_drive/<hash[:5]>/<hash>``.
+    That keeps the root tidy while still making manual inspection
+    straightforward. Implicit writes dedupe identical bytes, but must fail
+    loudly if an incompatible file is already occupying the canonical path.
     """
+
+    MANAGED_AREA_DIRNAME = ".liuxin"
+    AUTO_WRITE_SUBDIRNAME = "managed_drive"
+    AUTO_WRITE_BUCKET_LENGTH = 5
 
     location_cls: Type[OnDiskExistingManagedStoreLocation] = OnDiskExistingManagedStoreLocation
 
@@ -138,7 +156,12 @@ class OnDiskExistingManagedStorageBackend(StorePluginAPI):
             checked=check_status.all_ok,
             good=check_status.all_ok,
             event_log=self._event_log,
-            details={"mode": "read_write", "plugin_layer": "raw_storage"},
+            details={
+                "mode": "read_write",
+                "plugin_layer": "raw_storage",
+                "layout": "existing_directory_tree_with_reserved_managed_area",
+                "managed_area_root": str(self.managed_area_root),
+            },
         )
         self._cached_status = status
         return status
@@ -192,11 +215,62 @@ class OnDiskExistingManagedStorageBackend(StorePluginAPI):
             rel = path.relative_to(self._root_path)
             yield self.location(*rel.parts)
 
-    def _ingest_target_path(self, file_bytes: bytes) -> pathlib.Path:
+    @property
+    def managed_area_root(self) -> pathlib.Path:
+        """Reserved root for LiuXin-owned implicit writes inside this store."""
+        return self._root_path / self.MANAGED_AREA_DIRNAME / self.AUTO_WRITE_SUBDIRNAME
+
+    def is_reserved_managed_path(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
+        """Return True when a location lives under the reserved LiuXin-managed area."""
+        path = self._location_from_identifier(file_identifier)._loc_path
+        return path.is_relative_to(self.managed_area_root)
+
+    def _implicit_write_target_path(self, file_bytes: bytes) -> pathlib.Path:
         file_hash = hashlib.sha256(file_bytes).hexdigest()
-        subdir = self._root_path / ".liuxin_ingest" / file_hash[:2]
-        subdir.mkdir(parents=True, exist_ok=True)
-        return subdir / "{}.bin".format(file_hash)
+        subdir = self.managed_area_root / file_hash[: self.AUTO_WRITE_BUCKET_LENGTH]
+        return subdir / file_hash
+
+    def _existing_path_matches_payload(self, target: pathlib.Path, file_bytes: bytes) -> bool:
+        if not target.exists():
+            return False
+        if not target.is_file():
+            return False
+        try:
+            return target.read_bytes() == file_bytes
+        except Exception:
+            return False
+
+    def _raise_implicit_overwrite_error(self, target: pathlib.Path, file_bytes: bytes) -> None:
+        if not target.exists():
+            return
+        if not target.is_file():
+            raise ManagedDriveImplicitOverwriteError(
+                "Implicit managed-drive write would collide with a non-file path at {!r}.".format(str(target))
+            )
+        try:
+            existing_bytes = target.read_bytes()
+        except Exception as exc:
+            raise ManagedDriveImplicitOverwriteError(
+                "Implicit managed-drive write could not safely verify existing target {!r}.".format(str(target))
+            ) from exc
+        if existing_bytes != file_bytes:
+            raise ManagedDriveImplicitOverwriteError(
+                "Implicit managed-drive write would overwrite existing bytes at {!r}. Use an explicit location if you really mean to replace that file.".format(
+                    str(target)
+                )
+            )
+
+    def _write_implicit_bytes_to_path(self, target: pathlib.Path, file_bytes: bytes) -> pathlib.Path:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            self._raise_implicit_overwrite_error(target, file_bytes)
+            return target
+        try:
+            with target.open("xb") as fh:
+                fh.write(file_bytes)
+        except FileExistsError:
+            self._raise_implicit_overwrite_error(target, file_bytes)
+        return target
 
     def _write_bytes_to_path(self, target: pathlib.Path, file_bytes: bytes, *, ensure_parents: bool) -> pathlib.Path:
         if ensure_parents:
@@ -214,9 +288,8 @@ class OnDiskExistingManagedStorageBackend(StorePluginAPI):
         location: str | None = None,
     ) -> OnDiskExistingManagedStoreLocation:
         if location is None:
-            target = self._ingest_target_path(file_bytes)
-            if not target.exists():
-                self._write_bytes_to_path(target, file_bytes, ensure_parents=True)
+            target = self._implicit_write_target_path(file_bytes)
+            self._write_implicit_bytes_to_path(target, file_bytes)
         else:
             target = self._resolve_file_path(str(location))
             self._write_bytes_to_path(target, file_bytes, ensure_parents=True)

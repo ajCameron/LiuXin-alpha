@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 from LiuXin_alpha.metadata.api import ItemStorageHints, WorkStorageHints
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like import (
     OnDiskCalibreLikeStorageBackend,
 )
+from LiuXin_alpha.storage.errors import CalibreLikeImplicitOverwriteError
 
 
 class _DummyFileRow(dict):
@@ -73,7 +76,7 @@ def test_calibre_like_layout_uses_author_combo_folder(tmp_path) -> None:
     assert pathlib.Path(file_obj.file_url) == expected
 
 
-def test_calibre_like_collision_keeps_existing_and_suffixes_new(tmp_path) -> None:
+def test_calibre_like_collision_dedupes_same_bytes_and_rejects_incompatible_overwrite(tmp_path) -> None:
     store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
     metadata = {
         "title": "Dune",
@@ -84,11 +87,11 @@ def test_calibre_like_collision_keeps_existing_and_suffixes_new(tmp_path) -> Non
 
     file_one = store.write_bytes(b"one", metadata=metadata)
     file_same = store.write_bytes(b"one", metadata=metadata)
-    file_two = store.write_bytes(b"two", metadata=metadata)
 
     assert file_one.file_url == file_same.file_url
-    assert file_two.file_url != file_one.file_url
-    assert pathlib.Path(file_two.file_url).name.endswith(" (2).epub")
+
+    with pytest.raises(CalibreLikeImplicitOverwriteError, match="overwrite existing bytes"):
+        store.write_bytes(b"two", metadata=metadata)
 
 
 def test_calibre_like_updates_database_file_row(tmp_path) -> None:
@@ -172,4 +175,15 @@ def test_calibre_like_uses_item_storage_hints_when_available(tmp_path) -> None:
         / "Permutation City - Greg Egan.epub"
     ).resolve()
 
+    assert pathlib.Path(file_obj.file_url) == expected
+
+
+def test_calibre_like_without_metadata_falls_back_to_managed_hash_layout(tmp_path) -> None:
+    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
+    payload = b"abc"
+    expected_hash = __import__("hashlib").sha256(payload).hexdigest()
+
+    file_obj = store.write_bytes(payload, metadata=None)
+
+    expected = (tmp_path / ".liuxin" / "managed_drive" / expected_hash[:5] / expected_hash).resolve()
     assert pathlib.Path(file_obj.file_url) == expected

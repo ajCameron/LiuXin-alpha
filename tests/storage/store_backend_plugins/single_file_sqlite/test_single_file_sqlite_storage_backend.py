@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import pathlib
+import sqlite3
 
 import pytest
 
 from LiuXin_alpha.storage.api import StoreStatus
+from LiuXin_alpha.storage.errors import SqliteBlobImplicitOverwriteError
 from LiuXin_alpha.storage.store_backend_plugins.single_file_sqlite import (
     SingleFileSqliteStorageBackend,
 )
@@ -83,3 +85,18 @@ def test_single_file_sqlite_explicit_location_must_match_payload_hash(tmp_path: 
     wrong_hash = "0" * 64
     with pytest.raises(ValueError):
         store.write_bytes(payload, location=wrong_hash)
+
+
+def test_single_file_sqlite_refuses_incompatible_existing_blob_at_canonical_hash(tmp_path: pathlib.Path) -> None:
+    store = SingleFileSqliteStorageBackend(url=str(tmp_path / "store.sqlite"))
+    payload = b"hello single-file backend"
+    file_hash = hashlib.sha256(payload).hexdigest()
+
+    with sqlite3.connect(str(store.db_path)) as conn:
+        conn.execute(
+            "INSERT INTO files(file_hash, file_size, file_bytes, created_ts) VALUES (?, ?, ?, ?)",
+            (file_hash, len(b"different"), sqlite3.Binary(b"different"), 0),
+        )
+
+    with pytest.raises(SqliteBlobImplicitOverwriteError, match="incompatible existing bytes"):
+        store.write_bytes(payload)

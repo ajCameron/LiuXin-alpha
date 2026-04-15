@@ -191,6 +191,30 @@ def test_storage_manager_owns_containers_and_routes_file_access() -> None:
     assert folder.store == "rw"
 
 
+
+
+def test_storage_manager_can_instantiate_ftp_plugin_from_store_spec() -> None:
+    from LiuXin_alpha.storage.api import StoreSpec
+    from LiuXin_alpha.storage.store_backend_plugins.ftp_readonly import FtpReadOnlyStorageBackend
+
+    manager = StorageManager(startup_on_add=False)
+    plugin = manager.create_store_plugin(
+        StoreSpec(
+            store_id=None,
+            store_uuid=None,
+            store_name="ftp-store",
+            store_kind="ftp_readonly",
+            store_url="ftp://example.com/library",
+            store_access_protocol="ftp",
+            store_root_uri="ftp://example.com/library",
+            store_is_read_only=True,
+        )
+    )
+
+    assert isinstance(plugin, FtpReadOnlyStorageBackend)
+    assert plugin.url == "ftp://example.com/library"
+
+
 def test_storage_manager_delete_and_id_binding_work() -> None:
     left = _DummyPlugin("dummy://left", name="left", uuid="uuid-left")
     right = _DummyPlugin("dummy://right", name="right", uuid="uuid-right")

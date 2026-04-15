@@ -7,6 +7,7 @@ import pytest
 
 from LiuXin_alpha.storage.api import StoreStatus
 from LiuXin_alpha.storage.api.info_containers_api import StoreSpec
+from LiuXin_alpha.storage.errors import FlatStoreImplicitOverwriteError
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_flat import OnDiskFlatStorageBackend
 from LiuXin_alpha.storage.store_manager import StorageManager
 
@@ -105,3 +106,13 @@ def test_storage_manager_can_build_on_disk_flat_plugin_from_spec(tmp_path: pathl
 
     assert container.plugin.plugin_kind == "OnDiskFlatStorageBackend"
     assert stored.read_bytes() == b"cache-me"
+
+
+def test_on_disk_flat_refuses_incompatible_existing_canonical_file(tmp_path: pathlib.Path) -> None:
+    store = OnDiskFlatStorageBackend(url=str(tmp_path))
+    payload = b"prompt-cache payload"
+    expected_name = hashlib.sha256(payload).hexdigest()
+    (tmp_path / expected_name).write_bytes(b"different")
+
+    with pytest.raises(FlatStoreImplicitOverwriteError, match="overwrite existing bytes"):
+        store.write_bytes(payload)

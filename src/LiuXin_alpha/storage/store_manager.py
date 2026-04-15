@@ -80,6 +80,9 @@ class StorageManager(StorageManagerAPI):
         "sqlite_blob_store": "single_file_sqlite",
         "single_file_blob_store": "single_file_sqlite",
         "squashfs_readonly": "squashfs_readonly",
+        "squashfs_build": "squashfs_build",
+        "squashfs_builder": "squashfs_build",
+        "squashfs_backup": "squashfs_build",
         "squashfs_ro": "squashfs_readonly",
         "squashfs_archive": "squashfs_readonly",
         "archive_squashfs": "squashfs_readonly",
@@ -92,6 +95,10 @@ class StorageManager(StorageManagerAPI):
         "native_html_readonly": "native_html_readonly",
         "native_http_ro": "native_html_readonly",
         "http_native_ro": "native_html_readonly",
+        "ftp_readonly": "ftp_readonly",
+        "ftp_ro": "ftp_readonly",
+        "ftps_readonly": "ftp_readonly",
+        "ftps_ro": "ftp_readonly",
     }
 
     _STORE_BACKEND_IMPORTS: Mapping[str, tuple[str, str]] = {
@@ -119,6 +126,10 @@ class StorageManager(StorageManagerAPI):
             "LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly",
             "SquashfsReadOnlyStorageBackend",
         ),
+        "squashfs_build": (
+            "LiuXin_alpha.storage.store_backend_plugins.squashfs_build",
+            "SquashfsBuildStorageBackend",
+        ),
         "rclone_http_readonly": (
             "LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly",
             "RcloneHttpReadOnlyStorageBackend",
@@ -130,6 +141,10 @@ class StorageManager(StorageManagerAPI):
         "native_html_readonly": (
             "LiuXin_alpha.storage.store_backend_plugins.native_html_readonly",
             "NativeHtmlReadOnlyStorageBackend",
+        ),
+        "ftp_readonly": (
+            "LiuXin_alpha.storage.store_backend_plugins.ftp_readonly",
+            "FtpReadOnlyStorageBackend",
         ),
     }
 
@@ -767,6 +782,8 @@ class StorageManager(StorageManagerAPI):
                 alias = "single_file_sqlite"
             elif normalized_protocol in {"file", "nfs", "smb"}:
                 alias = "on_disk_existing_unmanaged_drive" if is_read_only else "on_disk_existing_managed_drive"
+            elif normalized_protocol in {"ftp", "ftps"}:
+                alias = "ftp_readonly"
         if alias is None:
             return None
         spec = self._STORE_BACKEND_IMPORTS.get(alias)

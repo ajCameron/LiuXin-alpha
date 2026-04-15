@@ -47,6 +47,27 @@ The stores are responsible for
  - storing files
  - retrieving files
 
+### Managed drive layout note
+
+`on_disk_existing_managed_drive` is the "LiuXin takes over this path" plugin.
+It makes one important distinction:
+
+- **explicit writes** go exactly where the caller asked, so rename/edit/move style
+  workflows stay clean and unsurprising
+- **implicit writes** ("store these bytes for me somewhere sensible") go into a
+  reserved LiuXin-owned folder under the root using a deterministic hash layout:
+  `.liuxin/managed_drive/<first five hash chars>/<full hash>`
+
+This avoids spraying ad-hoc files into the visible root while still keeping the
+store human-inspectable on disk. The plugin is allowed to manage the whole tree,
+but it keeps its default spill area namespaced and obvious.
+
+Implicit writes also have a strict safety rule: they may dedupe identical bytes,
+but they must never silently overwrite an incompatible existing file. Writable
+plugins now raise storage-specific implicit-overwrite errors off a shared base
+(`StorageImplicitOverwriteError`) when the canonical implicit target is already
+occupied by different bytes or by a non-file path.
+
 # Files
 
 When you put a request in to a store (either by hash, or id from the files table) you get a file object back.

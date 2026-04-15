@@ -17,6 +17,7 @@ import time
 from typing import Iterator, Optional, Type
 
 from LiuXin_alpha.storage.api import StorePluginAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
+from LiuXin_alpha.storage.errors import SqliteBlobImplicitOverwriteError
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 from LiuXin_alpha.storage.store_backend_plugins.single_file_sqlite.single_file_sqlite_location import (
     SingleFileSqliteStoreLocation,
@@ -236,9 +237,19 @@ class SingleFileSqliteStorageBackend(StorePluginAPI):
                 raise ValueError(
                     "Explicit location does not match the payload hash for this content-addressed SQLite plugin."
                 )
+        try:
+            existing_bytes = self._blob_bytes(file_hash)
+        except FileNotFoundError:
+            existing_bytes = None
+        if existing_bytes is not None:
+            if existing_bytes != file_bytes:
+                raise SqliteBlobImplicitOverwriteError(
+                    "Implicit SQLite blob write found incompatible existing bytes at canonical hash {!r}.".format(file_hash)
+                )
+            return self.location(file_hash)
         with self._connect() as conn:
             conn.execute(
-                "INSERT OR IGNORE INTO files(file_hash, file_size, file_bytes, created_ts) VALUES (?, ?, ?, ?)",
+                "INSERT INTO files(file_hash, file_size, file_bytes, created_ts) VALUES (?, ?, ?, ?)",
                 (file_hash, len(file_bytes), sqlite3.Binary(file_bytes), int(time.time())),
             )
         return self.location(file_hash)

@@ -21,6 +21,7 @@ import pathlib
 from typing import Iterator, Optional, Type
 
 from LiuXin_alpha.storage.api import StoreCheckStatus, StoreLocationMixinAPI, StorePluginAPI, StoreStatus
+from LiuXin_alpha.storage.errors import FlatStoreImplicitOverwriteError
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_flat.on_disk_flat_location import (
     OnDiskFlatStoreLocation,
@@ -207,6 +208,24 @@ class OnDiskFlatStorageBackend(StorePluginAPI):
                 continue
             yield self.location(path.name)
 
+    def _raise_implicit_overwrite_error(self, target: pathlib.Path, file_bytes: bytes) -> None:
+        if not target.exists():
+            return
+        if not target.is_file():
+            raise FlatStoreImplicitOverwriteError(
+                "Implicit flat-store write would collide with a non-file path at {!r}.".format(str(target))
+            )
+        try:
+            existing_bytes = target.read_bytes()
+        except Exception as exc:
+            raise FlatStoreImplicitOverwriteError(
+                "Implicit flat-store write could not safely verify existing target {!r}.".format(str(target))
+            ) from exc
+        if existing_bytes != file_bytes:
+            raise FlatStoreImplicitOverwriteError(
+                "Implicit flat-store write would overwrite existing bytes at {!r}.".format(str(target))
+            )
+
     def write_bytes(
         self,
         file_bytes: bytes,
@@ -225,8 +244,14 @@ class OnDiskFlatStorageBackend(StorePluginAPI):
                     )
                 )
         target = self._path_for_name(canonical_name)
-        if not target.exists():
-            target.write_bytes(file_bytes)
+        if target.exists():
+            self._raise_implicit_overwrite_error(target, file_bytes)
+            return self.location(canonical_name)
+        try:
+            with target.open("xb") as fh:
+                fh.write(file_bytes)
+        except FileExistsError:
+            self._raise_implicit_overwrite_error(target, file_bytes)
         return self.location(canonical_name)
 
     def copy_within_plugin(
