@@ -1,4 +1,4 @@
-"""Location implementation for payloads stored in the single-file SQLite backend."""
+"""Location implementation for content-addressed SQLite blob storage."""
 
 from __future__ import annotations
 
@@ -12,7 +12,11 @@ from LiuXin_alpha.storage.api.location_api import SyncNativePretendAsyncLocation
 
 
 class SingleFileSqliteStoreLocation(SyncNativePretendAsyncLocation):
-    """Path-like location over a content-addressed SQLite blob store."""
+    """Path-like location over a content-addressed SQLite blob store.
+
+    The store root behaves like a synthetic directory listing all known blob
+    hashes. Individual child locations identify one canonical blob.
+    """
 
     def _file_hash(self) -> str | None:
         if len(self.parts) != 1:
@@ -28,15 +32,13 @@ class SingleFileSqliteStoreLocation(SyncNativePretendAsyncLocation):
     def exists(self) -> bool:
         if not self.parts:
             return True
-        return self.store.file_exists(self)
+        return self.store.exists(self)
 
     def is_file(self) -> bool:
         return bool(self.parts) and self.exists()
 
     def is_dir(self) -> bool:
-        if not self.parts:
-            return True
-        return False
+        return not self.parts
 
     def stat(self) -> os.stat_result:
         if not self.parts:
@@ -50,7 +52,7 @@ class SingleFileSqliteStoreLocation(SyncNativePretendAsyncLocation):
         raise PermissionError("Single-file SQLite locations do not support directories.")
 
     def unlink(self, missing_ok: bool = False) -> None:
-        if not self.store.delete_file(self):
+        if not self.store.delete(self):
             if not missing_ok:
                 raise FileNotFoundError(self.file_url)
 
@@ -64,17 +66,17 @@ class SingleFileSqliteStoreLocation(SyncNativePretendAsyncLocation):
         raise PermissionError("Content-addressed SQLite locations cannot be replaced in place.")
 
     def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
-        raise PermissionError("Use store.add_file() for content-addressed SQLite locations.")
+        raise PermissionError("Use store.write_bytes() for content-addressed SQLite locations.")
 
     def iterdir(self) -> Iterator[Self]:
         if self.parts:
             return iter(())
-        return iter(self.store.true_files())
+        return iter(self.store.iter_locations())
 
     def glob(self, pattern: str) -> Iterator[Self]:
         if self.parts:
             return iter(())
-        return (loc for loc in self.store.true_files() if fnmatch.fnmatch(loc.as_posix(), pattern))
+        return (loc for loc in self.store.iter_locations() if fnmatch.fnmatch(loc.as_posix(), pattern))
 
     def rglob(self, pattern: str) -> Iterator[Self]:
         return self.glob(pattern)
