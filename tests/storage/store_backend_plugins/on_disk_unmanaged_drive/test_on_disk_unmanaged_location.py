@@ -25,7 +25,7 @@ class TestOnDiskUnmanagedLocation:
             test_storage_backend = OnDiskUnmanagedStorageBackend(url=tmp_dir)
             assert test_storage_backend.url == tmp_dir
 
-            assert test_storage_backend.file_exists("this file is not real") is False
+            assert test_storage_backend.exists("this file is not real") is False
 
             test_loc = OnDiskUnmanagedStoreLocation(store=test_storage_backend)
 

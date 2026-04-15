@@ -79,3 +79,26 @@ def test_on_disk_unmanaged_drive_startup_and_status_reports_read_only(tmp_path: 
     assert isinstance(status_from_startup.good, bool)
     assert status_from_startup.check_status.write is False
     assert status_from_startup.details.get("mode") == "read_only"
+
+
+def test_storage_manager_can_build_on_disk_unmanaged_plugin_from_spec(tmp_path: pathlib.Path) -> None:
+    from LiuXin_alpha.storage.api.info_containers_api import StoreSpec
+    from LiuXin_alpha.storage.store_manager import StorageManager
+
+    (tmp_path / "source.txt").write_text("source", encoding="utf-8")
+
+    manager = StorageManager(startup_on_add=False)
+    spec = StoreSpec(
+        store_id=None,
+        store_uuid="uuid-unmanaged",
+        store_name="source-root",
+        store_kind="on_disk_existing_unmanaged_drive",
+        store_url=str(tmp_path),
+        store_root_uri=str(tmp_path),
+    )
+
+    container = manager.build_store_container(spec)
+    located = container.locate("source.txt")
+
+    assert container.plugin.plugin_kind == "OnDiskUnmanagedStorageBackend"
+    assert located.read_text(encoding="utf-8") == "source"
