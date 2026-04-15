@@ -101,3 +101,48 @@ def test_native_backend_reports_observed_url_decisions(monkeypatch) -> None:
         "accepted",
         "out_of_scope",
     ]
+
+
+
+def test_native_backend_iter_locations_and_stat_follow_new_plugin_api(monkeypatch) -> None:
+    responses = {
+        "https://example.com/library/": _html_result(
+            "https://example.com/library/",
+            """
+            <html><body>
+              <a href="files/one.epub">One</a>
+              <a href="files/two.mobi">Two</a>
+            </body></html>
+            """,
+        ),
+    }
+
+    def _fake_fetch(self, url: str):
+        return responses[url]
+
+    monkeypatch.setattr(backend_module.NativeHtmlReadOnlyStorageBackend, "_fetch_url", _fake_fetch)
+    monkeypatch.setattr(
+        backend_module.NativeHtmlReadOnlyStorageBackend,
+        "file_exists",
+        lambda self, url: url in {
+            "https://example.com/library/files/one.epub",
+            "https://example.com/library/files/two.mobi",
+        },
+        raising=False,
+    )
+
+    store = NativeHtmlReadOnlyStorageBackend(
+        url="https://example.com/library/",
+        options=NativeHtmlBackendOptions(max_http_requests_per_hour=None, respect_robots=False),
+    )
+    store.crawl_urls(force=True)
+
+    locations = list(store.iter_locations())
+
+    assert [loc.file_url for loc in locations] == [
+        "https://example.com/library/files/one.epub",
+        "https://example.com/library/files/two.mobi",
+    ]
+    assert store.exists(locations[0]) is True
+    assert store.file_size(locations[0]) == 0
+    assert store.stat(locations[0]).url == "https://example.com/library/files/one.epub"

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import fnmatch
-import io
 import os
 import stat as statmod
 from typing import Iterator, Self
@@ -13,6 +12,11 @@ from LiuXin_alpha.storage.api.location_api import SyncNativePretendAsyncLocation
 
 
 class NativeHtmlReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
+    """Path-like location for one native-HTML-discovered remote URL."""
+
+    def _discovered_urls(self) -> list[str]:
+        return list(self.store.discover_urls(force=False))
+
     def as_store_key(self) -> str:
         rel = self.as_posix()
         if not rel:
@@ -22,7 +26,7 @@ class NativeHtmlReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
     def exists(self) -> bool:
         if not self.parts:
             return True
-        return bool(self.store.file_exists(self.as_store_key()))
+        return bool(self.store.exists(self))
 
     def is_file(self) -> bool:
         return bool(self.parts) and self.exists()
@@ -31,7 +35,8 @@ class NativeHtmlReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
         if not self.parts:
             return True
         prefix = self.as_posix().rstrip("/") + "/"
-        return any(url.rstrip("/").startswith(self.store.url.rstrip("/") + "/" + prefix) for url in list(self.store._crawl_cache_urls or ()))
+        base = self.store.url.rstrip("/") + "/"
+        return any(url.rstrip("/").startswith(base + prefix) for url in self._discovered_urls())
 
     def stat(self) -> os.stat_result:
         mode = statmod.S_IFDIR | 0o555 if self.is_dir() else statmod.S_IFREG | 0o444
@@ -63,7 +68,7 @@ class NativeHtmlReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
         if prefix:
             prefix += "/"
         base = self.store.url.rstrip("/") + "/"
-        for url in list(self.store._crawl_cache_urls or ()):  # noqa: SLF001 - backend cache
+        for url in self._discovered_urls():
             if not url.startswith(base):
                 continue
             rel = url[len(base):]
@@ -84,7 +89,7 @@ class NativeHtmlReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
         if prefix:
             prefix += "/"
         matches = []
-        for url in list(self.store._crawl_cache_urls or ()):  # noqa: SLF001 - backend cache
+        for url in self._discovered_urls():
             if not url.startswith(base):
                 continue
             rel = url[len(base):]
@@ -92,7 +97,7 @@ class NativeHtmlReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
                 continue
             rel_tail = rel[len(prefix):] if prefix else rel
             if fnmatch.fnmatch(rel_tail, pattern) or fnmatch.fnmatch(rel, pattern):
-                matches.append(self.store.get_file(url))
+                matches.append(self.store.locate(url))
         return iter(matches)
 
     def open(

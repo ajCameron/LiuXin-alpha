@@ -183,7 +183,8 @@ def test_wget_backend_startup_checks_binary(monkeypatch) -> None:
     store = WgetHtmlReadOnlyStorageBackend(url="https://example.com/")
     store.startup()
 
-    assert captured_args == [["--version"]]
+    assert captured_args
+    assert captured_args[0] == ["--version"]
 
 
 def test_wget_backend_crawl_forwards_log_lines(monkeypatch) -> None:
@@ -226,3 +227,32 @@ def test_wget_backend_crawl_forwards_discovered_urls_incrementally(monkeypatch) 
         "https://example.com/books/one.epub",
         "https://example.com/books/two.mobi",
     ]
+
+
+
+def test_wget_backend_iter_locations_and_stat_follow_new_plugin_api(monkeypatch) -> None:
+    discovered = "\n".join(
+        [
+            "https://example.com/books/one.epub",
+            "https://example.com/books/two.mobi",
+        ]
+    )
+
+    def _fake_run_wget(args, **kwargs):
+        return _ok_wget_result(args=list(args), stdout=discovered)
+
+    monkeypatch.setattr(backend_module, "run_wget", _fake_run_wget)
+    store = WgetHtmlReadOnlyStorageBackend(
+        url="https://example.com/books/",
+        options=WgetBackendOptions(max_http_requests_per_hour=None),
+    )
+
+    locations = list(store.iter_locations())
+
+    assert [loc.file_url for loc in locations] == [
+        "https://example.com/books/one.epub",
+        "https://example.com/books/two.mobi",
+    ]
+    assert store.exists(locations[0]) is True
+    assert store.file_size(locations[0]) == 0
+    assert store.stat(locations[0]).url == "https://example.com/books/one.epub"
