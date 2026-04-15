@@ -46,25 +46,25 @@ def test_squashfs_readonly_init_and_status(tmp_path: pathlib.Path) -> None:
     assert status.details.get("container") == "squashfs_archive"
 
 
-def test_squashfs_readonly_file_lookup_and_read(tmp_path: pathlib.Path) -> None:
+def test_squashfs_readonly_locate_and_read(tmp_path: pathlib.Path) -> None:
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(url=str(image))
 
     canonical = str(image.resolve()) + "/nested/book_two.epub"
-    assert store.file_exists(canonical) is True
-    assert store.file_exists("nested/book_two.epub") is True
-    assert store.file_exists("missing.txt") is False
+    assert store.exists(canonical) is True
+    assert store.exists("nested/book_two.epub") is True
+    assert store.exists("missing.txt") is False
 
-    file_obj = store.get_file(canonical)
+    file_obj = store.locate(canonical)
     assert file_obj.store is store
     assert file_obj.as_bytes() == b"EPUB-DATA"
 
 
-def test_squashfs_readonly_true_files_lists_archive_files(tmp_path: pathlib.Path) -> None:
+def test_squashfs_readonly_iter_locations_lists_archive_files(tmp_path: pathlib.Path) -> None:
     image = _build_squashfs(tmp_path)
     store = SquashfsReadOnlyStorageBackend(url=str(image))
 
-    urls = {f.file_url for f in store.true_files()}
+    urls = {f.file_url for f in store.iter_locations()}
     assert str(image.resolve()) + "/book one.txt" in urls
     assert str(image.resolve()) + "/nested/book_two.epub" in urls
 
@@ -74,9 +74,9 @@ def test_squashfs_readonly_rejects_mutating_ops(tmp_path: pathlib.Path) -> None:
     store = SquashfsReadOnlyStorageBackend(url=str(image))
 
     with pytest.raises(PermissionError):
-        store.add_file(b"new data")
+        store.write_bytes(b"new data")
     with pytest.raises(PermissionError):
-        store.delete_file(str(image.resolve()) + "/book one.txt")
+        store.delete(str(image.resolve()) + "/book one.txt")
 
 
 def test_squashfs_readonly_hash_streaming_matches_sha256(tmp_path: pathlib.Path) -> None:
@@ -98,7 +98,7 @@ def test_squashfs_readonly_hash_streaming_matches_sha256(tmp_path: pathlib.Path)
     )
 
     store = SquashfsReadOnlyStorageBackend(url=str(image))
-    status = store.get_file_status("big.bin")
+    status = store.stat("big.bin")
     status.recheck_self(hash=True)
     expected = hashlib.sha256(payload).hexdigest()
     assert status.hash == expected

@@ -12,6 +12,8 @@ from LiuXin_alpha.storage.api.location_api import SyncNativePretendAsyncLocation
 
 
 class SquashfsReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
+    """Path-like location inside one read-only SquashFS archive."""
+
     def _internal_path(self) -> str:
         return "/".join(self.parts)
 
@@ -49,9 +51,13 @@ class SquashfsReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
     def stat(self) -> os.stat_result:
         archive_stat = self.store.db_path.stat()
         if self.is_dir():
-            return os.stat_result((statmod.S_IFDIR | 0o555, 0, 0, 1, 0, 0, 0, archive_stat.st_atime, archive_stat.st_mtime, archive_stat.st_ctime))
+            return os.stat_result(
+                (statmod.S_IFDIR | 0o555, 0, 0, 1, 0, 0, 0, archive_stat.st_atime, archive_stat.st_mtime, archive_stat.st_ctime)
+            )
         size = int(self.store.file_size(self) or 0)
-        return os.stat_result((statmod.S_IFREG | 0o444, 0, 0, 1, 0, 0, size, archive_stat.st_atime, archive_stat.st_mtime, archive_stat.st_ctime))
+        return os.stat_result(
+            (statmod.S_IFREG | 0o444, 0, 0, 1, 0, 0, size, archive_stat.st_atime, archive_stat.st_mtime, archive_stat.st_ctime)
+        )
 
     def mkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
         raise PermissionError("SquashFS locations are read-only.")
@@ -97,13 +103,13 @@ class SquashfsReadOnlyStoreLocation(SyncNativePretendAsyncLocation):
         prefix = self._internal_path().rstrip("/")
         if prefix:
             prefix += "/"
-        matches = []
+        matches: list[Self] = []
         for path in known:
             if prefix and not path.startswith(prefix):
                 continue
             rel = path[len(prefix):] if prefix else path
             if fnmatch.fnmatch(rel, pattern) or fnmatch.fnmatch(path, pattern):
-                matches.append(self.store.get_file(path))
+                matches.append(self.store.locate(path))
         return iter(matches)
 
     def open(

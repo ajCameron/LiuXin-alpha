@@ -1,8 +1,10 @@
-"""
-Read-only SquashFS archive storage backend.
+"""Read-only SquashFS archive storage plugin.
 
-The store root (`url`) is one `.sqfs`/`.squashfs` file. Files are addressed by
-their relative internal archive path.
+The plugin root (`url`) is one `.sqfs` / `.squashfs` archive file. Individual
+locations are addressed by their relative internal archive path. This is a raw
+storage plugin: it knows how to inspect and stream bytes from the archive, but
+it knows nothing about library items, digital assets, replicas, or database
+policy.
 """
 
 from __future__ import annotations
@@ -13,10 +15,9 @@ import re
 import shutil
 import subprocess
 import time
+from typing import Iterator, Optional, Type
 
-from typing import Dict, Iterator, Optional, Type
-
-from LiuXin_alpha.storage.api import StorePluginAPI, StoreCheckStatus, StoreStatus, StoreLocationMixinAPI
+from LiuXin_alpha.storage.api import StoreCheckStatus, StoreLocationMixinAPI, StorePluginAPI, StoreStatus
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_readonly_location import (
     SquashfsReadOnlyStoreLocation,
@@ -27,8 +28,10 @@ from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
 class SquashfsReadOnlyStorageBackend(StorePluginAPI):
-    """
-    Read-only archive backend over `unsquashfs`.
+    """Read-only archive plugin over `unsquashfs`.
+
+    The store root is one archive file. Callers locate files by their archive-
+    relative path or by canonical archive URL.
     """
 
     location_cls: Type[SquashfsReadOnlyStoreLocation] = SquashfsReadOnlyStoreLocation
@@ -55,11 +58,19 @@ class SquashfsReadOnlyStorageBackend(StorePluginAPI):
         self._cached_status: Optional[StoreStatus] = None
         self._unsquashfs_exe = unsquashfs_exe
         self._timeout_s = float(timeout_s)
-        self._file_index: Dict[str, int] = {}
+        self._file_index: dict[str, int] = {}
         self._indexed_archive_mtime_ns: Optional[int] = None
 
     @property
     def archive_path(self) -> pathlib.Path:
+        return self._archive_path
+
+    @property
+    def db_path(self) -> pathlib.Path:
+        return self._archive_path
+
+    @property
+    def root_path(self) -> pathlib.Path:
         return self._archive_path
 
     def url_to_name(self, url: str) -> str:
@@ -68,6 +79,57 @@ class SquashfsReadOnlyStorageBackend(StorePluginAPI):
     def startup(self) -> StoreStatus:
         self._cached_status = self.self_test()
         return self._cached_status
+
+    def status(self) -> StoreStatus:
+        return self.self_test() if self._cached_status is None else self._cached_status
+
+    def self_test(self) -> StoreStatus:
+        marker_ok = self._archive_path.exists() and self._archive_path.is_file()
+        read_ok = False
+        write_ok = False
+        sundry_ok = False
+        file_count: Optional[int] = None
+
+        try:
+            idx = self._get_index(force=True)
+            file_count = len(idx)
+            read_ok = True
+            sundry_ok = True
+        except Exception as exc:
+            self._event_log.put("self_test failed: {!r}".format(exc))
+
+        try:
+            free_space = int(get_free_bytes(str(self._archive_path.parent)))
+        except Exception:
+            free_space = None
+
+        check_status = StoreCheckStatus(
+            store_marker_file=marker_ok,
+            read=read_ok,
+            write=write_ok,
+            sundry=sundry_ok,
+        )
+        status = StoreStatus(
+            name=self.name,
+            uuid=self.uuid or self.name,
+            url=self.url,
+            file_count=file_count,
+            store_free_space=free_space,
+            check_status=check_status,
+            checked=bool(marker_ok and read_ok and sundry_ok),
+            good=bool(marker_ok and read_ok and sundry_ok),
+            event_log=self._event_log,
+            details={
+                "mode": "read_only",
+                "container": "squashfs_archive",
+                "plugin_layer": "raw_storage",
+            },
+        )
+        self._cached_status = status
+        return status
+
+    def location(self, *tokens: str) -> SquashfsReadOnlyStoreLocation:
+        return self.location_cls(*tokens, store=self)
 
     def _run_unsquashfs(self, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[bytes]:
         exe = shutil.which(self._unsquashfs_exe) or self._unsquashfs_exe
@@ -133,10 +195,10 @@ class SquashfsReadOnlyStorageBackend(StorePluginAPI):
             except Exception:
                 pass
 
-    def _normalize_internal_path(self, file_url: str) -> Optional[str]:
-        if file_url is None:
+    def _normalize_internal_path(self, file_identifier: str | None) -> str | None:
+        if file_identifier is None:
             return None
-        text = str(file_url).strip()
+        text = str(file_identifier).strip()
         prefix = self.url.rstrip("/") + "/"
         if text.startswith(prefix):
             text = text[len(prefix) :]
@@ -155,9 +217,22 @@ class SquashfsReadOnlyStorageBackend(StorePluginAPI):
             return None
         return "/".join(parts)
 
-    def _build_index(self) -> Dict[str, int]:
+    def _location_from_identifier(
+        self,
+        file_identifier: str | StoreLocationMixinAPI,
+    ) -> SquashfsReadOnlyStoreLocation:
+        if isinstance(file_identifier, StoreLocationMixinAPI):
+            if file_identifier.store is self:
+                return file_identifier
+            file_identifier = file_identifier.file_url
+        internal = self._normalize_internal_path(str(file_identifier))
+        if internal is None:
+            raise ValueError("Malformed file identifier for squashfs store: {!r}".format(file_identifier))
+        return self.location(*internal.split("/"))
+
+    def _build_index(self) -> dict[str, int]:
         out = self._run_unsquashfs(["-llc", str(self._archive_path)], check=True).stdout.decode("utf-8", "replace")
-        index: Dict[str, int] = {}
+        index: dict[str, int] = {}
         for raw_line in out.splitlines():
             line = raw_line.strip()
             if not line:
@@ -168,86 +243,18 @@ class SquashfsReadOnlyStorageBackend(StorePluginAPI):
             path = match.group("path")
             if not path.startswith(self._root_prefix):
                 continue
-            rel = path[len(self._root_prefix) :]
-            rel = rel.lstrip("/")
+            rel = path[len(self._root_prefix) :].lstrip("/")
             if not rel:
                 continue
             index[rel] = int(match.group("size"))
         return index
 
-    def _get_index(self, *, force: bool = False) -> Dict[str, int]:
+    def _get_index(self, *, force: bool = False) -> dict[str, int]:
         mtime_ns = int(self._archive_path.stat().st_mtime_ns)
         if force or self._indexed_archive_mtime_ns != mtime_ns:
             self._file_index = self._build_index()
             self._indexed_archive_mtime_ns = mtime_ns
         return self._file_index
-
-    def self_test(self) -> StoreStatus:
-        marker_ok = self._archive_path.exists() and self._archive_path.is_file()
-        read_ok = False
-        write_ok = False
-        sundry_ok = False
-        file_count: Optional[int] = None
-
-        try:
-            idx = self._get_index(force=True)
-            file_count = len(idx)
-            read_ok = True
-            sundry_ok = True
-        except Exception as exc:
-            self._event_log.put("self_test failed: {!r}".format(exc))
-
-        try:
-            free_space = int(get_free_bytes(str(self._archive_path.parent)))
-        except Exception:
-            free_space = None
-
-        check_status = StoreCheckStatus(
-            store_marker_file=marker_ok,
-            read=read_ok,
-            write=write_ok,
-            sundry=sundry_ok,
-        )
-        status = StoreStatus(
-            name=self.name,
-            uuid=self.uuid or self.name,
-            url=self.url,
-            file_count=file_count,
-            store_free_space=free_space,
-            check_status=check_status,
-            checked=bool(marker_ok and read_ok and sundry_ok),
-            good=bool(marker_ok and read_ok and sundry_ok),
-            event_log=self._event_log,
-            details={"mode": "read_only", "container": "squashfs_archive"},
-        )
-        self._cached_status = status
-        return status
-
-    @property
-    def db_path(self) -> pathlib.Path:
-        return self._archive_path
-
-    @property
-    def root_path(self) -> pathlib.Path:
-        return self._archive_path
-
-    def location(self, *tokens: str) -> SquashfsReadOnlyStoreLocation:
-        return self.location_cls(*tokens, store=self)
-
-    def _location_from_url(self, file_url: str | StoreLocationMixinAPI) -> SquashfsReadOnlyStoreLocation:
-        if isinstance(file_url, StoreLocationMixinAPI):
-            if file_url.store is self:
-                return file_url
-            file_url = file_url.file_url
-        internal = self._normalize_internal_path(str(file_url))
-        if internal is None:
-            raise ValueError("Malformed file URL/path for squashfs store: {!r}".format(file_url))
-        return self.location(*internal.split("/"))
-
-    def status(self) -> StoreStatus:
-        if self._cached_status is None:
-            return self.self_test()
-        return self._cached_status
 
     def _file_hash(self, internal_path: str) -> str:
         hasher = hashlib.sha256()
@@ -255,41 +262,41 @@ class SquashfsReadOnlyStorageBackend(StorePluginAPI):
             hasher.update(chunk)
         return hasher.hexdigest()
 
-    def file_exists(self, file_url: str | StoreLocationMixinAPI) -> bool:
-        internal = self._normalize_internal_path(str(file_url.file_url if isinstance(file_url, StoreLocationMixinAPI) else file_url))
-        if internal is None:
-            return False
-        return internal in self._get_index()
+    def locate(self, file_identifier: str | StoreLocationMixinAPI) -> SquashfsReadOnlyStoreLocation:
+        return self._location_from_identifier(file_identifier)
 
-    def file_size(self, file_url: str | StoreLocationMixinAPI) -> Optional[int]:
-        internal = self._normalize_internal_path(str(file_url.file_url if isinstance(file_url, StoreLocationMixinAPI) else file_url))
-        if internal is None:
+    def exists(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
+        try:
+            location = self._location_from_identifier(file_identifier)
+        except ValueError:
+            return False
+        return location.is_file()
+
+    def file_size(self, file_identifier: str | StoreLocationMixinAPI) -> int | None:
+        try:
+            location = self._location_from_identifier(file_identifier)
+        except ValueError:
+            return None
+        internal = "/".join(location.parts)
+        if internal not in self._get_index():
             return None
         return int(self._get_index().get(internal, 0))
 
-    def get_file_status(self, file_url: str | StoreLocationMixinAPI) -> SingleFileStatus:
-        internal = self._normalize_internal_path(str(file_url.file_url if isinstance(file_url, StoreLocationMixinAPI) else file_url))
-        if internal is None:
-            raise ValueError("Malformed file URL/path for squashfs store: {!r}".format(file_url))
-        canonical_url = "{}/{}".format(self.url.rstrip("/"), internal)
+    def stat(self, file_identifier: str | StoreLocationMixinAPI) -> SingleFileStatus:
+        location = self._location_from_identifier(file_identifier)
+        internal = "/".join(location.parts)
+        canonical_url = location.file_url
 
-        def _exists(url: str) -> bool:
-            p = self._normalize_internal_path(url)
-            return bool(p and p in self._get_index())
+        def _exists(_url: str) -> bool:
+            return internal in self._get_index()
 
-        def _size(url: str) -> int:
-            p = self._normalize_internal_path(url)
-            if p is None:
-                return 0
-            return int(self._get_index().get(p, 0))
+        def _size(_url: str) -> int:
+            return int(self._get_index().get(internal, 0))
 
-        def _hash(url: str) -> str:
-            p = self._normalize_internal_path(url)
-            if p is None:
+        def _hash(_url: str) -> str:
+            if internal not in self._get_index():
                 return ""
-            if p not in self._get_index():
-                return ""
-            return self._file_hash(p)
+            return self._file_hash(internal)
 
         return SingleFileStatus(
             url=canonical_url,
@@ -300,26 +307,41 @@ class SquashfsReadOnlyStorageBackend(StorePluginAPI):
             check_hash_function=_hash,
         )
 
-    def get_file(self, file_url: str | StoreLocationMixinAPI) -> SquashfsReadOnlyStoreLocation:
-        location = self._location_from_url(file_url)
-        if not location.is_file():
-            raise FileNotFoundError(location.file_url)
-        return location
-
-    def read_file_bytes(self, file_url: str | StoreLocationMixinAPI) -> bytes:
-        internal = self._normalize_internal_path(str(file_url.file_url if isinstance(file_url, StoreLocationMixinAPI) else file_url))
-        if internal is None:
-            raise ValueError("Malformed file URL/path for squashfs store: {!r}".format(file_url))
+    def read_file_bytes(self, file_identifier: str | StoreLocationMixinAPI) -> bytes:
+        location = self._location_from_identifier(file_identifier)
+        internal = "/".join(location.parts)
         if internal not in self._get_index():
             raise FileNotFoundError("Path not found in squashfs archive: {!r}".format(internal))
         return self._run_unsquashfs(["-cat", str(self._archive_path), internal], check=True).stdout
 
-    def true_files(self) -> Iterator[SquashfsReadOnlyStoreLocation]:
+    def iter_locations(self) -> Iterator[SquashfsReadOnlyStoreLocation]:
         for internal in sorted(self._get_index().keys()):
-            yield self.get_file("{}/{}".format(self.url.rstrip("/"), internal))
+            yield self.location(*internal.split("/"))
 
-    def add_file(self, file_bytes: bytes, *, metadata=None) -> SquashfsReadOnlyStoreLocation:
+    def write_bytes(
+        self,
+        file_bytes: bytes,
+        *,
+        metadata=None,
+        location: str | None = None,
+    ) -> SquashfsReadOnlyStoreLocation:
         raise PermissionError("SquashfsReadOnlyStorageBackend is read-only.")
 
-    def delete_file(self, file_url: str | StoreLocationMixinAPI) -> bool:
+    def copy_within_plugin(
+        self,
+        src_location: str | StoreLocationMixinAPI,
+        dst_location: str | StoreLocationMixinAPI,
+    ) -> SquashfsReadOnlyStoreLocation:
+        raise PermissionError("SquashfsReadOnlyStorageBackend is read-only.")
+
+    def delete(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
+        raise PermissionError("SquashfsReadOnlyStorageBackend is read-only.")
+
+    def update_bytes(
+        self,
+        file_identifier: str | StoreLocationMixinAPI,
+        file_bytes: bytes,
+        *,
+        append: bool = False,
+    ) -> bool:
         raise PermissionError("SquashfsReadOnlyStorageBackend is read-only.")

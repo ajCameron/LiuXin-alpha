@@ -1,4 +1,10 @@
-"""Read-only store backend that delegates remote access to `rclone`."""
+"""Read-only rclone-backed storage plugin.
+
+This is a raw storage plugin over an rclone filesystem root, usually an HTTP
+remote. It knows how to locate, inspect, and stream concrete remote files, but
+it knows nothing about library items, digital assets, replicas, or database
+policy.
+"""
 
 from __future__ import annotations
 
@@ -192,9 +198,10 @@ class RcloneHttpReadOnlyStorageBackend(StorePluginAPI):
             env_map.update(dict(self.options.env))
         return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env_map)
 
-    def startup(self) -> None:
-        # Validate rclone exists and is runnable.
+    def startup(self) -> StoreStatus:
+        """Validate the backend and cache the resulting store status."""
         self.run_rclone(["version"], check=True)
+        return self.self_test()
 
     def self_test(self) -> StoreStatus:
         cs = StoreCheckStatus()
@@ -258,79 +265,90 @@ class RcloneHttpReadOnlyStorageBackend(StorePluginAPI):
     def location(self, *tokens: str) -> RcloneHttpReadOnlyStoreLocation:
         return self.location_cls(*tokens, store=self)
 
-    def file_exists(self, file_url: str | StoreLocationMixinAPI) -> bool:
-        target = self.location(*[part for part in self._relative_path_from_url(file_url).split("/") if part]).as_store_key()
+    def locate(
+        self,
+        file_identifier: str | StoreLocationMixinAPI,
+    ) -> RcloneHttpReadOnlyStoreLocation:
+        rel = self._relative_path_from_url(file_identifier)
+        return self.location(*[part for part in rel.split("/") if part])
+
+    def exists(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
+        target = self.locate(file_identifier).as_store_key()
         try:
             self.run_rclone_json(["lsjson", "--stat", target], check=True)
             return True
         except Exception as e:
-            # Treat "not found" as missing; other failures surface as False here for now.
             msg = str(e).lower()
             if "not found" in msg or "doesn't exist" in msg or "couldn't find" in msg or "error 404" in msg:
                 return False
             return False
 
-    def file_size(self, file_url: str | StoreLocationMixinAPI) -> int | None:
-        blob = self.run_rclone_json(["lsjson", "--stat", self.location(*[part for part in self._relative_path_from_url(file_url).split("/") if part]).as_store_key()], check=False)
+    def file_size(self, file_identifier: str | StoreLocationMixinAPI) -> int | None:
+        blob = self.run_rclone_json(["lsjson", "--stat", self.locate(file_identifier).as_store_key()], check=False)
         if not isinstance(blob, dict):
             return None
         return int(blob.get("Size") or 0)
 
-    def get_file_status(self, file_url: str | StoreLocationMixinAPI):
-        from LiuXin_alpha.storage.single_file import SingleFileStatus
-        location = self.get_file(file_url)
+    def stat(self, file_identifier: str | StoreLocationMixinAPI) -> SingleFileStatus:
+        location = self.locate(file_identifier)
 
-        def _stat() -> dict[str, Any] | None:
+        def _blob() -> dict[str, Any] | None:
             blob = self.run_rclone_json(["lsjson", "--stat", location.as_store_key()], check=False)
             return blob if isinstance(blob, dict) else None
 
         def _exists(_url: str) -> bool:
-            return _stat() is not None
+            return _blob() is not None
 
         def _size(_url: str) -> int:
-            blob = _stat()
+            blob = _blob()
             return int((blob or {}).get("Size") or 0)
 
         def _hash(_url: str) -> str:
-            blob = _stat() or {}
+            blob = _blob() or {}
             hashes = blob.get("Hashes") or {}
             if isinstance(hashes, dict):
                 return str(hashes.get("sha256") or hashes.get("md5") or "")
             return ""
 
-        return SingleFileStatus(url=location.as_store_key(), check_exists_function=_exists, check_size_function=_size, check_hash_function=_hash)
+        return SingleFileStatus(
+            url=location.as_store_key(),
+            check_exists_function=_exists,
+            check_size_function=_size,
+            check_hash_function=_hash,
+        )
 
-    def get_file(
-        self,
-        file_url: str | StoreLocationMixinAPI,
-        *,
-        initial_stat: dict[str, Any] | None = None,
-    ) -> RcloneHttpReadOnlyStoreLocation:
-        rel = self._relative_path_from_url(file_url)
-        return self.location(*[part for part in rel.split("/") if part])
-
-    def add_file(self, *args: Any, **kwargs: Any) -> None:
-        raise PermissionError("HTTP backend is read-only")
-
-    def retrieve_file(self, *args: Any, **kwargs: Any) -> None:
-        raise NotImplementedError("Use Location or rclone directly for transfer operations")
-
-    def delete_file(self, *args: Any, **kwargs: Any) -> None:
-        raise PermissionError("HTTP backend is read-only")
-
-    def true_files(self) -> Iterator[RcloneHttpReadOnlyStoreLocation]:
-        # Iterate all files in the store.
+    def iter_locations(self) -> Iterator[RcloneHttpReadOnlyStoreLocation]:
         items = self.run_rclone_json(["lsjson", "-R", "--files-only", self.url], check=True) or []
         for it in items:
-            p = it.get("Path") or it.get("Name")
-            if not p:
+            path = it.get("Path") or it.get("Name")
+            if not path:
                 continue
-            # Join to a full file url.
-            if self.url.endswith(":"):
-                full = f"{self.url}{p}"
-            else:
-                full = f"{self.url.rstrip('/')}/{p}"
-            yield self.get_file(full)
+            yield self.locate(path)
 
-    def iter(self) -> Iterator[RcloneHttpReadOnlyStoreLocation]:
-        return self.true_files()
+    def write_bytes(
+        self,
+        file_bytes: bytes,
+        *,
+        metadata: Any = None,
+        location: str | None = None,
+    ) -> RcloneHttpReadOnlyStoreLocation:
+        raise PermissionError("HTTP backend is read-only")
+
+    def copy_within_plugin(
+        self,
+        src_location: str | StoreLocationMixinAPI,
+        dst_location: str | StoreLocationMixinAPI,
+    ) -> RcloneHttpReadOnlyStoreLocation:
+        raise PermissionError("HTTP backend is read-only")
+
+    def delete(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
+        raise PermissionError("HTTP backend is read-only")
+
+    def update_bytes(
+        self,
+        file_identifier: str | StoreLocationMixinAPI,
+        file_bytes: bytes,
+        *,
+        append: bool = False,
+    ) -> bool:
+        raise PermissionError("HTTP backend is read-only")

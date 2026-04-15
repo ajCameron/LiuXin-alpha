@@ -8,7 +8,6 @@ from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     RcloneBackendOptions,
     RcloneHttpReadOnlyStorageBackend,
 )
-from LiuXin_alpha.storage.single_file import SingleFileStatus
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     rclone_http_storage_backend as backend_module,
 )
@@ -164,7 +163,7 @@ def test_rclone_backend_true_files_iterates_remote_entries(monkeypatch) -> None:
         options=RcloneBackendOptions(max_http_requests_per_hour=None, enforce_global_rate_limit=False),
     )
 
-    file_urls = [one.file_url for one in store.true_files()]
+    file_urls = [one.file_url for one in store.iter_locations()]
     assert file_urls == [
         "remote:alpha/book1.epub",
         "remote:book2.mobi",
@@ -185,7 +184,7 @@ def test_rclone_backend_normalizes_plain_https_root_to_configless_fs(monkeypatch
     )
 
     assert store.url == ':http,url="https://www.fadedpage.com":'
-    list(store.true_files())
+    list(store.iter_locations())
 
     assert captured_args
     assert captured_args[0][:3] == ["lsjson", "-R", "--files-only"]
@@ -202,7 +201,7 @@ def test_rclone_location_uses_store_wrappers() -> None:
             calls.append(("json", tuple(args), check))
             return {"Size": 12, "Hashes": {"sha256": "abc"}, "IsDir": False}
 
-        def get_file_status(self, file_url: str) -> SingleFileStatus:
+        def stat(self, file_url: str) -> SingleFileStatus:
             blob = self.run_rclone_json(["lsjson", "--stat", file_url], check=False)
             hashes = blob.get("Hashes") or {}
             return SingleFileStatus(

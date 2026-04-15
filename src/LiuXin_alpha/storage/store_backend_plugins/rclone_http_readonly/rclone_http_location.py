@@ -1,4 +1,4 @@
-"""Path-like location implementation backed by `rclone` operations."""
+"""Path-like location implementation for the rclone-backed read-only plugin."""
 
 from __future__ import annotations
 

@@ -1286,7 +1286,7 @@ def publish_open_squashfs_store(
 
         designation_results: list[dict[str, object]] = []
         for item in designations:
-            if not archive_backend.file_exists(item.archive_path):
+            if not archive_backend.exists(item.archive_path):
                 detail = "missing_in_archive"
                 report.errors.append(
                     "file_id={} archive_path={!r} :: {}".format(item.file_id, item.archive_path, detail)
@@ -1303,7 +1303,7 @@ def publish_open_squashfs_store(
                 )
                 continue
 
-            status = archive_backend.get_file_status(item.archive_path)
+            status = archive_backend.stat(item.archive_path)
             status.recheck_self(all=True)
             archive_hash = _normalize_sha256(str(status.hash or ""))
             archive_size = int(status.size or 0)
