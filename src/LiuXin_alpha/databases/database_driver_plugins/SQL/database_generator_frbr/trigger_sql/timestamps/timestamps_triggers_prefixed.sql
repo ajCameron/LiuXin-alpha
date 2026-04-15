@@ -200,6 +200,46 @@ BEGIN
   WHERE `store_id` = NEW.`store_id`;
 END;
 
+-- Auto-update modified timestamps for backup_workflows
+CREATE TRIGGER IF NOT EXISTS `trg_backup_workflows_touch_modified`
+AFTER UPDATE ON `backup_workflows`
+WHEN NEW.`backup_workflow_modified_timestamp_ep_k` = OLD.`backup_workflow_modified_timestamp_ep_k`
+BEGIN
+  UPDATE `backup_workflows`
+  SET `backup_workflow_modified_timestamp_ep_k` = (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+  WHERE `backup_workflow_id` = NEW.`backup_workflow_id`;
+END;
+
+-- Auto-update modified timestamps for backup_workflow_sources
+CREATE TRIGGER IF NOT EXISTS `trg_backup_workflow_sources_touch_modified`
+AFTER UPDATE ON `backup_workflow_sources`
+WHEN NEW.`backup_workflow_source_modified_timestamp_ep_k` = OLD.`backup_workflow_source_modified_timestamp_ep_k`
+BEGIN
+  UPDATE `backup_workflow_sources`
+  SET `backup_workflow_source_modified_timestamp_ep_k` = (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+  WHERE `backup_workflow_source_id` = NEW.`backup_workflow_source_id`;
+END;
+
+-- Auto-update modified timestamps for backup_workflow_state
+CREATE TRIGGER IF NOT EXISTS `trg_backup_workflow_state_touch_modified`
+AFTER UPDATE ON `backup_workflow_state`
+WHEN NEW.`backup_workflow_state_modified_timestamp_ep_k` = OLD.`backup_workflow_state_modified_timestamp_ep_k`
+BEGIN
+  UPDATE `backup_workflow_state`
+  SET `backup_workflow_state_modified_timestamp_ep_k` = (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+  WHERE `backup_workflow_state_id` = NEW.`backup_workflow_state_id`;
+END;
+
+-- Auto-update modified timestamps for backup_workflow_outputs
+CREATE TRIGGER IF NOT EXISTS `trg_backup_workflow_outputs_touch_modified`
+AFTER UPDATE ON `backup_workflow_outputs`
+WHEN NEW.`backup_workflow_output_modified_timestamp_ep_k` = OLD.`backup_workflow_output_modified_timestamp_ep_k`
+BEGIN
+  UPDATE `backup_workflow_outputs`
+  SET `backup_workflow_output_modified_timestamp_ep_k` = (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+  WHERE `backup_workflow_output_id` = NEW.`backup_workflow_output_id`;
+END;
+
 -- Auto-update modified timestamps for folders
 CREATE TRIGGER IF NOT EXISTS `trg_folders_folder_touch_modified`
 AFTER UPDATE ON `folders`

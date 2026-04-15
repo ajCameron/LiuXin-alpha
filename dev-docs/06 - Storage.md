@@ -47,6 +47,29 @@ The stores are responsible for
  - storing files
  - retrieving files
 
+## Backup workflows
+
+Backup/export workflows are now a separate layer again.
+This matters because a backup is not just "a store that writes".
+A backup workflow has to:
+ - designate a pack of source files or Locations
+ - stage them somewhere
+ - track progress and resume state
+ - seal/publish a final artifact
+
+So the strict split is now:
+ - `StorePlugin` = raw file/byte access on one medium
+ - `StoreContainer` = one configured store plus DB/spec state
+ - `StorageManager` = orchestrates stores and returns Locations
+ - `BackupWorkflow` = coordinates backup/export jobs and resume state
+
+The first concrete example is `SquashfsBackupWorkflow`, which stages designated
+files into a `squashfs_build` store plugin and then seals that staging area into
+a final SquashFS archive.
+
+Resume state is explicitly part of the workflow contract, because this is going
+to matter once backup workflows have durable DB presence or job persistence.
+
 ### Managed drive layout note
 
 `on_disk_existing_managed_drive` is the "LiuXin takes over this path" plugin.
@@ -339,3 +362,26 @@ backend type.
 
 This is intentionally stricter than a single boolean. A plugin may be readable but not iterable, or readable and
 iterable but not appendable, and the location capability surface is where that nuance belongs.
+
+
+## Store operational role
+
+`stores.store_operational_role` is a soft operator-intent field, not a hard capability flag.
+Use it for broad defaults such as `live`, `mixed`, `backup`, `archive`, or `cache`.
+Do **not** use it instead of the replica-mode support flags; those still tell us what a store can legitimately hold.
+A store can therefore be operationally `backup` while still technically supporting more than one replica mode.
+
+## Backup workflow persistence
+
+Backup workflows are persisted separately from stores. The current draft schema is:
+
+- `backup_workflows` for durable intent/config
+- `backup_workflow_sources` for designated sources
+- `backup_workflow_state` for resumable checkpoint state
+- `backup_workflow_outputs` for produced artifacts
+
+The important separation of concerns is:
+
+- stores are places bytes can live
+- backup workflows are processes that stage and emit artifacts
+- backup artifacts are still normal stored payloads and can later be linked into digital-asset/replica rows

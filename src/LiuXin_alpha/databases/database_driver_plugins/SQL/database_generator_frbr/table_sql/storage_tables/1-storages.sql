@@ -40,6 +40,12 @@ CREATE TABLE IF NOT EXISTS `stores` (
   `store_supports_backup_replica_mode` INTEGER NOT NULL DEFAULT 1,
   `store_supports_archive_replica_mode` INTEGER NOT NULL DEFAULT 1,
 
+  -- Broad operator-intent role for this store.
+  -- This is deliberately softer than the replica-mode support flags: a store can be
+  -- operationally 'backup' while still technically able to hold active files, or
+  -- 'mixed' when it is used for more than one role.
+  `store_operational_role` TEXT NULL,     -- 'live', 'mixed', 'backup', 'archive', 'cache'
+
   -- State / notes
   `store_online_status` TEXT NULL,      -- 'online', 'offline', 'retired'
   `store_location_note` TEXT NULL,
@@ -102,7 +108,10 @@ CREATE TABLE IF NOT EXISTS `stores` (
     CHECK (`store_supports_backup_replica_mode` IN (0,1)),
 
   CONSTRAINT `store_supports_archive_replica_mode_bool`
-    CHECK (`store_supports_archive_replica_mode` IN (0,1))
+    CHECK (`store_supports_archive_replica_mode` IN (0,1)),
+
+  CONSTRAINT `store_operational_role_check`
+    CHECK (`store_operational_role` IS NULL OR `store_operational_role` IN ('live','mixed','backup','archive','cache'))
 
 );
 -- BREAK

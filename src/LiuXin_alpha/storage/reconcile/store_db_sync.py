@@ -202,6 +202,8 @@ def ensure_unmanaged_store_for_disk(
             "store_kind": store_kind,
             "store_access_protocol": "file",
             "store_root_uri": str(root),
+        "store_operational_role": "live",
+            "store_operational_role": "live",
             "store_is_read_only": 1,
             "store_online_status": "online",
             "store_supports_random_read": 1,

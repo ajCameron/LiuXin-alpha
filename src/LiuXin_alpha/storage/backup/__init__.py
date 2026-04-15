@@ -9,6 +9,7 @@ Backup workflows are intentionally separate from raw store plugins:
 
 from __future__ import annotations
 
+from LiuXin_alpha.storage.backup.backup_workflow_repository import BackupWorkflowRepository
 from LiuXin_alpha.storage.backup.squashfs_backup_workflow import SquashfsBackupWorkflow
 
-__all__ = ["SquashfsBackupWorkflow"]
+__all__ = ["BackupWorkflowRepository", "SquashfsBackupWorkflow"]

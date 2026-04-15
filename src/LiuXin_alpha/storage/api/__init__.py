@@ -8,6 +8,24 @@ importing back through this barrel.
 from __future__ import annotations
 
 from LiuXin_alpha.databases.row import FixedTableStorageRow
+from LiuXin_alpha.storage.api.backup_api.backup_workflow_api import BackupWorkflowAPI
+from LiuXin_alpha.storage.api.backup_api.backup_workflow_models import (
+    BackupSourceKind,
+    BackupSourceResult,
+    BackupSourceSpec,
+    BackupWorkflowKind,
+    BackupWorkflowResult,
+    BackupWorkflowResumeState,
+    BackupWorkflowSpec,
+    BackupWorkflowStatus,
+    BackupWorkflowStepKind,
+)
+from LiuXin_alpha.storage.api.backup_api.backup_workflow_rows import (
+    BackupWorkflowOutputRow,
+    BackupWorkflowRow,
+    BackupWorkflowSourceRow,
+    BackupWorkflowStateRow,
+)
 from LiuXin_alpha.storage.api.file_api import FileOpenerTypeMixin, FileStatus
 from LiuXin_alpha.storage.api.info_containers_api import (
     AssetReplicaRow,
@@ -18,6 +36,7 @@ from LiuXin_alpha.storage.api.info_containers_api import (
     DigitalAssetItemLinkRow,
     DigitalAssetRow,
     StoreCheckStatus,
+    StoreOperationalRole,
     StoreSpec,
     StoreStatus,
 )
@@ -60,6 +79,20 @@ from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
 
 __all__ = [
     "AssetReplicaRow",
+    "BackupSourceKind",
+    "BackupSourceResult",
+    "BackupSourceSpec",
+    "BackupWorkflowAPI",
+    "BackupWorkflowOutputRow",
+    "BackupWorkflowRow",
+    "BackupWorkflowSourceRow",
+    "BackupWorkflowStateRow",
+    "BackupWorkflowKind",
+    "BackupWorkflowResult",
+    "BackupWorkflowResumeState",
+    "BackupWorkflowSpec",
+    "BackupWorkflowStatus",
+    "BackupWorkflowStepKind",
     "AsyncBinaryFile",
     "AsyncNativePretendSyncLocation",
     "AsyncTextFile",
@@ -95,6 +128,7 @@ __all__ = [
     "ReplicationStatus",
     "StorageManagerAPI",
     "StoreCheckStatus",
+    "StoreOperationalRole",
     "StoreContainerAPI",
     "StoreLocationMixinAPI",
     "StorePluginAPI",

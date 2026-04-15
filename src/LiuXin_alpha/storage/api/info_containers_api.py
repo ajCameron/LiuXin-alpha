@@ -25,6 +25,7 @@ ONLY DigitalAssets link to AssetReplicas.
 from __future__ import annotations
 
 import dataclasses
+from enum import StrEnum
 from typing import TYPE_CHECKING, Optional, Any, Iterable
 
 from LiuXin_alpha.databases.row import FixedTableStorageRow
@@ -414,8 +415,21 @@ __all__ = [
     "DigitalAssetRow",
     "DigitalAssetReplicationCluster",
     "DigitalAssetRow",
-    "ReplicationPolicy"
+    "ReplicationPolicy",
+    "StoreOperationalRole",
 ]
+
+
+
+
+class StoreOperationalRole(StrEnum):
+    """Broad operator-intent role for a configured store."""
+
+    LIVE = "live"
+    MIXED = "mixed"
+    BACKUP = "backup"
+    ARCHIVE = "archive"
+    CACHE = "cache"
 
 
 @dataclasses.dataclass(slots=True)
@@ -441,6 +455,8 @@ class StoreSpec:
     store_supports_active_replica_mode: bool = True
     store_supports_backup_replica_mode: bool = True
     store_supports_archive_replica_mode: bool = True
+
+    store_operational_role: str | None = None
 
     store_is_read_only: bool = False
     store_supports_folders: bool = True

@@ -495,6 +495,7 @@ SELECT
   s.`store_name` AS `store_name`,
   s.`store_kind` AS `store_kind`,
   s.`store_access_protocol` AS `store_access_protocol`,
+  s.`store_operational_role` AS `store_operational_role`,
   s.`store_root_uri` AS `store_root_uri`,
 
   ar.`asset_replica_folder_id` AS `asset_replica_folder_id`,
@@ -594,6 +595,7 @@ SELECT
   `store_name`,
   `store_kind`,
   `store_access_protocol`,
+  `store_operational_role`,
   `store_root_uri`,
   `folder_relpath`
 FROM `digital_asset_inventory_v`

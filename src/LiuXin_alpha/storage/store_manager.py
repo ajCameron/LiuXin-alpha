@@ -25,6 +25,7 @@ from LiuXin_alpha.storage.api import (
     StoreSpec,
 )
 from LiuXin_alpha.storage.store_container import StoreContainer
+from LiuXin_alpha.storage.store_spec_utils import store_spec_from_row
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
@@ -482,37 +483,11 @@ class StorageManager(StorageManagerAPI):
         if "stores" not in set(self.db.get_tables()):
             raise KeyError("Database does not expose a 'stores' table.")
 
-        row = self.db.get_row(store_id, table="stores")
+        row = self.db.get_row_from_id("stores", int(store_id))
         if row is None:
             raise KeyError("Unknown store id: {!r}".format(store_id))
 
-        root_uri = self._coerce_optional_str(self._row_get(row, "store_root_uri"))
-        store_name = self._coerce_optional_str(self._row_get(row, "store_name")) or str(root_uri or store_id)
-        store_kind = self._coerce_optional_str(self._row_get(row, "store_kind")) or "unknown"
-
-        return StoreSpec(
-            store_id=self._row_store_id(row),
-            store_uuid=self._coerce_optional_str(self._row_get(row, "store_uuid")) or (
-                "store-{}".format(store_id) if self._row_store_id(row) is not None else None
-            ),
-            store_name=store_name,
-            store_kind=store_kind,
-            store_url=str(root_uri or ""),
-            store_access_protocol=self._coerce_optional_str(self._row_get(row, "store_access_protocol")),
-            store_root_uri=root_uri,
-            store_failure_domain=self._coerce_optional_str(self._row_get(row, "store_failure_domain")),
-            store_region=self._coerce_optional_str(self._row_get(row, "store_region")),
-            store_tags=tuple(str(x) for x in (self._row_get(row, "store_tags") or ())),
-            store_default_replication_policy_id=self._to_int(self._row_get(row, "store_default_replication_policy_id")),
-            store_default_backup_policy_id=self._to_int(self._row_get(row, "store_default_backup_policy_id")),
-            store_supports_active_replica_mode=self._to_boolish(self._row_get(row, "store_supports_active_replica_mode"), default=True),
-            store_supports_backup_replica_mode=self._to_boolish(self._row_get(row, "store_supports_backup_replica_mode"), default=True),
-            store_supports_archive_replica_mode=self._to_boolish(self._row_get(row, "store_supports_archive_replica_mode"), default=True),
-            store_is_read_only=self._to_boolish(self._row_get(row, "store_is_read_only"), default=False),
-            store_supports_folders=self._to_boolish(self._row_get(row, "store_supports_folders"), default=True),
-            store_policy_json=self._coerce_optional_str(self._row_get(row, "store_policy_json")),
-            store_scratch=self._coerce_optional_str(self._row_get(row, "store_scratch")),
-        )
+        return store_spec_from_row(row, fallback_store_id=int(store_id))
 
     def load_from_database(
         self,
