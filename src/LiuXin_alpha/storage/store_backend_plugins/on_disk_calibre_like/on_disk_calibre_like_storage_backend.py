@@ -1,5 +1,8 @@
-"""
-On-disk calibre-like store backend.
+"""Calibre-like local-disk store plugin.
+
+This plugin is still a raw storage plugin: it knows about physical placement
+conventions, not about replicas or orchestration. Its speciality is choosing a
+calibre-style on-disk path when bytes are written without an explicit location.
 
 File placement follows a calibre-style hierarchy:
 - top-level folder by author (or author combo)
@@ -98,7 +101,16 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
             status.details["store_id"] = self._store_id
         return status
 
-    def add_file(self, file_bytes: bytes, *, metadata=None) -> OnDiskCalibreLikeStoreLocation:
+    def write_bytes(
+        self,
+        file_bytes: bytes,
+        *,
+        metadata=None,
+        location: str | None = None,
+    ) -> OnDiskCalibreLikeStoreLocation:
+        if location is not None:
+            return super().write_bytes(file_bytes, metadata=metadata, location=location)
+
         placement = self._extract_placement_metadata(metadata)
 
         relative_dir = pathlib.Path(placement.author_component) / placement.book_folder_name
@@ -123,7 +135,7 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
             file_size=len(file_bytes),
         )
 
-        return self.get_file(str(target))
+        return self.locate(str(target))
 
     def _extract_placement_metadata(self, metadata: Any) -> _PlacementMetadata:
         hints = self._extract_hints(metadata)

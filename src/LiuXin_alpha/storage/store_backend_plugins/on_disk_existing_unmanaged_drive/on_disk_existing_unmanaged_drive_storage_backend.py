@@ -1,15 +1,15 @@
-"""
-On-disk unmanaged drive store backend (read-only).
+"""Read-only local-disk store plugin.
 
-This backend indexes and reads files from a local directory while refusing
-mutating store-level operations.
+This plugin exposes one existing directory tree for reads only. It shares the
+managed directory resolution logic with the writable variant but refuses all
+mutating operations.
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.storage.api import StoreStatus
+from LiuXin_alpha.storage.api import StoreStatus, StoreLocationMixinAPI
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_storage_backend import (
     OnDiskExistingManagedStorageBackend,
 )
@@ -19,9 +19,7 @@ from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive
 
 
 class OnDiskUnmanagedStorageBackend(OnDiskExistingManagedStorageBackend):
-    """
-    Read-only view of files already present on a local drive.
-    """
+    """Read-only view of files already present on a local drive."""
 
     location_cls = OnDiskUnmanagedStoreLocation
 
@@ -39,8 +37,24 @@ class OnDiskUnmanagedStorageBackend(OnDiskExistingManagedStorageBackend):
         self._cached_status = status
         return status
 
-    def add_file(self, file_bytes: bytes, *, metadata=None) -> OnDiskUnmanagedStoreLocation:
+    def write_bytes(self, file_bytes: bytes, *, metadata=None, location: str | None = None) -> OnDiskUnmanagedStoreLocation:
         raise PermissionError("OnDiskUnmanagedStorageBackend is read-only.")
 
-    def delete_file(self, file_url: str) -> bool:
+    def copy_within_plugin(
+        self,
+        src_location: str | StoreLocationMixinAPI,
+        dst_location: str | StoreLocationMixinAPI,
+    ) -> OnDiskUnmanagedStoreLocation:
+        raise PermissionError("OnDiskUnmanagedStorageBackend is read-only.")
+
+    def delete(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
+        raise PermissionError("OnDiskUnmanagedStorageBackend is read-only.")
+
+    def update_bytes(
+        self,
+        file_identifier: str | StoreLocationMixinAPI,
+        file_bytes: bytes,
+        *,
+        append: bool = False,
+    ) -> bool:
         raise PermissionError("OnDiskUnmanagedStorageBackend is read-only.")

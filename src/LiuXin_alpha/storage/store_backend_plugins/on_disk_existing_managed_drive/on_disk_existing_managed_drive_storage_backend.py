@@ -1,8 +1,9 @@
-"""
-On-disk existing-managed store backend.
+"""Managed local-disk store plugin.
 
-This backend treats a local directory as a managed store boundary and supports
-read/write operations for files ingested by LiuXin.
+This plugin talks directly to one writable directory on local storage. It owns
+no database logic, no replica semantics, and no item/digital-asset concepts.
+Its job is simply to resolve store-relative locations, report file status, and
+perform byte-oriented operations inside one managed root.
 """
 
 from __future__ import annotations
@@ -27,11 +28,11 @@ from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 
 class OnDiskExistingManagedStorageBackend(StorePluginAPI):
-    """
-    Represents a managed local directory store.
+    """Writable plugin for one managed directory tree on local disk.
 
-    The root directory is treated as the store boundary: relative paths are
-    resolved under it and absolute paths must stay inside it.
+    The plugin treats the configured root as a hard boundary. All string inputs
+    are interpreted either as store-relative keys or as absolute paths that must
+    still resolve inside that root.
     """
 
     location_cls: Type[OnDiskExistingManagedStoreLocation] = OnDiskExistingManagedStoreLocation
@@ -137,7 +138,7 @@ class OnDiskExistingManagedStorageBackend(StorePluginAPI):
             checked=check_status.all_ok,
             good=check_status.all_ok,
             event_log=self._event_log,
-            details={"mode": "read_write"},
+            details={"mode": "read_write", "plugin_layer": "raw_storage"},
         )
         self._cached_status = status
         return status
@@ -150,29 +151,32 @@ class OnDiskExistingManagedStorageBackend(StorePluginAPI):
     def location(self, *tokens: str) -> "OnDiskExistingManagedStoreLocation":
         return self.location_cls(*tokens, store=self)
 
-    def _location_from_url(self, file_url: str | StoreLocationMixinAPI) -> OnDiskExistingManagedStoreLocation:
-        if isinstance(file_url, StoreLocationMixinAPI):
-            if file_url.store is self:
-                return file_url
-            file_url = file_url.file_url
-        path = self._resolve_file_path(str(file_url))
+    def _location_from_identifier(self, file_identifier: str | StoreLocationMixinAPI) -> OnDiskExistingManagedStoreLocation:
+        if isinstance(file_identifier, StoreLocationMixinAPI):
+            if file_identifier.store is self:
+                return file_identifier
+            file_identifier = file_identifier.file_url
+        path = self._resolve_file_path(str(file_identifier))
         rel = path.relative_to(self._root_path)
         return self.location(*rel.parts)
 
-    def file_exists(self, file_url: str | StoreLocationMixinAPI) -> bool:
+    def locate(self, file_identifier: str | StoreLocationMixinAPI) -> OnDiskExistingManagedStoreLocation:
+        return self._location_from_identifier(file_identifier)
+
+    def exists(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
         try:
-            return self._location_from_url(file_url).is_file()
+            return self._location_from_identifier(file_identifier).is_file()
         except ValueError:
             return False
 
-    def file_size(self, file_url: str | StoreLocationMixinAPI) -> Optional[int]:
-        path = self._location_from_url(file_url)._loc_path
+    def file_size(self, file_identifier: str | StoreLocationMixinAPI) -> Optional[int]:
+        path = self._location_from_identifier(file_identifier)._loc_path
         if not path.is_file():
             return None
         return int(path.stat().st_size)
 
-    def get_file_status(self, file_url: str | StoreLocationMixinAPI) -> SingleFileStatus:
-        path = self._location_from_url(file_url)._loc_path
+    def stat(self, file_identifier: str | StoreLocationMixinAPI) -> SingleFileStatus:
+        path = self._location_from_identifier(file_identifier)._loc_path
         exists_fn, size_fn, hash_fn = self._make_status_functions()
         return SingleFileStatus(
             url=str(path),
@@ -181,13 +185,7 @@ class OnDiskExistingManagedStorageBackend(StorePluginAPI):
             check_hash_function=hash_fn,
         )
 
-    def get_file(self, file_url: str | StoreLocationMixinAPI) -> OnDiskExistingManagedStoreLocation:
-        location = self._location_from_url(file_url)
-        if not location.is_file():
-            raise FileNotFoundError(location.file_url)
-        return location
-
-    def true_files(self) -> Iterator[OnDiskExistingManagedStoreLocation]:
+    def iter_locations(self) -> Iterator[OnDiskExistingManagedStoreLocation]:
         for path in self._root_path.rglob("*"):
             if not path.is_file():
                 continue
@@ -200,19 +198,66 @@ class OnDiskExistingManagedStorageBackend(StorePluginAPI):
         subdir.mkdir(parents=True, exist_ok=True)
         return subdir / "{}.bin".format(file_hash)
 
-    def add_file(self, file_bytes: bytes, *, metadata=None) -> OnDiskExistingManagedStoreLocation:
-        target = self._ingest_target_path(file_bytes)
-        if not target.exists():
-            tmp = target.with_suffix(".{}.tmp".format(uuid.uuid4().hex))
-            tmp.write_bytes(file_bytes)
-            os.replace(tmp, target)
+    def _write_bytes_to_path(self, target: pathlib.Path, file_bytes: bytes, *, ensure_parents: bool) -> pathlib.Path:
+        if ensure_parents:
+            target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(target.suffix + ".{}.tmp".format(uuid.uuid4().hex))
+        tmp.write_bytes(file_bytes)
+        os.replace(tmp, target)
+        return target
+
+    def write_bytes(
+        self,
+        file_bytes: bytes,
+        *,
+        metadata=None,
+        location: str | None = None,
+    ) -> OnDiskExistingManagedStoreLocation:
+        if location is None:
+            target = self._ingest_target_path(file_bytes)
+            if not target.exists():
+                self._write_bytes_to_path(target, file_bytes, ensure_parents=True)
+        else:
+            target = self._resolve_file_path(str(location))
+            self._write_bytes_to_path(target, file_bytes, ensure_parents=True)
         rel = target.relative_to(self._root_path)
         return self.location(*rel.parts)
 
-    def delete_file(self, file_url: str | StoreLocationMixinAPI) -> bool:
-        path = self._location_from_url(file_url)._loc_path
+    def copy_within_plugin(
+        self,
+        src_location: str | StoreLocationMixinAPI,
+        dst_location: str | StoreLocationMixinAPI,
+    ) -> OnDiskExistingManagedStoreLocation:
+        src = self._location_from_identifier(src_location)._loc_path
+        if not src.is_file():
+            raise FileNotFoundError(str(src))
+        dst = self._location_from_identifier(dst_location)._loc_path
+        payload = src.read_bytes()
+        self._write_bytes_to_path(dst, payload, ensure_parents=True)
+        rel = dst.relative_to(self._root_path)
+        return self.location(*rel.parts)
+
+    def delete(self, file_identifier: str | StoreLocationMixinAPI) -> bool:
+        path = self._location_from_identifier(file_identifier)._loc_path
         if not path.is_file():
             return False
         path.unlink()
         return True
 
+    def update_bytes(
+        self,
+        file_identifier: str | StoreLocationMixinAPI,
+        file_bytes: bytes,
+        *,
+        append: bool = False,
+    ) -> bool:
+        path = self._location_from_identifier(file_identifier)._loc_path
+        if not path.is_file():
+            raise FileNotFoundError(str(path))
+        mode = "ab" if append else "wb"
+        with path.open(mode) as fh:
+            fh.write(file_bytes)
+        return True
+
+
+__all__ = ["OnDiskExistingManagedStorageBackend"]

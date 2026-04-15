@@ -737,7 +737,7 @@ def register_rclone_http_readonly_store_files(
 
     ebook_exts = _normalize_ebook_extensions(ebook_extensions)
 
-    for remote_file in backend.true_files():
+    for remote_file in backend.iter_locations():
         report.scanned_files += 1
         try:
             storage_key = _storage_key_from_store_url(store_url=backend.url, file_url=remote_file.file_url)

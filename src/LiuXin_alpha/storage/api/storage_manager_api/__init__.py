@@ -1,4 +1,9 @@
-"""Top-level storage manager API."""
+"""Top-level storage manager API.
+
+This contract is intentionally narrow: orchestration of store containers plus
+location/file routing. Richer replica/policy manager contracts can sit beside
+it instead of being forced into every concrete manager immediately.
+"""
 
 from __future__ import annotations
 

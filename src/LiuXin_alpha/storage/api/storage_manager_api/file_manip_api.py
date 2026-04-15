@@ -1,4 +1,9 @@
-"""Location/file orchestration methods for the storage manager."""
+"""Location/file orchestration methods for the storage manager.
+
+These methods are intentionally phrased in terms of `Location` handles and
+manager-level routing. They should not expose backend-specific implementation
+details or replica bookkeeping directly.
+"""
 
 from __future__ import annotations
 

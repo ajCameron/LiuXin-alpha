@@ -1,7 +1,8 @@
 """Managed store container API.
 
-A store container represents one configured store. It owns exactly one raw
-plugin and the database/spec/status state around that plugin.
+A store container represents exactly one configured store. It owns one raw
+plugin plus the DB/spec/status state around that plugin, but it should not grow
+into an orchestrator or into a second backend API.
 """
 
 from __future__ import annotations

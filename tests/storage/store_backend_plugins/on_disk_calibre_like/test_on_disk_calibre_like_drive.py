@@ -37,7 +37,7 @@ class _HintsOnlyMetadata:
 
 def test_calibre_like_layout_from_basic_metadata(tmp_path) -> None:
     store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
-    file_obj = store.add_file(
+    file_obj = store.write_bytes(
         b"abc",
         metadata={
             "title": "Dune",
@@ -54,7 +54,7 @@ def test_calibre_like_layout_from_basic_metadata(tmp_path) -> None:
 
 def test_calibre_like_layout_uses_author_combo_folder(tmp_path) -> None:
     store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
-    file_obj = store.add_file(
+    file_obj = store.write_bytes(
         b"abc",
         metadata={
             "title": "Good Omens",
@@ -82,9 +82,9 @@ def test_calibre_like_collision_keeps_existing_and_suffixes_new(tmp_path) -> Non
         "format": "epub",
     }
 
-    file_one = store.add_file(b"one", metadata=metadata)
-    file_same = store.add_file(b"one", metadata=metadata)
-    file_two = store.add_file(b"two", metadata=metadata)
+    file_one = store.write_bytes(b"one", metadata=metadata)
+    file_same = store.write_bytes(b"one", metadata=metadata)
+    file_two = store.write_bytes(b"two", metadata=metadata)
 
     assert file_one.file_url == file_same.file_url
     assert file_two.file_url != file_one.file_url
@@ -96,7 +96,7 @@ def test_calibre_like_updates_database_file_row(tmp_path) -> None:
     db = _DummyDb(rows_by_id={11: row})
     store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path), database=db, store_id=77)
 
-    file_obj = store.add_file(
+    file_obj = store.write_bytes(
         b"payload",
         metadata={
             "title": "Children of Dune",
@@ -138,7 +138,7 @@ def test_calibre_like_uses_storage_hints_when_direct_fields_absent(tmp_path) -> 
         )
     )
 
-    file_obj = store.add_file(b"hints", metadata=metadata)
+    file_obj = store.write_bytes(b"hints", metadata=metadata)
     expected = (
         tmp_path
         / "Greg Egan"
@@ -164,7 +164,7 @@ def test_calibre_like_uses_item_storage_hints_when_available(tmp_path) -> None:
                 preferred_filename_stem="Permutation City - Greg Egan",
             )
 
-    file_obj = store.add_file(b"hints", metadata=_ItemHintsOnlyMetadata())
+    file_obj = store.write_bytes(b"hints", metadata=_ItemHintsOnlyMetadata())
     expected = (
         tmp_path
         / "Greg Egan"

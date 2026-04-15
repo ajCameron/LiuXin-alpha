@@ -224,3 +224,21 @@ A good shorthand is:
 
 - storage decides how many physical copies exist, where they live, and whether identical bytes can be shared
 - library decides what counts as “the same thing” at the bibliographic or domain level
+
+## Storage internal split
+
+Storage now has its own strict internal separation of concerns:
+
+- `StorageManager` orchestrates many configured stores
+- `StoreContainer` wraps one configured store plus optional DB-facing state
+- `StorePlugin` performs raw physical-media operations
+- `Location` is the concrete file/location handle
+
+This split matters because backend code is reusable outside the full managed-storage stack, while manager code is intentionally database-aware and orchestration-heavy.
+
+A useful smell test is:
+
+- if the code is deciding *which* store should do something, it belongs in the manager
+- if the code is holding config / status for *one* store, it belongs in the container
+- if the code is performing bytes-on-media work, it belongs in the plugin
+- if the code is acting on one concrete path/key within one store, it belongs on `Location`

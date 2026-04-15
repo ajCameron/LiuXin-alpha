@@ -1,3 +1,5 @@
+"""Store-container orchestration methods for the storage manager."""
+
 from __future__ import annotations
 
 import abc
@@ -12,7 +14,12 @@ if TYPE_CHECKING:
 
 
 class StoresManagerAPI(abc.ABC):
-    """Store orchestration API for the storage manager."""
+    """Orchestration API for configured store containers.
+
+    The manager owns many containers. Each container owns one plugin. The
+    manager should not bypass containers and talk raw-backend state into its own
+    registry structures.
+    """
 
     @abc.abstractmethod
     def get_store_spec_from_db(self, store_id: "StoreID") -> "StoreSpec":

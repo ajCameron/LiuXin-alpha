@@ -1,7 +1,9 @@
 """Concrete storage manager implementation.
 
-`StorageManager` orchestrates configured store containers and routes file/location
-operations to the most appropriate underlying plugin.
+`StorageManager` is the orchestration layer of storage. It owns configured
+`StoreContainer` objects, chooses which container should service an operation,
+and returns `Location` handles to callers. It should stay out of raw backend
+mechanics and let each `StorePlugin` deal with physical media directly.
 """
 
 from __future__ import annotations

@@ -233,3 +233,77 @@ It should be able to answer:
 
 That is the practical reason the schema now separates items, digital assets, replicas, composition, and policy.
 It lets storage reason about physical reality without dragging library meaning down into backend mechanics.
+
+
+## Current strict structure
+
+Storage now has a deliberately strict three-part runtime shape:
+
+- `StorageManager` orchestrates storage as a whole
+- `StoreContainer` represents one configured store
+- `StorePlugin` talks to one physical backend only
+
+### StorageManager
+
+The manager owns the collection of configured stores. Its responsibilities are:
+
+- loading store specs from the database
+- constructing plugins and wrapping them in containers
+- choosing which store/container should satisfy a request
+- returning `Location` handles to callers
+- coordinating storage-facing workflows that span multiple stores
+
+The manager should **not** contain backend-specific filesystem / HTTP / archive logic.
+That belongs in plugins.
+
+### StoreContainer
+
+A store container is one configured store. Singular, not plural. It holds:
+
+- one store spec / identity
+- one raw plugin instance
+- optional database binding for store-row level operations
+- cached startup / probe / health information
+
+A container should not become a second storage manager, and it should not become a raw backend driver.
+It is the narrow managed wrapper around one plugin.
+
+### StorePlugin
+
+A store plugin is the reusable raw-backend layer. It should know about:
+
+- one root location / endpoint
+- how to resolve and return `Location` objects
+- how to stat, iterate, read, write, update, copy, and delete bytes on that backend
+- backend-local health checks
+
+A plugin should **not** know about:
+
+- database rows
+- item / work / expression / manifestation semantics
+- replica policy
+- storage-manager orchestration
+
+If code such as ingest or repair wants direct physical-media access, this is the layer it should reuse.
+
+### Location is the file handle
+
+Concrete file access is now standardized on `Location`.
+A location is:
+
+- bound to exactly one plugin
+- path-like / pathlib-like
+- the object returned for concrete file access
+
+We do not want a second near-duplicate “single file” abstraction sitting beside it.
+
+### Dependency direction inside storage
+
+The intended dependency direction is:
+
+- manager -> container -> plugin -> location
+
+Not the other way around.
+Plugins should not import the manager.
+Containers should not become plugin subclasses.
+The public `storage.api` barrel is for external callers; internal storage code should prefer direct sibling imports.

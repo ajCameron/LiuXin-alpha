@@ -1,7 +1,8 @@
 """Raw storage plugin API.
 
 A store plugin talks to one physical medium or remote endpoint. It should know
-nothing about database rows, item graphs, replica policy, or orchestration.
+nothing about database rows, item graphs, replica policy, or orchestration. If
+it starts learning those things, the boundary has gone bad.
 """
 
 from __future__ import annotations
@@ -19,7 +20,11 @@ if TYPE_CHECKING:
 
 
 class StorePluginAPI(abc.ABC):
-    """Contract for one raw storage plugin bound to one root location."""
+    """Contract for one raw storage plugin bound to one root location.
+
+    This is the reusable bit that ingest, repair, or export code should be able
+    to call without dragging in the whole managed-storage stack.
+    """
 
     _url: str
     _name: str

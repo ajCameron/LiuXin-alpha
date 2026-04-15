@@ -1,4 +1,9 @@
-"""Public storage API surface."""
+"""Public storage API surface.
+
+This module exports the storage contracts that other top-level modules may rely
+on. Internals inside `storage` should prefer direct sibling imports rather than
+importing back through this barrel.
+"""
 
 from __future__ import annotations
 

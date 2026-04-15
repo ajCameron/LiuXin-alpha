@@ -1,4 +1,9 @@
-"""Concrete managed wrapper for one configured store plugin."""
+"""Concrete managed wrapper for one configured store plugin.
+
+A `StoreContainer` is deliberately boring: one configured store spec, one raw
+plugin instance, optional database binding, and cached health/probe state. It
+should not absorb orchestration or raw-media logic.
+"""
 
 from __future__ import annotations
 
