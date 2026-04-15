@@ -71,6 +71,9 @@ class StorageManager(StorageManagerAPI):
         "on_disk_existing_unmanaged": "on_disk_existing_unmanaged_drive",
         "on_disk_unmanaged": "on_disk_existing_unmanaged_drive",
         "on_disk_calibre_like": "on_disk_calibre_like",
+        "on_disk_flat": "on_disk_flat",
+        "flat_hash_disk": "on_disk_flat",
+        "flat_hash_store": "on_disk_flat",
         "calibre_like": "on_disk_calibre_like",
         "single_file_sqlite": "single_file_sqlite",
         "sqlite_single_file": "single_file_sqlite",
@@ -103,6 +106,10 @@ class StorageManager(StorageManagerAPI):
         "on_disk_calibre_like": (
             "LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like",
             "OnDiskCalibreLikeStorageBackend",
+        ),
+        "on_disk_flat": (
+            "LiuXin_alpha.storage.store_backend_plugins.on_disk_flat",
+            "OnDiskFlatStorageBackend",
         ),
         "single_file_sqlite": (
             "LiuXin_alpha.storage.store_backend_plugins.single_file_sqlite",
