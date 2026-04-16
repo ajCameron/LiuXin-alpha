@@ -14,7 +14,7 @@ class _Dummy(SQLiteTableLinkingMixin):
 
 def test_link_sql_all_includes_origin_policy_data() -> None:
     d = _Dummy()
-    sql_list, _ = d._get_direct_link_main_tables_sqlite(
+    sql_list, _ = d.direct_get_direct_link_main_tables_sql(
         primary_table="agents",
         secondary_table="works",
         requested_cols="all",
@@ -28,7 +28,7 @@ def test_link_sql_all_includes_origin_policy_data() -> None:
 
 def test_link_sql_bespoke_columns_are_emitted_as_text() -> None:
     d = _Dummy()
-    sql_list, table_name = d._get_direct_link_main_tables_sqlite(
+    sql_list, table_name = d.direct_get_direct_link_main_tables_sql(
         primary_table="agents",
         secondary_table="works",
         requested_cols={"priority", "type", "origin", "policy", "data", "extra_meta"},
@@ -40,7 +40,7 @@ def test_link_sql_bespoke_columns_are_emitted_as_text() -> None:
 
 def test_link_sql_nullable_sentinel_does_not_create_physical_column() -> None:
     d = _Dummy()
-    sql_list, table_name = d._get_direct_link_main_tables_sqlite(
+    sql_list, table_name = d.direct_get_direct_link_main_tables_sql(
         primary_table="agents",
         secondary_table="works",
         requested_cols={"priority", "nullable"},

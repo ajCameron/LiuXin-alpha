@@ -22,7 +22,7 @@ if not _ENABLE:
     )
 
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.interfaces.field_metadata import FieldMetadata
+from LiuXin_alpha.surfaces.field_metadata import FieldMetadata
 
 try:
     from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
