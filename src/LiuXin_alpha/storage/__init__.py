@@ -1,5 +1,12 @@
-"""
-Storage subsystem public entry points.
+"""Storage subsystem public entry points.
+
+Storage has a strict three-part shape:
+- `StorageManager` orchestrates and chooses stores
+- `StoreContainer` wraps one configured store plus optional DB state
+- `StorePlugin` talks to one physical backend only
+
+The subsystem should expose `Location` objects for concrete file access and keep
+replica/library semantics out of raw plugins.
 """
 
 from __future__ import annotations
@@ -7,6 +14,30 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
+from LiuXin_alpha.storage.store_container import StoreContainer
+from LiuXin_alpha.storage.backup import (
+    BackupArtifactRegistry,
+    BackupWorkflowRepository,
+    PlannedBackupPack,
+    RegisteredBackupArtifact,
+    SquashfsBackupWorkflow,
+    StoreBackupPlanner,
+    ConsoleReporter,
+    ExistingDriveSquashfsPrototype,
+    IndexedStoreRun,
+    PackExecutionRun,
+    PrototypeRunResult,
+)
+from LiuXin_alpha.storage.errors import (
+    CalibreLikeImplicitOverwriteError,
+    FlatStoreImplicitOverwriteError,
+    ManagedDriveImplicitOverwriteError,
+    SqliteBlobImplicitOverwriteError,
+    SquashfsBuildImplicitOverwriteError,
+    StorageError,
+    StorageImplicitOverwriteError,
+    StorageWriteError,
+)
 from LiuXin_alpha.storage.store_manager import (
     StorageBootstrapIssue,
     StorageBootstrapReport,
@@ -18,7 +49,22 @@ __all__ = [
     "StorageManager",
     "StoreManager",
     "StorageBootstrapIssue",
+    "StoreContainer",
     "StorageBootstrapReport",
+    "BackupArtifactRegistry",
+    "BackupWorkflowRepository",
+    "PlannedBackupPack",
+    "RegisteredBackupArtifact",
+    "StoreBackupPlanner",
+    "SquashfsBackupWorkflow",
+    "StorageError",
+    "StorageWriteError",
+    "StorageImplicitOverwriteError",
+    "ManagedDriveImplicitOverwriteError",
+    "CalibreLikeImplicitOverwriteError",
+    "FlatStoreImplicitOverwriteError",
+    "SqliteBlobImplicitOverwriteError",
+    "SquashfsBuildImplicitOverwriteError",
     "reconcile",
 ]
 

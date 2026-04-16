@@ -279,6 +279,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         'policy': ('policy', 'TEXT', 'NULL'),
         'data': ('data', 'TEXT', 'NULL'),
         'index': ('index', 'TEXT', 'NULL'),
+        'sequence_number': ('sequence_number', 'INTEGER', 'NULL'),
+        'is_required': ('is_required', 'INTEGER', 'DEFAULT 1'),
     }
 
     def __init__(self, conn: sqlite3.Connection) -> None:
@@ -539,7 +541,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "origin", "data", "index", "nullable", "all"}
+        allowed_req_cols = {"priority", "primary", "type", "origin", "data", "index", "sequence_number", "is_required", "nullable", "all"}
 
         for idx, entry in enumerate(interlinks):
             if not isinstance(entry, dict):
@@ -837,7 +839,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "origin", "policy", "data", "index", "nullable", "all"}
+        allowed_req_cols = {"priority", "primary", "type", "origin", "policy", "data", "index", "sequence_number", "is_required", "nullable", "all"}
 
         # Build a set of unordered FK edges to warn about redundant interlinks
         fk_pairs: set[tuple[str, str]] = set()
@@ -1483,7 +1485,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(intralinks, list):
             raise TypeError("TOML key `intralinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "origin", "policy", "data", "index", "nullable", "all"}
+        allowed_req_cols = {"priority", "primary", "type", "origin", "policy", "data", "index", "sequence_number", "is_required", "nullable", "all"}
 
         intralink_tables: set[str] = set()
 

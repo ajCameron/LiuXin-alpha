@@ -22,7 +22,8 @@ from LiuXin_alpha.ingest import (
     register_wget_html_readonly_store_files,
 )
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
-from LiuXin_alpha.storage.api import SingleFileAPI, StoreAPI
+from LiuXin_alpha.metadata.containers import ItemMetadataContainer, ItemMetadataHydrator
+from LiuXin_alpha.storage.api import StoreContainerAPI, StoreLocationMixinAPI
 from LiuXin_alpha.storage.reconcile import (
     SquashfsArchivePublishReport,
     SquashfsDesignationReport,
@@ -156,6 +157,24 @@ class Library:
         if row is None:
             return None
         return self._row_to_plain_dict(row)
+
+    def get_item_metadata(
+        self,
+        *,
+        item_id: int | None = None,
+        source_row: Mapping[str, Any] | Row | None = None,
+    ) -> ItemMetadataContainer:
+        """Return one concrete item metadata bundle.
+
+        Callers may provide either an ``item_id`` or an already-fetched row/view
+        that carries ``item_id`` plus optional WEMI ids.
+        """
+        hydrator = ItemMetadataHydrator(self._database)
+        if item_id is not None:
+            return hydrator.from_item_id(int(item_id))
+        if source_row is not None:
+            return hydrator.from_source_row(source_row)
+        raise ValueError("Provide either `item_id` or `source_row`.")
 
     def update_row_fields(
         self,
@@ -360,11 +379,11 @@ class Library:
             strict=strict,
         )
 
-    def get_store(self, store_identifier: str) -> StoreAPI:
-        return self.storage.get_store(store_identifier)
+    def get_store(self, store_identifier: str) -> StoreContainerAPI:
+        return self.storage.get_store_container(store_identifier)
 
-    def iter_stores(self) -> Iterator[StoreAPI]:
-        return self.storage.iter_stores()
+    def iter_stores(self) -> Iterator[StoreContainerAPI]:
+        return self.storage.iter_store_containers()
 
     def add_file(
         self,
@@ -372,7 +391,7 @@ class Library:
         metadata: Optional[MetadataContainerAPI] = None,
         *,
         preferred_store: Optional[str] = None,
-    ) -> SingleFileAPI:
+    ) -> StoreLocationMixinAPI:
         return self.storage.add_file(file_bytes=file_bytes, metadata=metadata, preferred_store=preferred_store)
 
     def retrieve_file(
@@ -381,18 +400,18 @@ class Library:
         metadata: Optional[MetadataContainerAPI] = None,
         *,
         preferred_store: Optional[str] = None,
-    ) -> SingleFileAPI:
+    ) -> StoreLocationMixinAPI:
         return self.storage.retrieve_file(file_url=file_url, metadata=metadata, preferred_store=preferred_store)
 
     def delete_file(
         self,
         file_url: Optional[str] = None,
         metadata: Optional[MetadataContainerAPI] = None,
-        file_container: Optional[SingleFileAPI] = None,
+        file_container: Optional[StoreLocationMixinAPI] = None,
     ) -> bool:
         return self.storage.delete_file(file_url=file_url, metadata=metadata, file_container=file_container)
 
-    def iter_files(self) -> Iterator[SingleFileAPI]:
+    def iter_files(self) -> Iterator[StoreLocationMixinAPI]:
         return self.storage.iter()
 
     def register_unmanaged_disk(

@@ -53,8 +53,8 @@ def test_build_squashfs_from_manifest_roundtrip(tmp_path: pathlib.Path) -> None:
     assert archive.exists() is True
 
     store = SquashfsReadOnlyStorageBackend(url=str(archive))
-    got_one = store.get_file(str(archive.resolve()) + "/A/one.epub")
-    got_two = store.get_file("B/two.mobi")
+    got_one = store.locate(str(archive.resolve()) + "/A/one.epub")
+    got_two = store.locate("B/two.mobi")
     assert got_one.as_bytes() == b"ONE"
     assert got_two.as_bytes() == b"TWO"
 

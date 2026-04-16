@@ -474,3 +474,18 @@ CONSTRAINTS
 - tag_title_link_tag_id & tag_title_link_title_id - the same tag cannot be applied more than once to the same title
 COLUMNS
  - None - None are needed
+
+
+## Storage-facing payload graph
+
+The storage-facing side of the schema now uses `items -> digital_assets -> asset_replicas`.
+
+This replaces the older temptation to let one `files` table stand in for:
+
+- the library-facing exemplar
+- the storage-managed payload
+- the concrete copy on a store
+
+That split is now explicit.
+
+See `dev-docs/database/04 - Digital assets, replicas and storage policy.md` for the detailed rationale and table breakdown.

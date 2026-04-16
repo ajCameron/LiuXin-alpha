@@ -152,7 +152,7 @@ UUIDStr = str
 IdentifiersStr = str
 
 
-ValidLinkAttributes = Literal["index", "datestamp"]
+ValidLinkAttributes = Literal["index", "datestamp", "sequence_number", "is_required"]
 
 
 RatingInt = Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -167,6 +167,8 @@ InterlinkExtraTypes = Union[
     Literal["origin"],
     Literal["policy"],
     Literal["data"],
-    Literal["index"]]
+    Literal["index"],
+    Literal["sequence_number"],
+    Literal["is_required"]]
 
 

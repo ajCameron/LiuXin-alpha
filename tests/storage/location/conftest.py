@@ -12,15 +12,15 @@ from typing import Any, AsyncIterator, Iterator, Self
 import pytest
 
 from LiuXin_alpha.storage.api.location_api import AsyncNativePretendSyncLocation
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_location import (
-    OnDiskUnmanagedStoreLocation,
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
+    OnDiskExistingManagedStoreLocation,
 )
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_storage_backend import (
-    OnDiskUnmanagedStorageBackend,
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_storage_backend import (
+    OnDiskExistingManagedStorageBackend,
 )
 
 
-@pytest.fixture(params=[OnDiskUnmanagedStoreLocation, None], name="loc_cls")
+@pytest.fixture(params=[OnDiskExistingManagedStoreLocation, None], name="loc_cls")
 def _loc_cls(request, store):
     """Parametrized Location class under test.
 
@@ -34,19 +34,19 @@ def _loc_cls(request, store):
 
 
 @pytest.fixture()
-def store(tmp_path: pathlib.Path) -> OnDiskUnmanagedStorageBackend:
+def store(tmp_path: pathlib.Path) -> OnDiskExistingManagedStorageBackend:
     """A real on-disk store rooted in a unique temp directory."""
     tmp_path.mkdir(parents=True, exist_ok=True)
-    return OnDiskUnmanagedStorageBackend(url=str(tmp_path))
+    return OnDiskExistingManagedStorageBackend(url=str(tmp_path))
 
 
 @pytest.fixture()
-def root_loc(store: OnDiskUnmanagedStorageBackend) -> OnDiskUnmanagedStoreLocation:
+def root_loc(store: OnDiskExistingManagedStorageBackend) -> OnDiskExistingManagedStoreLocation:
     """Root Location for the temp store."""
-    return OnDiskUnmanagedStoreLocation(store=store)
+    return OnDiskExistingManagedStoreLocation(store=store)
 
 
-def fs_path(store: OnDiskUnmanagedStorageBackend, *tokens: str) -> pathlib.Path:
+def fs_path(store: OnDiskExistingManagedStorageBackend, *tokens: str) -> pathlib.Path:
     """Absolute filesystem path for a tokenized Location within the store."""
     return pathlib.Path(store.url).joinpath(*tokens)
 
@@ -234,7 +234,7 @@ class AsyncOnDiskLocation(AsyncNativePretendSyncLocation):
         )
 
 @pytest.fixture()
-def async_root_loc(store: OnDiskUnmanagedStorageBackend) -> AsyncOnDiskLocation:
+def async_root_loc(store: OnDiskExistingManagedStorageBackend) -> AsyncOnDiskLocation:
     return AsyncOnDiskLocation(store=store)
 
 
@@ -273,7 +273,7 @@ ASYNCIO_THREAD_BRIDGE_OK = _probe_asyncio_thread_bridge()
 
 
 def _probe_async_native_sync_bridge(
-    store: OnDiskUnmanagedStorageBackend,
+    store: OnDiskExistingManagedStorageBackend,
     timeout_seconds: float = 2.0,
 ) -> bool:
     """
@@ -305,7 +305,7 @@ def require_asyncio_thread_bridge() -> None:
 
 @pytest.fixture()
 def require_async_native_sync_bridge(
-    store: OnDiskUnmanagedStorageBackend,
+    store: OnDiskExistingManagedStorageBackend,
     require_asyncio_thread_bridge: None,
 ) -> None:
     if not _probe_async_native_sync_bridge(store):

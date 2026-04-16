@@ -6,15 +6,15 @@ import pathlib
 
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_location import (
-    OnDiskUnmanagedStoreLocation,
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
+    OnDiskExistingManagedStoreLocation,
 )
 
 
 def test_constructor_refuses_store_escape(store, tmp_path) -> None:
     # '..' is refused by tokenization (defense in depth)
     with pytest.raises(ValueError):
-        _ = OnDiskUnmanagedStoreLocation("a/../b", store=store)
+        _ = OnDiskExistingManagedStoreLocation("a/../b", store=store)
 
 
 @pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlink not supported on this platform")
@@ -31,4 +31,4 @@ def test_symlink_escape_is_refused(store, tmp_path) -> None:
         pytest.skip("symlink creation not permitted on this system")
 
     with pytest.raises(ValueError):
-        _ = OnDiskUnmanagedStoreLocation("escape", "x.txt", store=store)
+        _ = OnDiskExistingManagedStoreLocation("escape", "x.txt", store=store)

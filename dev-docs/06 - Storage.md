@@ -47,6 +47,50 @@ The stores are responsible for
  - storing files
  - retrieving files
 
+## Backup workflows
+
+Backup/export workflows are now a separate layer again.
+This matters because a backup is not just "a store that writes".
+A backup workflow has to:
+ - designate a pack of source files or Locations
+ - stage them somewhere
+ - track progress and resume state
+ - seal/publish a final artifact
+
+So the strict split is now:
+ - `StorePlugin` = raw file/byte access on one medium
+ - `StoreContainer` = one configured store plus DB/spec state
+ - `StorageManager` = orchestrates stores and returns Locations
+ - `BackupWorkflow` = coordinates backup/export jobs and resume state
+
+The first concrete example is `SquashfsBackupWorkflow`, which stages designated
+files into a `squashfs_build` store plugin and then seals that staging area into
+a final SquashFS archive.
+
+Resume state is explicitly part of the workflow contract, because this is going
+to matter once backup workflows have durable DB presence or job persistence.
+
+### Managed drive layout note
+
+`on_disk_existing_managed_drive` is the "LiuXin takes over this path" plugin.
+It makes one important distinction:
+
+- **explicit writes** go exactly where the caller asked, so rename/edit/move style
+  workflows stay clean and unsurprising
+- **implicit writes** ("store these bytes for me somewhere sensible") go into a
+  reserved LiuXin-owned folder under the root using a deterministic hash layout:
+  `.liuxin/managed_drive/<first five hash chars>/<full hash>`
+
+This avoids spraying ad-hoc files into the visible root while still keeping the
+store human-inspectable on disk. The plugin is allowed to manage the whole tree,
+but it keeps its default spill area namespaced and obvious.
+
+Implicit writes also have a strict safety rule: they may dedupe identical bytes,
+but they must never silently overwrite an incompatible existing file. Writable
+plugins now raise storage-specific implicit-overwrite errors off a shared base
+(`StorageImplicitOverwriteError`) when the canonical implicit target is already
+occupied by different bytes or by a non-file path.
+
 # Files
 
 When you put a request in to a store (either by hash, or id from the files table) you get a file object back.
@@ -160,3 +204,204 @@ Checksum capability note:
 
 
 
+
+
+## Current storage graph
+
+Storage now reasons in three layers:
+
+- `items` are the library-facing exemplars
+- `digital_assets` are the managed payloads
+- `asset_replicas` are the concrete copies on stores
+
+Composite payloads use `digital_asset_compositions`.
+Semantic roles such as `primary_payload` and `cover` live on the item<->digital_asset link, not on the asset row itself.
+
+Replication and backup policy are now first-class tables and can be assigned directly to digital assets.
+
+
+## Replica modes and store suitability
+
+The storage schema now distinguishes between the *kind* of copy a replica is and the *kind* of copies a store can legitimately hold.
+This is important because not all stores are suitable for all policy goals.
+
+Examples:
+
+- a fast local SSD may be suitable for `active` and `cache` replicas
+- a network mirror may be suitable for `backup`, but poor for `active`
+- tape may be suitable for `archive`, but not for `active`
+
+This means a storage policy is not just “how many copies should exist?”.
+It is also “how many copies of which mode should exist, and on what kinds of stores?”.
+
+In practice, this means the database needs to know two separate things:
+
+- each `asset_replica` has a replica mode such as `active`, `backup`, `archive`, `cache`, `transient`, or `unmanaged`
+- each `store` advertises which replica modes it supports
+
+A replica only counts toward a policy if its mode and its store both make sense for that policy.
+A tape copy may satisfy an archive requirement without satisfying a live-read replication requirement.
+A transient local work copy should not silently count as durable backup.
+
+## Policy resolution
+
+Storage policy resolution now has three layers:
+
+- explicit policy on the `digital_asset`
+- default policy on the enclosing storage location (`folder`, then `store`)
+- global fallback policy
+
+This is meant to keep the desired-state model queryable and durable in the database, rather than hiding important decisions in Python alone.
+
+## Atomic assets, composite assets, and replicas
+
+The storage model distinguishes between:
+
+- atomic digital assets — one directly replicated byte-bearing payload
+- composite digital assets — one logical multipart payload assembled from ordered members
+
+Replicas belong to atomic assets.
+Composite assets are resolved by following composition membership to their members.
+This is what lets a multi-file audiobook be treated as one library-facing thing while still allowing each MP3 to be hashed, replicated, verified, and healed independently.
+
+## What storage should count as success
+
+A healthy storage system must be able to answer more than “is there a file somewhere?”.
+It should be able to answer:
+
+- is there at least one readable active copy?
+- does the asset meet its replication floor?
+- does it meet its backup/archive expectations?
+- are the existing copies on stores that are actually suitable for their intended mode?
+- are composite members complete and ordered?
+
+That is the practical reason the schema now separates items, digital assets, replicas, composition, and policy.
+It lets storage reason about physical reality without dragging library meaning down into backend mechanics.
+
+
+## Current strict structure
+
+Storage now has a deliberately strict three-part runtime shape:
+
+- `StorageManager` orchestrates storage as a whole
+- `StoreContainer` represents one configured store
+- `StorePlugin` talks to one physical backend only
+
+### StorageManager
+
+The manager owns the collection of configured stores. Its responsibilities are:
+
+- loading store specs from the database
+- constructing plugins and wrapping them in containers
+- choosing which store/container should satisfy a request
+- returning `Location` handles to callers
+- coordinating storage-facing workflows that span multiple stores
+
+The manager should **not** contain backend-specific filesystem / HTTP / archive logic.
+That belongs in plugins.
+
+### StoreContainer
+
+A store container is one configured store. Singular, not plural. It holds:
+
+- one store spec / identity
+- one raw plugin instance
+- optional database binding for store-row level operations
+- cached startup / probe / health information
+
+A container should not become a second storage manager, and it should not become a raw backend driver.
+It is the narrow managed wrapper around one plugin.
+
+### StorePlugin
+
+A store plugin is the reusable raw-backend layer. It should know about:
+
+- one root location / endpoint
+- how to resolve and return `Location` objects
+- how to stat, iterate, read, write, update, copy, and delete bytes on that backend
+- backend-local health checks
+
+A plugin should **not** know about:
+
+- database rows
+- item / work / expression / manifestation semantics
+- replica policy
+- storage-manager orchestration
+
+If code such as ingest or repair wants direct physical-media access, this is the layer it should reuse.
+
+### Location is the file handle
+
+Concrete file access is now standardized on `Location`.
+A location is:
+
+- bound to exactly one plugin
+- path-like / pathlib-like
+- the object returned for concrete file access
+
+We do not want a second near-duplicate “single file” abstraction sitting beside it.
+
+### Dependency direction inside storage
+
+The intended dependency direction is:
+
+- manager -> container -> plugin -> location
+
+Not the other way around.
+Plugins should not import the manager.
+Containers should not become plugin subclasses.
+The public `storage.api` barrel is for external callers; internal storage code should prefer direct sibling imports.
+
+
+## Location capability advertisement
+
+Read-only plugins must return read-only `Location` subclasses as well as refusing mutation at the plugin layer.
+A `LocationCapabilities` dataclass is now part of the storage contract so tests and higher layers can inspect
+what a location advertises (`can_open_write`, `can_unlink`, `can_rename`, etc.) instead of guessing from the
+backend type.
+
+This is intentionally stricter than a single boolean. A plugin may be readable but not iterable, or readable and
+iterable but not appendable, and the location capability surface is where that nuance belongs.
+
+
+## Store operational role
+
+`stores.store_operational_role` is a soft operator-intent field, not a hard capability flag.
+Use it for broad defaults such as `live`, `mixed`, `backup`, `archive`, or `cache`.
+Do **not** use it instead of the replica-mode support flags; those still tell us what a store can legitimately hold.
+A store can therefore be operationally `backup` while still technically supporting more than one replica mode.
+
+## Backup workflow persistence
+
+Backup workflows are persisted separately from stores. The current draft schema is:
+
+- `backup_workflows` for durable intent/config
+- `backup_workflow_sources` for designated sources
+- `backup_workflow_state` for resumable checkpoint state
+- `backup_workflow_outputs` for produced artifacts
+
+The important separation of concerns is:
+
+- stores are places bytes can live
+- backup workflows are processes that stage and emit artifacts
+- backup artifacts are still normal stored payloads and can later be linked into digital-asset/replica rows
+
+
+## Backup presence and pack stores
+
+Completed pack artifacts such as SquashFS files are treated as stores in their own right once registered.
+That lets the DB answer two distinct questions cleanly:
+
+- where does this backup artifact live / how can it be opened as a store?
+- which source files or replicas are covered by that completed backup store?
+
+The durable coverage answer lives in `backup_presence_links`, not in the workflow rows themselves.
+Those links are intentionally protected and immutable by default. A live source file may disappear later; the historical fact that it was packed into a specific backup store should not be silently editable away.
+
+A practical end-to-end shape is therefore:
+
+- source drive indexed as a local unmanaged store
+- planner groups indexed files into pack-sized backup workflow specs
+- workflow builds `.sqsh` artifact
+- artifact is registered as a read-only backup store
+- `backup_presence_links` tie source files/replicas to that completed backup store

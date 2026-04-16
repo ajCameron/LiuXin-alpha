@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS `transform_run_outputs` (
   `transform_run_output_id` INTEGER PRIMARY KEY,
 
   `transform_run_output_run_id` INTEGER NOT NULL,
-  `transform_run_output_file_id` INTEGER NOT NULL,
+  `transform_run_output_digital_asset_id` INTEGER NOT NULL,
 
   `transform_run_output_role` TEXT NULL,     -- 'primary','sidecar','thumbnail','log','report'
   `transform_run_output_note` TEXT NULL,
@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS `transform_run_outputs` (
     ON UPDATE CASCADE,
 
   CONSTRAINT `tro_file_fk`
-    FOREIGN KEY (`transform_run_output_file_id`)
-    REFERENCES `files`(`file_id`)
+    FOREIGN KEY (`transform_run_output_digital_asset_id`)
+    REFERENCES `digital_assets`(`digital_asset_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE
 );
@@ -37,12 +37,12 @@ CREATE TABLE IF NOT EXISTS `transform_run_outputs` (
 -- BREAK
 
 CREATE UNIQUE INDEX IF NOT EXISTS `idx_transform_run_outputs_unique`
-ON `transform_run_outputs`(`transform_run_output_run_id`, `transform_run_output_file_id`);
+ON `transform_run_outputs`(`transform_run_output_run_id`, `transform_run_output_digital_asset_id`);
 
 -- BREAK
 -- BREAK
 
-CREATE INDEX IF NOT EXISTS `idx_transform_run_outputs_file`
-ON `transform_run_outputs`(`transform_run_output_file_id`);
+CREATE INDEX IF NOT EXISTS `idx_transform_run_outputs_digital_asset`
+ON `transform_run_outputs`(`transform_run_output_digital_asset_id`);
 
 -- BREAK

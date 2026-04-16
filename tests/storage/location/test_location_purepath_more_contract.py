@@ -4,8 +4,8 @@ import os
 
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_storage_backend import (
-    OnDiskUnmanagedStorageBackend,
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_storage_backend import (
+    OnDiskExistingManagedStorageBackend,
 )
 
 
@@ -84,8 +84,8 @@ class TestLocationMorePureContract:
         s1.mkdir()
         s2.mkdir()
 
-        store1 = OnDiskUnmanagedStorageBackend(url=str(s1))
-        store2 = OnDiskUnmanagedStorageBackend(url=str(s2))
+        store1 = OnDiskExistingManagedStorageBackend(url=str(s1))
+        store2 = OnDiskExistingManagedStorageBackend(url=str(s2))
 
         a1 = loc_cls("a", store=store1)
         a2 = loc_cls("a", store=store2)

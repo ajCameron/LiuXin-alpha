@@ -1,7 +1,12 @@
+
+"""
+Library API.
+"""
+
 from __future__ import annotations
 
 import abc
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union, Any
 
 from LiuXin_alpha.utils.text.icu import lower as icu_lower
 

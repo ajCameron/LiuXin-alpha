@@ -237,6 +237,56 @@ DROP VIEW IF EXISTS `books`;
 DROP VIEW IF EXISTS `books_v`;
 
 CREATE VIEW `books_v` AS
+WITH `item_atomic_assets` AS (
+  SELECT
+    r.`ray_id` AS `ray_id`,
+    r.`work_id` AS `work_id`,
+    r.`expression_id` AS `expression_id`,
+    r.`manifestation_id` AS `manifestation_id`,
+    i.`item_id` AS `item_id`,
+    da.`digital_asset_id` AS `digital_asset_id`,
+    dal.`digital_asset_item_link_type` AS `digital_asset_link_type`,
+    da.`digital_asset_media_category` AS `digital_asset_media_category`,
+    da.`digital_asset_size_bytes` AS `digital_asset_size_bytes`
+  FROM `wemi_rays_v` r
+  JOIN `items` i
+    ON i.`item_manifestation_id` = r.`manifestation_id`
+  JOIN `digital_asset_item_links` dal
+    ON dal.`digital_asset_item_link_item_id` = i.`item_id`
+  JOIN `digital_assets` da
+    ON da.`digital_asset_id` = dal.`digital_asset_item_link_digital_asset_id`
+
+  UNION ALL
+
+  SELECT
+    r.`ray_id` AS `ray_id`,
+    r.`work_id` AS `work_id`,
+    r.`expression_id` AS `expression_id`,
+    r.`manifestation_id` AS `manifestation_id`,
+    i.`item_id` AS `item_id`,
+    da.`digital_asset_id` AS `digital_asset_id`,
+    cdail.`composite_digital_asset_item_link_type` AS `digital_asset_link_type`,
+    da.`digital_asset_media_category` AS `digital_asset_media_category`,
+    da.`digital_asset_size_bytes` AS `digital_asset_size_bytes`
+  FROM `wemi_rays_v` r
+  JOIN `items` i
+    ON i.`item_manifestation_id` = r.`manifestation_id`
+  JOIN `composite_digital_asset_item_links` cdail
+    ON cdail.`composite_digital_asset_item_link_item_id` = i.`item_id`
+  JOIN `composite_digital_asset_digital_asset_links` cdadl
+    ON cdadl.`composite_digital_asset_digital_asset_link_composite_digital_asset_id` = cdail.`composite_digital_asset_item_link_composite_digital_asset_id`
+  JOIN `digital_assets` da
+    ON da.`digital_asset_id` = cdadl.`composite_digital_asset_digital_asset_link_digital_asset_id`
+),
+`ray_atomic_assets` AS (
+  SELECT DISTINCT
+    `ray_id`,
+    `digital_asset_id`,
+    `digital_asset_link_type`,
+    `digital_asset_media_category`,
+    `digital_asset_size_bytes`
+  FROM `item_atomic_assets`
+)
 SELECT
   r.`ray_id` AS `book_id`,
 
@@ -262,11 +312,11 @@ SELECT
   -- Stable identity token for the projected book.
   r.`ray_id` AS `book_uuid`,
 
-  -- Covers: best-effort, derived from linked files.
+  -- Covers: best-effort, derived from any atomic assets reachable from the item layer.
   CASE
     WHEN SUM(
       CASE
-        WHEN f.`file_role` = 'cover' OR f.`file_media_category` = 'cover' THEN 1
+        WHEN raa.`digital_asset_link_type` = 'cover' OR raa.`digital_asset_media_category` = 'cover' THEN 1
         ELSE 0
       END
     ) > 0 THEN 1
@@ -277,44 +327,38 @@ SELECT
 
   -- Last-modified: max modified timestamp across the ray nodes.
   datetime(
-    (
-      MAX(
-        COALESCE(w.`work_modified_timestamp_ep_k`, 0),
-        COALESCE(e.`expression_modified_timestamp_ep_k`, 0),
-        COALESCE(m.`manifestation_modified_timestamp_ep_k`, 0)
-      )
-    ) / 1000,
+    (MAX(
+      COALESCE(w.`work_modified_timestamp_ep_k`, 0),
+      COALESCE(e.`expression_modified_timestamp_ep_k`, 0),
+      COALESCE(m.`manifestation_modified_timestamp_ep_k`, 0)
+    )) / 1000,
     'unixepoch'
   ) AS `book_last_modified`,
 
   NULL AS `book_fingerprint`,
   NULL AS `book_paths`,
 
-  -- Size: sum sizes of any files attached to items under this manifestation.
-  COALESCE(SUM(COALESCE(f.`file_size_bytes`, 0)), 0) AS `book_size`,
+  -- Size: sum the distinct atomic assets reachable from the ray's items.
+  COALESCE(SUM(COALESCE(raa.`digital_asset_size_bytes`, 0)), 0) AS `book_size`,
 
   NULL AS `book_rating`,
 
   -- Legacy datestamps were DATETIME-ish strings; we project epoch_ms timestamps.
   datetime(
-    (
-      MIN(
-        COALESCE(w.`work_created_timestamp_ep_k`, 0),
-        COALESCE(e.`expression_created_timestamp_ep_k`, 0),
-        COALESCE(m.`manifestation_created_timestamp_ep_k`, 0)
-      )
-    ) / 1000,
+    (MIN(
+      COALESCE(w.`work_created_timestamp_ep_k`, 0),
+      COALESCE(e.`expression_created_timestamp_ep_k`, 0),
+      COALESCE(m.`manifestation_created_timestamp_ep_k`, 0)
+    )) / 1000,
     'unixepoch'
   ) AS `book_created_datestamp`,
 
   datetime(
-    (
-      MAX(
-        COALESCE(w.`work_modified_timestamp_ep_k`, 0),
-        COALESCE(e.`expression_modified_timestamp_ep_k`, 0),
-        COALESCE(m.`manifestation_modified_timestamp_ep_k`, 0)
-      )
-    ) / 1000,
+    (MAX(
+      COALESCE(w.`work_modified_timestamp_ep_k`, 0),
+      COALESCE(e.`expression_modified_timestamp_ep_k`, 0),
+      COALESCE(m.`manifestation_modified_timestamp_ep_k`, 0)
+    )) / 1000,
     'unixepoch'
   ) AS `book_datestamp`,
 
@@ -333,10 +377,8 @@ JOIN `expressions` e
   ON e.`expression_id` = r.`expression_id`
 JOIN `manifestations` m
   ON m.`manifestation_id` = r.`manifestation_id`
-LEFT JOIN `items` i
-  ON i.`item_manifestation_id` = r.`manifestation_id`
-LEFT JOIN `files` f
-  ON f.`file_item_id` = i.`item_id`
+LEFT JOIN `ray_atomic_assets` raa
+  ON raa.`ray_id` = r.`ray_id`
 GROUP BY r.`ray_id`
 ;
 
@@ -347,100 +389,218 @@ SELECT * FROM `books_v`
 
 
 -- -----------------------------------------------------
--- View: file_inventory_v
+-- View: digital_asset_inventory_v
 --
--- A storage-centric view of all Files attached to Items that belong to a ray.
---
--- NOTE:
---  - Rows are emitted per (ray, file) because a Manifestation may participate
---    in multiple rays (e.g. shared editions or compilations).
---  - This view is intended for UI/debugging/inventory use; it is read-only.
+-- A storage-centric view of all digital assets attached to Items that belong to a ray.
+-- Rows are emitted per (ray, digital_asset, replica).
 -- -----------------------------------------------------
 
 DROP VIEW IF EXISTS `file_inventory_v`;
+DROP VIEW IF EXISTS `digital_asset_inventory_v`;
 
-CREATE VIEW `file_inventory_v` AS
+CREATE VIEW `digital_asset_inventory_v` AS
+WITH `item_atomic_assets` AS (
+  SELECT
+    r.`ray_id` AS `book_id`,
+    r.`ray_id` AS `ray_id`,
+    r.`work_id` AS `work_id`,
+    r.`expression_id` AS `expression_id`,
+    r.`manifestation_id` AS `manifestation_id`,
+    i.`item_id` AS `item_id`,
+
+    da.`digital_asset_id` AS `digital_asset_id`,
+    dal.`digital_asset_item_link_type` AS `digital_asset_link_type`,
+    dal.`digital_asset_item_link_priority` AS `digital_asset_link_priority`,
+    dal.`digital_asset_item_link_primary` AS `digital_asset_link_primary`,
+    dal.`digital_asset_item_link_origin` AS `digital_asset_link_origin`,
+
+    NULL AS `composite_digital_asset_id`,
+    NULL AS `composite_digital_asset_name`,
+    NULL AS `composite_digital_asset_link_type`,
+    NULL AS `composite_digital_asset_link_priority`,
+    NULL AS `composite_digital_asset_link_primary`,
+    NULL AS `composite_digital_asset_link_origin`,
+
+    NULL AS `composite_member_link_type`,
+    NULL AS `composite_member_sequence_number`,
+    NULL AS `composite_member_is_required`,
+
+    'direct' AS `digital_asset_attachment_scope`
+  FROM `wemi_rays_v` r
+  JOIN `items` i
+    ON i.`item_manifestation_id` = r.`manifestation_id`
+  JOIN `digital_asset_item_links` dal
+    ON dal.`digital_asset_item_link_item_id` = i.`item_id`
+  JOIN `digital_assets` da
+    ON da.`digital_asset_id` = dal.`digital_asset_item_link_digital_asset_id`
+
+  UNION ALL
+
+  SELECT
+    r.`ray_id` AS `book_id`,
+    r.`ray_id` AS `ray_id`,
+    r.`work_id` AS `work_id`,
+    r.`expression_id` AS `expression_id`,
+    r.`manifestation_id` AS `manifestation_id`,
+    i.`item_id` AS `item_id`,
+
+    da.`digital_asset_id` AS `digital_asset_id`,
+    cdail.`composite_digital_asset_item_link_type` AS `digital_asset_link_type`,
+    cdail.`composite_digital_asset_item_link_priority` AS `digital_asset_link_priority`,
+    cdail.`composite_digital_asset_item_link_primary` AS `digital_asset_link_primary`,
+    cdail.`composite_digital_asset_item_link_origin` AS `digital_asset_link_origin`,
+
+    cda.`composite_digital_asset_id` AS `composite_digital_asset_id`,
+    cda.`composite_digital_asset_name` AS `composite_digital_asset_name`,
+    cdail.`composite_digital_asset_item_link_type` AS `composite_digital_asset_link_type`,
+    cdail.`composite_digital_asset_item_link_priority` AS `composite_digital_asset_link_priority`,
+    cdail.`composite_digital_asset_item_link_primary` AS `composite_digital_asset_link_primary`,
+    cdail.`composite_digital_asset_item_link_origin` AS `composite_digital_asset_link_origin`,
+
+    cdadl.`composite_digital_asset_digital_asset_link_type` AS `composite_member_link_type`,
+    cdadl.`composite_digital_asset_digital_asset_link_sequence_number` AS `composite_member_sequence_number`,
+    cdadl.`composite_digital_asset_digital_asset_link_is_required` AS `composite_member_is_required`,
+
+    'composite_member' AS `digital_asset_attachment_scope`
+  FROM `wemi_rays_v` r
+  JOIN `items` i
+    ON i.`item_manifestation_id` = r.`manifestation_id`
+  JOIN `composite_digital_asset_item_links` cdail
+    ON cdail.`composite_digital_asset_item_link_item_id` = i.`item_id`
+  JOIN `composite_digital_assets` cda
+    ON cda.`composite_digital_asset_id` = cdail.`composite_digital_asset_item_link_composite_digital_asset_id`
+  JOIN `composite_digital_asset_digital_asset_links` cdadl
+    ON cdadl.`composite_digital_asset_digital_asset_link_composite_digital_asset_id` = cda.`composite_digital_asset_id`
+  JOIN `digital_assets` da
+    ON da.`digital_asset_id` = cdadl.`composite_digital_asset_digital_asset_link_digital_asset_id`
+)
 SELECT
-  r.`ray_id` AS `book_id`,
-  r.`ray_id` AS `ray_id`,
+  iaa.`book_id` AS `book_id`,
+  iaa.`ray_id` AS `ray_id`,
 
-  r.`work_id` AS `work_id`,
-  r.`expression_id` AS `expression_id`,
-  r.`manifestation_id` AS `manifestation_id`,
+  iaa.`work_id` AS `work_id`,
+  iaa.`expression_id` AS `expression_id`,
+  iaa.`manifestation_id` AS `manifestation_id`,
 
-  i.`item_id` AS `item_id`,
+  iaa.`item_id` AS `item_id`,
 
-  f.`file_id` AS `file_id`,
-  f.`file_store_id` AS `file_store_id`,
+  iaa.`digital_asset_id` AS `digital_asset_id`,
+  iaa.`digital_asset_link_type` AS `digital_asset_link_type`,
+  iaa.`digital_asset_link_priority` AS `digital_asset_link_priority`,
+  iaa.`digital_asset_link_primary` AS `digital_asset_link_primary`,
+  iaa.`digital_asset_link_origin` AS `digital_asset_link_origin`,
+
+  ar.`asset_replica_id` AS `asset_replica_id`,
+  ar.`asset_replica_store_id` AS `asset_replica_store_id`,
   s.`store_name` AS `store_name`,
   s.`store_kind` AS `store_kind`,
   s.`store_access_protocol` AS `store_access_protocol`,
+  s.`store_operational_role` AS `store_operational_role`,
   s.`store_root_uri` AS `store_root_uri`,
 
-  f.`file_folder_id` AS `file_folder_id`,
+  ar.`asset_replica_folder_id` AS `asset_replica_folder_id`,
   fo.`folder_relpath` AS `folder_relpath`,
 
-  f.`file_storage_key` AS `file_storage_key`,
+  ar.`asset_replica_storage_key` AS `asset_replica_storage_key`,
 
-  -- Convenience: best-effort absolute-ish URI.
   CASE
     WHEN s.`store_root_uri` IS NULL THEN NULL
-    WHEN substr(s.`store_root_uri`, -1) = '/' THEN s.`store_root_uri` || f.`file_storage_key`
-    ELSE s.`store_root_uri` || '/' || f.`file_storage_key`
-  END AS `file_uri`,
+    WHEN substr(s.`store_root_uri`, -1) = '/' THEN s.`store_root_uri` || ar.`asset_replica_storage_key`
+    ELSE s.`store_root_uri` || '/' || ar.`asset_replica_storage_key`
+  END AS `asset_replica_uri`,
 
-  -- Naming / compatibility
-  f.`file_name` AS `file_name`,
-  f.`file_base_name` AS `file_base_name`,
-  f.`file_extension` AS `file_extension`,
-  f.`file_tag` AS `file_tag`,
-  f.`file_auto_name` AS `file_auto_name`,
-  f.`file_use_auto_name` AS `file_use_auto_name`,
+  da.`digital_asset_name` AS `digital_asset_name`,
+  da.`digital_asset_base_name` AS `digital_asset_base_name`,
+  da.`digital_asset_extension` AS `digital_asset_extension`,
+  da.`digital_asset_tag` AS `digital_asset_tag`,
+  da.`digital_asset_auto_name` AS `digital_asset_auto_name`,
+  da.`digital_asset_use_auto_name` AS `digital_asset_use_auto_name`,
 
-  -- Type / role
-  f.`file_mime_type` AS `file_mime_type`,
-  f.`file_role` AS `file_role`,
-  f.`file_media_category` AS `file_media_category`,
-  f.`file_class_mask` AS `file_class_mask`,
-  f.`file_visibility_mask` AS `file_visibility_mask`,
-  f.`file_critical` AS `file_critical`,
+  da.`digital_asset_mime_type` AS `digital_asset_mime_type`,
+  da.`digital_asset_media_category` AS `digital_asset_media_category`,
+  da.`digital_asset_class_mask` AS `digital_asset_class_mask`,
+  da.`digital_asset_visibility_mask` AS `digital_asset_visibility_mask`,
+  da.`digital_asset_critical` AS `digital_asset_critical`,
 
-  -- Size / integrity
-  f.`file_size_bytes` AS `file_size_bytes`,
-  f.`file_hash_sha256` AS `file_hash_sha256`,
-  f.`file_hash_blake3` AS `file_hash_blake3`,
-  f.`file_phash` AS `file_phash`,
-  f.`file_corrupt` AS `file_corrupt`,
-  f.`file_integrity_status` AS `file_integrity_status`,
-  f.`file_last_seen_timestamp_ep_k` AS `file_last_seen_timestamp_ep_k`,
-  f.`file_last_integrity_check_timestamp_ep_k` AS `file_last_integrity_check_timestamp_ep_k`,
+  da.`digital_asset_size_bytes` AS `digital_asset_size_bytes`,
+  da.`digital_asset_hash_sha256` AS `digital_asset_hash_sha256`,
+  da.`digital_asset_hash_blake3` AS `digital_asset_hash_blake3`,
+  da.`digital_asset_phash` AS `digital_asset_phash`,
+  da.`digital_asset_corrupt` AS `digital_asset_corrupt`,
+  da.`digital_asset_integrity_status` AS `digital_asset_integrity_status`,
 
-  -- Provenance / ingestion
-  f.`file_acquired_timestamp_ep_k` AS `file_acquired_timestamp_ep_k`,
-  f.`file_source` AS `file_source`,
-  f.`file_original_name` AS `file_original_name`,
-  f.`file_original_path` AS `file_original_path`,
-  f.`file_processed` AS `file_processed`,
+  ar.`asset_replica_presence_status` AS `asset_replica_presence_status`,
+  ar.`asset_replica_integrity_status` AS `asset_replica_integrity_status`,
+  ar.`asset_replica_failure_reason` AS `asset_replica_failure_reason`,
+  ar.`asset_replica_observed_size_bytes` AS `asset_replica_observed_size_bytes`,
+  ar.`asset_replica_observed_hash_sha256` AS `asset_replica_observed_hash_sha256`,
+  ar.`asset_replica_observed_hash_blake3` AS `asset_replica_observed_hash_blake3`,
 
-  -- Datestamps (legacy-ish)
-  datetime(COALESCE(f.`file_created_timestamp_ep_k`, 0) / 1000, 'unixepoch')  AS `file_created_datestamp`,
-  datetime(COALESCE(f.`file_modified_timestamp_ep_k`, 0) / 1000, 'unixepoch') AS `file_datestamp`,
+  da.`digital_asset_source` AS `digital_asset_source`,
+  da.`digital_asset_original_name` AS `digital_asset_original_name`,
+  da.`digital_asset_original_path` AS `digital_asset_original_path`,
+  da.`digital_asset_processed` AS `digital_asset_processed`,
+
+  datetime(COALESCE(da.`digital_asset_created_timestamp_ep_k`, 0) / 1000, 'unixepoch') AS `digital_asset_created_datestamp`,
+  datetime(COALESCE(da.`digital_asset_modified_timestamp_ep_k`, 0) / 1000, 'unixepoch') AS `digital_asset_datestamp`,
 
   CASE
-    WHEN f.`file_role` = 'cover' OR f.`file_media_category` = 'cover' THEN 1
+    WHEN iaa.`digital_asset_link_type` = 'cover' OR da.`digital_asset_media_category` = 'cover' THEN 1
     ELSE 0
-  END AS `file_is_cover`
+  END AS `digital_asset_is_cover`,
 
-FROM `wemi_rays_v` r
-JOIN `items` i
-  ON i.`item_manifestation_id` = r.`manifestation_id`
-JOIN `files` f
-  ON f.`file_item_id` = i.`item_id`
-JOIN `stores` s
-  ON s.`store_id` = f.`file_store_id`
+  iaa.`digital_asset_attachment_scope` AS `digital_asset_attachment_scope`,
+  iaa.`composite_digital_asset_id` AS `composite_digital_asset_id`,
+  iaa.`composite_digital_asset_name` AS `composite_digital_asset_name`,
+  iaa.`composite_digital_asset_link_type` AS `composite_digital_asset_link_type`,
+  iaa.`composite_digital_asset_link_priority` AS `composite_digital_asset_link_priority`,
+  iaa.`composite_digital_asset_link_primary` AS `composite_digital_asset_link_primary`,
+  iaa.`composite_digital_asset_link_origin` AS `composite_digital_asset_link_origin`,
+  iaa.`composite_member_link_type` AS `composite_member_link_type`,
+  iaa.`composite_member_sequence_number` AS `composite_member_sequence_number`,
+  iaa.`composite_member_is_required` AS `composite_member_is_required`
+
+FROM `item_atomic_assets` iaa
+JOIN `digital_assets` da
+  ON da.`digital_asset_id` = iaa.`digital_asset_id`
+LEFT JOIN `asset_replicas` ar
+  ON ar.`asset_replica_digital_asset_id` = da.`digital_asset_id`
+LEFT JOIN `stores` s
+  ON s.`store_id` = ar.`asset_replica_store_id`
 LEFT JOIN `folders` fo
-  ON fo.`folder_id` = f.`file_folder_id`
+  ON fo.`folder_id` = ar.`asset_replica_folder_id`
 ;
+
+-- Compatibility alias for older code that still expects a file-shaped inventory view.
+CREATE VIEW `file_inventory_v` AS
+SELECT
+  `asset_replica_id` AS `file_id`,
+  `book_id`,
+  `ray_id`,
+  `work_id`,
+  `expression_id`,
+  `manifestation_id`,
+  `item_id`,
+  `digital_asset_id`,
+  `asset_replica_storage_key` AS `file_storage_key`,
+  `asset_replica_uri` AS `file_uri`,
+  CASE
+    WHEN `digital_asset_link_type` = 'primary_payload' THEN 'content'
+    ELSE `digital_asset_link_type`
+  END AS `file_role`,
+  `digital_asset_is_cover` AS `file_is_cover`,
+  `digital_asset_size_bytes` AS `file_size_bytes`,
+  `asset_replica_store_id` AS `file_store_id`,
+  `asset_replica_folder_id` AS `file_folder_id`,
+  `store_name`,
+  `store_kind`,
+  `store_access_protocol`,
+  `store_operational_role`,
+  `store_root_uri`,
+  `folder_relpath`
+FROM `digital_asset_inventory_v`
+;
+
 
 
 -- -----------------------------------------------------
@@ -1005,9 +1165,9 @@ DROP VIEW IF EXISTS `ingest_audit_v`;
 
 CREATE VIEW `ingest_audit_v` AS
 SELECT
-  ('file:' || fwe.`file_workflow_event_id` || ':' || COALESCE(fi.`ray_id`, '')) AS `audit_id`,
-  'file' AS `audit_scope`,
-  fwe.`file_workflow_event_id` AS `audit_event_id`,
+  ('digital_asset:' || fwe.`digital_asset_workflow_event_id` || ':' || COALESCE(fi.`ray_id`, '')) AS `audit_id`,
+  'digital_asset' AS `audit_scope`,
+  fwe.`digital_asset_workflow_event_id` AS `audit_event_id`,
 
   fi.`book_id` AS `book_id`,
   fi.`ray_id` AS `ray_id`,
@@ -1017,38 +1177,41 @@ SELECT
   fi.`manifestation_id` AS `manifestation_id`,
 
   fi.`item_id` AS `item_id`,
-  fi.`file_id` AS `file_id`,
+  fi.`digital_asset_id` AS `digital_asset_id`,
+  fi.`asset_replica_id` AS `asset_replica_id`,
+  fi.`digital_asset_id` AS `file_id`,
 
-  fwe.`file_workflow_event_step_id` AS `step_id`,
+  fwe.`digital_asset_workflow_event_step_id` AS `step_id`,
   ws.`workflow_step_code` AS `step_code`,
   ws.`workflow_step_label` AS `step_label`,
   ws.`workflow_step_group` AS `step_group`,
   ws.`workflow_step_scope` AS `step_scope`,
 
-  fwe.`file_workflow_event_from_status` AS `from_status`,
-  fwe.`file_workflow_event_to_status` AS `to_status`,
+  fwe.`digital_asset_workflow_event_from_status` AS `from_status`,
+  fwe.`digital_asset_workflow_event_to_status` AS `to_status`,
 
-  fwe.`file_workflow_event_actor` AS `actor`,
-  fwe.`file_workflow_event_tool` AS `tool`,
-  fwe.`file_workflow_event_run_id` AS `run_id`,
-  fwe.`file_workflow_event_note` AS `note`,
+  fwe.`digital_asset_workflow_event_actor` AS `actor`,
+  fwe.`digital_asset_workflow_event_tool` AS `tool`,
+  fwe.`digital_asset_workflow_event_run_id` AS `run_id`,
+  fwe.`digital_asset_workflow_event_note` AS `note`,
 
-  fwe.`file_workflow_event_created_timestamp_ep_k` AS `created_timestamp_ep_k`,
-  datetime(fwe.`file_workflow_event_created_timestamp_ep_k` / 1000, 'unixepoch') AS `created_datestamp`,
-  fwe.`file_workflow_event_modified_timestamp_ep_k` AS `modified_timestamp_ep_k`,
-  datetime(fwe.`file_workflow_event_modified_timestamp_ep_k` / 1000, 'unixepoch') AS `modified_datestamp`,
+  fwe.`digital_asset_workflow_event_created_timestamp_ep_k` AS `created_timestamp_ep_k`,
+  datetime(fwe.`digital_asset_workflow_event_created_timestamp_ep_k` / 1000, 'unixepoch') AS `created_datestamp`,
+  fwe.`digital_asset_workflow_event_modified_timestamp_ep_k` AS `modified_timestamp_ep_k`,
+  datetime(fwe.`digital_asset_workflow_event_modified_timestamp_ep_k` / 1000, 'unixepoch') AS `modified_datestamp`,
 
-  fwe.`file_workflow_event_scratch` AS `event_scratch`,
+  fwe.`digital_asset_workflow_event_scratch` AS `event_scratch`,
 
-  fi.`file_uri` AS `file_uri`,
+  fi.`asset_replica_uri` AS `asset_replica_uri`,
   fi.`store_name` AS `store_name`,
-  fi.`store_kind` AS `store_kind`
+  fi.`store_kind` AS `store_kind`,
+  fi.`asset_replica_uri` AS `file_uri`
 
-FROM `file_workflow_events` fwe
+FROM `digital_asset_workflow_events` fwe
 JOIN `workflow_steps` ws
-  ON ws.`workflow_step_id` = fwe.`file_workflow_event_step_id`
-LEFT JOIN `file_inventory_v` fi
-  ON fi.`file_id` = fwe.`file_workflow_event_file_id`
+  ON ws.`workflow_step_id` = fwe.`digital_asset_workflow_event_step_id`
+LEFT JOIN `digital_asset_inventory_v` fi
+  ON fi.`digital_asset_id` = fwe.`digital_asset_workflow_event_digital_asset_id`
 
 UNION ALL
 
@@ -1065,6 +1228,8 @@ SELECT
   COALESCE(r.`manifestation_id`, it.`item_manifestation_id`) AS `manifestation_id`,
 
   it.`item_id` AS `item_id`,
+  NULL AS `digital_asset_id`,
+  NULL AS `asset_replica_id`,
   NULL AS `file_id`,
 
   iwe.`item_workflow_event_step_id` AS `step_id`,
@@ -1088,9 +1253,10 @@ SELECT
 
   iwe.`item_workflow_event_scratch` AS `event_scratch`,
 
-  NULL AS `file_uri`,
+  NULL AS `asset_replica_uri`,
   NULL AS `store_name`,
-  NULL AS `store_kind`
+  NULL AS `store_kind`,
+  NULL AS `file_uri`
 
 FROM `item_workflow_events` iwe
 JOIN `workflow_steps` ws

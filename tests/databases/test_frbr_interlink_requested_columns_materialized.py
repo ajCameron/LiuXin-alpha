@@ -28,22 +28,28 @@ def _load_interlinks() -> list[dict]:
     return list(data.get("interlinks", []))
 
 
-def test_frbr_requested_columns_origin_policy_data_are_materialized() -> None:
+def _without_main_triggers(monkeypatch) -> None:
+    monkeypatch.setattr(frbr_gen, "get_trigger_sql_files", lambda: [], raising=True)
+
+
+def test_frbr_requested_columns_origin_policy_data_sequence_and_required_are_materialized(monkeypatch) -> None:
     interlinks = _load_interlinks()
 
     # Pick representative specs that request each column.
     targets: dict[str, dict] = {}
-    for needed in ("origin", "policy", "data"):
+    for needed in ("origin", "policy", "data", "sequence_number", "is_required"):
         for entry in interlinks:
             cols = set(entry.get("requested_columns") or [])
             if needed in cols:
                 targets[needed] = entry
                 break
 
-    assert set(targets.keys()) == {"origin", "policy", "data"}, (
-        "Expected to find at least one interlink requesting each of origin/policy/data; "
+    assert set(targets.keys()) == {"origin", "policy", "data", "sequence_number", "is_required"}, (
+        "Expected to find at least one interlink requesting each of origin/policy/data/sequence_number/is_required; "
         f"found: {sorted(targets.keys())}"
     )
+
+    _without_main_triggers(monkeypatch)
 
     conn = sqlite3.connect(":memory:")
     try:

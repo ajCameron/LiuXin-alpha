@@ -52,6 +52,11 @@ class DriverWrapperSearchMixin:
         """
         return self.driver.direct_get_all_rows(table, sort_column, reverse)
 
+
+    def read(self, table, sort_column=None, reverse=False):
+        """Compatibility convenience alias for fetching all rows from a table."""
+        return self.get_all_rows(table, sort_column=sort_column, reverse=reverse)
+
     def search(self, table, column, search_term):
         """
         Searches a specified column in a table by the given search term. Returns all rows which match that term.

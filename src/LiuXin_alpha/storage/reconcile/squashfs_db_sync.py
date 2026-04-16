@@ -579,6 +579,8 @@ def ensure_open_squashfs_store(
                 "store_kind": OPEN_SQUASHFS_STORE_KIND,
                 "store_access_protocol": "squashfs",
                 "store_root_uri": str(archive),
+        "store_operational_role": "backup",
+                "store_operational_role": "backup",
                 "store_is_read_only": 0,
                 "store_online_status": "offline",
                 "store_supports_folders": 0,
@@ -902,6 +904,7 @@ def _lock_store_row_for_squashfs(store_row: Row, *, archive_path: pathlib.Path) 
         "store_kind": LOCKED_SQUASHFS_STORE_KIND,
         "store_access_protocol": "squashfs",
         "store_root_uri": str(archive_path),
+        "store_operational_role": "archive",
         "store_is_read_only": 1,
         "store_online_status": "online",
         "store_supports_folders": 1,
@@ -1286,7 +1289,7 @@ def publish_open_squashfs_store(
 
         designation_results: list[dict[str, object]] = []
         for item in designations:
-            if not archive_backend.file_exists(item.archive_path):
+            if not archive_backend.exists(item.archive_path):
                 detail = "missing_in_archive"
                 report.errors.append(
                     "file_id={} archive_path={!r} :: {}".format(item.file_id, item.archive_path, detail)
@@ -1303,7 +1306,7 @@ def publish_open_squashfs_store(
                 )
                 continue
 
-            status = archive_backend.get_file_status(item.archive_path)
+            status = archive_backend.stat(item.archive_path)
             status.recheck_self(all=True)
             archive_hash = _normalize_sha256(str(status.hash or ""))
             archive_size = int(status.size or 0)
@@ -1384,6 +1387,9 @@ def publish_open_squashfs_store(
                     "store_kind": OPEN_SQUASHFS_STORE_KIND,
                     "store_access_protocol": "squashfs",
                     "store_root_uri": str(archive_path),
+                    "store_operational_role": "backup",
+                    "store_operational_role": "archive",
+                    "store_operational_role": "backup",
                     "store_is_read_only": 0,
                     "store_online_status": "offline",
                     "store_supports_random_read": 0,

@@ -2,7 +2,7 @@
 -- BREAK
 
 -- =====================================================
--- STORAGE (Stores / Folders / Files)
+-- STORAGE (Stores / Folders / Digital assets)
 -- =====================================================
 
 -- -----------------------------------------------------
@@ -29,6 +29,22 @@ CREATE TABLE IF NOT EXISTS `stores` (
   -- Storage policy
   `store_storage_mask` INTEGER NULL,    -- broad classification bitmask
   `store_policy_json` TEXT NULL,        -- fine-grained 'block'/'prefer' rules
+  `store_failure_domain` TEXT NULL,     -- fault-isolation bucket for replica spread
+  `store_region` TEXT NULL,             -- geographic/administrative placement bucket
+  `store_tags_json` TEXT NULL,          -- lightweight label set used by policy resolution
+  `store_default_replication_policy_id` INTEGER NULL,
+  `store_default_backup_policy_id` INTEGER NULL,
+
+  -- Which replica modes may legitimately live on this store.
+  `store_supports_active_replica_mode` INTEGER NOT NULL DEFAULT 1,
+  `store_supports_backup_replica_mode` INTEGER NOT NULL DEFAULT 1,
+  `store_supports_archive_replica_mode` INTEGER NOT NULL DEFAULT 1,
+
+  -- Broad operator-intent role for this store.
+  -- This is deliberately softer than the replica-mode support flags: a store can be
+  -- operationally 'backup' while still technically able to hold active files, or
+  -- 'mixed' when it is used for more than one role.
+  `store_operational_role` TEXT NULL,     -- 'live', 'mixed', 'backup', 'archive', 'cache'
 
   -- State / notes
   `store_online_status` TEXT NULL,      -- 'online', 'offline', 'retired'
@@ -71,8 +87,42 @@ CREATE TABLE IF NOT EXISTS `stores` (
   `store_source_created_datestamp_ep_k` INTEGER NULL,
   `store_source_modified_datestamp_ep_k` INTEGER NULL,
 
-  `store_scratch` TEXT NULL
+  `store_scratch` TEXT NULL,
 
+  CONSTRAINT `store_default_replication_policy_fk`
+    FOREIGN KEY (`store_default_replication_policy_id`)
+    REFERENCES `replication_policies` (`replication_policy_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+
+  CONSTRAINT `store_default_backup_policy_fk`
+    FOREIGN KEY (`store_default_backup_policy_id`)
+    REFERENCES `backup_policies` (`backup_policy_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+
+  CONSTRAINT `store_supports_active_replica_mode_bool`
+    CHECK (`store_supports_active_replica_mode` IN (0,1)),
+
+  CONSTRAINT `store_supports_backup_replica_mode_bool`
+    CHECK (`store_supports_backup_replica_mode` IN (0,1)),
+
+  CONSTRAINT `store_supports_archive_replica_mode_bool`
+    CHECK (`store_supports_archive_replica_mode` IN (0,1)),
+
+  CONSTRAINT `store_operational_role_check`
+    CHECK (`store_operational_role` IS NULL OR `store_operational_role` IN ('live','mixed','backup','archive','cache'))
 
 );
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_stores_default_replication_policy_id`
+ON `stores` (`store_default_replication_policy_id`);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_stores_default_backup_policy_id`
+ON `stores` (`store_default_backup_policy_id`);
+
 -- BREAK

@@ -1,0 +1,101 @@
+"""Composite digital asset membership link methods for the storage manager."""
+
+from __future__ import annotations
+
+import abc
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.storage.api.info_containers_api import CompositeDigitalAssetMemberLinkRow
+    from LiuXin_alpha.storage.storage_types import (
+        CompositeDigitalAssetID, CompositeDigitalAssetMemberLinkID, DigitalAssetID)
+
+
+class CompositeDigitalAssetMembersManagerAPI(abc.ABC):
+    """
+    Access and update ordered membership links inside composite digital assets.
+    """
+
+    @abc.abstractmethod
+    def get_composite_digital_asset_items(
+            self,
+            composite_digital_asset_id: "CompositeDigitalAssetID") -> Iterator["DigitalAssetID"]:
+        """
+        Get all the ids from all the digital assets linked to the given composite digital asset ID.
+
+        :param composite_digital_asset_id:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def create_composite_digital_asset_member_link(
+        self,
+        link: "CompositeDigitalAssetMemberLinkRow",
+    ) -> "CompositeDigitalAssetMemberLinkRow":
+        """
+        Write a composite digital asset member link out to the database.
+
+        :param link:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_composite_digital_asset_member_link(
+        self,
+        composite_digital_asset_member_link_id: "CompositeDigitalAssetMemberLinkID",
+    ) -> "CompositeDigitalAssetMemberLinkRow":
+        """
+        Get the link row by id.
+
+        :param composite_digital_asset_member_link_id:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def update_composite_digital_asset_member_link(
+        self,
+        link: "CompositeDigitalAssetMemberLinkRow",
+    ) -> "CompositeDigitalAssetMemberLinkRow":
+        """
+        Update a link row by the row.
+
+        :param link:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def delete_composite_digital_asset_member_link(
+        self,
+        composite_digital_asset_member_link_id: "CompositeDigitalAssetMemberLinkID",
+    ) -> bool:
+        """
+        Delete a link row by id.
+
+        :param composite_digital_asset_member_link_id:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def iter_composite_digital_asset_members_links(
+        self,
+        composite_digital_asset_id: "CompositeDigitalAssetID",
+    ) -> Iterator["CompositeDigitalAssetMemberLinkRow"]:
+        """
+        Iterate over the link rows between the composite digital asset and it's members.
+
+        :param composite_digital_asset_id:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def iter_digital_asset_composites(
+        self,
+        digital_asset_id: "DigitalAssetID",
+    ) -> Iterator["CompositeDigitalAssetMemberLinkRow"]:
+        """
+        Iterate over the link rows between a digital asset and it's composite "parents".
+
+        :param digital_asset_id:
+        :return:
+        """

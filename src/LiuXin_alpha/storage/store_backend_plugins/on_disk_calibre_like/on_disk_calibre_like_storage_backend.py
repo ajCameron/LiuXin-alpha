@@ -1,32 +1,33 @@
-"""
-On-disk calibre-like store backend.
+"""Calibre-like local-disk store plugin.
+
+This plugin is still a raw storage plugin: it knows about physical placement
+conventions, not about replicas or orchestration. Its speciality is choosing a
+calibre-style on-disk path when bytes are written without an explicit location.
 
 File placement follows a calibre-style hierarchy:
 - top-level folder by author (or author combo)
 - second-level folder by title with an optional id suffix
 - files inside named "<Title> - <Author>.<ext>"
+
+If metadata is absent, the plugin falls back to the managed-drive default hash
+layout rather than inventing fake bibliographic names.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import mimetypes
-import os
 import pathlib
 import re
 import time
-import uuid
 
 from collections.abc import Iterable, Mapping
 from typing import Any, Optional, Type
 
-from LiuXin_alpha.storage.api.file_api import SingleFileAPI
-from LiuXin_alpha.storage.api.storage_api import StoreStatus
+from LiuXin_alpha.storage.api import StoreStatus
+from LiuXin_alpha.storage.errors import CalibreLikeImplicitOverwriteError
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like.on_disk_calibre_like_location import (
     OnDiskCalibreLikeStoreLocation,
-)
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like.on_disk_calibre_like_single_file import (
-    OnDiskCalibreLikeSingleFile,
 )
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_storage_backend import (
     OnDiskExistingManagedStorageBackend,
@@ -60,7 +61,6 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
     """
 
     location_cls: Type[OnDiskCalibreLikeStoreLocation] = OnDiskCalibreLikeStoreLocation
-    single_file_cls: Type[OnDiskCalibreLikeSingleFile] = OnDiskCalibreLikeSingleFile
 
     _sanitize_re = re.compile(r'[<>:"/\\|?*]+')
     _control_char_re = re.compile(r"[\x00-\x1f]+")
@@ -103,7 +103,18 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
             status.details["store_id"] = self._store_id
         return status
 
-    def add_file(self, file_bytes: bytes, *, metadata=None) -> SingleFileAPI:
+    def write_bytes(
+        self,
+        file_bytes: bytes,
+        *,
+        metadata=None,
+        location: str | None = None,
+    ) -> OnDiskCalibreLikeStoreLocation:
+        if location is not None:
+            return super().write_bytes(file_bytes, metadata=metadata, location=location)
+        if metadata is None:
+            return super().write_bytes(file_bytes, metadata=metadata, location=None)
+
         placement = self._extract_placement_metadata(metadata)
 
         relative_dir = pathlib.Path(placement.author_component) / placement.book_folder_name
@@ -112,12 +123,14 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
 
         filename = "{}.{}".format(placement.file_base_name, placement.extension)
         candidate = target_dir / filename
-        target = self._resolve_collision_target(candidate=candidate, file_bytes=file_bytes)
+        target = self._resolve_implicit_target_or_raise(candidate=candidate, file_bytes=file_bytes)
 
         if not target.exists():
-            tmp = target.with_suffix(target.suffix + ".{}.tmp".format(uuid.uuid4().hex))
-            tmp.write_bytes(file_bytes)
-            os.replace(tmp, target)
+            try:
+                with target.open("xb") as fh:
+                    fh.write(file_bytes)
+            except FileExistsError:
+                target = self._resolve_implicit_target_or_raise(candidate=target, file_bytes=file_bytes)
 
         relative_key = target.relative_to(self._root_path).as_posix()
         self._maybe_update_database(
@@ -128,7 +141,7 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
             file_size=len(file_bytes),
         )
 
-        return self.get_file(str(target))
+        return self.locate(str(target))
 
     def _extract_placement_metadata(self, metadata: Any) -> _PlacementMetadata:
         hints = self._extract_hints(metadata)
@@ -342,31 +355,25 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
             return None
 
     @staticmethod
-    def _resolve_collision_target(candidate: pathlib.Path, file_bytes: bytes) -> pathlib.Path:
+    def _resolve_implicit_target_or_raise(candidate: pathlib.Path, file_bytes: bytes) -> pathlib.Path:
         if not candidate.exists():
             return candidate
-
+        if not candidate.is_file():
+            raise CalibreLikeImplicitOverwriteError(
+                "Implicit calibre-like write would collide with a non-file path at {!r}.".format(str(candidate))
+            )
         try:
             if candidate.read_bytes() == file_bytes:
                 return candidate
-        except Exception:
-            pass
-
-        parent = candidate.parent
-        stem = candidate.stem
-        suffix = candidate.suffix
-        idx = 2
-
-        while True:
-            option = parent / "{} ({}){}".format(stem, idx, suffix)
-            if not option.exists():
-                return option
-            try:
-                if option.read_bytes() == file_bytes:
-                    return option
-            except Exception:
-                pass
-            idx += 1
+        except Exception as exc:
+            raise CalibreLikeImplicitOverwriteError(
+                "Implicit calibre-like write could not safely verify existing target {!r}.".format(str(candidate))
+            ) from exc
+        raise CalibreLikeImplicitOverwriteError(
+            "Implicit calibre-like write would overwrite existing bytes at {!r}. Use an explicit location if you really mean to replace that file.".format(
+                str(candidate)
+            )
+        )
 
     def _maybe_update_database(
         self,

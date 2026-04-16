@@ -11,13 +11,29 @@ import pathlib
 import threading
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
-
-from LiuXin_alpha.storage.api.storage_api import StoreAPI
+from dataclasses import dataclass
 
 from os import PathLike
-from typing import TypeAlias, Any, Iterator, Self, AsyncIterator, overload, TextIO, BinaryIO, IO, cast, Callable, TypeVar
+from typing import (
+    TypeAlias,
+    Any,
+    Iterator,
+    Self,
+    AsyncIterator,
+    overload,
+    TextIO,
+    BinaryIO,
+    IO,
+    cast,
+    Callable,
+    TypeVar,
+    TYPE_CHECKING)
 
 from LiuXin_alpha.storage.api.modes_api import OpenTextMode, OpenBinaryMode, AsyncTextFile, AsyncBinaryFile
+from LiuXin_alpha.storage.single_file import SingleFileStatus
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.storage.api.store_plugin_api import StorePluginAPI
 
 T = TypeVar("T")
 
@@ -25,6 +41,60 @@ StrOrBytesPath: TypeAlias = str | bytes | PathLike[str] | PathLike[bytes]
 FileDescriptorOrPath: TypeAlias = int | str | bytes | PathLike[str] | PathLike[bytes]
 
 
+@dataclass(frozen=True, slots=True)
+class LocationCapabilities:
+    """Advertised behaviour surface for one Location object.
+
+    This is deliberately more granular than a single read-only flag. Tests and
+    higher layers can inspect what the location *claims* to allow, then assert
+    either success or a loud PermissionError.
+    """
+
+    can_stat: bool = True
+    can_iterdir: bool = True
+    can_glob: bool = True
+    can_open_read: bool = True
+    can_open_write: bool = True
+    can_open_append: bool = True
+    can_mkdir: bool = True
+    can_touch: bool = True
+    can_unlink: bool = True
+    can_rmdir: bool = True
+    can_rename: bool = True
+    can_replace: bool = True
+
+    @property
+    def supports_mutation(self) -> bool:
+        return any((
+            self.can_open_write,
+            self.can_open_append,
+            self.can_mkdir,
+            self.can_touch,
+            self.can_unlink,
+            self.can_rmdir,
+            self.can_rename,
+            self.can_replace,
+        ))
+
+    @property
+    def read_only(self) -> bool:
+        return not self.supports_mutation
+
+
+READ_WRITE_LOCATION_CAPABILITIES = LocationCapabilities()
+READ_ONLY_LOCATION_CAPABILITIES = LocationCapabilities(
+    can_open_write=False,
+    can_open_append=False,
+    can_mkdir=False,
+    can_touch=False,
+    can_unlink=False,
+    can_rmdir=False,
+    can_rename=False,
+    can_replace=False,
+)
+
+
+# Todo: Want relative and absolute? Have relative.
 class StoreLocationMixinAPI(ABC):
     """
     ABC mixin for a Path-like object backed by a "store" (local pack, S3, HTTP, etc.).
@@ -33,13 +103,15 @@ class StoreLocationMixinAPI(ABC):
 
     Intended usage:
         class MyStorePath(StorePathMixin, pathlib.PurePosixPath): ...
+
+    Intended to have a very similar interface to
     """
 
     _tokens: list[str]
 
-    _store: StoreAPI
+    _store: "StorePluginAPI"
 
-    def __init__(self, *args: str, store: StoreAPI) -> None:
+    def __init__(self, *args: str, store: "StorePluginAPI") -> None:
         """
         Startup the class - including any tokens for the location.
 
@@ -67,12 +139,12 @@ class StoreLocationMixinAPI(ABC):
     # ---- Core backend plumbing ----
 
     @property
-    def store(self) -> StoreAPI:
+    def store(self) -> StorePluginAPI:
         """Backend handle (client/session/repo/etc.)."""
         return self._store
 
     @store.setter
-    def store(self, store: StoreAPI) -> None:
+    def store(self, store: StorePluginAPI) -> None:
         """
         Refuses to update the store.
 
@@ -97,20 +169,37 @@ class StoreLocationMixinAPI(ABC):
 
     @property
     def drive(self) -> str:
-        """Always empty: store-relative Locations have no drive."""
+        """
+        Always empty: store-relative Locations have no drive.
+
+        Preserved for compatibility with pathlib.Path.
+        """
         return ""
 
     @property
     def root(self) -> str:
-        """Always empty: store-relative Locations have no root."""
+        """
+        Always empty: store-relative Locations have no root.
+
+        Preserved for compatibility with pathlib.Path
+        """
         return ""
 
     @property
     def anchor(self) -> str:
-        """Always empty: store-relative Locations have no anchor."""
+        """
+        Always empty: store-relative Locations have no anchor.
+        """
         return ""
 
     def is_absolute(self) -> bool:
+        """
+        Is this path absolute?
+
+        Currently, always returns False.
+        (If True, then we'd need to include the store location details).
+        :return:
+        """
         return False
 
     def is_reserved(self) -> bool:
@@ -120,6 +209,11 @@ class StoreLocationMixinAPI(ABC):
 
     @property
     def parts(self) -> tuple[str, ...]:
+        """
+        Path components as a tuple.
+
+        :return:
+        """
         return tuple(self._tokens)
 
     @property
@@ -223,7 +317,7 @@ class StoreLocationMixinAPI(ABC):
         p = self._pure().with_suffix(suffix)
         return self.__class__(*p.parts, store=self._store)
 
-    def relative_to(self, other: StrOrBytesPath | "StoreLocationMixinAPI") -> Self:
+    def relative_to(self, other: "StrOrBytesPath | StoreLocationMixinAPI") -> Self:
         if isinstance(other, StoreLocationMixinAPI):
             if other.store is not self.store:
                 raise ValueError("Cannot compute relative path across different stores.")
@@ -237,7 +331,7 @@ class StoreLocationMixinAPI(ABC):
         rel = self._pure().relative_to(base)
         return self.__class__(*rel.parts, store=self._store)
 
-    def is_relative_to(self, other: StrOrBytesPath | "StoreLocationMixinAPI") -> bool:
+    def is_relative_to(self, other: "StrOrBytesPath | StoreLocationMixinAPI") -> bool:
         try:
             self.relative_to(other)
             return True
@@ -258,6 +352,72 @@ class StoreLocationMixinAPI(ABC):
 
     def __fspath__(self) -> str:
         return self.as_store_key()
+
+    @property
+    def location_capabilities(self) -> LocationCapabilities:
+        """Advertised capability surface for this concrete Location."""
+        return READ_WRITE_LOCATION_CAPABILITIES
+
+    @property
+    def file_url(self) -> str:
+        """Canonical backend URL/key for this concrete location."""
+        return self.as_store_key()
+
+    @property
+    def status(self) -> SingleFileStatus | None:
+        return getattr(self, "_file_status", None)
+
+    def _required_status(self, *, refresh: bool = False) -> SingleFileStatus:
+        status = getattr(self, "_file_status", None)
+        if refresh or status is None:
+            status = self.recheck_status()
+        if status is None:
+            raise AttributeError("Location has no available status for {!r}".format(self.file_url))
+        return status
+
+    def recheck_status(self) -> SingleFileStatus:
+        getter = getattr(self.store, "stat", None)
+        if not callable(getter):
+            raise AttributeError("Store {!r} does not expose stat().".format(self.store))
+        status = getter(self)
+        setattr(self, "_file_status", status)
+        return status
+
+    @property
+    def uuid(self) -> str | None:
+        status = getattr(self, "_file_status", None)
+        return None if status is None else status.uuid
+
+    @property
+    def cached_size(self) -> int | None:
+        status = getattr(self, "_file_status", None)
+        return None if status is None else status.size
+
+    @property
+    def cached_hash(self) -> str | None:
+        status = getattr(self, "_file_status", None)
+        return None if status is None else status.hash
+
+    @property
+    def size(self) -> int:
+        return self._required_status(refresh=True).size
+
+    @property
+    def hash(self) -> str:
+        return self._required_status(refresh=True).hash
+
+    @property
+    def url(self) -> str:
+        status = getattr(self, "_file_status", None)
+        if status is not None:
+            return status.url
+        return self.file_url
+
+    def as_bytes(self) -> bytes:
+        return self.read_bytes()
+
+    def as_string(self) -> str:
+        return self.read_bytes().decode("utf-8", "replace")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, StoreLocationMixinAPI):
@@ -844,3 +1004,54 @@ class SyncNativePretendAsyncLocation(StoreLocationMixinAPI):
         return _AsyncOpenFromSync(
             lambda: self.open(mode=mode, buffering=buffering, encoding=encoding, errors=errors, newline=newline)
         )
+
+
+class ReadOnlySyncNativePretendAsyncLocation(SyncNativePretendAsyncLocation, ABC):
+    """Sync-native Location base for backends that must never mutate in place.
+
+    Subclasses still implement their normal non-mutating filesystem/path view
+    methods, but mutation entry points now advertise read-only capabilities and
+    fail loudly and consistently.
+    """
+
+    @property
+    def location_capabilities(self) -> LocationCapabilities:
+        return READ_ONLY_LOCATION_CAPABILITIES
+
+    def _read_only_error(self, action: str) -> PermissionError:
+        return PermissionError(f"{self.__class__.__name__} is read-only; cannot {action}.")
+
+    def _assert_read_mode(self, mode: str) -> None:
+        write_flags = {"w", "a", "x", "+"}
+        if any(flag in mode for flag in write_flags):
+            raise self._read_only_error(f"open with mode {mode!r}")
+
+    def mkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        raise self._read_only_error("create directories")
+
+    def unlink(self, missing_ok: bool = False) -> None:
+        raise self._read_only_error("delete files")
+
+    def rmdir(self) -> None:
+        raise self._read_only_error("remove directories")
+
+    def rename(self, target: str | os.PathLike[str]) -> Self:
+        raise self._read_only_error("rename locations")
+
+    def replace(self, target: str | os.PathLike[str]) -> Self:
+        raise self._read_only_error("replace locations")
+
+    def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
+        raise self._read_only_error("touch files")
+
+    def write_bytes(self, data: bytes) -> int:
+        raise self._read_only_error("write bytes")
+
+    def write_text(
+        self,
+        data: str,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> int:
+        raise self._read_only_error("write text")
