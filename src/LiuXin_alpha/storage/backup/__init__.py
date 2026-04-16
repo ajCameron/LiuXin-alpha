@@ -13,6 +13,7 @@ from LiuXin_alpha.storage.backup.backup_artifact_registry import BackupArtifactR
 from LiuXin_alpha.storage.backup.backup_workflow_repository import BackupWorkflowRepository
 from LiuXin_alpha.storage.backup.squashfs_backup_workflow import SquashfsBackupWorkflow
 from LiuXin_alpha.storage.backup.store_backup_planner import PlannedBackupPack, StoreBackupPlanner
+from LiuXin_alpha.storage.backup.prototype_pipeline import ConsoleReporter, ExistingDriveSquashfsPrototype, IndexedStoreRun, PackExecutionRun, PrototypeRunResult
 
 __all__ = [
     "BackupArtifactRegistry",
@@ -21,4 +22,9 @@ __all__ = [
     "RegisteredBackupArtifact",
     "SquashfsBackupWorkflow",
     "StoreBackupPlanner",
+    "ConsoleReporter",
+    "ExistingDriveSquashfsPrototype",
+    "IndexedStoreRun",
+    "PackExecutionRun",
+    "PrototypeRunResult",
 ]

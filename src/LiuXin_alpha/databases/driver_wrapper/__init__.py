@@ -19,7 +19,10 @@ from LiuXin_alpha.databases.schema_specs import (
     StorageTableSpec,
     StorageColumnSpec,
     RelationKind,
-    StorageLinkSpec)
+    StorageLinkSpec,
+    StorageSchemaSpec,
+    build_row_dataclass_for_table,
+)
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_names_mixin import DriverWrapperNamesMixin
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_add_mixin import DriverWrapperAddMixin
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_update_mixin import DriverWrapperUpdateMixin
@@ -188,6 +191,87 @@ class DriverWrapper(
             allowed_types_table=allowed_types_table,
             extra_link_columns=extra_specs,
         )
+
+    def iter_table_specs(
+        self,
+        *,
+        force_refresh: bool = False,
+        include_views: bool = True,
+    ):
+        if force_refresh:
+            self._clear_derived_schema_caches()
+        for table in self.get_tables(force_refresh=False):
+            yield self.get_table_spec(table, force_refresh=False)
+        if include_views:
+            for view in self.get_views(force_refresh=False):
+                yield self.get_table_spec(view, force_refresh=False)
+
+    def get_intralink_spec(self, table: str, *, force_refresh: bool = False):
+        return self.get_link_spec(table, table, force_refresh=force_refresh)
+
+    def iter_link_specs(
+        self,
+        *,
+        force_refresh: bool = False,
+        include_intralinks: bool = True,
+    ):
+        if force_refresh:
+            self._clear_derived_schema_caches()
+        seen: set[tuple[str, str, str]] = set()
+        for table in self.get_tables(force_refresh=False):
+            try:
+                linked = self.get_interlinked_tables(table)
+            except Exception:
+                linked = ()
+            for other in linked:
+                if table == other and not include_intralinks:
+                    continue
+                spec = self.get_link_spec(table, other, force_refresh=False)
+                if spec is None:
+                    continue
+                key = (spec.link_table, spec.primary_table, spec.secondary_table)
+                reverse = (spec.link_table, spec.secondary_table, spec.primary_table)
+                if key in seen or reverse in seen:
+                    continue
+                seen.add(key)
+                yield spec
+
+    def get_schema_spec(self, force_refresh: bool = False) -> StorageSchemaSpec:
+        tables = {spec.name: spec for spec in self.iter_table_specs(force_refresh=force_refresh, include_views=True)}
+        interlinks = []
+        intralinks = []
+        for spec in self.iter_link_specs(force_refresh=force_refresh, include_intralinks=True):
+            if spec.primary_table == spec.secondary_table:
+                intralinks.append(spec)
+            else:
+                interlinks.append(spec)
+        return StorageSchemaSpec(tables=tables, interlinks=tuple(interlinks), intralinks=tuple(intralinks))
+
+    def get_row_dataclass(self, table: str, *, force_refresh: bool = False) -> type:
+        return build_row_dataclass_for_table(self.get_table_spec(table, force_refresh=force_refresh))
+
+    def get_link_row_dataclass(self, table1: str, table2: str, *, force_refresh: bool = False):
+        spec = self.get_link_spec(table1, table2, force_refresh=force_refresh)
+        if spec is None:
+            return None
+        return build_row_dataclass_for_table(self.get_table_spec(spec.link_table, force_refresh=force_refresh))
+
+    def get_allowed_tables_snapshot(self):
+        tables = set()
+        for attr in ("all_tables", "main_tables", "interlink_tables", "intralink_tables", "helper_tables"):
+            value = getattr(self, attr, None)
+            if value:
+                tables.update(value)
+        if not tables:
+            try:
+                tables.update(self.get_tables())
+            except Exception:
+                pass
+            try:
+                tables.update(self.get_views())
+            except Exception:
+                pass
+        return frozenset(tables)
 
     def __del__(self) -> None:
         try:

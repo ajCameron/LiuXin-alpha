@@ -22,6 +22,11 @@ from LiuXin_alpha.storage.backup import (
     RegisteredBackupArtifact,
     SquashfsBackupWorkflow,
     StoreBackupPlanner,
+    ConsoleReporter,
+    ExistingDriveSquashfsPrototype,
+    IndexedStoreRun,
+    PackExecutionRun,
+    PrototypeRunResult,
 )
 from LiuXin_alpha.storage.errors import (
     CalibreLikeImplicitOverwriteError,

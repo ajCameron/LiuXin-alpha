@@ -242,3 +242,25 @@ A useful smell test is:
 - if the code is holding config / status for *one* store, it belongs in the container
 - if the code is performing bytes-on-media work, it belongs in the plugin
 - if the code is acting on one concrete path/key within one store, it belongs on `Location`
+
+## Jobs versus utility execution helpers
+
+The `jobs` top-level module is the durable, application-level background task layer.
+It should own:
+- job definitions (what should run)
+- job runs (one concrete execution attempt)
+- handlers for concrete job kinds
+- the repository for persistence, progress, heartbeats, and events
+- workers and schedulers
+
+`utils.jobs` remains a low-level execution helper. It is useful for isolated process
+execution and in-memory submission, but it is not the source of truth for durable
+background tasks.
+
+The intended split is:
+- `jobs.*` = durable task orchestration
+- `utils.jobs.*` = execution primitive that jobs may reuse internally
+
+A storage backup workflow is not itself a job. A backup workflow is domain logic.
+A job is how the application asks for that workflow to be run in the background,
+tracked, retried, and scheduled.

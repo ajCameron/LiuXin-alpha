@@ -123,10 +123,47 @@ class StoreBackupPlanner:
             rows = []
         if rows:
             return rows
-        return self.db.search("files", "file_store_id", int(source_store_id))
+        tables = set(self.db.get_tables())
+        if "files" in tables:
+            try:
+                return self.db.search("files", "file_store_id", int(source_store_id))
+            except Exception:
+                pass
+        if "asset_replicas" in tables:
+            rows = []
+            for replica in self.db.search("asset_replicas", "asset_replica_store_id", int(source_store_id)):
+                digital_asset = None
+                da_id = replica["asset_replica_digital_asset_id"] if "asset_replica_digital_asset_id" in replica.allowed_columns else None
+                if da_id not in (None, "") and "digital_assets" in tables:
+                    try:
+                        digital_asset = self.db.get_row_from_id("digital_assets", int(da_id))
+                    except Exception:
+                        digital_asset = None
+                rows.append({
+                    "file_storage_key": replica["asset_replica_storage_key"],
+                    "file_size_bytes": replica["asset_replica_observed_size_bytes"] if "asset_replica_observed_size_bytes" in replica.allowed_columns else (digital_asset["digital_asset_size_bytes"] if digital_asset is not None and "digital_asset_size_bytes" in digital_asset.allowed_columns else 0),
+                    "file_hash_sha256": replica["asset_replica_observed_hash_sha256"] if "asset_replica_observed_hash_sha256" in replica.allowed_columns else (digital_asset["digital_asset_hash_sha256"] if digital_asset is not None and "digital_asset_hash_sha256" in digital_asset.allowed_columns else None),
+                    "file_extension": replica["asset_replica_extension"] if "asset_replica_extension" in replica.allowed_columns else (digital_asset["digital_asset_extension"] if digital_asset is not None and "digital_asset_extension" in digital_asset.allowed_columns else None),
+                    "file_id": replica["asset_replica_id"] if "asset_replica_id" in replica.allowed_columns else None,
+                    "asset_replica_id": replica["asset_replica_id"] if "asset_replica_id" in replica.allowed_columns else None,
+                })
+            return rows
+        return []
 
     @staticmethod
     def _normalize_inventory_row(row) -> dict[str, Any] | None:
+        if isinstance(row, dict):
+            storage_key = row.get("file_storage_key")
+            if storage_key in (None, ""):
+                return None
+            return {
+                "file_storage_key": str(storage_key),
+                "file_size_bytes": int(row.get("file_size_bytes") or 0),
+                "file_hash_sha256": (str(row.get("file_hash_sha256")).lower() if row.get("file_hash_sha256") not in (None, "") else None),
+                "file_extension": row.get("file_extension"),
+                "source_file_id": int(row.get("file_id")) if row.get("file_id") not in (None, "") else None,
+                "source_asset_replica_id": int(row.get("asset_replica_id")) if row.get("asset_replica_id") not in (None, "") else None,
+            }
         storage_key = row["file_storage_key"]
         if storage_key in (None, ""):
             return None

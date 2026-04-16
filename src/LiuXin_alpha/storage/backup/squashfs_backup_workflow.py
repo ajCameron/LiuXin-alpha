@@ -241,6 +241,32 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         return self.progress()
 
     @classmethod
+    def from_spec(
+        cls,
+        spec: BackupWorkflowSpec,
+        *,
+        location_loader: Callable[[str], StoreLocationMixinAPI] | None = None,
+    ) -> "SquashfsBackupWorkflow":
+        if spec.workflow_kind is not BackupWorkflowKind.SQUASHFS_PACK:
+            raise ValueError(
+                "SquashfsBackupWorkflow cannot build workflow kind {!r}.".format(spec.workflow_kind)
+            )
+        options = spec.option_map()
+        workflow = cls(
+            spec.output_url,
+            workflow_name=spec.workflow_name,
+            verify_after_build=spec.verify_after_build,
+            cleanup_staging_after_success=spec.cleanup_staging_after_success,
+            staging_root=spec.staging_root,
+            mksquashfs_exe=options.get("mksquashfs_exe", "mksquashfs"),
+            compression=options.get("compression", "zstd"),
+            deterministic=options.get("deterministic", "0") == "1",
+            location_loader=location_loader,
+        )
+        workflow._sources = list(spec.sources)
+        return workflow
+
+    @classmethod
     def from_resume_state(
         cls,
         resume_state: BackupWorkflowResumeState,
