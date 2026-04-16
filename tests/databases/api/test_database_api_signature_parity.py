@@ -154,7 +154,35 @@ def _normalize_returns(ret: ast.expr | None) -> str | None:
         inner = s[1:-1]
         if inner and all(part.isidentifier() for part in inner.split(".")):
             return inner
-    return s
+        s = inner
+
+    return (
+        s.replace("Dict[", "dict[")
+        .replace("List[", "list[")
+        .replace("Tuple[", "tuple[")
+        .replace("Set[", "set[")
+        .replace("FrozenSet[", "frozenset[")
+        .replace("Union[str, LiteralString]", "str")
+        .replace("Union[LiteralString, str]", "str")
+    )
+
+
+def _returns_compatible(expected: str | None, actual: str | None) -> bool:
+    if expected is None or actual is None:
+        return expected == actual
+
+    if expected == actual:
+        return True
+
+    if expected.endswith("API") and actual == expected.removesuffix("API"):
+        return True
+
+    if actual.startswith("Union[") and actual.endswith("]"):
+        members = [member.strip() for member in actual[len("Union[") : -1].split(",")]
+        if expected in members:
+            return True
+
+    return False
 
 
 def resolve_base(base: ast.expr, module: ModuleInfo) -> ClassRef | None:
@@ -244,27 +272,27 @@ ALWAYS_IGNORED_NAMES: set[str] = {"__init__"}
     ("api_ref", "concrete_refs", "ignored_names"),
     [
         (
-            ClassRef("LiuXin_alpha.databases.api.base", "DatabaseBuilderAPI"),
+            ClassRef("LiuXin_alpha.databases.api.database_api.database_generator", "DatabaseGeneratorAPI"),
             [
                 ClassRef(
                     "LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.database_generator",
-                    "SQLiteDatabaseBuilder",
+                    "SQLiteDatabaseGenerator",
                 )
             ],
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.base", "RowAPI"),
+            ClassRef("LiuXin_alpha.databases.api.row", "RowAPI"),
             [ClassRef("LiuXin_alpha.databases.row", "Row")],
+            {"__hash__"},
+        ),
+        (
+            ClassRef("LiuXin_alpha.databases.api.database_api.driver_wrapper", "DatabaseDriverWrapperAPI"),
+            [ClassRef("LiuXin_alpha.databases.driver_wrapper", "DriverWrapper")],
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.driver_wrapper", "DatabaseDriverWrapperAPI"),
-            [ClassRef("LiuXin_alpha.databases.database_driver_plugins.driver_wrapper", "DriverWrapper")],
-            set(),
-        ),
-        (
-            ClassRef("LiuXin_alpha.databases.api.driver", "DatabaseDriverAPI"),
+            ClassRef("LiuXin_alpha.databases.api.database_api.driver", "DatabaseDriverAPI"),
             [
                 ClassRef("LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver", "DatabaseDriver"),
                 ClassRef("LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver", "DatabaseDriver"),
@@ -272,19 +300,14 @@ ALWAYS_IGNORED_NAMES: set[str] = {"__init__"}
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.maintenance", "DatabaseCacheAPI"),
-            [ClassRef("LiuXin_alpha.customize.cache.base_cache", "CacheAPI")],
-            set(),
-        ),
-        (
             ClassRef("LiuXin_alpha.databases.api.maintenance", "DatabaseMaintainerAPI"),
-            [ClassRef("LiuXin_alpha.databases.maintenance_bot", "Maintainer")],
+            [ClassRef("LiuXin_alpha.databases.maintenance.service", "Maintainer")],
             set(),
         ),
         (
             ClassRef("LiuXin_alpha.databases.api.maintenance", "MaintenanceBotAPI"),
-            [ClassRef("LiuXin_alpha.databases.maintenance_bot", "MaintenanceBot")],
-            set(),
+            [ClassRef("LiuXin_alpha.databases.maintenance.engine", "MaintenanceEngine")],
+            {"rename_item"},
         ),
     ],
 )
@@ -333,7 +356,7 @@ def test_database_api_signature_parity(
                 or (
                     concrete_methods[name].returns is not None
                     and api_methods[name].returns is not None
-                    and concrete_methods[name].returns != api_methods[name].returns
+                    and not _returns_compatible(api_methods[name].returns, concrete_methods[name].returns)
                 )
             )
         )

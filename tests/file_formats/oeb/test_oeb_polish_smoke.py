@@ -7,6 +7,8 @@ import pkgutil
 import unittest
 from collections import namedtuple
 
+import pytest
+
 
 def test_oeb_polish_package_import_sweep() -> None:
     import LiuXin_alpha.file_formats.oeb.polish as polish_pkg
@@ -21,6 +23,8 @@ def test_oeb_polish_package_import_sweep() -> None:
 
 
 def test_oeb_polish_internal_unittest_suite_smoke() -> None:
+    pytest.importorskip("cssutils", reason="cssutils not installed; embedded oeb polish unittest suite requires it")
+
     from LiuXin_alpha.file_formats.oeb.polish.tests.main import find_tests
 
     suite = find_tests()

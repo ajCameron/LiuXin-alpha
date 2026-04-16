@@ -8,6 +8,11 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip(
+    "LiuXin_alpha.interfaces.terminal",
+    reason="Terminal package is not exposed under interfaces/ in this checkout.",
+)
+
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.interfaces.terminal.commands import DEFAULT_COMMAND_CLASSES

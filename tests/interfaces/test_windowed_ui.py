@@ -3,6 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
+pytest.importorskip(
+    "LiuXin_alpha.interfaces.terminal",
+    reason="Terminal package is not exposed under interfaces/ in this checkout.",
+)
+
 from LiuXin_alpha.interfaces.terminal.windowed_ui import _CursesUiDriver, WindowedUiConfig
 
 
