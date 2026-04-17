@@ -355,8 +355,8 @@ class MacrosAPI(abc.ABC):
     def get_cc_lt_books_from_lt_value(
             self,
             lt: str,
-            value: Union[str, int, float, datetime.datetime],
-            conn: Optional[sqlite3.Connection]=None) -> list[list[int]]:
+            value: Union[str, int, datetime.datetime],
+            conn: Optional[sqlite3.Connection]=None) -> Iterable[int]:
         ...
 
     @abc.abstractmethod

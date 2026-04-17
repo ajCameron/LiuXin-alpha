@@ -174,6 +174,9 @@ def _returns_compatible(expected: str | None, actual: str | None) -> bool:
     if expected == actual:
         return True
 
+    if actual == "Self":
+        return True
+
     if expected.endswith("API") and actual == expected.removesuffix("API"):
         return True
 

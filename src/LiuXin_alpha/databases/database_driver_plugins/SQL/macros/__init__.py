@@ -15,6 +15,7 @@ Macros are pre-defined operation on the database - intended for speedup.
 import sqlite3 as sqlite
 
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin import \
     SQLiteDatabaseCustomColumnMacros
@@ -32,6 +33,9 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.titles_macros_mix
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.books_mecros_mixin import BooksMacrosMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.series_title_link_macros import SeriesTitleLinkMacros
 
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+
 
 # Todo: Probably should have it's own API
 
@@ -48,7 +52,7 @@ class SQLiteDatabaseMacros(
     Provides pre-defined operations on an SQLite database.
     """
 
-    def __init__(self, db):
+    def __init__(self, db: "DatabaseAPI") -> None:
         """
         Attaches to the underlying database to provide additional services.
         :param db:

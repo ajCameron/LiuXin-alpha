@@ -231,7 +231,7 @@ def render_html_svg_workaround(path_to_html, log, width=590, height=750):
     # Todo: Install https://github.com/AdamN/python-webkit2png as a fallback for when PyQt isn't installed at all
     if data is None:
         try:
-            from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+            from LiuXin_alpha.surfaces.gui2 import is_ok_to_use_qt
         except Exception:
             is_ok_to_use_qt = lambda: False
 
@@ -272,7 +272,7 @@ def render_html(path_to_html, width=590, height=750, as_xhtml=True):
     except Exception:
         return None
     try:
-        from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+        from LiuXin_alpha.surfaces.gui2 import is_ok_to_use_qt
     except Exception:
         return None
 

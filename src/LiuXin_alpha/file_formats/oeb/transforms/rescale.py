@@ -63,7 +63,7 @@ class RescaleImages(object):
                         # ImageMagick inverts colors if you just set the colorspace
                         # to rgb. See for example: https://bugs.launchpad.net/bugs/1246710
                         from PyQt5.Qt import QImage
-                        from LiuXin_alpha.interfaces.gui2 import pixmap_to_data
+                        from LiuXin_alpha.surfaces.gui2 import pixmap_to_data
 
                         qimg = QImage()
                         qimg.loadFromData(raw)

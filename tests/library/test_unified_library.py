@@ -5,6 +5,7 @@ from pathlib import Path
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.library import Library
+from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _insert_store_row(
@@ -43,6 +44,7 @@ def test_library_facade_add_and_retrieve_file(driver_spec, tmp_path: Path) -> No
         backup=False,
         storage_startup_on_add=False,
     ) as lib:
+        ensure_surface_asset_tables(lib.db)
         store_id = _insert_store_row(
             lib.db,
             name="managed",
@@ -54,7 +56,7 @@ def test_library_facade_add_and_retrieve_file(driver_spec, tmp_path: Path) -> No
         report = lib.refresh_storage(clear_existing=True)
         assert report.loaded_stores == 1
         assert lib.storage_bootstrap_report is report
-        assert lib.get_store("managed").uuid == "store-{}".format(store_id)
+        assert lib.get_store("managed").store_uuid == "store-{}".format(store_id)
 
         added = lib.add_file(b"facade-bytes", preferred_store="managed")
         got = lib.retrieve_file(file_url=added.file_url, preferred_store="managed")
@@ -74,6 +76,7 @@ def test_library_facade_register_unmanaged_disk(driver_spec, tmp_path: Path) -> 
         backup=False,
         storage_startup_on_add=False,
     ) as lib:
+        ensure_surface_asset_tables(lib.db)
         report = lib.register_unmanaged_disk(unmanaged_root, store_name="unmanaged")
         assert report.inserted_files == 1
         assert report.errors == []

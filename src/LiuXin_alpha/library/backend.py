@@ -30,7 +30,7 @@ from LiuXin_alpha.databases.metadata_tools.intralinker import Intralinker
 
 from LiuXin_alpha.databases.database import Database
 
-from LiuXin_alpha.interfaces.field_metadata import FieldMetadata
+from LiuXin_alpha.surfaces.field_metadata import FieldMetadata
 
 from LiuXin_alpha.databases.custom_columns import CustomColumns
 

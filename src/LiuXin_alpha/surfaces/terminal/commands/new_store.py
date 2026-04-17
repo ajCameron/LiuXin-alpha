@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 

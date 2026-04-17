@@ -61,7 +61,7 @@ def test_backup_policy_defaults_and_validation() -> None:
 
 def test_replication_status_and_plan_are_smoke_usable() -> None:
     status = ReplicationStatus(
-        file_identifier="dummy://file",
+        digital_asset_identifier="dummy://file",
         policy_name="two_copies_min",
         present_store_identifiers=("store-a",),
         healthy_store_identifiers=("store-a",),
@@ -72,7 +72,7 @@ def test_replication_status_and_plan_are_smoke_usable() -> None:
         errors=("missing second copy",),
     )
     plan = ReplicationPlan(
-        file_identifier="dummy://file",
+        digital_asset_identifier="dummy://file",
         policy_name="two_copies_min",
         stores_to_add=("store-b",),
         stores_to_verify=("store-a",),

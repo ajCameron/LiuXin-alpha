@@ -6,7 +6,7 @@ from typing import Optional
 
 from LiuXin_alpha.databases.metadata_tools.add import Add
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.standardization import make_tag_search_term
 
 

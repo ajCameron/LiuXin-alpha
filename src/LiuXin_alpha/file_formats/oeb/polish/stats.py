@@ -255,7 +255,7 @@ class StatsCollector(object):
         self.log = self.logger = container.log
         self.do_embed = do_embed
         from LiuXin_alpha.file_formats.oeb.display.webview import load_html
-        from LiuXin_alpha.interfaces.gui2 import must_use_qt
+        from LiuXin_alpha.surfaces.gui2 import must_use_qt
 
         self._load_html = load_html
         must_use_qt()

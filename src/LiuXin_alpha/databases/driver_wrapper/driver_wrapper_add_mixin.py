@@ -83,6 +83,10 @@ class DriverWrapperAddMixin:
         # a row identified by a unique row id in the scratch column should now exist in the table
         new_row = dict()
         new_row[table_scratch_column] = new_row_id
+        if table == "asset_replicas":
+            # `asset_replicas` enforces a non-empty relative storage key at INSERT time.
+            # Seed a placeholder that callers can overwrite before syncing the row back.
+            new_row["asset_replica_storage_key"] = "blank/{}".format(new_row_id)
         self.add_row(new_row)
         # this required removing the not-null constraints - this might cause trouble later
 

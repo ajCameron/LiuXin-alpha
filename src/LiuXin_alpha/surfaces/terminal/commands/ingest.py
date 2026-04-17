@@ -7,7 +7,7 @@ import json
 
 from typing import Optional
 
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.storage.reconcile import register_existing_disk_as_unmanaged_store
 
 

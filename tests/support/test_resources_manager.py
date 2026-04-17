@@ -803,6 +803,7 @@ def _build_profiled_test_db(
     from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
         create_new_database,
     )
+    from tests.support._surface_storage_tables import ensure_surface_asset_tables_sqlite
 
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -813,15 +814,19 @@ def _build_profiled_test_db(
         _ensure_required_null_rows(conn)
 
         if books > 0:
-            seeded = [
-                _insert_minimal_wemi_book(conn, title=f"{db_name} title {idx + 1:03d}")
-                for idx in range(books)
-            ]
+                seeded = [
+                    _insert_minimal_wemi_book(conn, title=f"{db_name} title {idx + 1:03d}")
+                    for idx in range(books)
+                ]
 
-            if folders > 0:
-                work_ids = [row[0] for row in seeded]
-                item_ids = [row[3] for row in seeded]
-                folder_ids: list[int] = []
+                if folders > 0:
+                    ensure_surface_asset_tables_sqlite(
+                        conn,
+                        include_file_folder_links=True,
+                    )
+                    work_ids = [row[0] for row in seeded]
+                    item_ids = [row[3] for row in seeded]
+                    folder_ids: list[int] = []
 
                 for folder_idx in range(folders):
                     cur = conn.execute(

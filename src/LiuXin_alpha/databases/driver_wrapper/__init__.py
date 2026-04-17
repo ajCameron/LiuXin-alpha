@@ -76,11 +76,17 @@ class DriverWrapper(
 
         self.dirtiable_tables = []
         self.dirty_records_queue = None
+        self._link_table_name_cache = {}
+        self._link_table_name_cache_schema_version = None
 
         # Acquires a lock for the database that can be used in a with statement.
         self.lock = self.get_connection()
 
         super(DriverWrapper, self).__init__(db=db, macros=None)
+
+    def _clear_derived_schema_caches(self) -> None:
+        self._link_table_name_cache = {}
+        self._link_table_name_cache_schema_version = None
 
     def get_table_spec(self, table: str, force_refresh: bool = False) -> StorageTableSpec:
         if force_refresh:

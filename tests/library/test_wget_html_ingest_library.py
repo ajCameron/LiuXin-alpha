@@ -5,9 +5,11 @@ from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
     wget_html_storage_backend as backend_module,
 )
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly.wget_utils import WgetResult
+from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def test_library_register_wget_html_store(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     def _fake_run_wget(args, **kwargs):
         listing = "https://example.com/books/one.epub\n"
         return WgetResult(args=list(args), returncode=0, stdout=listing, stderr="")
@@ -22,4 +24,3 @@ def test_library_register_wget_html_store(db, monkeypatch) -> None:
     )
     assert report.inserted_files == 1
     assert report.errors == []
-

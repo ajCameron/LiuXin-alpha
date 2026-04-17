@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.interfaces.terminal.job_view import (
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.job_view import (
     fetch_terminal_job_view,
     read_terminal_job_log_view,
     resolve_terminal_job_log_path,

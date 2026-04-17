@@ -9,6 +9,7 @@ from LiuXin_alpha.ingest import (
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     native_html_storage_backend as backend_module,
 )
+from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _html_result(url: str, body: str) -> object:
@@ -23,6 +24,7 @@ def _html_result(url: str, body: str) -> object:
 
 
 def test_register_native_html_store_files_inserts_rows_and_tracks_policy(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     responses = {
         "https://example.com/library/": _html_result(
             "https://example.com/library/",
@@ -83,7 +85,16 @@ def test_register_native_html_store_files_inserts_rows_and_tracks_policy(db, mon
 
 
 def test_register_native_html_with_database_path_helper(provision_test_database, driver_spec, monkeypatch) -> None:
+    from LiuXin_alpha.databases.database import Database
+
     provisioned = provision_test_database("test_db_13")
+    with Database(
+        metadata={"database_path": str(provisioned.db_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+    ) as seeded:
+        ensure_surface_asset_tables(seeded)
     responses = {
         "https://example.com/library/": _html_result(
             "https://example.com/library/",

@@ -46,7 +46,11 @@ def bootstrap_storage_manager(
     """Build or refresh a ``StorageManager`` from rows in the ``stores`` table."""
 
     if getattr(db, "storage", None) is None:
-        db.storage = StorageManager(startup_on_add=startup_on_add)
+        db.storage = StorageManager(db=db, startup_on_add=startup_on_add)
+    else:
+        # Existing managers can outlive one database instance during test/runtime
+        # wiring; keep the live database bound before reading store rows.
+        db.storage.db = db
 
     try:
         report = db.storage.load_from_database(

@@ -10,6 +10,7 @@ from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
     wget_html_storage_backend as backend_module,
 )
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly.wget_utils import WgetResult
+from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _ok_wget_result(*, args: list[str], stdout: str = "", stderr: str = "") -> WgetResult:
@@ -17,6 +18,7 @@ def _ok_wget_result(*, args: list[str], stdout: str = "", stderr: str = "") -> W
 
 
 def test_register_wget_html_store_files_inserts_rows_and_tracks_policy(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     captured_args: list[list[str]] = []
 
     def _fake_run_wget(args, **kwargs):
@@ -69,6 +71,7 @@ def test_register_wget_html_store_files_inserts_rows_and_tracks_policy(db, monke
 
 
 def test_register_wget_html_store_files_is_idempotent(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     def _fake_run_wget(args, **kwargs):
         listing = "https://example.com/books/one.epub\n"
         return _ok_wget_result(args=list(args), stdout=listing)
@@ -95,6 +98,7 @@ def test_register_wget_html_store_files_is_idempotent(db, monkeypatch) -> None:
 
 
 def test_wget_rate_limit_is_restored_when_storage_manager_bootstraps(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     def _fake_run_wget(args, **kwargs):
         listing = "https://example.com/books/one.epub\n"
         return _ok_wget_result(args=list(args), stdout=listing)
@@ -110,12 +114,21 @@ def test_wget_rate_limit_is_restored_when_storage_manager_bootstraps(db, monkeyp
     )
 
     assert db.storage is not None
-    store = db.storage.get_store("wget_web_mirror_bootstrap")
-    assert getattr(store.options, "max_http_requests_per_hour", None) == 30.0
+    store = db.storage.get_store_container("wget_web_mirror_bootstrap")
+    assert getattr(store.plugin.options, "max_http_requests_per_hour", None) == 30.0
 
 
 def test_register_wget_html_with_database_path_helper(provision_test_database, driver_spec, monkeypatch) -> None:
+    from LiuXin_alpha.databases.database import Database
+
     provisioned = provision_test_database("test_db_13")
+    with Database(
+        metadata={"database_path": str(provisioned.db_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+    ) as seeded:
+        ensure_surface_asset_tables(seeded)
 
     def _fake_run_wget(args, **kwargs):
         listing = "https://example.com/books/one.epub\n"
@@ -134,6 +147,7 @@ def test_register_wget_html_with_database_path_helper(provision_test_database, d
 
 
 def test_register_wget_html_store_files_incremental_writes_during_crawl(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     counts_during_run: list[int] = []
 
     def _fake_run_wget(args, **kwargs):
@@ -161,6 +175,7 @@ def test_register_wget_html_store_files_incremental_writes_during_crawl(db, monk
 
 
 def test_register_wget_html_store_files_non_incremental_defers_writes(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     counts_during_run: list[int] = []
 
     def _fake_run_wget(args, **kwargs):
@@ -188,6 +203,7 @@ def test_register_wget_html_store_files_non_incremental_defers_writes(db, monkey
 
 
 def test_register_wget_html_store_files_tracks_crawler_observation_counts(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     def _fake_run_wget(args, **kwargs):
         callback = kwargs.get("line_callback")
         assert callable(callback)

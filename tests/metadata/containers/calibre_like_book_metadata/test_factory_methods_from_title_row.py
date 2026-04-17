@@ -6,10 +6,6 @@ from collections import OrderedDict
 
 import pytest
 
-from tests.support._import_compat import ensure_interfaces_field_metadata_alias
-
-ensure_interfaces_field_metadata_alias()
-
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreLikeLiuXinBookMetaData
 from LiuXin_alpha.errors import InputIntegrityError
 

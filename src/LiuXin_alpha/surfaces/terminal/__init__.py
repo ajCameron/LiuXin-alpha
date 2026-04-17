@@ -1,4 +1,4 @@
-"""Terminal-oriented user interfaces for LiuXin."""
+"""Terminal-oriented user surfaces for LiuXin."""
 
 from __future__ import annotations
 
