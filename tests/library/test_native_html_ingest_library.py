@@ -4,6 +4,7 @@ from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     native_html_storage_backend as backend_module,
 )
+from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _html_result(url: str, body: str) -> object:
@@ -18,6 +19,7 @@ def _html_result(url: str, body: str) -> object:
 
 
 def test_library_register_native_html_store(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     responses = {
         "https://example.com/library/": _html_result(
             "https://example.com/library/",

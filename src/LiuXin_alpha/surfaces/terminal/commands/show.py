@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.interfaces.terminal.commands.link import _split_row_ref
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.link import _split_row_ref
 
 
 def _safe_int(value: str):

@@ -4,19 +4,6 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
-import pytest
-
-from tests.support._import_compat import driver_wrapper_abstract_state
-
-
-DRIVER_WRAPPER_ABSTRACT, _DRIVER_WRAPPER_ABSTRACT_METHODS = driver_wrapper_abstract_state()
-
-pytestmark = pytest.mark.xfail(
-    DRIVER_WRAPPER_ABSTRACT,
-    reason="DriverWrapper schema API refactor is incomplete in this checkout; abstract methods remain.",
-    strict=False,
-)
-
 
 def test_driver_wrapper_imports_from_repo_src_and_is_concrete() -> None:
     """

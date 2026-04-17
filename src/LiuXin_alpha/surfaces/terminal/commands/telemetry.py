@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
 class TelemetryPanelCommand(TerminalCommandAPI):

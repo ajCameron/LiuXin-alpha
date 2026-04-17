@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.standardization import make_title_search_term, make_series_phash
 from LiuXin_alpha.metadata.utils import title_sort as generate_title_sort
 

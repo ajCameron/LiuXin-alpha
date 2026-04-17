@@ -1,4 +1,4 @@
-"""Command API for terminal interface extensions."""
+"""Command API for terminal surface extensions."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import abc
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.interfaces.terminal.text_browser import TextDatabaseBrowser
+    from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser
 
 
 class TerminalCommandAPI(abc.ABC):

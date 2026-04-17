@@ -15,7 +15,7 @@ from LiuXin_alpha.ingest import (
     register_wget_html_readonly_with_database_path,
 )
 from LiuXin_alpha.ingest.sources import get_default_crawler_http_requests_per_hour
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.utils.jobs import JobRequest
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import get_default_rclone_http_requests_per_hour
 from LiuXin_alpha.storage.reconcile import (
@@ -907,7 +907,7 @@ class SyncStoreCommand(TerminalCommandAPI):
                     raise RuntimeError("Core command `sync.store.start` did not return a job id.")
             else:
                 request = JobRequest(
-                    module_name="LiuXin_alpha.interfaces.terminal.commands.sync",
+                    module_name="LiuXin_alpha.surfaces.terminal.commands.sync",
                     function_name="run_sync_store_job",
                     kwargs=sync_kwargs,
                 )

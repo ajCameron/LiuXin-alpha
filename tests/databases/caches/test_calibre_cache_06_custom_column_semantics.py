@@ -2,16 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from tests.support._import_compat import ensure_interfaces_field_metadata_alias, load_surfaces_categories_module
-
-ensure_interfaces_field_metadata_alias()
-
-find_categories = load_surfaces_categories_module().find_categories
 from LiuXin_alpha.library.caches.calibre.tables.one_one_tables import (
     CalibreCustomColumnsOneToOneTable,
 )
 from LiuXin_alpha.databases.field_metadata_bridge import FieldMetadata
 from LiuXin_alpha.errors import InvalidCacheUpdate
+from LiuXin_alpha.surfaces.categories import find_categories
 
 def _add_custom_field(
     fm: FieldMetadata,

@@ -44,7 +44,7 @@ every time you add an HTML file to the library.\
 
     def run(self, htmlfile):
         from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
-        from LiuXin_alpha.interfaces.gui2.convert.gui_conversion import gui_convert
+        from LiuXin_alpha.surfaces.gui2.convert.gui_conversion import gui_convert
         from LiuXin_alpha.customize.conversion import OptionRecommendation
         from LiuXin_alpha.file_formats.epub import initialize_container
 

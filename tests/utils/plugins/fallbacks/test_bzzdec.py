@@ -12,6 +12,13 @@ import pytest
 
 # --- subprocess runner (guards against pathological inputs hanging forever) ---
 
+def _mp_context() -> mp.context.BaseContext:
+    methods = set(mp.get_all_start_methods())
+    if "fork" in methods:
+        return mp.get_context("fork")
+    return mp.get_context("spawn")
+
+
 def _worker_decompress(data: bytes, q: "mp.Queue[Tuple[str, Any]]") -> None:
     """
     Run in a fresh process so a pathological bitstream can't hang the whole test run.
@@ -26,7 +33,7 @@ def _worker_decompress(data: bytes, q: "mp.Queue[Tuple[str, Any]]") -> None:
 
 
 def _decompress_with_timeout(data: bytes, *, timeout_s: float = 5.0) -> Tuple[str, Any]:
-    ctx = mp.get_context("spawn")
+    ctx = _mp_context()
     q: "mp.Queue[Tuple[str, Any]]" = ctx.Queue()
     p = ctx.Process(target=_worker_decompress, args=(data, q))
     p.daemon = True

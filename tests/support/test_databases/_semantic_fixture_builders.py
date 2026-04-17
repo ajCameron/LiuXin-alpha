@@ -8,6 +8,7 @@ from pathlib import Path
 from LiuXin_alpha.databases.custom_columns import CustomColumns
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.field_metadata_bridge import FieldMetadata
+from tests.support._surface_storage_tables import ensure_surface_asset_tables_sqlite
 from tests.support import test_resources_manager as trm
 
 
@@ -33,6 +34,13 @@ def build_base_profiled_db(*, bundle_dir: Path, db_name: str, books: int) -> Pat
         folders=0,
         files=0,
     )
+    with sqlite3.connect(str(db_path)) as conn:
+        ensure_surface_asset_tables_sqlite(
+            conn,
+            include_images=True,
+            include_file_folder_links=True,
+        )
+        conn.commit()
     return db_path
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from LiuXin_alpha.databases.metadata_tools.add import Add
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.metadata.constants import CREATOR_TYPES
 from LiuXin_alpha.metadata.utils import author_to_author_sort
 

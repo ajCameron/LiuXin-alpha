@@ -70,6 +70,24 @@ class DriverWrapperNamesMixin:
         :param table2:
         :return link_table_name/False: The name of the link table, if valid, or false if the table doesn't exist.
         """
+        cache = getattr(self, "_link_table_name_cache", None)
+        schema_version_getter = getattr(self.driver, "_get_schema_version", None)
+        if cache is not None and callable(schema_version_getter):
+            try:
+                current_schema_version = schema_version_getter()
+            except Exception:
+                current_schema_version = None
+            cached_schema_version = getattr(self, "_link_table_name_cache_schema_version", None)
+            if current_schema_version != cached_schema_version:
+                cache.clear()
+                self._link_table_name_cache_schema_version = current_schema_version
+
+        table1 = str(table1)
+        table2 = str(table2)
+        cache_key = tuple(sorted((table1, table2))) if table1 != table2 else (table1, table1)
+        if cache is not None and cache_key in cache:
+            return cache[cache_key]
+
         valid_tables = self.get_tables()
 
         if table1 != table2:
@@ -81,18 +99,22 @@ class DriverWrapperNamesMixin:
             link_table_name = link_table_name.format(tables[0], tables[1])
 
             if link_table_name not in valid_tables:
-                return False
+                result = False
             else:
-                return link_table_name
+                result = link_table_name
         else:
             table_row_name = self.get_column_base(table1)
             link_table_name = "{}_{}_intralinks"
             link_table_name = link_table_name.format(table_row_name, table_row_name)
 
             if link_table_name not in valid_tables:
-                return False
+                result = False
             else:
-                return link_table_name
+                result = link_table_name
+
+        if cache is not None:
+            cache[cache_key] = result
+        return result
 
     def get_interlink_column(self, table1, table2, column_type):
         """

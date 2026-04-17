@@ -1,8 +1,8 @@
-"""Clear output command for terminal interface."""
+"""Clear output command for the terminal surface."""
 
 from __future__ import annotations
 
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
 class ClearCommand(TerminalCommandAPI):

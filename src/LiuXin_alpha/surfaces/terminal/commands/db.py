@@ -1,4 +1,4 @@
-"""Database maintenance commands for the terminal interface."""
+"""Database maintenance commands for the terminal surface."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
 @dataclass(frozen=True)

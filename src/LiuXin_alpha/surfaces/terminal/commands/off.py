@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.interfaces.terminal.commands.on import (
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.on import (
     _parse_on_options_and_value_tokens,
     _parse_tag_values,
     _parse_target_rows,

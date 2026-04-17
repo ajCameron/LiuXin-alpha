@@ -61,7 +61,7 @@ class CMYKImage(BaseError):
     def __call__(self, container):
         try:
             from PyQt5.Qt import QImage
-            from LiuXin_alpha.interfaces.gui2 import pixmap_to_data
+            from LiuXin_alpha.surfaces.gui2 import pixmap_to_data
         except ModuleNotFoundError:
             return False
 

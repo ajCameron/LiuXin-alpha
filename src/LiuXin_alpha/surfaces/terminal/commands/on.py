@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Optional
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.interfaces.terminal.commands.link import _resolve_table_token
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.link import _resolve_table_token
 from LiuXin_alpha.metadata.standardization import (
     make_series_phash,
     make_tag_search_term,

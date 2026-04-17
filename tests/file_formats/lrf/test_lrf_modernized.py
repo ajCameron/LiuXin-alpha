@@ -41,12 +41,23 @@ def test_lrf_modules_import_smoke() -> None:
     importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.lrf_output")
 
 
-def test_lrf_input_converts_fixture_to_opf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def _lrf_paths(md_test_files_by_ext: dict[str, list[Path]]) -> list[Path]:
+    paths = list(md_test_files_by_ext.get("lrf", []))
+    if not paths:
+        pytest.skip("No .lrf fixtures found in optional LiuXin_alpha_data corpus")
+    return paths
+
+
+def test_lrf_input_converts_fixture_to_opf(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    md_test_files_by_ext: dict[str, list[Path]],
+) -> None:
     from LiuXin_alpha.file_formats.conversion.plugins.lrf_input import LRFInput
 
-    repo_root = Path(__file__).resolve().parents[3]
-    fixture = repo_root / "LiuXin_alpha_data" / "md_test_books" / "lrf_md_test_file_1.lrf"
-    assert fixture.exists(), f"missing fixture: {fixture}"
+    fixture = next((p for p in _lrf_paths(md_test_files_by_ext) if p.name == "lrf_md_test_file_1.lrf"), None)
+    if fixture is None:
+        fixture = _lrf_paths(md_test_files_by_ext)[0]
 
     monkeypatch.chdir(tmp_path)
     plugin = LRFInput(None)

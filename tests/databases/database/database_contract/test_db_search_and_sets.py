@@ -377,10 +377,12 @@ def test_get_random_row_returns_existing_row(open_db, contract_table: ContractTa
 
 
 def test_get_random_row_empty_table_current_behavior(open_db, contract_table: ContractTable):
-    # No inserts. Current driver returns None row_dict; Database wraps it in a Row with no id.
+    # No inserts. Current driver returns an empty Row shell with no resolved table.
     row = open_db.get_random_row(table=contract_table.name)
     assert isinstance(row, Row)
-    assert row.row_id is None
+    assert row.table is None
+    with pytest.raises(InputIntegrityError):
+        _ = row.row_id
 
 
 def test_get_random_row_invalid_table_raises(open_db):

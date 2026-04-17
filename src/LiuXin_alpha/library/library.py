@@ -392,7 +392,7 @@ class Library:
         *,
         preferred_store: Optional[str] = None,
     ) -> StoreLocationMixinAPI:
-        return self.storage.add_file(file_bytes=file_bytes, metadata=metadata, preferred_store=preferred_store)
+        return self.storage.store_bytes(file_bytes=file_bytes, metadata=metadata, preferred_store=preferred_store)
 
     def retrieve_file(
         self,
@@ -401,7 +401,7 @@ class Library:
         *,
         preferred_store: Optional[str] = None,
     ) -> StoreLocationMixinAPI:
-        return self.storage.retrieve_file(file_url=file_url, metadata=metadata, preferred_store=preferred_store)
+        return self.storage.locate_file(file_url=file_url, metadata=metadata, preferred_store=preferred_store)
 
     def delete_file(
         self,
@@ -409,10 +409,10 @@ class Library:
         metadata: Optional[MetadataContainerAPI] = None,
         file_container: Optional[StoreLocationMixinAPI] = None,
     ) -> bool:
-        return self.storage.delete_file(file_url=file_url, metadata=metadata, file_container=file_container)
+        return self.storage.delete_location(file_url=file_url, metadata=metadata, location=file_container)
 
     def iter_files(self) -> Iterator[StoreLocationMixinAPI]:
-        return self.storage.iter()
+        return self.storage.iter_locations()
 
     def register_unmanaged_disk(
         self,

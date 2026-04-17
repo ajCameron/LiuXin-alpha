@@ -8,6 +8,7 @@ from LiuXin_alpha.storage.reconcile import (
     register_existing_disk_as_unmanaged_store,
     register_existing_disk_with_database_path,
 )
+from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _write_file(path: Path, payload: bytes) -> None:
@@ -16,6 +17,7 @@ def _write_file(path: Path, payload: bytes) -> None:
 
 
 def test_register_existing_disk_creates_store_and_files(db, tmp_path: Path) -> None:
+    ensure_surface_asset_tables(db)
     disk_root = tmp_path / "unmanaged_disk"
     _write_file(disk_root / "Book One.epub", b"epub-data")
     _write_file(disk_root / "nested" / "BOOK_TWO.MOBI", b"mobi-data")
@@ -56,6 +58,7 @@ def test_register_existing_disk_creates_store_and_files(db, tmp_path: Path) -> N
 
 
 def test_register_existing_disk_is_idempotent_and_updates_changed_files(db, tmp_path: Path) -> None:
+    ensure_surface_asset_tables(db)
     disk_root = tmp_path / "unmanaged_disk"
     _write_file(disk_root / "book.epub", b"first-version")
     _write_file(disk_root / "notes.txt", b"first-notes")
@@ -81,7 +84,16 @@ def test_register_existing_disk_is_idempotent_and_updates_changed_files(db, tmp_
 def test_register_existing_disk_with_database_path_helper(
     provision_test_database, driver_spec, tmp_path: Path
 ) -> None:
+    from LiuXin_alpha.databases.database import Database
+
     provisioned = provision_test_database("test_db_13")
+    with Database(
+        metadata={"database_path": str(provisioned.db_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+    ) as seeded:
+        ensure_surface_asset_tables(seeded)
     disk_root = tmp_path / "helper_disk"
     _write_file(disk_root / "one.epub", b"payload")
 
@@ -94,8 +106,6 @@ def test_register_existing_disk_with_database_path_helper(
 
     assert report.inserted_files == 1
     assert report.errors == []
-
-    from LiuXin_alpha.databases.database import Database
 
     with Database(
         metadata={"database_path": str(provisioned.db_path)},
@@ -123,6 +133,7 @@ def test_legacy_library_wrapper_re_exports_canonical_api() -> None:
 
 
 def test_register_existing_disk_refreshes_db_storage_manager(db, tmp_path: Path) -> None:
+    ensure_surface_asset_tables(db)
     disk_root = tmp_path / "unmanaged_refresh"
     _write_file(disk_root / "book.epub", b"payload")
 
@@ -133,14 +144,15 @@ def test_register_existing_disk_refreshes_db_storage_manager(db, tmp_path: Path)
     )
 
     assert db.storage is not None
-    store = db.storage.get_store("refresh_store")
-    assert store.url == str(disk_root.resolve())
+    store = db.storage.get_store_container("refresh_store")
+    assert store.store_url == str(disk_root.resolve())
 
-    got = db.storage.retrieve_file(metadata={"file_storage_key": "book.epub", "file_store_id": report.store_row_id})
+    got = db.storage.locate_file(metadata={"file_storage_key": "book.epub", "file_store_id": report.store_row_id})
     assert got.as_bytes() == b"payload"
 
 
 def test_register_existing_disk_can_skip_storage_manager_refresh(db, tmp_path: Path) -> None:
+    ensure_surface_asset_tables(db)
     disk_root = tmp_path / "unmanaged_no_refresh"
     _write_file(disk_root / "book.epub", b"payload")
 
@@ -153,4 +165,4 @@ def test_register_existing_disk_can_skip_storage_manager_refresh(db, tmp_path: P
 
     assert db.storage is not None
     with pytest.raises(KeyError):
-        db.storage.get_store("no_refresh_store")
+        db.storage.get_store_container("no_refresh_store")

@@ -16,8 +16,8 @@ from collections import Counter, deque
 from dataclasses import dataclass
 from typing import Optional
 
-from LiuXin_alpha.interfaces.terminal.job_view import fetch_terminal_job_view, read_terminal_job_log_view
-from LiuXin_alpha.interfaces.terminal.text_browser import TextDatabaseBrowser
+from LiuXin_alpha.surfaces.terminal.job_view import fetch_terminal_job_view, read_terminal_job_log_view
+from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser
 
 
 @dataclass

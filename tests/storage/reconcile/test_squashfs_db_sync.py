@@ -18,6 +18,7 @@ from LiuXin_alpha.storage.reconcile import (
     ensure_open_squashfs_store,
     publish_open_squashfs_store,
 )
+from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _require_squashfs_tools() -> None:
@@ -64,6 +65,7 @@ def _insert_file_row(
     path: Path,
     hash_override: str | None = None,
 ) -> int:
+    ensure_surface_asset_tables(db, include_file_store_links=True)
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -172,13 +174,13 @@ def test_squashfs_db_workflow_publishes_and_duplicates_verified_files(driver_spe
         )
 
         assert db.storage is not None
-        retrieved = db.storage.retrieve_file(
+        retrieved = db.storage.locate_file(
             metadata={
                 "file_store_id": open_store_id,
                 "file_storage_key": "Author One/Book One (1)/Book One - ONE.epub",
             }
         )
-        assert retrieved.as_bytes() == b"ONE"
+        assert retrieved.read_bytes() == b"ONE"
 
         link_rows = db.search("file_store_links", "file_store_link_store_id", open_store_id)
         designation_links = [row for row in link_rows if row["file_store_link_type"] == "squashfs_designation"]
@@ -198,7 +200,9 @@ def test_squashfs_db_workflow_publishes_and_duplicates_verified_files(driver_spe
             child_ids = {int(row["file_derivation_child_file_id"]) for row in derivations}
             duplicated_ids = {int(row["file_id"]) for row in duplicated_rows}
             assert duplicated_ids.issubset(child_ids)
-        assert publish_report.provenance_links_created >= 1
+            assert publish_report.provenance_links_created >= 1
+        else:
+            assert publish_report.provenance_links_created == 0
         assert publish_report.reproducibility_metadata is not None
         assert publish_report.reproducibility_metadata.get("output_sha256")
 

@@ -14,17 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.support._import_compat import driver_wrapper_abstract_state
 from LiuXin_alpha.errors import InputIntegrityError
-
-
-DRIVER_WRAPPER_ABSTRACT, _DRIVER_WRAPPER_ABSTRACT_METHODS = driver_wrapper_abstract_state()
-
-pytestmark = pytest.mark.xfail(
-    DRIVER_WRAPPER_ABSTRACT,
-    reason="DriverWrapper schema API refactor is incomplete in this checkout; Database construction currently fails.",
-    strict=False,
-)
 
 
 def test_iterator_return_preserves_numeric_types_without_table_context(driver):

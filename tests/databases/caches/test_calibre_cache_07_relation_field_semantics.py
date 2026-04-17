@@ -4,10 +4,6 @@ from collections import defaultdict
 
 import pytest
 
-from tests.support._import_compat import ensure_interfaces_field_metadata_alias
-
-ensure_interfaces_field_metadata_alias()
-
 from LiuXin_alpha.library.caches.calibre.fields import (
     CalibreManyToManyField,
     CalibreManyToOneField,

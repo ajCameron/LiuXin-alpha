@@ -71,7 +71,7 @@ def get_custom_size(opts):
 
 def get_pdf_printer(opts, for_comic=False, output_file_name=None):  # {{{
     _require_qt()
-    from LiuXin_alpha.interfaces.gui2 import must_use_qt
+    from LiuXin_alpha.surfaces.gui2 import must_use_qt
 
     must_use_qt()
 
@@ -182,7 +182,7 @@ class Page(QWebPage):  # {{{
 class PDFWriter(QObject):  # {{{
     def __init__(self, opts, log, cover_data=None, toc=None):
         _require_qt()
-        from LiuXin_alpha.interfaces.gui2 import must_use_qt
+        from LiuXin_alpha.surfaces.gui2 import must_use_qt
         from LiuXin_alpha.utils.podofo import get_podofo
 
         must_use_qt()

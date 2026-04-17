@@ -97,7 +97,47 @@ def _coerce_text(raw: Any, encoding: str | None = None) -> str:
         guessed_encoding = str(info.get("encoding") or "").lower()
         confidence = float(info.get("confidence") or 0.0)
         has_c1_bytes = any(0x80 <= byte <= 0x9F for byte in data)
-        if has_c1_bytes and confidence < 0.2 and (not guessed_encoding or guessed_encoding.startswith("iso-8859")):
+        has_cp1252_punctuation = any(
+            byte in data
+            for byte in (
+                0x80,
+                0x82,
+                0x83,
+                0x84,
+                0x85,
+                0x86,
+                0x87,
+                0x88,
+                0x89,
+                0x8A,
+                0x8B,
+                0x8C,
+                0x91,
+                0x92,
+                0x93,
+                0x94,
+                0x95,
+                0x96,
+                0x97,
+                0x98,
+                0x99,
+                0x9A,
+                0x9B,
+                0x9C,
+                0x9F,
+            )
+        )
+        if (
+            has_c1_bytes
+            and has_cp1252_punctuation
+            and confidence < 0.2
+            and (
+                not guessed_encoding
+                or guessed_encoding.startswith("iso-8859")
+                or guessed_encoding.startswith("windows-125")
+                or guessed_encoding.startswith("cp125")
+            )
+        ):
             try:
                 return data.decode("cp1252", "replace")
             except Exception:
@@ -149,6 +189,18 @@ def _parse_date_value(raw: str | None):
     if not text:
         return None
 
+    normalized = text.replace("/", "-").replace(".", "-")
+    if re.fullmatch(r"[12]\d{3}", normalized):
+        try:
+            return datetime(int(normalized), 6, 2)
+        except Exception:
+            return None
+    for fmt in ("%Y-%m-%d", "%Y-%m", "%Y%m%d"):
+        try:
+            return datetime.strptime(normalized, fmt)
+        except Exception:
+            continue
+
     # Prefer parse_date to preserve full timestamp information when present.
     try:
         dt = parse_date(text)
@@ -164,19 +216,6 @@ def _parse_date_value(raw: str | None):
             return dt
     except Exception:
         pass
-
-    # Stdlib-only fallback for environments missing liuxin_dateutil.
-    normalized = text.replace("/", "-").replace(".", "-")
-    if re.fullmatch(r"[12]\d{3}", normalized):
-        try:
-            return datetime(int(normalized), 6, 2)
-        except Exception:
-            return None
-    for fmt in ("%Y-%m-%d", "%Y-%m", "%Y%m%d"):
-        try:
-            return datetime.strptime(normalized, fmt)
-        except Exception:
-            continue
 
     return None
 

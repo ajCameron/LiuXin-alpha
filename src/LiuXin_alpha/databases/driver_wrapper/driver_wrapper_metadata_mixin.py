@@ -15,6 +15,8 @@ class DriverWrapperMetadataMixin:
 
         :return:
         """
+        if force_refresh and hasattr(self, "_clear_derived_schema_caches"):
+            self._clear_derived_schema_caches()
         return self.driver.direct_get_tables(force_refresh=force_refresh)
 
     def get_relation_type(self, name: str) -> Optional[str]:

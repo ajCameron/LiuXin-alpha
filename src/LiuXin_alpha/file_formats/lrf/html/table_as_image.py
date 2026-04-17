@@ -128,7 +128,7 @@ def render_table(soup, table, css, base_dir, width, height, dpi, factor=1.0):
 
 def do_render(html, base_dir, width, height, dpi, factor):
     try:
-        from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+        from LiuXin_alpha.surfaces.gui2 import is_ok_to_use_qt
     except Exception:
         is_ok_to_use_qt = lambda: False
 
