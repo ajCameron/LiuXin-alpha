@@ -6,6 +6,9 @@ from typing import Any
 import pytest
 
 from LiuXin_alpha.caches import SchemaBackedStorageCache, StorageCache
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.one_one_field import (
+    OneOneInOneTableFieldUpdate,
+)
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
     RelationKind,
@@ -270,3 +273,57 @@ def test_one_to_one_link_table_maps_are_exposed(
         1: "/covers/one.jpg",
         2: "/covers/two.jpg",
     }
+
+
+def test_same_table_field_deleted_ids_nullify_column_without_deleting_rows(
+    schema_backed_cache: SchemaBackedStorageCache,
+) -> None:
+    cache = schema_backed_cache
+    field = cache.get_field("title")
+
+    field.update(
+        OneOneInOneTableFieldUpdate(
+            added_maps={},
+            updated_maps={},
+            deleted_ids={1},
+            dirtied=set(),
+        )
+    )
+
+    assert cache.get_main_table("books").has_id(1) is True
+    assert cache.get_main_table("books").get_row_snapshot(1)["title"] is None
+    assert field.get_value_from_id(1) is None
+    assert cache.db.get_row_from_id("books", 1).row_dict["title"] is None
+
+
+def test_same_table_field_can_refresh_and_remove_ids_after_external_changes(
+    schema_backed_cache: SchemaBackedStorageCache,
+) -> None:
+    cache = schema_backed_cache
+    field = cache.get_field("title")
+
+    cache.db.driver_wrapper.update_column("books", 2, "title", "Retitled")
+    field.refresh_ids({2})
+    assert field.get_value_from_id(2) == "Retitled"
+
+    cache.db.driver_wrapper.delete_by_id("books", {2})
+    field.remove_ids({2})
+    assert 2 not in field.ids
+    assert field.get_value_from_id(2) is None
+
+
+def test_same_table_field_refuses_to_clear_primary_key_values(
+    schema_backed_cache: SchemaBackedStorageCache,
+) -> None:
+    cache = schema_backed_cache
+    field = cache.get_field("books.id")
+
+    with pytest.raises(ValueError):
+        field.update(
+            OneOneInOneTableFieldUpdate(
+                added_maps={},
+                updated_maps={},
+                deleted_ids={1},
+                dirtied=set(),
+            )
+        )

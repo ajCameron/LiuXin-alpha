@@ -8,7 +8,9 @@ import dataclasses
 
 from typing import TYPE_CHECKING, Union, Generic, TypeVar, Optional, Sequence
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import FieldBasicInterfaceAPI
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
+    RelationFieldBasicInterfaceAPI,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
@@ -70,6 +72,10 @@ class ManyOneInTwoTableFieldUpdate(Generic[T]):
 
     The mapping is keyed by the src table id and valued with the value to be
     written into the dst table target column.
+
+    ``deleted_ids`` means "detach/clear this field from these src rows", not
+    "delete the src rows themselves". Implementations may mutate links and, if
+    explicitly supported, create or remove related dst rows.
     """
 
     src_table: MainTableName
@@ -104,7 +110,7 @@ class LinkDstUpdate(LinkPropertiesMixin, LinkDstUpdateMixin[T]):
     """
 
 
-class ManyToOneFieldAPI(FieldBasicInterfaceAPI[T]):
+class ManyToOneFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     """
     Many-to-one field over a src table, a dst table, and a many-to-one link table.
 

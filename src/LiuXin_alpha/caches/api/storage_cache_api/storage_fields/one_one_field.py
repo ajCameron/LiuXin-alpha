@@ -8,7 +8,10 @@ import dataclasses
 
 from typing import TYPE_CHECKING, Union, TypeVar, Generic, Optional
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import FieldBasicInterfaceAPI
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
+    RelationFieldBasicInterfaceAPI,
+    ScalarFieldBasicInterfaceAPI,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
@@ -31,6 +34,10 @@ T = TypeVar("T")
 class OneOneInOneTableFieldUpdate(Generic[T]):
     """
     Update for a one-to-one field stored in a single table.
+
+    This update is field-oriented, not row-lifecycle-oriented:
+    ``deleted_ids`` means "clear/nullify this field for these ids", not
+    "delete the owning rows".
     """
 
     added_maps: dict[MainTableID, Optional[T]]
@@ -42,7 +49,7 @@ class OneOneInOneTableFieldUpdate(Generic[T]):
     unique: bool = False
 
 
-class CacheOneOneInSameTableFieldAPI(FieldBasicInterfaceAPI[T]):
+class CacheOneOneInSameTableFieldAPI(ScalarFieldBasicInterfaceAPI[T]):
     """
     Represents a one-to-one field stored directly in a single table.
     """
@@ -73,6 +80,9 @@ class CacheOneOneInSameTableFieldAPI(FieldBasicInterfaceAPI[T]):
     def update(self, update: OneOneInOneTableFieldUpdate[T]) -> None:
         """
         Update the field, and the underlying table/db.
+
+        Implementations should treat this as a field-value mutation surface.
+        Clearing a field value must not delete the owning rows.
 
         :param update:
         :return:
@@ -166,6 +176,11 @@ class OneOneInTwoTableFieldUpdate(Generic[T]):
 
     The mapping is keyed by the src table id and valued with the value to be
     written into the dst table target column.
+
+    As with same-table field updates, ``deleted_ids`` is field-oriented and
+    should clear/sever the field mapping rather than delete the src rows.
+    A concrete relation field may also clean up link rows or related rows if it
+    explicitly advertises that capability.
     """
 
     src_table: MainTableName
@@ -181,7 +196,7 @@ class OneOneInTwoTableFieldUpdate(Generic[T]):
     unique: bool = False
 
 
-class CacheOneOneInTwoTableFieldAPI(FieldBasicInterfaceAPI[T]):
+class CacheOneOneInTwoTableFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     """
     Represents a one-to-one field where the value lives in a dst table linked
     to a src table by a one-to-one link table.

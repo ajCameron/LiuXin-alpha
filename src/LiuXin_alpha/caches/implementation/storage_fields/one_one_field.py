@@ -4,7 +4,7 @@ Concrete schema-backed implementation of one-to-one storage fields.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Union, cast
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.one_one_field import (
     CacheOneOneInSameTableFieldAPI,
@@ -17,6 +17,9 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.single_table impor
 from LiuXin_alpha.caches.implementation.common import (
     _canonical_field_key,
     _ensure_db,
+)
+from LiuXin_alpha.caches.implementation.storage_tables.single_table import (
+    SchemaBackedMainTableCache,
 )
 
 if TYPE_CHECKING:
@@ -63,22 +66,82 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
             for row_id in table.row_ids
         }
 
+    def _table_cache(self) -> SchemaBackedMainTableCache:
+        return cast(SchemaBackedMainTableCache, self.in_table)
+
+    def _column_spec(self):
+        table = self._table_cache()
+        for column in table.spec.columns:
+            if column.name == self.column_name:
+                return column
+        raise KeyError(self.column_name)
+
+    def _assert_can_write_value(self, value: Any) -> None:
+        column = self._column_spec()
+        if value is None and (column.is_primary_key or not column.nullable):
+            raise ValueError(
+                f"Field {self.field_key!r} cannot be cleared because the column is not nullable"
+            )
+
+    def _assert_rows_exist(self, ids: Iterable[int]) -> None:
+        missing = [
+            int(row_id)
+            for row_id in ids
+            if self._db.get_row_from_id(self.table_name, int(row_id)) is None
+        ]
+        if missing:
+            raise KeyError(f"Cannot update field {self.field_key!r}; missing row ids: {sorted(missing)}")
+
+    def _write_values(self, id_value_map: dict[int, Any]) -> None:
+        if not id_value_map:
+            return
+        normalized = {int(row_id): value for row_id, value in id_value_map.items()}
+        self._assert_rows_exist(normalized.keys())
+        for value in normalized.values():
+            self._assert_can_write_value(value)
+        self.in_table.update(
+            normalized,
+            self._db,
+            target_column=self.column_name,
+        )
+
     def update(self, update: OneOneInOneTableFieldUpdate[Any]) -> None:
+        self._db = _ensure_db(self._db)
+        changed_ids: set[int] = set()
         if update.added_maps:
-            self.in_table.create(
-                update.added_maps,
-                self._db,
-                target_column=self.column_name,
-            )
+            changed_ids.update(int(row_id) for row_id in update.added_maps)
+            self._write_values(dict(update.added_maps))
         if update.updated_maps:
-            self.in_table.update(
-                update.updated_maps,
-                self._db,
-                target_column=self.column_name,
-            )
+            changed_ids.update(int(row_id) for row_id in update.updated_maps)
+            self._write_values(dict(update.updated_maps))
         if update.deleted_ids:
-            self.in_table.delete(update.deleted_ids, self._db)
-        self.read(self._db)
+            changed_ids.update(int(row_id) for row_id in update.deleted_ids)
+            self._write_values({int(row_id): None for row_id in update.deleted_ids})
+        refresh_ids = changed_ids | {int(row_id) for row_id in update.dirtied}
+        if refresh_ids:
+            self.refresh_ids(refresh_ids)
+        else:
+            self.read(self._db)
+
+    def refresh_ids(
+        self,
+        ids: Iterable[int],
+        db: Any = None,
+    ) -> None:
+        db = _ensure_db(self._db, db)
+        self._db = db
+        ids = {int(row_id) for row_id in ids}
+        table = self._table_cache()
+        table._refresh_ids(ids)
+        for row_id in ids:
+            if table.has_id(row_id):
+                self._ids_values_map[row_id] = table.get_row_snapshot(row_id).get(self.column_name)
+            else:
+                self._ids_values_map.pop(row_id, None)
+
+    def remove_ids(self, ids: Iterable[int]) -> None:
+        for row_id in {int(row_id) for row_id in ids}:
+            self._ids_values_map.pop(row_id, None)
 
     @property
     def ids(self) -> set[int]:
