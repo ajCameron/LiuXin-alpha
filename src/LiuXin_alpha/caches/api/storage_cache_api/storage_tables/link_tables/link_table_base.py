@@ -22,9 +22,10 @@ T = TypeVar("T")
 
 class StorageCacheLinkTableBaseAPI(StorageCacheBaseTableAPI, Generic[T]):
     """
-    Represents a single table on the database.
+    Represents a cached link table.
 
-    We try not to hold references to the database, as it makes shutdown harder.
+    Concrete cache tables are expected to hold a live database reference until
+    the parent cache detaches or closes them.
     """
 
     _table_type: TableTypes
