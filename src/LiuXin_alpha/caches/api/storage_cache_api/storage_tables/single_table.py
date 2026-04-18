@@ -19,12 +19,14 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
     """
     Represents a single table on the database.
 
-    We try not to hold references to the database, as it makes shutdown harder.
+    Concrete cache tables are expected to hold a live database reference until
+    the parent cache detaches or closes them.
     """
 
     # -----------------
     # - LINK PROPERTIES
 
+    @abc.abstractmethod
     def linked_to(self) -> Iterable[str]:
         """
         Return an iterable of all the tables this table links to.
@@ -89,6 +91,7 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
     # --------------
     # - READ METHODS
 
+    @abc.abstractmethod
     def get_values_for(self, column: str) -> Sequence[Any]:
         """
         Returns all the values for the given column - in their order.
@@ -98,6 +101,7 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
         :return:
         """
 
+    @abc.abstractmethod
     def get_unique_values(self, column: str) -> set[Any]:
         """
         Returns all the unique values for the given column.
@@ -106,6 +110,7 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
         :return:
         """
 
+    @abc.abstractmethod
     def get_ids_for_value(self, column: str, value: str) -> set[int]:
         """
         Returns all the ids for the given column and value.
@@ -115,6 +120,7 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
         :return:
         """
 
+    @abc.abstractmethod
     def get_col_value_from_id(self, table_id: MainTableID) -> Any:
         """
         Get the column value for a specific id.
