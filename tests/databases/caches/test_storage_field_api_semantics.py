@@ -20,7 +20,7 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.one_one_field impo
     CacheOneOneInSameTableFieldAPI,
     CacheOneOneInTwoTableFieldAPI,
 )
-from LiuXin_alpha.caches.implementation.storage_fields.one_one_field import (
+from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_fields.one_one_field import (
     SchemaBackedSameTableField,
 )
 

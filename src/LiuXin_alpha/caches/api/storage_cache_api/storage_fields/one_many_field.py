@@ -91,6 +91,11 @@ class OneManyInTwoTableFieldUpdate(Generic[T]):
     # Are the values in this field unique?
     unique: bool = False
 
+    # Explicit per-src replacement payload for link-oriented operations.
+    # When provided for a src id, implementations should treat the sequence as
+    # the authoritative desired set of linked dst rows for that src.
+    link_replacements: dict[MainTableID, Sequence[LinkDstUpdate[T]]] = dataclasses.field(default_factory=dict)
+
 
 @dataclasses.dataclass
 class LinkDstUpdateMixin(Generic[T]):
@@ -101,6 +106,7 @@ class LinkDstUpdateMixin(Generic[T]):
     dst_table: MainTableName
     dst_table_target_column: MainTableColumnName
     dst_col_val: Optional[T]
+    dst_table_id: Optional[MainTableID] = None
 
 
 @dataclasses.dataclass

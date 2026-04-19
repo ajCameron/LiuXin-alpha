@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import abc
 
-from typing import TYPE_CHECKING, Any, Iterable, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Iterable, Mapping, Optional, Sequence, Union
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
     FieldBasicInterfaceAPI,
@@ -55,6 +55,8 @@ class StorageCacheAPI(abc.ABC):
     lower-level than any interface/library cache.
     """
 
+    plugin_name: ClassVar[str] = "storage_cache"
+
     db: Optional["DatabaseAPI"]
 
     #: Main cached tables, keyed by database table name.
@@ -77,6 +79,15 @@ class StorageCacheAPI(abc.ABC):
         :return:
         """
         self.db = db
+
+    @property
+    def cache_type(self) -> str:
+        """
+        Canonical plugin/cache type for this cache instance.
+
+        :return:
+        """
+        return str(self.plugin_name)
 
     # ------------------------------------------------------------------
     # - LIFECYCLE / STATE
@@ -204,6 +215,69 @@ class StorageCacheAPI(abc.ABC):
         :param db:
         :return:
         """
+
+    def get_cached_value(
+        self,
+        owner_id: "MainTableID",
+        field_key: FieldKey,
+        default_value: Any = None,
+    ) -> Any:
+        """
+        Return one cached field value for one owning row id.
+
+        Implementations may override this with plugin-specific fast paths.
+
+        :param owner_id:
+        :param field_key:
+        :param default_value:
+        :return:
+        """
+        field = self.get_field(field_key)
+        row_id = int(owner_id)
+
+        getter = getattr(field, "get_value_from_id", None)
+        if callable(getter):
+            value = getter(row_id)
+            return default_value if value is None else value
+
+        getter = getattr(field, "get_value_from_src_id", None)
+        if callable(getter):
+            value = getter(row_id)
+            return default_value if value is None else value
+
+        getter = getattr(field, "get_values_from_src_id", None)
+        if callable(getter):
+            return getter(row_id)
+
+        ids_values_map = getattr(field, "ids_values_map", None)
+        if isinstance(ids_values_map, Mapping):
+            value = ids_values_map.get(row_id)
+            return default_value if value is None else value
+
+        raise TypeError(
+            f"Field {field_key!r} does not expose a supported cached-value accessor"
+        )
+
+    def get_cached_row_values(
+        self,
+        owner_id: "MainTableID",
+        field_keys: Sequence[FieldKey],
+        default_value: Any = None,
+    ) -> Sequence[Any]:
+        """
+        Return cached values for the given row id across the given field keys.
+
+        Implementations may override this with plugin-specific fast paths.
+
+        :param owner_id:
+        :param field_keys:
+        :param default_value:
+        :return:
+        """
+        return tuple(
+            self.get_cached_value(owner_id, field_key, default_value=default_value)
+            for field_key in field_keys
+        )
 
     # ------------------------------------------------------------------
     # - TABLE ACCESS

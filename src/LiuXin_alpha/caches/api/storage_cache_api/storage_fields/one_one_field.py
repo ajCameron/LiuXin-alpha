@@ -195,6 +195,15 @@ class OneOneInTwoTableFieldUpdate(Generic[T]):
     # Are the values in this field unique?
     unique: bool = False
 
+    # If True, missing src->dst links may be created when a src row currently
+    # has no linked dst row for this field.
+    create_missing_links: bool = False
+
+    # If True, and no existing dst row can be matched for a missing link, a new
+    # dst row may be created and then linked. This requires
+    # ``create_missing_links=True``.
+    create_missing_related_rows: bool = False
+
 
 class CacheOneOneInTwoTableFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     """
