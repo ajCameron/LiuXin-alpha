@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from LiuXin_alpha.caches.cache_plugins.database_backed import (
+    DatabaseBackedStorageCache,
+)
 from LiuXin_alpha.caches.cache_plugins.numpy_vectorized import (
     NumpyVectorizedStorageCache,
 )
@@ -33,6 +36,7 @@ from LiuXin_alpha.caches.cache_plugins.schema_backed import (
 
 __all__ = [
     "CachePluginError",
+    "DatabaseBackedStorageCache",
     "NumpyVectorizedStorageCache",
     "SchemaBackedCacheView",
     "SchemaBackedCacheViewRow",

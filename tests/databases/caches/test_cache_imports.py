@@ -15,6 +15,7 @@ class TestCacheImportAPIs:
 
     def test_storage_cache_plugin_imports(self) -> None:
         from LiuXin_alpha.caches import (
+            DatabaseBackedStorageCache,
             NumpyVectorizedStorageCache,
             SchemaBackedStorageCache,
             StorageCache,
@@ -25,13 +26,19 @@ class TestCacheImportAPIs:
 
         assert StorageCache is SchemaBackedStorageCache
         assert load_cache_plugin("schema_backed") is SchemaBackedStorageCache
+        assert load_cache_plugin("database_backed") is DatabaseBackedStorageCache
         assert load_cache_plugin("numpy_vectorized") is NumpyVectorizedStorageCache
+        assert "database_backed" in get_registered_cache_plugin_names()
         assert "schema_backed" in get_registered_cache_plugin_names()
         assert "numpy_vectorized" in get_registered_cache_plugin_names()
 
         cache = create_storage_cache(None, "schema_backed")
         assert isinstance(cache, SchemaBackedStorageCache)
         assert cache.cache_type == "schema_backed"
+
+        database_cache = create_storage_cache(None, "database_backed")
+        assert isinstance(database_cache, DatabaseBackedStorageCache)
+        assert database_cache.cache_type == "database_backed"
 
         numpy_cache = create_storage_cache(None, "numpy_vectorized", require_numpy=False)
         assert isinstance(numpy_cache, NumpyVectorizedStorageCache)

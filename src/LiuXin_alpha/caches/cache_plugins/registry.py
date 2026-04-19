@@ -84,6 +84,13 @@ def register_builtin_cache_plugins() -> None:
         aliases=("schema",),
     )
     register_cache_plugin(
+        "database_backed",
+        cache_module="LiuXin_alpha.caches.cache_plugins.database_backed",
+        cache_attr="DatabaseBackedStorageCache",
+        package_dir=os.path.join(base_dir, "database_backed"),
+        aliases=("database", "live", "passthrough"),
+    )
+    register_cache_plugin(
         "numpy_vectorized",
         cache_module="LiuXin_alpha.caches.cache_plugins.numpy_vectorized",
         cache_attr="NumpyVectorizedStorageCache",

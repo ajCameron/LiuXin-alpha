@@ -5,7 +5,12 @@ from typing import Any
 
 import pytest
 
-from LiuXin_alpha.caches import NumpyVectorizedStorageCache, SchemaBackedStorageCache, StorageCache
+from LiuXin_alpha.caches import (
+    DatabaseBackedStorageCache,
+    NumpyVectorizedStorageCache,
+    SchemaBackedStorageCache,
+    StorageCache,
+)
 from LiuXin_alpha.caches.api.storage_cache_api.storage_view_api import CacheViewSpec
 from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_view import SchemaBackedCacheView
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.many_many_field import (
@@ -257,6 +262,13 @@ def schema_backed_cache(_schema_backed_cache_db: _FakeDB) -> SchemaBackedStorage
 @pytest.fixture()
 def numpy_vectorized_cache(_schema_backed_cache_db: _FakeDB) -> NumpyVectorizedStorageCache:
     cache = NumpyVectorizedStorageCache(_schema_backed_cache_db, require_numpy=False)
+    cache.read()
+    return cache
+
+
+@pytest.fixture()
+def database_backed_cache(_schema_backed_cache_db: _FakeDB) -> DatabaseBackedStorageCache:
+    cache = DatabaseBackedStorageCache(_schema_backed_cache_db)
     cache.read()
     return cache
 
@@ -965,3 +977,74 @@ def test_cache_view_reads_through_cache_value_helpers(
 
     assert view.value_for(1, "title") == "Book One"
     assert view.row_values_for_id(1) == (1, "Book One", "A-1")
+
+
+def test_database_backed_cache_reflects_external_db_changes_without_manual_invalidation(
+    database_backed_cache: DatabaseBackedStorageCache,
+) -> None:
+    cache = database_backed_cache
+
+    assert cache.cache_type == "database_backed"
+    assert cache.get_cached_value(1, "title") == "Book One"
+
+    cache.db.driver_wrapper.update_column("books", 1, "title", "Retitled")
+
+    assert cache.get_cached_value(1, "title") == "Retitled"
+    assert cache.get_main_table("books").get_row_snapshot(1)["title"] == "Retitled"
+
+
+def test_database_backed_held_table_proxy_stays_live(
+    database_backed_cache: DatabaseBackedStorageCache,
+) -> None:
+    cache = database_backed_cache
+    books_table = cache.get_main_table("books")
+
+    assert books_table.has_id(3) is False
+
+    cache.db.driver_wrapper.add_row({"title": "Book Three", "shared_code": "A-3"})
+
+    assert books_table.has_id(3) is True
+    assert books_table.get_row_snapshot(3)["title"] == "Book Three"
+
+
+def test_database_backed_held_field_proxy_stays_live(
+    database_backed_cache: DatabaseBackedStorageCache,
+) -> None:
+    cache = database_backed_cache
+    cover_path_field = cache.get_field("books.covers.path")
+
+    assert cover_path_field.get_value_from_src_id(1) == "/covers/one.jpg"
+
+    cache.db.driver_wrapper.update_column("covers", 10, "path", "/covers/live-one.jpg")
+
+    assert cover_path_field.get_value_from_src_id(1) == "/covers/live-one.jpg"
+
+
+def test_database_backed_view_uses_live_field_proxies(
+    database_backed_cache: DatabaseBackedStorageCache,
+) -> None:
+    cache = database_backed_cache
+    view = SchemaBackedCacheView(
+        cache,
+        CacheViewSpec(name="books", base_table="books"),
+    )
+
+    assert view.value_for(1, "title") == "Book One"
+
+    cache.db.driver_wrapper.update_column("books", 1, "title", "View Retitled")
+
+    assert view.value_for(1, "title") == "View Retitled"
+    assert view.row_values_for_id(1) == (1, "View Retitled", "A-1")
+
+
+def test_database_backed_cache_reflects_new_rows_without_explicit_reload(
+    database_backed_cache: DatabaseBackedStorageCache,
+) -> None:
+    cache = database_backed_cache
+
+    assert cache.get_main_table("books").has_id(3) is False
+    cache.db.driver_wrapper.add_row({"title": "Book Three", "shared_code": "A-3"})
+
+    books_table = cache.get_main_table("books")
+    assert books_table.has_id(3) is True
+    assert books_table.get_row_snapshot(3)["title"] == "Book Three"

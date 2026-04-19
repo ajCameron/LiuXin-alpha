@@ -1,4 +1,5 @@
 from LiuXin_alpha.caches.cache_plugins import (
+    DatabaseBackedStorageCache,
     NumpyVectorizedStorageCache,
     SchemaBackedCacheView,
     SchemaBackedLinkTable,
@@ -22,6 +23,7 @@ from LiuXin_alpha.caches.cache_plugins import (
 )
 
 __all__ = [
+    "DatabaseBackedStorageCache",
     "NumpyVectorizedStorageCache",
     "SchemaBackedCacheView",
     "SchemaBackedLinkTable",
