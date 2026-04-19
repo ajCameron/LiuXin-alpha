@@ -28,6 +28,11 @@ It has access to one or many libraries.
 Persistent data stores.
 Exposes the _database_ class - which is responsible for talking to the databases.
 
+Read-heavy storage-facing access now also has an explicit cache backend layer.
+That sits between the live database and higher-level views/interfaces.
+For the current backend options and their intended semantics, see
+`dev-docs/08 - Storage Cache Backends.md`.
+
 # Jobs
 
 Long-running processes - of various sorts.
@@ -65,4 +70,3 @@ At least not without considerable checks.
 Exposes the _storage_ class - which is responsible for managing the backend stores.
 
 The storage class is aware of the database - it has to be to make sure that we're backing everything up properly.
-

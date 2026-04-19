@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
-
 import pytest
 
 from LiuXin_alpha.caches import (
@@ -30,183 +27,32 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.one_one_field impo
 )
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
-    RelationKind,
-    StorageColumnSpec,
     StorageLinkSpec,
     StorageSchemaSpec,
-    StorageTableSpec,
+)
+from tests.support.storage_cache_test_harness import (
+    FakeDB,
+    create_loaded_test_cache,
+    make_fake_db,
+    make_table,
 )
 
 
-@dataclass
-class _FakeResultRow:
-    row_dict: dict[str, Any]
-
-
-class _FakeDriverWrapper:
-    def __init__(
-        self,
-        schema: StorageSchemaSpec,
-        rows_by_table: dict[str, list[dict[str, Any]]],
-    ) -> None:
-        self._schema = schema
-        self._rows_by_table = rows_by_table
-
-    def get_schema_spec(self, force_refresh: bool = False) -> StorageSchemaSpec:
-        del force_refresh
-        return self._schema
-
-    def get_table_spec(self, table: str) -> StorageTableSpec:
-        return self._schema.tables[table]
-
-    def get_id_column(self, table: str) -> str:
-        id_column = self._schema.tables[table].id_column
-        if id_column is None:
-            raise KeyError(table)
-        return id_column
-
-    def get_allowed_tables_snapshot(self) -> set[str]:
-        return set(self._schema.tables)
-
-    def identify_table_from_row_dict(self, row_dict: dict[str, Any]) -> str:
-        keys = set(row_dict)
-        matches = [
-            table_name
-            for table_name, spec in self._schema.tables.items()
-            if keys.issubset({column.name for column in spec.columns})
-        ]
-        if not matches:
-            raise KeyError(sorted(keys))
-        matches.sort(key=lambda table_name: len(self._schema.tables[table_name].columns))
-        return matches[0]
-
-    def check_for_intralink_table(self, table: str) -> bool:
-        return any(
-            link.link_table == table and link.primary_table == link.secondary_table
-            for link in self._schema.intralinks
-        )
-
-    def get_interlinked_tables(self, table: str) -> list[str]:
-        spec = self._schema.tables.get(table)
-        if spec is None:
-            return []
-        return list(spec.linked_tables)
-
-    def add_row(self, row_dict: dict[str, Any]) -> int:
-        table = self.identify_table_from_row_dict(row_dict)
-        id_column = self.get_id_column(table)
-        next_id = max((int(row[id_column]) for row in self._rows_by_table[table]), default=0) + 1
-        payload = dict(row_dict)
-        payload.setdefault(id_column, next_id)
-        self._rows_by_table[table].append(payload)
-        return int(payload[id_column])
-
-    def get_blank_row(self, table: str) -> dict[str, Any]:
-        spec = self.get_table_spec(table)
-        id_column = self.get_id_column(table)
-        next_id = max((int(row[id_column]) for row in self._rows_by_table[table]), default=0) + 1
-        payload = {column.name: None for column in spec.columns}
-        payload[id_column] = next_id
-        self._rows_by_table[table].append(dict(payload))
-        return payload
-
-    def update_row(self, row_dict: dict[str, Any]) -> None:
-        table = self.identify_table_from_row_dict(row_dict)
-        id_column = self.get_id_column(table)
-        row_id = int(row_dict[id_column])
-        for index, row in enumerate(self._rows_by_table[table]):
-            if int(row[id_column]) == row_id:
-                merged = dict(row)
-                merged.update(row_dict)
-                self._rows_by_table[table][index] = merged
-                return
-        raise KeyError((table, row_id))
-
-    def update_column(self, table: str, row_id: int, column: str, value: Any) -> None:
-        id_column = self.get_id_column(table)
-        for row in self._rows_by_table[table]:
-            if int(row[id_column]) == int(row_id):
-                row[column] = value
-                return
-        raise KeyError((table, row_id))
-
-    def delete_by_id(self, table: str, ids: set[int]) -> None:
-        id_column = self.get_id_column(table)
-        deleted = {int(row_id) for row_id in ids}
-        self._rows_by_table[table] = [
-            row for row in self._rows_by_table[table] if int(row[id_column]) not in deleted
-        ]
-
-
-class _FakeDB:
-    def __init__(
-        self,
-        schema: StorageSchemaSpec,
-        rows_by_table: dict[str, list[dict[str, Any]]],
-    ) -> None:
-        self.driver_wrapper = _FakeDriverWrapper(schema, rows_by_table)
-        self._rows_by_table = rows_by_table
-        self.conn = None
-
-    def get_all_rows(self, table: str, iterator_return: bool = False):
-        del iterator_return
-        return [_FakeResultRow(dict(row)) for row in self._rows_by_table[table]]
-
-    def get_row_from_id(self, table: str, row_id: int):
-        id_column = self.driver_wrapper.get_id_column(table)
-        for row in self._rows_by_table[table]:
-            if int(row[id_column]) == int(row_id):
-                return _FakeResultRow(dict(row))
-        return None
-
-    def get_column_headings(self, table: str) -> list[str]:
-        return [column.name for column in self.driver_wrapper.get_table_spec(table).columns]
-
-
-def _column(name: str, ordinal: int, *, declared_type: str = "TEXT") -> StorageColumnSpec:
-    return StorageColumnSpec(
-        name=name,
-        ordinal=ordinal,
-        declared_type=declared_type,
-        affinity=declared_type,
-        is_primary_key=name == "id",
-    )
-
-
-def _table(
-    name: str,
-    column_names: tuple[str, ...],
-    *,
-    is_main_table: bool = False,
-    is_link_table: bool = False,
-    linked_tables: tuple[str, ...] = (),
-) -> StorageTableSpec:
-    return StorageTableSpec(
-        name=name,
-        relation_kind=RelationKind.TABLE,
-        columns=tuple(_column(column_name, index, declared_type="INTEGER" if column_name.endswith("_id") or column_name == "id" else "TEXT") for index, column_name in enumerate(column_names)),
-        id_column="id",
-        is_main_table=is_main_table,
-        is_link_table=is_link_table,
-        linked_tables=linked_tables,
-    )
-
-
 @pytest.fixture()
-def _schema_backed_cache_db() -> _FakeDB:
-    books = _table(
+def _schema_backed_cache_db() -> FakeDB:
+    books = make_table(
         "books",
         ("id", "title", "shared_code"),
         is_main_table=True,
         linked_tables=("covers",),
     )
-    covers = _table(
+    covers = make_table(
         "covers",
         ("id", "path", "shared_code"),
         is_main_table=True,
         linked_tables=("books",),
     )
-    book_covers = _table(
+    book_covers = make_table(
         "book_covers",
         ("id", "book_id", "cover_id"),
         is_link_table=True,
@@ -232,7 +78,7 @@ def _schema_backed_cache_db() -> _FakeDB:
         intralinks=(),
     )
 
-    db = _FakeDB(
+    db = make_fake_db(
         schema=schema,
         rows_by_table={
             "books": [
@@ -253,41 +99,35 @@ def _schema_backed_cache_db() -> _FakeDB:
 
 
 @pytest.fixture()
-def schema_backed_cache(_schema_backed_cache_db: _FakeDB) -> SchemaBackedStorageCache:
-    cache = SchemaBackedStorageCache(_schema_backed_cache_db)
-    cache.read()
-    return cache
+def schema_backed_cache(_schema_backed_cache_db: FakeDB) -> SchemaBackedStorageCache:
+    return create_loaded_test_cache(_schema_backed_cache_db, "schema_backed")
 
 
 @pytest.fixture()
-def numpy_vectorized_cache(_schema_backed_cache_db: _FakeDB) -> NumpyVectorizedStorageCache:
-    cache = NumpyVectorizedStorageCache(_schema_backed_cache_db, require_numpy=False)
-    cache.read()
-    return cache
+def numpy_vectorized_cache(_schema_backed_cache_db: FakeDB) -> NumpyVectorizedStorageCache:
+    return create_loaded_test_cache(_schema_backed_cache_db, "numpy_vectorized")
 
 
 @pytest.fixture()
-def database_backed_cache(_schema_backed_cache_db: _FakeDB) -> DatabaseBackedStorageCache:
-    cache = DatabaseBackedStorageCache(_schema_backed_cache_db)
-    cache.read()
-    return cache
+def database_backed_cache(_schema_backed_cache_db: FakeDB) -> DatabaseBackedStorageCache:
+    return create_loaded_test_cache(_schema_backed_cache_db, "database_backed")
 
 
 @pytest.fixture()
 def many_one_schema_backed_cache() -> SchemaBackedStorageCache:
-    books = _table(
+    books = make_table(
         "books",
         ("id", "title"),
         is_main_table=True,
         linked_tables=("publishers",),
     )
-    publishers = _table(
+    publishers = make_table(
         "publishers",
         ("id", "publisher_name"),
         is_main_table=True,
         linked_tables=("books",),
     )
-    book_publishers = _table(
+    book_publishers = make_table(
         "book_publishers",
         ("id", "book_id", "publisher_id"),
         is_link_table=True,
@@ -313,7 +153,7 @@ def many_one_schema_backed_cache() -> SchemaBackedStorageCache:
         intralinks=(),
     )
 
-    db = _FakeDB(
+    db = make_fake_db(
         schema=schema,
         rows_by_table={
             "books": [
@@ -331,26 +171,24 @@ def many_one_schema_backed_cache() -> SchemaBackedStorageCache:
         },
     )
 
-    cache = SchemaBackedStorageCache(db)
-    cache.read()
-    return cache
+    return create_loaded_test_cache(db, "schema_backed")
 
 
 @pytest.fixture()
 def one_many_schema_backed_cache() -> SchemaBackedStorageCache:
-    books = _table(
+    books = make_table(
         "books",
         ("id", "title"),
         is_main_table=True,
         linked_tables=("notes",),
     )
-    notes = _table(
+    notes = make_table(
         "notes",
         ("id", "note_text"),
         is_main_table=True,
         linked_tables=("books",),
     )
-    book_notes = _table(
+    book_notes = make_table(
         "book_notes",
         ("id", "book_id", "note_id", "note_priority", "note_type"),
         is_link_table=True,
@@ -380,7 +218,7 @@ def one_many_schema_backed_cache() -> SchemaBackedStorageCache:
         intralinks=(),
     )
 
-    db = _FakeDB(
+    db = make_fake_db(
         schema=schema,
         rows_by_table={
             "books": [
@@ -398,26 +236,24 @@ def one_many_schema_backed_cache() -> SchemaBackedStorageCache:
         },
     )
 
-    cache = SchemaBackedStorageCache(db)
-    cache.read()
-    return cache
+    return create_loaded_test_cache(db, "schema_backed")
 
 
 @pytest.fixture()
 def many_many_schema_backed_cache() -> SchemaBackedStorageCache:
-    books = _table(
+    books = make_table(
         "books",
         ("id", "title"),
         is_main_table=True,
         linked_tables=("tags",),
     )
-    tags = _table(
+    tags = make_table(
         "tags",
         ("id", "tag_name"),
         is_main_table=True,
         linked_tables=("books",),
     )
-    book_tags = _table(
+    book_tags = make_table(
         "book_tags",
         ("id", "book_id", "tag_id", "tag_priority"),
         is_link_table=True,
@@ -445,7 +281,7 @@ def many_many_schema_backed_cache() -> SchemaBackedStorageCache:
         intralinks=(),
     )
 
-    db = _FakeDB(
+    db = make_fake_db(
         schema=schema,
         rows_by_table={
             "books": [
@@ -464,9 +300,7 @@ def many_many_schema_backed_cache() -> SchemaBackedStorageCache:
         },
     )
 
-    cache = SchemaBackedStorageCache(db)
-    cache.read()
-    return cache
+    return create_loaded_test_cache(db, "schema_backed")
 
 
 def test_package_root_exports_schema_backed_storage_cache() -> None:
