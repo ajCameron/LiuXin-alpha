@@ -3,13 +3,9 @@ from __future__ import annotations
 import pytest
 
 from LiuXin_alpha.caches import (
-    DatabaseBackedStorageCache,
-    NumpyVectorizedStorageCache,
     SchemaBackedStorageCache,
     StorageCache,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_view_api import CacheViewSpec
-from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_view import SchemaBackedCacheView
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.many_many_field import (
     LinkDstUpdate as ManyManyLinkDstUpdate,
     ManyManyInTwoTableFieldUpdate,
@@ -101,16 +97,6 @@ def _schema_backed_cache_db() -> FakeDB:
 @pytest.fixture()
 def schema_backed_cache(_schema_backed_cache_db: FakeDB) -> SchemaBackedStorageCache:
     return create_loaded_test_cache(_schema_backed_cache_db, "schema_backed")
-
-
-@pytest.fixture()
-def numpy_vectorized_cache(_schema_backed_cache_db: FakeDB) -> NumpyVectorizedStorageCache:
-    return create_loaded_test_cache(_schema_backed_cache_db, "numpy_vectorized")
-
-
-@pytest.fixture()
-def database_backed_cache(_schema_backed_cache_db: FakeDB) -> DatabaseBackedStorageCache:
-    return create_loaded_test_cache(_schema_backed_cache_db, "database_backed")
 
 
 @pytest.fixture()
@@ -785,100 +771,3 @@ def test_schema_backed_cache_exposes_cached_value_helpers(
         "Book One",
         "A-1",
     )
-
-
-def test_numpy_vectorized_cache_supports_cached_value_helpers(
-    numpy_vectorized_cache: NumpyVectorizedStorageCache,
-) -> None:
-    cache = numpy_vectorized_cache
-
-    assert cache.cache_type == "numpy_vectorized"
-    assert cache.get_cached_value(1, "title") == "Book One"
-    assert cache.get_cached_value(999, "title", default_value="missing") == "missing"
-    assert cache.get_cached_row_values(1, ("title", "books.shared_code")) == (
-        "Book One",
-        "A-1",
-    )
-
-
-def test_cache_view_reads_through_cache_value_helpers(
-    numpy_vectorized_cache: NumpyVectorizedStorageCache,
-) -> None:
-    view = SchemaBackedCacheView(
-        numpy_vectorized_cache,
-        CacheViewSpec(name="books", base_table="books"),
-    )
-
-    assert view.value_for(1, "title") == "Book One"
-    assert view.row_values_for_id(1) == (1, "Book One", "A-1")
-
-
-def test_database_backed_cache_reflects_external_db_changes_without_manual_invalidation(
-    database_backed_cache: DatabaseBackedStorageCache,
-) -> None:
-    cache = database_backed_cache
-
-    assert cache.cache_type == "database_backed"
-    assert cache.get_cached_value(1, "title") == "Book One"
-
-    cache.db.driver_wrapper.update_column("books", 1, "title", "Retitled")
-
-    assert cache.get_cached_value(1, "title") == "Retitled"
-    assert cache.get_main_table("books").get_row_snapshot(1)["title"] == "Retitled"
-
-
-def test_database_backed_held_table_proxy_stays_live(
-    database_backed_cache: DatabaseBackedStorageCache,
-) -> None:
-    cache = database_backed_cache
-    books_table = cache.get_main_table("books")
-
-    assert books_table.has_id(3) is False
-
-    cache.db.driver_wrapper.add_row({"title": "Book Three", "shared_code": "A-3"})
-
-    assert books_table.has_id(3) is True
-    assert books_table.get_row_snapshot(3)["title"] == "Book Three"
-
-
-def test_database_backed_held_field_proxy_stays_live(
-    database_backed_cache: DatabaseBackedStorageCache,
-) -> None:
-    cache = database_backed_cache
-    cover_path_field = cache.get_field("books.covers.path")
-
-    assert cover_path_field.get_value_from_src_id(1) == "/covers/one.jpg"
-
-    cache.db.driver_wrapper.update_column("covers", 10, "path", "/covers/live-one.jpg")
-
-    assert cover_path_field.get_value_from_src_id(1) == "/covers/live-one.jpg"
-
-
-def test_database_backed_view_uses_live_field_proxies(
-    database_backed_cache: DatabaseBackedStorageCache,
-) -> None:
-    cache = database_backed_cache
-    view = SchemaBackedCacheView(
-        cache,
-        CacheViewSpec(name="books", base_table="books"),
-    )
-
-    assert view.value_for(1, "title") == "Book One"
-
-    cache.db.driver_wrapper.update_column("books", 1, "title", "View Retitled")
-
-    assert view.value_for(1, "title") == "View Retitled"
-    assert view.row_values_for_id(1) == (1, "View Retitled", "A-1")
-
-
-def test_database_backed_cache_reflects_new_rows_without_explicit_reload(
-    database_backed_cache: DatabaseBackedStorageCache,
-) -> None:
-    cache = database_backed_cache
-
-    assert cache.get_main_table("books").has_id(3) is False
-    cache.db.driver_wrapper.add_row({"title": "Book Three", "shared_code": "A-3"})
-
-    books_table = cache.get_main_table("books")
-    assert books_table.has_id(3) is True
-    assert books_table.get_row_snapshot(3)["title"] == "Book Three"

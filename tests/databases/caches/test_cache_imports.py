@@ -65,7 +65,13 @@ class TestCacheImportAPIs:
         numpy_cache = create_storage_cache(None, "numpy_vectorized", require_numpy=False)
         assert isinstance(numpy_cache, NumpyVectorizedStorageCache)
         assert numpy_cache.cache_type == "numpy_vectorized"
-        assert numpy_cache.capabilities == get_cache_plugin_capabilities("numpy_vectorized")
+        assert numpy_cache.capabilities.live_reads is False
+        assert numpy_cache.capabilities.live_child_objects is False
+        assert numpy_cache.capabilities.requires_reload_for_external_changes is True
+        assert (
+            numpy_cache.capabilities.vectorized_helpers
+            is NumpyVectorizedStorageCache.numpy_available()
+        )
 
     def test_numpy_vectorized_plugin_can_be_loaded_even_if_numpy_is_optional(self) -> None:
         from LiuXin_alpha.caches import NumpyVectorizedStorageCache

@@ -55,6 +55,17 @@ class NumpyVectorizedStorageCache(SchemaBackedStorageCache):
     def numpy_available(cls) -> bool:
         return _np is not None
 
+    @property
+    def capabilities(self) -> StorageCacheCapabilities:
+        if _np is None:
+            return StorageCacheCapabilities(
+                live_reads=False,
+                live_child_objects=False,
+                vectorized_helpers=False,
+                requires_reload_for_external_changes=True,
+            )
+        return self.plugin_capabilities
+
     def clear(self) -> None:
         self._table_row_id_arrays = {}
         self._table_row_id_positions = {}

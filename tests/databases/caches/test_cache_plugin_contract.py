@@ -4,6 +4,8 @@ import unicodedata
 
 import pytest
 
+from LiuXin_alpha.caches.api.storage_cache_api.storage_view_api import CacheViewSpec
+from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_view import SchemaBackedCacheView
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
     StorageLinkSpec,
@@ -28,6 +30,7 @@ _TAG_3 = "مرحبا-世界"
 _UPDATED_TITLE = "e\u0301xtra | 🌈 | \u2066RTL\u2069 | rewritten"
 _NEW_BOOK_TITLE = "नई-पुस्तक 📖"
 _UPDATED_TAG = "חדש-タグ-🧬"
+_LIVE_COVER_PATH = "/covers/live-one.jpg"
 
 @pytest.fixture(params=tuple(CACHE_PLUGIN_KWARGS), ids=tuple(CACHE_PLUGIN_KWARGS))
 def cache_plugin_name(request: pytest.FixtureRequest) -> str:
@@ -200,6 +203,96 @@ def test_cache_plugin_row_helpers_and_defaults(contract_cache) -> None:
         ("title", "books.shared_code"),
         default_value="missing",
     ) == ("missing", "missing")
+
+
+def test_cache_plugin_view_reads_through_cache_value_helpers(contract_cache) -> None:
+    view = SchemaBackedCacheView(
+        contract_cache,
+        CacheViewSpec(name="books", base_table="books"),
+    )
+
+    assert view.value_for(1, "title") == _BOOK_TITLE_NFD
+    assert view.row_values_for_id(1) == (1, _BOOK_TITLE_NFD, "A-α")
+
+
+def test_cache_plugin_fresh_reads_follow_declared_live_read_capability(
+    contract_cache,
+    unicode_contract_db: FakeDB,
+) -> None:
+    cache = contract_cache
+
+    assert cache.get_cached_value(1, "title") == _BOOK_TITLE_NFD
+    assert cache.get_main_table("books").has_id(3) is False
+
+    unicode_contract_db.driver_wrapper.update_column("books", 1, "title", _UPDATED_TITLE)
+    unicode_contract_db.driver_wrapper.add_row(
+        {"title": _NEW_BOOK_TITLE, "shared_code": "A-γ"}
+    )
+
+    if cache.capabilities.live_reads:
+        assert cache.get_cached_value(1, "title") == _UPDATED_TITLE
+        assert cache.get_main_table("books").has_id(3) is True
+        assert cache.get_main_table("books").get_row_snapshot(3)["title"] == _NEW_BOOK_TITLE
+    else:
+        assert cache.get_cached_value(1, "title") == _BOOK_TITLE_NFD
+        assert cache.get_main_table("books").has_id(3) is False
+
+        cache.reload()
+
+        assert cache.get_cached_value(1, "title") == _UPDATED_TITLE
+        assert cache.get_main_table("books").has_id(3) is True
+        assert cache.get_main_table("books").get_row_snapshot(3)["title"] == _NEW_BOOK_TITLE
+
+
+def test_cache_plugin_held_objects_follow_declared_live_child_capability(
+    contract_cache,
+    unicode_contract_db: FakeDB,
+) -> None:
+    cache = contract_cache
+    books_table = cache.get_main_table("books")
+    cover_path_field = cache.get_field("books.covers.path")
+    view = SchemaBackedCacheView(
+        cache,
+        CacheViewSpec(name="books", base_table="books"),
+    )
+
+    assert books_table.has_id(3) is False
+    assert cover_path_field.get_value_from_src_id(1) == _COVER_PATH_1
+    assert view.value_for(1, "title") == _BOOK_TITLE_NFD
+
+    unicode_contract_db.driver_wrapper.update_column("books", 1, "title", _UPDATED_TITLE)
+    unicode_contract_db.driver_wrapper.update_column("covers", 10, "path", _LIVE_COVER_PATH)
+    unicode_contract_db.driver_wrapper.add_row(
+        {"title": _NEW_BOOK_TITLE, "shared_code": "A-γ"}
+    )
+
+    if cache.capabilities.live_child_objects:
+        assert books_table.has_id(3) is True
+        assert books_table.get_row_snapshot(3)["title"] == _NEW_BOOK_TITLE
+        assert cover_path_field.get_value_from_src_id(1) == _LIVE_COVER_PATH
+        assert view.value_for(1, "title") == _UPDATED_TITLE
+        assert view.row_values_for_id(1) == (1, _UPDATED_TITLE, "A-α")
+    else:
+        assert books_table.has_id(3) is False
+        assert cover_path_field.get_value_from_src_id(1) == _COVER_PATH_1
+        assert view.value_for(1, "title") == _BOOK_TITLE_NFD
+        assert view.row_values_for_id(1) == (1, _BOOK_TITLE_NFD, "A-α")
+
+
+def test_cache_plugin_vectorized_helper_surface_follows_declared_capabilities(
+    contract_cache,
+) -> None:
+    cache = contract_cache
+
+    if cache.capabilities.vectorized_helpers:
+        assert tuple(int(row_id) for row_id in cache.get_numpy_row_id_array("books")) == (1, 2)
+        assert tuple(int(row_id) for row_id in cache.get_numpy_field_owner_ids("title")) == (1, 2)
+        assert tuple(str(value) for value in cache.get_numpy_field_array("title")) == (
+            _BOOK_TITLE_NFD,
+            _BOOK_TITLE_NFC,
+        )
+    else:
+        assert cache.capabilities.vectorized_helpers is False
 
 
 def test_cache_plugin_reload_observes_external_unicode_changes(

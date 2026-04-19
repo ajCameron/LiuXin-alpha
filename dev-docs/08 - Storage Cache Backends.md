@@ -43,6 +43,10 @@ assert caps.live_reads is True
 ```
 
 Instance code can also inspect `cache.capabilities`.
+That is the runtime truth.
+This matters for optional backends such as `numpy_vectorized`, where the plugin
+declares vectorized helpers but one concrete cache instance may narrow that if
+numpy is unavailable.
 
 ## `schema_backed`
 

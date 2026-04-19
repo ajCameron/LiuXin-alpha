@@ -119,6 +119,9 @@ class StorageCacheAPI(abc.ABC):
         """
         Declared capabilities for this cache instance's backend.
 
+        Concrete backends may narrow this at runtime when optional dependencies
+        or configuration disable part of the declared helper surface.
+
         :return:
         """
         return self.plugin_capabilities
