@@ -7,6 +7,10 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
+from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
+    StorageCacheCapabilities,
+)
+
 
 class CachePluginError(RuntimeError):
     """Raised when a cache plugin cannot be resolved or loaded."""
@@ -62,6 +66,16 @@ def create_storage_cache(db: Any, cache_type: str = "schema_backed", **kwargs: A
     return cache_cls(db, **kwargs)
 
 
+def get_cache_plugin_capabilities(cache_type: str) -> StorageCacheCapabilities:
+    cache_cls = load_cache_plugin(cache_type)
+    declared = getattr(cache_cls, "plugin_capabilities", StorageCacheCapabilities())
+    if isinstance(declared, StorageCacheCapabilities):
+        return declared
+    raise CachePluginError(
+        f"Cache plugin {cache_type!r} exposes invalid plugin_capabilities: {declared!r}"
+    )
+
+
 def get_registered_cache_plugin_names() -> tuple[str, ...]:
     return tuple(sorted({reg.canonical_name for reg in _CACHE_PLUGIN_REGISTRY.values()}))
 
@@ -105,6 +119,7 @@ __all__ = [
     "CachePluginError",
     "CachePluginRegistration",
     "create_storage_cache",
+    "get_cache_plugin_capabilities",
     "get_cache_plugin_location",
     "get_registered_cache_plugin_names",
     "load_cache_plugin",

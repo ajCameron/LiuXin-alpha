@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional, Sequence, Union
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import FieldKey
+from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
+    StorageCacheCapabilities,
+)
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
     FieldBasicInterfaceAPI,
 )
@@ -166,6 +169,12 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
     """
 
     plugin_name = "database_backed"
+    plugin_capabilities = StorageCacheCapabilities(
+        live_reads=True,
+        live_child_objects=True,
+        vectorized_helpers=False,
+        requires_reload_for_external_changes=False,
+    )
 
     def __init__(self, db: Any) -> None:
         self._building_live_state = False

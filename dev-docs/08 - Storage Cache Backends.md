@@ -32,6 +32,18 @@ Current builtin plugins are:
 
 `StorageCache` still points at the default `schema_backed` implementation.
 
+If code needs to branch on backend semantics, it should prefer declared
+capabilities over class-name checks:
+
+```python
+from LiuXin_alpha.caches import get_cache_plugin_capabilities
+
+caps = get_cache_plugin_capabilities("database_backed")
+assert caps.live_reads is True
+```
+
+Instance code can also inspect `cache.capabilities`.
+
 ## `schema_backed`
 
 This is the canonical baseline backend.

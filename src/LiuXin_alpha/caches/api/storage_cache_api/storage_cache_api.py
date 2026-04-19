@@ -8,6 +8,7 @@ user-facing sort semantics, and views belong in the InterfaceCache layer.
 from __future__ import annotations
 
 import abc
+from dataclasses import dataclass
 
 from typing import TYPE_CHECKING, Any, ClassVar, Iterable, Mapping, Optional, Sequence, Union
 
@@ -46,6 +47,29 @@ FieldKey = str
 LinkTableKey = tuple[str, str]
 
 
+@dataclass(frozen=True, slots=True)
+class StorageCacheCapabilities:
+    """
+    Declared semantic/performance capabilities for one cache backend.
+
+    This is intentionally small and backend-facing. It exists so callers and
+    tests can reason about backend policy without importing implementation
+    details or inferring behavior from class names.
+    """
+
+    #: Does the backend reflect external DB changes on ordinary read access?
+    live_reads: bool = False
+
+    #: Do handed-out child objects continue to reflect live state?
+    live_child_objects: bool = False
+
+    #: Does the backend provide explicit vectorized helper paths?
+    vectorized_helpers: bool = False
+
+    #: Must callers explicitly reload/invalidate to observe external DB changes?
+    requires_reload_for_external_changes: bool = True
+
+
 class StorageCacheAPI(abc.ABC):
     """
     Top-level storage cache API.
@@ -56,6 +80,7 @@ class StorageCacheAPI(abc.ABC):
     """
 
     plugin_name: ClassVar[str] = "storage_cache"
+    plugin_capabilities: ClassVar[StorageCacheCapabilities] = StorageCacheCapabilities()
 
     db: Optional["DatabaseAPI"]
 
@@ -88,6 +113,15 @@ class StorageCacheAPI(abc.ABC):
         :return:
         """
         return str(self.plugin_name)
+
+    @property
+    def capabilities(self) -> StorageCacheCapabilities:
+        """
+        Declared capabilities for this cache instance's backend.
+
+        :return:
+        """
+        return self.plugin_capabilities
 
     # ------------------------------------------------------------------
     # - LIFECYCLE / STATE

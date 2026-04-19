@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
+    StorageCacheCapabilities,
+)
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
     FieldBasicInterfaceAPI,
 )
@@ -28,6 +31,12 @@ class NumpyVectorizedStorageCache(SchemaBackedStorageCache):
     """
 
     plugin_name = "numpy_vectorized"
+    plugin_capabilities = StorageCacheCapabilities(
+        live_reads=False,
+        live_child_objects=False,
+        vectorized_helpers=True,
+        requires_reload_for_external_changes=True,
+    )
 
     def __init__(self, db: Any, *, require_numpy: bool = True) -> None:
         if require_numpy and _np is None:

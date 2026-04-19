@@ -11,6 +11,7 @@ from typing import Any, Iterable, Optional, Sequence, Union, cast
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
     FieldKey,
     StorageCacheAPI,
+    StorageCacheCapabilities,
 )
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
     FieldBasicInterfaceAPI,
@@ -63,6 +64,12 @@ class SchemaBackedStorageCache(StorageCacheAPI):
     """
 
     plugin_name = "schema_backed"
+    plugin_capabilities = StorageCacheCapabilities(
+        live_reads=False,
+        live_child_objects=False,
+        vectorized_helpers=False,
+        requires_reload_for_external_changes=True,
+    )
 
     def __init__(self, db: Any) -> None:
         super().__init__(db)

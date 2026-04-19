@@ -19,7 +19,9 @@ class TestCacheImportAPIs:
             NumpyVectorizedStorageCache,
             SchemaBackedStorageCache,
             StorageCache,
+            StorageCacheCapabilities,
             create_storage_cache,
+            get_cache_plugin_capabilities,
             get_registered_cache_plugin_names,
             load_cache_plugin,
         )
@@ -31,18 +33,39 @@ class TestCacheImportAPIs:
         assert "database_backed" in get_registered_cache_plugin_names()
         assert "schema_backed" in get_registered_cache_plugin_names()
         assert "numpy_vectorized" in get_registered_cache_plugin_names()
+        assert get_cache_plugin_capabilities("schema_backed") == StorageCacheCapabilities(
+            live_reads=False,
+            live_child_objects=False,
+            vectorized_helpers=False,
+            requires_reload_for_external_changes=True,
+        )
+        assert get_cache_plugin_capabilities("live") == StorageCacheCapabilities(
+            live_reads=True,
+            live_child_objects=True,
+            vectorized_helpers=False,
+            requires_reload_for_external_changes=False,
+        )
+        assert get_cache_plugin_capabilities("numpy") == StorageCacheCapabilities(
+            live_reads=False,
+            live_child_objects=False,
+            vectorized_helpers=True,
+            requires_reload_for_external_changes=True,
+        )
 
         cache = create_storage_cache(None, "schema_backed")
         assert isinstance(cache, SchemaBackedStorageCache)
         assert cache.cache_type == "schema_backed"
+        assert cache.capabilities == get_cache_plugin_capabilities("schema_backed")
 
         database_cache = create_storage_cache(None, "database_backed")
         assert isinstance(database_cache, DatabaseBackedStorageCache)
         assert database_cache.cache_type == "database_backed"
+        assert database_cache.capabilities == get_cache_plugin_capabilities("database_backed")
 
         numpy_cache = create_storage_cache(None, "numpy_vectorized", require_numpy=False)
         assert isinstance(numpy_cache, NumpyVectorizedStorageCache)
         assert numpy_cache.cache_type == "numpy_vectorized"
+        assert numpy_cache.capabilities == get_cache_plugin_capabilities("numpy_vectorized")
 
     def test_numpy_vectorized_plugin_can_be_loaded_even_if_numpy_is_optional(self) -> None:
         from LiuXin_alpha.caches import NumpyVectorizedStorageCache

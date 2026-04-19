@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
+    StorageCacheCapabilities,
+)
 from LiuXin_alpha.caches.cache_plugins.database_backed import (
     DatabaseBackedStorageCache,
 )
@@ -11,6 +14,7 @@ from LiuXin_alpha.caches.cache_plugins.numpy_vectorized import (
 from LiuXin_alpha.caches.cache_plugins.registry import (
     CachePluginError,
     create_storage_cache,
+    get_cache_plugin_capabilities,
     get_cache_plugin_location,
     get_registered_cache_plugin_names,
     load_cache_plugin,
@@ -38,6 +42,7 @@ __all__ = [
     "CachePluginError",
     "DatabaseBackedStorageCache",
     "NumpyVectorizedStorageCache",
+    "StorageCacheCapabilities",
     "SchemaBackedCacheView",
     "SchemaBackedCacheViewRow",
     "SchemaBackedLinkTable",
@@ -54,6 +59,7 @@ __all__ = [
     "StorageCacheMainTable",
     "StorageCacheView",
     "create_storage_cache",
+    "get_cache_plugin_capabilities",
     "get_cache_plugin_location",
     "get_registered_cache_plugin_names",
     "load_cache_plugin",
