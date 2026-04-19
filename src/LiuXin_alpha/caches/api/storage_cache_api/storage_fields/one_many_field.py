@@ -8,7 +8,9 @@ import dataclasses
 
 from typing import TYPE_CHECKING, Union, Generic, TypeVar, Optional, Sequence
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import FieldBasicInterfaceAPI
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
+    RelationFieldBasicInterfaceAPI,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
@@ -70,6 +72,10 @@ class OneManyInTwoTableFieldUpdate(Generic[T]):
 
     The mapping is keyed by the src table id and valued with the values to be
     written into the dst table target column.
+
+    ``deleted_ids`` means "detach/clear this field from these src rows", not
+    "delete the src rows themselves". Implementations may mutate links and, if
+    explicitly supported, create or remove related dst rows.
     """
 
     src_table: MainTableName
@@ -85,6 +91,11 @@ class OneManyInTwoTableFieldUpdate(Generic[T]):
     # Are the values in this field unique?
     unique: bool = False
 
+    # Explicit per-src replacement payload for link-oriented operations.
+    # When provided for a src id, implementations should treat the sequence as
+    # the authoritative desired set of linked dst rows for that src.
+    link_replacements: dict[MainTableID, Sequence[LinkDstUpdate[T]]] = dataclasses.field(default_factory=dict)
+
 
 @dataclasses.dataclass
 class LinkDstUpdateMixin(Generic[T]):
@@ -95,6 +106,7 @@ class LinkDstUpdateMixin(Generic[T]):
     dst_table: MainTableName
     dst_table_target_column: MainTableColumnName
     dst_col_val: Optional[T]
+    dst_table_id: Optional[MainTableID] = None
 
 
 @dataclasses.dataclass
@@ -104,7 +116,7 @@ class LinkDstUpdate(LinkPropertiesMixin, LinkDstUpdateMixin[T]):
     """
 
 
-class OneToManyFieldAPI(FieldBasicInterfaceAPI[T]):
+class OneToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     """
     One-to-many field over a src table, a dst table, and a one-to-many link table.
 
