@@ -1,11 +1,19 @@
-# src/LiuXin_alpha/metadata/containers/calibre_like_book_metadata/types.py
+
+"""
+Specilized types for typing metadata objects.
+"""
+
 from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from enum import StrEnum
 from os import PathLike
-from typing import Any, Protocol, runtime_checkable, TypeAlias
+from typing import Any, Protocol, runtime_checkable, TypeAlias, Union, Literal
+
+
+AgentTypes: TypeAlias = Union[Literal["human"], Literal["organization"]]
 
 # Common internal container pattern in your codebase:
 # OrderedDict keyed by "display value", valued by database id or None.
@@ -57,3 +65,60 @@ class CalibreMetadataLike(Protocol):
     cover: Any  # calibre cover field varies; keep loose.
 
     def get_identifiers(self) -> Mapping[str, str] | Mapping[str, IdentifierValues]: ...
+
+
+AgentID = int
+WorkID = int
+ExpressionID = int
+ManifestationID = int
+ItemID = int
+LanguageID = int
+
+
+class CreditSource(StrEnum):
+    USER_SET = "user_set"
+    IMPORTED = "imported"
+    DERIVED = "derived"
+    PARSED = "parsed"
+
+
+class WorkAgentRole(StrEnum):
+    AUTHOR = "author"
+    COMPOSER = "composer"
+    ARTIST = "artist"
+    DIRECTOR = "director"
+    CREATOR = "creator"
+    CONTRIBUTOR = "contributor"
+    SUBJECT = "subject"
+
+
+class ExpressionAgentRole(StrEnum):
+    TRANSLATOR = "translator"
+    ADAPTOR = "adaptor"
+    EDITOR = "editor"
+    COMMENTATOR = "commentator"
+    NARRATOR = "narrator"
+    PERFORMER = "performer"
+    ILLUSTRATOR = "illustrator"
+    CONTRIBUTOR = "contributor"
+
+
+class ManifestationAgentRole(StrEnum):
+    PUBLISHER = "publisher"
+    IMPRINTER = "imprinter"
+    PRINTER = "printer"
+    DISTRIBUTOR = "distributor"
+    MANUFACTURER = "manufacturer"
+    EDITORIAL_DIRECTOR = "editorial_director"
+    DESIGNER = "designer"
+
+
+class ItemAgentRole(StrEnum):
+    OWNER = "owner"
+    DONOR = "donor"
+    INSCRIBER = "inscriber"
+    ANNOTATOR = "annotator"
+    BINDER = "binder"
+    BOOKSELLER = "bookseller"
+    RESTORER = "restorer"
+    CUSTODIAN = "custodian"

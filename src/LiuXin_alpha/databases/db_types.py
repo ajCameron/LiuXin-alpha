@@ -57,6 +57,9 @@ DstTableID = MainTableID
 CoverID = MainTableID
 
 
+
+AgentID = int
+
 # e.g. for the "Tags" field - which is a ManyToManyField
 # - The "main" table for the field should be "titles"
 # - The "secondary" table for the field should be "tags"
