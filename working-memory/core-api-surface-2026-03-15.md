@@ -4,7 +4,7 @@ Date: 2026-03-15
 
 Built on top of:
 - main repo commit `d4ffd1a` (`Fix full-suite regressions and align fixture/contracts`)
-- green full-suite baseline from `/home/blackjane/LiuXin-alpha-wsl/working-memory/test-results/full-suite-2026-03-15-001736.json`
+- green full-suite baseline from `/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/test-results/full-suite-2026-03-15-001736.json`
 
 Implemented first explicit core API slice:
 

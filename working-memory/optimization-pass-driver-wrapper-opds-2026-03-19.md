@@ -9,9 +9,9 @@ Touched code:
 
 - [driver_wrapper.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/databases/database_driver_plugins/driver_wrapper.py)
 - [row.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/databases/row.py)
-- [read_model/api.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/interfaces/read_model/api.py)
-- [opds_readonly/app.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/interfaces/opds_readonly/app.py)
-- [web_calibre_readonly/app.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/interfaces/web_calibre_readonly/app.py)
+- [read_model/api.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/surfaces/read_model/api.py)
+- [opds_readonly/app.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/surfaces/opds_readonly/app.py)
+- [web_calibre_readonly/app.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/surfaces/web_calibre_readonly/app.py)
 - [benchmark_read_paths.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_read_paths.py)
 
 Validation:
@@ -76,12 +76,12 @@ It now prepares only what the requested scenario set actually uses.
 
 Reference nightly baseline:
 
-- [benchmark-baseline-nightly-2026-03-19.json](/home/blackjane/LiuXin-alpha-wsl/working-memory/test-results/benchmark-baseline-nightly-2026-03-19.json)
+- [benchmark-baseline-nightly-2026-03-19.json](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/test-results/benchmark-baseline-nightly-2026-03-19.json)
 
 Post-pass artifacts:
 
-- [benchmark-read-hotpaths-2026-03-19.json](/home/blackjane/LiuXin-alpha-wsl/working-memory/test-results/benchmark-read-hotpaths-2026-03-19.json)
-- [benchmark-opds-hotpaths-2026-03-19.json](/home/blackjane/LiuXin-alpha-wsl/working-memory/test-results/benchmark-opds-hotpaths-2026-03-19.json)
+- [benchmark-read-hotpaths-2026-03-19.json](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/test-results/benchmark-read-hotpaths-2026-03-19.json)
+- [benchmark-opds-hotpaths-2026-03-19.json](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/test-results/benchmark-opds-hotpaths-2026-03-19.json)
 
 Before vs after:
 

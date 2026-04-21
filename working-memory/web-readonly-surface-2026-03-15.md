@@ -1,15 +1,15 @@
-# Web Read-Only Interface
+# Web Read-Only Surface
 
 Date: 2026-03-15
 
 Scope:
-- Added a new top-level interface package: `src/LiuXin_alpha/interfaces/web_readonly`
-- Kept this slice in `interfaces`, interface tests, and working-memory only.
+- Added a new top-level surface package: `src/LiuXin_alpha/surfaces/web_readonly`
+- Kept this slice in surface tests and working-memory only during the initial landing pass.
 
 Implementation:
-- stdlib WSGI app in `interfaces/web_readonly/app.py`
-- entrypoint in `interfaces/web_readonly/__main__.py`
-- package export wired in `interfaces/__init__.py`
+- stdlib WSGI app in `surfaces/web_readonly/app.py`
+- entrypoint in `surfaces/web_readonly/__main__.py`
+- package export wired in `surfaces/__init__.py`
 - landing-page grouping now distinguishes:
   - `main`
   - `helper`
@@ -77,12 +77,12 @@ Display refinements:
     - simple linked list fallback
 
 Launch:
-- `PYTHONPATH=src python3 -m LiuXin_alpha.interfaces.web_readonly --database /path/to/library.sqlite`
+- `PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.web_readonly --database /path/to/library.sqlite`
 
 Validation:
-- `pytest -q tests/interfaces/test_web_readonly.py`
+- `pytest -q tests/surfaces/test_web_readonly.py`
   - `7 passed`
-- `pytest -q tests/interfaces/test_windowed_ui.py tests/interfaces/test_text_browser.py -k 'jobs_ or help_command'`
+- `pytest -q tests/surfaces/test_windowed_ui.py tests/surfaces/test_text_browser.py -k 'jobs_ or help_command'`
   - `10 passed`
 
 Notes:

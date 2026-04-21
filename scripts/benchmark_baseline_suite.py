@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from _benchmark_common import DEFAULT_RESULTS_DIR, environment_payload, print_report_summary, stderr_progress, utc_now_iso, write_json_report
-from benchmark_interface_paths import run_interface_path_benchmarks
+from benchmark_surface_paths import run_surface_path_benchmarks
 from benchmark_read_paths import run_read_path_benchmarks
 
 
@@ -48,7 +48,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     ]
     if str(args.profile) == "nightly":
         backend_targets.insert(1, "benchmark_db_medium")
-    interface_targets = (
+    surface_targets = (
         "metadata_rich_db_1",
         "stores_assets_db_1",
         "images_covers_db_1",
@@ -72,7 +72,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             )
         )
         sys.stderr.write("[benchmark] backend targets={}\n".format(",".join(backend_targets)))
-        sys.stderr.write("[benchmark] interface targets={}\n".format(",".join(interface_targets)))
+        sys.stderr.write("[benchmark] surface targets={}\n".format(",".join(surface_targets)))
         sys.stderr.flush()
 
     backend_reports = []
@@ -106,15 +106,15 @@ def main(argv: Optional[list[str]] = None) -> int:
         if not quiet:
             stderr_progress("finished backend target {}".format(name))
 
-    interface_reports = []
-    for index, name in enumerate(interface_targets, start=1):
+    surface_reports = []
+    for index, name in enumerate(surface_targets, start=1):
         progress = None
         if not quiet:
-            prefix = "interface {}/{} {}".format(index, len(interface_targets), name)
+            prefix = "surface {}/{} {}".format(index, len(surface_targets), name)
             progress = lambda message, prefix=prefix: stderr_progress("{} {}".format(prefix, message))
-            stderr_progress("starting interface target {}".format(name))
-        interface_reports.append(
-            run_interface_path_benchmarks(
+            stderr_progress("starting surface target {}".format(name))
+        surface_reports.append(
+            run_surface_path_benchmarks(
                 db_name=name,
                 database="",
                 cache_dir=str(args.cache_dir),
@@ -128,7 +128,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             )
         )
         if not quiet:
-            stderr_progress("finished interface target {}".format(name))
+            stderr_progress("finished surface target {}".format(name))
 
     payload = {
         "script": "benchmark_baseline_suite",
@@ -139,16 +139,16 @@ def main(argv: Optional[list[str]] = None) -> int:
             "iterations": max(1, int(args.iterations)),
             "warmups": max(0, int(args.warmups)),
             "backend_targets": list(backend_targets),
-            "interface_targets": list(interface_targets),
+            "surface_targets": list(surface_targets),
         },
         "backend_reports": backend_reports,
-        "interface_reports": interface_reports,
+        "surface_reports": surface_reports,
     }
     print_report_summary(
         {
             "script": payload["script"],
             "database": {"source": "baseline-suite"},
-            "results": [*backend_reports, *interface_reports],
+            "results": [*backend_reports, *surface_reports],
         }
     )
     write_json_report(payload, output_path)

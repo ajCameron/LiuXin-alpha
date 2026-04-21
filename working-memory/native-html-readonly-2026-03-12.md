@@ -64,7 +64,7 @@ The native path reuses the current generic spider controls already exposed in te
 Passed:
 
 - `pytest -q tests/storage/store_backend_plugins/native_html_readonly/test_native_html_readonly_storage_backend.py tests/storage/reconcile/test_native_html_store_db_sync.py tests/library/test_native_html_ingest_library.py tests/storage/api/test_storage_manager_database_wiring.py -k 'native_html'`
-- `pytest -q tests/interfaces/test_text_browser.py -k 'native_html'`
+- `pytest -q tests/surfaces/test_text_browser.py -k 'native_html'`
 
 ## Next Step
 

@@ -53,4 +53,4 @@ Going above that is probably the wrong lever unless the crawl scope gets narrowe
 Passed:
 
 - `pytest -q tests/storage/store_backend_plugins/wget_html_readonly/test_wget_html_readonly_storage_backend.py tests/storage/reconcile/test_wget_html_store_db_sync.py -k 'observed_url_decisions or tracks_crawler_observation_counts or crawl_filters_scope_and_non_file_urls or incremental_writes_during_crawl or non_incremental_defers_writes'`
-- `pytest -q tests/interfaces/test_text_browser.py -k 'wget_surfaces_crawler_observation_summary or sync_store_wget_uses_rate_limit_option or sync_store_wget_kind_takes_precedence_over_https_protocol or sync_store_wget_listing_flags_are_forwarded or sync_store_wget_no_verbose_flag_is_forwarded or sync_store_wget_timeout_option_is_forwarded'`
+- `pytest -q tests/surfaces/test_text_browser.py -k 'wget_surfaces_crawler_observation_summary or sync_store_wget_uses_rate_limit_option or sync_store_wget_kind_takes_precedence_over_https_protocol or sync_store_wget_listing_flags_are_forwarded or sync_store_wget_no_verbose_flag_is_forwarded or sync_store_wget_timeout_option_is_forwarded'`

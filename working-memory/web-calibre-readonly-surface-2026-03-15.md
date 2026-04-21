@@ -1,10 +1,10 @@
-# Web Calibre-Style Read-Only Interface
+# Web Calibre-Style Read-Only Surface
 
 Date: 2026-03-15
 
 Scope:
-- Added a second top-level web interface package: `src/LiuXin_alpha/interfaces/web_calibre_readonly`
-- Kept this slice in `interfaces`, interface tests, and working-memory only.
+- Added a second top-level web surface package: `src/LiuXin_alpha/surfaces/web_calibre_readonly`
+- Kept this slice in surface tests and working-memory only during the initial landing pass.
 - Reused the existing `web_readonly` backend/query/download surface instead of forking it.
 
 Reference:
@@ -12,9 +12,9 @@ Reference:
 - Used the content-server mobile/reset resources and route structure there as the visual/IA reference, not as a runtime dependency.
 
 Implementation:
-- app: `interfaces/web_calibre_readonly/app.py`
-- entrypoint: `interfaces/web_calibre_readonly/__main__.py`
-- package export wired in `interfaces/__init__.py`
+- app: `surfaces/web_calibre_readonly/app.py`
+- entrypoint: `surfaces/web_calibre_readonly/__main__.py`
+- package export wired in `surfaces/__init__.py`
 - launchers:
   - `scripts/run_web_calibre_readonly.sh`
   - `scripts/run_web_calibre_readonly.py`
@@ -199,16 +199,16 @@ Display:
   - contributor credits and remaining linked entities below
 
 Launch:
-- `PYTHONPATH=src python3 -m LiuXin_alpha.interfaces.web_calibre_readonly --database /path/to/library.sqlite`
+- `PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.web_calibre_readonly --database /path/to/library.sqlite`
 - `./scripts/run_web_calibre_readonly.sh --database /path/to/library.sqlite --port 8081`
 - `python3 scripts/run_web_calibre_readonly.py --database /path/to/library.sqlite --port 8081`
 
 Validation:
-- `pytest -q tests/interfaces/test_web_calibre_readonly.py`
+- `pytest -q tests/surfaces/test_web_calibre_readonly.py`
   - `10 passed`
-- `pytest -q tests/interfaces/test_web_readonly.py tests/interfaces/test_web_calibre_readonly.py`
+- `pytest -q tests/surfaces/test_web_readonly.py tests/surfaces/test_web_calibre_readonly.py`
   - `21 passed`
-- `python -m LiuXin_alpha.interfaces.web_calibre_readonly --help`
+- `python -m LiuXin_alpha.surfaces.web_calibre_readonly --help`
   - passed
 - `./scripts/run_web_calibre_readonly.sh --help`
   - passed

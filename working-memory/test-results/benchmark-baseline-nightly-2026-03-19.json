@@ -1262,7 +1262,7 @@
           "warmups": 1
         }
       ],
-      "script": "benchmark_interface_paths"
+      "script": "benchmark_surface_paths"
     },
     {
       "created_utc": "2026-03-20T02:51:40+00:00",
@@ -1524,7 +1524,7 @@
           "warmups": 1
         }
       ],
-      "script": "benchmark_interface_paths"
+      "script": "benchmark_surface_paths"
     },
     {
       "created_utc": "2026-03-20T02:52:57+00:00",
@@ -1765,7 +1765,7 @@
           "warmups": 1
         }
       ],
-      "script": "benchmark_interface_paths"
+      "script": "benchmark_surface_paths"
     },
     {
       "created_utc": "2026-03-20T02:54:00+00:00",
@@ -2027,7 +2027,7 @@
           "warmups": 1
         }
       ],
-      "script": "benchmark_interface_paths"
+      "script": "benchmark_surface_paths"
     }
   ],
   "script": "benchmark_baseline_suite"

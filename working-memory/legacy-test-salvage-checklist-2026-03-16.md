@@ -4,7 +4,7 @@ Date: 2026-03-16
 
 ## Scope
 
-- This checklist covers the `salvage_existing` bucket from [legacy-test-migration-manifest-2026-03-16.csv](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-migration-manifest-2026-03-16.csv).
+- This checklist covers the `salvage_existing` bucket from [legacy-test-migration-manifest-2026-03-16.csv](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/legacy-test-migration-manifest-2026-03-16.csv).
 - Current scope is narrow and concrete:
   - `16` remaining legacy DB property files
   - original source: `src/LiuXin_tests/test_databases/test_db_properties`
@@ -75,7 +75,7 @@ Review outcome:
   - `test_db_properties/test_db_11_properties.py`
   - `test_db_properties/test_db_12_properties.py`
 - detailed review note:
-  - [legacy-test-divergent-files-review-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-divergent-files-review-2026-03-16.md)
+  - [legacy-test-divergent-files-review-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/legacy-test-divergent-files-review-2026-03-16.md)
 
 ## Normalization Sequence
 
@@ -123,10 +123,10 @@ Progress:
   - deeper builder imports still depend on missing/renamed project surfaces, with `LiuXin_alpha.folder_stores` currently the first visible one
   - this is now treated as a hard rewrite boundary, not a shim candidate
 - detailed current state:
-  - [legacy-test-salvage-import-map-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-salvage-import-map-2026-03-16.md)
-  - [liuxin-clint-shim-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/liuxin-clint-shim-2026-03-16.md)
-  - [liuxin-tqdm-shim-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/liuxin-tqdm-shim-2026-03-16.md)
-  - [folder-stores-rewrite-boundary-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/folder-stores-rewrite-boundary-2026-03-16.md)
+  - [legacy-test-salvage-import-map-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/legacy-test-salvage-import-map-2026-03-16.md)
+  - [liuxin-clint-shim-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/liuxin-clint-shim-2026-03-16.md)
+  - [liuxin-tqdm-shim-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/liuxin-tqdm-shim-2026-03-16.md)
+  - [folder-stores-rewrite-boundary-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/folder-stores-rewrite-boundary-2026-03-16.md)
 
 ## Do Not Do First
 
@@ -144,20 +144,20 @@ Next work is split cleanly into:
 - separate storage rewrite planning for the legacy store-backed builders that cross into `folder_stores`
 
 Reference:
-- [folder-stores-rewrite-plan-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/folder-stores-rewrite-plan-2026-03-16.md)
+- [folder-stores-rewrite-plan-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/folder-stores-rewrite-plan-2026-03-16.md)
 
 
 ## Promotion Progress
 
 The first collected promotion slice is now in place:
-- [db-property-support-registry-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-support-registry-2026-03-16.md)
+- [db-property-support-registry-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-support-registry-2026-03-16.md)
 - the support corpus is no longer inert
 - but the old per-DB table/value declarations are still stale relative to the current alpha schema
 
 So the next work here is not “import the files”; it is selective normalization of still-meaningful expectations.
 
 First live slice of that normalization is now in place:
-- [db-property-alpha-subset-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-alpha-subset-2026-03-16.md)
+- [db-property-alpha-subset-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-alpha-subset-2026-03-16.md)
 - shared alpha-schema subset declared in [common_db_properties.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/common_db_properties.py)
 - per-DB alpha row counts are now declared for all `26` support classes
 - collected validation lives in [test_property_alpha_schema_subset.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_alpha_schema_subset.py)
@@ -167,19 +167,19 @@ That work is deliberately additive:
 - it pins a narrow alpha-native contract next to them
 
 The next honest split has now happened too:
-- [db-property-salvage-split-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-salvage-split-2026-03-16.md)
+- [db-property-salvage-split-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-salvage-split-2026-03-16.md)
 - `10` minimal rows are now `covered`
 - `16` larger semantic rows remain here in `salvage_existing`
 
 And the next seam review is now recorded in:
-- [db-property-simple-seam-review-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-simple-seam-review-2026-03-16.md)
+- [db-property-simple-seam-review-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-simple-seam-review-2026-03-16.md)
 - only `test_db_13_properties.py` moved in that pass
 
 The next live replacement seam has also landed:
-- [db-property-blank-optional-metadata-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-blank-optional-metadata-2026-03-16.md)
+- [db-property-blank-optional-metadata-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-blank-optional-metadata-2026-03-16.md)
 - it pins the current blank optional-metadata profile for `13` of the remaining DBs
 - but it does not justify additional `covered` moves, because the legacy rows still carry stale semantic maps beyond that profile
 
 The remaining backlog is now split by actual semantics:
-- [db-property-remaining-clusters-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-remaining-clusters-2026-03-16.md)
+- [db-property-remaining-clusters-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-remaining-clusters-2026-03-16.md)
 - that replaces the old flat `16`-row salvage bucket with five explicit clusters

@@ -5,7 +5,7 @@ Date: 2026-03-16
 ## Scope
 
 - This note splits the legacy `folder_stores` work out of the DB-property salvage stream.
-- It covers the original tests classified as `rewrite` in [legacy-test-migration-manifest-2026-03-16.csv](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-migration-manifest-2026-03-16.csv).
+- It covers the original tests classified as `rewrite` in [legacy-test-migration-manifest-2026-03-16.csv](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/legacy-test-migration-manifest-2026-03-16.csv).
 
 ## Why This Is Separate
 
@@ -86,4 +86,4 @@ Rewrite seam:
 ## Concrete Checklist
 
 - Detailed replacement mapping now lives in:
-  - [folder-stores-rewrite-checklist-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/folder-stores-rewrite-checklist-2026-03-16.md)
+  - [folder-stores-rewrite-checklist-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/folder-stores-rewrite-checklist-2026-03-16.md)

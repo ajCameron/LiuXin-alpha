@@ -94,5 +94,5 @@
       "warmups": 2
     }
   ],
-  "script": "benchmark_interface_paths"
+  "script": "benchmark_surface_paths"
 }

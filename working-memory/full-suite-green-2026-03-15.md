@@ -3,7 +3,7 @@
 Date: 2026-03-15
 
 Latest passing full-suite report:
-- `/home/blackjane/LiuXin-alpha-wsl/working-memory/test-results/full-suite-2026-03-15-001736.json`
+- `/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/test-results/full-suite-2026-03-15-001736.json`
 
 Main repo checkpoint:
 - commit `d4ffd1a` (`Fix full-suite regressions and align fixture/contracts`)

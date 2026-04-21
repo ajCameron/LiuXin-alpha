@@ -64,12 +64,12 @@ That was fixed by moving telemetry object creation to the top of `Database.__ini
 
 Passed:
 
-- `pytest -q tests/interfaces/test_windowed_ui.py tests/interfaces/test_text_browser.py -k 'telemetry or windowed_ui or parser_accepts_windowed_mode_options or main_windowed_mode_dispatches'`
+- `pytest -q tests/surfaces/test_windowed_ui.py tests/surfaces/test_text_browser.py -k 'telemetry or windowed_ui or parser_accepts_windowed_mode_options or main_windowed_mode_dispatches'`
 - `pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py -k 'telemetry or dirty_records_queue or dirty_record_sql_function_is_registered_and_enqueues or close_breaks_cycles_including_dirty_records_queue'`
-- `python3 -m py_compile src/LiuXin_alpha/databases/database/__init__.py src/LiuXin_alpha/databases/database/dirtied_mixin.py src/LiuXin_alpha/interfaces/terminal/text_browser.py src/LiuXin_alpha/interfaces/terminal/windowed_ui.py src/LiuXin_alpha/interfaces/terminal/commands/telemetry.py`
+- `python3 -m py_compile src/LiuXin_alpha/databases/database/__init__.py src/LiuXin_alpha/databases/database/dirtied_mixin.py src/LiuXin_alpha/surfaces/terminal/text_browser.py src/LiuXin_alpha/surfaces/terminal/windowed_ui.py src/LiuXin_alpha/surfaces/terminal/commands/telemetry.py`
 
 ## Next Read Points
 
 - `src/LiuXin_alpha/databases/database/dirtied_mixin.py`
-- `src/LiuXin_alpha/interfaces/terminal/windowed_ui.py`
-- `src/LiuXin_alpha/interfaces/terminal/commands/telemetry.py`
+- `src/LiuXin_alpha/surfaces/terminal/windowed_ui.py`
+- `src/LiuXin_alpha/surfaces/terminal/commands/telemetry.py`

@@ -74,14 +74,14 @@ Storage should not own higher-level library semantics such as:
 
 ### Library
 
-The library layer is the high-level orchestration layer. It brings together database, storage, metadata, cache, and interface concerns into meaningful workflows.
+The library layer is the high-level orchestration layer. It brings together database, storage, metadata, cache, and surface concerns into meaningful workflows.
 
 Library is responsible for operations such as:
 
 - ingesting a new file and creating the right records
 - reconciling an import against existing library entities
 - coordinating metadata and storage updates together
-- exposing higher-level workflows to interfaces and automation
+- exposing higher-level workflows to surfaces and automation
 - deciding when a cross-cutting operation spans multiple subsystems
 
 A useful rule of thumb is:

@@ -4,11 +4,11 @@ Date: 2026-03-16
 
 ## Summary
 
-Extracted the neutral cover/image path into `interfaces/images`.
+Extracted the neutral cover/image path into `surfaces/images`.
 
 ## What Changed
 
-- Added `interfaces/images`:
+- Added `surfaces/images`:
   - `ImageBackend`
   - `ImageHostApi`
 - `ReadOnlyWebApplication` now owns `self.images`.
@@ -37,9 +37,9 @@ It gives later hosts a direct shared backend for cover and image behavior withou
 
 ## Validation
 
-- `PYTHONPATH=src .venv/bin/python -m py_compile src/LiuXin_alpha/interfaces/images/api.py src/LiuXin_alpha/interfaces/read_model/api.py src/LiuXin_alpha/interfaces/catalog/api.py src/LiuXin_alpha/interfaces/web_readonly/app.py src/LiuXin_alpha/interfaces/web_calibre_readonly/app.py src/LiuXin_alpha/interfaces/opds_readonly/app.py tests/interfaces/test_images_api.py`
+- `PYTHONPATH=src .venv/bin/python -m py_compile src/LiuXin_alpha/surfaces/images/api.py src/LiuXin_alpha/surfaces/read_model/api.py src/LiuXin_alpha/surfaces/catalog/api.py src/LiuXin_alpha/surfaces/web_readonly/app.py src/LiuXin_alpha/surfaces/web_calibre_readonly/app.py src/LiuXin_alpha/surfaces/opds_readonly/app.py tests/surfaces/test_images_api.py`
   - passed
-- `PYTHONPATH=src .venv/bin/python -m pytest -q tests/interfaces/test_images_api.py tests/interfaces/test_read_model_api.py tests/interfaces/test_catalog_api.py tests/interfaces/test_acquisition_api.py tests/interfaces/test_api_readonly.py tests/interfaces/test_opds_api.py tests/interfaces/test_opds_readonly.py tests/interfaces/test_web_calibre_readonly.py tests/interfaces/test_web_readonly.py`
+- `PYTHONPATH=src .venv/bin/python -m pytest -q tests/surfaces/test_images_api.py tests/surfaces/test_read_model_api.py tests/surfaces/test_catalog_api.py tests/surfaces/test_acquisition_api.py tests/surfaces/test_api_readonly.py tests/surfaces/test_opds_api.py tests/surfaces/test_opds_readonly.py tests/surfaces/test_web_calibre_readonly.py tests/surfaces/test_web_readonly.py`
   - `39 passed`
 
 ## Next Step

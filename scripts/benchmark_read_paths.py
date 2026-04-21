@@ -28,8 +28,8 @@ for candidate in (str(REPO_ROOT), str(SRC_ROOT)):
     if candidate not in sys.path:
         sys.path.insert(0, candidate)
 
-from LiuXin_alpha.interfaces.web_readonly.app import ReadOnlyWebApplication, _open_database  # noqa: E402
-from LiuXin_alpha.interfaces.web_readonly.app import _row_value  # noqa: E402
+from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication, _open_database  # noqa: E402
+from LiuXin_alpha.surfaces.web_readonly.app import _row_value  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

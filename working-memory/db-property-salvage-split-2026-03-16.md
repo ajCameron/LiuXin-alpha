@@ -72,8 +72,8 @@ Rewrite rows stay rewrite because their old specialized builder semantics are go
 
 ## References
 
-- [db-property-secondary-uuid-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-secondary-uuid-cluster-2026-03-16.md)
-- [db-property-identifier-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-identifier-cluster-2026-03-16.md)
-- [db-property-compatibility-projection-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-compatibility-projection-cluster-2026-03-16.md)
-- [db-property-rich-content-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-rich-content-cluster-2026-03-16.md)
-- [db-property-custom-column-profile-cluster-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/db-property-custom-column-profile-cluster-2026-03-16.md)
+- [db-property-secondary-uuid-cluster-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-secondary-uuid-cluster-2026-03-16.md)
+- [db-property-identifier-cluster-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-identifier-cluster-2026-03-16.md)
+- [db-property-compatibility-projection-cluster-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-compatibility-projection-cluster-2026-03-16.md)
+- [db-property-rich-content-cluster-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-rich-content-cluster-2026-03-16.md)
+- [db-property-custom-column-profile-cluster-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/db-property-custom-column-profile-cluster-2026-03-16.md)

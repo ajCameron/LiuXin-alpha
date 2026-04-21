@@ -4,7 +4,7 @@ Date: 2026-03-16
 
 ## Outputs
 
-- detailed CSV: [legacy-test-salvage-import-rewrite-map-2026-03-16.csv](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-salvage-import-rewrite-map-2026-03-16.csv)
+- detailed CSV: [legacy-test-salvage-import-rewrite-map-2026-03-16.csv](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/legacy-test-salvage-import-rewrite-map-2026-03-16.csv)
 
 ## Scope
 
