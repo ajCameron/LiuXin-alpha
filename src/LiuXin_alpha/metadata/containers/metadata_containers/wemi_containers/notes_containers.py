@@ -176,6 +176,11 @@ class WorkNote(NoteBase):
 
     @property
     def target_kind(self) -> Literal["work"]:
+        """
+        The kind of object this note is attatched to.
+
+        :return:
+        """
         return "work"
 
     def as_write_payload(self) -> dict[str, object]:

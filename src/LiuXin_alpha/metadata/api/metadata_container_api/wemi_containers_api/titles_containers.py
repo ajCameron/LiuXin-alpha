@@ -3,6 +3,8 @@ Containers for titles attached to W/E/M/I entities.
 
 These are metadata value objects and editing containers.
 They are not row or database proxies.
+
+
 """
 
 from __future__ import annotations
@@ -27,7 +29,9 @@ KindContainerT = TypeVar("KindContainerT", bound="KindTitlesContainer")
 
 
 class TitleKind(StrEnum):
-    """Controlled kinds for titles and title-like labels."""
+    """
+    Controlled kinds for titles and title-like labels.
+    """
 
     MAIN = "main"
     SUBTITLE = "subtitle"
