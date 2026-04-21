@@ -1,8 +1,15 @@
 """
 Containers for notes attached to W/E/M/I entities.
 
-These are metadata value objects and editing containers.
-They are not row or database proxies.
+The classes in this module are editable metadata value objects. They are intended
+for read / modify / write workflows around metadata hydration, not as live row or
+database proxies.
+
+The broad shape is:
+- ``NoteBase`` and its W/E/M/I specialisations for individual note records.
+- ``KindNotesContainer`` for an ordered list of notes of a single kind.
+- ``BaseTargetNotesContainer`` and its W/E/M/I specialisations for all note
+  data linked to one target entity.
 """
 
 from __future__ import annotations
@@ -27,7 +34,12 @@ KindContainerT = TypeVar("KindContainerT", bound="KindNotesContainer")
 
 
 class NoteKind(StrEnum):
-    """Controlled kinds for long-form notes."""
+    """
+    Controlled kinds for long-form notes.
+
+    The aim here is to capture the broad purpose of the note so callers can
+    group, render, and filter note content without parsing free text.
+    """
 
     DESCRIPTION = "description"
     REVIEW = "review"
@@ -43,7 +55,9 @@ class NoteKind(StrEnum):
 
 
 class NoteFormat(StrEnum):
-    """Storage/rendering format for a note body."""
+    """
+    Storage or rendering format for the note body text.
+    """
 
     PLAIN_TEXT = "plain_text"
     MARKDOWN = "markdown"
@@ -51,7 +65,13 @@ class NoteFormat(StrEnum):
 
 
 class NoteVisibility(StrEnum):
-    """Audience / exposure level for notes."""
+    """
+    Audience or exposure level for notes.
+
+    This is deliberately lightweight. It gives downstream code enough signal to
+    hide internal notes or prefer public-facing ones without turning the note
+    container into a permissions system.
+    """
 
     PRIVATE = "private"
     STAFF = "staff"
@@ -61,9 +81,12 @@ class NoteVisibility(StrEnum):
 @dataclass(slots=True, kw_only=True)
 class NoteBase(abc.ABC):
     """
-    Shared relation data for a note attached to a bibliographic entity.
+    Shared relation data for one note attached to a bibliographic entity.
 
-    This models the note-link, not a database row proxy.
+    A ``NoteBase`` instance is the editable value object for a single note plus
+    the metadata needed to interpret it: kind, body format, ordering,
+    visibility, provenance, and target attachment. It models the note-link, not
+    a database row proxy.
     """
 
     note_kind: NoteKind
@@ -154,6 +177,13 @@ class NoteBase(abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkNote(NoteBase):
+    """
+    Note attached directly to a work.
+
+    Work notes are appropriate for conceptual or work-wide commentary that does
+    not belong to a specific expression, manifestation, or individual item.
+    """
+
     work_id: WorkID
     canonical_for_work: bool = False
 
@@ -178,6 +208,14 @@ class WorkNote(NoteBase):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionNote(NoteBase):
+    """
+    Note attached directly to an expression.
+
+    Expression notes are useful for language-specific or realisation-specific
+    commentary such as translation notes, abridgement notes, or performance
+    notes.
+    """
+
     expression_id: ExpressionID
     applies_to_language_id: LanguageID | None = None
 
@@ -202,6 +240,14 @@ class ExpressionNote(NoteBase):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationNote(NoteBase):
+    """
+    Note attached directly to a manifestation.
+
+    Manifestation notes capture edition-, issue-, or publication-specific
+    commentary such as jacket text, print-run notes, or edition-specific
+    descriptions.
+    """
+
     manifestation_id: ManifestationID
     edition_specific: bool = True
 
@@ -226,6 +272,13 @@ class ManifestationNote(NoteBase):
 
 @dataclass(slots=True, kw_only=True)
 class ItemNote(NoteBase):
+    """
+    Note attached directly to an individual item / copy.
+
+    Item notes are the natural place for copy-specific observations such as
+    condition, provenance, physical annotations, or local handling notes.
+    """
+
     item_id: ItemID
     copy_specific: bool = True
     physical_observation: bool = False
@@ -254,6 +307,14 @@ class ItemNote(NoteBase):
 class KindNotesContainer(Generic[NoteT], abc.ABC):
     """
     Ordered editable container for all notes of one kind on one target entity.
+
+    Example uses include:
+    - all description notes for a work
+    - all provenance notes for an item
+    - all transcription notes for a manifestation
+
+    The container owns ordering, primary-note selection, and shape validation
+    for its children.
     """
 
     note_kind: NoteKind
@@ -404,7 +465,10 @@ class ItemKindNotesContainer(KindNotesContainer[ItemNote]):
 class BaseTargetNotesContainer(Generic[NoteT, KindContainerT], abc.ABC):
     """
     Top-level editable note container for one target entity.
-    Holds one KindNotesContainer per note kind.
+
+    This is the main write-side surface for note metadata on a work,
+    expression, manifestation, or item. It groups notes by ``NoteKind`` while
+    still allowing callers to iterate over every attached note record.
     """
 
     _by_kind: dict[NoteKind, KindContainerT] = field(default_factory=dict)

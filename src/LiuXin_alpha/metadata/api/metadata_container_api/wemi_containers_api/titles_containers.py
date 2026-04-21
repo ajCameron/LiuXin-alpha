@@ -1,10 +1,17 @@
 """
 Containers for titles attached to W/E/M/I entities.
 
-These are metadata value objects and editing containers.
-They are not row or database proxies.
+The classes in this module are editable metadata value objects. They are intended
+for read / modify / write workflows around metadata hydration, not as live row or
+database proxies.
 
-
+The broad shape is:
+- ``TitleBase`` and its W/E/M/I specialisations for individual title records.
+- ``KindTitlesContainer`` for an ordered list of titles of a single kind.
+- ``BaseTargetTitlesContainer`` and its W/E/M/I specialisations for all title
+  data linked to one target entity.
+- ``ItemWemiTitleSlice`` as a read-side helper that can compose a display title
+  for an item from the work, expression, manifestation, and item title layers.
 """
 
 from __future__ import annotations
@@ -30,7 +37,11 @@ KindContainerT = TypeVar("KindContainerT", bound="KindTitlesContainer")
 
 class TitleKind(StrEnum):
     """
-    Controlled kinds for titles and title-like labels.
+    Controlled kinds for title strings.
+
+    The list is intentionally small and practical. It aims to cover the common
+    bibliographic cases needed for display, sorting, cataloguing, and import,
+    without pretending to model every possible title nuance from day one.
     """
 
     MAIN = "main"
@@ -50,9 +61,12 @@ class TitleKind(StrEnum):
 @dataclass(slots=True, kw_only=True)
 class TitleBase(abc.ABC):
     """
-    Shared relation data for a title attached to a bibliographic entity.
+    Shared relation data for one title record attached to a bibliographic entity.
 
-    This models the title-link, not a database row proxy.
+    A ``TitleBase`` instance is the editable value object for a single title
+    string plus the metadata needed to interpret it: kind, language, script,
+    ordering, provenance, and target attachment. It models the title-link, not
+    a database row proxy.
     """
 
     title_kind: TitleKind
@@ -93,7 +107,7 @@ class TitleBase(abc.ABC):
 
     def validate(self) -> None:
         """
-        Validate that the container is internally consistent.
+        Validate that the title is internally consistent.
 
         :return:
         """
@@ -129,6 +143,14 @@ class TitleBase(abc.ABC):
 
 @dataclass(slots=True, kw_only=True)
 class WorkTitle(TitleBase):
+    """
+    Title record attached directly to a work.
+
+    Work titles are the most abstract title layer. They are useful for the
+    canonical or conceptual title of a work, regardless of language-specific
+    expression or edition-specific manifestation wording.
+    """
+
     work_id: WorkID
     canonical_for_work: bool = False
 
@@ -153,6 +175,13 @@ class WorkTitle(TitleBase):
 
 @dataclass(slots=True, kw_only=True)
 class ExpressionTitle(TitleBase):
+    """
+    Title record attached directly to an expression.
+
+    Expression titles are the natural place for language-specific or
+    transliterated variants that belong to a particular realisation of a work.
+    """
+
     expression_id: ExpressionID
     applies_to_language_id: LanguageID | None = None
     transliterated_from_language_id: LanguageID | None = None
@@ -179,6 +208,13 @@ class ExpressionTitle(TitleBase):
 
 @dataclass(slots=True, kw_only=True)
 class ManifestationTitle(TitleBase):
+    """
+    Title record attached directly to a manifestation.
+
+    Manifestation titles capture edition- or publication-specific wording such
+    as a title-page transcription, jacket title, or other issue-level variant.
+    """
+
     manifestation_id: ManifestationID
     edition_specific: bool = True
     transcribed_from_title_page: bool = False
@@ -205,6 +241,13 @@ class ManifestationTitle(TitleBase):
 
 @dataclass(slots=True, kw_only=True)
 class ItemTitle(TitleBase):
+    """
+    Title record attached directly to an individual item / copy.
+
+    Item titles are for copy-specific supplied or observed titles, such as a
+    binder-supplied caption or a local title written on a container.
+    """
+
     item_id: ItemID
     copy_specific: bool = True
     supplied_by_cataloguer: bool = False
@@ -233,6 +276,14 @@ class ItemTitle(TitleBase):
 class KindTitlesContainer(Generic[TitleT], abc.ABC):
     """
     Ordered editable container for all titles of one kind on one target entity.
+
+    Example uses include:
+    - all main titles for a work
+    - all translated titles for an expression
+    - all spine titles for a manifestation
+
+    The container owns ordering, primary-title selection, and shape validation
+    for its children.
     """
 
     title_kind: TitleKind
@@ -383,7 +434,10 @@ class ItemKindTitlesContainer(KindTitlesContainer[ItemTitle]):
 class BaseTargetTitlesContainer(Generic[TitleT, KindContainerT], abc.ABC):
     """
     Top-level editable title container for one target entity.
-    Holds one KindTitlesContainer per title kind.
+
+    This is the main write-side surface for title metadata on a work,
+    expression, manifestation, or item. It groups titles by ``TitleKind`` while
+    still allowing callers to iterate over every attached title record.
     """
 
     _by_kind: dict[TitleKind, KindContainerT] = field(default_factory=dict)
@@ -508,6 +562,10 @@ class WorkTitlesContainer(
         WorkKindTitlesContainer,
     ]
 ):
+    """
+    Title container for a single work.
+    """
+
     work_id: WorkID
 
     @property
@@ -529,6 +587,10 @@ class ExpressionTitlesContainer(
         ExpressionKindTitlesContainer,
     ]
 ):
+    """
+    Title container for a single expression.
+    """
+
     expression_id: ExpressionID
 
     @property
@@ -556,6 +618,10 @@ class ManifestationTitlesContainer(
         ManifestationKindTitlesContainer,
     ]
 ):
+    """
+    Title container for a single manifestation.
+    """
+
     manifestation_id: ManifestationID
 
     @property
@@ -583,6 +649,10 @@ class ItemTitlesContainer(
         ItemKindTitlesContainer,
     ]
 ):
+    """
+    Title container for a single item / copy.
+    """
+
     item_id: ItemID
 
     @property
@@ -595,6 +665,74 @@ class ItemTitlesContainer(
 
     def _make_kind_container(self, title_kind: TitleKind) -> ItemKindTitlesContainer:
         return ItemKindTitlesContainer(title_kind=title_kind, target_id=self.item_id)
+
+
+@dataclass(slots=True, kw_only=True)
+class ItemWemiTitleSlice:
+    """
+    Read-side title slice for a single item across the whole W/E/M/I chain.
+
+    This is intentionally a query-result helper rather than an editable metadata
+    container. It gives callers a compact way to keep the work-, expression-,
+    manifestation-, and item-level title containers together and to derive a
+    composite display title for the item.
+
+    The composition logic is deliberately simple:
+    - ask each layer for its ``display_title``
+    - drop empty values
+    - optionally de-duplicate repeated strings while preserving order
+    - join the remaining parts with a caller-supplied separator
+    """
+
+    work_titles: WorkTitlesContainer | None = None
+    expression_titles: ExpressionTitlesContainer | None = None
+    manifestation_titles: ManifestationTitlesContainer | None = None
+    item_titles: ItemTitlesContainer | None = None
+
+    def title_parts(self, *, dedupe: bool = True) -> tuple[str, ...]:
+        """
+        Return the best display-title contribution from each populated W/E/M/I layer.
+
+        :param dedupe: If true, repeated text is collapsed while preserving order.
+        :return: Tuple of non-empty title strings in W/E/M/I order.
+        """
+        raw_parts = [
+            self.work_titles.display_title if self.work_titles is not None else None,
+            self.expression_titles.display_title if self.expression_titles is not None else None,
+            self.manifestation_titles.display_title if self.manifestation_titles is not None else None,
+            self.item_titles.display_title if self.item_titles is not None else None,
+        ]
+
+        parts: list[str] = []
+        seen: set[str] = set()
+        for part in raw_parts:
+            if not part:
+                continue
+            if dedupe and part in seen:
+                continue
+            parts.append(part)
+            seen.add(part)
+        return tuple(parts)
+
+    def full_title(self, sep: str = " — ", *, dedupe: bool = True) -> str:
+        """
+        Render a composite item title from the W/E/M/I layers.
+
+        A typical result might look like::
+
+            Work Title — Translated Expression Title — Edition Title — Copy Title
+
+        :param sep: Separator inserted between the title parts.
+        :param dedupe: If true, repeated text is collapsed while preserving order.
+        :return: Composite title string. Empty string if no layer contributes a title.
+        """
+        return sep.join(self.title_parts(dedupe=dedupe))
+
+    def __str__(self) -> str:
+        """
+        Return the default composite item title.
+        """
+        return self.full_title()
 
 
 # ---------------------------------------------------------------------------
