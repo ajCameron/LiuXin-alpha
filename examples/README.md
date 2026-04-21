@@ -2,6 +2,12 @@
 
 All examples assume you run from repository root and have dependencies installed.
 
+Bootstrap the repo-local virtual environment with:
+
+```bash
+bash scripts/create_venv.sh
+```
+
 General pattern:
 
 ```bash

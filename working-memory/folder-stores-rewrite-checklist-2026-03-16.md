@@ -4,7 +4,7 @@ Date: 2026-03-16
 
 ## Purpose
 
-- Turn the high-level [folder-stores-rewrite-plan-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/folder-stores-rewrite-plan-2026-03-16.md) into a concrete replacement checklist.
+- Turn the high-level [folder-stores-rewrite-plan-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/folder-stores-rewrite-plan-2026-03-16.md) into a concrete replacement checklist.
 - Each legacy input is mapped to one of:
   - already covered in alpha
   - needs targeted replacement tests
@@ -157,8 +157,8 @@ Legacy behaviors:
 - raising on missing cache entries
 
 Current alpha seams:
-- [test_images_api.py](/home/blackjane/LiuXin-alpha-wsl/tests/interfaces/test_images_api.py)
-- [test_web_calibre_readonly.py](/home/blackjane/LiuXin-alpha-wsl/tests/interfaces/test_web_calibre_readonly.py)
+- [test_images_api.py](/home/blackjane/LiuXin-alpha-wsl/tests/surfaces/test_images_api.py)
+- [test_web_calibre_readonly.py](/home/blackjane/LiuXin-alpha-wsl/tests/surfaces/test_web_calibre_readonly.py)
 - [test_metadata_files_and_covers.py](/home/blackjane/LiuXin-alpha-wsl/tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py)
 - legacy runtime still references cover-cache machinery in:
   - [backend.py](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/databases/backend.py)
@@ -173,7 +173,7 @@ Reason:
 - if current cover-cache naming/path semantics are not a public contract anymore, retire the old test shape
 
 Recommended next decision:
-- [cover-cache-triage-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/cover-cache-triage-2026-03-16.md)
+- [cover-cache-triage-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/cover-cache-triage-2026-03-16.md)
 - only add focused tests if a real current implementation or replacement seam exists
 
 ## Priority Order

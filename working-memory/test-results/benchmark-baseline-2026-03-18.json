@@ -958,7 +958,7 @@
           "warmups": 0
         }
       ],
-      "script": "benchmark_interface_paths"
+      "script": "benchmark_surface_paths"
     },
     {
       "created_utc": "2026-03-19T16:56:25+00:00",
@@ -1176,7 +1176,7 @@
           "warmups": 0
         }
       ],
-      "script": "benchmark_interface_paths"
+      "script": "benchmark_surface_paths"
     },
     {
       "created_utc": "2026-03-19T16:56:37+00:00",
@@ -1377,7 +1377,7 @@
           "warmups": 0
         }
       ],
-      "script": "benchmark_interface_paths"
+      "script": "benchmark_surface_paths"
     },
     {
       "created_utc": "2026-03-19T16:56:47+00:00",
@@ -1595,7 +1595,7 @@
           "warmups": 0
         }
       ],
-      "script": "benchmark_interface_paths"
+      "script": "benchmark_surface_paths"
     }
   ],
   "script": "benchmark_baseline_suite"

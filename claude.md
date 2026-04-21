@@ -25,9 +25,9 @@ For short-term working notes and review findings, check:
 ## High-signal directories
 
 - `src/LiuXin_alpha/`: main application code
-- `src/LiuXin_alpha/interfaces/terminal/`: text browser / terminal UI entrypoint and commands
+- `src/LiuXin_alpha/surfaces/terminal/`: text browser / terminal UI entrypoint and commands
 - `src/LiuXin_alpha/storage/`: storage manager, storage backends, reconcile/sync code
-- `tests/interfaces/test_text_browser.py`: best reference for terminal command behavior
+- `tests/surfaces/test_text_browser.py`: best reference for terminal command behavior
 - `tests/storage/`: backend and reconcile coverage
 - `dev-docs/`: architecture notes, especially storage and schema
 - `examples/`: runnable examples and quick smoke-test scripts
@@ -45,21 +45,21 @@ Practical launch pattern from repo root:
 
 ```bash
 cd /home/blackjane/LiuXin-alpha-wsl
-PYTHONPATH=src python3 -m LiuXin_alpha.interfaces.terminal --database /path/to/library.sqlite
+PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.terminal --database /path/to/library.sqlite
 ```
 
 Windowed UI:
 
 ```bash
 cd /home/blackjane/LiuXin-alpha-wsl
-PYTHONPATH=src python3 -m LiuXin_alpha.interfaces.terminal --database /path/to/library.sqlite --ui-mode windowed
+PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.terminal --database /path/to/library.sqlite --ui-mode windowed
 ```
 
 Non-interactive command mode:
 
 ```bash
 cd /home/blackjane/LiuXin-alpha-wsl
-PYTHONPATH=src python3 -m LiuXin_alpha.interfaces.terminal --database /path/to/library.sqlite --command 'tables'
+PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.terminal --database /path/to/library.sqlite --command 'tables'
 ```
 
 Important CLI behavior:
@@ -84,15 +84,15 @@ sync store <store_id|store_name> [to-db] [options]
 
 This is implemented in:
 
-- `src/LiuXin_alpha/interfaces/terminal/commands/sync.py`
+- `src/LiuXin_alpha/surfaces/terminal/commands/sync.py`
 
 The text-browser entrypoint is implemented in:
 
-- `src/LiuXin_alpha/interfaces/terminal/text_browser.py`
+- `src/LiuXin_alpha/surfaces/terminal/text_browser.py`
 
 Background job inspection is implemented in:
 
-- `src/LiuXin_alpha/interfaces/terminal/commands/jobs.py`
+- `src/LiuXin_alpha/surfaces/terminal/commands/jobs.py`
 
 Supported sync targets observed in docs/code:
 
@@ -134,7 +134,7 @@ Known working launch command:
 
 ```bash
 cd /home/blackjane/LiuXin-alpha-wsl
-PYTHONPATH=src python3 -m LiuXin_alpha.interfaces.terminal --database /home/blackjane/scratch_library.sqlite --ui-mode windowed
+PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.terminal --database /home/blackjane/scratch_library.sqlite --ui-mode windowed
 ```
 
 Known working in-app sync command for store `1`:
@@ -147,18 +147,18 @@ If you need a non-windowed one-liner instead:
 
 ```bash
 cd /home/blackjane/LiuXin-alpha-wsl
-PYTHONPATH=src python3 -m LiuXin_alpha.interfaces.terminal --database /home/blackjane/scratch_library.sqlite --command 'sync store 1 to-db --background'
+PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.terminal --database /home/blackjane/scratch_library.sqlite --command 'sync store 1 to-db --background'
 ```
 
 ## Active workstreams / open questions
 
 Inferred from the current worktree and local docs:
 
-- terminal interface work is active: `src/LiuXin_alpha/interfaces/terminal/`, `src/LiuXin_alpha/interfaces/cli/`, job handling, and the core runtime/proxy plumbing are all in motion
+- terminal surface work is active: `src/LiuXin_alpha/surfaces/terminal/`, `src/LiuXin_alpha/surfaces/cli/`, job handling, and the core runtime/proxy plumbing are all in motion
 - storage sync/reconcile work is active: local disk, `wget_html_readonly`, `rclone_http_readonly`, squashfs, and related tests/docs/examples have all been touched
 - database API / metadata add-mixin work is active: a lot of `src/LiuXin_alpha/databases/api/` and `metadata_tools/add/` is currently changing
 - file-format / conversion porting is active across many calibre-derived modules and tests
-- tests are being expanded heavily across `tests/interfaces/`, `tests/storage/`, `tests/core/`, `tests/library/`, and `tests/file_formats/`
+- tests are being expanded heavily across `tests/surfaces/`, `tests/storage/`, `tests/core/`, `tests/library/`, and `tests/file_formats/`
 
 Known architectural open question from local docs:
 
@@ -200,7 +200,7 @@ Starter entry for this session:
 - Goal: identify the correct command for syncing store 1 to the database in the background from the windowed terminal UI
 - Database / store context: /home/blackjane/scratch_library.sqlite, store 1 = Faded Page (Wget), kind = wget_html_readonly
 - Files touched: claude.md
-- Commands run: launched windowed terminal UI via PYTHONPATH=src python3 -m LiuXin_alpha.interfaces.terminal --database /home/blackjane/scratch_library.sqlite --ui-mode windowed
+- Commands run: launched windowed terminal UI via PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.terminal --database /home/blackjane/scratch_library.sqlite --ui-mode windowed
 - Tests run: none; only command/path validation and source inspection
 - Result: confirmed the sync must be started from inside the windowed UI; in-app command used was sync store 1 to-db --background --job-panel
 - Next step: monitor the submitted background job and inspect results with jobs list / jobs show <job_id> --wait
@@ -227,7 +227,7 @@ python3 examples/<script>.py --help
 
 Useful test areas when changing terminal or sync behavior:
 
-- `tests/interfaces/test_text_browser.py`
+- `tests/surfaces/test_text_browser.py`
 - `tests/storage/reconcile/`
 - `tests/storage/api/`
 - `tests/library/`
@@ -236,9 +236,9 @@ Useful test areas when changing terminal or sync behavior:
 
 1. Confirm the repo root is `/home/blackjane/LiuXin-alpha-wsl`.
 2. Confirm whether work is against `/home/blackjane/scratch_library.sqlite` or another DB.
-3. If the task is about the terminal UI, start in `src/LiuXin_alpha/interfaces/terminal/`.
-4. If the task is about sync/reconcile, start in `src/LiuXin_alpha/interfaces/terminal/commands/sync.py` and `src/LiuXin_alpha/storage/reconcile/`.
-5. If behavior is unclear, read `tests/interfaces/test_text_browser.py` before guessing.
+3. If the task is about the terminal UI, start in `src/LiuXin_alpha/surfaces/terminal/`.
+4. If the task is about sync/reconcile, start in `src/LiuXin_alpha/surfaces/terminal/commands/sync.py` and `src/LiuXin_alpha/storage/reconcile/`.
+5. If behavior is unclear, read `tests/surfaces/test_text_browser.py` before guessing.
 
 ## Notes for future assistants
 

@@ -104,7 +104,7 @@ There is now a read-only remote store backend for site/file-tree style mirrors:
 - Typical root URI: `remote:` or `:http,url=https://example.com:`
 - It can iterate remote files and register them into the `files` table.
 
-The terminal interface route is:
+The terminal surface route is:
 
 - `sync store <store_id|store_name> to-db [options]`
 

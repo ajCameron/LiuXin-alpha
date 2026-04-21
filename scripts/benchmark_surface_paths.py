@@ -29,14 +29,14 @@ for candidate in (str(REPO_ROOT), str(SRC_ROOT)):
     if candidate not in sys.path:
         sys.path.insert(0, candidate)
 
-from LiuXin_alpha.interfaces.api_readonly.app import ApiReadOnlyApplication  # noqa: E402
-from LiuXin_alpha.interfaces.opds.api import encode_compat_token, opds_nav_token  # noqa: E402
-from LiuXin_alpha.interfaces.opds_readonly.app import OpdsReadOnlyApplication  # noqa: E402
-from LiuXin_alpha.interfaces.web_readonly.app import ReadOnlyWebApplication, _open_database  # noqa: E402
+from LiuXin_alpha.surfaces.api_readonly.app import ApiReadOnlyApplication  # noqa: E402
+from LiuXin_alpha.surfaces.opds.api import encode_compat_token, opds_nav_token  # noqa: E402
+from LiuXin_alpha.surfaces.opds_readonly.app import OpdsReadOnlyApplication  # noqa: E402
+from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication, _open_database  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Benchmark WSGI interface paths on a LiuXin database.")
+    parser = argparse.ArgumentParser(description="Benchmark WSGI surface paths on a LiuXin database.")
     parser.add_argument("--db-name", default="metadata_rich_db_1", help="Named test DB to provision.")
     parser.add_argument("--database", default="", help="Existing database path to benchmark instead of provisioning.")
     parser.add_argument("--cache-dir", default=str(DEFAULT_CACHE_DIR), help="Cache directory for named DB provisioning.")
@@ -65,7 +65,7 @@ def _choose_query(web_app: ReadOnlyWebApplication, explicit_query: str) -> str:
     return first_alnum_query_term(web_app._row_primary_text("works", rows[0]))
 
 
-def run_interface_path_benchmarks(
+def run_surface_path_benchmarks(
     *,
     db_name: str,
     database: str,
@@ -79,7 +79,7 @@ def run_interface_path_benchmarks(
     progress: Optional[Callable[[str], None]] = None,
 ) -> dict[str, object]:
     if progress is not None:
-        progress("preparing interface benchmark target={}".format(db_name or database))
+        progress("preparing surface benchmark target={}".format(db_name or database))
     with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
         with resolved_benchmark_database(
             db_name=db_name,
@@ -97,7 +97,7 @@ def run_interface_path_benchmarks(
 
                 work_rows = web_app.read_model.work_rows(sorted_by="title")
                 if not work_rows:
-                    raise RuntimeError("No works rows are available for interface benchmarking.")
+                    raise RuntimeError("No works rows are available for surface benchmarking.")
                 work_row = work_rows[0]
                 work_id = int(web_app.read_model.work_metadata_payload(work_row)["id"])
                 query_text = _choose_query(web_app, query)
@@ -167,7 +167,7 @@ def run_interface_path_benchmarks(
                         )
 
     return {
-        "script": "benchmark_interface_paths",
+        "script": "benchmark_surface_paths",
         "created_utc": utc_now_iso(),
         "environment": environment_payload(),
         "database": {
@@ -205,7 +205,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parse_args()
     app_names = [one.strip() for one in str(args.apps).split(",") if one.strip()]
     progress = None if bool(args.quiet) else stderr_progress
-    payload = run_interface_path_benchmarks(
+    payload = run_surface_path_benchmarks(
         db_name=str(args.db_name),
         database=str(args.database),
         cache_dir=str(args.cache_dir),

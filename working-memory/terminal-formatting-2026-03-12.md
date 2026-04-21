@@ -16,7 +16,7 @@ Added shared browser helpers for:
 
 Primary implementation lives in:
 
-- `src/LiuXin_alpha/interfaces/terminal/text_browser.py`
+- `src/LiuXin_alpha/surfaces/terminal/text_browser.py`
 
 ## Commands Migrated
 
@@ -63,9 +63,9 @@ The interactive database creation wizard summary was also moved onto the same ta
 
 Passed slices:
 
-- `pytest -q tests/interfaces/test_text_browser.py -k 'summary or jobs_commands or ingest_disk_registers_ebook_files or sync_store_registers_ebook_files or sync_store_compact_subcommand_ref or sync_store_background_submits_job or store_view or row_command_accepts_compact_table_id'`
-- `pytest -q tests/interfaces/test_text_browser.py -k 'new_creator or new_work or new_expression or new_manifestation or new_item or new_tag or new_genre or new_subject or new_series or new_organisation or new_publisher or new_title'`
-- `pytest -q tests/interfaces/test_text_browser.py -k 'main_create_new_db_wizard or jobs_commands or jobs_panel_command_attach_and_detach or sync_store_background_job_panel_attaches'`
-- `pytest -q tests/interfaces/test_windowed_ui.py`
+- `pytest -q tests/surfaces/test_text_browser.py -k 'summary or jobs_commands or ingest_disk_registers_ebook_files or sync_store_registers_ebook_files or sync_store_compact_subcommand_ref or sync_store_background_submits_job or store_view or row_command_accepts_compact_table_id'`
+- `pytest -q tests/surfaces/test_text_browser.py -k 'new_creator or new_work or new_expression or new_manifestation or new_item or new_tag or new_genre or new_subject or new_series or new_organisation or new_publisher or new_title'`
+- `pytest -q tests/surfaces/test_text_browser.py -k 'main_create_new_db_wizard or jobs_commands or jobs_panel_command_attach_and_detach or sync_store_background_job_panel_attaches'`
+- `pytest -q tests/surfaces/test_windowed_ui.py`
 
 Also passed syntax checks with `python3 -m py_compile` over the touched terminal files.

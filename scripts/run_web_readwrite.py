@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the read-write web interface using the repo-local virtualenv."""
+"""Run the read-write web surface using the repo-local virtualenv."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def shell_join(parts: list[str]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run the LiuXin read-write web interface from the repo-local virtualenv.")
+    parser = argparse.ArgumentParser(description="Run the LiuXin read-write web surface from the repo-local virtualenv.")
     parser.add_argument("--database", required=True, help="Database path to open")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type (default: sqlite)")
     parser.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
@@ -49,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     cmd = [
         str(python_exe),
         "-m",
-        "LiuXin_alpha.interfaces.web_readwrite",
+        "LiuXin_alpha.surfaces.web_readwrite",
         "--database",
         str(args.database),
         "--db-type",

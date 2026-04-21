@@ -66,9 +66,9 @@ Rewrite goal:
 
 Current status:
 - first slice landed on the active emulation seam:
-  - [custom-column-field-matrix-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/custom-column-field-matrix-2026-03-16.md)
+  - [custom-column-field-matrix-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/custom-column-field-matrix-2026-03-16.md)
 - second slice landed on active direct cache/category seams:
-  - [custom-column-cache-semantics-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/custom-column-cache-semantics-2026-03-16.md)
+  - [custom-column-cache-semantics-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/custom-column-cache-semantics-2026-03-16.md)
 - implemented now:
   - parameterized scalar/comment/composite round-trips
   - multi-text dedupe/order semantics
@@ -93,7 +93,7 @@ Original rows:
 - `one_to_many/*self_test.py`
 
 Active alpha replacements:
-- [relation-field-matrix-2026-03-16.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/relation-field-matrix-2026-03-16.md)
+- [relation-field-matrix-2026-03-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/relation-field-matrix-2026-03-16.md)
 - `tests/databases/caches/test_calibre_cache_07_relation_field_semantics.py`
 - `tests/databases/database/database_contract/test_db_interlink_read.py`
 - `tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py`

@@ -1,6 +1,6 @@
 # Benchmark Summary
 
-- script: `benchmark_interface_paths`
+- script: `benchmark_surface_paths`
 - created_utc: `2026-03-20T17:58:12+00:00`
 - timed_scenarios: `3`
 - skipped_scenarios: `0`

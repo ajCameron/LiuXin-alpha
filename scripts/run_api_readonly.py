@@ -39,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     cmd = [
         str(python_exe),
         "-m",
-        "LiuXin_alpha.interfaces.api_readonly",
+        "LiuXin_alpha.surfaces.api_readonly",
         "--database",
         str(args.database),
         "--db-type",

@@ -1,22 +1,22 @@
-# Web Read-Write Interface
+# Web Read-Write Surface
 
 Date: 2026-03-19
 
 ## Summary
 
-Added a first local-first HTML mutation surface under `interfaces/web_readwrite`.
+Added a first local-first HTML mutation surface under `surfaces/web_readwrite`.
 It reuses the existing read-only browse/search/detail/download stack and layers a
 small generic CRUD UI on top for real tables.
 
 ## Scope Landed
 
-- New interface package:
-  - `src/LiuXin_alpha/interfaces/web_readwrite/`
+- New surface package:
+  - `src/LiuXin_alpha/surfaces/web_readwrite/`
 - New launchers:
   - `scripts/run_web_readwrite.sh`
   - `scripts/run_web_readwrite.py`
-- Focused interface tests:
-  - `tests/interfaces/test_web_readwrite.py`
+- Focused surface tests:
+  - `tests/surfaces/test_web_readwrite.py`
 
 ## Current Capabilities
 
@@ -60,14 +60,14 @@ Confirmed:
 - `bash -n scripts/run_web_readwrite.sh`
 - `./scripts/run_web_readwrite.sh --help`
 - `python3 scripts/run_web_readwrite.py --help`
-- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/surfaces/test_web_readwrite.py`
   - `3 passed`
 
 A broader interface regression slice was started against:
 
-- `tests/interfaces/test_web_readwrite.py`
-- `tests/interfaces/test_web_readonly.py`
-- `tests/interfaces/test_web_calibre_readonly.py`
+- `tests/surfaces/test_web_readwrite.py`
+- `tests/surfaces/test_web_readonly.py`
+- `tests/surfaces/test_web_calibre_readonly.py`
 
 but the targeted read-write slice was the primary gate for this first landing.
 
@@ -106,7 +106,7 @@ Generic form controls are now more schema-aware:
 
 ### Validation Update
 
-- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/surfaces/test_web_readwrite.py`
   - `4 passed`
 - Added coverage for:
   - inline interlink add/edit/delete from a work page
@@ -159,12 +159,12 @@ Current write flows using notices:
 
 ### Validation Update
 
-- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/surfaces/test_web_readwrite.py`
   - `4 passed`
 - broader interface slice:
-  - `tests/interfaces/test_web_readwrite.py`
-  - `tests/interfaces/test_web_readonly.py`
-  - `tests/interfaces/test_web_calibre_readonly.py`
+  - `tests/surfaces/test_web_readwrite.py`
+  - `tests/surfaces/test_web_readonly.py`
+  - `tests/surfaces/test_web_calibre_readonly.py`
   - currently green in this landing pass
 
 ## Fourth Slice
@@ -238,12 +238,12 @@ Current grouping examples:
 
 ### Validation Update
 
-- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/surfaces/test_web_readwrite.py`
   - `7 passed`
 - broader interface slice:
-  - `tests/interfaces/test_web_readwrite.py`
-  - `tests/interfaces/test_web_readonly.py`
-  - `tests/interfaces/test_web_calibre_readonly.py`
+  - `tests/surfaces/test_web_readwrite.py`
+  - `tests/surfaces/test_web_readonly.py`
+  - `tests/surfaces/test_web_calibre_readonly.py`
   - `28 passed`
 
 ## Next Likely Steps
@@ -303,12 +303,12 @@ Current route:
 
 ### Validation Update
 
-- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/surfaces/test_web_readwrite.py`
   - `8 passed`
 - broader interface slice:
-  - `tests/interfaces/test_web_readwrite.py`
-  - `tests/interfaces/test_web_readonly.py`
-  - `tests/interfaces/test_web_calibre_readonly.py`
+  - `tests/surfaces/test_web_readwrite.py`
+  - `tests/surfaces/test_web_readonly.py`
+  - `tests/surfaces/test_web_calibre_readonly.py`
   - `29 passed`
 
 ### Updated Next Likely Steps
@@ -356,12 +356,12 @@ Current context-aware routes:
 
 ### Validation Update
 
-- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/surfaces/test_web_readwrite.py`
   - `10 passed`
 - broader interface slice:
-  - `tests/interfaces/test_web_readwrite.py`
-  - `tests/interfaces/test_web_readonly.py`
-  - `tests/interfaces/test_web_calibre_readonly.py`
+  - `tests/surfaces/test_web_readwrite.py`
+  - `tests/surfaces/test_web_readonly.py`
+  - `tests/surfaces/test_web_calibre_readonly.py`
   - `31 passed`
 
 ### Updated Next Likely Steps
@@ -396,7 +396,7 @@ This applies both to:
 
 ### Validation Update
 
-- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/surfaces/test_web_readwrite.py`
   - `11 passed`
 
 ## Ninth Slice
@@ -428,7 +428,7 @@ The write interface now renders:
 
 ### Validation Update
 
-- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/surfaces/test_web_readwrite.py`
   - `12 passed`
 
 ## Tenth Slice
@@ -448,7 +448,7 @@ and now has direct regression coverage proving that inherited parity.
 
 ### Validation Update
 
-- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/surfaces/test_web_readwrite.py`
   - `13 passed`
 
 ## Eighth Slice
@@ -479,5 +479,5 @@ This keeps huge relation-code vocabularies usable without dumping hundreds of va
 
 ### Validation Update
 
-- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/interfaces/test_web_readwrite.py`
+- `PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/surfaces/test_web_readwrite.py`
   - `11 passed`

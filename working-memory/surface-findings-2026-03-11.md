@@ -1,7 +1,7 @@
-# Interface Findings
+# Surface Findings
 
 Date: 2026-03-11
-Scope: terminal interface review, with attention to the ongoing shift toward a central core service over RPC.
+Scope: terminal surface review, with attention to the ongoing shift toward a central core service over RPC.
 Status: documentation only; no code changes made in this note.
 
 ## Findings
@@ -17,8 +17,8 @@ Status: documentation only; no code changes made in this note.
 That makes the curses console look double-spaced and reduces visible output capacity.
 
 Files:
-- `src/LiuXin_alpha/interfaces/terminal/windowed_ui.py:77`
-- `src/LiuXin_alpha/interfaces/terminal/windowed_ui.py:80`
+- `src/LiuXin_alpha/surfaces/terminal/windowed_ui.py:77`
+- `src/LiuXin_alpha/surfaces/terminal/windowed_ui.py:80`
 
 Validation:
 - Reproduced by instantiating the UI driver and calling `append_output("hello")`, `append_output("world")`.
@@ -47,8 +47,8 @@ Risk:
 Files:
 - `src/LiuXin_alpha/core/proxies/local.py:13`
 - `src/LiuXin_alpha/core/proxies/local.py:41`
-- `src/LiuXin_alpha/interfaces/terminal/commands/new_store.py:184`
-- `src/LiuXin_alpha/interfaces/terminal/commands/new_store.py:189`
+- `src/LiuXin_alpha/surfaces/terminal/commands/new_store.py:184`
+- `src/LiuXin_alpha/surfaces/terminal/commands/new_store.py:189`
 
 Validation:
 - Confirmed directly by evaluating `looks_like_write_method("bootstrap_storage_manager")`.
@@ -58,12 +58,12 @@ Validation:
 `TextDatabaseBrowser.__init__()` catches any exception from `_build_default_core_runtime()` and sets `_core_runtime = None`. From there, commands such as `jobs` and background `sync` quietly use local fallbacks.
 
 Files:
-- `src/LiuXin_alpha/interfaces/terminal/text_browser.py:58`
-- `src/LiuXin_alpha/interfaces/terminal/text_browser.py:68`
-- `src/LiuXin_alpha/interfaces/terminal/text_browser.py:481`
-- `src/LiuXin_alpha/interfaces/terminal/text_browser.py:485`
-- `src/LiuXin_alpha/interfaces/terminal/commands/jobs.py:123`
-- `src/LiuXin_alpha/interfaces/terminal/commands/sync.py:798`
+- `src/LiuXin_alpha/surfaces/terminal/text_browser.py:58`
+- `src/LiuXin_alpha/surfaces/terminal/text_browser.py:68`
+- `src/LiuXin_alpha/surfaces/terminal/text_browser.py:481`
+- `src/LiuXin_alpha/surfaces/terminal/text_browser.py:485`
+- `src/LiuXin_alpha/surfaces/terminal/commands/jobs.py:123`
+- `src/LiuXin_alpha/surfaces/terminal/commands/sync.py:798`
 
 Risk:
 - This makes it easy to think the terminal is exercising the RPC/core boundary when it is not.
@@ -73,20 +73,20 @@ Risk:
 The windowed status board and job panel swallow failures from the core query path and fall back to the local job manager instead. In a remote-client setup, that will show empty or stale local state instead of surfacing the RPC problem.
 
 Files:
-- `src/LiuXin_alpha/interfaces/terminal/windowed_ui.py:225`
-- `src/LiuXin_alpha/interfaces/terminal/windowed_ui.py:235`
-- `src/LiuXin_alpha/interfaces/terminal/windowed_ui.py:245`
-- `src/LiuXin_alpha/interfaces/terminal/windowed_ui.py:249`
+- `src/LiuXin_alpha/surfaces/terminal/windowed_ui.py:225`
+- `src/LiuXin_alpha/surfaces/terminal/windowed_ui.py:235`
+- `src/LiuXin_alpha/surfaces/terminal/windowed_ui.py:245`
+- `src/LiuXin_alpha/surfaces/terminal/windowed_ui.py:249`
 
 ## Open Question
 
 The terminal still appears to be local-DB-first for many mutating flows, with commands operating on `browser.db` directly rather than through the core boundary. If that is intentional for now, fine. If not, that looks like the next interface milestone before leaning harder on the RPC transition.
 
 Representative files:
-- `src/LiuXin_alpha/interfaces/terminal/text_browser.py:1596`
-- `src/LiuXin_alpha/interfaces/terminal/commands/new_work.py:97`
-- `src/LiuXin_alpha/interfaces/terminal/commands/link.py:246`
-- `src/LiuXin_alpha/interfaces/terminal/commands/on.py:501`
+- `src/LiuXin_alpha/surfaces/terminal/text_browser.py:1596`
+- `src/LiuXin_alpha/surfaces/terminal/commands/new_work.py:97`
+- `src/LiuXin_alpha/surfaces/terminal/commands/link.py:246`
+- `src/LiuXin_alpha/surfaces/terminal/commands/on.py:501`
 
 ## Test Note
 
@@ -94,7 +94,7 @@ I started a targeted test slice for terminal/core behavior:
 
 ```bash
 pytest -q \
-  /home/blackjane/LiuXin-alpha-wsl/tests/interfaces/test_text_browser.py \
+  /home/blackjane/LiuXin-alpha-wsl/tests/surfaces/test_text_browser.py \
   /home/blackjane/LiuXin-alpha-wsl/tests/core/test_core_runtime_phase1.py \
   /home/blackjane/LiuXin-alpha-wsl/tests/core/test_core_runtime_jobs_phase2.py \
   /home/blackjane/LiuXin-alpha-wsl/tests/core/test_core_http_daemon_phase2.py \

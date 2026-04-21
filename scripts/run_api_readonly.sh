@@ -83,7 +83,7 @@ if [[ ! -x "${VENV_PYTHON}" ]]; then
 fi
 
 API_CMD=(
-    "${VENV_PYTHON}" -m LiuXin_alpha.interfaces.api_readonly
+    "${VENV_PYTHON}" -m LiuXin_alpha.surfaces.api_readonly
     --database "${DATABASE_PATH}"
     --db-type "${DB_TYPE}"
     --host "${HOST}"

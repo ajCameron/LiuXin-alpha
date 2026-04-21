@@ -4,7 +4,7 @@ Date: 2026-03-16
 
 ## Purpose
 
-- Turn the `test_harness` cluster in [legacy-test-migration-manifest-2026-03-16.csv](/home/blackjane/LiuXin-alpha-wsl/working-memory/legacy-test-migration-manifest-2026-03-16.csv) into concrete keep/rewrite/retire decisions.
+- Turn the `test_harness` cluster in [legacy-test-migration-manifest-2026-03-16.csv](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/legacy-test-migration-manifest-2026-03-16.csv) into concrete keep/rewrite/retire decisions.
 - Avoid leaving those six files in a vague “rewrite later” bucket.
 
 ## Legacy Input Mapping

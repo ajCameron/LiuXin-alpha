@@ -105,7 +105,7 @@ if [[ ! -x "${VENV_PYTHON}" ]]; then
 fi
 
 WEB_CMD=(
-    "${VENV_PYTHON}" -m LiuXin_alpha.interfaces.opds_readonly
+    "${VENV_PYTHON}" -m LiuXin_alpha.surfaces.opds_readonly
     --database "${DATABASE_PATH}"
     --db-type "${DB_TYPE}"
     --host "${HOST}"

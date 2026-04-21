@@ -61,7 +61,7 @@ def _flatten_results(report: dict[str, object]) -> list[dict[str, object]]:
         return results
 
     append_group("backend", list(report.get("backend_reports") or []))
-    append_group("interface", list(report.get("interface_reports") or []))
+    append_group("surface", list(report.get("surface_reports") or report.get("interface_reports") or []))
     return results
 
 

@@ -22,7 +22,7 @@ Use:
 ```
 
 Examples:
-- `interface-findings-2026-03-11.md`
+- `surface-findings-2026-03-11.md`
 - `rpc-cutover-2026-03-11.md`
 - `sync-debug-2026-03-11.md`
 

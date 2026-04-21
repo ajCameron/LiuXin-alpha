@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the Calibre-style read-only web interface using the repo-local virtualenv."""
+"""Run the Calibre-style read-only web surface using the repo-local virtualenv."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def shell_join(parts: list[str]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Run the LiuXin Calibre-style read-only web interface from the repo-local virtualenv."
+        description="Run the LiuXin Calibre-style read-only web surface from the repo-local virtualenv."
     )
     parser.add_argument("--database", required=True, help="Database path to open")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type (default: sqlite)")
@@ -50,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
     cmd = [
         str(python_exe),
         "-m",
-        "LiuXin_alpha.interfaces.web_calibre_readonly",
+        "LiuXin_alpha.surfaces.web_calibre_readonly",
         "--database",
         str(args.database),
         "--db-type",
