@@ -13,3 +13,29 @@ __all__ = [
     "ItemMetadataContainer",
     "ItemMetadataHydrator",
 ]
+
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.titles_containers import (
+    TitleKind,
+    TitleBase,
+    WorkTitle,
+    ExpressionTitle,
+    ManifestationTitle,
+    ItemTitle,
+    WorkTitlesContainer,
+    ExpressionTitlesContainer,
+    ManifestationTitlesContainer,
+    ItemTitlesContainer,
+)
+
+__all__.extend([
+    "TitleKind",
+    "TitleBase",
+    "WorkTitle",
+    "ExpressionTitle",
+    "ManifestationTitle",
+    "ItemTitle",
+    "WorkTitlesContainer",
+    "ExpressionTitlesContainer",
+    "ManifestationTitlesContainer",
+    "ItemTitlesContainer",
+])

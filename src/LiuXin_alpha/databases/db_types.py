@@ -4,9 +4,9 @@ Custom types which are used in the db.
 May be superseded by a global typing module in utils later.
 """
 
-from enum import Enum
+from enum import Enum, StrEnum
 
-from typing import Optional, Any, Literal, Union
+from typing import Final, Optional, Any, Literal, Union
 
 try:
     from typing_extensions import TypedDict, NotRequired
@@ -155,6 +155,71 @@ UUIDStr = str
 IdentifiersStr = str
 
 
+class IdentifierEntityType(StrEnum):
+    """Supported curated-identifier attachment targets in the FRBR graph."""
+
+    WORK = "work"
+    EXPRESSION = "expression"
+    MANIFESTATION = "manifestation"
+    ITEM = "item"
+
+
+class IdentifierScheme(StrEnum):
+    """Canonical identifier scheme names for the FRBR identifier tables."""
+
+    ISBN_10 = "isbn_10"
+    ISBN_13 = "isbn_13"
+    ASIN = "asin"
+    UUID = "uuid"
+    CALIBRE_UUID = "calibre_uuid"
+
+
+ALL_IDENTIFIER_ENTITY_TYPES: Final[tuple[str, ...]] = tuple(
+    entity_type.value for entity_type in IdentifierEntityType
+)
+
+ALL_IDENTIFIER_SCHEMES: Final[tuple[str, ...]] = tuple(
+    scheme.value for scheme in IdentifierScheme
+)
+
+
+WORK_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
+    IdentifierScheme.UUID,
+    IdentifierScheme.CALIBRE_UUID,
+})
+
+EXPRESSION_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
+    IdentifierScheme.UUID,
+    IdentifierScheme.CALIBRE_UUID,
+})
+
+MANIFESTATION_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
+    IdentifierScheme.ISBN_10,
+    IdentifierScheme.ISBN_13,
+    IdentifierScheme.ASIN,
+    IdentifierScheme.UUID,
+    IdentifierScheme.CALIBRE_UUID,
+})
+
+ITEM_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
+    IdentifierScheme.UUID,
+    IdentifierScheme.CALIBRE_UUID,
+})
+
+# Item-observed identifiers are intentionally broader than curated item identifiers.
+# A specific copy may physically carry manifestation-level identifiers such as ISBNs/ASINs.
+OBSERVED_ITEM_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset(
+    IdentifierScheme
+)
+
+ENTITY_IDENTIFIER_SCHEMES_BY_TYPE: Final[dict[IdentifierEntityType, frozenset[IdentifierScheme]]] = {
+    IdentifierEntityType.WORK: WORK_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.EXPRESSION: EXPRESSION_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.MANIFESTATION: MANIFESTATION_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.ITEM: ITEM_IDENTIFIER_SCHEMES,
+}
+
+
 ValidLinkAttributes = Literal["index", "datestamp", "sequence_number", "is_required"]
 
 
@@ -175,3 +240,235 @@ InterlinkExtraTypes = Union[
     Literal["is_required"]]
 
 
+from enum import StrEnum
+from typing import Final, Literal
+
+
+UUIDStr = str
+
+
+IdentifierEntityTypeStr = Literal["work", "expression", "manifestation", "item"]
+
+
+class IdentifierEntityType(StrEnum):
+    """Supported curated-identifier attachment targets in the FRBR graph."""
+
+    WORK = "work"
+    EXPRESSION = "expression"
+    MANIFESTATION = "manifestation"
+    ITEM = "item"
+
+
+IdentifierSchemeStr = Literal[
+    "isbn_10",
+    "isbn_13",
+    "asin",
+    "uuid",
+    "calibre_uuid",
+]
+
+
+class IdentifierScheme(StrEnum):
+    """Canonical identifier scheme names for the FRBR identifier tables."""
+
+    ISBN_10 = "isbn_10"
+    ISBN_13 = "isbn_13"
+    ASIN = "asin"
+    UUID = "uuid"
+    CALIBRE_UUID = "calibre_uuid"
+
+
+ALL_IDENTIFIER_ENTITY_TYPES: Final[tuple[str, ...]] = tuple(
+    entity_type.value for entity_type in IdentifierEntityType
+)
+
+ALL_IDENTIFIER_SCHEMES: Final[tuple[str, ...]] = tuple(
+    scheme.value for scheme in IdentifierScheme
+)
+
+
+WORK_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
+    IdentifierScheme.UUID,
+    IdentifierScheme.CALIBRE_UUID,
+})
+
+EXPRESSION_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
+    IdentifierScheme.UUID,
+    IdentifierScheme.CALIBRE_UUID,
+})
+
+MANIFESTATION_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
+    IdentifierScheme.ISBN_10,
+    IdentifierScheme.ISBN_13,
+    IdentifierScheme.ASIN,
+    IdentifierScheme.UUID,
+    IdentifierScheme.CALIBRE_UUID,
+})
+
+ITEM_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
+    IdentifierScheme.UUID,
+    IdentifierScheme.CALIBRE_UUID,
+})
+
+# Item-observed identifiers are intentionally broader than curated item identifiers.
+# A specific copy may physically carry manifestation-level identifiers such as ISBNs/ASINs.
+OBSERVED_ITEM_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset(
+    IdentifierScheme
+)
+
+ENTITY_IDENTIFIER_SCHEMES_BY_TYPE: Final[
+    dict[IdentifierEntityType, frozenset[IdentifierScheme]]
+] = {
+    IdentifierEntityType.WORK: WORK_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.EXPRESSION: EXPRESSION_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.MANIFESTATION: MANIFESTATION_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.ITEM: ITEM_IDENTIFIER_SCHEMES,
+}
+
+
+MarcRelatorRoleStr = Literal[
+    "abr",
+    "act",
+    "adp",
+    "ann",
+    "arr",
+    "art",
+    "auc",
+    "aui",
+    "aus",
+    "aut",
+    "bnd",
+    "com",
+    "cmp",
+    "cre",
+    "ctb",
+    "ctr",
+    "cur",
+    "dpt",
+    "drt",
+    "edt",
+    "fmo",
+    "ill",
+    "ins",
+    "itr",
+    "ive",
+    "ivr",
+    "lyr",
+    "nrt",
+    "own",
+    "pbl",
+    "prf",
+    "prt",
+    "red",
+    "res",
+    "rev",
+    "spk",
+    "ths",
+    "trl",
+]
+
+
+class MarcRelatorRole(StrEnum):
+    """Small curated MARC relator code set for agent links."""
+
+    ABRIDGER = "abr"
+    ACTOR = "act"
+    ADAPTER = "adp"
+    ANNOTATOR = "ann"
+    ARRANGER = "arr"
+    ARTIST = "art"
+    AUTHOR_OF_DIALOG = "auc"
+    AUTHOR_OF_INTRODUCTION = "aui"
+    AUTHOR_OF_SCREENPLAY = "aus"
+    AUTHOR = "aut"
+    BINDER = "bnd"
+    COMPILER = "com"
+    COMPOSER = "cmp"
+    CREATOR = "cre"
+    CONTRIBUTOR = "ctb"
+    CONTRACTOR = "ctr"
+    CURATOR = "cur"
+    DEGREE_SUPERVISOR = "dpt"
+    DIRECTOR = "drt"
+    EDITOR = "edt"
+    FORMER_OWNER = "fmo"
+    ILLUSTRATOR = "ill"
+    INSCRIBER = "ins"
+    INSTRUMENTALIST = "itr"
+    INTERVIEWEE = "ive"
+    INTERVIEWER = "ivr"
+    LYRICIST = "lyr"
+    NARRATOR = "nrt"
+    OWNER = "own"
+    PUBLISHER = "pbl"
+    PERFORMER = "prf"
+    PRINTER = "prt"
+    REDACTOR = "red"
+    RESEARCHER = "res"
+    REVIEWER = "rev"
+    SPEAKER = "spk"
+    THESIS_ADVISOR = "ths"
+    TRANSLATOR = "trl"
+
+
+ALL_MARC_RELATOR_ROLES: Final[tuple[str, ...]] = tuple(
+    role.value for role in MarcRelatorRole
+)
+
+WORK_MARC_RELATOR_ROLES: Final[frozenset[MarcRelatorRole]] = frozenset({
+    MarcRelatorRole.ABRIDGER,
+    MarcRelatorRole.ADAPTER,
+    MarcRelatorRole.ARRANGER,
+    MarcRelatorRole.ARTIST,
+    MarcRelatorRole.AUTHOR,
+    MarcRelatorRole.AUTHOR_OF_DIALOG,
+    MarcRelatorRole.AUTHOR_OF_INTRODUCTION,
+    MarcRelatorRole.AUTHOR_OF_SCREENPLAY,
+    MarcRelatorRole.COMPOSER,
+    MarcRelatorRole.CREATOR,
+    MarcRelatorRole.CONTRIBUTOR,
+    MarcRelatorRole.DIRECTOR,
+    MarcRelatorRole.EDITOR,
+    MarcRelatorRole.ILLUSTRATOR,
+    MarcRelatorRole.LYRICIST,
+})
+
+EXPRESSION_MARC_RELATOR_ROLES: Final[frozenset[MarcRelatorRole]] = frozenset({
+    MarcRelatorRole.ABRIDGER,
+    MarcRelatorRole.ADAPTER,
+    MarcRelatorRole.ANNOTATOR,
+    MarcRelatorRole.ARRANGER,
+    MarcRelatorRole.AUTHOR,
+    MarcRelatorRole.COMPOSER,
+    MarcRelatorRole.CONTRIBUTOR,
+    MarcRelatorRole.EDITOR,
+    MarcRelatorRole.ILLUSTRATOR,
+    MarcRelatorRole.NARRATOR,
+    MarcRelatorRole.PERFORMER,
+    MarcRelatorRole.REDACTOR,
+    MarcRelatorRole.TRANSLATOR,
+})
+
+MANIFESTATION_MARC_RELATOR_ROLES: Final[frozenset[MarcRelatorRole]] = frozenset({
+    MarcRelatorRole.CONTRIBUTOR,
+    MarcRelatorRole.EDITOR,
+    MarcRelatorRole.PUBLISHER,
+    MarcRelatorRole.PRINTER,
+})
+
+ITEM_MARC_RELATOR_ROLES: Final[frozenset[MarcRelatorRole]] = frozenset({
+    MarcRelatorRole.ANNOTATOR,
+    MarcRelatorRole.BINDER,
+    MarcRelatorRole.FORMER_OWNER,
+    MarcRelatorRole.INSCRIBER,
+    MarcRelatorRole.OWNER,
+})
+
+ENTITY_MARC_RELATOR_ROLES_BY_TYPE: Final[
+    dict[IdentifierEntityType, frozenset[MarcRelatorRole]]
+] = {
+    IdentifierEntityType.WORK: WORK_MARC_RELATOR_ROLES,
+    IdentifierEntityType.EXPRESSION: EXPRESSION_MARC_RELATOR_ROLES,
+    IdentifierEntityType.MANIFESTATION: MANIFESTATION_MARC_RELATOR_ROLES,
+    IdentifierEntityType.ITEM: ITEM_MARC_RELATOR_ROLES,
+}

@@ -26,6 +26,16 @@ WorkMetadataContainerAPIFromWemiApi = WorkMetadataContainerAPI
 ItemMetadataContainerAPIFromWemiApi = ItemMetadataContainerAPI
 
 __all__ = [
+    "IdentifierBase",
+    "IdentifierStatus",
+    "WorkIdentifier",
+    "ExpressionIdentifier",
+    "ManifestationIdentifier",
+    "ItemIdentifier",
+    "WorkIdentifiersContainer",
+    "ExpressionIdentifiersContainer",
+    "ManifestationIdentifiersContainer",
+    "ItemIdentifiersContainer",
     "WorkContainerAPI",
     "WorkContainerPropertiesApi",
     "WorkMetadataContainerAPI",
@@ -39,3 +49,16 @@ __all__ = [
     "ItemRelationLink",
     "ItemStorageHints",
 ]
+
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.identifier_containers import (
+    IdentifierBase,
+    IdentifierStatus,
+    WorkIdentifier,
+    ExpressionIdentifier,
+    ManifestationIdentifier,
+    ItemIdentifier,
+    WorkIdentifiersContainer,
+    ExpressionIdentifiersContainer,
+    ManifestationIdentifiersContainer,
+    ItemIdentifiersContainer,
+)

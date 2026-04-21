@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS `entity_identifiers` (
   `entity_identifier_source_modified_datestamp_ep_k` INTEGER NULL,
 
 
+  __ENTITY_IDENTIFIER_ENTITY_TYPE_CHECK__
+  __ENTITY_IDENTIFIER_SCHEME_BY_TYPE_CHECK__
+
   `entity_identifier_scratch` TEXT NULL
 
 
