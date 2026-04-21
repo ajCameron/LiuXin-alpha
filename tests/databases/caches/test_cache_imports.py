@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class TestCacheImportAPIs:
     """
     Tests that we can actually import cache objects at all.
@@ -77,6 +80,81 @@ class TestCacheImportAPIs:
         from LiuXin_alpha.caches import NumpyVectorizedStorageCache
 
         assert NumpyVectorizedStorageCache is not None
+
+    def test_numpy_vectorized_plugin_uses_independent_cache_and_field_types(self) -> None:
+        from LiuXin_alpha.caches import NumpyVectorizedStorageCache, SchemaBackedStorageCache
+        from LiuXin_alpha.caches.cache_plugins.numpy_vectorized.storage_cache import (
+            NumpyVectorizedMainTableCache,
+            NumpyVectorizedSameTableField,
+            NumpyVectorizedTwoTableOneOneField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.link_tables.link_table import (
+            SchemaBackedLinkTable,
+        )
+        from LiuXin_alpha.databases.schema_specs import (
+            LinkCardinality,
+            StorageLinkSpec,
+            StorageSchemaSpec,
+        )
+        from tests.support.storage_cache_test_harness import make_fake_db, make_table
+
+        books = make_table(
+            "books",
+            ("id", "title"),
+            is_main_table=True,
+            linked_tables=("covers",),
+        )
+        covers = make_table(
+            "covers",
+            ("id", "path"),
+            is_main_table=True,
+            linked_tables=("books",),
+        )
+        book_covers = make_table(
+            "book_covers",
+            ("id", "book_id", "cover_id"),
+            is_link_table=True,
+            linked_tables=("books", "covers"),
+        )
+
+        schema = StorageSchemaSpec(
+            tables={
+                "books": books,
+                "covers": covers,
+                "book_covers": book_covers,
+            },
+            interlinks=(
+                StorageLinkSpec(
+                    primary_table="books",
+                    secondary_table="covers",
+                    link_table="book_covers",
+                    cardinality=LinkCardinality.ONE_TO_ONE,
+                    primary_link_col="book_id",
+                    secondary_link_col="cover_id",
+                ),
+            ),
+            intralinks=(),
+        )
+        db = make_fake_db(
+            schema=schema,
+            rows_by_table={
+                "books": [{"id": 1, "title": "Book One"}],
+                "covers": [{"id": 10, "path": "/covers/one.jpg"}],
+                "book_covers": [{"id": 100, "book_id": 1, "cover_id": 10}],
+            },
+        )
+
+        cache = NumpyVectorizedStorageCache(db, require_numpy=False)
+        cache.read()
+
+        assert not issubclass(NumpyVectorizedStorageCache, SchemaBackedStorageCache)
+        assert type(cache) is NumpyVectorizedStorageCache
+        assert type(cache.get_main_table("books")) is NumpyVectorizedMainTableCache
+        assert type(cache.get_field("title")) is NumpyVectorizedSameTableField
+        assert type(cache.get_field("books.covers.path")) is NumpyVectorizedTwoTableOneOneField
+
+        # Link tables remain schema-backed for now as an explicit compatibility seam.
+        assert isinstance(cache.get_one_one_link_table("books", "covers"), SchemaBackedLinkTable)
 
     def test_schema_backed_public_surface_resolves_to_canonical_schema_backed_types(
         self,
