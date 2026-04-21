@@ -78,7 +78,9 @@ class TestCacheImportAPIs:
 
         assert NumpyVectorizedStorageCache is not None
 
-    def test_legacy_implementation_imports_resolve_to_canonical_schema_backed_types(self) -> None:
+    def test_schema_backed_public_surface_resolves_to_canonical_schema_backed_types(
+        self,
+    ) -> None:
         from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_cache import (
             SchemaBackedStorageCache as CanonicalSchemaBackedStorageCache,
         )
@@ -105,40 +107,36 @@ class TestCacheImportAPIs:
             SchemaBackedCacheView as CanonicalSchemaBackedCacheView,
             SchemaBackedCacheViewRow as CanonicalSchemaBackedCacheViewRow,
         )
-        from LiuXin_alpha.caches.implementation.storage_cache import (
-            SchemaBackedStorageCache as LegacySchemaBackedStorageCache,
-        )
-        from LiuXin_alpha.caches.implementation.storage_fields.many_many_field import (
-            SchemaBackedManyManyField as LegacySchemaBackedManyManyField,
-        )
-        from LiuXin_alpha.caches.implementation.storage_fields.many_one_field import (
-            SchemaBackedManyOneField as LegacySchemaBackedManyOneField,
-        )
-        from LiuXin_alpha.caches.implementation.storage_fields.one_many_field import (
-            SchemaBackedOneManyField as LegacySchemaBackedOneManyField,
-        )
-        from LiuXin_alpha.caches.implementation.storage_fields.one_one_field import (
-            SchemaBackedSameTableField as LegacySchemaBackedSameTableField,
-            SchemaBackedTwoTableOneOneField as LegacySchemaBackedTwoTableOneOneField,
-        )
-        from LiuXin_alpha.caches.implementation.storage_tables.link_tables.link_table import (
-            SchemaBackedLinkTable as LegacySchemaBackedLinkTable,
-        )
-        from LiuXin_alpha.caches.implementation.storage_tables.single_table import (
-            SchemaBackedMainTableCache as LegacySchemaBackedMainTableCache,
-        )
-        from LiuXin_alpha.caches.implementation.storage_view import (
-            SchemaBackedCacheView as LegacySchemaBackedCacheView,
-            SchemaBackedCacheViewRow as LegacySchemaBackedCacheViewRow,
+        from LiuXin_alpha.caches.schema_backed import (
+            SchemaBackedCacheView as PublicSchemaBackedCacheView,
+            SchemaBackedCacheViewRow as PublicSchemaBackedCacheViewRow,
+            SchemaBackedLinkTable as PublicSchemaBackedLinkTable,
+            SchemaBackedMainTableCache as PublicSchemaBackedMainTableCache,
+            SchemaBackedManyManyField as PublicSchemaBackedManyManyField,
+            SchemaBackedManyOneField as PublicSchemaBackedManyOneField,
+            SchemaBackedOneManyField as PublicSchemaBackedOneManyField,
+            SchemaBackedSameTableField as PublicSchemaBackedSameTableField,
+            SchemaBackedStorageCache as PublicSchemaBackedStorageCache,
+            SchemaBackedTwoTableOneOneField as PublicSchemaBackedTwoTableOneOneField,
+            StorageCache as PublicStorageCache,
+            StorageCacheField as PublicStorageCacheField,
+            StorageCacheLinkTable as PublicStorageCacheLinkTable,
+            StorageCacheMainTable as PublicStorageCacheMainTable,
+            StorageCacheView as PublicStorageCacheView,
         )
 
-        assert LegacySchemaBackedStorageCache is CanonicalSchemaBackedStorageCache
-        assert LegacySchemaBackedCacheView is CanonicalSchemaBackedCacheView
-        assert LegacySchemaBackedCacheViewRow is CanonicalSchemaBackedCacheViewRow
-        assert LegacySchemaBackedMainTableCache is CanonicalSchemaBackedMainTableCache
-        assert LegacySchemaBackedLinkTable is CanonicalSchemaBackedLinkTable
-        assert LegacySchemaBackedSameTableField is CanonicalSchemaBackedSameTableField
-        assert LegacySchemaBackedTwoTableOneOneField is CanonicalSchemaBackedTwoTableOneOneField
-        assert LegacySchemaBackedOneManyField is CanonicalSchemaBackedOneManyField
-        assert LegacySchemaBackedManyOneField is CanonicalSchemaBackedManyOneField
-        assert LegacySchemaBackedManyManyField is CanonicalSchemaBackedManyManyField
+        assert PublicSchemaBackedStorageCache is CanonicalSchemaBackedStorageCache
+        assert PublicSchemaBackedCacheView is CanonicalSchemaBackedCacheView
+        assert PublicSchemaBackedCacheViewRow is CanonicalSchemaBackedCacheViewRow
+        assert PublicSchemaBackedMainTableCache is CanonicalSchemaBackedMainTableCache
+        assert PublicSchemaBackedLinkTable is CanonicalSchemaBackedLinkTable
+        assert PublicSchemaBackedSameTableField is CanonicalSchemaBackedSameTableField
+        assert PublicSchemaBackedTwoTableOneOneField is CanonicalSchemaBackedTwoTableOneOneField
+        assert PublicSchemaBackedOneManyField is CanonicalSchemaBackedOneManyField
+        assert PublicSchemaBackedManyOneField is CanonicalSchemaBackedManyOneField
+        assert PublicSchemaBackedManyManyField is CanonicalSchemaBackedManyManyField
+        assert PublicStorageCache is CanonicalSchemaBackedStorageCache
+        assert PublicStorageCacheField is CanonicalSchemaBackedSameTableField
+        assert PublicStorageCacheLinkTable is CanonicalSchemaBackedLinkTable
+        assert PublicStorageCacheMainTable is CanonicalSchemaBackedMainTableCache
+        assert PublicStorageCacheView is CanonicalSchemaBackedCacheView

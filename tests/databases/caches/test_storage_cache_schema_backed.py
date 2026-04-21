@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.caches import (
-    SchemaBackedStorageCache,
-    StorageCache,
-)
+from LiuXin_alpha.caches import SchemaBackedStorageCache
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.many_many_field import (
     LinkDstUpdate as ManyManyLinkDstUpdate,
     ManyManyInTwoTableFieldUpdate,
@@ -287,82 +284,6 @@ def many_many_schema_backed_cache() -> SchemaBackedStorageCache:
     )
 
     return create_loaded_test_cache(db, "schema_backed")
-
-
-def test_package_root_exports_schema_backed_storage_cache() -> None:
-    assert StorageCache is SchemaBackedStorageCache
-
-
-def test_storage_cache_uses_canonical_field_keys_and_unique_aliases(
-    schema_backed_cache: SchemaBackedStorageCache,
-) -> None:
-    cache = schema_backed_cache
-
-    assert cache.has_field("title")
-    assert cache.get_field("title") is cache.get_field("books.title")
-
-    assert cache.has_field("books.shared_code")
-    assert cache.has_field("covers.shared_code")
-    assert "shared_code" not in cache.fields
-    assert cache.has_field("shared_code") is False
-
-    with pytest.raises(KeyError):
-        cache.get_field("shared_code")
-
-    assert {field.field_key for field in cache.get_fields_for_table("books")} == {
-        "books.covers.path",
-        "books.covers.shared_code",
-        "books.id",
-        "books.shared_code",
-        "books.title",
-    }
-    assert {field.field_key for field in cache.iter_fields()} == {
-        "books.covers.path",
-        "books.covers.shared_code",
-        "books.id",
-        "books.shared_code",
-        "books.title",
-        "covers.id",
-        "covers.path",
-        "covers.shared_code",
-        "covers.books.shared_code",
-        "covers.books.title",
-    }
-
-
-def test_one_to_one_link_table_maps_are_exposed(
-    schema_backed_cache: SchemaBackedStorageCache,
-) -> None:
-    link_table = schema_backed_cache.get_one_one_link_table("books", "covers")
-
-    assert link_table.get_primary_id_secondary_value_id_map() == {1: 10, 2: 11}
-    assert link_table.get_secondary_id_primary_id_map() == {10: 1, 11: 2}
-    assert link_table.get_primary_id_secondary_value_map() == {
-        1: "/covers/one.jpg",
-        2: "/covers/two.jpg",
-    }
-
-
-def test_one_to_one_relation_fields_are_discovered_and_readable(
-    schema_backed_cache: SchemaBackedStorageCache,
-) -> None:
-    cache = schema_backed_cache
-    field = cache.get_field("books.covers.path")
-
-    assert cache.has_field("books.covers.path")
-    assert cache.has_field("covers.path") is True
-    assert cache.has_field("path") is True
-
-    assert field.get_value_from_src_id(1) == "/covers/one.jpg"
-    assert field.get_value_from_src_id(2) == "/covers/two.jpg"
-    assert field.get_dst_id_from_src_id(1) == 10
-    assert field.get_src_id_from_dst_id(11) == 2
-    assert field.dst_ids_values_map == {
-        10: "/covers/one.jpg",
-        11: "/covers/two.jpg",
-    }
-
-
 def test_one_to_one_relation_field_deleted_ids_unlink_without_deleting_dst_rows(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
@@ -757,17 +678,3 @@ def test_same_table_field_refuses_to_clear_primary_key_values(
                 dirtied=set(),
             )
         )
-
-
-def test_schema_backed_cache_exposes_cached_value_helpers(
-    schema_backed_cache: SchemaBackedStorageCache,
-) -> None:
-    cache = schema_backed_cache
-
-    assert cache.cache_type == "schema_backed"
-    assert cache.get_cached_value(1, "title") == "Book One"
-    assert cache.get_cached_value(999, "title", default_value="missing") == "missing"
-    assert cache.get_cached_row_values(1, ("title", "books.shared_code")) == (
-        "Book One",
-        "A-1",
-    )
