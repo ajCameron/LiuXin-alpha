@@ -93,7 +93,7 @@ class TitleBase(abc.ABC):
 
     def validate(self) -> None:
         """
-        Validate that the title is internally consistent.
+        Validate that the container is internally consistent.
 
         :return:
         """

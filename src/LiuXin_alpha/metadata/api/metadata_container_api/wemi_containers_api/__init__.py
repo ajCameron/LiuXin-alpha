@@ -111,3 +111,30 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.identi
     ManifestationIdentifiersContainer,
     ItemIdentifiersContainer,
 )
+
+
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.labels_containers import (
+    LabelKind,
+    LabelBase,
+    WorkLabel,
+    ExpressionLabel,
+    ManifestationLabel,
+    ItemLabel,
+    WorkLabelsContainer,
+    ExpressionLabelsContainer,
+    ManifestationLabelsContainer,
+    ItemLabelsContainer,
+)
+
+__all__.extend([
+    "LabelKind",
+    "LabelBase",
+    "WorkLabel",
+    "ExpressionLabel",
+    "ManifestationLabel",
+    "ItemLabel",
+    "WorkLabelsContainer",
+    "ExpressionLabelsContainer",
+    "ManifestationLabelsContainer",
+    "ItemLabelsContainer",
+])

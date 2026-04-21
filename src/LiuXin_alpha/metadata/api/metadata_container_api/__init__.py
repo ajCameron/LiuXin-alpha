@@ -93,3 +93,30 @@ __all__ = [
     "ItemRelationLink",
     "ItemStorageHints",
 ]
+
+
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import (
+    LabelKind,
+    LabelBase,
+    WorkLabel,
+    ExpressionLabel,
+    ManifestationLabel,
+    ItemLabel,
+    WorkLabelsContainer,
+    ExpressionLabelsContainer,
+    ManifestationLabelsContainer,
+    ItemLabelsContainer,
+)
+
+__all__.extend([
+    "LabelKind",
+    "LabelBase",
+    "WorkLabel",
+    "ExpressionLabel",
+    "ManifestationLabel",
+    "ItemLabel",
+    "WorkLabelsContainer",
+    "ExpressionLabelsContainer",
+    "ManifestationLabelsContainer",
+    "ItemLabelsContainer",
+])

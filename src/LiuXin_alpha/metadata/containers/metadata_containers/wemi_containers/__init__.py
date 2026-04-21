@@ -39,3 +39,30 @@ __all__.extend([
     "ManifestationTitlesContainer",
     "ItemTitlesContainer",
 ])
+
+
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.labels_containers import (
+    LabelKind,
+    LabelBase,
+    WorkLabel,
+    ExpressionLabel,
+    ManifestationLabel,
+    ItemLabel,
+    WorkLabelsContainer,
+    ExpressionLabelsContainer,
+    ManifestationLabelsContainer,
+    ItemLabelsContainer,
+)
+
+__all__.extend([
+    "LabelKind",
+    "LabelBase",
+    "WorkLabel",
+    "ExpressionLabel",
+    "ManifestationLabel",
+    "ItemLabel",
+    "WorkLabelsContainer",
+    "ExpressionLabelsContainer",
+    "ManifestationLabelsContainer",
+    "ItemLabelsContainer",
+])
