@@ -188,6 +188,54 @@ def test_cache_plugin_field_resolution_contract(contract_cache) -> None:
         "books.tags.tag_name",
         "books.title",
     }
+    assert {field.field_key for field in cache.iter_fields()} == {
+        "books.covers.path",
+        "books.covers.shared_code",
+        "books.id",
+        "books.shared_code",
+        "books.tags.tag_name",
+        "books.title",
+        "covers.books.shared_code",
+        "covers.books.title",
+        "covers.id",
+        "covers.path",
+        "covers.shared_code",
+        "tags.books.shared_code",
+        "tags.books.title",
+        "tags.id",
+        "tags.tag_name",
+    }
+
+
+def test_cache_plugin_one_to_one_link_table_maps_are_exposed(contract_cache) -> None:
+    link_table = contract_cache.get_one_one_link_table("books", "covers")
+
+    assert link_table.get_primary_id_secondary_value_id_map() == {1: 10, 2: 11}
+    assert link_table.get_secondary_id_primary_id_map() == {10: 1, 11: 2}
+    assert link_table.get_primary_id_secondary_value_map() == {
+        1: _COVER_PATH_1,
+        2: _COVER_PATH_2,
+    }
+
+
+def test_cache_plugin_one_to_one_relation_fields_are_discovered_and_readable(
+    contract_cache,
+) -> None:
+    cache = contract_cache
+    field = cache.get_field("books.covers.path")
+
+    assert cache.has_field("books.covers.path")
+    assert cache.has_field("covers.path") is True
+    assert cache.has_field("path") is True
+
+    assert field.get_value_from_src_id(1) == _COVER_PATH_1
+    assert field.get_value_from_src_id(2) == _COVER_PATH_2
+    assert field.get_dst_id_from_src_id(1) == 10
+    assert field.get_src_id_from_dst_id(11) == 2
+    assert field.dst_ids_values_map == {
+        10: _COVER_PATH_1,
+        11: _COVER_PATH_2,
+    }
 
 
 def test_cache_plugin_row_helpers_and_defaults(contract_cache) -> None:
