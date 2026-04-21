@@ -1,11 +1,4 @@
-"""NumPy-oriented storage cache plugin with independent array-backed storage.
-
-This backend intentionally avoids inheriting the schema-backed cache objects for
-its main read path. The cache root, main-table caches, and field objects are
-defined here and use NumPy arrays where available. The oriented link-table
-wrapper is still reused as a compatibility seam because it already exposes a
-large API surface and is not the dominant hot path for scalar reads.
-"""
+"""NumPy-oriented storage cache plugin with independent array-backed storage."""
 
 from __future__ import annotations
 
@@ -64,8 +57,8 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.one_on
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.single_table import (
     StorageCacheSingleTableAPI,
 )
-from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.link_tables.link_table import (
-    SchemaBackedLinkTable,
+from LiuXin_alpha.caches.cache_plugins.numpy_vectorized.link_table import (
+    NumpyVectorizedLinkTable,
 )
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.schema_specs import LinkCardinality, StorageTableSpec
@@ -630,8 +623,8 @@ class _NumpyVectorizedRelationFieldBase:
     ) -> StorageCacheSingleTableAPI:
         return self._cache.get_main_table(name)
 
-    def _link_table_cache(self) -> SchemaBackedLinkTable:
-        return cast(SchemaBackedLinkTable, self.link_table)
+    def _link_table_cache(self) -> NumpyVectorizedLinkTable:
+        return cast(NumpyVectorizedLinkTable, self.link_table)
 
     def _value_for_dst_id(self, dst_id: int) -> Optional[Any]:
         dst_id = int(dst_id)
@@ -1162,8 +1155,8 @@ class NumpyVectorizedTwoTableOneOneField(
         self,
         src_table: Union[StorageCacheSingleTableAPI, str],
         dst_table: Union[StorageCacheSingleTableAPI, str],
-    ) -> SchemaBackedLinkTable:
-        return cast(SchemaBackedLinkTable, self._cache.get_one_one_link_table(src_table, dst_table))
+    ) -> NumpyVectorizedLinkTable:
+        return cast(NumpyVectorizedLinkTable, self._cache.get_one_one_link_table(src_table, dst_table))
 
     @property
     def ids(self) -> set[int]:
@@ -1312,8 +1305,8 @@ class NumpyVectorizedManyOneField(
         self,
         src_table: Union[StorageCacheSingleTableAPI, str],
         dst_table: Union[StorageCacheSingleTableAPI, str],
-    ) -> SchemaBackedLinkTable:
-        return cast(SchemaBackedLinkTable, self._cache.get_many_one_link_table(src_table, dst_table))
+    ) -> NumpyVectorizedLinkTable:
+        return cast(NumpyVectorizedLinkTable, self._cache.get_many_one_link_table(src_table, dst_table))
 
     @property
     def ids(self) -> set[int]:
@@ -1481,8 +1474,8 @@ class NumpyVectorizedOneManyField(
         self,
         src_table: Union[StorageCacheSingleTableAPI, str],
         dst_table: Union[StorageCacheSingleTableAPI, str],
-    ) -> SchemaBackedLinkTable:
-        return cast(SchemaBackedLinkTable, self._cache.get_one_many_link_table(src_table, dst_table))
+    ) -> NumpyVectorizedLinkTable:
+        return cast(NumpyVectorizedLinkTable, self._cache.get_one_many_link_table(src_table, dst_table))
 
     @property
     def ids(self) -> set[int]:
@@ -1646,8 +1639,8 @@ class NumpyVectorizedManyManyField(
         self,
         src_table: Union[StorageCacheSingleTableAPI, str],
         dst_table: Union[StorageCacheSingleTableAPI, str],
-    ) -> SchemaBackedLinkTable:
-        return cast(SchemaBackedLinkTable, self._cache.get_many_many_link_table(src_table, dst_table))
+    ) -> NumpyVectorizedLinkTable:
+        return cast(NumpyVectorizedLinkTable, self._cache.get_many_many_link_table(src_table, dst_table))
 
     @property
     def ids(self) -> set[int]:
@@ -1805,7 +1798,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
             )
         self._require_numpy = require_numpy
         self.main_tables: dict[str, NumpyVectorizedMainTableCache] = {}
-        self.link_tables: dict[tuple[str, str], SchemaBackedLinkTable] = {}
+        self.link_tables: dict[tuple[str, str], NumpyVectorizedLinkTable] = {}
         self.fields: dict[str, FieldBasicInterfaceAPI[Any]] = {}
         self._field_objects: dict[str, FieldBasicInterfaceAPI[Any]] = {}
         self._schema: Optional["StorageSchemaSpec"] = None
@@ -1897,14 +1890,14 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
             if spec.is_main_table
         }
 
-        link_tables: dict[tuple[str, str], SchemaBackedLinkTable] = {}
+        link_tables: dict[tuple[str, str], NumpyVectorizedLinkTable] = {}
         for link_spec in schema.interlinks + schema.intralinks:
             src_table = self.main_tables.get(link_spec.primary_table)
             dst_table = self.main_tables.get(link_spec.secondary_table)
             if src_table is None or dst_table is None:
                 continue
 
-            forward = SchemaBackedLinkTable(
+            forward = NumpyVectorizedLinkTable(
                 db=db,
                 link_spec=link_spec,
                 src_table=src_table,
@@ -1917,7 +1910,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
             link_tables[(link_spec.primary_table, link_spec.secondary_table)] = forward
 
             if link_spec.primary_table != link_spec.secondary_table:
-                reverse = SchemaBackedLinkTable(
+                reverse = NumpyVectorizedLinkTable(
                     db=db,
                     link_spec=link_spec,
                     src_table=dst_table,
@@ -2126,7 +2119,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         src_table: Union[str, StorageCacheSingleTableAPI],
         dst_table: Union[str, StorageCacheSingleTableAPI],
         table_type: Optional[TableTypes] = None,
-    ) -> SchemaBackedLinkTable:
+    ) -> NumpyVectorizedLinkTable:
         src_name = self.get_main_table(src_table).table
         dst_name = self.get_main_table(dst_table).table
         key = (src_name, dst_name)
@@ -2164,7 +2157,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
     ) -> StorageCacheManyToManyLinkTable:
         return self.get_link_table(src_table, dst_table, table_type=TableTypes.MANY_MANY)
 
-    def iter_link_tables(self) -> Iterable[SchemaBackedLinkTable]:
+    def iter_link_tables(self) -> Iterable[NumpyVectorizedLinkTable]:
         for key in sorted(self.link_tables):
             yield self.get_link_table(*key)
 
@@ -2342,6 +2335,7 @@ StorageCache = NumpyVectorizedStorageCache
 
 __all__ = [
     "NumpyVectorizedMainTableCache",
+    "NumpyVectorizedLinkTable",
     "NumpyVectorizedManyManyField",
     "NumpyVectorizedManyOneField",
     "NumpyVectorizedOneManyField",

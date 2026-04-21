@@ -83,13 +83,13 @@ class TestCacheImportAPIs:
 
     def test_numpy_vectorized_plugin_uses_independent_cache_and_field_types(self) -> None:
         from LiuXin_alpha.caches import NumpyVectorizedStorageCache, SchemaBackedStorageCache
+        from LiuXin_alpha.caches.cache_plugins.numpy_vectorized.link_table import (
+            NumpyVectorizedLinkTable,
+        )
         from LiuXin_alpha.caches.cache_plugins.numpy_vectorized.storage_cache import (
             NumpyVectorizedMainTableCache,
             NumpyVectorizedSameTableField,
             NumpyVectorizedTwoTableOneOneField,
-        )
-        from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.link_tables.link_table import (
-            SchemaBackedLinkTable,
         )
         from LiuXin_alpha.databases.schema_specs import (
             LinkCardinality,
@@ -152,9 +152,7 @@ class TestCacheImportAPIs:
         assert type(cache.get_main_table("books")) is NumpyVectorizedMainTableCache
         assert type(cache.get_field("title")) is NumpyVectorizedSameTableField
         assert type(cache.get_field("books.covers.path")) is NumpyVectorizedTwoTableOneOneField
-
-        # Link tables remain schema-backed for now as an explicit compatibility seam.
-        assert isinstance(cache.get_one_one_link_table("books", "covers"), SchemaBackedLinkTable)
+        assert type(cache.get_one_one_link_table("books", "covers")) is NumpyVectorizedLinkTable
 
     def test_schema_backed_public_surface_resolves_to_canonical_schema_backed_types(
         self,
