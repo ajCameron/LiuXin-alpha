@@ -1,24 +1,24 @@
-
 """
-One container to rule them all.
+Compatibility module for the project-level unified metadata container.
 
-Contains full info as to all metadata for a given work on the database.
+Historically this file held an unfinished ``LiuXinMetadataContainer`` stub.
+The concrete work-level metadata bundle now lives in
+``metadata.containers.metadata_containers.wemi_containers.work_metadata_container``.
+Keep this name as a thin compatibility alias until callers are normalized on
+``WorkMetadataContainer``.
 """
-from LiuXin_alpha.databases.api import RowAPI, DatabaseAPI
 
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_container import (
+    WorkMetadataContainer,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_hydrator import (
+    WorkMetadataHydrator,
+)
 
-class LiuXinMetadataContainer:
-    """
-    Contains all the info for a single work.
-    """
+LiuXinMetadataContainer = WorkMetadataContainer
+LiuXinMetadataHydrator = WorkMetadataHydrator
 
-    _work_row: RowAPI
-
-    def __init__(self, db: DatabaseAPI, work_row: RowAPI) -> None:
-        """
-        Init the class with the work row.
-
-
-        :param work_row:
-        """
-
+__all__ = [
+    "LiuXinMetadataContainer",
+    "LiuXinMetadataHydrator",
+]

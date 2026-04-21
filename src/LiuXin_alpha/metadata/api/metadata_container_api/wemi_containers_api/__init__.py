@@ -25,7 +25,66 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_m
 WorkMetadataContainerAPIFromWemiApi = WorkMetadataContainerAPI
 ItemMetadataContainerAPIFromWemiApi = ItemMetadataContainerAPI
 
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.titles_containers import (
+    TitleKind,
+    TitleBase,
+    WorkTitle,
+    ExpressionTitle,
+    ManifestationTitle,
+    ItemTitle,
+    WorkTitlesContainer,
+    ExpressionTitlesContainer,
+    ManifestationTitlesContainer,
+    ItemTitlesContainer,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.notes_containers import (
+    NoteKind,
+    NoteFormat,
+    NoteVisibility,
+    NoteBase,
+    WorkNote,
+    ExpressionNote,
+    ManifestationNote,
+    ItemNote,
+    WorkNotesContainer,
+    ExpressionNotesContainer,
+    ManifestationNotesContainer,
+    ItemNotesContainer,
+)
+
 __all__ = [
+    "IdentifierBase",
+    "IdentifierStatus",
+    "WorkIdentifier",
+    "ExpressionIdentifier",
+    "ManifestationIdentifier",
+    "ItemIdentifier",
+    "WorkIdentifiersContainer",
+    "ExpressionIdentifiersContainer",
+    "ManifestationIdentifiersContainer",
+    "ItemIdentifiersContainer",
+    "TitleKind",
+    "TitleBase",
+    "WorkTitle",
+    "ExpressionTitle",
+    "ManifestationTitle",
+    "ItemTitle",
+    "WorkTitlesContainer",
+    "ExpressionTitlesContainer",
+    "ManifestationTitlesContainer",
+    "ItemTitlesContainer",
+    "NoteKind",
+    "NoteFormat",
+    "NoteVisibility",
+    "NoteBase",
+    "WorkNote",
+    "ExpressionNote",
+    "ManifestationNote",
+    "ItemNote",
+    "WorkNotesContainer",
+    "ExpressionNotesContainer",
+    "ManifestationNotesContainer",
+    "ItemNotesContainer",
     "WorkContainerAPI",
     "WorkContainerPropertiesApi",
     "WorkMetadataContainerAPI",
@@ -39,3 +98,43 @@ __all__ = [
     "ItemRelationLink",
     "ItemStorageHints",
 ]
+
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.identifier_containers import (
+    IdentifierBase,
+    IdentifierStatus,
+    WorkIdentifier,
+    ExpressionIdentifier,
+    ManifestationIdentifier,
+    ItemIdentifier,
+    WorkIdentifiersContainer,
+    ExpressionIdentifiersContainer,
+    ManifestationIdentifiersContainer,
+    ItemIdentifiersContainer,
+)
+
+
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.labels_containers import (
+    LabelKind,
+    LabelBase,
+    WorkLabel,
+    ExpressionLabel,
+    ManifestationLabel,
+    ItemLabel,
+    WorkLabelsContainer,
+    ExpressionLabelsContainer,
+    ManifestationLabelsContainer,
+    ItemLabelsContainer,
+)
+
+__all__.extend([
+    "LabelKind",
+    "LabelBase",
+    "WorkLabel",
+    "ExpressionLabel",
+    "ManifestationLabel",
+    "ItemLabel",
+    "WorkLabelsContainer",
+    "ExpressionLabelsContainer",
+    "ManifestationLabelsContainer",
+    "ItemLabelsContainer",
+])

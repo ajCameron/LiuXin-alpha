@@ -18,8 +18,6 @@ from typing import Any, Dict, Iterable, Iterator, Mapping, MutableSequence, Opti
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_container_api import WorkContainerPropertiesApi
 
 
-
-
 class WorkContainerAPI(WorkContainerPropertiesApi):
     """
     Abstract API for a single row from the `works` table.

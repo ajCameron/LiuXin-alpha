@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS `item_identifiers` (
 
   `item_identifier_scratch` TEXT NULL,
 
+  __ITEM_IDENTIFIER_SCHEME_CHECK__
+
   CONSTRAINT `item_identifier_item_fk`
     FOREIGN KEY (`item_identifier_item_id`)
     REFERENCES `items` (`item_id`)

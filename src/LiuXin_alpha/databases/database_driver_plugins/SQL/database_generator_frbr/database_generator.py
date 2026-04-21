@@ -40,6 +40,12 @@ from typing import Optional
 from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.constants import \
     __INTERLINK_TABLE_CONSTRAINTS__, __ALLOWED_INTERLINK_TYPE_VAL_DICT__, \
     __ALLOWED_INTRALINK_TYPE_VAL_DICT__
+from LiuXin_alpha.databases.db_types import (
+    ALL_IDENTIFIER_ENTITY_TYPES,
+    ENTITY_IDENTIFIER_SCHEMES_BY_TYPE,
+    IdentifierEntityType,
+    OBSERVED_ITEM_IDENTIFIER_SCHEMES,
+)
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 from LiuXin_alpha.utils.logging import LiuXin_print
@@ -104,6 +110,66 @@ def _require_toml_bool(value: Any, *, context: str) -> bool:
 def _sql_quote_literal(value: str) -> str:
     """SQL-quote a literal string for inclusion in a statement."""
     return "'" + value.replace("'", "''") + "'"
+
+
+def _sql_in_list(values: list[str] | tuple[str, ...] | set[str]) -> str:
+    """Render a stable SQL IN-list from a collection of string literals."""
+    return ", ".join(_sql_quote_literal(value) for value in sorted(values))
+
+
+def _build_entity_identifier_type_check_sql() -> str:
+    allowed_entity_types = _sql_in_list(list(ALL_IDENTIFIER_ENTITY_TYPES))
+    return f"""CONSTRAINT `entity_identifier_entity_type_valid`
+    CHECK (
+      `entity_identifier_entity_type` IS NULL
+      OR `entity_identifier_entity_type` IN ({allowed_entity_types})
+    ),"""
+
+
+def _build_entity_identifier_scheme_check_sql() -> str:
+    clauses: list[str] = []
+
+    for entity_type in IdentifierEntityType:
+        allowed_schemes = ENTITY_IDENTIFIER_SCHEMES_BY_TYPE[entity_type]
+        allowed_schemes_sql = _sql_in_list([scheme.value for scheme in allowed_schemes])
+        clauses.append(
+            f"(`entity_identifier_entity_type` = {_sql_quote_literal(entity_type.value)} "
+            f"AND `entity_identifier_scheme` IN ({allowed_schemes_sql}))"
+        )
+
+    joined_clauses = "\n        OR ".join(clauses)
+
+    return f"""CONSTRAINT `entity_identifier_scheme_valid_for_entity_type`
+    CHECK (
+      `entity_identifier_entity_type` IS NULL
+      OR `entity_identifier_scheme` IS NULL
+      OR (
+        {joined_clauses}
+      )
+    ),"""
+
+
+def _build_observed_item_identifier_scheme_check_sql() -> str:
+    allowed_schemes_sql = _sql_in_list([scheme.value for scheme in OBSERVED_ITEM_IDENTIFIER_SCHEMES])
+    return f"""CONSTRAINT `item_identifier_scheme_valid`
+    CHECK (
+      `item_identifier_scheme` IS NULL
+      OR `item_identifier_scheme` IN ({allowed_schemes_sql})
+    ),"""
+
+
+def _substitute_identifier_constraint_placeholders(sql_text: str) -> str:
+    """Substitute SQL placeholders for identifier scheme constraints."""
+    replacements = {
+        "__ENTITY_IDENTIFIER_ENTITY_TYPE_CHECK__": _build_entity_identifier_type_check_sql(),
+        "__ENTITY_IDENTIFIER_SCHEME_BY_TYPE_CHECK__": _build_entity_identifier_scheme_check_sql(),
+        "__ITEM_IDENTIFIER_SCHEME_CHECK__": _build_observed_item_identifier_scheme_check_sql(),
+    }
+
+    for placeholder, replacement in replacements.items():
+        sql_text = sql_text.replace(placeholder, replacement)
+
+    return sql_text
 
 
 def collect_type_tables(allowed_types_by_link_table: dict[str, Optional[list[str]]]) -> dict[str, set[str]]:
@@ -604,13 +670,14 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         for main_table_sql_file in self.main_tables_sql_files:
 
             try:
-                with main_table_sql_file.open("r", encoding="utf-8") as main_tables_sqlite_file:
-                    test = main_tables_sqlite_file.readlines()
+                sql_text = main_table_sql_file.read_text(encoding="utf-8")
             except OSError as e:
                 raise FileNotFoundError(
                     f"Unable to read main-table SQL file: {main_table_sql_file!s}"
                 ) from e
 
+            sql_text = _substitute_identifier_constraint_placeholders(sql_text)
+            test = sql_text.splitlines(keepends=True)
 
             # If the table file uses no BREAK markers, execute it as a script (supports multi-statement SQL).
             # This avoids silently skipping tables like metadata_additional/annotations.sql.

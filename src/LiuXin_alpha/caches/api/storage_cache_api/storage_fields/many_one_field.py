@@ -8,7 +8,9 @@ import dataclasses
 
 from typing import TYPE_CHECKING, Union, Generic, TypeVar, Optional, Sequence
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import FieldBasicInterfaceAPI
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
+    RelationFieldBasicInterfaceAPI,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
@@ -70,6 +72,10 @@ class ManyOneInTwoTableFieldUpdate(Generic[T]):
 
     The mapping is keyed by the src table id and valued with the value to be
     written into the dst table target column.
+
+    ``deleted_ids`` means "detach/clear this field from these src rows", not
+    "delete the src rows themselves". Implementations may mutate links and, if
+    explicitly supported, create or remove related dst rows.
     """
 
     src_table: MainTableName
@@ -84,6 +90,15 @@ class ManyOneInTwoTableFieldUpdate(Generic[T]):
 
     # Are the values in this field unique?
     unique: bool = False
+
+    # If True, missing src->dst links may be created when a src row currently
+    # has no linked dst row for this field.
+    create_missing_links: bool = False
+
+    # If True, and no existing dst row can be matched for a missing link, a new
+    # dst row may be created and then linked. This requires
+    # ``create_missing_links=True``.
+    create_missing_related_rows: bool = False
 
 
 @dataclasses.dataclass
@@ -104,7 +119,7 @@ class LinkDstUpdate(LinkPropertiesMixin, LinkDstUpdateMixin[T]):
     """
 
 
-class ManyToOneFieldAPI(FieldBasicInterfaceAPI[T]):
+class ManyToOneFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     """
     Many-to-one field over a src table, a dst table, and a many-to-one link table.
 

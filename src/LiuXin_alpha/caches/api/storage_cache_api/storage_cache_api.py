@@ -8,8 +8,9 @@ user-facing sort semantics, and views belong in the InterfaceCache layer.
 from __future__ import annotations
 
 import abc
+from dataclasses import dataclass
 
-from typing import TYPE_CHECKING, Any, Iterable, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Iterable, Mapping, Optional, Sequence, Union
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
     FieldBasicInterfaceAPI,
@@ -46,6 +47,29 @@ FieldKey = str
 LinkTableKey = tuple[str, str]
 
 
+@dataclass(frozen=True, slots=True)
+class StorageCacheCapabilities:
+    """
+    Declared semantic/performance capabilities for one cache backend.
+
+    This is intentionally small and backend-facing. It exists so callers and
+    tests can reason about backend policy without importing implementation
+    details or inferring behavior from class names.
+    """
+
+    #: Does the backend reflect external DB changes on ordinary read access?
+    live_reads: bool = False
+
+    #: Do handed-out child objects continue to reflect live state?
+    live_child_objects: bool = False
+
+    #: Does the backend provide explicit vectorized helper paths?
+    vectorized_helpers: bool = False
+
+    #: Must callers explicitly reload/invalidate to observe external DB changes?
+    requires_reload_for_external_changes: bool = True
+
+
 class StorageCacheAPI(abc.ABC):
     """
     Top-level storage cache API.
@@ -54,6 +78,9 @@ class StorageCacheAPI(abc.ABC):
     and storage-facing field objects built on top of them. It is intentionally
     lower-level than any interface/library cache.
     """
+
+    plugin_name: ClassVar[str] = "storage_cache"
+    plugin_capabilities: ClassVar[StorageCacheCapabilities] = StorageCacheCapabilities()
 
     db: Optional["DatabaseAPI"]
 
@@ -77,6 +104,27 @@ class StorageCacheAPI(abc.ABC):
         :return:
         """
         self.db = db
+
+    @property
+    def cache_type(self) -> str:
+        """
+        Canonical plugin/cache type for this cache instance.
+
+        :return:
+        """
+        return str(self.plugin_name)
+
+    @property
+    def capabilities(self) -> StorageCacheCapabilities:
+        """
+        Declared capabilities for this cache instance's backend.
+
+        Concrete backends may narrow this at runtime when optional dependencies
+        or configuration disable part of the declared helper surface.
+
+        :return:
+        """
+        return self.plugin_capabilities
 
     # ------------------------------------------------------------------
     # - LIFECYCLE / STATE
@@ -204,6 +252,69 @@ class StorageCacheAPI(abc.ABC):
         :param db:
         :return:
         """
+
+    def get_cached_value(
+        self,
+        owner_id: "MainTableID",
+        field_key: FieldKey,
+        default_value: Any = None,
+    ) -> Any:
+        """
+        Return one cached field value for one owning row id.
+
+        Implementations may override this with plugin-specific fast paths.
+
+        :param owner_id:
+        :param field_key:
+        :param default_value:
+        :return:
+        """
+        field = self.get_field(field_key)
+        row_id = int(owner_id)
+
+        getter = getattr(field, "get_value_from_id", None)
+        if callable(getter):
+            value = getter(row_id)
+            return default_value if value is None else value
+
+        getter = getattr(field, "get_value_from_src_id", None)
+        if callable(getter):
+            value = getter(row_id)
+            return default_value if value is None else value
+
+        getter = getattr(field, "get_values_from_src_id", None)
+        if callable(getter):
+            return getter(row_id)
+
+        ids_values_map = getattr(field, "ids_values_map", None)
+        if isinstance(ids_values_map, Mapping):
+            value = ids_values_map.get(row_id)
+            return default_value if value is None else value
+
+        raise TypeError(
+            f"Field {field_key!r} does not expose a supported cached-value accessor"
+        )
+
+    def get_cached_row_values(
+        self,
+        owner_id: "MainTableID",
+        field_keys: Sequence[FieldKey],
+        default_value: Any = None,
+    ) -> Sequence[Any]:
+        """
+        Return cached values for the given row id across the given field keys.
+
+        Implementations may override this with plugin-specific fast paths.
+
+        :param owner_id:
+        :param field_keys:
+        :param default_value:
+        :return:
+        """
+        return tuple(
+            self.get_cached_value(owner_id, field_key, default_value=default_value)
+            for field_key in field_keys
+        )
 
     # ------------------------------------------------------------------
     # - TABLE ACCESS

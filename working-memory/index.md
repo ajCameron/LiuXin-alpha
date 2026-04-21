@@ -1,10 +1,16 @@
 # Working Memory Index
 
-Updated: 2026-04-16
+Updated: 2026-04-21
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [cache-performance-exploration-2026-04-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-cache-impl/working-memory/cache-performance-exploration-2026-04-21.md)
+  Cache backend review concluded that the current `numpy_vectorized` layer is
+  only a helper veneer over `schema_backed`, and that an optional
+  `pyarrow_columnar` backend is the best fit for a genuinely faster immutable
+  snapshot cache.
 
 - [pr-surfaces-normalization-2026-04-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/pr-surfaces-normalization-2026-04-16.md)
   Draft PR title/body for the `interfaces` to `surfaces` normalization pass,

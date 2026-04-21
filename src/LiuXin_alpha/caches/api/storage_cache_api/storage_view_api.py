@@ -63,6 +63,10 @@ class CacheViewSpec:
     columns: tuple[CacheViewColumnSpec, ...] = ()
     default_sort: tuple[CacheViewSortSpec, ...] = (CacheViewSortSpec("id", True),)
 
+    def __post_init__(self) -> None:
+        if self.default_sort == (CacheViewSortSpec("id", True),) and self.id_column != "id":
+            object.__setattr__(self, "default_sort", (CacheViewSortSpec(self.id_column, True),))
+
 
 @dataclasses.dataclass(slots=True)
 class CacheViewState:
