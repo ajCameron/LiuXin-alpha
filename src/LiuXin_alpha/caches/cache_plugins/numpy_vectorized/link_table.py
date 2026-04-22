@@ -133,8 +133,8 @@ class NumpyVectorizedLinkTable(
         self._dst_link_col = dst_link_col
         self._records: list[_CachedLinkRecord] = []
         self._by_src: dict[int, list[_CachedLinkRecord]] = {}
-        self._by_dst: dict[int, list[_CachedLinkRecord]] = {}
-        self._by_pair: dict[tuple[int, int], list[_CachedLinkRecord]] = {}
+        self._by_dst: Optional[dict[int, list[_CachedLinkRecord]]] = None
+        self._by_pair: Optional[dict[tuple[int, int], list[_CachedLinkRecord]]] = None
         self._id_column: Optional[str] = None
         self._table_type = TableTypes.MANY_MANY
         self._priority = bool(link_spec.priority_link_col)
@@ -300,20 +300,32 @@ class NumpyVectorizedLinkTable(
             )
 
         by_src: dict[int, list[_CachedLinkRecord]] = defaultdict(list)
-        by_dst: dict[int, list[_CachedLinkRecord]] = defaultdict(list)
-        by_pair: dict[tuple[int, int], list[_CachedLinkRecord]] = defaultdict(list)
 
         for record in records:
             by_src[record.src_id].append(record)
-            by_dst[record.dst_id].append(record)
-            by_pair[(record.src_id, record.dst_id)].append(record)
 
         self._records = records
         self._by_src = {key: list(value) for key, value in by_src.items()}
-        self._by_dst = {key: list(value) for key, value in by_dst.items()}
-        self._by_pair = {key: list(value) for key, value in by_pair.items()}
+        self._by_dst = None
+        self._by_pair = None
         self._table_type = self._infer_table_type(records)
         self._rebuild_relation_topology()
+
+    def _ensure_dst_index(self) -> dict[int, list[_CachedLinkRecord]]:
+        if self._by_dst is None:
+            by_dst: dict[int, list[_CachedLinkRecord]] = defaultdict(list)
+            for record in self._records:
+                by_dst[int(record.dst_id)].append(record)
+            self._by_dst = {key: list(value) for key, value in by_dst.items()}
+        return self._by_dst
+
+    def _ensure_pair_index(self) -> dict[tuple[int, int], list[_CachedLinkRecord]]:
+        if self._by_pair is None:
+            by_pair: dict[tuple[int, int], list[_CachedLinkRecord]] = defaultdict(list)
+            for record in self._records:
+                by_pair[(int(record.src_id), int(record.dst_id))].append(record)
+            self._by_pair = {key: list(value) for key, value in by_pair.items()}
+        return self._by_pair
 
     def _rebuild_relation_topology(self) -> None:
         src_ids: list[int] = []
@@ -391,9 +403,10 @@ class NumpyVectorizedLinkTable(
         require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> list[_CachedLinkRecord]:
+        by_dst = self._ensure_dst_index()
         matches = [
             record
-            for record in self._by_dst.get(int(dst_id), [])
+            for record in by_dst.get(int(dst_id), [])
             if self._record_matches(record, type_filter)
         ]
         return self._ordered_records(matches, require_ordering=require_ordering)
@@ -405,9 +418,10 @@ class NumpyVectorizedLinkTable(
         *,
         type_filter: Optional[str] = None,
     ) -> list[_CachedLinkRecord]:
+        by_pair = self._ensure_pair_index()
         matches = [
             record
-            for record in self._by_pair.get((int(src_id), int(dst_id)), [])
+            for record in by_pair.get((int(src_id), int(dst_id)), [])
             if self._record_matches(record, type_filter)
         ]
         return self._ordered_records(matches)
@@ -890,9 +904,10 @@ class NumpyVectorizedLinkTable(
         }
 
     def get_secondary_id_primary_id_map(self) -> dict[int, int]:
+        by_dst = self._ensure_dst_index()
         return {
             dst_id: src_id
-            for dst_id in self._by_dst
+            for dst_id in by_dst
             for src_id in [self.get_src_id(dst_id)]
             if src_id is not None
         }

@@ -218,6 +218,14 @@ def test_cache_plugin_one_to_one_link_table_maps_are_exposed(contract_cache) -> 
     }
 
 
+def test_cache_plugin_link_table_reverse_and_pair_lookups_are_readable(contract_cache) -> None:
+    one_one = contract_cache.get_one_one_link_table("books", "covers")
+    many_many = contract_cache.get_many_many_link_table("books", "tags")
+
+    assert one_one.get_src_id(11) == 2
+    assert many_many.has_link(1, 40) is True
+
+
 def test_cache_plugin_one_to_one_relation_fields_are_discovered_and_readable(
     contract_cache,
 ) -> None:
