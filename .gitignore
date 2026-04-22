@@ -212,6 +212,7 @@ LiuXin-alpha-[0-9-]*.zip
 
 # External local fixture/data checkout (not part of this repo)
 /LiuXin_alpha_data/
+/LiuXin_data/benchmarks/
 
 # Common transient conversion artefacts accidentally created in repo root
 /content.opf

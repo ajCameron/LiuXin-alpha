@@ -156,7 +156,7 @@ def _build_entity_identifier_scheme_check_sql() -> str:
       OR (
         {joined_clauses}
       )
-    ),"""
+    )"""
 
 
 def _build_observed_item_identifier_scheme_check_sql() -> str:

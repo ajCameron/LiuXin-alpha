@@ -28,10 +28,21 @@ for candidate in (str(REPO_ROOT), str(SRC_ROOT)):
         sys.path.insert(0, candidate)
 
 from tests.support.test_resources_manager import TestResourcesManager  # noqa: E402
+from LiuXin_alpha.constants.paths import LiuXin_data_folder  # noqa: E402
 
 
-DEFAULT_CACHE_DIR = REPO_ROOT / ".tmp" / "benchmark-cache"
-DEFAULT_RESULTS_DIR = REPO_ROOT / "working-memory" / "test-results"
+def _resolve_liuxin_data_dir() -> Path:
+    raw = str(os.environ.get("LIUXIN_DATA_DIR", "")).strip()
+    if raw:
+        return Path(raw).expanduser()
+    return Path(LiuXin_data_folder).expanduser()
+
+
+DEFAULT_BENCHMARK_ROOT = _resolve_liuxin_data_dir() / "benchmarks"
+DEFAULT_CACHE_DIR = DEFAULT_BENCHMARK_ROOT / "cache"
+DEFAULT_PROVISIONED_DIR = DEFAULT_BENCHMARK_ROOT / "provisioned"
+DEFAULT_RESULTS_DIR = DEFAULT_BENCHMARK_ROOT / "results"
+DEFAULT_DATABASES_DIR = DEFAULT_BENCHMARK_ROOT / "databases"
 ProgressCallback = Callable[[str], None]
 
 
@@ -81,9 +92,11 @@ def resolved_benchmark_database(
     if not fixture_name:
         raise ValueError("Either --db-name or --database must be provided.")
 
-    mgr = TestResourcesManager(cache_dir=Path(cache_dir).expanduser(), regenerate=regenerate)
-    DEFAULT_CACHE_DIR.parent.mkdir(parents=True, exist_ok=True)
-    root = Path(tempfile.mkdtemp(prefix="liuxin-benchmark-", dir=str(DEFAULT_CACHE_DIR.parent)))
+    cache_root = Path(cache_dir).expanduser()
+    mgr = TestResourcesManager(cache_dir=cache_root, regenerate=regenerate)
+    provision_parent = cache_root.parent / "provisioned"
+    provision_parent.mkdir(parents=True, exist_ok=True)
+    root = Path(tempfile.mkdtemp(prefix="liuxin-benchmark-", dir=str(provision_parent)))
     try:
         provisioned = mgr.provision_named_test_database(name=fixture_name, dst_dir=root)
         yield BenchmarkDatabaseHandle(

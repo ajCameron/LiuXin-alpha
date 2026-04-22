@@ -15,6 +15,7 @@ for candidate in (str(REPO_ROOT), str(SRC_ROOT)):
     if candidate not in sys.path:
         sys.path.insert(0, candidate)
 
+from _benchmark_common import DEFAULT_CACHE_DIR, DEFAULT_DATABASES_DIR  # noqa: E402
 from tests.support.test_resources_manager import (  # noqa: E402
     TestResourcesManager,
     build_profiled_test_database,
@@ -40,12 +41,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output",
-        required=True,
-        help="Destination .test_db path.",
+        default="",
+        help="Destination .test_db path. Defaults to LiuXin_data/benchmarks/databases/<name>.test_db.",
     )
     parser.add_argument(
         "--cache-dir",
-        default=str(REPO_ROOT / ".tmp" / "benchmark-db-cache"),
+        default=str(DEFAULT_CACHE_DIR),
         help="Cache directory used when provisioning a named benchmark DB.",
     )
     parser.add_argument(
@@ -97,7 +98,13 @@ def _print_summary(db_path: Path) -> None:
 def main() -> int:
     args = parse_args()
 
-    output = Path(args.output).expanduser().resolve()
+    output_raw = str(args.output or "").strip()
+    if output_raw:
+        output = Path(output_raw).expanduser().resolve()
+    elif any(value is not None for value in (args.books, args.folders, args.files)):
+        output = (DEFAULT_DATABASES_DIR / f"{args.db_name}.test_db").resolve()
+    else:
+        output = (DEFAULT_DATABASES_DIR / f"{args.name}.test_db").resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
 
     has_custom = any(value is not None for value in (args.books, args.folders, args.files))

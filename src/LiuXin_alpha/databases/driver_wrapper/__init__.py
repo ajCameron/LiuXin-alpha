@@ -129,14 +129,52 @@ class DriverWrapper(
                 )
             )
 
+        def _optional_id_column() -> Optional[str]:
+            if relation_type != "table":
+                return None
+            if "id" in headings:
+                return "id"
+            candidates = sorted((heading for heading in headings if heading.endswith("_id")), key=len)
+            return candidates[0] if candidates else None
+
+        def _optional_datestamp_column() -> Optional[str]:
+            if relation_type != "table":
+                return None
+            if "datestamp" in headings:
+                return "datestamp"
+            candidates = sorted(
+                (
+                    heading
+                    for heading in headings
+                    if heading.endswith("_datestamp")
+                    or heading.endswith("_datestamp_ep_k")
+                    or heading.endswith("_timestamp")
+                    or heading.endswith("_timestamp_ep_k")
+                ),
+                key=len,
+            )
+            return candidates[0] if candidates else None
+
+        def _optional_scratch_column() -> Optional[str]:
+            if relation_type != "table":
+                return None
+            for heading in headings:
+                if heading.endswith("scratch"):
+                    return heading
+            return None
+
+        parent_column = self.get_parent_column(table) if relation_type == "table" else None
+        if not parent_column:
+            parent_column = None
+
         return StorageTableSpec(
             name=table,
             relation_kind=RelationKind(relation_type),
             columns=tuple(columns),
-            id_column=self.get_id_column(table) if relation_type == "table" else None,
-            parent_column=self.get_parent_column(table) if relation_type == "table" else None,
-            datestamp_column=self.get_datestamp_column(table) if relation_type == "table" else None,
-            scratch_column=self.get_scratch_column(table) if relation_type == "table" else None,
+            id_column=_optional_id_column(),
+            parent_column=parent_column,
+            datestamp_column=_optional_datestamp_column(),
+            scratch_column=_optional_scratch_column(),
             is_main_table=table in getattr(self, "main_tables", ()),
             is_link_table=table in getattr(self, "interlink_tables", ()),
             is_intralink_table=table in getattr(self, "intralink_tables", ()),
@@ -206,10 +244,14 @@ class DriverWrapper(
     ):
         if force_refresh:
             self._clear_derived_schema_caches()
+        seen: set[str] = set()
         for table in self.get_tables(force_refresh=False):
             yield self.get_table_spec(table, force_refresh=False)
+            seen.add(str(table))
         if include_views:
             for view in self.get_views(force_refresh=False):
+                if str(view) in seen:
+                    continue
                 yield self.get_table_spec(view, force_refresh=False)
 
     def get_intralink_spec(self, table: str, *, force_refresh: bool = False):

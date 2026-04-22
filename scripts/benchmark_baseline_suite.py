@@ -7,14 +7,14 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from _benchmark_common import DEFAULT_RESULTS_DIR, environment_payload, print_report_summary, stderr_progress, utc_now_iso, write_json_report
+from _benchmark_common import DEFAULT_CACHE_DIR, DEFAULT_RESULTS_DIR, environment_payload, print_report_summary, stderr_progress, utc_now_iso, write_json_report
 from benchmark_surface_paths import run_surface_path_benchmarks
 from benchmark_read_paths import run_read_path_benchmarks
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the default LiuXin benchmark baseline suite.")
-    parser.add_argument("--cache-dir", default=str(Path(__file__).resolve().parents[1] / ".tmp" / "benchmark-cache"), help="Cache directory for named DB provisioning.")
+    parser.add_argument("--cache-dir", default=str(DEFAULT_CACHE_DIR), help="Cache directory for named DB provisioning.")
     parser.add_argument("--regenerate", action="store_true", help="Force regeneration of named DB templates.")
     parser.add_argument("--keep-provisioned", action="store_true", help="Do not delete temporary provisioned DB copies.")
     parser.add_argument("--iterations", type=int, default=5, help="Measured iterations per scenario.")
@@ -28,7 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         default="",
-        help="Write combined JSON report to this path. Defaults to a profile-specific file under working-memory/test-results.",
+        help="Write combined JSON report to this path. Defaults to a profile-specific file under LiuXin_data/benchmarks/results.",
     )
     parser.add_argument("--quiet", action="store_true", help="Suppress progress logging and only emit the final summary line.")
     return parser.parse_args()
