@@ -68,3 +68,30 @@ __all__.extend([
     "ManifestationLabelsContainer",
     "ItemLabelsContainer",
 ])
+
+
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.genres_containers import (
+    GenreKind,
+    GenreBase,
+    WorkGenre,
+    ExpressionGenre,
+    ManifestationGenre,
+    ItemGenre,
+    WorkGenresContainer,
+    ExpressionGenresContainer,
+    ManifestationGenresContainer,
+    ItemGenresContainer,
+)
+
+__all__.extend([
+    "GenreKind",
+    "GenreBase",
+    "WorkGenre",
+    "ExpressionGenre",
+    "ManifestationGenre",
+    "ItemGenre",
+    "WorkGenresContainer",
+    "ExpressionGenresContainer",
+    "ManifestationGenresContainer",
+    "ItemGenresContainer",
+])
