@@ -1,5 +1,5 @@
 """
-Hydrator/factory for concrete :class:`ItemMetadataContainer` objects.
+Hydrator/factory for concrete :class:`ItemMetadata` objects.
 """
 
 from __future__ import annotations
@@ -8,21 +8,21 @@ from collections.abc import Mapping
 from typing import Any, Iterable, Optional
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_metadata_container_api import (
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.items_container_api import (
     ItemRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import (
-    ItemContainer,
+    ItemIdentity,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import (
-    ItemMetadataContainer,
+    ItemMetadata,
 )
 from LiuXin_alpha.utils.adaptors import _boolish_to_bool
 
 
 class ItemMetadataHydrator:
     """
-    Build :class:`ItemMetadataContainer` instances from database rows or views.
+    Build :class:`ItemMetadata` instances from database rows or views.
 
     Supported entry points:
     - item id
@@ -44,13 +44,13 @@ class ItemMetadataHydrator:
         except Exception:
             self._tables_and_columns = {}
 
-    def from_item_id(self, item_id: int) -> ItemMetadataContainer:
+    def from_item_id(self, item_id: int) -> ItemMetadata:
         item_row = self.db.get_row_from_id("items", int(item_id))
         if item_row is None:
             raise ValueError("No item found for id {}.".format(int(item_id)))
         return self._hydrate(item_row=item_row, source_row=item_row)
 
-    def from_source_row(self, source_row: Mapping[str, Any] | Row) -> ItemMetadataContainer:
+    def from_source_row(self, source_row: Mapping[str, Any] | Row) -> ItemMetadata:
         ids = self._extract_known_ids(source_row)
         item_row = None
         if isinstance(source_row, Row) and source_row.table == "items":
@@ -101,17 +101,17 @@ class ItemMetadataHydrator:
             "work_id": _as_int(mapping.get("work_id") or mapping.get("book_work_id") or mapping.get("title_id")),
         }
 
-    def _hydrate(self, *, item_row: Optional[Row], source_row: Mapping[str, Any] | Row) -> ItemMetadataContainer:
+    def _hydrate(self, *, item_row: Optional[Row], source_row: Mapping[str, Any] | Row) -> ItemMetadata:
         ids = self._extract_known_ids(source_row)
         source_map = self._mapping_from(source_row)
 
         item_container = None
         if item_row is not None:
-            item_container = ItemContainer.from_mapping(item_row.row_dict)
+            item_container = ItemIdentity.from_mapping(item_row.row_dict)
         elif self._looks_like_item_mapping(source_map):
-            item_container = ItemContainer.from_mapping(source_map)
+            item_container = ItemIdentity.from_mapping(source_map)
 
-        container = ItemMetadataContainer(item=item_container)
+        container = ItemMetadata(item=item_container)
 
         manifestation_rows: list[Row] = []
         expression_rows: list[Row] = []
@@ -307,7 +307,7 @@ class ItemMetadataHydrator:
                 )
                 break
 
-    def _append_links_unique(self, container: ItemMetadataContainer, relation: str, links: Iterable[ItemRelationLink]) -> None:
+    def _append_links_unique(self, container: ItemMetadata, relation: str, links: Iterable[ItemRelationLink]) -> None:
         existing = container.get_relation_links(relation)
         seen_rows = {self._row_key(link.target) for link in existing if isinstance(link.target, Row)}
         for link in links:
@@ -464,7 +464,7 @@ class ItemMetadataHydrator:
                     )
         return links
 
-    def _hydrate_folders_and_stores(self, container: ItemMetadataContainer, *, work_rows: list[Row]) -> None:
+    def _hydrate_folders_and_stores(self, container: ItemMetadata, *, work_rows: list[Row]) -> None:
         folder_rows: list[Row] = []
         store_rows: list[Row] = []
 

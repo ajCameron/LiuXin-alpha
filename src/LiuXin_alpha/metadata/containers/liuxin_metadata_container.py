@@ -1,24 +1,11 @@
-"""
-Compatibility module for the project-level unified metadata container.
+"""Historical project-level metadata bundle.
 
-Historically this file held an unfinished ``LiuXinMetadataContainer`` stub.
-The concrete work-level metadata bundle now lives in
-``metadata.containers.metadata_containers.wemi_containers.work_metadata_container``.
-Keep this name as a thin compatibility alias until callers are normalized on
-``WorkMetadataContainer``.
+At the moment this is the work-centred metadata bundle, which remains the
+broadest convenient read/write metadata surface in the codebase.
 """
 
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_container import (
-    WorkMetadataContainer,
-)
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_hydrator import (
-    WorkMetadataHydrator,
-)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_container import WorkMetadata
 
-LiuXinMetadataContainer = WorkMetadataContainer
-LiuXinMetadataHydrator = WorkMetadataHydrator
+LiuXinMetadataContainer = WorkMetadata
 
-__all__ = [
-    "LiuXinMetadataContainer",
-    "LiuXinMetadataHydrator",
-]
+__all__ = ["LiuXinMetadataContainer"]

@@ -6,14 +6,14 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemContainerAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemIdentityAPI
 
 
-class ItemContainer(ItemContainerAPI):
+class ItemIdentity(ItemIdentityAPI):
     """
     Lightweight concrete container for one ``items`` row.
 
-    This intentionally mirrors the style of :class:`WorkContainer`: it is only
+    This intentionally mirrors the style of :class:`WorkIdentity`: it is only
     the row itself plus a couple of construction/serialization helpers.
     """
 
@@ -67,7 +67,7 @@ class ItemContainer(ItemContainerAPI):
         self.item_scratch = item_scratch
 
     @classmethod
-    def from_mapping(cls, row: Mapping[str, Any]) -> "ItemContainer":
+    def from_mapping(cls, row: Mapping[str, Any]) -> "ItemIdentity":
         return cls(
             item_id=row.get("item_id"),
             item_manifestation_id=row.get("item_manifestation_id"),
@@ -233,4 +233,4 @@ class ItemContainer(ItemContainerAPI):
         self._item_condition = item_condition
 
 
-__all__ = ["ItemContainer"]
+__all__ = ["ItemIdentity"]

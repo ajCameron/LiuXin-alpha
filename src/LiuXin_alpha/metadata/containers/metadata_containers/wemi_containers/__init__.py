@@ -1,97 +1,16 @@
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import WorkContainer
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_container import WorkMetadataContainer
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import WorkIdentity, WorkIdentities
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_container import WorkMetadata
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_hydrator import WorkMetadataHydrator
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import ItemContainer
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadataContainer
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_metadata_container import ExpressionMetadata
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manifestation_container import ManifestationIdentity
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manifestation_metadata_container import ManifestationMetadata
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import ItemIdentity
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_hydrator import ItemMetadataHydrator
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.titles_containers import *
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.notes_containers import *
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.labels_containers import *
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.genres_containers import *
 
-__all__ = [
-    "WorkContainer",
-    "WorkMetadataContainer",
-    "WorkMetadataHydrator",
-    "ItemContainer",
-    "ItemMetadataContainer",
-    "ItemMetadataHydrator",
-]
-
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.titles_containers import (
-    TitleKind,
-    TitleBase,
-    WorkTitle,
-    ExpressionTitle,
-    ManifestationTitle,
-    ItemTitle,
-    ItemWemiTitleSlice,
-    WorkTitlesContainer,
-    ExpressionTitlesContainer,
-    ManifestationTitlesContainer,
-    ItemTitlesContainer,
-)
-
-__all__.extend([
-    "TitleKind",
-    "TitleBase",
-    "WorkTitle",
-    "ExpressionTitle",
-    "ManifestationTitle",
-    "ItemTitle",
-    "ItemWemiTitleSlice",
-    "WorkTitlesContainer",
-    "ExpressionTitlesContainer",
-    "ManifestationTitlesContainer",
-    "ItemTitlesContainer",
-])
-
-
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.labels_containers import (
-    LabelKind,
-    LabelBase,
-    WorkLabel,
-    ExpressionLabel,
-    ManifestationLabel,
-    ItemLabel,
-    WorkLabelsContainer,
-    ExpressionLabelsContainer,
-    ManifestationLabelsContainer,
-    ItemLabelsContainer,
-)
-
-__all__.extend([
-    "LabelKind",
-    "LabelBase",
-    "WorkLabel",
-    "ExpressionLabel",
-    "ManifestationLabel",
-    "ItemLabel",
-    "WorkLabelsContainer",
-    "ExpressionLabelsContainer",
-    "ManifestationLabelsContainer",
-    "ItemLabelsContainer",
-])
-
-
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.genres_containers import (
-    GenreKind,
-    GenreBase,
-    WorkGenre,
-    ExpressionGenre,
-    ManifestationGenre,
-    ItemGenre,
-    WorkGenresContainer,
-    ExpressionGenresContainer,
-    ManifestationGenresContainer,
-    ItemGenresContainer,
-)
-
-__all__.extend([
-    "GenreKind",
-    "GenreBase",
-    "WorkGenre",
-    "ExpressionGenre",
-    "ManifestationGenre",
-    "ItemGenre",
-    "WorkGenresContainer",
-    "ExpressionGenresContainer",
-    "ManifestationGenresContainer",
-    "ItemGenresContainer",
-])
+__all__ = [name for name in globals() if not name.startswith('_')]

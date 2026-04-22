@@ -1,5 +1,5 @@
 """
-Hydrator/factory for concrete :class:`WorkMetadataContainer` objects.
+Hydrator/factory for concrete :class:`WorkMetadata` objects.
 """
 
 from __future__ import annotations
@@ -8,21 +8,21 @@ from collections.abc import Mapping
 from typing import Any, Iterable, Optional
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_metadata_container_api import (
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.works_container_api import (
     WorkRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import (
-    WorkContainer,
+    WorkIdentity,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_container import (
-    WorkMetadataContainer,
+    WorkMetadata,
 )
 from LiuXin_alpha.utils.adaptors import _boolish_to_bool
 
 
 class WorkMetadataHydrator:
     """
-    Build :class:`WorkMetadataContainer` instances from database rows or views.
+    Build :class:`WorkMetadata` instances from database rows or views.
 
     Supported entry points:
     - work id
@@ -44,13 +44,13 @@ class WorkMetadataHydrator:
         except Exception:
             self._tables_and_columns = {}
 
-    def from_work_id(self, work_id: int) -> WorkMetadataContainer:
+    def from_work_id(self, work_id: int) -> WorkMetadata:
         work_row = self.db.get_row_from_id("works", int(work_id))
         if work_row is None:
             raise ValueError("No work found for id {}.".format(int(work_id)))
         return self._hydrate(work_row=work_row, source_row=work_row)
 
-    def from_source_row(self, source_row: Mapping[str, Any] | Row) -> WorkMetadataContainer:
+    def from_source_row(self, source_row: Mapping[str, Any] | Row) -> WorkMetadata:
         ids = self._extract_known_ids(source_row)
         work_row = None
         if isinstance(source_row, Row) and source_row.table == "works":
@@ -108,20 +108,20 @@ class WorkMetadataHydrator:
         *,
         work_row: Optional[Row],
         source_row: Mapping[str, Any] | Row,
-    ) -> WorkMetadataContainer:
+    ) -> WorkMetadata:
         ids = self._extract_known_ids(source_row)
         source_map = self._mapping_from(source_row)
 
         work_container = None
         if work_row is not None:
-            work_container = WorkContainer.from_mapping(work_row.row_dict)
+            work_container = WorkIdentity.from_mapping(work_row.row_dict)
         elif self._looks_like_work_mapping(source_map):
             payload = dict(source_map)
             if payload.get("work_id") in (None, "") and ids["work_id"] is not None:
                 payload["work_id"] = ids["work_id"]
-            work_container = WorkContainer.from_mapping(payload)
+            work_container = WorkIdentity.from_mapping(payload)
 
-        container = WorkMetadataContainer(work=work_container)
+        container = WorkMetadata(work=work_container)
 
         work_rows: list[Row] = []
         expression_rows: list[Row] = []
@@ -303,7 +303,7 @@ class WorkMetadataHydrator:
 
     def _append_links_unique(
         self,
-        container: WorkMetadataContainer,
+        container: WorkMetadata,
         relation: str,
         links: Iterable[WorkRelationLink],
     ) -> None:
@@ -321,7 +321,7 @@ class WorkMetadataHydrator:
 
     def _ensure_row_link(
         self,
-        container: WorkMetadataContainer,
+        container: WorkMetadata,
         relation: str,
         row: Row,
         *,
@@ -563,7 +563,7 @@ class WorkMetadataHydrator:
 
     def _hydrate_folders(
         self,
-        container: WorkMetadataContainer,
+        container: WorkMetadata,
         *,
         work_rows: list[Row],
     ) -> None:

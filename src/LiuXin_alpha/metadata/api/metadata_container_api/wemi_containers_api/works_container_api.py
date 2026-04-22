@@ -1,8 +1,8 @@
 """
 API contract for a rich "work metadata" container.
 
-`WorkContainerAPI` models one row from the `works` table.
-`WorkMetadataContainerAPI` models the full metadata graph around that work
+`WorkIdentityAPI` models one row from the `works` table.
+`WorkMetadataAPI` models the full metadata graph around that work
 (agents, WEMI descendants, genres, notes, identifiers, etc.).
 """
 
@@ -15,7 +15,7 @@ from abc import abstractmethod
 from typing import Any, ClassVar, Iterable, Mapping, Optional, Self, Dict
 
 
-class WorkContainerPropertiesApi(metaclass=abc.ABCMeta):
+class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     """
     Provides a full interface to the properties of a work row.
     """
@@ -402,7 +402,7 @@ class WorkContainerPropertiesApi(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
 
-class WorkContainerAPI(WorkContainerPropertiesApi, metaclass=abc.ABCMeta):
+class WorkIdentityAPI(WorkIdentityPropertiesAPI, metaclass=abc.ABCMeta):
     """Typing interface for a Work container.
 
     This exists so container implementations can inherit a single ABC with the
@@ -489,7 +489,7 @@ class WorkStorageHints:
         }
 
 
-class WorkMetadataContainerAPI(abc.ABC):
+class WorkMetadataAPI(abc.ABC):
     """
     API for a container that holds all metadata associated with a work.
 
@@ -575,12 +575,12 @@ class WorkMetadataContainerAPI(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def work(self) -> Optional[WorkContainerAPI]:
+    def work(self) -> Optional[WorkIdentityAPI]:
         """Primary work row for this metadata bundle."""
 
     @work.setter
     @abc.abstractmethod
-    def work(self, value: Optional[WorkContainerAPI]) -> None:
+    def work(self, value: Optional[WorkIdentityAPI]) -> None:
         """Set primary work row."""
 
     @abc.abstractmethod
@@ -782,4 +782,4 @@ class WorkMetadataContainerAPI(abc.ABC):
         """Return a storage-oriented projection for store placement logic."""
 
 
-__all__ = ["WorkMetadataContainerAPI", "WorkRelationLink", "WorkStorageHints"]
+__all__ = ["WorkMetadataAPI", "WorkRelationLink", "WorkStorageHints"]

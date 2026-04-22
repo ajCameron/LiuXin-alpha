@@ -1,38 +1,58 @@
-
-"""
-Specialized containers for all metadata options.
-
-There is a container for every table on the system.
-
-Usually these containers have two components
- - the item container - which represents the object itself
-   - This is typically called something like "AgentIdentityAPI"
- - the item metadata container - represents the items links to other objects.
-
-"""
-
 from __future__ import annotations
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import (
-    ItemMetadataContainerAPI,
-    ItemMetadataContainerAPIFromWemiApi,
-    ItemRelationLink,
-    ItemStorageHints,
-    WorkContainerAPI,
-    WorkMetadataContainerAPI,
-    WorkMetadataContainerAPIFromWemiApi,
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.works_container_api import (
+    WorkIdentityPropertiesAPI,
+    WorkIdentityAPI,
     WorkRelationLink,
     WorkStorageHints,
-    IdentifierBase,
-    IdentifierStatus,
-    WorkIdentifier,
-    ExpressionIdentifier,
-    ManifestationIdentifier,
-    ItemIdentifier,
-    WorkIdentifiersContainer,
-    ExpressionIdentifiersContainer,
-    ManifestationIdentifiersContainer,
-    ItemIdentifiersContainer,
+    WorkMetadataAPI,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.items_container_api import (
+    ItemIdentityPropertiesAPI,
+    ItemIdentityAPI,
+    ItemRelationLink,
+    ItemStorageHints,
+    ItemMetadataAPI,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expressions_container_api import (
+    ExpressionIdentityPropertiesAPI,
+    ExpressionIdentityAPI,
+    ExpressionRelationLink,
+    ExpressionStorageHints,
+    ExpressionMetadataAPI,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestations_container_api import (
+    ManifestationIdentityPropertiesAPI,
+    ManifestationIdentityAPI,
+    ManifestationRelationLink,
+    ManifestationStorageHints,
+    ManifestationMetadataAPI,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers import (
+    AgentIdentityAPI,
+    AgentCreditBase,
+    WorkAgentCredit,
+    ExpressionAgentCredit,
+    ManifestationAgentCredit,
+    ItemAgentCredit,
+    WorkRoleCreditsContainer,
+    ExpressionRoleCreditsContainer,
+    ManifestationRoleCreditsContainer,
+    ItemRoleCreditsContainer,
+    WorkAgentCreditsContainer,
+    ExpressionAgentCreditsContainer,
+    ManifestationAgentCreditsContainer,
+    ItemAgentCreditsContainer,
+    AgentSummary,
+    WorkSummary,
+    ExpressionSummary,
+    ManifestationSummary,
+    ItemSummary,
+    AgentParticipationEntry,
+    AgentParticipationsByRole,
+    AgentParticipationSnapshot,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.titles_containers import (
     TitleKind,
     TitleBase,
     WorkTitle,
@@ -44,6 +64,20 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import
     ExpressionTitlesContainer,
     ManifestationTitlesContainer,
     ItemTitlesContainer,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.metadata_additional_containers_api.identifier_containers import (
+    IdentifierBase,
+    IdentifierStatus,
+    WorkIdentifier,
+    ExpressionIdentifier,
+    ManifestationIdentifier,
+    ItemIdentifier,
+    WorkIdentifiersContainer,
+    ExpressionIdentifiersContainer,
+    ManifestationIdentifiersContainer,
+    ItemIdentifiersContainer,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.metadata_additional_containers_api.notes_containers import (
     NoteKind,
     NoteFormat,
     NoteVisibility,
@@ -57,53 +91,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import
     ManifestationNotesContainer,
     ItemNotesContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api import WorkContainerPropertiesApi
-
-__all__ = [
-    "IdentifierBase",
-    "IdentifierStatus",
-    "WorkIdentifier",
-    "ExpressionIdentifier",
-    "ManifestationIdentifier",
-    "ItemIdentifier",
-    "WorkIdentifiersContainer",
-    "ExpressionIdentifiersContainer",
-    "ManifestationIdentifiersContainer",
-    "ItemIdentifiersContainer",
-    "TitleKind",
-    "TitleBase",
-    "WorkTitle",
-    "ExpressionTitle",
-    "ManifestationTitle",
-    "ItemTitle",
-    "ItemWemiTitleSlice",
-    "WorkTitlesContainer",
-    "ExpressionTitlesContainer",
-    "ManifestationTitlesContainer",
-    "ItemTitlesContainer",
-    "NoteKind",
-    "NoteFormat",
-    "NoteVisibility",
-    "NoteBase",
-    "WorkNote",
-    "ExpressionNote",
-    "ManifestationNote",
-    "ItemNote",
-    "WorkNotesContainer",
-    "ExpressionNotesContainer",
-    "ManifestationNotesContainer",
-    "ItemNotesContainer",
-    "WorkContainerAPI",
-    "WorkContainerPropertiesApi",
-    "WorkMetadataContainerAPI",
-    "WorkMetadataContainerAPIFromWemiApi",
-    "WorkRelationLink",
-    "WorkStorageHints",
-    "ItemMetadataContainerAPIFromWemiApi",
-]
-
-
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import (
+from LiuXin_alpha.metadata.api.metadata_container_api.metadata_additional_containers_api.labels_containers import (
     LabelKind,
     LabelBase,
     WorkLabel,
@@ -115,16 +103,17 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import
     ManifestationLabelsContainer,
     ItemLabelsContainer,
 )
+from LiuXin_alpha.metadata.api.metadata_container_api.metadata_additional_containers_api.genres_containers import (
+    GenreKind,
+    GenreBase,
+    WorkGenre,
+    ExpressionGenre,
+    ManifestationGenre,
+    ItemGenre,
+    WorkGenresContainer,
+    ExpressionGenresContainer,
+    ManifestationGenresContainer,
+    ItemGenresContainer,
+)
 
-__all__.extend([
-    "LabelKind",
-    "LabelBase",
-    "WorkLabel",
-    "ExpressionLabel",
-    "ManifestationLabel",
-    "ItemLabel",
-    "WorkLabelsContainer",
-    "ExpressionLabelsContainer",
-    "ManifestationLabelsContainer",
-    "ItemLabelsContainer",
-])
+__all__ = [name for name in globals() if not name.startswith('_')]

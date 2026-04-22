@@ -9,20 +9,20 @@ from pathlib import Path
 from typing import Any, Optional
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_metadata_container_api import (
-    ItemMetadataContainerAPI,
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.items_container_api import (
+    ItemMetadataAPI,
     ItemRelationLink,
     ItemStorageHints,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemContainerAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemIdentityAPI
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import (
-    ItemContainer,
+    ItemIdentity,
 )
 
 
-class ItemMetadataContainer(ItemMetadataContainerAPI):
+class ItemMetadata(ItemMetadataAPI):
     """
-    Concrete implementation of :class:`ItemMetadataContainerAPI`.
+    Concrete implementation of :class:`ItemMetadataAPI`.
 
     Targets in relation links are usually live database :class:`Row` objects,
     but plain mappings are also supported for round-tripping/tests.
@@ -31,7 +31,7 @@ class ItemMetadataContainer(ItemMetadataContainerAPI):
     def __init__(
         self,
         *,
-        item: Optional[ItemContainerAPI] = None,
+        item: Optional[ItemIdentityAPI] = None,
         relation_links: Optional[Mapping[str, Iterable[ItemRelationLink]]] = None,
     ) -> None:
         self._item = item
@@ -43,11 +43,11 @@ class ItemMetadataContainer(ItemMetadataContainerAPI):
                 self.set_relation_links(relation, links)
 
     @property
-    def item(self) -> Optional[ItemContainerAPI]:
+    def item(self) -> Optional[ItemIdentityAPI]:
         return self._item
 
     @item.setter
-    def item(self, value: Optional[ItemContainerAPI]) -> None:
+    def item(self, value: Optional[ItemIdentityAPI]) -> None:
         self._item = value
 
     def get_relation_links(self, relation: str) -> list[ItemRelationLink]:
@@ -75,7 +75,7 @@ class ItemMetadataContainer(ItemMetadataContainerAPI):
     def _deserialize_target(target: Any) -> Any:
         if isinstance(target, Mapping):
             if "item_id" in target or "item_manifestation_id" in target:
-                return ItemContainer.from_mapping(target)
+                return ItemIdentity.from_mapping(target)
             return dict(target)
         return target
 
@@ -104,13 +104,13 @@ class ItemMetadataContainer(ItemMetadataContainerAPI):
         return payload
 
     @classmethod
-    def from_mapping(cls, payload: Mapping[str, Any]) -> "ItemMetadataContainer":
+    def from_mapping(cls, payload: Mapping[str, Any]) -> "ItemMetadata":
         item_payload = payload.get("item")
-        item: Optional[ItemContainerAPI]
-        if isinstance(item_payload, ItemContainerAPI):
+        item: Optional[ItemIdentityAPI]
+        if isinstance(item_payload, ItemIdentityAPI):
             item = item_payload
         elif isinstance(item_payload, Mapping):
-            item = ItemContainer.from_mapping(item_payload)
+            item = ItemIdentity.from_mapping(item_payload)
         else:
             item = None
 
@@ -146,7 +146,7 @@ class ItemMetadataContainer(ItemMetadataContainerAPI):
         *,
         item_id: Optional[int] = None,
         source_row: Optional[Mapping[str, Any] | Row] = None,
-    ) -> "ItemMetadataContainer":
+    ) -> "ItemMetadata":
         from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_hydrator import (
             ItemMetadataHydrator,
         )
@@ -450,4 +450,4 @@ class ItemMetadataContainer(ItemMetadataContainerAPI):
         )
 
 
-__all__ = ["ItemMetadataContainer"]
+__all__ = ["ItemMetadata"]

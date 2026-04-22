@@ -1,30 +1,57 @@
 from __future__ import annotations
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_container_api import (
-    WorkContainerPropertiesApi,
-)
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.wemi_container_api import (
-    WorkContainerAPI,
-)
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_metadata_container_api import (
-    WorkMetadataContainerAPI,
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.works_container_api import (
+    WorkIdentityPropertiesAPI,
+    WorkIdentityAPI,
     WorkRelationLink,
     WorkStorageHints,
+    WorkMetadataAPI,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_container_api import (
-    ItemContainerAPI,
-    ItemContainerPropertiesApi,
-)
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_metadata_container_api import (
-    ItemMetadataContainerAPI,
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.items_container_api import (
+    ItemIdentityPropertiesAPI,
+    ItemIdentityAPI,
     ItemRelationLink,
     ItemStorageHints,
+    ItemMetadataAPI,
 )
-
-# Historical name used by tests and older imports.
-WorkMetadataContainerAPIFromWemiApi = WorkMetadataContainerAPI
-ItemMetadataContainerAPIFromWemiApi = ItemMetadataContainerAPI
-
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expressions_container_api import (
+    ExpressionIdentityPropertiesAPI,
+    ExpressionIdentityAPI,
+    ExpressionRelationLink,
+    ExpressionStorageHints,
+    ExpressionMetadataAPI,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestations_container_api import (
+    ManifestationIdentityPropertiesAPI,
+    ManifestationIdentityAPI,
+    ManifestationRelationLink,
+    ManifestationStorageHints,
+    ManifestationMetadataAPI,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers import (
+    AgentIdentityAPI,
+    AgentCreditBase,
+    WorkAgentCredit,
+    ExpressionAgentCredit,
+    ManifestationAgentCredit,
+    ItemAgentCredit,
+    WorkRoleCreditsContainer,
+    ExpressionRoleCreditsContainer,
+    ManifestationRoleCreditsContainer,
+    ItemRoleCreditsContainer,
+    WorkAgentCreditsContainer,
+    ExpressionAgentCreditsContainer,
+    ManifestationAgentCreditsContainer,
+    ItemAgentCreditsContainer,
+    AgentSummary,
+    WorkSummary,
+    ExpressionSummary,
+    ManifestationSummary,
+    ItemSummary,
+    AgentParticipationEntry,
+    AgentParticipationsByRole,
+    AgentParticipationSnapshot,
+)
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.titles_containers import (
     TitleKind,
     TitleBase,
@@ -38,7 +65,19 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.titles
     ManifestationTitlesContainer,
     ItemTitlesContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.notes_containers import (
+from LiuXin_alpha.metadata.api.metadata_container_api.metadata_additional_containers_api.identifier_containers import (
+    IdentifierBase,
+    IdentifierStatus,
+    WorkIdentifier,
+    ExpressionIdentifier,
+    ManifestationIdentifier,
+    ItemIdentifier,
+    WorkIdentifiersContainer,
+    ExpressionIdentifiersContainer,
+    ManifestationIdentifiersContainer,
+    ItemIdentifiersContainer,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.metadata_additional_containers_api.notes_containers import (
     NoteKind,
     NoteFormat,
     NoteVisibility,
@@ -52,70 +91,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.notes_
     ManifestationNotesContainer,
     ItemNotesContainer,
 )
-
-__all__ = [
-    "IdentifierBase",
-    "IdentifierStatus",
-    "WorkIdentifier",
-    "ExpressionIdentifier",
-    "ManifestationIdentifier",
-    "ItemIdentifier",
-    "WorkIdentifiersContainer",
-    "ExpressionIdentifiersContainer",
-    "ManifestationIdentifiersContainer",
-    "ItemIdentifiersContainer",
-    "TitleKind",
-    "TitleBase",
-    "WorkTitle",
-    "ExpressionTitle",
-    "ManifestationTitle",
-    "ItemTitle",
-    "ItemWemiTitleSlice",
-    "WorkTitlesContainer",
-    "ExpressionTitlesContainer",
-    "ManifestationTitlesContainer",
-    "ItemTitlesContainer",
-    "NoteKind",
-    "NoteFormat",
-    "NoteVisibility",
-    "NoteBase",
-    "WorkNote",
-    "ExpressionNote",
-    "ManifestationNote",
-    "ItemNote",
-    "WorkNotesContainer",
-    "ExpressionNotesContainer",
-    "ManifestationNotesContainer",
-    "ItemNotesContainer",
-    "WorkContainerAPI",
-    "WorkContainerPropertiesApi",
-    "WorkMetadataContainerAPI",
-    "WorkMetadataContainerAPIFromWemiApi",
-    "WorkRelationLink",
-    "WorkStorageHints",
-    "ItemContainerAPI",
-    "ItemContainerPropertiesApi",
-    "ItemMetadataContainerAPI",
-    "ItemMetadataContainerAPIFromWemiApi",
-    "ItemRelationLink",
-    "ItemStorageHints",
-]
-
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.identifier_containers import (
-    IdentifierBase,
-    IdentifierStatus,
-    WorkIdentifier,
-    ExpressionIdentifier,
-    ManifestationIdentifier,
-    ItemIdentifier,
-    WorkIdentifiersContainer,
-    ExpressionIdentifiersContainer,
-    ManifestationIdentifiersContainer,
-    ItemIdentifiersContainer,
-)
-
-
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.labels_containers import (
+from LiuXin_alpha.metadata.api.metadata_container_api.metadata_additional_containers_api.labels_containers import (
     LabelKind,
     LabelBase,
     WorkLabel,
@@ -127,21 +103,6 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.labels
     ManifestationLabelsContainer,
     ItemLabelsContainer,
 )
-
-__all__.extend([
-    "LabelKind",
-    "LabelBase",
-    "WorkLabel",
-    "ExpressionLabel",
-    "ManifestationLabel",
-    "ItemLabel",
-    "WorkLabelsContainer",
-    "ExpressionLabelsContainer",
-    "ManifestationLabelsContainer",
-    "ItemLabelsContainer",
-])
-
-
 from LiuXin_alpha.metadata.api.metadata_container_api.metadata_additional_containers_api.genres_containers import (
     GenreKind,
     GenreBase,
@@ -155,15 +116,4 @@ from LiuXin_alpha.metadata.api.metadata_container_api.metadata_additional_contai
     ItemGenresContainer,
 )
 
-__all__.extend([
-    "GenreKind",
-    "GenreBase",
-    "WorkGenre",
-    "ExpressionGenre",
-    "ManifestationGenre",
-    "ItemGenre",
-    "WorkGenresContainer",
-    "ExpressionGenresContainer",
-    "ManifestationGenresContainer",
-    "ItemGenresContainer",
-])
+__all__ = [name for name in globals() if not name.startswith('_')]

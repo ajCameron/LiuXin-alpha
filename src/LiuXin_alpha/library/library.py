@@ -22,7 +22,7 @@ from LiuXin_alpha.ingest import (
     register_wget_html_readonly_store_files,
 )
 from LiuXin_alpha.metadata.api import MetadataContainerAPI
-from LiuXin_alpha.metadata.containers import ItemMetadataContainer, ItemMetadataHydrator
+from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
 from LiuXin_alpha.storage.api import StoreContainerAPI, StoreLocationMixinAPI
 from LiuXin_alpha.storage.reconcile import (
     SquashfsArchivePublishReport,
@@ -163,7 +163,7 @@ class Library:
         *,
         item_id: int | None = None,
         source_row: Mapping[str, Any] | Row | None = None,
-    ) -> ItemMetadataContainer:
+    ) -> ItemMetadata:
         """Return one concrete item metadata bundle.
 
         Callers may provide either an ``item_id`` or an already-fetched row/view

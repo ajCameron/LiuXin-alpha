@@ -17,7 +17,7 @@ import dataclasses
 from typing import Any, ClassVar, Iterable, Mapping, Optional, Self
 
 
-class ItemContainerPropertiesApi(metaclass=abc.ABCMeta):
+class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     """
     Lightweight API for one row from the ``items`` table.
 
@@ -299,11 +299,11 @@ class ItemContainerPropertiesApi(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
 
-class ItemContainerAPI(ItemContainerPropertiesApi):
+class ItemIdentityAPI(ItemIdentityPropertiesAPI):
     """
     Marker base class for a concrete item-row container.
 
-    The richer item metadata bundle lives in :class:`ItemMetadataContainerAPI`.
+    The richer item metadata bundle lives in :class:`ItemMetadataAPI`.
     """
 
 
@@ -413,7 +413,7 @@ class ItemStorageHints:
         }
 
 
-class ItemMetadataContainerAPI(abc.ABC):
+class ItemMetadataAPI(abc.ABC):
     """
     API for a container that holds all metadata associated with one item.
 
@@ -507,12 +507,12 @@ class ItemMetadataContainerAPI(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def item(self) -> Optional[ItemContainerAPI]:
+    def item(self) -> Optional[ItemIdentityAPI]:
         """Primary item row for this metadata bundle."""
 
     @item.setter
     @abc.abstractmethod
-    def item(self, value: Optional[ItemContainerAPI]) -> None:
+    def item(self, value: Optional[ItemIdentityAPI]) -> None:
         """Set primary item row."""
 
     @abc.abstractmethod
@@ -738,5 +738,5 @@ class ItemMetadataContainerAPI(abc.ABC):
         """Return a storage-oriented projection for store placement logic."""
 
 
-__all__ = ["ItemMetadataContainerAPI", "ItemRelationLink", "ItemStorageHints"]
+__all__ = ["ItemMetadataAPI", "ItemRelationLink", "ItemStorageHints"]
 

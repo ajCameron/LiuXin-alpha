@@ -12,7 +12,7 @@ class AssetReplicaIdentityAPI(abc.ABC):
     # DIGITAL ASSET ROW ACCESS METHODS HERE
 
 
-class AssetReplicaMetadataContainerAPI(abc.ABC):
+class AssetReplicaMetadataAPI(abc.ABC):
     """
     Represents the metadata of a single digital asset replica on the system.
     """

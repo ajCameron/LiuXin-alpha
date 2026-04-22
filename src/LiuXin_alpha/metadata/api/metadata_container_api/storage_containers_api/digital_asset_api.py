@@ -24,7 +24,7 @@ class DigitalAssetIdentityAPI(abc.ABC):
 
 
 
-class DigitalAssetMetadataContainerAPI(abc.ABC):
+class DigitalAssetMetadataAPI(abc.ABC):
     """
     Container for a digital metadata container.
     """

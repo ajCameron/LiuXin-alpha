@@ -9,19 +9,19 @@ from pathlib import Path
 from typing import Any, Optional
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_metadata_container_api import (
-    WorkMetadataContainerAPI,
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.works_container_api import (
+    WorkMetadataAPI,
     WorkRelationLink,
-    WorkStorageHints, WorkContainerAPI,
+    WorkStorageHints, WorkIdentityAPI,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import (
-    WorkContainer,
+    WorkIdentity,
 )
 
 
-class WorkMetadataContainer(WorkMetadataContainerAPI):
+class WorkMetadata(WorkMetadataAPI):
     """
-    Concrete implementation of :class:`WorkMetadataContainerAPI`.
+    Concrete implementation of :class:`WorkMetadataAPI`.
 
     Targets in relation links are usually live database :class:`Row` objects,
     but plain mappings are also supported for round-tripping/tests.
@@ -30,7 +30,7 @@ class WorkMetadataContainer(WorkMetadataContainerAPI):
     def __init__(
         self,
         *,
-        work: Optional[WorkContainerAPI] = None,
+        work: Optional[WorkIdentityAPI] = None,
         relation_links: Optional[Mapping[str, Iterable[WorkRelationLink]]] = None,
     ) -> None:
         self._work = work
@@ -42,11 +42,11 @@ class WorkMetadataContainer(WorkMetadataContainerAPI):
                 self.set_relation_links(relation, links)
 
     @property
-    def work(self) -> Optional[WorkContainerAPI]:
+    def work(self) -> Optional[WorkIdentityAPI]:
         return self._work
 
     @work.setter
-    def work(self, value: Optional[WorkContainerAPI]) -> None:
+    def work(self, value: Optional[WorkIdentityAPI]) -> None:
         self._work = value
 
     def get_relation_links(self, relation: str) -> list[WorkRelationLink]:
@@ -74,7 +74,7 @@ class WorkMetadataContainer(WorkMetadataContainerAPI):
     def _deserialize_target(target: Any) -> Any:
         if isinstance(target, Mapping):
             if "work_id" in target or "work_title" in target or "work_canonical_title" in target:
-                return WorkContainer.from_mapping(target)
+                return WorkIdentity.from_mapping(target)
             return dict(target)
         return target
 
@@ -101,13 +101,13 @@ class WorkMetadataContainer(WorkMetadataContainerAPI):
         return payload
 
     @classmethod
-    def from_mapping(cls, payload: Mapping[str, Any]) -> "WorkMetadataContainer":
+    def from_mapping(cls, payload: Mapping[str, Any]) -> "WorkMetadata":
         work_payload = payload.get("work")
-        work: Optional[WorkContainerAPI]
-        if isinstance(work_payload, WorkContainerAPI):
+        work: Optional[WorkIdentityAPI]
+        if isinstance(work_payload, WorkIdentityAPI):
             work = work_payload
         elif isinstance(work_payload, Mapping):
-            work = WorkContainer.from_mapping(work_payload)
+            work = WorkIdentity.from_mapping(work_payload)
         else:
             work = None
 
@@ -141,7 +141,7 @@ class WorkMetadataContainer(WorkMetadataContainerAPI):
         *,
         work_id: Optional[int] = None,
         source_row: Optional[Mapping[str, Any] | Row] = None,
-    ) -> "WorkMetadataContainer":
+    ) -> "WorkMetadata":
         from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_hydrator import (
             WorkMetadataHydrator,
         )
@@ -372,4 +372,4 @@ class WorkMetadataContainer(WorkMetadataContainerAPI):
         )
 
 
-__all__ = ["WorkMetadataContainer"]
+__all__ = ["WorkMetadata"]
