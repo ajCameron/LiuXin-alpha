@@ -6,7 +6,7 @@ import dataclasses
 
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, Mapping, Optional, Sequence, cast
+from typing import Any, Iterable, Mapping, Optional, Sequence, cast
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.base_table import (
     TableMetadata,
@@ -34,6 +34,11 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.single_table impor
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.schema_specs import LinkCardinality, StorageLinkSpec, StorageTableSpec
 
+try:
+    import numpy as _np
+except Exception:  # pragma: no cover - availability is environment-specific
+    _np = None
+
 
 def _ensure_db(current_db: Any, passed_db: Any = None) -> Any:
     db = passed_db if passed_db is not None else current_db
@@ -49,6 +54,13 @@ def _column_type_map(spec: StorageTableSpec) -> dict[str, str]:
     }
 
 
+def _as_int_array(values: Iterable[int]) -> Any:
+    normalized = tuple(int(value) for value in values)
+    if _np is None:
+        return normalized
+    return _np.asarray(normalized, dtype=_np.int64)
+
+
 @dataclasses.dataclass(slots=True)
 class _CachedLinkRecord:
     src_id: int
@@ -58,6 +70,31 @@ class _CachedLinkRecord:
     link_type: Optional[str]
     priority: Optional[float]
     sequence: int
+
+
+@dataclasses.dataclass(slots=True)
+class _CachedRelationTopology:
+    src_ids: tuple[int, ...]
+    src_ids_array: Any
+    src_positions: dict[int, int]
+    src_offsets: Any
+    flat_dst_ids: Any
+    flat_dst_positions: Any
+    has_missing_dst: bool
+    dst_to_src_ids: dict[int, tuple[int, ...]]
+
+
+def _empty_relation_topology() -> _CachedRelationTopology:
+    return _CachedRelationTopology(
+        src_ids=(),
+        src_ids_array=_as_int_array(()),
+        src_positions={},
+        src_offsets=_as_int_array((0,)),
+        flat_dst_ids=_as_int_array(()),
+        flat_dst_positions=_as_int_array(()),
+        has_missing_dst=False,
+        dst_to_src_ids={},
+    )
 
 
 class NumpyVectorizedLinkTable(
@@ -102,6 +139,7 @@ class NumpyVectorizedLinkTable(
         self._table_type = TableTypes.MANY_MANY
         self._priority = bool(link_spec.priority_link_col)
         self._typed = bool(link_spec.type_link_col)
+        self._relation_topology = _empty_relation_topology()
 
     @property
     def primary_table(self) -> str:
@@ -146,21 +184,20 @@ class NumpyVectorizedLinkTable(
         *,
         require_ordering: bool = False,
     ) -> list[_CachedLinkRecord]:
+        if not self.priority:
+            return list(records)
         ordered = list(records)
-        if self.priority:
-            ordered.sort(
-                key=lambda record: (
-                    -float(record.priority) if record.priority is not None else 0.0,
-                    record.sequence,
-                )
+        ordered.sort(
+            key=lambda record: (
+                -float(record.priority) if record.priority is not None else 0.0,
+                record.sequence,
             )
-        elif require_ordering:
-            ordered.sort(key=lambda record: record.sequence)
+        )
         return ordered
 
     def _to_row_dicts(self) -> list[dict[str, Any]]:
         rows = self.db.get_all_rows(self.table, iterator_return=False)
-        return [deepcopy(row.row_dict) for row in rows]
+        return [row.row_dict for row in rows]
 
     def _unique_single_columns(self) -> set[str]:
         conn = getattr(self.db, "conn", None)
@@ -231,15 +268,15 @@ class NumpyVectorizedLinkTable(
         self._id_column = self.db.driver_wrapper.get_id_column(self.table)
         records: list[_CachedLinkRecord] = []
         for sequence, row_dict in enumerate(row_dicts):
-            row_copy = deepcopy(dict(row_dict))
-            src_id = row_copy.get(self._src_link_col)
-            dst_id = row_copy.get(self._dst_link_col)
+            row_payload = row_dict if isinstance(row_dict, dict) else dict(row_dict)
+            src_id = row_payload.get(self._src_link_col)
+            dst_id = row_payload.get(self._dst_link_col)
             if src_id is None or dst_id is None:
                 continue
-            row_id = row_copy.get(self._id_column) if self._id_column else None
+            row_id = row_payload.get(self._id_column) if self._id_column else None
             priority = None
             if self.link_spec.priority_link_col:
-                priority_value = row_copy.get(self.link_spec.priority_link_col)
+                priority_value = row_payload.get(self.link_spec.priority_link_col)
                 if priority_value is not None:
                     try:
                         priority = float(priority_value)
@@ -247,14 +284,14 @@ class NumpyVectorizedLinkTable(
                         priority = None
             link_type = None
             if self.link_spec.type_link_col:
-                raw_type = row_copy.get(self.link_spec.type_link_col)
+                raw_type = row_payload.get(self.link_spec.type_link_col)
                 if raw_type is not None:
                     link_type = str(raw_type)
             records.append(
                 _CachedLinkRecord(
                     src_id=int(src_id),
                     dst_id=int(dst_id),
-                    row_dict=row_copy,
+                    row_dict=row_payload,
                     row_id=int(row_id) if row_id is not None else None,
                     link_type=link_type,
                     priority=priority,
@@ -276,6 +313,54 @@ class NumpyVectorizedLinkTable(
         self._by_dst = {key: list(value) for key, value in by_dst.items()}
         self._by_pair = {key: list(value) for key, value in by_pair.items()}
         self._table_type = self._infer_table_type(records)
+        self._rebuild_relation_topology()
+
+    def _rebuild_relation_topology(self) -> None:
+        src_ids: list[int] = []
+        offsets: list[int] = [0]
+        flat_dst_ids: list[int] = []
+        flat_dst_positions: list[int] = []
+        dst_to_src_ids: dict[int, list[int]] = defaultdict(list)
+        has_missing_dst = False
+
+        src_row_ids = getattr(cast(Any, self._src_table), "row_ids", ())
+        dst_positions = getattr(cast(Any, self._dst_table), "_row_id_positions", {})
+
+        for src_id in src_row_ids:
+            raw_records = self._by_src.get(int(src_id), ())
+            records = self._ordered_records(raw_records, require_ordering=True) if self._priority else raw_records
+            if not records:
+                continue
+
+            src_ids.append(int(src_id))
+            for record in records:
+                dst_id = int(record.dst_id)
+                position = dst_positions.get(dst_id)
+                flat_dst_ids.append(dst_id)
+                flat_dst_positions.append(-1 if position is None else int(position))
+                has_missing_dst = has_missing_dst or position is None
+                dst_to_src_ids[dst_id].append(int(src_id))
+            offsets.append(len(flat_dst_ids))
+
+        self._relation_topology = _CachedRelationTopology(
+            src_ids=tuple(src_ids),
+            src_ids_array=_as_int_array(src_ids),
+            src_positions={int(src_id): index for index, src_id in enumerate(src_ids)},
+            src_offsets=_as_int_array(offsets),
+            flat_dst_ids=_as_int_array(flat_dst_ids),
+            flat_dst_positions=_as_int_array(flat_dst_positions),
+            has_missing_dst=has_missing_dst,
+            dst_to_src_ids={
+                int(dst_id): tuple(src_ids)
+                for dst_id, src_ids in dst_to_src_ids.items()
+            },
+        )
+
+    def refresh_relation_topology(self) -> None:
+        self._rebuild_relation_topology()
+
+    def get_relation_topology(self) -> _CachedRelationTopology:
+        return self._relation_topology
 
     def read(self, db: Any) -> None:
         db = _ensure_db(self.db, db)

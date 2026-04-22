@@ -238,6 +238,17 @@ def test_cache_plugin_one_to_one_relation_fields_are_discovered_and_readable(
     }
 
 
+def test_cache_plugin_relation_value_reverse_lookups_are_readable(contract_cache) -> None:
+    cache = contract_cache
+    cover_field = cache.get_field("books.covers.path")
+    tags_field = cache.get_field("books.tags.tag_name")
+
+    assert cover_field.get_value_from_dst_id(10) == _COVER_PATH_1
+    assert tags_field.get_dst_ids_from_value(_TAG_2) == [41]
+    assert tags_field.get_src_ids_from_value(_TAG_1) == [1]
+    assert tags_field.values_set == {_TAG_1, _TAG_2, _TAG_3}
+
+
 def test_cache_plugin_row_helpers_and_defaults(contract_cache) -> None:
     cache = contract_cache
 
@@ -362,6 +373,22 @@ def test_cache_plugin_reload_observes_external_unicode_changes(
         cache.get_field("books.tags.tag_name").get_values_from_src_id(2, require_ordering=True)
     ) == (_UPDATED_TAG,)
     assert cache.get_main_table("books").get_row_snapshot(3)["title"] == _NEW_BOOK_TITLE
+
+
+def test_cache_plugin_reload_main_table_refreshes_relation_projection(
+    contract_cache,
+    unicode_contract_db: FakeDB,
+) -> None:
+    cache = contract_cache
+
+    assert cache.get_field("books.covers.path").get_value_from_src_id(1) == _COVER_PATH_1
+
+    unicode_contract_db.driver_wrapper.delete_by_id("covers", {10})
+    cache.reload_main_table("covers")
+
+    field = cache.get_field("books.covers.path")
+    assert field.get_value_from_src_id(1) is None
+    assert field.get_value_from_src_id(2) == _COVER_PATH_2
 
 
 def test_cache_plugin_lifecycle_contract(
