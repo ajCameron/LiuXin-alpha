@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 
 from typing import Any, Dict, Iterable, Iterator, Mapping, MutableSequence, Optional, Self
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_container_api import WorkContainerPropertiesApi
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import WorkContainerPropertiesApi
 
 
 class WorkContainerAPI(WorkContainerPropertiesApi):
@@ -329,13 +329,6 @@ class ManifestationsCollectionContainerAPI(ABC):
 
 
 
-
-
-class ItemContainerAPI(ABC):
-    """
-
-
-    """
 
 
 

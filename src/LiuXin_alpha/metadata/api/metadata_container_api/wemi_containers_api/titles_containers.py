@@ -12,6 +12,9 @@ The broad shape is:
   data linked to one target entity.
 - ``ItemWemiTitleSlice`` as a read-side helper that can compose a display title
   for an item from the work, expression, manifestation, and item title layers.
+
+Titles are a virtual object, so don't have the same structure as other containers.
+
 """
 
 from __future__ import annotations

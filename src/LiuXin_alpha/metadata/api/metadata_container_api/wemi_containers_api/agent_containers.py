@@ -49,6 +49,8 @@ class AgentIdentityAPI(abc.ABC):
     belongs on a repository / database API, not on the identity object itself.
     """
 
+
+
     @property
     @abc.abstractmethod
     def agent_id(self) -> AgentID:

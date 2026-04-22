@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import Any, Iterator, Mapping, Optional, Iterable
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_container_api import WorkContainerAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_metadata_container_api import \
+    WorkContainerAPI
 
 from LiuXin_alpha.utils.adaptors import _boolish_to_bool, _bool_to_int_or_none
 

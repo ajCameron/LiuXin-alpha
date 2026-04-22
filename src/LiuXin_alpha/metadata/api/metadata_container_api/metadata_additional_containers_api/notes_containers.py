@@ -1,3 +1,4 @@
+
 """
 Containers for notes attached to W/E/M/I entities.
 
@@ -68,9 +69,10 @@ class NoteVisibility(StrEnum):
     """
     Audience or exposure level for notes.
 
-    This is deliberately lightweight. It gives downstream code enough signal to
-    hide internal notes or prefer public-facing ones without turning the note
-    container into a permissions system.
+    This is deliberately lightweight.
+
+    It gives downstream code enough signal to hide internal notes or prefer public-facing ones without turning the note
+    container into a permission system.
     """
 
     PRIVATE = "private"

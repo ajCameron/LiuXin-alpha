@@ -14,9 +14,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_m
     ItemRelationLink,
     ItemStorageHints,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_container_api import (
-    ItemContainerAPI,
-)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemContainerAPI
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import (
     ItemContainer,
 )

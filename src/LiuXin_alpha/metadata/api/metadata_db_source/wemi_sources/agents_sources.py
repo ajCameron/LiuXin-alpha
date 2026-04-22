@@ -5,7 +5,7 @@ Responsible for getting agents metadata from the system.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Iterable
 
 import abc
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
     from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers import (
-        AgentCreditsContainerBaseAPI,
+        AgentIdentityAPI,
         WorkAgentCredit)
 
     from LiuXin_alpha.metadata.metadata_types import AgentID, WorkID, AgentTypes
@@ -36,7 +36,7 @@ class AgentMetadataGetterAPI(abc.ABC):
         self.db = db
 
     @abc.abstractmethod
-    def get_agent_metadata(self, agent_id: "AgentID") -> "AgentCreditsContainerBaseAPI":
+    def get_agent_metadata(self, agent_id: "AgentID") -> "AgentIdentityAPI":
         """
         Get a metadata container for metadata concerning the individual agent.
 
@@ -44,10 +44,8 @@ class AgentMetadataGetterAPI(abc.ABC):
         :return:
         """
 
-    # - AGENT CREDIT GETTERS
-
     @abc.abstractmethod
-    def get_work_agent_type_credit(
+    def get_work_credit_for_typed_agent(
             self,
             work_id: "WorkID",
             agent_id: "AgentID",
@@ -63,3 +61,24 @@ class AgentMetadataGetterAPI(abc.ABC):
         :return:
         """
 
+    @abc.abstractmethod
+    def get_work_credits_for_agent(
+            self,
+            work_id: "WorkID",
+            agent_id: "AgentID") -> Iterable["WorkAgentCredit"]:
+        """
+        Get the work credits for a single agent.
+
+        :param work_id:
+        :param agent_id:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_work_agent_credits(self, work_id: "WorkID") -> Iterable["WorkAgentCredit"]:
+        """
+        Get all agent credits for a single work.
+
+        :param work_id:
+        :return:
+        """

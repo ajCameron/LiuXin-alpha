@@ -1,14 +1,24 @@
+
+"""
+Specialized containers for all metadata options.
+
+There is a container for every table on the system.
+
+Usually these containers have two components
+ - the item container - which represents the object itself
+   - This is typically called something like "AgentIdentityAPI"
+ - the item metadata container - represents the items links to other objects.
+
+"""
+
 from __future__ import annotations
 
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import (
-    ItemContainerAPI,
-    ItemContainerPropertiesApi,
     ItemMetadataContainerAPI,
     ItemMetadataContainerAPIFromWemiApi,
     ItemRelationLink,
     ItemStorageHints,
     WorkContainerAPI,
-    WorkContainerPropertiesApi,
     WorkMetadataContainerAPI,
     WorkMetadataContainerAPIFromWemiApi,
     WorkRelationLink,
@@ -47,6 +57,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import
     ManifestationNotesContainer,
     ItemNotesContainer,
 )
+from LiuXin_alpha.metadata.api.metadata_container_api import WorkContainerPropertiesApi
 
 __all__ = [
     "IdentifierBase",
@@ -88,12 +99,7 @@ __all__ = [
     "WorkMetadataContainerAPIFromWemiApi",
     "WorkRelationLink",
     "WorkStorageHints",
-    "ItemContainerAPI",
-    "ItemContainerPropertiesApi",
-    "ItemMetadataContainerAPI",
     "ItemMetadataContainerAPIFromWemiApi",
-    "ItemRelationLink",
-    "ItemStorageHints",
 ]
 
 

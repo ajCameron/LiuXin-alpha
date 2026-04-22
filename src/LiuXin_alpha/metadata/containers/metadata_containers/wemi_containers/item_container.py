@@ -6,9 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_container_api import (
-    ItemContainerAPI,
-)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemContainerAPI
 
 
 class ItemContainer(ItemContainerAPI):

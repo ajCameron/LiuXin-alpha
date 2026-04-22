@@ -94,7 +94,7 @@ class IdentifierBase(abc.ABC):
 
     def validate(self) -> None:
         """
-        Validate that the identifiers are valid.
+        Validate that the identifiers object is valid.
 
         :return:
         """
