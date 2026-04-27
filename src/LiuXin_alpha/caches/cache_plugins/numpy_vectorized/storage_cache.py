@@ -178,6 +178,8 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         )
         super().__init__(table=spec.name, db=db, metadata=metadata)
         self.spec = spec
+        self._column_headings: tuple[str, ...] = tuple(col.name for col in self.spec.columns)
+        self._column_types: dict[str, str] = _column_type_map(self.spec)
         self._row_id_array: Any = _as_int_array(())
         self._row_ids: tuple[int, ...] = ()
         self._row_id_positions: dict[int, int] = {}
@@ -205,11 +207,11 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
 
     @property
     def column_headings(self) -> list[str]:
-        return [col.name for col in self.spec.columns]
+        return list(self._column_headings)
 
     @property
     def column_types(self) -> dict[str, str]:
-        return _column_type_map(self.spec)
+        return dict(self._column_types)
 
     def linked_to(self) -> Iterable[str]:
         return tuple(self.spec.linked_tables)
@@ -218,23 +220,28 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         return Row(database=self.db, row_dict=deepcopy(dict(row_dict)), read_only=True)
 
     def _build_value_indexes(self, row_ids: Sequence[int], column_values: dict[str, Sequence[Any]]) -> None:
-        indexes: dict[str, dict[Any, list[int]]] = {
-            column: defaultdict(list)
-            for column in self.column_headings
-        }
-        for row_position, row_id in enumerate(row_ids):
-            for column in self.column_headings:
-                value = column_values[column][row_position]
-                indexes[column][value].append(int(row_id))
-        self._value_indexes = {
-            column: {value: tuple(ids) for value, ids in values.items()}
-            for column, values in indexes.items()
-        }
+        normalized_row_ids = tuple(int(row_id) for row_id in row_ids)
+        indexes: dict[str, dict[Any, tuple[int, ...]]] = {}
+        for column in self._column_headings:
+            values_for_column = column_values[column]
+            grouped_ids: dict[Any, list[int]] = defaultdict(list)
+            for row_id, value in zip(normalized_row_ids, values_for_column):
+                grouped_ids[value].append(row_id)
+            indexes[column] = {
+                value: tuple(ids)
+                for value, ids in grouped_ids.items()
+            }
+        self._value_indexes = indexes
 
     def _replace_rows(self, row_dicts: Iterable[Mapping[str, Any]]) -> None:
+        column_headings = self._column_headings
+        column_types = self._column_types
+        id_column = self.spec.id_column
         sortable: list[tuple[int, int, Mapping[str, Any]]] = []
         for index, row_dict in enumerate(row_dicts):
-            row_id = row_dict.get(self.id_column)
+            if id_column is None:
+                raise RuntimeError(f"Table {self.table!r} does not expose an id column")
+            row_id = row_dict.get(id_column)
             if row_id is None:
                 continue
             sortable.append((int(row_id), index, row_dict))
@@ -243,18 +250,19 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         row_ids = tuple(int(row_id) for row_id, _index, _row in sortable)
         column_values: dict[str, list[Any]] = {
             column: []
-            for column in self.column_headings
+            for column in column_headings
         }
         for _row_id, _index, row_data in sortable:
-            for column in self.column_headings:
-                column_values[column].append(row_data.get(column))
+            row_get = row_data.get
+            for column in column_headings:
+                column_values[column].append(row_get(column))
 
         self._row_ids = row_ids
         self._row_id_array = _as_int_array(row_ids)
         self._row_id_positions = {row_id: position for position, row_id in enumerate(row_ids)}
         self._column_arrays = {
-            column: _as_column_array(values, self.column_types[column])
-            for column, values in column_values.items()
+            column: _as_column_array(column_values[column], column_types[column])
+            for column in column_headings
         }
         self._build_value_indexes(row_ids, column_values)
         self._loaded = True

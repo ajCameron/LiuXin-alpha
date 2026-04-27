@@ -195,10 +195,6 @@ class NumpyVectorizedLinkTable(
         )
         return ordered
 
-    def _to_row_dicts(self) -> list[dict[str, Any]]:
-        rows = self.db.get_all_rows(self.table, iterator_return=False)
-        return [row.row_dict for row in rows]
-
     def _unique_single_columns(self) -> set[str]:
         conn = getattr(self.db, "conn", None)
         if conn is None:
@@ -264,11 +260,15 @@ class NumpyVectorizedLinkTable(
             return TableTypes.MANY_ONE
         return TableTypes.MANY_MANY
 
-    def _rebuild_indices(self, row_dicts: Sequence[Mapping[str, Any]]) -> None:
+    def _rebuild_indices(self, rows: Iterable[Any]) -> None:
         self._id_column = self.db.driver_wrapper.get_id_column(self.table)
         records: list[_CachedLinkRecord] = []
-        for sequence, row_dict in enumerate(row_dicts):
-            row_payload = row_dict if isinstance(row_dict, dict) else dict(row_dict)
+        records_append = records.append
+        by_src: dict[int, list[_CachedLinkRecord]] = defaultdict(list)
+        for sequence, row in enumerate(rows):
+            row_payload = getattr(row, "row_dict", None)
+            if row_payload is None:
+                row_payload = row if isinstance(row, dict) else dict(row)
             src_id = row_payload.get(self._src_link_col)
             dst_id = row_payload.get(self._dst_link_col)
             if src_id is None or dst_id is None:
@@ -287,22 +287,26 @@ class NumpyVectorizedLinkTable(
                 raw_type = row_payload.get(self.link_spec.type_link_col)
                 if raw_type is not None:
                     link_type = str(raw_type)
-            records.append(
-                _CachedLinkRecord(
-                    src_id=int(src_id),
-                    dst_id=int(dst_id),
-                    row_dict=row_payload,
-                    row_id=int(row_id) if row_id is not None else None,
-                    link_type=link_type,
-                    priority=priority,
-                    sequence=sequence,
-                )
+            record = _CachedLinkRecord(
+                src_id=int(src_id),
+                dst_id=int(dst_id),
+                row_dict=row_payload if isinstance(row_payload, dict) else dict(row_payload),
+                row_id=int(row_id) if row_id is not None else None,
+                link_type=link_type,
+                priority=priority,
+                sequence=sequence,
             )
-
-        by_src: dict[int, list[_CachedLinkRecord]] = defaultdict(list)
-
-        for record in records:
+            records_append(record)
             by_src[record.src_id].append(record)
+
+        if self._priority:
+            for same_src_records in by_src.values():
+                same_src_records.sort(
+                    key=lambda record: (
+                        -float(record.priority) if record.priority is not None else 0.0,
+                        record.sequence,
+                    )
+                )
 
         self._records = records
         self._by_src = {key: list(value) for key, value in by_src.items()}
@@ -337,22 +341,28 @@ class NumpyVectorizedLinkTable(
 
         src_row_ids = getattr(cast(Any, self._src_table), "row_ids", ())
         dst_positions = getattr(cast(Any, self._dst_table), "_row_id_positions", {})
+        by_src = self._by_src
+        src_ids_append = src_ids.append
+        flat_dst_ids_append = flat_dst_ids.append
+        flat_dst_positions_append = flat_dst_positions.append
+        offsets_append = offsets.append
+        dst_positions_get = dst_positions.get
 
         for src_id in src_row_ids:
-            raw_records = self._by_src.get(int(src_id), ())
-            records = self._ordered_records(raw_records, require_ordering=True) if self._priority else raw_records
+            src_id = int(src_id)
+            records = by_src.get(src_id, ())
             if not records:
                 continue
 
-            src_ids.append(int(src_id))
+            src_ids_append(src_id)
             for record in records:
                 dst_id = int(record.dst_id)
-                position = dst_positions.get(dst_id)
-                flat_dst_ids.append(dst_id)
-                flat_dst_positions.append(-1 if position is None else int(position))
+                position = dst_positions_get(dst_id)
+                flat_dst_ids_append(dst_id)
+                flat_dst_positions_append(-1 if position is None else int(position))
                 has_missing_dst = has_missing_dst or position is None
-                dst_to_src_ids[dst_id].append(int(src_id))
-            offsets.append(len(flat_dst_ids))
+                dst_to_src_ids[dst_id].append(src_id)
+            offsets_append(len(flat_dst_ids))
 
         self._relation_topology = _CachedRelationTopology(
             src_ids=tuple(src_ids),
@@ -377,7 +387,8 @@ class NumpyVectorizedLinkTable(
     def read(self, db: Any) -> None:
         db = _ensure_db(self.db, db)
         self.db = db
-        self._rebuild_indices(self._to_row_dicts())
+        rows = self.db.get_all_rows(self.table, iterator_return=False)
+        self._rebuild_indices(rows)
 
     def reload(self, db: Any) -> None:
         self.read(db)
@@ -389,12 +400,14 @@ class NumpyVectorizedLinkTable(
         require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> list[_CachedLinkRecord]:
-        matches = [
+        matches = self._by_src.get(int(src_id), [])
+        if type_filter is None:
+            return list(matches)
+        return [
             record
-            for record in self._by_src.get(int(src_id), [])
+            for record in matches
             if self._record_matches(record, type_filter)
         ]
-        return self._ordered_records(matches, require_ordering=require_ordering)
 
     def _records_for_dst(
         self,
