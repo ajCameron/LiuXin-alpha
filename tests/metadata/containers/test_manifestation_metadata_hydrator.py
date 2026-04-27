@@ -247,6 +247,7 @@ def _build_fake_database() -> FakeDatabase:
             "expression_manifestation_link_priority": 1,
             "expression_manifestation_link_type": "expression_of",
             "expression_manifestation_link_primary": 1,
+            "expression_manifestation_link_index": 7,
         }
     ]
     db.interlinks[("expressions", 20, "works")] = [
@@ -282,6 +283,9 @@ def test_manifestation_metadata_hydrator_from_manifestation_id_and_source_row() 
     assert [row.row_id for row in container.get_related("digital_assets") if isinstance(row, Row)] == [60]
     assert [row.row_id for row in container.get_related("asset_replicas") if isinstance(row, Row)] == [70]
     assert len(container.get_related("identifiers")) == 1
+    expression_link = container.get_relation_links("expressions")[0]
+    assert expression_link.primary is True
+    assert expression_link.index == 7
 
     hints = container.storage_hints()
     assert hints.manifestation_id == 10

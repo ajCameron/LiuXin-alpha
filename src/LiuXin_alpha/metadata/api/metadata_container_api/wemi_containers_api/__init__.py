@@ -58,7 +58,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_profile_api import (
     AgentProfileAPI,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_credit_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_credit_containers import (
     AgentCreditBase,
     WorkAgentCredit,
     ExpressionAgentCredit,
@@ -75,7 +75,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_
     ManifestationAgentCreditsContainer,
     ItemAgentCreditsContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_participation import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_participation import (
     AgentProfileSummary,
     WorkSummary,
     ExpressionSummary,
@@ -85,7 +85,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_
     AgentParticipationsByRole,
     AgentParticipationSnapshot,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.titles_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.titles_containers import (
     TitleKind,
     TitleBase,
     WorkTitle,
@@ -104,7 +104,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metada
     ItemTitlesContainer,
     ItemWemiTitleSlice,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.notes_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.notes_containers import (
     NoteKind,
     NoteFormat,
     NoteVisibility,
@@ -124,7 +124,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metada
     ManifestationNotesContainer,
     ItemNotesContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.labels_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.labels_containers import (
     LabelKind,
     LabelBase,
     WorkLabel,
@@ -142,7 +142,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metada
     ManifestationLabelsContainer,
     ItemLabelsContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.genres_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.genres_containers import (
     GenreKind,
     GenreBase,
     WorkGenre,
@@ -155,7 +155,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metada
     ManifestationGenresContainer,
     ItemGenresContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.subjects_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.subjects_containers import (
     SubjectKind,
     SubjectBase,
     WorkSubject,
@@ -173,7 +173,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metada
     ManifestationSubjectsContainer,
     ItemSubjectsContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.identifier_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.identifier_containers import (
     IdentifierStatus,
     IdentifierBase,
     WorkIdentifier,
@@ -191,7 +191,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metada
     ManifestationIdentifiersContainer,
     ItemIdentifiersContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.languages_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.languages_containers import (
     LanguageKind,
     LanguageBase,
     WorkLanguage,
@@ -209,7 +209,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metada
     ManifestationLanguagesContainer,
     ItemLanguagesContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.dates_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.dates_containers import (
     DateKind,
     DateBase,
     WorkDate,
@@ -227,7 +227,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metada
     ManifestationDatesContainer,
     ItemDatesContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.ratings_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.ratings_containers import (
     RatingKind,
     RatingBase,
     WorkRating,
@@ -245,7 +245,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metada
     ManifestationRatingsContainer,
     ItemRatingsContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.series_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.series_containers import (
     SeriesKind,
     SeriesEntryBase,
     WorkSeriesEntry,
@@ -263,7 +263,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metada
     ManifestationSeriesEntriesContainer,
     ItemSeriesEntriesContainer,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.metadata_additional_containers_api.resources_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.resources_containers import (
     ResourceKind,
     ResourceBase,
     WorkResource,

@@ -145,7 +145,7 @@ class ManifestationMetadataHydrator:
                     primary=True,
                 )
 
-        if manifestation_row is not None and not expression_rows:
+        if manifestation_row is not None:
             expression_links = self._collect_interlinks_from_row(
                 manifestation_row,
                 secondary_table="expressions",
@@ -298,14 +298,39 @@ class ManifestationMetadataHydrator:
         links: Iterable[ManifestationRelationLink],
     ) -> None:
         existing = container.get_relation_links(relation)
-        seen_rows = {self._row_key(link.target) for link in existing if isinstance(link.target, Row)}
+        seen_rows = {
+            self._row_key(link.target): index
+            for index, link in enumerate(existing)
+            if isinstance(link.target, Row)
+        }
         for link in links:
             key = self._row_key(link.target)
-            if key is not None and key in seen_rows:
+            if key is not None and key in seen_rows and seen_rows[key] is not None:
+                existing_index = seen_rows[key]
+                existing[existing_index] = self._merge_link_metadata(existing[existing_index], link)
                 continue
             existing.append(link)
             if key is not None:
-                seen_rows.add(key)
+                seen_rows[key] = len(existing) - 1
+
+    @staticmethod
+    def _merge_link_metadata(
+        existing: ManifestationRelationLink,
+        incoming: ManifestationRelationLink,
+    ) -> ManifestationRelationLink:
+        extra = dict(existing.extra)
+        extra.update(incoming.extra)
+        return ManifestationRelationLink(
+            target=existing.target,
+            priority=incoming.priority if incoming.priority is not None else existing.priority,
+            primary=incoming.primary if incoming.primary is not None else existing.primary,
+            type=incoming.type if incoming.type is not None else existing.type,
+            origin=incoming.origin if incoming.origin is not None else existing.origin,
+            policy=incoming.policy if incoming.policy is not None else existing.policy,
+            data=incoming.data if incoming.data is not None else existing.data,
+            index=incoming.index if incoming.index is not None else existing.index,
+            extra=extra,
+        )
 
     def _ensure_row_link(
         self,
@@ -327,11 +352,12 @@ class ManifestationMetadataHydrator:
             ManifestationRelationLink(
                 target=row,
                 priority=None,
+                primary=primary,
                 type=type_hint,
                 origin=None,
                 policy=None,
                 data=None,
-                extra={"source_entity_type": source_entity_type, **({"is_primary": primary} if primary is not None else {})},
+                extra={"source_entity_type": source_entity_type},
             )
         )
 
@@ -400,19 +426,16 @@ class ManifestationMetadataHydrator:
                     }:
                         continue
                     extra[suffix] = value
-                if prefix + "_primary" in link_map:
-                    extra["is_primary"] = _boolish_to_bool(link_map.get(prefix + "_primary"))
-                if prefix + "_index" in link_map and link_map.get(prefix + "_index") not in (None, ""):
-                    extra["index"] = link_map.get(prefix + "_index")
-
             out.append(
                 ManifestationRelationLink(
                     target=target,
                     priority=link_map.get(prefix + "_priority") if prefix else None,
+                    primary=_boolish_to_bool(link_map.get(prefix + "_primary")) if prefix else None,
                     type=link_map.get(prefix + "_type") if prefix else None,
                     origin=link_map.get(prefix + "_origin") if prefix else None,
                     policy=link_map.get(prefix + "_policy") if prefix else None,
                     data=link_map.get(prefix + "_data") if prefix else None,
+                    index=link_map.get(prefix + "_index") if prefix else None,
                     extra=extra,
                 )
             )

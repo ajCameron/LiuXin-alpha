@@ -138,3 +138,16 @@ def test_metadata_container_root_matches_metadata_containers_root() -> None:
         "LiuXin_alpha.metadata.containers.metadata_containers"
     )
     assert container_root.__all__ == metadata_containers_root.__all__
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_metadata_api",
+        "LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api",
+    ],
+)
+def test_metadata_leaf_all_names_exist(module_name: str) -> None:
+    module = importlib.import_module(module_name)
+    for exported_name in module.__all__:
+        assert hasattr(module, exported_name), f"{module_name} exports missing {exported_name}"

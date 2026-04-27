@@ -142,8 +142,6 @@ class ManifestationMetadataAPI(abc.ABC):
 
 
 __all__ = [
-    "ManifestationIdentityPropertiesAPI",
-    "ManifestationIdentityAPI",
     "ManifestationRelationLink",
     "ManifestationStorageHints",
     "ManifestationMetadataAPI",

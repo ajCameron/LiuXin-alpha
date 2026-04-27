@@ -134,8 +134,6 @@ class ExpressionMetadataAPI(abc.ABC):
 
 
 __all__ = [
-    "ExpressionIdentityPropertiesAPI",
-    "ExpressionIdentityAPI",
     "ExpressionRelationLink",
     "ExpressionStorageHints",
     "ExpressionMetadataAPI",

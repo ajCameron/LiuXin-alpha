@@ -22,7 +22,7 @@ from LiuXin_alpha.metadata.metadata_types import (
     ManifestationAgentRole,
     ItemAgentRole,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_credit_containers import (
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_credit_containers import (
     AgentCreditBase,
     WorkAgentCredit,
     ExpressionAgentCredit,
