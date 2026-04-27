@@ -21,7 +21,6 @@ from LiuXin_alpha.ingest import (
     register_native_html_readonly_store_files,
     register_wget_html_readonly_store_files,
 )
-from LiuXin_alpha.metadata.api import MetadataContainerAPI
 from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
 from LiuXin_alpha.storage.api import StoreContainerAPI, StoreLocationMixinAPI
 from LiuXin_alpha.storage.reconcile import (
@@ -388,7 +387,7 @@ class Library:
     def add_file(
         self,
         file_bytes: bytes,
-        metadata: Optional[MetadataContainerAPI] = None,
+        metadata: Optional[Any] = None,
         *,
         preferred_store: Optional[str] = None,
     ) -> StoreLocationMixinAPI:
@@ -397,7 +396,7 @@ class Library:
     def retrieve_file(
         self,
         file_url: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
+        metadata: Optional[Any] = None,
         *,
         preferred_store: Optional[str] = None,
     ) -> StoreLocationMixinAPI:
@@ -406,7 +405,7 @@ class Library:
     def delete_file(
         self,
         file_url: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
+        metadata: Optional[Any] = None,
         file_container: Optional[StoreLocationMixinAPI] = None,
     ) -> bool:
         return self.storage.delete_location(file_url=file_url, metadata=metadata, location=file_container)

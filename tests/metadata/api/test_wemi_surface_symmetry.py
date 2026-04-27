@@ -8,9 +8,9 @@ import pytest
 LEVELS = [
     {
         "level": "work",
-        "api_identity_module": "work_identity_api",
+        "api_identity_module": "work_containers.work_identity_api",
         "api_identity_class": "WorkIdentityAPI",
-        "api_metadata_module": "work_metadata_api",
+        "api_metadata_module": "work_containers.work_metadata_api",
         "api_metadata_class": "WorkMetadataAPI",
         "impl_identity_module": "work_container",
         "impl_identity_class": "WorkIdentity",
@@ -22,9 +22,9 @@ LEVELS = [
     },
     {
         "level": "expression",
-        "api_identity_module": "expression_identity_api",
+        "api_identity_module": "expression_containers.expression_identity_api",
         "api_identity_class": "ExpressionIdentityAPI",
-        "api_metadata_module": "expression_metadata_api",
+        "api_metadata_module": "expression_containers.expression_metadata_api",
         "api_metadata_class": "ExpressionMetadataAPI",
         "impl_identity_module": "expression_container",
         "impl_identity_class": "ExpressionIdentity",
@@ -36,9 +36,9 @@ LEVELS = [
     },
     {
         "level": "manifestation",
-        "api_identity_module": "manifestation_identity_api",
+        "api_identity_module": "manifestation_containers.manifestation_identity_api",
         "api_identity_class": "ManifestationIdentityAPI",
-        "api_metadata_module": "manifestation_metadata_api",
+        "api_metadata_module": "manifestation_containers.manifestation_metadata_api",
         "api_metadata_class": "ManifestationMetadataAPI",
         "impl_identity_module": "manifestation_container",
         "impl_identity_class": "ManifestationIdentity",
@@ -50,9 +50,9 @@ LEVELS = [
     },
     {
         "level": "item",
-        "api_identity_module": "item_identity_api",
+        "api_identity_module": "item_containers.item_identity_api",
         "api_identity_class": "ItemIdentityAPI",
-        "api_metadata_module": "item_metadata_api",
+        "api_metadata_module": "item_containers.item_metadata_api",
         "api_metadata_class": "ItemMetadataAPI",
         "impl_identity_module": "item_container",
         "impl_identity_class": "ItemIdentity",

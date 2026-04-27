@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.metadata.containers import ItemContainer
+from LiuXin_alpha.metadata.containers import ItemIdentity
 
 
-def test_item_container_mapping_round_trip() -> None:
-    item = ItemContainer(
+def test_item_identity_mapping_round_trip() -> None:
+    item = ItemIdentity(
         item_id=7,
         item_manifestation_id=11,
         item_type="digital",
@@ -20,7 +20,7 @@ def test_item_container_mapping_round_trip() -> None:
     )
 
     payload = item.to_mapping()
-    hydrated = ItemContainer.from_mapping(payload)
+    hydrated = ItemIdentity.from_mapping(payload)
 
     assert hydrated.item_id == 7
     assert hydrated.item_manifestation_id == 11
@@ -34,7 +34,7 @@ def test_item_container_mapping_round_trip() -> None:
     assert hydrated.item_condition == "good"
 
 
-def test_item_container_id_is_write_once() -> None:
-    item = ItemContainer(item_id=3)
+def test_item_identity_id_is_write_once() -> None:
+    item = ItemIdentity(item_id=3)
     with pytest.raises(AttributeError):
         item.item_id = 4

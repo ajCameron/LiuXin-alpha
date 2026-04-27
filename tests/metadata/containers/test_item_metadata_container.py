@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from LiuXin_alpha.metadata.api import ItemRelationLink
-from LiuXin_alpha.metadata.containers import ItemContainer, ItemMetadataContainer
+from LiuXin_alpha.metadata.containers import ItemIdentity, ItemMetadata
 
 
 def test_item_metadata_container_round_trip_and_hints() -> None:
-    container = ItemMetadataContainer(
-        item=ItemContainer(
+    container = ItemMetadata(
+        item=ItemIdentity(
             item_id=44,
             item_manifestation_id=12,
             item_type="digital",
@@ -29,7 +29,7 @@ def test_item_metadata_container_round_trip_and_hints() -> None:
     )
 
     payload = container.to_mapping()
-    hydrated = ItemMetadataContainer.from_mapping(payload)
+    hydrated = ItemMetadata.from_mapping(payload)
     hints = hydrated.storage_hints()
 
     assert hints.item_id == 44

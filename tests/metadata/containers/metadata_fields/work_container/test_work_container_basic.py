@@ -1,30 +1,29 @@
 
 """
-Preform basic tests on the WorkContainer class.
+Preform basic tests on the WorkIdentity class.
 """
 
 import pytest
 
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import WorkContainer
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import WorkIdentity
 
 
-class TestWorkContainer:
+class TestWorkIdentity:
     """
-    Preform basic tests on the WorkContainer class.
+    Preform basic tests on the WorkIdentity class.
     """
-    def test_work_container_init(self) -> None:
+    def test_work_identity_init(self) -> None:
         """
-        Tests we can init the WorkContainer class.
+        Tests we can init the WorkIdentity class.
 
         :return:
         """
-        test_class = WorkContainer()
+        test_class = WorkIdentity()
         assert test_class is not None
 
-        test_class_2 = WorkContainer(word_id=5)
+        test_class_2 = WorkIdentity(word_id=5)
         assert test_class_2 is not None
         assert test_class_2.work_id == 5
 
         with pytest.raises(AttributeError):
             test_class_2.work_id = 10
-

@@ -238,7 +238,17 @@ rather than kept as compatibility layers.
 
 ## 5A. Legacy zones
 
-Legacy metadata-container helper packages outside the canonical WEMI container\npackages should be treated as dead code. During the cleanup pass they may be\nreplaced by files containing only `# delete me` comments to make the break\nexplicit.\n\nThe canonical implementation home is:\n- `LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers`\n\nThe canonical API home is:\n- `LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api`\n\nHistorical helper/mixin/generic container packages should not receive new work.\n\n
+Legacy metadata-container helper packages outside the canonical WEMI container
+packages should be treated as dead code and deleted rather than kept as
+compatibility shims.
+
+The canonical implementation home is:
+- `LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers`
+
+The canonical API home is:
+- `LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api`
+
+Historical helper/mixin/generic container packages should not receive new work.
 
 See `metadata_container_naming_conventions.md` for the normalised naming rules used by the container families.
 

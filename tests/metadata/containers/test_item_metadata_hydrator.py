@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.containers import ItemMetadataContainer, ItemMetadataHydrator
+from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
 
 
 SINGULARS = {
@@ -302,7 +302,7 @@ def test_item_metadata_hydrator_from_item_id_and_source_row() -> None:
     hydrator = ItemMetadataHydrator(db)
 
     container = hydrator.from_item_id(1)
-    assert isinstance(container, ItemMetadataContainer)
+    assert isinstance(container, ItemMetadata)
 
     hints = container.storage_hints()
     assert hints.item_id == 1
@@ -323,7 +323,7 @@ def test_item_metadata_hydrator_from_item_id_and_source_row() -> None:
     identifier_links = container.get_relation_links("identifiers")
     assert len(identifier_links) == 2
 
-    via_mapping = ItemMetadataContainer.from_database(
+    via_mapping = ItemMetadata.from_database(
         db,
         source_row={
             "item_id": 1,

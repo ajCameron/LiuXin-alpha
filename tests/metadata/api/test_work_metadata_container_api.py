@@ -7,16 +7,13 @@ from typing import Any, Mapping
 import pytest
 
 from LiuXin_alpha.metadata.api import (
-    WorkMetadataContainerAPI,
+    WorkMetadataAPI,
     WorkRelationLink,
     WorkStorageHints,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import (
-    WorkMetadataContainerAPIFromWemiApi,
-)
 
 
-class _DummyWorkMetadataContainer(WorkMetadataContainerAPI):
+class _DummyWorkMetadata(WorkMetadataAPI):
     def __init__(self, work: Any = None) -> None:
         self._work = work
         self._links = {name: [] for name in self.relation_names()}
@@ -48,7 +45,7 @@ class _DummyWorkMetadataContainer(WorkMetadataContainerAPI):
         return payload
 
     @classmethod
-    def from_mapping(cls, payload: Mapping[str, Any]) -> "_DummyWorkMetadataContainer":
+    def from_mapping(cls, payload: Mapping[str, Any]) -> "_DummyWorkMetadata":
         instance = cls(work=payload.get("work"))
         raw_relations = payload.get("relations", {})
         if isinstance(raw_relations, Mapping):
@@ -91,19 +88,21 @@ class _DummyWorkMetadataContainer(WorkMetadataContainerAPI):
 
 
 def test_work_metadata_api_is_exported_from_top_level() -> None:
-    assert WorkMetadataContainerAPI is WorkMetadataContainerAPIFromWemiApi
+    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import WorkMetadataAPI as WorkMetadataAPIFromPackage
+
+    assert WorkMetadataAPI is WorkMetadataAPIFromPackage
 
 
 def test_relation_name_validation_supports_aliases() -> None:
-    assert WorkMetadataContainerAPI.validate_relation_name("creator") == "agents"
-    assert WorkMetadataContainerAPI.validate_relation_name("cover") == "images"
-    assert WorkMetadataContainerAPI.validate_relation_name("Language") == "languages"
+    assert WorkMetadataAPI.validate_relation_name("creator") == "agents"
+    assert WorkMetadataAPI.validate_relation_name("cover") == "images"
+    assert WorkMetadataAPI.validate_relation_name("Language") == "languages"
     with pytest.raises(KeyError):
-        WorkMetadataContainerAPI.validate_relation_name("not-a-relation")
+        WorkMetadataAPI.validate_relation_name("not-a-relation")
 
 
 def test_relation_helpers_round_trip_targets_and_links() -> None:
-    container = _DummyWorkMetadataContainer()
+    container = _DummyWorkMetadata()
     genre_link = WorkRelationLink(target="Science Fiction", priority=1, type="primary")
 
     container.add_relation_link("genre", genre_link)
@@ -119,23 +118,23 @@ def test_relation_helpers_round_trip_targets_and_links() -> None:
 
 
 def test_relation_properties_cover_all_supported_relations() -> None:
-    container = _DummyWorkMetadataContainer()
+    container = _DummyWorkMetadata()
 
-    for relation_name in WorkMetadataContainerAPI.relation_names():
+    for relation_name in WorkMetadataAPI.relation_names():
         values = ["{}-a".format(relation_name), "{}-b".format(relation_name)]
         setattr(container, relation_name, values)
         assert getattr(container, relation_name) == values
 
 
 def test_work_storage_hints_and_mapping_round_trip() -> None:
-    container = _DummyWorkMetadataContainer(work={"work_id": 5, "title": "Permutation City"})
+    container = _DummyWorkMetadata(work={"work_id": 5, "title": "Permutation City"})
     container.agents = ["Greg Egan"]
     container.languages = ["en"]
     container.labels = ["favorites"]
     container.series = ["Standalone"]
 
     payload = container.to_mapping()
-    hydrated = _DummyWorkMetadataContainer.from_mapping(payload)
+    hydrated = _DummyWorkMetadata.from_mapping(payload)
 
     hints = hydrated.storage_hints()
     hints_mapping = hints.to_mapping()

@@ -7,16 +7,13 @@ from typing import Any, Mapping
 import pytest
 
 from LiuXin_alpha.metadata.api import (
-    ItemMetadataContainerAPI,
+    ItemMetadataAPI,
     ItemRelationLink,
     ItemStorageHints,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import (
-    ItemMetadataContainerAPIFromWemiApi,
-)
 
 
-class _DummyItemMetadataContainer(ItemMetadataContainerAPI):
+class _DummyItemMetadata(ItemMetadataAPI):
     def __init__(self, item: Any = None) -> None:
         self._item = item
         self._links = {name: [] for name in self.relation_names()}
@@ -48,7 +45,7 @@ class _DummyItemMetadataContainer(ItemMetadataContainerAPI):
         return payload
 
     @classmethod
-    def from_mapping(cls, payload: Mapping[str, Any]) -> "_DummyItemMetadataContainer":
+    def from_mapping(cls, payload: Mapping[str, Any]) -> "_DummyItemMetadata":
         instance = cls(item=payload.get("item"))
         raw_relations = payload.get("relations", {})
         if isinstance(raw_relations, Mapping):
@@ -109,19 +106,21 @@ class _DummyItemMetadataContainer(ItemMetadataContainerAPI):
 
 
 def test_item_metadata_api_is_exported_from_top_level() -> None:
-    assert ItemMetadataContainerAPI is ItemMetadataContainerAPIFromWemiApi
+    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemMetadataAPI as ItemMetadataAPIFromPackage
+
+    assert ItemMetadataAPI is ItemMetadataAPIFromPackage
 
 
 def test_relation_name_validation_supports_aliases() -> None:
-    assert ItemMetadataContainerAPI.validate_relation_name("digital_asset") == "digital_assets"
-    assert ItemMetadataContainerAPI.validate_relation_name("replica") == "asset_replicas"
-    assert ItemMetadataContainerAPI.validate_relation_name("cover") == "images"
+    assert ItemMetadataAPI.validate_relation_name("digital_asset") == "digital_assets"
+    assert ItemMetadataAPI.validate_relation_name("replica") == "asset_replicas"
+    assert ItemMetadataAPI.validate_relation_name("cover") == "images"
     with pytest.raises(KeyError):
-        ItemMetadataContainerAPI.validate_relation_name("not-a-relation")
+        ItemMetadataAPI.validate_relation_name("not-a-relation")
 
 
 def test_relation_helpers_round_trip_targets_and_links() -> None:
-    container = _DummyItemMetadataContainer()
+    container = _DummyItemMetadata()
     asset_link = ItemRelationLink(target="epub-asset", priority=1, primary=True, type="primary_payload")
 
     container.add_relation_link("asset", asset_link)
@@ -137,16 +136,16 @@ def test_relation_helpers_round_trip_targets_and_links() -> None:
 
 
 def test_relation_properties_cover_all_supported_relations() -> None:
-    container = _DummyItemMetadataContainer()
+    container = _DummyItemMetadata()
 
-    for relation_name in ItemMetadataContainerAPI.relation_names():
+    for relation_name in ItemMetadataAPI.relation_names():
         values = ["{}-a".format(relation_name), "{}-b".format(relation_name)]
         setattr(container, relation_name, values)
         assert getattr(container, relation_name) == values
 
 
 def test_item_storage_hints_and_mapping_round_trip() -> None:
-    container = _DummyItemMetadataContainer(
+    container = _DummyItemMetadata(
         item={"item_id": 44, "title": "Permutation City", "item_inventory_code": "INV-44"}
     )
     container.agents = ["Greg Egan"]
@@ -163,7 +162,7 @@ def test_item_storage_hints_and_mapping_round_trip() -> None:
     )
 
     payload = container.to_mapping()
-    hydrated = _DummyItemMetadataContainer.from_mapping(payload)
+    hydrated = _DummyItemMetadata.from_mapping(payload)
 
     hints = hydrated.storage_hints()
     hints_mapping = hints.to_mapping()

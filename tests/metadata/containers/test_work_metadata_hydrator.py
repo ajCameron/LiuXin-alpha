@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.containers import WorkMetadataContainer, WorkMetadataHydrator
+from LiuXin_alpha.metadata.containers import WorkMetadata, WorkMetadataHydrator
 
 
 SINGULARS = {
@@ -258,7 +258,7 @@ def test_work_metadata_hydrator_from_work_id_and_source_row() -> None:
     hydrator = WorkMetadataHydrator(db)
 
     container = hydrator.from_work_id(30)
-    assert isinstance(container, WorkMetadataContainer)
+    assert isinstance(container, WorkMetadata)
 
     hints = container.storage_hints()
     assert hints.work_id == 30
@@ -283,7 +283,7 @@ def test_work_metadata_hydrator_from_work_id_and_source_row() -> None:
     identifier_links = container.get_relation_links("identifiers")
     assert len(identifier_links) == 1
 
-    via_mapping = WorkMetadataContainer.from_database(
+    via_mapping = WorkMetadata.from_database(
         db,
         source_row={
             "work_id": 30,

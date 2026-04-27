@@ -59,8 +59,8 @@ These are not stage-8 blockers, but they are worth keeping visible:
 1. `labels` still feels semantically unstable and may eventually be split or
    reduced further.
 2. Core WEMI bundle implementations now have hydrators for work, expression, manifestation, and item.
-3. The old `# delete me` stub files are still present in a few places as part of
-   the break-then-fix strategy.
+3. The old quarantine stub files have been removed; stale imports should fail
+   clearly instead of passing through quarantine modules.
 4. The metadata DB source layer is still sparse and does not yet mirror the full
    W/E/M/I family pattern.
 

@@ -10,9 +10,6 @@ internal package layout.
 
 from __future__ import annotations
 
-import abc
-
-from LiuXin_alpha.metadata.metadata_types import CalibreMetadataLike
 from LiuXin_alpha.metadata.api.metadata_container_api.storage_containers_api import (
     AssetReplicaIdentityAPI,
     AssetReplicaMetadataAPI,
@@ -25,8 +22,6 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import
     WorkRelationLink,
     WorkStorageHints,
     WorkMetadataAPI,
-    WorkMetadataContainerAPI,
-    WorkMetadataContainerAPIFromWemiApi,
     ExpressionIdentityPropertiesAPI,
     ExpressionIdentityAPI,
     ExpressionRelationLink,
@@ -42,8 +37,6 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import
     ItemRelationLink,
     ItemStorageHints,
     ItemMetadataAPI,
-    ItemMetadataContainerAPI,
-    ItemMetadataContainerAPIFromWemiApi,
     AgentIdentityAPI,
     AgentProfileAPI,
     AgentCreditBase,
@@ -245,22 +238,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import
     ItemResourcesContainer,
 )
 
-
-class MetadataContainerAPI(abc.ABC):
-    """Compatibility root for metadata container APIs."""
-
-
-class BookMetadataContainerAPI(MetadataContainerAPI):
-    """Compatibility base for the older book-shaped metadata container."""
-
-    def __init__(self, title: str) -> None:
-        self.title = title
-
-
 __all__ = [
-    "MetadataContainerAPI",
-    "BookMetadataContainerAPI",
-    "CalibreMetadataLike",
     "AssetReplicaIdentityAPI",
     "AssetReplicaMetadataAPI",
     "DigitalAssetIdentityAPI",
@@ -270,8 +248,6 @@ __all__ = [
     "WorkRelationLink",
     "WorkStorageHints",
     "WorkMetadataAPI",
-    "WorkMetadataContainerAPI",
-    "WorkMetadataContainerAPIFromWemiApi",
     "ExpressionIdentityPropertiesAPI",
     "ExpressionIdentityAPI",
     "ExpressionRelationLink",
@@ -287,8 +263,6 @@ __all__ = [
     "ItemRelationLink",
     "ItemStorageHints",
     "ItemMetadataAPI",
-    "ItemMetadataContainerAPI",
-    "ItemMetadataContainerAPIFromWemiApi",
     "AgentIdentityAPI",
     "AgentProfileAPI",
     "AgentCreditBase",

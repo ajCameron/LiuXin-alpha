@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.metadata.api import MetadataContainerAPI
     from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
     from LiuXin_alpha.storage.storage_types import StoreRef
 
@@ -24,7 +23,7 @@ class StoreFileOrchestrationAPI(abc.ABC):
     def store_bytes(
         self,
         file_bytes: bytes,
-        metadata: "MetadataContainerAPI | None" = None,
+        metadata: Any = None,
         *,
         preferred_store: "StoreRef | None" = None,
     ) -> "StoreLocationMixinAPI":
@@ -34,7 +33,7 @@ class StoreFileOrchestrationAPI(abc.ABC):
     def locate_file(
         self,
         file_url: str | None = None,
-        metadata: "MetadataContainerAPI | None" = None,
+        metadata: Any = None,
         *,
         preferred_store: "StoreRef | None" = None,
     ) -> "StoreLocationMixinAPI":
@@ -53,7 +52,7 @@ class StoreFileOrchestrationAPI(abc.ABC):
     def delete_location(
         self,
         file_url: str | None = None,
-        metadata: "MetadataContainerAPI | None" = None,
+        metadata: Any = None,
         location: "StoreLocationMixinAPI | None" = None,
     ) -> bool:
         ...
