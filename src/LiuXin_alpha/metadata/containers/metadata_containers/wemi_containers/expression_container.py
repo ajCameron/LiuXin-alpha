@@ -1,10 +1,14 @@
-"""Concrete identity container for one expression row."""
+"""Core WEMI expression identity implementation containers.
 
+Category: core WEMI identity object.
+This module implements the expression entity itself, not the editable metadata
+bundle and not a read-side query result.
+"""
 from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expressions_container_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
 
 
 class ExpressionIdentity(ExpressionIdentityAPI):

@@ -1,6 +1,7 @@
-
-"""
-Many to many metadata containers are meant to contain metadata from many to many tables.
-
-There are subtypes for type, priority and priority typed.
-"""
+# delete me
+#
+# This legacy module/package has been quarantined during the metadata container
+# cleanup pass.
+#
+# Canonical replacements now live under:
+# LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers

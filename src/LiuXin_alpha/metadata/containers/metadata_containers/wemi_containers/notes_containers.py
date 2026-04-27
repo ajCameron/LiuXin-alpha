@@ -1,25 +1,21 @@
+"""Note metadata containers attached to W/E/M/I entities.
+
+Category: additional metadata family.
+These classes are editable metadata value objects and helper containers, not
+independent identity objects and not joined read-side views.
 """
-Containers for notes attached to W/E/M/I entities.
-
-The classes in this module are editable metadata value objects. They are intended
-for read / modify / write workflows around metadata hydration, not as live row or
-database proxies.
-
-The broad shape is:
-- ``NoteBase`` and its W/E/M/I specialisations for individual note records.
-- ``KindNotesContainer`` for an ordered list of notes of a single kind.
-- ``BaseTargetNotesContainer`` and its W/E/M/I specialisations for all note
-  data linked to one target entity.
-"""
-
 from __future__ import annotations
 
 import abc
 
 from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import ClassVar, Generic, Iterator, Literal, TypeVar
 
+from LiuXin_alpha.metadata.constants.container_vocabularies import (
+    NoteKind,
+    NoteFormat,
+    NoteVisibility,
+)
 from LiuXin_alpha.metadata.metadata_types import (
     WorkID,
     ExpressionID,
@@ -31,51 +27,6 @@ from LiuXin_alpha.metadata.metadata_types import (
 
 NoteT = TypeVar("NoteT", bound="NoteBase")
 KindContainerT = TypeVar("KindContainerT", bound="KindNotesContainer")
-
-
-class NoteKind(StrEnum):
-    """
-    Controlled kinds for long-form notes.
-
-    The aim here is to capture the broad purpose of the note so callers can
-    group, render, and filter note content without parsing free text.
-    """
-
-    DESCRIPTION = "description"
-    REVIEW = "review"
-    ANNOTATION = "annotation"
-    SUMMARY = "summary"
-    TRANSCRIPTION = "transcription"
-    PROVENANCE = "provenance"
-    CONDITION = "condition"
-    ACQUISITION = "acquisition"
-    CONTENTS = "contents"
-    CITATION = "citation"
-    INTERNAL = "internal"
-
-
-class NoteFormat(StrEnum):
-    """
-    Storage or rendering format for the note body text.
-    """
-
-    PLAIN_TEXT = "plain_text"
-    MARKDOWN = "markdown"
-    HTML = "html"
-
-
-class NoteVisibility(StrEnum):
-    """
-    Audience or exposure level for notes.
-
-    This is deliberately lightweight. It gives downstream code enough signal to
-    hide internal notes or prefer public-facing ones without turning the note
-    container into a permissions system.
-    """
-
-    PRIVATE = "private"
-    STAFF = "staff"
-    PUBLIC = "public"
 
 
 @dataclass(slots=True, kw_only=True)
@@ -356,7 +307,7 @@ class KindNotesContainer(Generic[NoteT], abc.ABC):
     def bodies(self) -> tuple[str, ...]:
         return tuple(note.body for note in self._notes)
 
-    def to_display_string(self, sep: str = "\n\n") -> str:
+    def to_text(self, sep: str = "\n\n") -> str:
         return sep.join(self.bodies())
 
     def add_note(self, note: NoteT) -> None:
@@ -544,7 +495,7 @@ class BaseTargetNotesContainer(Generic[NoteT, KindContainerT], abc.ABC):
         container = self.get_kind(note_kind)
         if container is None:
             return ""
-        return container.to_display_string(sep=sep)
+        return container.to_text(sep=sep)
 
     def primary_notes(self) -> dict[NoteKind, NoteT]:
         result: dict[NoteKind, NoteT] = {}
@@ -704,10 +655,14 @@ def _install_kind_convenience_properties(
     """
     Install per-kind convenience properties and methods on a notes container class.
 
+    This is deliberate runtime sugar, not the load-bearing core API. The
+    explicit generic methods on the container remain the canonical surface. See
+    `metadata_container_dynamic_convenience_policy.md`.
+
     For a kind stem of 'descriptions', this creates:
     - .descriptions
     - .descriptions_text
-    - .descriptions_to_string(sep="\n\n")
+    - .descriptions_to_text(sep="\n\n")
     """
 
     for note_kind in NoteKind:
@@ -716,18 +671,40 @@ def _install_kind_convenience_properties(
         def kind_container_getter(self, _kind=note_kind):
             return self.ensure_kind(_kind)
 
-        def kind_text_getter(self, _kind=note_kind):
+        def kind_rendered_text_getter(self, _kind=note_kind):
             return self.kind_text(_kind)
 
-        def kind_text_method(self, sep: str = "\n\n", _kind=note_kind) -> str:
+        def kind_rendered_text_method(self, sep: str = "\n\n", _kind=note_kind) -> str:
             return self.kind_text(_kind, sep=sep)
 
         setattr(cls, stem, property(kind_container_getter))
-        setattr(cls, f"{stem}_text", property(kind_text_getter))
-        setattr(cls, f"{stem}_to_string", kind_text_method)
+        setattr(cls, f"{stem}_text", property(kind_rendered_text_getter))
+        setattr(cls, f"{stem}_to_text", kind_rendered_text_method)
 
 
 _install_kind_convenience_properties(WorkNotesContainer)
 _install_kind_convenience_properties(ExpressionNotesContainer)
 _install_kind_convenience_properties(ManifestationNotesContainer)
 _install_kind_convenience_properties(ItemNotesContainer)
+
+
+__all__ = [
+    "NoteKind",
+    "NoteFormat",
+    "NoteVisibility",
+    "NoteBase",
+    "WorkNote",
+    "ExpressionNote",
+    "ManifestationNote",
+    "ItemNote",
+    "KindNotesContainer",
+    "WorkKindNotesContainer",
+    "ExpressionKindNotesContainer",
+    "ManifestationKindNotesContainer",
+    "ItemKindNotesContainer",
+    "BaseTargetNotesContainer",
+    "WorkNotesContainer",
+    "ExpressionNotesContainer",
+    "ManifestationNotesContainer",
+    "ItemNotesContainer",
+]

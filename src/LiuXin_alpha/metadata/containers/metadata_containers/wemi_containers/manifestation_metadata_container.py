@@ -1,12 +1,18 @@
-"""Concrete rich metadata bundle for one manifestation."""
+"""Core WEMI manifestation metadata-bundle implementation containers.
 
+Category: core WEMI metadata bundle.
+This module implements the editable metadata surface around a manifestation, not
+the manifestation identity object and not a read-side query result.
+"""
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+
+from LiuXin_alpha.databases.row import Row
 from typing import Any, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestations_container_api import (
-    ManifestationIdentityAPI,
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
     ManifestationMetadataAPI,
     ManifestationRelationLink,
     ManifestationStorageHints,
@@ -98,11 +104,33 @@ class ManifestationMetadata(ManifestationMetadataAPI):
                     ))
         return cls(manifestation=manifestation, relation_links=relation_links)
 
+
+    @classmethod
+    def from_database(
+        cls,
+        database: Any,
+        *,
+        manifestation_id: Optional[int] = None,
+        source_row: Optional[Mapping[str, Any] | Row] = None,
+    ) -> "ManifestationMetadata":
+        from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manifestation_metadata_hydrator import (
+            ManifestationMetadataHydrator,
+        )
+
+        hydrator = ManifestationMetadataHydrator(database)
+        if manifestation_id is not None:
+            return hydrator.from_manifestation_id(int(manifestation_id))
+        if source_row is not None:
+            return hydrator.from_source_row(source_row)
+        raise ValueError("Provide either manifestation_id or source_row.")
+
     @staticmethod
     def _display_value(value: Any) -> Optional[str]:
         if value is None:
             return None
-        if hasattr(value, 'to_mapping') and callable(value.to_mapping):
+        if isinstance(value, Row):
+            mapping = value.row_dict
+        elif hasattr(value, 'to_mapping') and callable(value.to_mapping):
             mapping = value.to_mapping()
         elif isinstance(value, Mapping):
             mapping = value

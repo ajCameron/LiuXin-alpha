@@ -1,30 +1,17 @@
+"""Genre metadata containers attached to W/E/M/I entities.
+
+Category: additional metadata family.
+These classes are editable metadata value objects and helper containers, not
+independent identity objects and not joined read-side views.
 """
-Containers for genres attached to W/E/M/I entities.
-
-The classes in this module are editable metadata value objects. They are intended
-for read / modify / write workflows around metadata hydration, not as live row or
-database proxies.
-
-The broad shape is:
-- ``GenreBase`` and its W/E/M/I specialisations for individual genre records.
-- ``GenresContainerBase`` for an ordered list of genres attached to one target.
-- ``WorkGenresContainer`` / ``ExpressionGenresContainer`` /
-  ``ManifestationGenresContainer`` / ``ItemGenresContainer`` as write-side
-  surfaces for each W/E/M/I layer.
-
-Genres are deliberately narrower than the more generic labels container. This
-module is for genre/form style terms that describe what a work or edition *is*,
-not arbitrary tags or free-form classification.
-"""
-
 from __future__ import annotations
 
 import abc
 
 from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import Iterator, Literal
 
+from LiuXin_alpha.metadata.constants.container_vocabularies import GenreKind
 from LiuXin_alpha.metadata.metadata_types import (
     WorkID,
     ExpressionID,
@@ -33,20 +20,6 @@ from LiuXin_alpha.metadata.metadata_types import (
     LanguageID,
 )
 
-
-class GenreKind(StrEnum):
-    """
-    Controlled kinds for genre-style terms.
-
-    The set is intentionally small and practical. It gives a little structure
-    without trying to solve the whole subject-heading universe.
-    """
-
-    GENRE = "genre"
-    SUBGENRE = "subgenre"
-    FORM = "form"
-    MODE = "mode"
-    MOVEMENT = "movement"
 
 
 @dataclass(slots=True, kw_only=True)
@@ -291,7 +264,7 @@ class GenresContainerBase(abc.ABC):
     def texts(self) -> tuple[str, ...]:
         return tuple(genre.text for genre in self._genres)
 
-    def to_display_string(self, sep: str = " / ") -> str:
+    def to_text(self, sep: str = " / ") -> str:
         return sep.join(self.texts())
 
     def add_genre(self, genre: GenreBase) -> None:
@@ -449,3 +422,18 @@ class ItemGenresContainer(GenresContainerBase):
     @property
     def target_kind(self) -> Literal["item"]:
         return "item"
+
+
+__all__ = [
+    "GenreKind",
+    "GenreBase",
+    "WorkGenre",
+    "ExpressionGenre",
+    "ManifestationGenre",
+    "ItemGenre",
+    "GenresContainerBase",
+    "WorkGenresContainer",
+    "ExpressionGenresContainer",
+    "ManifestationGenresContainer",
+    "ItemGenresContainer",
+]

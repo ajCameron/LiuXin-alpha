@@ -1,16 +1,14 @@
-"""
-Containers for identifiers attached to W/E/M/I entities.
+"""Identifier metadata containers attached to W/E/M/I entities.
 
-These are metadata value objects and editing containers.
-They are not row or database proxies.
+Category: additional metadata family.
+These classes are editable metadata value objects and helper containers, not
+independent identity objects and not joined read-side views.
 """
-
 from __future__ import annotations
 
 import abc
 
 from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import ClassVar, Generic, Iterator, TypeVar, Literal
 
 from LiuXin_alpha.databases.db_types import (
@@ -20,6 +18,7 @@ from LiuXin_alpha.databases.db_types import (
     MANIFESTATION_IDENTIFIER_SCHEMES,
     ITEM_IDENTIFIER_SCHEMES,
 )
+from LiuXin_alpha.metadata.constants.container_vocabularies import IdentifierStatus
 from LiuXin_alpha.metadata.metadata_types import (
     WorkID,
     ExpressionID,
@@ -32,15 +31,6 @@ from LiuXin_alpha.metadata.metadata_types import (
 IdentifierT = TypeVar("IdentifierT", bound="IdentifierBase")
 SchemeContainerT = TypeVar("SchemeContainerT", bound="SchemeIdentifiersContainer")
 
-
-class IdentifierStatus(StrEnum):
-    """Lifecycle / trust state for an identifier."""
-
-    ACTIVE = "active"
-    INVALID = "invalid"
-    SUPERSEDED = "superseded"
-    WITHDRAWN = "withdrawn"
-    UNKNOWN = "unknown"
 
 
 @dataclass(slots=True, kw_only=True)
@@ -271,7 +261,7 @@ class SchemeIdentifiersContainer(Generic[IdentifierT], abc.ABC):
             for identifier in self._identifiers
         )
 
-    def to_display_string(self, sep: str = " / ") -> str:
+    def to_text(self, sep: str = " / ") -> str:
         return sep.join(self.values())
 
     def add_identifier(self, identifier: IdentifierT) -> None:
@@ -475,7 +465,7 @@ class BaseTargetIdentifiersContainer(
             return tuple()
         return container.normalized_values()
 
-    def scheme_to_display_string(
+    def scheme_text(
         self,
         scheme: IdentifierScheme,
         sep: str = " / ",
@@ -483,7 +473,7 @@ class BaseTargetIdentifiersContainer(
         container = self.get_scheme(scheme)
         if container is None:
             return ""
-        return container.to_display_string(sep=sep)
+        return container.to_text(sep=sep)
 
     def primary_identifier_for_scheme(
         self,
@@ -626,12 +616,16 @@ def _install_scheme_convenience_properties(
     """
     Install per-scheme convenience properties and methods on a container class.
 
+    This is deliberate runtime sugar, not the load-bearing core API. The
+    explicit generic methods on the container remain the canonical surface. See
+    `metadata_container_dynamic_convenience_policy.md`.
+
     For a scheme stem of 'isbn_13', this creates:
     - .isbn_13               -> SchemeIdentifiersContainer
     - .isbn_13_values        -> tuple[str, ...]
     - .isbn_13_normalized_values -> tuple[str, ...]
-    - .isbn_13_str           -> str   (default " / " separator)
-    - .isbn_13_to_string(sep=" / ") -> str
+    - .isbn_13_text           -> str   (default " / " separator)
+    - .isbn_13_to_text(sep=" / ") -> str
     - .isbn_13_primary       -> IdentifierBase | None
     """
     for scheme in sorted(schemes, key=lambda s: s.value):
@@ -646,11 +640,11 @@ def _install_scheme_convenience_properties(
         def scheme_normalized_values_getter(self, _scheme=scheme):
             return self.scheme_normalized_values(_scheme)
 
-        def scheme_string_getter(self, _scheme=scheme):
-            return self.scheme_to_display_string(_scheme)
+        def scheme_text_getter(self, _scheme=scheme):
+            return self.scheme_text(_scheme)
 
-        def scheme_string_method(self, sep: str = " / ", _scheme=scheme) -> str:
-            return self.scheme_to_display_string(_scheme, sep=sep)
+        def scheme_text_method(self, sep: str = " / ", _scheme=scheme) -> str:
+            return self.scheme_text(_scheme, sep=sep)
 
         def scheme_primary_getter(self, _scheme=scheme):
             return self.primary_identifier_for_scheme(_scheme)
@@ -658,8 +652,8 @@ def _install_scheme_convenience_properties(
         setattr(cls, stem, property(scheme_container_getter))
         setattr(cls, f"{stem}_values", property(scheme_values_getter))
         setattr(cls, f"{stem}_normalized_values", property(scheme_normalized_values_getter))
-        setattr(cls, f"{stem}_str", property(scheme_string_getter))
-        setattr(cls, f"{stem}_to_string", scheme_string_method)
+        setattr(cls, f"{stem}_text", property(scheme_text_getter))
+        setattr(cls, f"{stem}_to_text", scheme_text_method)
         setattr(cls, f"{stem}_primary", property(scheme_primary_getter))
 
 
@@ -670,3 +664,23 @@ _install_scheme_convenience_properties(
     MANIFESTATION_IDENTIFIER_SCHEMES,
 )
 _install_scheme_convenience_properties(ItemIdentifiersContainer, ITEM_IDENTIFIER_SCHEMES)
+
+
+__all__ = [
+    "IdentifierStatus",
+    "IdentifierBase",
+    "WorkIdentifier",
+    "ExpressionIdentifier",
+    "ManifestationIdentifier",
+    "ItemIdentifier",
+    "SchemeIdentifiersContainer",
+    "WorkSchemeIdentifiersContainer",
+    "ExpressionSchemeIdentifiersContainer",
+    "ManifestationSchemeIdentifiersContainer",
+    "ItemSchemeIdentifiersContainer",
+    "BaseTargetIdentifiersContainer",
+    "WorkIdentifiersContainer",
+    "ExpressionIdentifiersContainer",
+    "ManifestationIdentifiersContainer",
+    "ItemIdentifiersContainer",
+]

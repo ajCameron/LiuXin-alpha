@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from typing import Any, Iterable, Optional
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.items_container_api import (
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_metadata_api import (
     ItemRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import (

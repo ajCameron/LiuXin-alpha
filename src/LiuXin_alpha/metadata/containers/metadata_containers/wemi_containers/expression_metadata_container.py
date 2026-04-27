@@ -1,12 +1,18 @@
-"""Concrete rich metadata bundle for one expression."""
+"""Core WEMI expression metadata-bundle implementation containers.
 
+Category: core WEMI metadata bundle.
+This module implements the editable metadata surface around an expression, not
+the expression identity object and not a read-side query result.
+"""
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+
+from LiuXin_alpha.databases.row import Row
 from typing import Any, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expressions_container_api import (
-    ExpressionIdentityAPI,
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_metadata_api import (
     ExpressionMetadataAPI,
     ExpressionRelationLink,
     ExpressionStorageHints,
@@ -98,11 +104,33 @@ class ExpressionMetadata(ExpressionMetadataAPI):
                     ))
         return cls(expression=expression, relation_links=relation_links)
 
+
+    @classmethod
+    def from_database(
+        cls,
+        database: Any,
+        *,
+        expression_id: Optional[int] = None,
+        source_row: Optional[Mapping[str, Any] | Row] = None,
+    ) -> "ExpressionMetadata":
+        from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_metadata_hydrator import (
+            ExpressionMetadataHydrator,
+        )
+
+        hydrator = ExpressionMetadataHydrator(database)
+        if expression_id is not None:
+            return hydrator.from_expression_id(int(expression_id))
+        if source_row is not None:
+            return hydrator.from_source_row(source_row)
+        raise ValueError("Provide either expression_id or source_row.")
+
     @staticmethod
     def _display_value(value: Any) -> Optional[str]:
         if value is None:
             return None
-        if hasattr(value, 'to_mapping') and callable(value.to_mapping):
+        if isinstance(value, Row):
+            mapping = value.row_dict
+        elif hasattr(value, 'to_mapping') and callable(value.to_mapping):
             mapping = value.to_mapping()
         elif isinstance(value, Mapping):
             mapping = value

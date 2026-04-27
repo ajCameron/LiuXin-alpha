@@ -155,6 +155,9 @@ UUIDStr = str
 IdentifiersStr = str
 
 
+IdentifierEntityTypeStr = Literal["work", "expression", "manifestation", "item"]
+
+
 class IdentifierEntityType(StrEnum):
     """Supported curated-identifier attachment targets in the FRBR graph."""
 
@@ -162,6 +165,15 @@ class IdentifierEntityType(StrEnum):
     EXPRESSION = "expression"
     MANIFESTATION = "manifestation"
     ITEM = "item"
+
+
+IdentifierSchemeStr = Literal[
+    "isbn_10",
+    "isbn_13",
+    "asin",
+    "uuid",
+    "calibre_uuid",
+]
 
 
 class IdentifierScheme(StrEnum):
@@ -238,92 +250,6 @@ InterlinkExtraTypes = Union[
     Literal["index"],
     Literal["sequence_number"],
     Literal["is_required"]]
-
-
-from enum import StrEnum
-from typing import Final, Literal
-
-
-UUIDStr = str
-
-
-IdentifierEntityTypeStr = Literal["work", "expression", "manifestation", "item"]
-
-
-class IdentifierEntityType(StrEnum):
-    """Supported curated-identifier attachment targets in the FRBR graph."""
-
-    WORK = "work"
-    EXPRESSION = "expression"
-    MANIFESTATION = "manifestation"
-    ITEM = "item"
-
-
-IdentifierSchemeStr = Literal[
-    "isbn_10",
-    "isbn_13",
-    "asin",
-    "uuid",
-    "calibre_uuid",
-]
-
-
-class IdentifierScheme(StrEnum):
-    """Canonical identifier scheme names for the FRBR identifier tables."""
-
-    ISBN_10 = "isbn_10"
-    ISBN_13 = "isbn_13"
-    ASIN = "asin"
-    UUID = "uuid"
-    CALIBRE_UUID = "calibre_uuid"
-
-
-ALL_IDENTIFIER_ENTITY_TYPES: Final[tuple[str, ...]] = tuple(
-    entity_type.value for entity_type in IdentifierEntityType
-)
-
-ALL_IDENTIFIER_SCHEMES: Final[tuple[str, ...]] = tuple(
-    scheme.value for scheme in IdentifierScheme
-)
-
-
-WORK_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
-    IdentifierScheme.UUID,
-    IdentifierScheme.CALIBRE_UUID,
-})
-
-EXPRESSION_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
-    IdentifierScheme.UUID,
-    IdentifierScheme.CALIBRE_UUID,
-})
-
-MANIFESTATION_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
-    IdentifierScheme.ISBN_10,
-    IdentifierScheme.ISBN_13,
-    IdentifierScheme.ASIN,
-    IdentifierScheme.UUID,
-    IdentifierScheme.CALIBRE_UUID,
-})
-
-ITEM_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
-    IdentifierScheme.UUID,
-    IdentifierScheme.CALIBRE_UUID,
-})
-
-# Item-observed identifiers are intentionally broader than curated item identifiers.
-# A specific copy may physically carry manifestation-level identifiers such as ISBNs/ASINs.
-OBSERVED_ITEM_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset(
-    IdentifierScheme
-)
-
-ENTITY_IDENTIFIER_SCHEMES_BY_TYPE: Final[
-    dict[IdentifierEntityType, frozenset[IdentifierScheme]]
-] = {
-    IdentifierEntityType.WORK: WORK_IDENTIFIER_SCHEMES,
-    IdentifierEntityType.EXPRESSION: EXPRESSION_IDENTIFIER_SCHEMES,
-    IdentifierEntityType.MANIFESTATION: MANIFESTATION_IDENTIFIER_SCHEMES,
-    IdentifierEntityType.ITEM: ITEM_IDENTIFIER_SCHEMES,
-}
 
 
 MarcRelatorRoleStr = Literal[

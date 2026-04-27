@@ -46,6 +46,16 @@ from LiuXin_alpha.databases.db_types import (
     IdentifierEntityType,
     OBSERVED_ITEM_IDENTIFIER_SCHEMES,
 )
+from LiuXin_alpha.metadata.constants.container_vocabularies import (
+    GenreKind,
+    IdentifierStatus,
+    LabelKind,
+    NoteFormat,
+    NoteKind,
+    NoteVisibility,
+    SubjectKind,
+    TitleKind,
+)
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 from LiuXin_alpha.utils.logging import LiuXin_print
@@ -158,12 +168,72 @@ def _build_observed_item_identifier_scheme_check_sql() -> str:
     ),"""
 
 
-def _substitute_identifier_constraint_placeholders(sql_text: str) -> str:
-    """Substitute SQL placeholders for identifier scheme constraints."""
+def _build_simple_text_check_sql(
+    *,
+    constraint_name: str,
+    column_name: str,
+    allowed_values: list[str] | tuple[str, ...] | set[str],
+) -> str:
+    """Build a nullable text-column CHECK constraint from canonical values."""
+    allowed_values_sql = _sql_in_list(allowed_values)
+    return f"""CONSTRAINT `{constraint_name}`
+    CHECK (
+      `{column_name}` IS NULL
+      OR `{column_name}` IN ({allowed_values_sql})
+    ),"""
+
+
+def _substitute_canonical_vocabulary_placeholders(sql_text: str) -> str:
+    """Substitute SQL placeholders for canonical DB / metadata vocabularies.
+
+    Today, identifier placeholders are live in the FRBR schema. Additional metadata-family
+    placeholders are also supported here so future schema columns can draw constraints from the
+    same canonical enums without re-inventing generator glue.
+    """
     replacements = {
         "__ENTITY_IDENTIFIER_ENTITY_TYPE_CHECK__": _build_entity_identifier_type_check_sql(),
         "__ENTITY_IDENTIFIER_SCHEME_BY_TYPE_CHECK__": _build_entity_identifier_scheme_check_sql(),
         "__ITEM_IDENTIFIER_SCHEME_CHECK__": _build_observed_item_identifier_scheme_check_sql(),
+        "__TITLE_KIND_CHECK__": _build_simple_text_check_sql(
+            constraint_name="title_kind_valid",
+            column_name="title_kind",
+            allowed_values=tuple(member.value for member in TitleKind),
+        ),
+        "__NOTE_KIND_CHECK__": _build_simple_text_check_sql(
+            constraint_name="note_kind_valid",
+            column_name="note_kind",
+            allowed_values=tuple(member.value for member in NoteKind),
+        ),
+        "__NOTE_FORMAT_CHECK__": _build_simple_text_check_sql(
+            constraint_name="note_format_valid",
+            column_name="note_format",
+            allowed_values=tuple(member.value for member in NoteFormat),
+        ),
+        "__NOTE_VISIBILITY_CHECK__": _build_simple_text_check_sql(
+            constraint_name="note_visibility_valid",
+            column_name="note_visibility",
+            allowed_values=tuple(member.value for member in NoteVisibility),
+        ),
+        "__LABEL_KIND_CHECK__": _build_simple_text_check_sql(
+            constraint_name="label_kind_valid",
+            column_name="label_kind",
+            allowed_values=tuple(member.value for member in LabelKind),
+        ),
+        "__GENRE_KIND_CHECK__": _build_simple_text_check_sql(
+            constraint_name="genre_kind_valid",
+            column_name="genre_kind",
+            allowed_values=tuple(member.value for member in GenreKind),
+        ),
+        "__SUBJECT_KIND_CHECK__": _build_simple_text_check_sql(
+            constraint_name="subject_kind_valid",
+            column_name="subject_kind",
+            allowed_values=tuple(member.value for member in SubjectKind),
+        ),
+        "__IDENTIFIER_STATUS_CHECK__": _build_simple_text_check_sql(
+            constraint_name="identifier_status_valid",
+            column_name="identifier_status",
+            allowed_values=tuple(member.value for member in IdentifierStatus),
+        ),
     }
 
     for placeholder, replacement in replacements.items():
@@ -676,7 +746,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                     f"Unable to read main-table SQL file: {main_table_sql_file!s}"
                 ) from e
 
-            sql_text = _substitute_identifier_constraint_placeholders(sql_text)
+            sql_text = _substitute_canonical_vocabulary_placeholders(sql_text)
             test = sql_text.splitlines(keepends=True)
 
             # If the table file uses no BREAK markers, execute it as a script (supports multi-statement SQL).

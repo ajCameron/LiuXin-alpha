@@ -2,21 +2,21 @@
 
 These APIs are intentionally small. Row-level identity and rich metadata APIs
 live in the sibling modules:
-- works_container_api
-- expressions_container_api
-- manifestations_container_api
-- items_container_api
+- work_identity_api
+- expression_identity_api
+- manifestation_identity_api
+- item_identity_api
 """
 
 from __future__ import annotations
 
 import abc
-from typing import Iterator, Iterable, MutableSequence, Optional
+from typing import Iterator, MutableSequence
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.works_container_api import WorkIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expressions_container_api import ExpressionIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestations_container_api import ManifestationIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.items_container_api import ItemIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
 
 
 class WorksCollectionAPI(abc.ABC):

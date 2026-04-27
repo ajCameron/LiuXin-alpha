@@ -1,7 +1,9 @@
-"""
-Concrete rich item metadata bundle.
-"""
+"""Core WEMI item metadata-bundle implementation containers.
 
+Category: core WEMI metadata bundle.
+This module implements the editable metadata surface around an item, not the item
+identity object and not a read-side query result.
+"""
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -9,12 +11,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.items_container_api import (
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_metadata_api import (
     ItemMetadataAPI,
     ItemRelationLink,
     ItemStorageHints,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemIdentityAPI
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import (
     ItemIdentity,
 )

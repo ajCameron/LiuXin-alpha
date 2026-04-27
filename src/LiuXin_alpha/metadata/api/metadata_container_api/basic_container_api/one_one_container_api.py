@@ -1,6 +1,9 @@
 
 """
 Containers for one to one links.
+
+The aim of this is to declare when a link is truly one to one.
+These are fairly rare, but are included for completeness.
 """
 
 

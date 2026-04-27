@@ -1,10 +1,14 @@
-"""Concrete identity container for one manifestation row."""
+"""Core WEMI manifestation identity implementation containers.
 
+Category: core WEMI identity object.
+This module implements the manifestation entity itself, not the editable
+metadata bundle and not a read-side query result.
+"""
 from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestations_container_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
 
 
 class ManifestationIdentity(ManifestationIdentityAPI):

@@ -1,7 +1,9 @@
-"""
-Concrete container for one row from the ``items`` table.
-"""
+"""Core WEMI item identity implementation containers.
 
+Category: core WEMI identity object.
+This module implements the item entity itself, not the editable metadata bundle
+and not a read-side query result.
+"""
 from __future__ import annotations
 
 from typing import Any, Mapping, Optional

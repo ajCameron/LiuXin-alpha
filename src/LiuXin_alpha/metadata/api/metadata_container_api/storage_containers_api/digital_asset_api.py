@@ -61,8 +61,8 @@ class DigitalAssetMetadataAPI(abc.ABC):
         :return:
         """
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def item_ids(self) -> Iterable["ItemID"]:
         """
         Return all the item ids this asset is used in.

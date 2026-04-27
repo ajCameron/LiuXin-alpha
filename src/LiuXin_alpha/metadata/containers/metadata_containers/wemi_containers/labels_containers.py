@@ -1,18 +1,17 @@
-"""
-Containers for labels attached to W/E/M/I entities.
+"""Label metadata containers attached to W/E/M/I entities.
 
-These are metadata value objects and editing containers.
-They are not row or database proxies.
+Category: additional metadata family.
+These classes are editable metadata value objects and helper containers, not
+independent identity objects and not joined read-side views.
 """
-
 from __future__ import annotations
 
 import abc
 
 from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import ClassVar, Generic, Iterator, Literal, TypeVar
 
+from LiuXin_alpha.metadata.constants.container_vocabularies import LabelKind
 from LiuXin_alpha.metadata.metadata_types import (
     WorkID,
     ExpressionID,
@@ -25,21 +24,6 @@ from LiuXin_alpha.metadata.metadata_types import (
 LabelT = TypeVar("LabelT", bound="LabelBase")
 KindContainerT = TypeVar("KindContainerT", bound="KindLabelsContainer")
 
-
-class LabelKind(StrEnum):
-    """Controlled kinds for short-form labels and tag-like metadata."""
-
-    TAG = "tag"
-    GENRE = "genre"
-    FORM = "form"
-    TOPIC = "topic"
-    CHARACTER = "character"
-    PLACE = "place"
-    PERIOD = "period"
-    AUDIENCE = "audience"
-    AWARD = "award"
-    COLLECTION = "collection"
-    INTERNAL = "internal"
 
 
 @dataclass(slots=True, kw_only=True)
@@ -252,7 +236,7 @@ class KindLabelsContainer(Generic[LabelT], abc.ABC):
     def sort_texts(self) -> tuple[str, ...]:
         return tuple(label.sort_text or label.text for label in self._labels)
 
-    def to_display_string(self, sep: str = ", ") -> str:
+    def to_text(self, sep: str = ", ") -> str:
         return sep.join(self.texts())
 
     def add_label(self, label: LabelT) -> None:
@@ -437,7 +421,7 @@ class BaseTargetLabelsContainer(Generic[LabelT, KindContainerT], abc.ABC):
         container = self.get_kind(label_kind)
         if container is None:
             return ""
-        return container.to_display_string(sep=sep)
+        return container.to_text(sep=sep)
 
     def primary_labels(self) -> dict[LabelKind, LabelT]:
         result: dict[LabelKind, LabelT] = {}
@@ -587,10 +571,14 @@ def _install_kind_convenience_properties(
     """
     Install per-kind convenience properties and methods on a labels container class.
 
+    This is deliberate runtime sugar, not the load-bearing core API. The
+    explicit generic methods on the container remain the canonical surface. See
+    `metadata_container_dynamic_convenience_policy.md`.
+
     For a kind stem of 'tags', this creates:
     - .tags
     - .tags_text
-    - .tags_to_string(sep=", ")
+    - .tags_to_text(sep=", ")
     """
 
     for label_kind in LabelKind:
@@ -599,18 +587,38 @@ def _install_kind_convenience_properties(
         def kind_container_getter(self, _kind=label_kind):
             return self.ensure_kind(_kind)
 
-        def kind_text_getter(self, _kind=label_kind):
+        def kind_rendered_text_getter(self, _kind=label_kind):
             return self.kind_text(_kind)
 
-        def kind_text_method(self, sep: str = ", ", _kind=label_kind) -> str:
+        def kind_rendered_text_method(self, sep: str = ", ", _kind=label_kind) -> str:
             return self.kind_text(_kind, sep=sep)
 
         setattr(cls, stem, property(kind_container_getter))
-        setattr(cls, f"{stem}_text", property(kind_text_getter))
-        setattr(cls, f"{stem}_to_string", kind_text_method)
+        setattr(cls, f"{stem}_text", property(kind_rendered_text_getter))
+        setattr(cls, f"{stem}_to_text", kind_rendered_text_method)
 
 
 _install_kind_convenience_properties(WorkLabelsContainer)
 _install_kind_convenience_properties(ExpressionLabelsContainer)
 _install_kind_convenience_properties(ManifestationLabelsContainer)
 _install_kind_convenience_properties(ItemLabelsContainer)
+
+
+__all__ = [
+    "LabelKind",
+    "LabelBase",
+    "WorkLabel",
+    "ExpressionLabel",
+    "ManifestationLabel",
+    "ItemLabel",
+    "KindLabelsContainer",
+    "WorkKindLabelsContainer",
+    "ExpressionKindLabelsContainer",
+    "ManifestationKindLabelsContainer",
+    "ItemKindLabelsContainer",
+    "BaseTargetLabelsContainer",
+    "WorkLabelsContainer",
+    "ExpressionLabelsContainer",
+    "ManifestationLabelsContainer",
+    "ItemLabelsContainer",
+]
