@@ -178,6 +178,8 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         )
         super().__init__(table=spec.name, db=db, metadata=metadata)
         self.spec = spec
+        self._column_headings: tuple[str, ...] = tuple(col.name for col in self.spec.columns)
+        self._column_types: dict[str, str] = _column_type_map(self.spec)
         self._row_id_array: Any = _as_int_array(())
         self._row_ids: tuple[int, ...] = ()
         self._row_id_positions: dict[int, int] = {}
@@ -205,11 +207,11 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
 
     @property
     def column_headings(self) -> list[str]:
-        return [col.name for col in self.spec.columns]
+        return list(self._column_headings)
 
     @property
     def column_types(self) -> dict[str, str]:
-        return _column_type_map(self.spec)
+        return dict(self._column_types)
 
     def linked_to(self) -> Iterable[str]:
         return tuple(self.spec.linked_tables)
@@ -218,44 +220,49 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         return Row(database=self.db, row_dict=deepcopy(dict(row_dict)), read_only=True)
 
     def _build_value_indexes(self, row_ids: Sequence[int], column_values: dict[str, Sequence[Any]]) -> None:
-        indexes: dict[str, dict[Any, list[int]]] = {
-            column: defaultdict(list)
-            for column in self.column_headings
-        }
-        for row_position, row_id in enumerate(row_ids):
-            for column in self.column_headings:
-                value = column_values[column][row_position]
-                indexes[column][value].append(int(row_id))
-        self._value_indexes = {
-            column: {value: tuple(ids) for value, ids in values.items()}
-            for column, values in indexes.items()
-        }
+        normalized_row_ids = tuple(int(row_id) for row_id in row_ids)
+        indexes: dict[str, dict[Any, tuple[int, ...]]] = {}
+        for column in self._column_headings:
+            values_for_column = column_values[column]
+            grouped_ids: dict[Any, list[int]] = defaultdict(list)
+            for row_id, value in zip(normalized_row_ids, values_for_column):
+                grouped_ids[value].append(row_id)
+            indexes[column] = {
+                value: tuple(ids)
+                for value, ids in grouped_ids.items()
+            }
+        self._value_indexes = indexes
 
-    def _replace_rows(self, row_dicts: Sequence[Mapping[str, Any]]) -> None:
-        sortable: list[tuple[int, int, dict[str, Any]]] = []
+    def _replace_rows(self, row_dicts: Iterable[Mapping[str, Any]]) -> None:
+        column_headings = self._column_headings
+        column_types = self._column_types
+        id_column = self.spec.id_column
+        sortable: list[tuple[int, int, Mapping[str, Any]]] = []
         for index, row_dict in enumerate(row_dicts):
-            row_copy = deepcopy(dict(row_dict))
-            row_id = row_copy.get(self.id_column)
+            if id_column is None:
+                raise RuntimeError(f"Table {self.table!r} does not expose an id column")
+            row_id = row_dict.get(id_column)
             if row_id is None:
                 continue
-            sortable.append((int(row_id), index, row_copy))
+            sortable.append((int(row_id), index, row_dict))
         sortable.sort(key=lambda item: (item[0], item[1]))
 
         row_ids = tuple(int(row_id) for row_id, _index, _row in sortable)
         column_values: dict[str, list[Any]] = {
             column: []
-            for column in self.column_headings
+            for column in column_headings
         }
-        for _row_id, _index, row_copy in sortable:
-            for column in self.column_headings:
-                column_values[column].append(row_copy.get(column))
+        for _row_id, _index, row_data in sortable:
+            row_get = row_data.get
+            for column in column_headings:
+                column_values[column].append(row_get(column))
 
         self._row_ids = row_ids
         self._row_id_array = _as_int_array(row_ids)
         self._row_id_positions = {row_id: position for position, row_id in enumerate(row_ids)}
         self._column_arrays = {
-            column: _as_column_array(values, self.column_types[column])
-            for column, values in column_values.items()
+            column: _as_column_array(column_values[column], column_types[column])
+            for column in column_headings
         }
         self._build_value_indexes(row_ids, column_values)
         self._loaded = True
@@ -264,7 +271,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         db = _ensure_db(self.db, db)
         self.db = db
         rows = db.get_all_rows(self.table, iterator_return=False)
-        self._replace_rows([row.row_dict for row in rows])
+        self._replace_rows(row.row_dict for row in rows)
 
     def reload(self, db: Any) -> None:
         self.read(db=db)
@@ -469,6 +476,9 @@ class NumpyVectorizedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
     ) -> None:
         self._cache = cache
         self.column_name = str(column_name)
+        self._row_id_positions: dict[int, int] = {}
+        self._value_array: Any = _as_column_array((), "TEXT")
+        self._value_index: dict[Any, tuple[int, ...]] = {}
         super().__init__(in_table=in_table, db=db)
 
     @property
@@ -522,6 +532,10 @@ class NumpyVectorizedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
 
     def read(self, db: "DatabaseAPI") -> None:
         self._db = _ensure_db(self._db, db)
+        table = self._table_cache()
+        self._row_id_positions = table._row_id_positions
+        self._value_array = table._column_arrays[self.column_name]
+        self._value_index = table._value_indexes.get(self.column_name, {})
 
     def refresh_ids(
         self,
@@ -544,7 +558,7 @@ class NumpyVectorizedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
 
     @property
     def values_set(self) -> set[Any]:
-        return self._table_cache().get_unique_values(self.column_name)
+        return set(self._value_index.keys())
 
     @property
     def ids_values_map(self) -> dict[int, Optional[Any]]:
@@ -555,20 +569,19 @@ class NumpyVectorizedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         }
 
     def get_value_from_id(self, table_id: int) -> Optional[Any]:
-        table = self._table_cache()
-        row_id = int(table_id)
-        if not table.has_id(row_id):
+        position = self._row_id_positions.get(int(table_id))
+        if position is None:
             return None
-        return table.get_column_value_from_id(row_id, self.column_name)
+        return _array_value(self._value_array, position)
 
     def get_ids_from_value(self, value: Any) -> list[int]:
-        return sorted(self._table_cache().get_ids_for_value(self.column_name, value))
+        return list(self._value_index.get(value, ()))
 
     def get_numpy_owner_ids_array(self) -> Any:
         return self._table_cache().row_id_array
 
     def get_numpy_values_array(self) -> Any:
-        return self._table_cache()._column_arrays[self.column_name]
+        return self._value_array
 
     def update(self, update: OneOneInOneTableFieldUpdate[Any]) -> None:
         self._db = _ensure_db(self._db)
@@ -596,11 +609,10 @@ class _NumpyVectorizedRelationFieldBase:
         self._src_positions: dict[int, int] = {}
         self._src_offsets: Any = _as_int_array((0,))
         self._flat_dst_ids: Any = _as_int_array(())
+        self._flat_dst_positions: Any = _as_int_array(())
         self._flat_values: Any = _as_column_array((), "TEXT")
+        self._has_missing_dst = False
         self._dst_to_src_ids: dict[int, tuple[int, ...]] = {}
-        self._dst_to_values: dict[int, Optional[Any]] = {}
-        self._value_to_src_ids: dict[Any, tuple[int, ...]] = {}
-        self._value_to_dst_ids: dict[Any, tuple[int, ...]] = {}
 
     @property
     def field_key(self) -> str:
@@ -714,50 +726,52 @@ class _NumpyVectorizedRelationFieldBase:
         start, end = slice_bounds
         return tuple(_array_values(self._flat_values, start=start, end=end))
 
-    def _read_relation_cache(self) -> None:
+    def _project_flat_values(self) -> Any:
+        dst_table = cast(NumpyVectorizedMainTableCache, self.dst_table)
+        column_array = dst_table._column_arrays[self.dst_table_cache_col]
+        if _np is not None and not self._has_missing_dst:
+            return column_array[self._flat_dst_positions]
+
+        positions = _array_values(self._flat_dst_positions)
+        column_type = dst_table.column_types.get(self.dst_table_cache_col, "UNKNOWN")
+        values = [
+            None if int(position) < 0 else _array_value(column_array, int(position))
+            for position in positions
+        ]
+        return _as_column_array(values, column_type)
+
+    def _dst_ids_values_map(self) -> dict[int, Optional[Any]]:
+        return {
+            int(dst_id): self._value_for_dst_id(int(dst_id))
+            for dst_id in self._dst_to_src_ids
+        }
+
+    def _get_dst_ids_from_value(self, value: Any) -> list[int]:
+        dst_ids = [
+            int(dst_id)
+            for dst_id in self.dst_table.get_ids_for_value(self.dst_table_cache_col, value)
+            if int(dst_id) in self._dst_to_src_ids
+        ]
+        dst_ids.sort()
+        return dst_ids
+
+    def _get_src_ids_from_value(self, value: Any) -> list[int]:
         src_ids: list[int] = []
-        offsets: list[int] = [0]
-        flat_dst_ids: list[int] = []
-        flat_values: list[Optional[Any]] = []
-        dst_to_src_ids: dict[int, list[int]] = defaultdict(list)
-        dst_to_values: dict[int, Optional[Any]] = {}
-        value_to_src_ids: dict[Any, list[int]] = defaultdict(list)
-        value_to_dst_ids: dict[Any, list[int]] = defaultdict(list)
+        for dst_id in self._get_dst_ids_from_value(value):
+            src_ids.extend(int(src_id) for src_id in self._dst_to_src_ids.get(int(dst_id), ()))
+        return sorted(src_ids)
 
-        for src_id in sorted(int(row_id) for row_id in self.src_table.row_ids):
-            dst_ids = self._ordered_dst_ids_for_src(src_id, require_ordering=True)
-            if not dst_ids:
-                continue
-            src_ids.append(src_id)
-            for dst_id in dst_ids:
-                value = self._value_for_dst_id(dst_id)
-                flat_dst_ids.append(int(dst_id))
-                flat_values.append(value)
-                dst_to_src_ids[int(dst_id)].append(int(src_id))
-                dst_to_values[int(dst_id)] = value
-                value_to_src_ids[value].append(int(src_id))
-                value_to_dst_ids[value].append(int(dst_id))
-            offsets.append(len(flat_dst_ids))
-
-        self._src_ids = tuple(src_ids)
-        self._src_ids_array = _as_int_array(src_ids)
-        self._src_positions = {int(src_id): index for index, src_id in enumerate(src_ids)}
-        self._src_offsets = _as_int_array(offsets)
-        self._flat_dst_ids = _as_int_array(flat_dst_ids)
-        self._flat_values = _as_column_array(flat_values, "TEXT")
-        self._dst_to_src_ids = {
-            dst_id: tuple(src_values)
-            for dst_id, src_values in dst_to_src_ids.items()
-        }
-        self._dst_to_values = dict(dst_to_values)
-        self._value_to_src_ids = {
-            value: tuple(sorted(src_values))
-            for value, src_values in value_to_src_ids.items()
-        }
-        self._value_to_dst_ids = {
-            value: tuple(sorted(dst_values))
-            for value, dst_values in value_to_dst_ids.items()
-        }
+    def _read_relation_cache(self) -> None:
+        topology = self._link_table_cache().get_relation_topology()
+        self._src_ids = topology.src_ids
+        self._src_ids_array = topology.src_ids_array
+        self._src_positions = topology.src_positions
+        self._src_offsets = topology.src_offsets
+        self._flat_dst_ids = topology.flat_dst_ids
+        self._flat_dst_positions = topology.flat_dst_positions
+        self._has_missing_dst = topology.has_missing_dst
+        self._dst_to_src_ids = topology.dst_to_src_ids
+        self._flat_values = self._project_flat_values()
 
     def read(self, db: Any) -> None:
         db = _ensure_db(self._db, db)
@@ -1179,14 +1193,14 @@ class NumpyVectorizedTwoTableOneOneField(
 
     @property
     def dst_ids_values_map(self) -> dict[int, Optional[Any]]:
-        return dict(self._dst_to_values)
+        return self._dst_ids_values_map()
 
     def get_value_from_src_id(self, src_id: int) -> Optional[Any]:
         values = self._cached_values_for_src(int(src_id))
         return values[0] if values else None
 
     def get_value_from_dst_id(self, dst_id: int) -> Optional[Any]:
-        return self._dst_to_values.get(int(dst_id))
+        return self._value_for_dst_id(int(dst_id))
 
     def get_dst_id_from_src_id(self, src_id: int) -> Optional[int]:
         dst_ids = self._cached_dst_ids_for_src(int(src_id))
@@ -1197,10 +1211,10 @@ class NumpyVectorizedTwoTableOneOneField(
         return int(src_ids[0]) if src_ids else None
 
     def get_src_ids_from_value(self, value: Any) -> list[int]:
-        return list(self._value_to_src_ids.get(value, ()))
+        return self._get_src_ids_from_value(value)
 
     def get_dst_ids_from_value(self, value: Any) -> list[int]:
-        return list(self._value_to_dst_ids.get(value, ()))
+        return self._get_dst_ids_from_value(value)
 
     def update(self, update: OneOneInTwoTableFieldUpdate[Any]) -> None:
         self._db = _ensure_db(self._db)
@@ -1329,14 +1343,14 @@ class NumpyVectorizedManyOneField(
 
     @property
     def dst_ids_values_map(self) -> dict[int, Optional[Any]]:
-        return dict(self._dst_to_values)
+        return self._dst_ids_values_map()
 
     def get_value_from_src_id(self, src_id: int) -> Optional[Any]:
         values = self._cached_values_for_src(int(src_id))
         return values[0] if values else None
 
     def get_value_from_dst_id(self, dst_id: int) -> Optional[Any]:
-        return self._dst_to_values.get(int(dst_id))
+        return self._value_for_dst_id(int(dst_id))
 
     def get_dst_id_from_src_id(
         self,
@@ -1364,10 +1378,10 @@ class NumpyVectorizedManyOneField(
         return tuple(self._dst_to_src_ids.get(int(dst_id), ()))
 
     def get_src_ids_from_value(self, value: Any) -> list[int]:
-        return list(self._value_to_src_ids.get(value, ()))
+        return self._get_src_ids_from_value(value)
 
     def get_dst_ids_from_value(self, value: Any) -> list[int]:
-        return list(self._value_to_dst_ids.get(value, ()))
+        return self._get_dst_ids_from_value(value)
 
     def get_link_properties(
         self,
@@ -1498,7 +1512,7 @@ class NumpyVectorizedOneManyField(
 
     @property
     def dst_ids_values_map(self) -> dict[int, Optional[Any]]:
-        return dict(self._dst_to_values)
+        return self._dst_ids_values_map()
 
     def get_values_from_src_id(
         self,
@@ -1515,7 +1529,7 @@ class NumpyVectorizedOneManyField(
         return self._cached_values_for_src(int(src_id))
 
     def get_value_from_dst_id(self, dst_id: int) -> Optional[Any]:
-        return self._dst_to_values.get(int(dst_id))
+        return self._value_for_dst_id(int(dst_id))
 
     def get_dst_ids_from_src_id(
         self,
@@ -1543,10 +1557,10 @@ class NumpyVectorizedOneManyField(
         return src_ids[0] if src_ids else None
 
     def get_src_ids_from_value(self, value: Any) -> list[int]:
-        return list(self._value_to_src_ids.get(value, ()))
+        return self._get_src_ids_from_value(value)
 
     def get_dst_ids_from_value(self, value: Any) -> list[int]:
-        return list(self._value_to_dst_ids.get(value, ()))
+        return self._get_dst_ids_from_value(value)
 
     def get_link_properties(
         self,
@@ -1663,7 +1677,7 @@ class NumpyVectorizedManyManyField(
 
     @property
     def dst_ids_values_map(self) -> dict[int, Optional[Any]]:
-        return dict(self._dst_to_values)
+        return self._dst_ids_values_map()
 
     def get_values_from_src_id(
         self,
@@ -1680,7 +1694,7 @@ class NumpyVectorizedManyManyField(
         return self._cached_values_for_src(int(src_id))
 
     def get_value_from_dst_id(self, dst_id: int) -> Optional[Any]:
-        return self._dst_to_values.get(int(dst_id))
+        return self._value_for_dst_id(int(dst_id))
 
     def get_dst_ids_from_src_id(
         self,
@@ -1711,10 +1725,10 @@ class NumpyVectorizedManyManyField(
         return tuple(self._dst_to_src_ids.get(int(dst_id), ()))
 
     def get_src_ids_from_value(self, value: Any) -> list[int]:
-        return list(self._value_to_src_ids.get(value, ()))
+        return self._get_src_ids_from_value(value)
 
     def get_dst_ids_from_value(self, value: Any) -> list[int]:
-        return list(self._value_to_dst_ids.get(value, ()))
+        return self._get_dst_ids_from_value(value)
 
     def get_link_properties(
         self,
@@ -2173,7 +2187,8 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         name: Union[FieldKey, FieldBasicInterfaceAPI[Any]],
     ) -> FieldBasicInterfaceAPI[Any]:
         field_name = self._resolve_field_name(name)
-        self._ensure_field_fresh(field_name)
+        if self._stale_fields or self._stale_main_tables or self._stale_link_tables:
+            self._ensure_field_fresh(field_name)
         return self.fields[field_name]
 
     def iter_fields(self) -> Iterable[FieldBasicInterfaceAPI[Any]]:
@@ -2196,12 +2211,24 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
     ) -> None:
         table = self.get_main_table(name if not isinstance(name, StorageCacheSingleTableAPI) else name.table)
         table.reload(self._require_db(db))
+        skipped_link_keys: set[tuple[str, str]] = set()
+        for key, link_table in self.link_tables.items():
+            if table.table not in (link_table.primary_table, link_table.secondary_table):
+                continue
+            if key in self._stale_link_tables:
+                skipped_link_keys.add(key)
+                continue
+            link_table.refresh_relation_topology()
         self._stale_main_tables.discard(table.table)
         self._stale_ids.pop(table.table, None)
         for field in self._field_objects.values():
-            if table.table in self._field_tables(field):
-                field.read(self.db)
-                self._stale_fields.discard(field.field_key)
+            if table.table not in self._field_tables(field):
+                continue
+            link_key = self._field_link_key(field)
+            if link_key is not None and link_key in skipped_link_keys:
+                continue
+            field.read(self.db)
+            self._stale_fields.discard(field.field_key)
 
     def reload_link_table(
         self,
@@ -2284,14 +2311,24 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         field_key: str,
         default_value: Any = None,
     ) -> Any:
-        field = self.get_field(field_key)
+        owner_id = int(owner_id)
+        field_name = field_key if isinstance(field_key, str) and field_key in self.fields else self._resolve_field_name(field_key)
+        if self._stale_fields or self._stale_main_tables or self._stale_link_tables:
+            self._ensure_field_fresh(field_name)
+        field = self.fields[field_name]
+        if isinstance(field, NumpyVectorizedSameTableField):
+            value = field.get_value_from_id(owner_id)
+            return default_value if value is None else value
+        if isinstance(field, _NumpyVectorizedRelationFieldBase):
+            value = field.get_value_from_src_id(owner_id)
+            return default_value if value is None else value
         getter = getattr(field, "get_value_from_id", None)
         if callable(getter):
-            value = getter(int(owner_id))
+            value = getter(owner_id)
             return default_value if value is None else value
         getter = getattr(field, "get_value_from_src_id", None)
         if callable(getter):
-            value = getter(int(owner_id))
+            value = getter(owner_id)
             return default_value if value is None else value
         return super().get_cached_value(owner_id, field_key, default_value=default_value)
 

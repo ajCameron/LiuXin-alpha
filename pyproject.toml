@@ -11,6 +11,7 @@ dependencies = [
   "chardet>=5.0",
   "cssselect>=1.2",
   "lxml>=5.0",
+  "numpy>=1.26",
 ]
 
 [project.optional-dependencies]

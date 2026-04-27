@@ -52,6 +52,12 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_c
     ItemStorageHints,
     ItemMetadataAPI,
 )
+
+# Historical names kept for older callers during the WEMI API rename.
+WorkMetadataContainerAPI = WorkMetadataAPI
+WorkMetadataContainerAPIFromWemiApi = WorkMetadataAPI
+ItemMetadataContainerAPI = ItemMetadataAPI
+ItemMetadataContainerAPIFromWemiApi = ItemMetadataAPI
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_identity_api import (
     AgentIdentityAPI,
 )
@@ -288,6 +294,8 @@ __all__ = [
     "WorkRelationLink",
     "WorkStorageHints",
     "WorkMetadataAPI",
+    "WorkMetadataContainerAPI",
+    "WorkMetadataContainerAPIFromWemiApi",
     "ExpressionIdentityPropertiesAPI",
     "ExpressionIdentityAPI",
     "ExpressionRelationLink",
@@ -303,6 +311,8 @@ __all__ = [
     "ItemRelationLink",
     "ItemStorageHints",
     "ItemMetadataAPI",
+    "ItemMetadataContainerAPI",
+    "ItemMetadataContainerAPIFromWemiApi",
     "AgentIdentityAPI",
     "AgentProfileAPI",
     "AgentCreditBase",

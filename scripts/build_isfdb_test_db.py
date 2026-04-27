@@ -86,6 +86,7 @@ MYSQL_ESCAPES = {
 
 STAGE_PROGRESS_EVERY_ROWS = 100_000
 BUILD_PROGRESS_EVERY_ROWS = 25_000
+LOCAL_ORDER_PRIORITY_STRIDE = 1_000_000
 
 
 def _find_repo_root(start: Path) -> Optional[Path]:
@@ -296,6 +297,24 @@ def _safe_int(value: Any) -> Optional[int]:
         return int(text)
     except ValueError:
         return None
+
+
+def _priority_from_group_and_local_order(group_id: int, local_order: int = 0) -> int:
+    """Encode a stable local ordering into a globally unique link priority."""
+
+    safe_group_id = max(int(group_id), 0)
+    safe_local_order = max(int(local_order), 0)
+    return (safe_group_id * LOCAL_ORDER_PRIORITY_STRIDE) + safe_local_order
+
+
+def _priority_from_sort_key_and_unique_id(sort_key: Optional[int], unique_id: int) -> int:
+    """Sort primarily by `sort_key`, while guaranteeing uniqueness via `unique_id`."""
+
+    safe_unique_id = max(int(unique_id), 0)
+    safe_sort_key = _safe_int(sort_key)
+    if safe_sort_key is None or safe_sort_key < 0:
+        return safe_unique_id
+    return (safe_sort_key << 32) | safe_unique_id
 
 
 def _parse_mysql_token(token: str) -> Any:
@@ -1389,7 +1408,12 @@ def _build_frbr_target(
                         agent_manifestation_link_type
                     ) VALUES (?, ?, ?, ?);
                     """,
-                    (publisher_agent_id, manifestation_id, 0, "pbl"),
+                    (
+                        publisher_agent_id,
+                        manifestation_id,
+                        _priority_from_group_and_local_order(manifestation_id),
+                        "pbl",
+                    ),
                 )
             processed += 1
             next_progress = _log_periodic_progress(
@@ -1404,13 +1428,15 @@ def _build_frbr_target(
         )
 
         _log("Linking works to authors, languages, series, and manifestations...")
-        author_link_priority: dict[int, int] = defaultdict(int)
+        author_local_order_by_work: dict[int, int] = defaultdict(int)
+        seen_author_links: set[tuple[int, int]] = set()
+        primary_manifestation_seen_by_expression: set[int] = set()
         phase_started_at = time.time()
         processed = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
         for title_id, author_id in stage_conn.execute(
             """
-            SELECT ca.title_id, ca.author_id
+            SELECT DISTINCT ca.title_id, ca.author_id
             FROM stage_canonical_author ca
             JOIN selected_titles st ON st.title_id = ca.title_id
             WHERE ca.author_id IS NOT NULL
@@ -1421,8 +1447,11 @@ def _build_frbr_target(
             agent_id = author_to_agent_id.get(int(author_id))
             if work_id is None or agent_id is None:
                 continue
-            priority = author_link_priority[work_id]
-            author_link_priority[work_id] += 1
+            if (work_id, agent_id) in seen_author_links:
+                continue
+            seen_author_links.add((work_id, agent_id))
+            local_order = author_local_order_by_work[work_id]
+            author_local_order_by_work[work_id] += 1
             conn.execute(
                 """
                 INSERT INTO agent_work_links (
@@ -1432,7 +1461,12 @@ def _build_frbr_target(
                     agent_work_link_type
                 ) VALUES (?, ?, ?, ?);
                 """,
-                (agent_id, work_id, priority, "aut"),
+                (
+                    agent_id,
+                    work_id,
+                    _priority_from_group_and_local_order(work_id, local_order),
+                    "aut",
+                ),
             )
             processed += 1
             next_progress = _log_periodic_progress(
@@ -1477,7 +1511,12 @@ def _build_frbr_target(
                     language_work_link_type
                 ) VALUES (?, ?, ?, ?);
                 """,
-                (language_id, work_id, 0, "original"),
+                (
+                    language_id,
+                    work_id,
+                    _priority_from_group_and_local_order(work_id),
+                    "original",
+                ),
             )
             processed += 1
             next_progress = _log_periodic_progress(
@@ -1519,7 +1558,7 @@ def _build_frbr_target(
                 (
                     target_series_id,
                     work_id,
-                    _safe_int(title_seriesnum) or 0,
+                    _priority_from_sort_key_and_unique_id(_safe_int(title_seriesnum), work_id),
                     "main",
                 ),
             )
@@ -1535,8 +1574,6 @@ def _build_frbr_target(
             f"  series links: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
         )
 
-        current_pub_id: Optional[int] = None
-        per_pub_primary_seen = False
         phase_started_at = time.time()
         processed = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
@@ -1555,20 +1592,23 @@ def _build_frbr_target(
             expression_id = title_to_expression_id.get(title_id)
             if manifestation_id is None or expression_id is None:
                 continue
-            if current_pub_id != pub_id:
-                current_pub_id = pub_id
-                per_pub_primary_seen = False
-            primary = 0 if per_pub_primary_seen else 1
-            per_pub_primary_seen = True
+            primary = 0 if expression_id in primary_manifestation_seen_by_expression else 1
+            primary_manifestation_seen_by_expression.add(expression_id)
             conn.execute(
                 """
                 INSERT INTO expression_manifestation_links (
                     expression_manifestation_link_expression_id,
                     expression_manifestation_link_manifestation_id,
+                    expression_manifestation_link_priority,
                     expression_manifestation_link_primary
-                ) VALUES (?, ?, ?);
+                ) VALUES (?, ?, ?, ?);
                 """,
-                (expression_id, manifestation_id, primary),
+                (
+                    expression_id,
+                    manifestation_id,
+                    _priority_from_group_and_local_order(manifestation_id),
+                    primary,
+                ),
             )
             processed += 1
             next_progress = _log_periodic_progress(

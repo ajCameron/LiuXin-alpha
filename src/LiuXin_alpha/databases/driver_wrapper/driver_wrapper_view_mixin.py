@@ -8,6 +8,20 @@ class DriverWrapperViewMixin:
     View methods for the driver wrapper.
     """
 
+    def get_views(self, force_refresh: bool = False):
+        """Return the known view names.
+
+        Some drivers expose tables+views from `get_tables()`. Filter by
+        `get_relation_type()` here so higher-level schema introspection can ask
+        for views explicitly without depending on backend-specific list APIs.
+        """
+        names = self.get_tables(force_refresh=force_refresh)
+        return [
+            name
+            for name in names
+            if self.get_relation_type(name) == "view"
+        ]
+
     def is_view(self, name: str) -> bool:
         """Return True iff `name` exists and is a SQLite view."""
         return self.get_relation_type(name) == "view"

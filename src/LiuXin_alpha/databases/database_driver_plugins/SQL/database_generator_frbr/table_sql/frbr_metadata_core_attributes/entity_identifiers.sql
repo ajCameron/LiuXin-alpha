@@ -23,12 +23,11 @@ CREATE TABLE IF NOT EXISTS `entity_identifiers` (
   `entity_identifier_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `entity_identifier_source_created_datestamp_ep_k` INTEGER NULL,
   `entity_identifier_source_modified_datestamp_ep_k` INTEGER NULL,
+  `entity_identifier_scratch` TEXT NULL,
 
 
   __ENTITY_IDENTIFIER_ENTITY_TYPE_CHECK__
   __ENTITY_IDENTIFIER_SCHEME_BY_TYPE_CHECK__
-
-  `entity_identifier_scratch` TEXT NULL
 
 
 );
