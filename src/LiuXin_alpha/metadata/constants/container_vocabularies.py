@@ -11,7 +11,9 @@ from enum import StrEnum
 
 
 class TitleKind(StrEnum):
-    """Controlled kinds for title strings."""
+    """
+    Controlled kinds for title strings.
+    """
 
     MAIN = "main"
     SUBTITLE = "subtitle"
@@ -28,7 +30,9 @@ class TitleKind(StrEnum):
 
 
 class NoteKind(StrEnum):
-    """Controlled kinds for long-form notes."""
+    """
+    Controlled kinds for long-form notes.
+    """
 
     DESCRIPTION = "description"
     REVIEW = "review"
@@ -44,7 +48,9 @@ class NoteKind(StrEnum):
 
 
 class NoteFormat(StrEnum):
-    """Storage or rendering format for note body text."""
+    """
+    Storage or rendering format for note body text.
+    """
 
     PLAIN_TEXT = "plain_text"
     MARKDOWN = "markdown"
@@ -52,7 +58,9 @@ class NoteFormat(StrEnum):
 
 
 class NoteVisibility(StrEnum):
-    """Audience / exposure level for notes."""
+    """
+    Audience / exposure level for notes.
+    """
 
     PRIVATE = "private"
     STAFF = "staff"
