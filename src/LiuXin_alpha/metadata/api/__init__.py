@@ -1,4 +1,8 @@
-"""Public metadata API surface."""
+"""Public metadata API surface.
+
+Only abstract metadata contracts are exported here. Import concrete containers
+from ``LiuXin_alpha.metadata.containers``.
+"""
 
 from __future__ import annotations
 
