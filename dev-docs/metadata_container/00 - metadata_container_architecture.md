@@ -1,3 +1,21 @@
+
+# Intro
+
+Metadata is complex.
+Especially as we're implementing the full WEMI stack (described elsewhere).
+This has made everything a _touch_ more complex, but the complexity is repaid in richness of the available metadata.
+
+Probably.
+
+As such, we needed some thought on how to express elements of that stack.
+
+At the highest level, we have
+ - containers for every element of the WEMI stack
+ - containers for attaching metadata bundles to each element.
+ - Todo: A single "Book" container - with the entire WEMI stack for an ITEM and associated metadata
+
+
+
 # Metadata Container Architecture
 
 Date: 2026-04-23
@@ -59,6 +77,8 @@ It should contain:
 
 This is the smallest stable surface for "what is this thing?".
 
+It's a row from the database, in cached metadata form.
+
 ### `XMetadataAPI`
 
 `XMetadataAPI` is for the object's metadata on the database.
@@ -72,10 +92,10 @@ It should contain:
 
 This is the main editable metadata surface for the object.
 
-
 ## Agent as a deliberate exception
 
 Agent needs a three-part split rather than the normal two-part WEMI pattern.
+This is caused by the fact that we have two types of Agent - Org and Person.
 
 That is:
 
@@ -85,7 +105,8 @@ That is:
 
 This is a deliberate naming exception.
 
-We do **not** want `AgentMetadataAPI`, because that would read too much like the WEMI `XMetadataAPI` objects and would blur two different ideas:
+We do **not** want `AgentMetadataAPI`, because that would read too much like the WEMI `XMetadataAPI` objects and would 
+blur two different ideas:
 
 - metadata *about the agent itself*
 - joined/query-result metadata *involving the agent across the graph*
@@ -134,7 +155,8 @@ That means containers such as:
 
 should be treated as **additional metadata containers**, not as `XIdentityAPI` / `XMetadataAPI` pairs.
 
-They are value-object metadata attached to a WEMI entity unless and until we deliberately promote them into first-class authority entities.
+They are value-object metadata attached to a WEMI entity unless and until we deliberately promote them into first-class 
+authority entities.
 
 ## Read-side objects are separate
 
