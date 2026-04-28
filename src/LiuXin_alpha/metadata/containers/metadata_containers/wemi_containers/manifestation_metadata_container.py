@@ -11,8 +11,8 @@ from collections.abc import Iterable, Mapping
 from LiuXin_alpha.databases.row import Row
 from typing import Any, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
     ManifestationMetadataAPI,
     ManifestationRelationLink,
 )

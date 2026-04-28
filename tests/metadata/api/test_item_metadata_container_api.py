@@ -78,7 +78,7 @@ class _DummyItemMetadata(ItemMetadataAPI):
 
 
 def test_item_metadata_api_is_exported_from_top_level() -> None:
-    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemMetadataAPI as ItemMetadataAPIFromPackage
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import ItemMetadataAPI as ItemMetadataAPIFromPackage
 
     assert ItemMetadataAPI is ItemMetadataAPIFromPackage
 

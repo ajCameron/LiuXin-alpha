@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
 from LiuXin_alpha.metadata.metadata_types import AgentTypes
 
 

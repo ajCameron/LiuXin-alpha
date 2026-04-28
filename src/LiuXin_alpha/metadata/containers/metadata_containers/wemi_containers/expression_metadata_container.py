@@ -11,8 +11,8 @@ from collections.abc import Iterable, Mapping
 from LiuXin_alpha.databases.row import Row
 from typing import Any, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_metadata_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
     ExpressionMetadataAPI,
     ExpressionRelationLink,
 )
