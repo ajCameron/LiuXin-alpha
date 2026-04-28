@@ -3,21 +3,23 @@
 from __future__ import annotations
 
 from dataclasses import fields
-from typing import ClassVar, Mapping, Self
+from typing import ClassVar, Self
+
+from LiuXin_alpha.metadata.api.metadata_container_api.non_wemi_containers_api import (
+    MetadataRowMapping,
+    MetadataRowValue,
+    MetadataTableRowAPI,
+)
 
 
-MetadataRowValue = str | int | float | bool | None
-MetadataRowMapping = Mapping[str, MetadataRowValue]
-
-
-class MetadataTableRow:
+class MetadataTableRow(MetadataTableRowAPI):
     """Small concrete container for one database main-table row."""
 
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
     @classmethod
-    def from_mapping(cls, row: Mapping[str, MetadataRowValue]) -> Self:
+    def from_mapping(cls, row: MetadataRowMapping) -> Self:
         keys_method = getattr(row, "keys", None)
         row_keys = set(keys_method()) if callable(keys_method) else set(row)
         kwargs = {

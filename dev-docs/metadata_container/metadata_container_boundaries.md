@@ -93,6 +93,10 @@ Family in this category:
 - `InlineSelfRelation` / `GenreTreeRelation` / `SubjectTreeRelation` /
   `SeriesTreeRelation`
 
+The pure API mirrors live under the `metadata.api.metadata_container_api`
+non-WEMI API package as `...API` protocols. Concrete row containers still live
+under `metadata.containers`; the API package exports contracts only.
+
 ### 6. Read-side views / snapshots / slices
 
 These answer: **what joined or layered view do we want to present?**
