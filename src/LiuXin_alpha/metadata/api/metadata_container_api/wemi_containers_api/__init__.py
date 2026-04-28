@@ -20,7 +20,6 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expres
     ExpressionMetadataAPI,
     ExpressionRelationLink,
     ExpressionRelationTarget,
-    ExpressionStorageHints,
 )
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_identity_api import (
     ItemIdentityAPI,
@@ -30,7 +29,6 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_c
     ItemMetadataAPI,
     ItemRelationLink,
     ItemRelationTarget,
-    ItemStorageHints,
 )
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
     MetadataRecord,
@@ -49,7 +47,6 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manife
     ManifestationMetadataAPI,
     ManifestationRelationLink,
     ManifestationRelationTarget,
-    ManifestationStorageHints,
 )
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_identity_api import (
     WorkIdentityAPI,
@@ -59,7 +56,6 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_c
     WorkMetadataAPI,
     WorkRelationLink,
     WorkRelationTarget,
-    WorkStorageHints,
 )
 
 __all__ = [
@@ -70,13 +66,11 @@ __all__ = [
     "ExpressionMetadataAPI",
     "ExpressionRelationLink",
     "ExpressionRelationTarget",
-    "ExpressionStorageHints",
     "ItemIdentityAPI",
     "ItemIdentityPropertiesAPI",
     "ItemMetadataAPI",
     "ItemRelationLink",
     "ItemRelationTarget",
-    "ItemStorageHints",
     "MetadataRecord",
     "MetadataScalar",
     "MetadataValue",
@@ -89,11 +83,9 @@ __all__ = [
     "ManifestationMetadataAPI",
     "ManifestationRelationLink",
     "ManifestationRelationTarget",
-    "ManifestationStorageHints",
     "WorkIdentityAPI",
     "WorkIdentityPropertiesAPI",
     "WorkMetadataAPI",
     "WorkRelationLink",
     "WorkRelationTarget",
-    "WorkStorageHints",
 ]

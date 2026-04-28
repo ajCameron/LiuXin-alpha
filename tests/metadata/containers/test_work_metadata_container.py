@@ -4,7 +4,7 @@ from LiuXin_alpha.metadata.api import WorkRelationLink
 from LiuXin_alpha.metadata.containers import WorkIdentity, WorkMetadata
 
 
-def test_work_metadata_container_round_trip_and_hints() -> None:
+def test_work_metadata_container_round_trip() -> None:
     container = WorkMetadata(
         work=WorkIdentity(
             work_id=5,
@@ -32,7 +32,9 @@ def test_work_metadata_container_round_trip_and_hints() -> None:
                 "manifestation_carrier_type": "ebook",
             },
             priority=1,
+            primary=True,
             type="edition",
+            index=7,
         ),
     )
     container.add_relation_link(
@@ -45,11 +47,17 @@ def test_work_metadata_container_round_trip_and_hints() -> None:
 
     payload = container.to_mapping()
     hydrated = WorkMetadata.from_mapping(payload)
-    hints = hydrated.storage_hints()
 
-    assert hints.work_id == 5
-    assert hints.title == "Permutation City"
-    assert hints.primary_agents == ("Greg Egan",)
-    assert hints.manifestation_types == ("ebook",)
-    assert hints.file_formats == ("EPUB",)
-    assert hints.preferred_filename_stem == "Permutation City - Greg Egan"
+    assert hydrated.work is not None
+    assert hydrated.work.work_id == 5
+    assert hydrated.work.work_canonical_title == "Permutation City"
+    assert hydrated.get_relation_links("agents")[0].target == {"agent_canonical_name": "Greg Egan"}
+    assert hydrated.get_relation_links("manifestations")[0].target == {
+        "manifestation_id": 12,
+        "manifestation_format_detail": "EPUB",
+        "manifestation_carrier_type": "ebook",
+    }
+    assert hydrated.get_relation_links("manifestations")[0].primary is True
+    assert hydrated.get_relation_links("manifestations")[0].index == 7
+    assert hydrated.get_relation_links("files")[0].target == {"file_extension": "epub"}
+    assert not hasattr(hydrated, "storage_hints")

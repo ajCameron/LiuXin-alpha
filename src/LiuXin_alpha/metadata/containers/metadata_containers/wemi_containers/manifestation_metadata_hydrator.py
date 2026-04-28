@@ -520,12 +520,10 @@ class ManifestationMetadataHydrator:
                     links.append(
                         ManifestationRelationLink(
                             target=row,
+                            primary=_boolish_to_bool(mapping.get("entity_identifier_is_primary")),
                             type="entity_identifier",
                             origin=mapping.get("entity_identifier_provenance"),
-                            extra={
-                                "source_entity_type": entity_type,
-                                "is_primary": _boolish_to_bool(mapping.get("entity_identifier_is_primary")),
-                            },
+                            extra={"source_entity_type": entity_type},
                         )
                     )
         return links

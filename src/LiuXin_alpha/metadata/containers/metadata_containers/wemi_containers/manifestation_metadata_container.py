@@ -15,7 +15,6 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manife
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
     ManifestationMetadataAPI,
     ManifestationRelationLink,
-    ManifestationStorageHints,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manifestation_container import ManifestationIdentity
 
@@ -123,50 +122,5 @@ class ManifestationMetadata(ManifestationMetadataAPI):
         if source_row is not None:
             return hydrator.from_source_row(source_row)
         raise ValueError("Provide either manifestation_id or source_row.")
-
-    @staticmethod
-    def _display_value(value: Any) -> Optional[str]:
-        if value is None:
-            return None
-        if isinstance(value, Row):
-            mapping = value.row_dict
-        elif hasattr(value, 'to_mapping') and callable(value.to_mapping):
-            mapping = value.to_mapping()
-        elif isinstance(value, Mapping):
-            mapping = value
-        else:
-            return str(value) if value not in (None, '') else None
-        for key in ('agent_canonical_name', 'work_canonical_title', 'work_title', 'expression_title_override', 'expression_label', 'manifestation_edition_statement', 'manifestation_format_detail', 'identifier_value', 'file_name', 'language_name', 'language_code', 'note', 'comment'):
-            found = mapping.get(key)
-            if found not in (None, ''):
-                return str(found)
-        for key, item in mapping.items():
-            if str(key).endswith('_id') or str(key).endswith('_timestamp_ep_k'):
-                continue
-            if item not in (None, ''):
-                return str(item)
-        return None
-
-    def storage_hints(self) -> ManifestationStorageHints:
-        primary_agents = tuple(filter(None, (self._display_value(link.target) for link in self.get_relation_links('agents') if link.primary or len(self.get_relation_links('agents')) == 1)))
-        identifiers = tuple(filter(None, (self._display_value(link.target) for link in self.get_relation_links('identifiers'))))
-        file_formats = tuple(filter(None, (self._display_value(link.target) for link in self.get_relation_links('files'))))
-        title = None
-        title_links = self.get_relation_links('titles')
-        if title_links:
-            title = self._display_value(title_links[0].target)
-        return ManifestationStorageHints(
-            manifestation_id=self.manifestation.manifestation_id if self.manifestation is not None else None,
-            expression_id=self.manifestation.manifestation_expression_id if self.manifestation is not None else None,
-            title=title,
-            edition_statement=self.manifestation.manifestation_edition_statement if self.manifestation is not None else None,
-            format_detail=self.manifestation.manifestation_format_detail if self.manifestation is not None else None,
-            carrier_type=self.manifestation.manifestation_carrier_type if self.manifestation is not None else None,
-            publication_year=self.manifestation.manifestation_pub_year if self.manifestation is not None else None,
-            primary_agents=primary_agents,
-            identifiers=identifiers,
-            file_formats=file_formats,
-        )
-
 
 __all__ = ["ManifestationMetadata"]

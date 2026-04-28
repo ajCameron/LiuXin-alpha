@@ -44,36 +44,6 @@ class ExpressionRelationLink:
     extra: MutableMetadataRecord = dataclasses.field(default_factory=dict)
 
 
-@dataclasses.dataclass(frozen=True, slots=True)
-class ExpressionStorageHints:
-    expression_id: Optional[int] = None
-    work_id: Optional[int] = None
-    title: Optional[str] = None
-    label: Optional[str] = None
-    expression_type: Optional[str] = None
-    language_code: Optional[str] = None
-    primary_agents: tuple[str, ...] = ()
-    genres: tuple[str, ...] = ()
-    labels: tuple[str, ...] = ()
-    identifiers: tuple[str, ...] = ()
-    extra: MetadataRecord = dataclasses.field(default_factory=dict)
-
-    def to_mapping(self) -> MutableMetadataRecord:
-        return {
-            "expression_id": self.expression_id,
-            "work_id": self.work_id,
-            "title": self.title,
-            "label": self.label,
-            "expression_type": self.expression_type,
-            "language_code": self.language_code,
-            "primary_agents": self.primary_agents,
-            "genres": self.genres,
-            "labels": self.labels,
-            "identifiers": self.identifiers,
-            "extra": dict(self.extra),
-        }
-
-
 class ExpressionMetadataAPI(abc.ABC):
     """Rich metadata bundle centred on one expression."""
 
@@ -107,8 +77,13 @@ class ExpressionMetadataAPI(abc.ABC):
     }
 
     @classmethod
+    def relation_names(cls) -> tuple[str, ...]:
+        return cls.RELATION_KEYS
+
+    @classmethod
     def validate_relation_name(cls, relation: str) -> str:
-        normalized = cls.RELATION_ALIASES.get(str(relation).strip().lower(), str(relation).strip().lower())
+        normalized = str(relation).strip().lower()
+        normalized = cls.RELATION_ALIASES.get(normalized, normalized)
         if normalized not in cls.RELATION_KEYS:
             raise KeyError(f"Unknown expression-metadata relation {relation!r}. Expected one of {', '.join(cls.RELATION_KEYS)}.")
         return normalized
@@ -131,11 +106,128 @@ class ExpressionMetadataAPI(abc.ABC):
     def set_relation_links(self, relation: str, links: Iterable[ExpressionRelationLink]) -> None:
         raise NotImplementedError
 
+    def add_relation_link(self, relation: str, link: ExpressionRelationLink) -> None:
+        relation_key = self.validate_relation_name(relation)
+        links = list(self.get_relation_links(relation_key))
+        links.append(link)
+        self.set_relation_links(relation_key, links)
+
+    def remove_relation_link(self, relation: str, link: ExpressionRelationLink) -> bool:
+        relation_key = self.validate_relation_name(relation)
+        links = list(self.get_relation_links(relation_key))
+        try:
+            links.remove(link)
+            self.set_relation_links(relation_key, links)
+            return True
+        except ValueError:
+            return False
+
     def get_related(self, relation: str) -> list[ExpressionRelationTarget]:
-        return [link.target for link in self.get_relation_links(relation)]
+        relation_key = self.validate_relation_name(relation)
+        return [link.target for link in self.get_relation_links(relation_key)]
 
     def set_related(self, relation: str, values: Iterable[ExpressionRelationTarget]) -> None:
-        self.set_relation_links(relation, [ExpressionRelationLink(target=value) for value in values])
+        relation_key = self.validate_relation_name(relation)
+        self.set_relation_links(
+            relation_key,
+            [ExpressionRelationLink(target=value) for value in values],
+        )
+
+    def add_related(self, relation: str, value: ExpressionRelationTarget) -> None:
+        relation_key = self.validate_relation_name(relation)
+        self.add_relation_link(relation_key, ExpressionRelationLink(target=value))
+
+    def clear_related(self, relation: str) -> None:
+        relation_key = self.validate_relation_name(relation)
+        self.set_relation_links(relation_key, [])
+
+    @property
+    def works(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("works")
+
+    @works.setter
+    def works(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("works", values)
+
+    @property
+    def manifestations(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("manifestations")
+
+    @manifestations.setter
+    def manifestations(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("manifestations", values)
+
+    @property
+    def items(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("items")
+
+    @items.setter
+    def items(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("items", values)
+
+    @property
+    def agents(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("agents")
+
+    @agents.setter
+    def agents(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("agents", values)
+
+    @property
+    def identifiers(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("identifiers")
+
+    @identifiers.setter
+    def identifiers(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("identifiers", values)
+
+    @property
+    def titles(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("titles")
+
+    @titles.setter
+    def titles(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("titles", values)
+
+    @property
+    def genres(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("genres")
+
+    @genres.setter
+    def genres(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("genres", values)
+
+    @property
+    def labels(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("labels")
+
+    @labels.setter
+    def labels(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("labels", values)
+
+    @property
+    def languages(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("languages")
+
+    @languages.setter
+    def languages(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("languages", values)
+
+    @property
+    def notes(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("notes")
+
+    @notes.setter
+    def notes(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("notes", values)
+
+    @property
+    def comments(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("comments")
+
+    @comments.setter
+    def comments(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("comments", values)
 
     @abc.abstractmethod
     def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
@@ -146,14 +238,8 @@ class ExpressionMetadataAPI(abc.ABC):
     def from_mapping(cls, payload: MetadataRecord) -> Self:
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def storage_hints(self) -> ExpressionStorageHints:
-        raise NotImplementedError
-
-
 __all__ = [
     "ExpressionRelationLink",
     "ExpressionRelationTarget",
-    "ExpressionStorageHints",
     "ExpressionMetadataAPI",
 ]

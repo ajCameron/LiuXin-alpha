@@ -56,90 +56,6 @@ class ItemRelationLink:
     extra: MutableMetadataRecord = dataclasses.field(default_factory=dict)
 
 
-@dataclasses.dataclass(frozen=True, slots=True)
-class ItemStorageHints:
-    """
-    Storage-facing projection of item metadata.
-
-    Store plugins can use this as the typed, copy-level source of truth for
-    placement, naming, and store-selection decisions.
-    """
-
-    item_id: Optional[int] = None
-    manifestation_id: Optional[int] = None
-    expression_id: Optional[int] = None
-    work_id: Optional[int] = None
-
-    title: Optional[str] = None
-    canonical_title: Optional[str] = None
-    sort_title: Optional[str] = None
-    subtitle: Optional[str] = None
-
-    item_type: Optional[str] = None
-    item_location: Optional[str] = None
-    inventory_code: Optional[str] = None
-    lifecycle_status: Optional[str] = None
-    condition: Optional[str] = None
-
-    source: Optional[str] = None
-    source_name: Optional[str] = None
-    source_path: Optional[str] = None
-
-    primary_agents: tuple[str, ...] = ()
-    series: tuple[str, ...] = ()
-    genres: tuple[str, ...] = ()
-    subjects: tuple[str, ...] = ()
-    languages: tuple[str, ...] = ()
-    labels: tuple[str, ...] = ()
-    tags: tuple[str, ...] = ()
-
-    attachment_roles: tuple[str, ...] = ()
-    digital_asset_kinds: tuple[str, ...] = ()
-    replica_modes: tuple[str, ...] = ()
-    file_formats: tuple[str, ...] = ()
-
-    preferred_folder_tokens: tuple[str, ...] = ()
-    preferred_filename_stem: Optional[str] = None
-    preferred_storage_key: Optional[str] = None
-
-    extra: MetadataRecord = dataclasses.field(default_factory=dict)
-
-    def to_mapping(self) -> MutableMetadataRecord:
-        return {
-            "item_id": self.item_id,
-            "manifestation_id": self.manifestation_id,
-            "expression_id": self.expression_id,
-            "work_id": self.work_id,
-            "title": self.title,
-            "canonical_title": self.canonical_title,
-            "sort_title": self.sort_title,
-            "subtitle": self.subtitle,
-            "item_type": self.item_type,
-            "item_location": self.item_location,
-            "inventory_code": self.inventory_code,
-            "lifecycle_status": self.lifecycle_status,
-            "condition": self.condition,
-            "source": self.source,
-            "source_name": self.source_name,
-            "source_path": self.source_path,
-            "primary_agents": self.primary_agents,
-            "series": self.series,
-            "genres": self.genres,
-            "subjects": self.subjects,
-            "languages": self.languages,
-            "labels": self.labels,
-            "tags": self.tags,
-            "attachment_roles": self.attachment_roles,
-            "digital_asset_kinds": self.digital_asset_kinds,
-            "replica_modes": self.replica_modes,
-            "file_formats": self.file_formats,
-            "preferred_folder_tokens": self.preferred_folder_tokens,
-            "preferred_filename_stem": self.preferred_filename_stem,
-            "preferred_storage_key": self.preferred_storage_key,
-            "extra": dict(self.extra),
-        }
-
-
 class ItemMetadataAPI(abc.ABC):
     """
     API for a container that holds all metadata associated with one item.
@@ -149,7 +65,6 @@ class ItemMetadataAPI(abc.ABC):
     - bibliographic context above the item (WEMI + agents + topical metadata)
     - storage context below/alongside the item (digital assets, replicas,
       stores, folders)
-    - a storage-facing projection via :meth:`storage_hints`
     """
 
     RELATION_KEYS: ClassVar[tuple[str, ...]] = (
@@ -252,13 +167,16 @@ class ItemMetadataAPI(abc.ABC):
 
     def add_relation_link(self, relation: str, link: ItemRelationLink) -> None:
         relation_key = self.validate_relation_name(relation)
-        self.get_relation_links(relation_key).append(link)
+        links = list(self.get_relation_links(relation_key))
+        links.append(link)
+        self.set_relation_links(relation_key, links)
 
     def remove_relation_link(self, relation: str, link: ItemRelationLink) -> bool:
         relation_key = self.validate_relation_name(relation)
-        links = self.get_relation_links(relation_key)
+        links = list(self.get_relation_links(relation_key))
         try:
             links.remove(link)
+            self.set_relation_links(relation_key, links)
             return True
         except ValueError:
             return False
@@ -460,9 +378,4 @@ class ItemMetadataAPI(abc.ABC):
     def from_mapping(cls, payload: MetadataRecord) -> Self:
         """Hydrate container from mapping representation."""
 
-    @abc.abstractmethod
-    def storage_hints(self) -> ItemStorageHints:
-        """Return a storage-oriented projection for store placement logic."""
-
-
-__all__ = ["ItemMetadataAPI", "ItemRelationLink", "ItemRelationTarget", "ItemStorageHints"]
+__all__ = ["ItemMetadataAPI", "ItemRelationLink", "ItemRelationTarget"]

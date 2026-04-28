@@ -34,6 +34,11 @@ Internally, the files might, or might not, be in folders (indeed, many stores wi
 They might, or might not, be compressed.
 You don't get to know. Leave that all to the StorageManager.
 
+Placement and naming hints are part of the storage API. Metadata containers
+provide facts and relation links; storage derives the placement projection it
+needs from those objects. The metadata API should not grow `storage_hints()`
+methods or `*StorageHints` exports.
+
 Folders in a storage manager are entirely a virtual concept.
 There is no guarantee that they actually exist before they are rendered by the StorageManager.
 (This rendering might just be a copy - but, again, you don't need to know that).

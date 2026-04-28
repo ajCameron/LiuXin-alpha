@@ -254,12 +254,7 @@ def test_expression_metadata_hydrator_from_expression_id_and_source_row() -> Non
     assert [row.row_id for row in container.get_related("items") if isinstance(row, Row)] == [1]
     assert [row.row_id for row in container.get_related("agents") if isinstance(row, Row)] == [40]
     assert len(container.get_related("identifiers")) == 1
-
-    hints = container.storage_hints()
-    assert hints.expression_id == 20
-    assert hints.work_id == 30
-    assert hints.title == "Permutation City"
-    assert hints.primary_agents == ("Greg Egan",)
+    assert not hasattr(container, "storage_hints")
 
     source_row = db.get_row_from_id("expressions", 20)
     assert source_row is not None

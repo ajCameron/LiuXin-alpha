@@ -35,75 +35,19 @@ class WorkRelationLink:
     """
     Link from a work-metadata container to a related entity.
 
-    This mirrors common interlink edge metadata used in the database
-    (`priority`, `type`, `origin`, `policy`, `data`) while remaining backend-agnostic
-    for in-memory metadata workflows.
+    This mirrors common interlink edge metadata used in the database while
+    remaining backend-agnostic for in-memory metadata workflows.
     """
 
     target: WorkRelationTarget
     priority: Optional[int] = None
+    primary: Optional[bool] = None
     type: Optional[str] = None
     origin: Optional[str] = None
     policy: Optional[str] = None
     data: Optional[str] = None
+    index: Optional[int | str] = None
     extra: MutableMetadataRecord = dataclasses.field(default_factory=dict)
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class WorkStorageHints:
-    """
-    Storage-facing projection of a work metadata container.
-
-    Store plugins can use this as a typed source of truth for path placement,
-    naming, and policy selection.
-    """
-
-    work_id: Optional[int] = None
-    title: Optional[str] = None
-    canonical_title: Optional[str] = None
-    sort_title: Optional[str] = None
-    work_type: Optional[str] = None
-    medium: Optional[str] = None
-
-    primary_agents: tuple[str, ...] = ()
-    series: tuple[str, ...] = ()
-    genres: tuple[str, ...] = ()
-    subjects: tuple[str, ...] = ()
-    languages: tuple[str, ...] = ()
-    labels: tuple[str, ...] = ()
-    manifestation_types: tuple[str, ...] = ()
-    file_formats: tuple[str, ...] = ()
-
-    preferred_folder_tokens: tuple[str, ...] = ()
-    preferred_filename_stem: Optional[str] = None
-
-    extra: MetadataRecord = dataclasses.field(default_factory=dict)
-
-    def to_mapping(self) -> MutableMetadataRecord:
-        """
-        To a dictionary mapping.
-
-        :return:
-        """
-        return {
-            "work_id": self.work_id,
-            "title": self.title,
-            "canonical_title": self.canonical_title,
-            "sort_title": self.sort_title,
-            "work_type": self.work_type,
-            "medium": self.medium,
-            "primary_agents": self.primary_agents,
-            "series": self.series,
-            "genres": self.genres,
-            "subjects": self.subjects,
-            "languages": self.languages,
-            "labels": self.labels,
-            "manifestation_types": self.manifestation_types,
-            "file_formats": self.file_formats,
-            "preferred_folder_tokens": self.preferred_folder_tokens,
-            "preferred_filename_stem": self.preferred_filename_stem,
-            "extra": dict(self.extra),
-        }
 
 
 class WorkMetadataAPI(abc.ABC):
@@ -114,7 +58,6 @@ class WorkMetadataAPI(abc.ABC):
     - the core `work` row container
     - relation collections for associated entities
     - edge metadata for those relations
-    - a storage-facing metadata projection (`storage_hints`)
     """
 
     RELATION_KEYS: ClassVar[tuple[str, ...]] = (
@@ -210,13 +153,16 @@ class WorkMetadataAPI(abc.ABC):
 
     def add_relation_link(self, relation: str, link: WorkRelationLink) -> None:
         relation_key = self.validate_relation_name(relation)
-        self.get_relation_links(relation_key).append(link)
+        links = list(self.get_relation_links(relation_key))
+        links.append(link)
+        self.set_relation_links(relation_key, links)
 
     def remove_relation_link(self, relation: str, link: WorkRelationLink) -> bool:
         relation_key = self.validate_relation_name(relation)
-        links = self.get_relation_links(relation_key)
+        links = list(self.get_relation_links(relation_key))
         try:
             links.remove(link)
+            self.set_relation_links(relation_key, links)
             return True
         except ValueError:
             return False
@@ -394,9 +340,4 @@ class WorkMetadataAPI(abc.ABC):
     def from_mapping(cls, payload: MetadataRecord) -> Self:
         """Hydrate container from mapping representation."""
 
-    @abc.abstractmethod
-    def storage_hints(self) -> WorkStorageHints:
-        """Return a storage-oriented projection for store placement logic."""
-
-
-__all__ = ["WorkMetadataAPI", "WorkRelationLink", "WorkRelationTarget", "WorkStorageHints"]
+__all__ = ["WorkMetadataAPI", "WorkRelationLink", "WorkRelationTarget"]

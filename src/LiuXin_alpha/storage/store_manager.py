@@ -23,6 +23,7 @@ from LiuXin_alpha.storage.api import (
     StorePluginAPI,
     StoreSpec,
 )
+from LiuXin_alpha.storage.api.placement_hints_api import derive_storage_hints
 from LiuXin_alpha.storage.store_container import StoreContainer
 from LiuXin_alpha.storage.store_spec_utils import store_spec_from_row
 
@@ -824,17 +825,12 @@ class StorageManager(StorageManagerAPI):
         if metadata is None:
             return []
         sources: list[Any] = [metadata]
-        hints_fn = getattr(metadata, "storage_hints", None)
-        if callable(hints_fn):
-            try:
-                hints = hints_fn()
-            except Exception:
-                hints = None
-            if hints is not None:
-                sources.append(hints)
-                extra = self._get_value(hints, "extra")
-                if isinstance(extra, Mapping):
-                    sources.append(extra)
+        hints = derive_storage_hints(metadata)
+        if hints is not None:
+            sources.append(hints)
+            extra = self._get_value(hints, "extra")
+            if isinstance(extra, Mapping):
+                sources.append(extra)
         if isinstance(metadata, Mapping):
             extra = metadata.get("extra")
             if isinstance(extra, Mapping):

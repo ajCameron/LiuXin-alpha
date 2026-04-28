@@ -74,6 +74,20 @@ from LiuXin_alpha.storage.api.policy_apis import (
     ReplicationPolicyRecord,
     ReplicationStatus,
 )
+from LiuXin_alpha.storage.api.placement_hints_api import (
+    ExpressionStorageHints,
+    ItemStorageHints,
+    ManifestationStorageHints,
+    MutableStorageHintRecord,
+    StorageHintMetadataSource,
+    StorageHintProvider,
+    StorageHintRecord,
+    StorageHintScalar,
+    StorageHintValue,
+    StoragePlacementHints,
+    WorkStorageHints,
+    derive_storage_hints,
+)
 from LiuXin_alpha.storage.api.store_container_api import StoreContainerAPI
 from LiuXin_alpha.storage.api.store_plugin_api import StorePluginAPI
 from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
@@ -109,9 +123,13 @@ __all__ = [
     "DistinctBy",
     "FileDescriptorOrPath",
     "LocationCapabilities",
+    "ExpressionStorageHints",
     "FileOpenerTypeMixin",
     "FileStatus",
     "FixedTableStorageRow",
+    "ItemStorageHints",
+    "ManifestationStorageHints",
+    "MutableStorageHintRecord",
     "OpenBinaryMode",
     "OpenBinaryModeReading",
     "OpenBinaryModeUpdating",
@@ -129,6 +147,12 @@ __all__ = [
     "ReadOnlySyncNativePretendAsyncLocation",
     "ReplicationStatus",
     "StorageManagerAPI",
+    "StorageHintMetadataSource",
+    "StorageHintProvider",
+    "StorageHintRecord",
+    "StorageHintScalar",
+    "StorageHintValue",
+    "StoragePlacementHints",
     "StoreCheckStatus",
     "StoreOperationalRole",
     "StoreContainerAPI",
@@ -138,4 +162,6 @@ __all__ = [
     "StoreStatus",
     "StrOrBytesPath",
     "SyncNativePretendAsyncLocation",
+    "WorkStorageHints",
+    "derive_storage_hints",
 ]

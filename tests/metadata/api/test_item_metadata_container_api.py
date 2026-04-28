@@ -9,7 +9,6 @@ import pytest
 from LiuXin_alpha.metadata.api import (
     ItemMetadataAPI,
     ItemRelationLink,
-    ItemStorageHints,
     MetadataRecord,
     MutableMetadataRecord,
     RelationTarget,
@@ -73,40 +72,6 @@ class _DummyItemMetadata(ItemMetadataAPI):
                 instance.set_relation_links(relation_name, relation_links)
         return instance
 
-    def storage_hints(self) -> ItemStorageHints:
-        item_id = None
-        title = None
-        inventory_code = None
-        if isinstance(self.item, Mapping):
-            item_id = self.item.get("item_id")
-            title = self.item.get("title")
-            inventory_code = self.item.get("item_inventory_code")
-
-        attachment_roles = tuple(
-            str(link.type)
-            for link in self.get_relation_links("digital_assets") + self.get_relation_links("composite_digital_assets")
-            if link.type
-        )
-        replica_modes = tuple(
-            str(link.type)
-            for link in self.get_relation_links("asset_replicas")
-            if link.type
-        )
-
-        return ItemStorageHints(
-            item_id=item_id,
-            title=title,
-            inventory_code=inventory_code,
-            primary_agents=tuple(str(agent) for agent in self.agents),
-            series=tuple(str(series) for series in self.series),
-            genres=tuple(str(genre) for genre in self.genres),
-            subjects=tuple(str(subject) for subject in self.subjects),
-            languages=tuple(str(language) for language in self.languages),
-            labels=tuple(str(label) for label in self.labels),
-            attachment_roles=attachment_roles,
-            replica_modes=replica_modes,
-        )
-
 
 def test_item_metadata_api_is_exported_from_top_level() -> None:
     from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemMetadataAPI as ItemMetadataAPIFromPackage
@@ -148,7 +113,7 @@ def test_relation_properties_cover_all_supported_relations() -> None:
         assert getattr(container, relation_name) == values
 
 
-def test_item_storage_hints_and_mapping_round_trip() -> None:
+def test_item_mapping_round_trip() -> None:
     container = _DummyItemMetadata(
         item={"item_id": 44, "title": "Permutation City", "item_inventory_code": "INV-44"}
     )
@@ -168,16 +133,10 @@ def test_item_storage_hints_and_mapping_round_trip() -> None:
     payload = container.to_mapping()
     hydrated = _DummyItemMetadata.from_mapping(payload)
 
-    hints = hydrated.storage_hints()
-    hints_mapping = hints.to_mapping()
-
-    assert hints.item_id == 44
-    assert hints.title == "Permutation City"
-    assert hints.inventory_code == "INV-44"
-    assert hints.languages == ("en",)
-    assert hints.labels == ("favorites",)
-    assert hints.series == ("Standalone",)
-    assert hints.attachment_roles == ("primary_payload",)
-    assert hints.replica_modes == ("active",)
-    assert hints_mapping["title"] == "Permutation City"
-    assert hints_mapping["attachment_roles"] == ("primary_payload",)
+    assert hydrated.item == {"item_id": 44, "title": "Permutation City", "item_inventory_code": "INV-44"}
+    assert hydrated.agents == ["Greg Egan"]
+    assert hydrated.languages == ["en"]
+    assert hydrated.labels == ["favorites"]
+    assert hydrated.series == ["Standalone"]
+    assert hydrated.get_relation_links("digital_assets")[0].target == "epub-asset"
+    assert hydrated.get_relation_links("asset_replicas")[0].target == "ssd-copy"

@@ -232,6 +232,7 @@ def _build_fake_database() -> FakeDatabase:
             "expression_work_link_priority": 1,
             "expression_work_link_type": "realised_by",
             "expression_work_link_primary": 1,
+            "expression_work_link_index": 3,
         }
     ]
     db.interlinks[("expressions", 20, "manifestations")] = [
@@ -259,22 +260,21 @@ def test_work_metadata_hydrator_from_work_id_and_source_row() -> None:
 
     container = hydrator.from_work_id(30)
     assert isinstance(container, WorkMetadata)
-
-    hints = container.storage_hints()
-    assert hints.work_id == 30
-    assert hints.title == "Permutation City"
-    assert hints.primary_agents == ("Greg Egan",)
-    assert hints.manifestation_types == ("ebook",)
-    assert hints.file_formats == ("EPUB",)
-    assert hints.preferred_filename_stem == "Permutation City - Greg Egan"
+    assert container.work is not None
+    assert container.work.work_id == 30
+    assert container.work.work_canonical_title == "Permutation City"
+    assert not hasattr(container, "storage_hints")
 
     expression_links = container.get_relation_links("expressions")
     assert len(expression_links) == 1
     assert expression_links[0].type == "realised_by"
+    assert expression_links[0].primary is True
+    assert expression_links[0].index == 3
 
     manifestation_links = container.get_relation_links("manifestations")
     assert len(manifestation_links) == 1
     assert manifestation_links[0].type == "embodied_as"
+    assert manifestation_links[0].primary is True
 
     item_links = container.get_relation_links("items")
     assert len(item_links) == 1
@@ -282,6 +282,7 @@ def test_work_metadata_hydrator_from_work_id_and_source_row() -> None:
 
     identifier_links = container.get_relation_links("identifiers")
     assert len(identifier_links) == 1
+    assert identifier_links[0].primary is True
 
     via_mapping = WorkMetadata.from_database(
         db,
@@ -292,4 +293,5 @@ def test_work_metadata_hydrator_from_work_id_and_source_row() -> None:
             "item_id": 1,
         },
     )
-    assert via_mapping.storage_hints().work_id == 30
+    assert via_mapping.work is not None
+    assert via_mapping.work.work_id == 30

@@ -6,13 +6,13 @@ from typing import Mapping
 
 import pytest
 
+import LiuXin_alpha.metadata.api as metadata_api
 from LiuXin_alpha.metadata.api import (
     MetadataRecord,
     MutableMetadataRecord,
     RelationTarget,
     WorkMetadataAPI,
     WorkRelationLink,
-    WorkStorageHints,
 )
 
 
@@ -61,39 +61,34 @@ class _DummyWorkMetadata(WorkMetadataAPI):
                         WorkRelationLink(
                             target=raw_link.get("target"),
                             priority=raw_link.get("priority"),
+                            primary=raw_link.get("primary"),
                             type=raw_link.get("type"),
                             origin=raw_link.get("origin"),
                             policy=raw_link.get("policy"),
                             data=raw_link.get("data"),
+                            index=raw_link.get("index"),
                             extra=dict(raw_link.get("extra") or {}),
                         )
                     )
                 instance.set_relation_links(relation_name, relation_links)
         return instance
 
-    def storage_hints(self) -> WorkStorageHints:
-        work_id = None
-        title = None
-        if isinstance(self.work, Mapping):
-            work_id = self.work.get("work_id")
-            title = self.work.get("title")
-
-        return WorkStorageHints(
-            work_id=work_id,
-            title=title,
-            primary_agents=tuple(str(agent) for agent in self.agents),
-            series=tuple(str(series) for series in self.series),
-            genres=tuple(str(genre) for genre in self.genres),
-            subjects=tuple(str(subject) for subject in self.subjects),
-            languages=tuple(str(language) for language in self.languages),
-            labels=tuple(str(label) for label in self.labels),
-        )
-
 
 def test_work_metadata_api_is_exported_from_top_level() -> None:
     from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import WorkMetadataAPI as WorkMetadataAPIFromPackage
 
     assert WorkMetadataAPI is WorkMetadataAPIFromPackage
+
+
+def test_metadata_api_does_not_export_storage_hints() -> None:
+    for name in (
+        "ExpressionStorageHints",
+        "ItemStorageHints",
+        "ManifestationStorageHints",
+        "WorkStorageHints",
+    ):
+        assert name not in metadata_api.__all__
+        assert not hasattr(metadata_api, name)
 
 
 def test_relation_name_validation_supports_aliases() -> None:
@@ -107,10 +102,18 @@ def test_relation_name_validation_supports_aliases() -> None:
 def test_relation_helpers_round_trip_targets_and_links() -> None:
     container = _DummyWorkMetadata()
     genre_target: RelationTarget = "Science Fiction"
-    genre_link = WorkRelationLink(target=genre_target, priority=1, type="primary")
+    genre_link = WorkRelationLink(
+        target=genre_target,
+        priority=1,
+        primary=True,
+        type="primary",
+        index=0,
+    )
 
     container.add_relation_link("genre", genre_link)
     assert container.get_related("genres") == ["Science Fiction"]
+    assert container.get_relation_links("genres")[0].primary is True
+    assert container.get_relation_links("genres")[0].index == 0
 
     assert container.remove_relation_link("genres", genre_link) is True
     assert container.remove_relation_link("genres", genre_link) is False
@@ -130,7 +133,7 @@ def test_relation_properties_cover_all_supported_relations() -> None:
         assert getattr(container, relation_name) == values
 
 
-def test_work_storage_hints_and_mapping_round_trip() -> None:
+def test_work_mapping_round_trip() -> None:
     container = _DummyWorkMetadata(work={"work_id": 5, "title": "Permutation City"})
     container.agents = ["Greg Egan"]
     container.languages = ["en"]
@@ -140,13 +143,8 @@ def test_work_storage_hints_and_mapping_round_trip() -> None:
     payload = container.to_mapping()
     hydrated = _DummyWorkMetadata.from_mapping(payload)
 
-    hints = hydrated.storage_hints()
-    hints_mapping = hints.to_mapping()
-
-    assert hints.work_id == 5
-    assert hints.title == "Permutation City"
-    assert hints.languages == ("en",)
-    assert hints.labels == ("favorites",)
-    assert hints.series == ("Standalone",)
-    assert hints_mapping["title"] == "Permutation City"
-    assert hints_mapping["languages"] == ("en",)
+    assert hydrated.work == {"work_id": 5, "title": "Permutation City"}
+    assert hydrated.agents == ["Greg Egan"]
+    assert hydrated.languages == ["en"]
+    assert hydrated.labels == ["favorites"]
+    assert hydrated.series == ["Standalone"]

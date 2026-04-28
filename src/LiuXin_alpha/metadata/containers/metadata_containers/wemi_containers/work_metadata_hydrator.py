@@ -416,19 +416,16 @@ class WorkMetadataHydrator:
                     }:
                         continue
                     extra[suffix] = value
-                if prefix + "_primary" in link_map:
-                    extra["is_primary"] = _boolish_to_bool(link_map.get(prefix + "_primary"))
-                if prefix + "_index" in link_map and link_map.get(prefix + "_index") not in (None, ""):
-                    extra["index"] = link_map.get(prefix + "_index")
-
             out.append(
                 WorkRelationLink(
                     target=target,
                     priority=link_map.get(prefix + "_priority") if prefix else None,
+                    primary=_boolish_to_bool(link_map.get(prefix + "_primary")) if prefix else None,
                     type=link_map.get(prefix + "_type") if prefix else None,
                     origin=link_map.get(prefix + "_origin") if prefix else None,
                     policy=link_map.get(prefix + "_policy") if prefix else None,
                     data=link_map.get(prefix + "_data") if prefix else None,
+                    index=link_map.get(prefix + "_index") if prefix else None,
                     extra=extra,
                 )
             )
@@ -549,14 +546,10 @@ class WorkMetadataHydrator:
                     links.append(
                         WorkRelationLink(
                             target=row,
+                            primary=_boolish_to_bool(mapping.get("entity_identifier_is_primary")),
                             type="entity_identifier",
                             origin=mapping.get("entity_identifier_provenance"),
-                            extra={
-                                "source_entity_type": entity_type,
-                                "is_primary": _boolish_to_bool(
-                                    mapping.get("entity_identifier_is_primary"),
-                                ),
-                            },
+                            extra={"source_entity_type": entity_type},
                         )
                     )
         return links

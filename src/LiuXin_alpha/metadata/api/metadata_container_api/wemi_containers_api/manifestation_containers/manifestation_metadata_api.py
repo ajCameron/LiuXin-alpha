@@ -48,36 +48,6 @@ class ManifestationRelationLink:
     extra: MutableMetadataRecord = dataclasses.field(default_factory=dict)
 
 
-@dataclasses.dataclass(frozen=True, slots=True)
-class ManifestationStorageHints:
-    manifestation_id: Optional[int] = None
-    expression_id: Optional[int] = None
-    title: Optional[str] = None
-    edition_statement: Optional[str] = None
-    format_detail: Optional[str] = None
-    carrier_type: Optional[str] = None
-    publication_year: Optional[int] = None
-    primary_agents: tuple[str, ...] = ()
-    identifiers: tuple[str, ...] = ()
-    file_formats: tuple[str, ...] = ()
-    extra: MetadataRecord = dataclasses.field(default_factory=dict)
-
-    def to_mapping(self) -> MutableMetadataRecord:
-        return {
-            "manifestation_id": self.manifestation_id,
-            "expression_id": self.expression_id,
-            "title": self.title,
-            "edition_statement": self.edition_statement,
-            "format_detail": self.format_detail,
-            "carrier_type": self.carrier_type,
-            "publication_year": self.publication_year,
-            "primary_agents": self.primary_agents,
-            "identifiers": self.identifiers,
-            "file_formats": self.file_formats,
-            "extra": dict(self.extra),
-        }
-
-
 class ManifestationMetadataAPI(abc.ABC):
     """Rich metadata bundle centred on one manifestation."""
 
@@ -119,8 +89,13 @@ class ManifestationMetadataAPI(abc.ABC):
     }
 
     @classmethod
+    def relation_names(cls) -> tuple[str, ...]:
+        return cls.RELATION_KEYS
+
+    @classmethod
     def validate_relation_name(cls, relation: str) -> str:
-        normalized = cls.RELATION_ALIASES.get(str(relation).strip().lower(), str(relation).strip().lower())
+        normalized = str(relation).strip().lower()
+        normalized = cls.RELATION_ALIASES.get(normalized, normalized)
         if normalized not in cls.RELATION_KEYS:
             raise KeyError(f"Unknown manifestation-metadata relation {relation!r}. Expected one of {', '.join(cls.RELATION_KEYS)}.")
         return normalized
@@ -143,11 +118,160 @@ class ManifestationMetadataAPI(abc.ABC):
     def set_relation_links(self, relation: str, links: Iterable[ManifestationRelationLink]) -> None:
         raise NotImplementedError
 
+    def add_relation_link(self, relation: str, link: ManifestationRelationLink) -> None:
+        relation_key = self.validate_relation_name(relation)
+        links = list(self.get_relation_links(relation_key))
+        links.append(link)
+        self.set_relation_links(relation_key, links)
+
+    def remove_relation_link(self, relation: str, link: ManifestationRelationLink) -> bool:
+        relation_key = self.validate_relation_name(relation)
+        links = list(self.get_relation_links(relation_key))
+        try:
+            links.remove(link)
+            self.set_relation_links(relation_key, links)
+            return True
+        except ValueError:
+            return False
+
     def get_related(self, relation: str) -> list[ManifestationRelationTarget]:
-        return [link.target for link in self.get_relation_links(relation)]
+        relation_key = self.validate_relation_name(relation)
+        return [link.target for link in self.get_relation_links(relation_key)]
 
     def set_related(self, relation: str, values: Iterable[ManifestationRelationTarget]) -> None:
-        self.set_relation_links(relation, [ManifestationRelationLink(target=value) for value in values])
+        relation_key = self.validate_relation_name(relation)
+        self.set_relation_links(
+            relation_key,
+            [ManifestationRelationLink(target=value) for value in values],
+        )
+
+    def add_related(self, relation: str, value: ManifestationRelationTarget) -> None:
+        relation_key = self.validate_relation_name(relation)
+        self.add_relation_link(relation_key, ManifestationRelationLink(target=value))
+
+    def clear_related(self, relation: str) -> None:
+        relation_key = self.validate_relation_name(relation)
+        self.set_relation_links(relation_key, [])
+
+    @property
+    def works(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("works")
+
+    @works.setter
+    def works(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("works", values)
+
+    @property
+    def expressions(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("expressions")
+
+    @expressions.setter
+    def expressions(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("expressions", values)
+
+    @property
+    def items(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("items")
+
+    @items.setter
+    def items(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("items", values)
+
+    @property
+    def agents(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("agents")
+
+    @agents.setter
+    def agents(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("agents", values)
+
+    @property
+    def identifiers(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("identifiers")
+
+    @identifiers.setter
+    def identifiers(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("identifiers", values)
+
+    @property
+    def titles(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("titles")
+
+    @titles.setter
+    def titles(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("titles", values)
+
+    @property
+    def genres(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("genres")
+
+    @genres.setter
+    def genres(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("genres", values)
+
+    @property
+    def labels(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("labels")
+
+    @labels.setter
+    def labels(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("labels", values)
+
+    @property
+    def languages(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("languages")
+
+    @languages.setter
+    def languages(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("languages", values)
+
+    @property
+    def notes(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("notes")
+
+    @notes.setter
+    def notes(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("notes", values)
+
+    @property
+    def comments(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("comments")
+
+    @comments.setter
+    def comments(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("comments", values)
+
+    @property
+    def files(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("files")
+
+    @files.setter
+    def files(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("files", values)
+
+    @property
+    def images(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("images")
+
+    @images.setter
+    def images(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("images", values)
+
+    @property
+    def digital_assets(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("digital_assets")
+
+    @digital_assets.setter
+    def digital_assets(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("digital_assets", values)
+
+    @property
+    def asset_replicas(self) -> list[ManifestationRelationTarget]:
+        return self.get_related("asset_replicas")
+
+    @asset_replicas.setter
+    def asset_replicas(self, values: Iterable[ManifestationRelationTarget]) -> None:
+        self.set_related("asset_replicas", values)
 
     @abc.abstractmethod
     def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
@@ -158,14 +282,8 @@ class ManifestationMetadataAPI(abc.ABC):
     def from_mapping(cls, payload: MetadataRecord) -> Self:
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def storage_hints(self) -> ManifestationStorageHints:
-        raise NotImplementedError
-
-
 __all__ = [
     "ManifestationRelationLink",
     "ManifestationRelationTarget",
-    "ManifestationStorageHints",
     "ManifestationMetadataAPI",
 ]

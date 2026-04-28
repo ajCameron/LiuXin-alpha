@@ -15,7 +15,6 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expres
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_metadata_api import (
     ExpressionMetadataAPI,
     ExpressionRelationLink,
-    ExpressionStorageHints,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
 
@@ -123,51 +122,5 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         if source_row is not None:
             return hydrator.from_source_row(source_row)
         raise ValueError("Provide either expression_id or source_row.")
-
-    @staticmethod
-    def _display_value(value: Any) -> Optional[str]:
-        if value is None:
-            return None
-        if isinstance(value, Row):
-            mapping = value.row_dict
-        elif hasattr(value, 'to_mapping') and callable(value.to_mapping):
-            mapping = value.to_mapping()
-        elif isinstance(value, Mapping):
-            mapping = value
-        else:
-            return str(value) if value not in (None, '') else None
-        for key in ('agent_canonical_name', 'work_canonical_title', 'work_title', 'expression_title_override', 'expression_label', 'label', 'genre', 'identifier_value', 'language_name', 'language_code', 'note', 'comment'):
-            found = mapping.get(key)
-            if found not in (None, ''):
-                return str(found)
-        for key, item in mapping.items():
-            if str(key).endswith('_id') or str(key).endswith('_timestamp_ep_k'):
-                continue
-            if item not in (None, ''):
-                return str(item)
-        return None
-
-    def storage_hints(self) -> ExpressionStorageHints:
-        primary_agents = tuple(filter(None, (self._display_value(link.target) for link in self.get_relation_links('agents') if link.primary or len(self.get_relation_links('agents')) == 1)))
-        genres = tuple(filter(None, (self._display_value(link.target) for link in self.get_relation_links('genres'))))
-        labels = tuple(filter(None, (self._display_value(link.target) for link in self.get_relation_links('labels'))))
-        identifiers = tuple(filter(None, (self._display_value(link.target) for link in self.get_relation_links('identifiers'))))
-        language_code = None
-        language_links = self.get_relation_links('languages')
-        if language_links:
-            language_code = self._display_value(language_links[0].target)
-        return ExpressionStorageHints(
-            expression_id=self.expression.expression_id if self.expression is not None else None,
-            work_id=self.expression.expression_work_id if self.expression is not None else None,
-            title=self.expression.expression_title_override if self.expression is not None else None,
-            label=self.expression.expression_label if self.expression is not None else None,
-            expression_type=self.expression.expression_type if self.expression is not None else None,
-            language_code=language_code,
-            primary_agents=primary_agents,
-            genres=genres,
-            labels=labels,
-            identifiers=identifiers,
-        )
-
 
 __all__ = ["ExpressionMetadata"]

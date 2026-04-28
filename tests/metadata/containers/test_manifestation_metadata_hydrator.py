@@ -286,11 +286,8 @@ def test_manifestation_metadata_hydrator_from_manifestation_id_and_source_row() 
     expression_link = container.get_relation_links("expressions")[0]
     assert expression_link.primary is True
     assert expression_link.index == 7
-
-    hints = container.storage_hints()
-    assert hints.manifestation_id == 10
-    assert hints.expression_id == 20
-    assert hints.file_formats == ("epub",)
+    assert container.get_relation_links("identifiers")[0].primary is True
+    assert not hasattr(container, "storage_hints")
 
     source_row = db.get_row_from_id("manifestations", 10)
     assert source_row is not None

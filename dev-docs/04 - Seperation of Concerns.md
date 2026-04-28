@@ -72,6 +72,40 @@ Storage should not own higher-level library semantics such as:
 - metadata merge policy
 - user-facing presentation concerns
 
+### Metadata containers and storage placement hints
+
+Metadata containers own metadata facts and relation structure. They should expose
+the bibliographic, descriptive, and graph-shaped information that other layers
+can consume, but they should not contain storage placement policy.
+
+Storage placement hints are storage-facing projections of metadata into inputs
+that storage can use for placement and naming, such as preferred folder tokens,
+filename stems, format candidates, existing storage keys, and lightweight counts.
+Those hints are not canonical metadata facts. They are a storage contract, so the
+hint models and projection helper belong in `storage.api`, not in `metadata.api`.
+
+The intended rule is:
+
+- metadata owns the facts and relation graph
+- storage owns placement hint models, projection, and final placement decisions
+- library may orchestrate workflows that involve both metadata and storage
+
+This keeps the useful call shape without pushing storage concerns into metadata:
+callers can hand storage a metadata-like object, and storage can derive the
+placement hints it needs through a structural storage-side protocol.
+
+Concretely:
+
+- `metadata.api` should not export `*StorageHints`
+- metadata containers should not implement `storage_hints()`
+- storage may expose `derive_storage_hints(metadata_like)`
+- storage must not import concrete metadata containers just to make placement work
+- library should not become the default home for file placement logic
+
+The only acceptable compatibility exception is a storage-side provider protocol
+for objects that already return explicit storage hints. That protocol belongs to
+storage and should not become a requirement on metadata containers.
+
 ### Library
 
 The library layer is the high-level orchestration layer. It brings together database, storage, metadata, cache, and surface concerns into meaningful workflows.

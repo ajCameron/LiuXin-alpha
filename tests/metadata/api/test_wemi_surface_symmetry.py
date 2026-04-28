@@ -97,3 +97,21 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
     assert hasattr(metadata_class, "from_mapping")
     assert hasattr(metadata_class, "from_database")
     assert hasattr(metadata_class, "to_mapping")
+
+    api_metadata_class = getattr(api_metadata_module, entry["api_metadata_class"])
+    for method_name in (
+        "relation_names",
+        "validate_relation_name",
+        "get_relation_links",
+        "set_relation_links",
+        "add_relation_link",
+        "remove_relation_link",
+        "get_related",
+        "set_related",
+        "add_related",
+        "clear_related",
+    ):
+        assert hasattr(api_metadata_class, method_name)
+
+    for relation_name in api_metadata_class.relation_names():
+        assert isinstance(getattr(api_metadata_class, relation_name), property)

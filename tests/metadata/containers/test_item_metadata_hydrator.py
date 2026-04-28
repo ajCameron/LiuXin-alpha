@@ -303,18 +303,10 @@ def test_item_metadata_hydrator_from_item_id_and_source_row() -> None:
 
     container = hydrator.from_item_id(1)
     assert isinstance(container, ItemMetadata)
-
-    hints = container.storage_hints()
-    assert hints.item_id == 1
-    assert hints.manifestation_id == 10
-    assert hints.expression_id == 20
-    assert hints.work_id == 30
-    assert hints.title == "Permutation City"
-    assert hints.subtitle == "A Novel"
-    assert hints.primary_agents == ("Greg Egan",)
-    assert hints.file_formats == ("EPUB",)
-    assert hints.preferred_filename_stem == "Permutation City - Greg Egan"
-    assert hints.preferred_storage_key == "Greg Egan/Permutation City (30)/Permutation City - Greg Egan.epub"
+    assert container.item is not None
+    assert container.item.item_id == 1
+    assert container.item.item_manifestation_id == 10
+    assert not hasattr(container, "storage_hints")
 
     work_links = container.get_relation_links("works")
     assert len(work_links) == 1
@@ -332,4 +324,5 @@ def test_item_metadata_hydrator_from_item_id_and_source_row() -> None:
             "work_id": 30,
         },
     )
-    assert via_mapping.storage_hints().work_id == 30
+    assert via_mapping.item is not None
+    assert via_mapping.item.item_id == 1
