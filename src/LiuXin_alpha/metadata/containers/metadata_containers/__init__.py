@@ -2,12 +2,17 @@
 
 Stage-6 rule:
 The canonical implementation exports are re-exported from
-``wemi_containers`` so callers do not need to know the internal package layout.
+``wemi_containers`` and ``non_wemi_containers`` so callers do not need to know
+the internal package layout.
 """
 
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import WorkIdentity, WorkIdentities, WorkMetadata, WorkMetadataHydrator, ExpressionIdentity, ExpressionMetadata, ExpressionMetadataHydrator, ManifestationIdentity, ManifestationMetadata, ManifestationMetadataHydrator, ItemIdentity, ItemMetadata, ItemMetadataHydrator, AgentIdentity, AgentProfile, AgentCreditBase, WorkAgentCredit, ExpressionAgentCredit, ManifestationAgentCredit, ItemAgentCredit, RoleCreditsContainer, WorkRoleCreditsContainer, ExpressionRoleCreditsContainer, ManifestationRoleCreditsContainer, ItemRoleCreditsContainer, BaseTargetAgentCreditsContainer, WorkAgentCreditsContainer, ExpressionAgentCreditsContainer, ManifestationAgentCreditsContainer, ItemAgentCreditsContainer, AgentProfileSummary, WorkSummary, ExpressionSummary, ManifestationSummary, ItemSummary, AgentParticipationEntry, AgentParticipationsByRole, AgentParticipationSnapshot, TitleKind, TitleBase, WorkTitle, ExpressionTitle, ManifestationTitle, ItemTitle, KindTitlesContainer, WorkKindTitlesContainer, ExpressionKindTitlesContainer, ManifestationKindTitlesContainer, ItemKindTitlesContainer, BaseTargetTitlesContainer, WorkTitlesContainer, ExpressionTitlesContainer, ManifestationTitlesContainer, ItemTitlesContainer, ItemWemiTitleSlice, NoteKind, NoteFormat, NoteVisibility, NoteBase, WorkNote, ExpressionNote, ManifestationNote, ItemNote, KindNotesContainer, WorkKindNotesContainer, ExpressionKindNotesContainer, ManifestationKindNotesContainer, ItemKindNotesContainer, BaseTargetNotesContainer, WorkNotesContainer, ExpressionNotesContainer, ManifestationNotesContainer, ItemNotesContainer, LabelKind, LabelBase, WorkLabel, ExpressionLabel, ManifestationLabel, ItemLabel, KindLabelsContainer, WorkKindLabelsContainer, ExpressionKindLabelsContainer, ManifestationKindLabelsContainer, ItemKindLabelsContainer, BaseTargetLabelsContainer, WorkLabelsContainer, ExpressionLabelsContainer, ManifestationLabelsContainer, ItemLabelsContainer, GenreKind, GenreBase, WorkGenre, ExpressionGenre, ManifestationGenre, ItemGenre, GenresContainerBase, WorkGenresContainer, ExpressionGenresContainer, ManifestationGenresContainer, ItemGenresContainer, SubjectKind, SubjectBase, WorkSubject, ExpressionSubject, ManifestationSubject, ItemSubject, KindSubjectsContainer, WorkKindSubjectsContainer, ExpressionKindSubjectsContainer, ManifestationKindSubjectsContainer, ItemKindSubjectsContainer, BaseTargetSubjectsContainer, WorkSubjectsContainer, ExpressionSubjectsContainer, ManifestationSubjectsContainer, ItemSubjectsContainer, IdentifierStatus, IdentifierBase, WorkIdentifier, ExpressionIdentifier, ManifestationIdentifier, ItemIdentifier, SchemeIdentifiersContainer, WorkSchemeIdentifiersContainer, ExpressionSchemeIdentifiersContainer, ManifestationSchemeIdentifiersContainer, ItemSchemeIdentifiersContainer, BaseTargetIdentifiersContainer, WorkIdentifiersContainer, ExpressionIdentifiersContainer, ManifestationIdentifiersContainer, ItemIdentifiersContainer
 
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import LanguageKind, LanguageBase, WorkLanguage, ExpressionLanguage, ManifestationLanguage, ItemLanguage, KindLanguagesContainer, WorkKindLanguagesContainer, ExpressionKindLanguagesContainer, ManifestationKindLanguagesContainer, ItemKindLanguagesContainer, BaseTargetLanguagesContainer, WorkLanguagesContainer, ExpressionLanguagesContainer, ManifestationLanguagesContainer, ItemLanguagesContainer, DateKind, DateBase, WorkDate, ExpressionDate, ManifestationDate, ItemDate, KindDatesContainer, WorkKindDatesContainer, ExpressionKindDatesContainer, ManifestationKindDatesContainer, ItemKindDatesContainer, BaseTargetDatesContainer, WorkDatesContainer, ExpressionDatesContainer, ManifestationDatesContainer, ItemDatesContainer, RatingKind, RatingBase, WorkRating, ExpressionRating, ManifestationRating, ItemRating, KindRatingsContainer, WorkKindRatingsContainer, ExpressionKindRatingsContainer, ManifestationKindRatingsContainer, ItemKindRatingsContainer, BaseTargetRatingsContainer, WorkRatingsContainer, ExpressionRatingsContainer, ManifestationRatingsContainer, ItemRatingsContainer, SeriesKind, SeriesEntryBase, WorkSeriesEntry, ExpressionSeriesEntry, ManifestationSeriesEntry, ItemSeriesEntry, KindSeriesEntriesContainer, WorkKindSeriesEntriesContainer, ExpressionKindSeriesEntriesContainer, ManifestationKindSeriesEntriesContainer, ItemKindSeriesEntriesContainer, BaseTargetSeriesEntriesContainer, WorkSeriesEntriesContainer, ExpressionSeriesEntriesContainer, ManifestationSeriesEntriesContainer, ItemSeriesEntriesContainer, ResourceKind, ResourceBase, WorkResource, ExpressionResource, ManifestationResource, ItemResource, KindResourcesContainer, WorkKindResourcesContainer, ExpressionKindResourcesContainer, ManifestationKindResourcesContainer, ItemKindResourcesContainer, BaseTargetResourcesContainer, WorkResourcesContainer, ExpressionResourcesContainer, ManifestationResourcesContainer, ItemResourcesContainer
+
+from LiuXin_alpha.metadata.containers.metadata_containers.non_wemi_containers import MetadataTableRow, MetadataRowMapping, MetadataRowValue, NON_WEMI_MAIN_TABLE_ROW_CONTAINERS, LanguageRow, GenreRow, SubjectRow, SeriesRow, LabelRow, NoteRow, CommentRow, SynopsisRow, RatingRow, AnnotationRow, HumanAgentRow, OrgAgentRow, OrgAgentRelationRow, EntityIdentifierRow, ObservedItemIdentifierRow
+
+from LiuXin_alpha.metadata.containers.metadata_containers.non_wemi_containers import InlineSelfRelation, SelfRelationsContainer, NON_WEMI_SELF_RELATION_CONTAINERS, GenreTreeRelation, SubjectTreeRelation, SeriesTreeRelation, GenreTreeRelationsContainer, SubjectTreeRelationsContainer, SeriesTreeRelationsContainer
 
 __all__ = [
     "WorkIdentity",
@@ -222,4 +227,32 @@ __all__ = [
     "ExpressionResourcesContainer",
     "ManifestationResourcesContainer",
     "ItemResourcesContainer",
+    "MetadataTableRow",
+    "MetadataRowMapping",
+    "MetadataRowValue",
+    "NON_WEMI_MAIN_TABLE_ROW_CONTAINERS",
+    "LanguageRow",
+    "GenreRow",
+    "SubjectRow",
+    "SeriesRow",
+    "LabelRow",
+    "NoteRow",
+    "CommentRow",
+    "SynopsisRow",
+    "RatingRow",
+    "AnnotationRow",
+    "HumanAgentRow",
+    "OrgAgentRow",
+    "OrgAgentRelationRow",
+    "EntityIdentifierRow",
+    "ObservedItemIdentifierRow",
+    "InlineSelfRelation",
+    "SelfRelationsContainer",
+    "NON_WEMI_SELF_RELATION_CONTAINERS",
+    "GenreTreeRelation",
+    "SubjectTreeRelation",
+    "SeriesTreeRelation",
+    "GenreTreeRelationsContainer",
+    "SubjectTreeRelationsContainer",
+    "SeriesTreeRelationsContainer",
 ]

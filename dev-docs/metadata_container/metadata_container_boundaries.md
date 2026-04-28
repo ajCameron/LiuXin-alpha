@@ -9,7 +9,7 @@ what *kind* of object each family is.
 The point of this pass is not to move more files. It is to stop the package
 surface from being semantically muddy.
 
-## The five categories
+## The six categories
 
 ### 1. Core WEMI identity objects
 
@@ -70,7 +70,30 @@ Family in this category:
 This is the home for intrinsic agent data such as aliases, identifiers, notes,
 labels, and biographical or organisational descriptive fields.
 
-### 5. Read-side views / snapshots / slices
+### 5. Non-WEMI main-table row containers
+
+These answer: **what is this durable metadata-owned row?**
+
+These are concrete implementation containers for metadata-owned lookup and
+sidecar tables such as languages, genres, subjects, series, labels, notes,
+ratings, annotations, human/org agent sidecars, organisation relations, and
+identifier sidecars. They mirror database rows closely, but they are not pure API
+contracts and they are not WEMI metadata bundles.
+
+Inline self-relations for these rows, such as genre/subject/series tree
+parentage, are concrete relation containers in the same family. They model the
+edge between two rows in the same table, while the child row remains the storage
+home for the parent/position/tree-id columns.
+
+These containers explicitly exclude storage tables, workflow tables, and
+database-internal preference/version tables.
+
+Family in this category:
+- `MetadataTableRow` / `LanguageRow` / `GenreRow` / `...Row`
+- `InlineSelfRelation` / `GenreTreeRelation` / `SubjectTreeRelation` /
+  `SeriesTreeRelation`
+
+### 6. Read-side views / snapshots / slices
 
 These answer: **what joined or layered view do we want to present?**
 
@@ -96,7 +119,9 @@ When looking at a container family, ask these questions in order:
    - Then it is an additional metadata family.
 4. Is this intrinsic metadata about an agent?
    - Then it belongs in the agent profile.
-5. Is this a joined or layered read model?
+5. Is this a durable metadata-owned lookup or sidecar table row?
+   - Then it is a non-WEMI main-table row container.
+6. Is this a joined or layered read model?
    - Then it is a snapshot/view/slice.
 
 Storage entities such as digital assets, composite digital assets, replicas,
