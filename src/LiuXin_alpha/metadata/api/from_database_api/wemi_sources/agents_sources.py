@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Iterable, Optional
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
-    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_profile_api import AgentProfileAPI
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_profile_api import AgentProfileAPI
     from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
         AgentParticipationSnapshot,
         WorkAgentCredit,

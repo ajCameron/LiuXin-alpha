@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from typing import Any, Iterable, Optional
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
     ManifestationRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manifestation_container import (

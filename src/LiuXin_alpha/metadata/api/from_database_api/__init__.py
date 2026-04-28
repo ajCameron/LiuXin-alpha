@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from LiuXin_alpha.metadata.api.metadata_db_source.wemi_sources import (
+from LiuXin_alpha.metadata.api.from_database_api.wemi_sources import (
     AgentProfileGetterAPI,
     ExpressionMetadataGetterAPI,
     ItemMetadataGetterAPI,

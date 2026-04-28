@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
-    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_metadata_api import WorkMetadataAPI
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_metadata_api import WorkMetadataAPI
     from LiuXin_alpha.metadata.metadata_types import WorkID
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import ClassVar, Generic, Protocol, TypeVar, runtime_checkable
 
-from LiuXin_alpha.metadata.api.metadata_container_api.non_wemi_containers_api.row_api import (
+from LiuXin_alpha.metadata.api.containers_api.other_containers_api.row_api import (
     GenreRowAPI,
     MetadataRowValue,
     MetadataTableRowAPI,

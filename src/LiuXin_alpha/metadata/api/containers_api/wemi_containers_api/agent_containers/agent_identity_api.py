@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import abc
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MutableMetadataRecord,
 )
 from LiuXin_alpha.metadata.metadata_types import AgentID, AgentTypes

@@ -6,7 +6,7 @@ implementations live under ``LiuXin_alpha.metadata.containers``.
 
 from __future__ import annotations
 
-from LiuXin_alpha.metadata.api.metadata_container_api.non_wemi_containers_api import (
+from LiuXin_alpha.metadata.api.containers_api.other_containers_api import (
     AnnotationRowAPI,
     CommentRowAPI,
     EntityIdentifierRowAPI,
@@ -34,7 +34,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.non_wemi_containers_api im
     SubjectTreeRelationsContainerAPI,
     SynopsisRowAPI,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     AgentIdentityAPI,
     AgentProfileAPI,
     ExpressionIdentityAPI,

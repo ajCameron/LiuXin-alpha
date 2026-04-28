@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.row import Row
-    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import MetadataRecord
-    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
-    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_metadata_api import ItemMetadataAPI
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import MetadataRecord
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_metadata_api import ItemMetadataAPI
     from LiuXin_alpha.metadata.metadata_types import ItemID
 
 

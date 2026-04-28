@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from enum import StrEnum
 from typing import Generic, Literal, Optional, Protocol, TypeAlias, TypeVar, runtime_checkable
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MutableMetadataRecord,
     RelationEdgeType,
     RelationTarget,

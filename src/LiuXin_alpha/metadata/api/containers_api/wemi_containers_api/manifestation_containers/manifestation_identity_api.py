@@ -11,7 +11,7 @@ import dataclasses
 
 from typing import ClassVar, Iterable, Mapping, Optional, Self
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MutableMetadataRecord,
 )
 

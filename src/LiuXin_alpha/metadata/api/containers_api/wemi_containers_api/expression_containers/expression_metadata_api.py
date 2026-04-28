@@ -12,22 +12,22 @@ import dataclasses
 from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
 
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MetadataRecord,
     MutableMetadataRecord,
     RelationTarget,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_edge_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_edge_api import (
     RelationCardinality,
     RelationEdge,
     RelationEdgeID,
     validate_relation_edge_cardinality,
 )
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
 
 ExpressionRelationTarget: TypeAlias = (
     AgentIdentityAPI
