@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import Any, ClassVar, Iterable, Mapping, Optional, Self
+from typing import ClassVar, Iterable, Mapping, Optional, Self
 
 
 class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):

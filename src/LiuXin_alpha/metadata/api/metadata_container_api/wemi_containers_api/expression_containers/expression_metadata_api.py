@@ -9,13 +9,31 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import Any, ClassVar, Iterable, Mapping, Optional, Self
+from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
 
 
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+    MetadataRecord,
+    MutableMetadataRecord,
+    RelationTarget,
+)
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
+
+ExpressionRelationTarget: TypeAlias = (
+    AgentIdentityAPI
+    | ItemIdentityAPI
+    | ManifestationIdentityAPI
+    | WorkIdentityAPI
+    | RelationTarget
+)
+
 @dataclasses.dataclass(slots=True)
 class ExpressionRelationLink:
-    target: Any
+    target: ExpressionRelationTarget
     priority: Optional[int] = None
     primary: Optional[bool] = None
     type: Optional[str] = None
@@ -23,7 +41,7 @@ class ExpressionRelationLink:
     policy: Optional[str] = None
     data: Optional[str] = None
     index: Optional[int | str] = None
-    extra: dict[str, Any] = dataclasses.field(default_factory=dict)
+    extra: MutableMetadataRecord = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -38,9 +56,9 @@ class ExpressionStorageHints:
     genres: tuple[str, ...] = ()
     labels: tuple[str, ...] = ()
     identifiers: tuple[str, ...] = ()
-    extra: Mapping[str, Any] = dataclasses.field(default_factory=dict)
+    extra: MetadataRecord = dataclasses.field(default_factory=dict)
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> MutableMetadataRecord:
         return {
             "expression_id": self.expression_id,
             "work_id": self.work_id,
@@ -113,19 +131,19 @@ class ExpressionMetadataAPI(abc.ABC):
     def set_relation_links(self, relation: str, links: Iterable[ExpressionRelationLink]) -> None:
         raise NotImplementedError
 
-    def get_related(self, relation: str) -> list[Any]:
+    def get_related(self, relation: str) -> list[ExpressionRelationTarget]:
         return [link.target for link in self.get_relation_links(relation)]
 
-    def set_related(self, relation: str, values: Iterable[Any]) -> None:
+    def set_related(self, relation: str, values: Iterable[ExpressionRelationTarget]) -> None:
         self.set_relation_links(relation, [ExpressionRelationLink(target=value) for value in values])
 
     @abc.abstractmethod
-    def to_mapping(self, include_related: bool = True) -> dict[str, Any]:
+    def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
         raise NotImplementedError
 
     @classmethod
     @abc.abstractmethod
-    def from_mapping(cls, payload: Mapping[str, Any]) -> Self:
+    def from_mapping(cls, payload: MetadataRecord) -> Self:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -135,6 +153,7 @@ class ExpressionMetadataAPI(abc.ABC):
 
 __all__ = [
     "ExpressionRelationLink",
+    "ExpressionRelationTarget",
     "ExpressionStorageHints",
     "ExpressionMetadataAPI",
 ]

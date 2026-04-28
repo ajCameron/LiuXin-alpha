@@ -9,8 +9,11 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import Any, ClassVar, Iterable, Mapping, Optional, Self
+from typing import ClassVar, Iterable, Mapping, Optional, Self
 
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+    MutableMetadataRecord,
+)
 
 class ManifestationIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     """Row-level API for one manifestation."""
@@ -113,7 +116,7 @@ class ManifestationIdentityPropertiesAPI(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def to_mapping(self) -> Any:
+    def to_mapping(self) -> MutableMetadataRecord:
         raise NotImplementedError
 
 

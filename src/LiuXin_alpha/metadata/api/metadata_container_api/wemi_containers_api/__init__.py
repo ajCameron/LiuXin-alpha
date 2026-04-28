@@ -19,6 +19,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expres
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_metadata_api import (
     ExpressionMetadataAPI,
     ExpressionRelationLink,
+    ExpressionRelationTarget,
     ExpressionStorageHints,
 )
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_identity_api import (
@@ -28,7 +29,17 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_c
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_metadata_api import (
     ItemMetadataAPI,
     ItemRelationLink,
+    ItemRelationTarget,
     ItemStorageHints,
+)
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+    MetadataRecord,
+    MetadataScalar,
+    MetadataValue,
+    MutableMetadataRecord,
+    RelationTarget,
+    SupportsMetadataMapping,
+    SupportsRowMapping,
 )
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import (
     ManifestationIdentityAPI,
@@ -37,6 +48,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manife
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
     ManifestationMetadataAPI,
     ManifestationRelationLink,
+    ManifestationRelationTarget,
     ManifestationStorageHints,
 )
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_identity_api import (
@@ -46,6 +58,7 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_c
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_metadata_api import (
     WorkMetadataAPI,
     WorkRelationLink,
+    WorkRelationTarget,
     WorkStorageHints,
 )
 
@@ -56,20 +69,31 @@ __all__ = [
     "ExpressionIdentityPropertiesAPI",
     "ExpressionMetadataAPI",
     "ExpressionRelationLink",
+    "ExpressionRelationTarget",
     "ExpressionStorageHints",
     "ItemIdentityAPI",
     "ItemIdentityPropertiesAPI",
     "ItemMetadataAPI",
     "ItemRelationLink",
+    "ItemRelationTarget",
     "ItemStorageHints",
+    "MetadataRecord",
+    "MetadataScalar",
+    "MetadataValue",
+    "MutableMetadataRecord",
+    "RelationTarget",
+    "SupportsMetadataMapping",
+    "SupportsRowMapping",
     "ManifestationIdentityAPI",
     "ManifestationIdentityPropertiesAPI",
     "ManifestationMetadataAPI",
     "ManifestationRelationLink",
+    "ManifestationRelationTarget",
     "ManifestationStorageHints",
     "WorkIdentityAPI",
     "WorkIdentityPropertiesAPI",
     "WorkMetadataAPI",
     "WorkRelationLink",
+    "WorkRelationTarget",
     "WorkStorageHints",
 ]

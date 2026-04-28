@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from typing import Any, Mapping
+from typing import Mapping
 
 import pytest
 
@@ -10,20 +10,23 @@ from LiuXin_alpha.metadata.api import (
     ItemMetadataAPI,
     ItemRelationLink,
     ItemStorageHints,
+    MetadataRecord,
+    MutableMetadataRecord,
+    RelationTarget,
 )
 
 
 class _DummyItemMetadata(ItemMetadataAPI):
-    def __init__(self, item: Any = None) -> None:
+    def __init__(self, item: MetadataRecord | None = None) -> None:
         self._item = item
         self._links = {name: [] for name in self.relation_names()}
 
     @property
-    def item(self) -> Any:
+    def item(self) -> MetadataRecord | None:
         return self._item
 
     @item.setter
-    def item(self, value: Any) -> None:
+    def item(self, value: MetadataRecord | None) -> None:
         self._item = value
 
     def get_relation_links(self, relation: str) -> list[ItemRelationLink]:
@@ -34,8 +37,8 @@ class _DummyItemMetadata(ItemMetadataAPI):
         relation_key = self.validate_relation_name(relation)
         self._links[relation_key] = list(links)
 
-    def to_mapping(self, include_related: bool = True) -> dict[str, Any]:
-        payload: dict[str, Any] = {"item": self.item}
+    def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
+        payload: MutableMetadataRecord = {"item": self.item}
         if include_related:
             payload["relations"] = {
                 relation: [dataclasses.asdict(link) for link in self.get_relation_links(relation)]
@@ -45,7 +48,7 @@ class _DummyItemMetadata(ItemMetadataAPI):
         return payload
 
     @classmethod
-    def from_mapping(cls, payload: Mapping[str, Any]) -> "_DummyItemMetadata":
+    def from_mapping(cls, payload: MetadataRecord) -> "_DummyItemMetadata":
         instance = cls(item=payload.get("item"))
         raw_relations = payload.get("relations", {})
         if isinstance(raw_relations, Mapping):
@@ -121,7 +124,8 @@ def test_relation_name_validation_supports_aliases() -> None:
 
 def test_relation_helpers_round_trip_targets_and_links() -> None:
     container = _DummyItemMetadata()
-    asset_link = ItemRelationLink(target="epub-asset", priority=1, primary=True, type="primary_payload")
+    asset_target: RelationTarget = "epub-asset"
+    asset_link = ItemRelationLink(target=asset_target, priority=1, primary=True, type="primary_payload")
 
     container.add_relation_link("asset", asset_link)
     assert container.get_related("digital_assets") == ["epub-asset"]

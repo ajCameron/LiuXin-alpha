@@ -9,9 +9,27 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import Any, ClassVar, Iterable, Mapping, Optional, Self
+from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
 
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+    MetadataRecord,
+    MutableMetadataRecord,
+    RelationTarget,
+)
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
+
+WorkRelationTarget: TypeAlias = (
+    AgentIdentityAPI
+    | ExpressionIdentityAPI
+    | ManifestationIdentityAPI
+    | ItemIdentityAPI
+    | RelationTarget
+)
+
 @dataclasses.dataclass(slots=True)
 class WorkRelationLink:
     """
@@ -22,13 +40,13 @@ class WorkRelationLink:
     for in-memory metadata workflows.
     """
 
-    target: Any
+    target: WorkRelationTarget
     priority: Optional[int] = None
     type: Optional[str] = None
     origin: Optional[str] = None
     policy: Optional[str] = None
     data: Optional[str] = None
-    extra: dict[str, Any] = dataclasses.field(default_factory=dict)
+    extra: MutableMetadataRecord = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -59,9 +77,9 @@ class WorkStorageHints:
     preferred_folder_tokens: tuple[str, ...] = ()
     preferred_filename_stem: Optional[str] = None
 
-    extra: Mapping[str, Any] = dataclasses.field(default_factory=dict)
+    extra: MetadataRecord = dataclasses.field(default_factory=dict)
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> MutableMetadataRecord:
         """
         To a dictionary mapping.
 
@@ -203,19 +221,19 @@ class WorkMetadataAPI(abc.ABC):
         except ValueError:
             return False
 
-    def get_related(self, relation: str) -> list[Any]:
+    def get_related(self, relation: str) -> list[WorkRelationTarget]:
         relation_key = self.validate_relation_name(relation)
         links = self.get_relation_links(relation_key)
         return [link.target for link in links]
 
-    def set_related(self, relation: str, values: Iterable[Any]) -> None:
+    def set_related(self, relation: str, values: Iterable[WorkRelationTarget]) -> None:
         relation_key = self.validate_relation_name(relation)
         self.set_relation_links(
             relation_key,
             [WorkRelationLink(target=value) for value in values],
         )
 
-    def add_related(self, relation: str, value: Any) -> None:
+    def add_related(self, relation: str, value: WorkRelationTarget) -> None:
         relation_key = self.validate_relation_name(relation)
         self.add_relation_link(relation_key, WorkRelationLink(target=value))
 
@@ -224,156 +242,156 @@ class WorkMetadataAPI(abc.ABC):
         self.set_relation_links(relation_key, [])
 
     @property
-    def agents(self) -> list[Any]:
+    def agents(self) -> list[WorkRelationTarget]:
         return self.get_related("agents")
 
     @agents.setter
-    def agents(self, values: Iterable[Any]) -> None:
+    def agents(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("agents", values)
 
     @property
-    def expressions(self) -> list[Any]:
+    def expressions(self) -> list[WorkRelationTarget]:
         return self.get_related("expressions")
 
     @expressions.setter
-    def expressions(self, values: Iterable[Any]) -> None:
+    def expressions(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("expressions", values)
 
     @property
-    def manifestations(self) -> list[Any]:
+    def manifestations(self) -> list[WorkRelationTarget]:
         return self.get_related("manifestations")
 
     @manifestations.setter
-    def manifestations(self, values: Iterable[Any]) -> None:
+    def manifestations(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("manifestations", values)
 
     @property
-    def items(self) -> list[Any]:
+    def items(self) -> list[WorkRelationTarget]:
         return self.get_related("items")
 
     @items.setter
-    def items(self, values: Iterable[Any]) -> None:
+    def items(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("items", values)
 
     @property
-    def files(self) -> list[Any]:
+    def files(self) -> list[WorkRelationTarget]:
         return self.get_related("files")
 
     @files.setter
-    def files(self, values: Iterable[Any]) -> None:
+    def files(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("files", values)
 
     @property
-    def genres(self) -> list[Any]:
+    def genres(self) -> list[WorkRelationTarget]:
         return self.get_related("genres")
 
     @genres.setter
-    def genres(self, values: Iterable[Any]) -> None:
+    def genres(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("genres", values)
 
     @property
-    def subjects(self) -> list[Any]:
+    def subjects(self) -> list[WorkRelationTarget]:
         return self.get_related("subjects")
 
     @subjects.setter
-    def subjects(self, values: Iterable[Any]) -> None:
+    def subjects(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("subjects", values)
 
     @property
-    def series(self) -> list[Any]:
+    def series(self) -> list[WorkRelationTarget]:
         return self.get_related("series")
 
     @series.setter
-    def series(self, values: Iterable[Any]) -> None:
+    def series(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("series", values)
 
     @property
-    def tags(self) -> list[Any]:
+    def tags(self) -> list[WorkRelationTarget]:
         return self.get_related("tags")
 
     @tags.setter
-    def tags(self, values: Iterable[Any]) -> None:
+    def tags(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("tags", values)
 
     @property
-    def labels(self) -> list[Any]:
+    def labels(self) -> list[WorkRelationTarget]:
         return self.get_related("labels")
 
     @labels.setter
-    def labels(self, values: Iterable[Any]) -> None:
+    def labels(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("labels", values)
 
     @property
-    def languages(self) -> list[Any]:
+    def languages(self) -> list[WorkRelationTarget]:
         return self.get_related("languages")
 
     @languages.setter
-    def languages(self, values: Iterable[Any]) -> None:
+    def languages(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("languages", values)
 
     @property
-    def images(self) -> list[Any]:
+    def images(self) -> list[WorkRelationTarget]:
         return self.get_related("images")
 
     @images.setter
-    def images(self, values: Iterable[Any]) -> None:
+    def images(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("images", values)
 
     @property
-    def identifiers(self) -> list[Any]:
+    def identifiers(self) -> list[WorkRelationTarget]:
         return self.get_related("identifiers")
 
     @identifiers.setter
-    def identifiers(self, values: Iterable[Any]) -> None:
+    def identifiers(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("identifiers", values)
 
     @property
-    def ratings(self) -> list[Any]:
+    def ratings(self) -> list[WorkRelationTarget]:
         return self.get_related("ratings")
 
     @ratings.setter
-    def ratings(self, values: Iterable[Any]) -> None:
+    def ratings(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("ratings", values)
 
     @property
-    def notes(self) -> list[Any]:
+    def notes(self) -> list[WorkRelationTarget]:
         return self.get_related("notes")
 
     @notes.setter
-    def notes(self, values: Iterable[Any]) -> None:
+    def notes(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("notes", values)
 
     @property
-    def comments(self) -> list[Any]:
+    def comments(self) -> list[WorkRelationTarget]:
         return self.get_related("comments")
 
     @comments.setter
-    def comments(self, values: Iterable[Any]) -> None:
+    def comments(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("comments", values)
 
     @property
-    def synopses(self) -> list[Any]:
+    def synopses(self) -> list[WorkRelationTarget]:
         return self.get_related("synopses")
 
     @synopses.setter
-    def synopses(self, values: Iterable[Any]) -> None:
+    def synopses(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("synopses", values)
 
     @property
-    def folders(self) -> list[Any]:
+    def folders(self) -> list[WorkRelationTarget]:
         return self.get_related("folders")
 
     @folders.setter
-    def folders(self, values: Iterable[Any]) -> None:
+    def folders(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("folders", values)
 
     @abc.abstractmethod
-    def to_mapping(self, include_related: bool = True) -> dict[str, Any]:
+    def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
         """Serialize container into a mapping representation."""
 
     @classmethod
     @abc.abstractmethod
-    def from_mapping(cls, payload: Mapping[str, Any]) -> Self:
+    def from_mapping(cls, payload: MetadataRecord) -> Self:
         """Hydrate container from mapping representation."""
 
     @abc.abstractmethod
@@ -381,4 +399,4 @@ class WorkMetadataAPI(abc.ABC):
         """Return a storage-oriented projection for store placement logic."""
 
 
-__all__ = ["WorkMetadataAPI", "WorkRelationLink", "WorkStorageHints"]
+__all__ = ["WorkMetadataAPI", "WorkRelationLink", "WorkRelationTarget", "WorkStorageHints"]

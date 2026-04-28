@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import abc
 
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+    MutableMetadataRecord,
+)
 from LiuXin_alpha.metadata.metadata_types import AgentID, AgentTypes
 
 
@@ -58,7 +61,7 @@ class AgentIdentityAPI(abc.ABC):
     def sort_name(self, value: str | None) -> None:
         raise AttributeError("sort_name is read-only on this implementation")
 
-    def to_mapping(self) -> dict[str, object]:
+    def to_mapping(self) -> MutableMetadataRecord:
         """Convert to a plain mapping."""
         return {
             'agent_id': self.agent_id,

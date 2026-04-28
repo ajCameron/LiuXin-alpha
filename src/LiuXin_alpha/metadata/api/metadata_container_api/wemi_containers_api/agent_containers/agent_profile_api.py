@@ -7,9 +7,13 @@ WEMI `XMetadataAPI` object and not a graph-spanning participation view.
 from __future__ import annotations
 
 import abc
-from typing import Any, Mapping, Optional
+from typing import Optional
 
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+    MetadataRecord,
+    MutableMetadataRecord,
+)
 from LiuXin_alpha.metadata.metadata_types import AgentID
 
 
@@ -125,11 +129,11 @@ class AgentProfileAPI(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def extra(self) -> Mapping[str, Any]:
+    def extra(self) -> MetadataRecord:
         """Extension fields for profile metadata not yet promoted to first-class properties."""
 
     @abc.abstractmethod
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> MutableMetadataRecord:
         """Convert to a plain mapping for storage / serialisation."""
 
 __all__ = ["AgentProfileAPI"]

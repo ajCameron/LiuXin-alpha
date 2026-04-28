@@ -10,8 +10,12 @@ import abc
 import dataclasses
 from abc import abstractmethod
 
-from typing import Any, ClassVar, Iterable, Mapping, Optional, Self, Dict
+from typing import ClassVar, Iterable, Mapping, Optional, Self
 
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_target_api import (
+    MetadataRecord,
+    MutableMetadataRecord,
+)
 
 class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     """
@@ -392,11 +396,11 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
 
     @classmethod
     @abstractmethod
-    def from_mapping(cls, row: Mapping[str, Any]) -> Self:
+    def from_mapping(cls, row: MetadataRecord) -> Self:
         raise NotImplementedError
 
     @abstractmethod
-    def to_mapping(self) -> Dict[str, Any]:
+    def to_mapping(self) -> MutableMetadataRecord:
         raise NotImplementedError
 
 
