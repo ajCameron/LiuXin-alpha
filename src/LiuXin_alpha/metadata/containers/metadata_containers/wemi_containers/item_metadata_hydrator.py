@@ -300,9 +300,12 @@ class ItemMetadataHydrator:
                     primary=True,
                     type=link.type,
                     origin=link.origin,
+                    source=link.source,
                     policy=link.policy,
                     data=link.data,
                     index=link.index,
+                    edge_id=link.edge_id,
+                    cardinality=link.cardinality,
                     extra=dict(link.extra),
                 )
                 break
@@ -377,9 +380,11 @@ class ItemMetadataHydrator:
                         "primary",
                         "type",
                         "origin",
+                        "source",
                         "policy",
                         "data",
                         "index",
+                        "id",
                     }:
                         continue
                     extra[suffix] = value
@@ -391,9 +396,11 @@ class ItemMetadataHydrator:
                     primary=_boolish_to_bool(link_map.get(prefix + "_primary")) if prefix else None,
                     type=link_map.get(prefix + "_type") if prefix else None,
                     origin=link_map.get(prefix + "_origin") if prefix else None,
+                    source=link_map.get(prefix + "_source") if prefix else None,
                     policy=link_map.get(prefix + "_policy") if prefix else None,
                     data=link_map.get(prefix + "_data") if prefix else None,
                     index=link_map.get(prefix + "_index") if prefix else None,
+                    edge_id=link_map.get(prefix + "_id") if prefix else None,
                     extra=extra,
                 )
             )

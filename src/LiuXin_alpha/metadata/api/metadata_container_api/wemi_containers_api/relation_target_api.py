@@ -14,6 +14,7 @@ MetadataValue: TypeAlias = (
 )
 MetadataRecord: TypeAlias = Mapping[str, MetadataValue]
 MutableMetadataRecord: TypeAlias = dict[str, MetadataValue]
+RelationEdgeType: TypeAlias = str
 
 
 @runtime_checkable
@@ -45,6 +46,7 @@ __all__ = [
     "MetadataValue",
     "MetadataRecord",
     "MutableMetadataRecord",
+    "RelationEdgeType",
     "RelationTarget",
     "SupportsMetadataMapping",
     "SupportsRowMapping",

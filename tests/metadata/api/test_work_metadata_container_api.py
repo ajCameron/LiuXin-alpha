@@ -8,9 +8,17 @@ import pytest
 
 import LiuXin_alpha.metadata.api as metadata_api
 from LiuXin_alpha.metadata.api import (
+    ExpressionMetadataAPI,
+    ExpressionRelationEdge,
+    ManyManyRelationEdgeAPI,
+    ManyOneRelationEdgeAPI,
     MetadataRecord,
     MutableMetadataRecord,
+    OneManyRelationEdgeAPI,
+    OneOneRelationEdgeAPI,
+    RelationCardinality,
     RelationTarget,
+    WorkRelationEdge,
     WorkMetadataAPI,
     WorkRelationLink,
 )
@@ -64,9 +72,12 @@ class _DummyWorkMetadata(WorkMetadataAPI):
                             primary=raw_link.get("primary"),
                             type=raw_link.get("type"),
                             origin=raw_link.get("origin"),
+                            source=raw_link.get("source"),
                             policy=raw_link.get("policy"),
                             data=raw_link.get("data"),
                             index=raw_link.get("index"),
+                            edge_id=raw_link.get("edge_id"),
+                            cardinality=raw_link.get("cardinality"),
                             extra=dict(raw_link.get("extra") or {}),
                         )
                     )
@@ -80,8 +91,12 @@ def test_work_metadata_api_is_exported_from_top_level() -> None:
     assert WorkMetadataAPI is WorkMetadataAPIFromPackage
 
 
-def test_metadata_api_does_not_export_storage_hints() -> None:
+def test_metadata_api_does_not_export_storage_owned_contracts() -> None:
     for name in (
+        "AssetReplicaIdentityAPI",
+        "AssetReplicaMetadataAPI",
+        "DigitalAssetIdentityAPI",
+        "DigitalAssetMetadataAPI",
         "ExpressionStorageHints",
         "ItemStorageHints",
         "ManifestationStorageHints",
@@ -122,6 +137,69 @@ def test_relation_helpers_round_trip_targets_and_links() -> None:
     assert container.languages == ["en", "fr"]
     container.add_related("language", "de")
     assert container.languages == ["en", "fr", "de"]
+
+
+def test_relation_edges_carry_identity_cardinality_and_source() -> None:
+    container = _DummyWorkMetadata()
+    edge = WorkRelationEdge(
+        target="Permutation City",
+        edge_id=123,
+        source="manual",
+        cardinality="one_to_many",
+        type="alternate_title",
+    )
+
+    assert WorkRelationLink is WorkRelationEdge
+    assert edge.cardinality is RelationCardinality.ONE_TO_MANY
+
+    container.add_relation_edge("synopsis", edge)
+
+    stored_edge = container.get_relation_edges("synopses")[0]
+    assert stored_edge.edge_id == 123
+    assert stored_edge.source == "manual"
+    assert stored_edge.type == "alternate_title"
+
+    container.upsert_relation_edge(
+        "synopsis",
+        WorkRelationEdge(
+            target="Permutation City revised",
+            edge_id=123,
+            source="manual-edit",
+        ),
+    )
+
+    updated_edge = container.get_relation_edge_by_id("synopses", 123)
+    assert updated_edge is not None
+    assert updated_edge.target == "Permutation City revised"
+    assert updated_edge.source == "manual-edit"
+
+    assert container.remove_relation_edge_by_id("synopses", 123) is True
+    assert container.remove_relation_edge_by_id("synopses", 123) is False
+
+
+def test_cardinality_specific_relation_edge_api_names_are_explicit() -> None:
+    expected = {
+        OneOneRelationEdgeAPI: "Literal[RelationCardinality.ONE_TO_ONE]",
+        OneManyRelationEdgeAPI: "Literal[RelationCardinality.ONE_TO_MANY]",
+        ManyOneRelationEdgeAPI: "Literal[RelationCardinality.MANY_TO_ONE]",
+        ManyManyRelationEdgeAPI: "Literal[RelationCardinality.MANY_TO_MANY]",
+    }
+
+    for api_class, cardinality_hint in expected.items():
+        assert api_class.__annotations__["cardinality"] == cardinality_hint
+
+
+def test_relation_cardinality_rejects_extra_target_on_to_one_relation() -> None:
+    assert ExpressionMetadataAPI.relation_cardinality("work") is RelationCardinality.MANY_TO_ONE
+
+    with pytest.raises(ValueError):
+        ExpressionMetadataAPI.validate_relation_links(
+            "works",
+            [
+                ExpressionRelationEdge(target="work-1"),
+                ExpressionRelationEdge(target="work-2"),
+            ],
+        )
 
 
 def test_relation_properties_cover_all_supported_relations() -> None:

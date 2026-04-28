@@ -12,8 +12,6 @@ import dataclasses
 from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
 
 
-from LiuXin_alpha.metadata.api.metadata_container_api.storage_containers_api.asset_replica_api import AssetReplicaIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.storage_containers_api.digital_asset_api import DigitalAssetIdentityAPI
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
@@ -22,13 +20,17 @@ from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relati
     MutableMetadataRecord,
     RelationTarget,
 )
+from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.relation_edge_api import (
+    RelationCardinality,
+    RelationEdge,
+    RelationEdgeID,
+    validate_relation_edge_cardinality,
+)
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
 
 ManifestationRelationTarget: TypeAlias = (
     AgentIdentityAPI
-    | AssetReplicaIdentityAPI
-    | DigitalAssetIdentityAPI
     | ExpressionIdentityAPI
     | ItemIdentityAPI
     | WorkIdentityAPI
@@ -36,16 +38,13 @@ ManifestationRelationTarget: TypeAlias = (
 )
 
 @dataclasses.dataclass(slots=True)
-class ManifestationRelationLink:
+class ManifestationRelationEdge(RelationEdge[ManifestationRelationTarget]):
+    """Edge from a manifestation-metadata container to a related entity."""
+
     target: ManifestationRelationTarget
-    priority: Optional[int] = None
-    primary: Optional[bool] = None
-    type: Optional[str] = None
-    origin: Optional[str] = None
-    policy: Optional[str] = None
-    data: Optional[str] = None
-    index: Optional[int | str] = None
-    extra: MutableMetadataRecord = dataclasses.field(default_factory=dict)
+
+
+ManifestationRelationLink: TypeAlias = ManifestationRelationEdge
 
 
 class ManifestationMetadataAPI(abc.ABC):
@@ -87,6 +86,15 @@ class ManifestationMetadataAPI(abc.ABC):
         "replica": "asset_replicas",
         "asset_replica": "asset_replicas",
     }
+    RELATION_CARDINALITIES: ClassVar[Mapping[str, RelationCardinality]] = {
+        "items": RelationCardinality.ONE_TO_MANY,
+        "identifiers": RelationCardinality.ONE_TO_MANY,
+        "titles": RelationCardinality.ONE_TO_MANY,
+        "notes": RelationCardinality.ONE_TO_MANY,
+        "comments": RelationCardinality.ONE_TO_MANY,
+        "files": RelationCardinality.ONE_TO_MANY,
+        "images": RelationCardinality.ONE_TO_MANY,
+    }
 
     @classmethod
     def relation_names(cls) -> tuple[str, ...]:
@@ -99,6 +107,27 @@ class ManifestationMetadataAPI(abc.ABC):
         if normalized not in cls.RELATION_KEYS:
             raise KeyError(f"Unknown manifestation-metadata relation {relation!r}. Expected one of {', '.join(cls.RELATION_KEYS)}.")
         return normalized
+
+    @classmethod
+    def relation_cardinality(cls, relation: str) -> RelationCardinality:
+        relation_key = cls.validate_relation_name(relation)
+        return cls.RELATION_CARDINALITIES.get(
+            relation_key,
+            RelationCardinality.MANY_TO_MANY,
+        )
+
+    @classmethod
+    def validate_relation_links(
+        cls,
+        relation: str,
+        links: Iterable[ManifestationRelationLink],
+    ) -> list[ManifestationRelationLink]:
+        relation_key = cls.validate_relation_name(relation)
+        return validate_relation_edge_cardinality(
+            relation_key,
+            links,
+            cls.relation_cardinality(relation_key),
+        )
 
     @property
     @abc.abstractmethod
@@ -122,7 +151,7 @@ class ManifestationMetadataAPI(abc.ABC):
         relation_key = self.validate_relation_name(relation)
         links = list(self.get_relation_links(relation_key))
         links.append(link)
-        self.set_relation_links(relation_key, links)
+        self.set_relation_links(relation_key, self.validate_relation_links(relation_key, links))
 
     def remove_relation_link(self, relation: str, link: ManifestationRelationLink) -> bool:
         relation_key = self.validate_relation_name(relation)
@@ -142,12 +171,82 @@ class ManifestationMetadataAPI(abc.ABC):
         relation_key = self.validate_relation_name(relation)
         self.set_relation_links(
             relation_key,
-            [ManifestationRelationLink(target=value) for value in values],
+            [
+                ManifestationRelationEdge(
+                    target=value,
+                    cardinality=self.relation_cardinality(relation_key),
+                )
+                for value in values
+            ],
         )
 
     def add_related(self, relation: str, value: ManifestationRelationTarget) -> None:
         relation_key = self.validate_relation_name(relation)
-        self.add_relation_link(relation_key, ManifestationRelationLink(target=value))
+        self.add_relation_link(
+            relation_key,
+            ManifestationRelationEdge(
+                target=value,
+                cardinality=self.relation_cardinality(relation_key),
+            ),
+        )
+
+    def get_relation_edges(self, relation: str) -> list[ManifestationRelationEdge]:
+        return self.get_relation_links(relation)
+
+    def set_relation_edges(
+        self,
+        relation: str,
+        edges: Iterable[ManifestationRelationEdge],
+    ) -> None:
+        self.set_relation_links(relation, edges)
+
+    def add_relation_edge(self, relation: str, edge: ManifestationRelationEdge) -> None:
+        self.add_relation_link(relation, edge)
+
+    def remove_relation_edge(self, relation: str, edge: ManifestationRelationEdge) -> bool:
+        return self.remove_relation_link(relation, edge)
+
+    def get_relation_edge_by_id(
+        self,
+        relation: str,
+        edge_id: RelationEdgeID,
+    ) -> Optional[ManifestationRelationEdge]:
+        for edge in self.get_relation_edges(relation):
+            if edge.edge_id == edge_id:
+                return edge
+        return None
+
+    def upsert_relation_edge(
+        self,
+        relation: str,
+        edge: ManifestationRelationEdge,
+    ) -> None:
+        relation_key = self.validate_relation_name(relation)
+        if edge.edge_id is None:
+            self.add_relation_edge(relation_key, edge)
+            return
+
+        edges = list(self.get_relation_edges(relation_key))
+        for index, existing_edge in enumerate(edges):
+            if existing_edge.edge_id == edge.edge_id:
+                edges[index] = edge
+                self.set_relation_edges(relation_key, edges)
+                return
+        self.add_relation_edge(relation_key, edge)
+
+    def remove_relation_edge_by_id(
+        self,
+        relation: str,
+        edge_id: RelationEdgeID,
+    ) -> bool:
+        relation_key = self.validate_relation_name(relation)
+        edges = list(self.get_relation_edges(relation_key))
+        for index, edge in enumerate(edges):
+            if edge.edge_id == edge_id:
+                del edges[index]
+                self.set_relation_edges(relation_key, edges)
+                return True
+        return False
 
     def clear_related(self, relation: str) -> None:
         relation_key = self.validate_relation_name(relation)
@@ -283,6 +382,7 @@ class ManifestationMetadataAPI(abc.ABC):
         raise NotImplementedError
 
 __all__ = [
+    "ManifestationRelationEdge",
     "ManifestationRelationLink",
     "ManifestationRelationTarget",
     "ManifestationMetadataAPI",

@@ -78,6 +78,11 @@ Metadata containers own metadata facts and relation structure. They should expos
 the bibliographic, descriptive, and graph-shaped information that other layers
 can consume, but they should not contain storage placement policy.
 
+Relation edges are metadata-side link assertions. They may carry identity,
+cardinality, provenance, source, and edge-role information, but they should not
+own physical placement decisions. Storage may consume those edges when deriving
+placement hints or storage actions.
+
 Storage placement hints are storage-facing projections of metadata into inputs
 that storage can use for placement and naming, such as preferred folder tokens,
 filename stems, format candidates, existing storage keys, and lightweight counts.

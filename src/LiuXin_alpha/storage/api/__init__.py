@@ -8,6 +8,10 @@ importing back through this barrel.
 from __future__ import annotations
 
 from LiuXin_alpha.databases.row import FixedTableStorageRow
+from LiuXin_alpha.storage.api.asset_replica_api import (
+    AssetReplicaIdentityAPI,
+    AssetReplicaMetadataAPI,
+)
 from LiuXin_alpha.storage.api.backup_api.backup_workflow_api import BackupWorkflowAPI
 from LiuXin_alpha.storage.api.backup_api.backup_workflow_models import (
     BackupSourceKind,
@@ -26,6 +30,10 @@ from LiuXin_alpha.storage.api.backup_api.backup_workflow_rows import (
     BackupWorkflowRow,
     BackupWorkflowSourceRow,
     BackupWorkflowStateRow,
+)
+from LiuXin_alpha.storage.api.digital_asset_api import (
+    DigitalAssetIdentityAPI,
+    DigitalAssetMetadataAPI,
 )
 from LiuXin_alpha.storage.api.file_api import FileOpenerTypeMixin, FileStatus
 from LiuXin_alpha.storage.api.info_containers_api import (
@@ -94,6 +102,8 @@ from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
 
 __all__ = [
     "AssetReplicaRow",
+    "AssetReplicaIdentityAPI",
+    "AssetReplicaMetadataAPI",
     "BackupSourceKind",
     "BackupSourceResult",
     "BackupSourceSpec",
@@ -118,6 +128,8 @@ __all__ = [
     "CompositeDigitalAssetMemberLinkRow",
     "CompositeDigitalAssetRow",
     "DigitalAssetItemLinkRow",
+    "DigitalAssetIdentityAPI",
+    "DigitalAssetMetadataAPI",
     "DigitalAssetReplicationCluster",
     "DigitalAssetRow",
     "DistinctBy",

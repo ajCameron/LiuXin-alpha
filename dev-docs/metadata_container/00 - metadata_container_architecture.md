@@ -60,8 +60,11 @@ This applies to:
 - `Expression`
 - `Manifestation`
 - `Item`
-- storage entities such as `DigitalAsset` and `AssetReplica`
 - `Agent`, but with a deliberate naming exception described below
+
+Storage entities such as `DigitalAsset` and `AssetReplica` follow the same
+identity/metadata split when they need abstract contracts, but those contracts
+belong to `LiuXin_alpha.storage.api`, not the metadata container API.
 
 ### `XIdentityAPI`
 
@@ -169,6 +172,36 @@ Examples:
 - future browse/report/query result containers
 
 These are allowed and useful, but they should be explicitly named as read-side views, snapshots, or slices.
+
+## Relation edges
+
+Metadata relation links are now treated as relation edges: durable link-table
+rows with identity, local CRUD helpers, provenance, and semantic edge metadata.
+
+The shared API vocabulary is:
+
+- `RelationEdgeID` for the durable link-row identity
+- `RelationCardinality` for one-to-one, one-to-many, many-to-one, and
+  many-to-many validation
+- `OneOneRelationEdgeAPI`, `OneManyRelationEdgeAPI`,
+  `ManyOneRelationEdgeAPI`, and `ManyManyRelationEdgeAPI` as named structural
+  APIs for those four edge shapes
+- `RelationEdgeType` for the semantic role/type stored on the edge
+- `RelationEdgeSource` / `source` for where the assertion came from
+
+Each WEMI bundle still owns its own relation-edge class (`WorkRelationEdge`,
+`ExpressionRelationEdge`, `ManifestationRelationEdge`, `ItemRelationEdge`) so
+different relation families can validate different cardinalities.
+
+This does **not** mean every link table becomes an independent metadata
+container family. The edge is first-class inside the owning metadata bundle.
+Only promote a link table into a separate container when it grows lifecycle or
+attached metadata that cannot be handled as edge state.
+
+When schema work touches link tables, prefer adding a `source` column alongside
+the existing provenance-ish fields. `origin` can describe the internal creation
+path; `source` should describe the external assertion source such as user input,
+importer, OPF, web source, or reconciliation pass.
 
 ## Package structure target
 

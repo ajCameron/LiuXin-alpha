@@ -326,9 +326,16 @@ class ManifestationMetadataHydrator:
             primary=incoming.primary if incoming.primary is not None else existing.primary,
             type=incoming.type if incoming.type is not None else existing.type,
             origin=incoming.origin if incoming.origin is not None else existing.origin,
+            source=incoming.source if incoming.source is not None else existing.source,
             policy=incoming.policy if incoming.policy is not None else existing.policy,
             data=incoming.data if incoming.data is not None else existing.data,
             index=incoming.index if incoming.index is not None else existing.index,
+            edge_id=incoming.edge_id if incoming.edge_id is not None else existing.edge_id,
+            cardinality=(
+                incoming.cardinality
+                if incoming.cardinality is not None
+                else existing.cardinality
+            ),
             extra=extra,
         )
 
@@ -419,10 +426,12 @@ class ManifestationMetadataHydrator:
                         "priority",
                         "type",
                         "origin",
+                        "source",
                         "policy",
                         "data",
                         "primary",
                         "index",
+                        "id",
                     }:
                         continue
                     extra[suffix] = value
@@ -433,9 +442,11 @@ class ManifestationMetadataHydrator:
                     primary=_boolish_to_bool(link_map.get(prefix + "_primary")) if prefix else None,
                     type=link_map.get(prefix + "_type") if prefix else None,
                     origin=link_map.get(prefix + "_origin") if prefix else None,
+                    source=link_map.get(prefix + "_source") if prefix else None,
                     policy=link_map.get(prefix + "_policy") if prefix else None,
                     data=link_map.get(prefix + "_data") if prefix else None,
                     index=link_map.get(prefix + "_index") if prefix else None,
+                    edge_id=link_map.get(prefix + "_id") if prefix else None,
                     extra=extra,
                 )
             )

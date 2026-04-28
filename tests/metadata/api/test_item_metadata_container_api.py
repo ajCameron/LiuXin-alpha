@@ -7,6 +7,7 @@ from typing import Mapping
 import pytest
 
 from LiuXin_alpha.metadata.api import (
+    ItemRelationEdge,
     ItemMetadataAPI,
     ItemRelationLink,
     MetadataRecord,
@@ -63,9 +64,12 @@ class _DummyItemMetadata(ItemMetadataAPI):
                             primary=raw_link.get("primary"),
                             type=raw_link.get("type"),
                             origin=raw_link.get("origin"),
+                            source=raw_link.get("source"),
                             policy=raw_link.get("policy"),
                             data=raw_link.get("data"),
                             index=raw_link.get("index"),
+                            edge_id=raw_link.get("edge_id"),
+                            cardinality=raw_link.get("cardinality"),
                             extra=dict(raw_link.get("extra") or {}),
                         )
                     )
@@ -90,10 +94,18 @@ def test_relation_name_validation_supports_aliases() -> None:
 def test_relation_helpers_round_trip_targets_and_links() -> None:
     container = _DummyItemMetadata()
     asset_target: RelationTarget = "epub-asset"
-    asset_link = ItemRelationLink(target=asset_target, priority=1, primary=True, type="primary_payload")
+    asset_link = ItemRelationEdge(
+        target=asset_target,
+        priority=1,
+        primary=True,
+        type="primary_payload",
+        source="importer",
+        edge_id="item-asset-1",
+    )
 
     container.add_relation_link("asset", asset_link)
     assert container.get_related("digital_assets") == ["epub-asset"]
+    assert container.get_relation_edges("digital_assets")[0].source == "importer"
 
     assert container.remove_relation_link("digital_assets", asset_link) is True
     assert container.remove_relation_link("digital_assets", asset_link) is False

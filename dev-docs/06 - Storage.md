@@ -219,6 +219,10 @@ Storage now reasons in three layers:
 - `digital_assets` are the managed payloads
 - `asset_replicas` are the concrete copies on stores
 
+The abstract contracts for digital assets and asset replicas live in
+`LiuXin_alpha.storage.api`. Metadata may reference those concepts by relation
+name or structural target, but it does not own their table-shaped APIs.
+
 Composite payloads use `digital_asset_compositions`.
 Semantic roles such as `primary_payload` and `cover` live on the item<->digital_asset link, not on the asset row itself.
 

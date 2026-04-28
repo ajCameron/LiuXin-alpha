@@ -99,6 +99,17 @@ When looking at a container family, ask these questions in order:
 5. Is this a joined or layered read model?
    - Then it is a snapshot/view/slice.
 
+Storage entities such as digital assets, composite digital assets, replicas,
+stores, and folders are outside this metadata-container taxonomy. Metadata may
+link to them by relation name or structural target, but the storage package owns
+their identity/metadata contracts and placement decisions.
+
+Relation links are relation edges. They may carry durable identity,
+cardinality, provenance, source, priority, primary/index ordering, and a
+semantic relation `type`. Those edge values encode link-table semantics; they
+are not themselves a reason to reintroduce separate link-table container
+families into the metadata API.
+
 ## What this stage changes
 
 This stage mainly changes **naming clarity and documentation clarity**.

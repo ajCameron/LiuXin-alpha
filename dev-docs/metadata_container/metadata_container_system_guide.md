@@ -48,7 +48,6 @@ Examples:
 - `ManifestationIdentityAPI`
 - `ItemIdentityAPI`
 - `AgentIdentityAPI`
-- storage-side identities such as `DigitalAssetIdentityAPI`
 
 Identity APIs answer the question:
 
@@ -61,6 +60,10 @@ They should hold:
 
 They should **not** become broad query facades.
 
+Storage-side identity APIs, such as `DigitalAssetIdentityAPI`, answer the same
+kind of question for storage entities. They belong to `LiuXin_alpha.storage.api`
+rather than the metadata container API.
+
 ### 2.2 Metadata APIs
 
 A metadata API is the editable database-backed metadata bundle for a core entity.
@@ -70,7 +73,6 @@ Examples:
 - `ExpressionMetadataAPI`
 - `ManifestationMetadataAPI`
 - `ItemMetadataAPI`
-- storage-side metadata APIs for storage entities
 
 Metadata APIs answer the question:
 
@@ -83,6 +85,9 @@ They may contain:
 
 They should **not** act like generic row proxies.
 They should **not** hide joined graph traversal behind a metadata-shaped name.
+
+Storage-side metadata APIs for storage entities follow the same shape when
+needed, but storage owns those contracts.
 
 ### 2.3 Agent profile as the deliberate exception
 
@@ -138,6 +143,27 @@ These answer questions like:
 - what is the layered title for this item across W/E/M/I?
 
 They are **not** editable metadata bundles.
+
+### 2.6 Relation edges
+
+Relation edges are the first-class representation of link-table rows inside a
+metadata bundle.
+
+They carry:
+- durable edge identity
+- relation cardinality
+- a named cardinality-specific API shape (`OneOneRelationEdgeAPI`,
+  `OneManyRelationEdgeAPI`, `ManyOneRelationEdgeAPI`, or
+  `ManyManyRelationEdgeAPI`)
+- semantic edge `type`
+- provenance fields such as `origin` and `source`
+- ordering/selection fields such as `priority`, `primary`, and `index`
+- extension payload in `extra`
+
+Use one relation-edge class per WEMI bundle family so each family can validate
+its own relation cardinalities. Do not make every link table into a standalone
+container family unless the edge itself needs an independent lifecycle outside
+the owning metadata bundle.
 They are **not** identity objects.
 They should be visibly named as snapshots, views, or slices.
 

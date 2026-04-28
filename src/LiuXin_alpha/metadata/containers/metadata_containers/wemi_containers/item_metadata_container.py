@@ -56,7 +56,7 @@ class ItemMetadata(ItemMetadataAPI):
 
     def set_relation_links(self, relation: str, links: Iterable[ItemRelationLink]) -> None:
         relation_key = self.validate_relation_name(relation)
-        self._relation_links[relation_key] = list(links)
+        self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 
     @staticmethod
     def _serialize_target(target: Any) -> Any:
@@ -92,9 +92,16 @@ class ItemMetadata(ItemMetadataAPI):
                         "primary": link.primary,
                         "type": link.type,
                         "origin": link.origin,
+                        "source": link.source,
                         "policy": link.policy,
                         "data": link.data,
                         "index": link.index,
+                        "edge_id": link.edge_id,
+                        "cardinality": (
+                            link.cardinality.value
+                            if link.cardinality is not None
+                            else None
+                        ),
                         "extra": dict(link.extra),
                     }
                     for link in self.get_relation_links(relation)
@@ -131,9 +138,12 @@ class ItemMetadata(ItemMetadataAPI):
                         primary=raw_link.get("primary"),
                         type=raw_link.get("type"),
                         origin=raw_link.get("origin"),
+                        source=raw_link.get("source"),
                         policy=raw_link.get("policy"),
                         data=raw_link.get("data"),
                         index=raw_link.get("index"),
+                        edge_id=raw_link.get("edge_id"),
+                        cardinality=raw_link.get("cardinality"),
                         extra=dict(raw_link.get("extra") or {}),
                     )
                 )
