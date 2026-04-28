@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `backup_presence_links` (
 
   `backup_presence_link_archive_path` TEXT NOT NULL,
   `backup_presence_link_type` TEXT NOT NULL DEFAULT 'packed_presence',
+  `backup_presence_link_source` TEXT NULL,
   `backup_presence_link_output_url` TEXT NULL,
 
   `backup_presence_link_is_protected` INTEGER NOT NULL DEFAULT 1,

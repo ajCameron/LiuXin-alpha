@@ -49,6 +49,7 @@ STANDARD_LINK_COLS: frozenset[str] = frozenset(
         "primary",
         "type",
         "origin",
+        "source",
         "policy",
         "data",
         "index",
@@ -261,6 +262,7 @@ def _expected_link_table_cols(
         f"{col_base}_id",
         f"{col_base}_{a_s}_id",
         f"{col_base}_{b_s}_id",
+        f"{col_base}_source",
         f"{col_base}_datestamp",
         f"{col_base}_scratch",
     }
@@ -289,6 +291,7 @@ def _expected_intralink_table_cols(
         f"{col_base}_id",
         f"{col_base}_primary_id",
         f"{col_base}_secondary_id",
+        f"{col_base}_source",
         f"{col_base}_datestamp",
         f"{col_base}_scratch",
     }

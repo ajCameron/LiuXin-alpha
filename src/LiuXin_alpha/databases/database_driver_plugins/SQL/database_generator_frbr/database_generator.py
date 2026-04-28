@@ -412,6 +412,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         'primary': ('primary', 'INTEGER', 'NULL DEFAULT 0'),
         'type': ('type', 'TEXT', 'NULL'),
         'origin': ('origin', 'TEXT', 'NULL'),
+        'source': ('source', 'TEXT', 'NULL'),
         'policy': ('policy', 'TEXT', 'NULL'),
         'data': ('data', 'TEXT', 'NULL'),
         'index': ('index', 'TEXT', 'NULL'),
@@ -677,7 +678,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "origin", "data", "index", "sequence_number", "is_required", "nullable", "all"}
+        allowed_req_cols = {"priority", "primary", "type", "origin", "source", "policy", "data", "index", "sequence_number", "is_required", "nullable", "all"}
 
         for idx, entry in enumerate(interlinks):
             if not isinstance(entry, dict):
@@ -867,7 +868,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
           - left_table, right_table (required)
           - link_type (optional; defaults to top-level default_link_type or many_to_many)
           - requested_columns (optional; defaults to ["priority"])
-              - allowed: priority, primary, type, origin, policy, data, index, nullable, all
+              - allowed: priority, primary, type, origin, source, policy, data, index, nullable, all
               - "nullable" toggles whether the FK columns in the link table are nullable
           - allowed_types (optional; only meaningful if "type" is requested)
               - list of strings; if omitted, the type column is free-form text
@@ -976,7 +977,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "origin", "policy", "data", "index", "sequence_number", "is_required", "nullable", "all"}
+        allowed_req_cols = {"priority", "primary", "type", "origin", "source", "policy", "data", "index", "sequence_number", "is_required", "nullable", "all"}
 
         # Build a set of unordered FK edges to warn about redundant interlinks
         fk_pairs: set[tuple[str, str]] = set()
@@ -1369,7 +1370,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         Validate requested_columns from TOML for each interlink table.
 
         Supported optional columns are those in INTERLINK_TABLE_COLUMN_NAME_DICT
-        (e.g. priority, primary, type, origin, data, index) plus the legacy
+        (e.g. priority, primary, type, origin, source, data, index) plus the legacy
         requested_columns entry "nullable" (now handled via the TOML key `nullable`).
         """
         allowed_cols = set(self.INTERLINK_TABLE_COLUMN_NAME_DICT.keys())
@@ -1622,7 +1623,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(intralinks, list):
             raise TypeError("TOML key `intralinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "origin", "policy", "data", "index", "sequence_number", "is_required", "nullable", "all"}
+        allowed_req_cols = {"priority", "primary", "type", "origin", "source", "policy", "data", "index", "sequence_number", "is_required", "nullable", "all"}
 
         intralink_tables: set[str] = set()
 

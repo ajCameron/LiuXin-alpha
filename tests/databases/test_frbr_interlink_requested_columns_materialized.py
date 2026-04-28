@@ -70,3 +70,32 @@ def test_frbr_requested_columns_origin_policy_data_sequence_and_required_are_mat
 
     finally:
         conn.close()
+
+
+def test_frbr_interlink_tables_include_nullable_source(monkeypatch) -> None:
+    _without_main_triggers(monkeypatch)
+
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.execute("PRAGMA foreign_keys = ON;")
+        frbr_gen.create_new_database(conn)
+
+        for entry in _load_interlinks():
+            left = entry["left_table"]
+            right = entry["right_table"]
+            table_name, col_base = ColumnNameMixin.get_interlink_table_name(left, right)
+
+            table_info = {
+                row[1]: row
+                for row in conn.execute(f"PRAGMA table_info(`{table_name}`);").fetchall()
+            }
+            expected_col = f"{col_base}_source"
+            assert expected_col in table_info, (
+                f"Interlink table {table_name!r} missing standard source column {expected_col!r}"
+            )
+            assert int(table_info[expected_col][3]) == 0, (
+                f"Interlink source column {expected_col!r} should be nullable"
+            )
+
+    finally:
+        conn.close()

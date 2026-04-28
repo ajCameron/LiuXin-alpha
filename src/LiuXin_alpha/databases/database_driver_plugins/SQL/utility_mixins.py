@@ -362,6 +362,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                   `{0}_primary` INTEGER NULL DEFAULT 0,
                   `{0}_type` TEXT NULL,
                   `{0}_origin` TEXT NULL,
+                  `{0}_source` TEXT NULL,
                   `{0}_policy` TEXT NULL,
                   `{0}_data` TEXT NULL,
                   `{0}_index` TEXT NULL,
@@ -407,6 +408,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 link_rows_header += "\n      `{0}_origin` TEXT NULL,"
                 decrement_requested_cols.remove("origin")
 
+            # `source` is a standard relation-edge provenance column on every generated link table.
+            if "source" in decrement_requested_cols:
+                decrement_requested_cols.remove("source")
+
             if "policy" in decrement_requested_cols:
                 link_rows_header += "\n      `{0}_policy` TEXT NULL,"
                 decrement_requested_cols.remove("policy")
@@ -438,6 +443,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             decrement_requested_cols.clear()
 
             link_table_footer = """
+                  `{0}_source` TEXT NULL,
                   `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
                   `{0}_scratch` TEXT NULL"""
 
@@ -1021,7 +1027,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         Enhancements for the FRBR generator:
           - requested_cols (interlink-style optional metadata columns, plus safe bespoke TEXT cols)
-          - origin/policy/data columns (when requested)
+          - origin/source/policy/data columns
           - allowed type guards via `{table}__types` reference tables (when ``use_reference_types_table=True``)
           - symmetric ordering enforcement (either for all rows via ``symmetric=True`` or for a subset of types via
             ``symmetric_types=[...]``)
@@ -1113,6 +1119,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             _add_optional("policy", "TEXT NULL")
         if req == "all" or (req != "all" and "data" in req):
             _add_optional("data", "TEXT NULL")
+        _add_optional("source", "TEXT NULL")
 
         # Bespoke safe columns (TEXT NULL)
         if req != "all":
@@ -1122,6 +1129,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 "type",
                 "index",
                 "origin",
+                "source",
                 "policy",
                 "data",
             }
