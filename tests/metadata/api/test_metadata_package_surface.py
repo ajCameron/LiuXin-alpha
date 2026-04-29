@@ -54,6 +54,8 @@ METADATA_API_ROOT = Path("src/LiuXin_alpha/metadata/api")
                 "CalibreLikeBookMetadataAPI",
                 "LiuXinMetadataAPI",
                 "LiuXinMetaInformationAPI",
+                "LiuXinWEMIMetadataAPI",
+                "LiuXinWEMIAPI",
             ],
         ),
         (
@@ -98,6 +100,8 @@ METADATA_API_ROOT = Path("src/LiuXin_alpha/metadata/api")
             [
                 "WorkIdentity",
                 "WorkMetadata",
+                "LiuXinWEMIMetadata",
+                "LiuXinWEMI",
                 "ExpressionIdentity",
                 "ExpressionMetadata",
                 "ManifestationIdentity",
@@ -124,6 +128,8 @@ METADATA_API_ROOT = Path("src/LiuXin_alpha/metadata/api")
             [
                 "WorkIdentity",
                 "WorkMetadata",
+                "LiuXinWEMIMetadata",
+                "LiuXinWEMI",
                 "ExpressionIdentity",
                 "ExpressionMetadata",
                 "ManifestationIdentity",
@@ -168,10 +174,14 @@ def test_metadata_api_root_combines_current_public_api_roots() -> None:
     liuxin_api_root = importlib.import_module(
         "LiuXin_alpha.metadata.api.liuxin_metadata_api"
     )
+    liuxin_wemi_api_root = importlib.import_module(
+        "LiuXin_alpha.metadata.api.liuxin_wemi_metadata_api"
+    )
     assert api_root.__all__ == [
         *container_api_root.__all__,
         *calibre_api_root.__all__,
         *liuxin_api_root.__all__,
+        *liuxin_wemi_api_root.__all__,
     ]
 
 
