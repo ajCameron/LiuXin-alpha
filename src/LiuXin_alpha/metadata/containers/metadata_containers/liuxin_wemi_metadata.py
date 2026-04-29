@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from typing import Any, ClassVar, Literal, TypeAlias, cast
 
+from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ExpressionIdentityAPI,
     ExpressionRelationLink,
@@ -559,6 +560,23 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     @classmethod
     def from_sidecar_mapping(cls, payload: Mapping[str, Any]) -> "LiuXinWEMIMetadata":
         return cls.from_mapping(payload)
+
+    @classmethod
+    def from_database(
+        cls,
+        database: Any,
+        *,
+        item_id: int | None = None,
+        source_row: Mapping[str, Any] | Row | None = None,
+    ) -> "LiuXinWEMIMetadata":
+        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_hydrator import (
+            LiuXinWEMIMetadataHydrator,
+        )
+
+        return LiuXinWEMIMetadataHydrator(database).get_liuxin_wemi_metadata(
+            item_id=item_id,
+            source_row=source_row,
+        )
 
     @staticmethod
     def _bundle_from_mapping(

@@ -12,11 +12,12 @@ from LiuXin_alpha.metadata.containers.metadata_containers import MetadataTableRo
 
 from LiuXin_alpha.metadata.containers.metadata_containers import InlineSelfRelation, SelfRelationsContainer, NON_WEMI_SELF_RELATION_CONTAINERS, GenreTreeRelation, SubjectTreeRelation, SeriesTreeRelation, GenreTreeRelationsContainer, SubjectTreeRelationsContainer, SeriesTreeRelationsContainer
 
-from LiuXin_alpha.metadata.containers.metadata_containers import LiuXinWEMI, LiuXinWEMIMetadata
+from LiuXin_alpha.metadata.containers.metadata_containers import LiuXinWEMI, LiuXinWEMIMetadata, LiuXinWEMIMetadataHydrator
 
 __all__ = [
     "LiuXinWEMI",
     "LiuXinWEMIMetadata",
+    "LiuXinWEMIMetadataHydrator",
     "WorkIdentity",
     "WorkIdentities",
     "WorkMetadata",
