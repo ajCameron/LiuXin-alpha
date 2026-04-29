@@ -20,6 +20,7 @@ The import is intentionally conservative rather than exhaustive:
 - publication publishers mapped to ``agent_manifestation_links``
 - title series mapped to ``series_work_links``
 - title language mapped to ``language_work_links``
+- title tags mapped to ``labels`` and ``label_work_links``
 
 This gives a large, realistic metadata corpus for cache and query benchmarks
 without trying to mirror every ISFDB concept.
@@ -491,6 +492,23 @@ def _project_languages(row: list[Any]) -> tuple[Any, ...]:
     )
 
 
+def _project_tags(row: list[Any]) -> tuple[Any, ...]:
+    return (
+        _safe_int(row[0]),
+        _safe_str(row[1]),
+        _safe_int(row[2]),
+    )
+
+
+def _project_tag_mapping(row: list[Any]) -> tuple[Any, ...]:
+    return (
+        _safe_int(row[0]),
+        _safe_int(row[1]),
+        _safe_int(row[2]),
+        _safe_int(row[3]),
+    )
+
+
 STAGE_SPECS: dict[str, StageTableSpec] = {
     "authors": StageTableSpec(
         source_table="authors",
@@ -649,6 +667,37 @@ STAGE_SPECS: dict[str, StageTableSpec] = {
         ),
         projector=_project_languages,
     ),
+    "tags": StageTableSpec(
+        source_table="tags",
+        create_sql=(
+            "CREATE TABLE stage_tags ("
+            "tag_id INTEGER PRIMARY KEY, "
+            "tag_name TEXT, "
+            "tag_status INTEGER"
+            ");"
+        ),
+        insert_sql=(
+            "INSERT INTO stage_tags (tag_id, tag_name, tag_status) "
+            "VALUES (?, ?, ?);"
+        ),
+        projector=_project_tags,
+    ),
+    "tag_mapping": StageTableSpec(
+        source_table="tag_mapping",
+        create_sql=(
+            "CREATE TABLE stage_tag_mapping ("
+            "tagmap_id INTEGER PRIMARY KEY, "
+            "tag_id INTEGER, "
+            "title_id INTEGER, "
+            "user_id INTEGER"
+            ");"
+        ),
+        insert_sql=(
+            "INSERT INTO stage_tag_mapping (tagmap_id, tag_id, title_id, user_id) "
+            "VALUES (?, ?, ?, ?);"
+        ),
+        projector=_project_tag_mapping,
+    ),
 }
 
 
@@ -800,6 +849,8 @@ def _create_stage_indexes(conn: sqlite3.Connection) -> None:
         "CREATE INDEX idx_stage_pub_content_title_id ON stage_pub_content(title_id);",
         "CREATE INDEX idx_stage_canonical_author_title_id ON stage_canonical_author(title_id);",
         "CREATE INDEX idx_stage_canonical_author_author_id ON stage_canonical_author(author_id);",
+        "CREATE INDEX idx_stage_tag_mapping_title_id ON stage_tag_mapping(title_id);",
+        "CREATE INDEX idx_stage_tag_mapping_tag_id ON stage_tag_mapping(tag_id);",
     )
     for sql in index_sql:
         conn.execute(sql)
@@ -870,16 +921,48 @@ def _materialize_selected_subset(
         SUPPORTED_TITLE_TYPES,
     )
     stage_conn.execute("CREATE INDEX idx_selected_titles_title_id ON selected_titles(title_id);")
+
+    stage_conn.execute("DROP TABLE IF EXISTS selected_tag_mappings;")
+    stage_conn.execute(
+        """
+        CREATE TEMP TABLE selected_tag_mappings AS
+        SELECT DISTINCT tm.title_id, tm.tag_id
+        FROM stage_tag_mapping tm
+        JOIN selected_titles st ON st.title_id = tm.title_id
+        JOIN stage_tags tg ON tg.tag_id = tm.tag_id
+        WHERE tm.title_id IS NOT NULL
+          AND tm.tag_id IS NOT NULL
+          AND tg.tag_name IS NOT NULL
+          AND TRIM(tg.tag_name) <> '';
+        """
+    )
+    stage_conn.execute("CREATE INDEX idx_selected_tag_mappings_title_id ON selected_tag_mappings(title_id);")
+    stage_conn.execute("CREATE INDEX idx_selected_tag_mappings_tag_id ON selected_tag_mappings(tag_id);")
+
+    stage_conn.execute("DROP TABLE IF EXISTS selected_tags;")
+    stage_conn.execute(
+        """
+        CREATE TEMP TABLE selected_tags AS
+        SELECT DISTINCT tg.tag_id
+        FROM stage_tags tg
+        JOIN selected_tag_mappings stm ON stm.tag_id = tg.tag_id;
+        """
+    )
+    stage_conn.execute("CREATE INDEX idx_selected_tags_tag_id ON selected_tags(tag_id);")
     stage_conn.commit()
 
     counts = {
         "selected_pubs": _count(stage_conn, "selected_pubs"),
         "selected_titles": _count(stage_conn, "selected_titles"),
+        "selected_tags": _count(stage_conn, "selected_tags"),
+        "selected_tag_mappings": _count(stage_conn, "selected_tag_mappings"),
     }
     _log(
         "Selected subset ready: "
         f"{counts['selected_pubs']:,} publications, "
-        f"{counts['selected_titles']:,} titles "
+        f"{counts['selected_titles']:,} titles, "
+        f"{counts['selected_tags']:,} tags, "
+        f"{counts['selected_tag_mappings']:,} tag mappings "
         f"in {_elapsed_seconds(started_at)}"
     )
     return counts
@@ -1007,8 +1090,10 @@ def _build_frbr_target(
         author_to_agent_id: dict[int, int] = {}
         publisher_to_agent_id: dict[int, int] = {}
         source_series_to_target_id: dict[int, int] = {}
+        source_tag_to_label_id: dict[int, int] = {}
         pending_series_parent_links: list[tuple[int, int, Optional[int]]] = []
         used_series_norms: set[str] = set()
+        used_label_norms: set[str] = set()
 
         _log("Creating series rows...")
         phase_started_at = time.time()
@@ -1167,6 +1252,52 @@ def _build_frbr_target(
             )
         _log(
             f"  publisher agents: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+        )
+
+        _log("Creating labels from ISFDB tags...")
+        phase_started_at = time.time()
+        processed = 0
+        next_progress = BUILD_PROGRESS_EVERY_ROWS
+        for row in stage_conn.execute(
+            """
+            SELECT tg.tag_id, tg.tag_name, tg.tag_status
+            FROM stage_tags tg
+            JOIN selected_tags st ON st.tag_id = tg.tag_id
+            WHERE tg.tag_name IS NOT NULL AND TRIM(tg.tag_name) <> ''
+            ORDER BY tg.tag_id;
+            """
+        ):
+            tag_id, tag_name, tag_status = row
+            cur = conn.execute(
+                """
+                INSERT INTO labels (
+                    label_text,
+                    label_text_norm,
+                    label_scratch
+                ) VALUES (?, ?, ?);
+                """,
+                (
+                    str(tag_name),
+                    _allocate_unique_norm(
+                        str(tag_name),
+                        source_id=int(tag_id),
+                        seen=used_label_norms,
+                        fallback_prefix="tag",
+                    ),
+                    f"isfdb:tag:{int(tag_id)};status:{_safe_int(tag_status) if tag_status is not None else 0}",
+                ),
+            )
+            source_tag_to_label_id[int(tag_id)] = int(cur.lastrowid)
+            processed += 1
+            next_progress = _log_periodic_progress(
+                "labels",
+                processed,
+                every=BUILD_PROGRESS_EVERY_ROWS,
+                next_threshold=next_progress,
+                started_at=phase_started_at,
+            )
+        _log(
+            f"  labels: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
         )
 
         _log("Creating works and expressions...")
@@ -1577,6 +1708,57 @@ def _build_frbr_target(
         phase_started_at = time.time()
         processed = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
+        label_local_order_by_work: dict[int, int] = defaultdict(int)
+        seen_label_links: set[tuple[int, int]] = set()
+        for title_id, tag_id in stage_conn.execute(
+            """
+            SELECT stm.title_id, stm.tag_id
+            FROM selected_tag_mappings stm
+            JOIN stage_tags tg ON tg.tag_id = stm.tag_id
+            WHERE tg.tag_name IS NOT NULL AND TRIM(tg.tag_name) <> ''
+            ORDER BY stm.title_id, tg.tag_name, stm.tag_id;
+            """
+        ):
+            work_id = title_to_work_id.get(int(title_id))
+            label_id = source_tag_to_label_id.get(int(tag_id))
+            if work_id is None or label_id is None:
+                continue
+            if (work_id, label_id) in seen_label_links:
+                continue
+            seen_label_links.add((work_id, label_id))
+            local_order = label_local_order_by_work[work_id]
+            label_local_order_by_work[work_id] += 1
+            conn.execute(
+                """
+                INSERT INTO label_work_links (
+                    label_work_link_label_id,
+                    label_work_link_work_id,
+                    label_work_link_priority,
+                    label_work_link_scratch
+                ) VALUES (?, ?, ?, ?);
+                """,
+                (
+                    label_id,
+                    work_id,
+                    _priority_from_group_and_local_order(work_id, local_order),
+                    f"isfdb:title:{int(title_id)};tag:{int(tag_id)}",
+                ),
+            )
+            processed += 1
+            next_progress = _log_periodic_progress(
+                "label links",
+                processed,
+                every=BUILD_PROGRESS_EVERY_ROWS,
+                next_threshold=next_progress,
+                started_at=phase_started_at,
+            )
+        _log(
+            f"  label links: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+        )
+
+        phase_started_at = time.time()
+        processed = 0
+        next_progress = BUILD_PROGRESS_EVERY_ROWS
         for pub_id, title_id in stage_conn.execute(
             """
             SELECT DISTINCT pc.pub_id, pc.title_id
@@ -1642,10 +1824,12 @@ def _build_frbr_target(
             "items": _count(conn, "items"),
             "agents": _count(conn, "agents"),
             "series": _count(conn, "series"),
+            "labels": _count(conn, "labels"),
             "agent_work_links": _count(conn, "agent_work_links"),
             "agent_manifestation_links": _count(conn, "agent_manifestation_links"),
             "language_work_links": _count(conn, "language_work_links"),
             "series_work_links": _count(conn, "series_work_links"),
+            "label_work_links": _count(conn, "label_work_links"),
             "expression_manifestation_links": _count(conn, "expression_manifestation_links"),
         }
         _log(f"Target database build completed in {_elapsed_seconds(build_started_at)}")

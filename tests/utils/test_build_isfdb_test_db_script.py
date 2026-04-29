@@ -157,10 +157,30 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
                 (1, "English", "en"),
             ],
         )
+        stage_conn.executemany(
+            module.STAGE_SPECS["tags"].insert_sql,
+            [
+                (1, "Space Opera", 0),
+                (2, "Shared Tag", 1),
+                (3, "Unselected Tag", 0),
+            ],
+        )
+        stage_conn.executemany(
+            module.STAGE_SPECS["tag_mapping"].insert_sql,
+            [
+                (1, 1, 10, 2),
+                (2, 2, 10, 3),
+                (3, 1, 10, 4),
+                (4, 1, 20, 2),
+                (5, 3, 999, 2),
+            ],
+        )
         stage_conn.commit()
 
         module._create_stage_indexes(stage_conn)
-        module._materialize_selected_subset(stage_conn, max_pubs=None)
+        selection_counts = module._materialize_selected_subset(stage_conn, max_pubs=None)
+        assert selection_counts["selected_tags"] == 2
+        assert selection_counts["selected_tag_mappings"] == 3
 
         output_db = tmp_path / "isfdb_regression.test_db"
         counts = module._build_frbr_target(stage_conn=stage_conn, output_db=output_db)
@@ -172,6 +192,8 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
         assert counts["agent_manifestation_links"] == 3
         assert counts["language_work_links"] == 2
         assert counts["series_work_links"] == 2
+        assert counts["labels"] == 2
+        assert counts["label_work_links"] == 3
         assert counts["expression_manifestation_links"] == 3
 
         conn = sqlite3.connect(str(output_db))
@@ -241,6 +263,37 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
                 for _, link_count, primary_count, distinct_priority_count in per_expression
             )
             assert all(primary_count == 1 for _, _, primary_count, _ in per_expression)
+
+            label_rows = conn.execute(
+                """
+                SELECT label_text, label_text_norm, label_scratch
+                FROM labels
+                ORDER BY label_text_norm;
+                """
+            ).fetchall()
+            assert label_rows == [
+                ("Shared Tag", "shared-tag", "isfdb:tag:2;status:1"),
+                ("Space Opera", "space-opera", "isfdb:tag:1;status:0"),
+            ]
+
+            linked_labels = conn.execute(
+                """
+                SELECT w.work_scratch, l.label_text, lwl.label_work_link_priority
+                FROM label_work_links lwl
+                JOIN labels l ON l.label_id = lwl.label_work_link_label_id
+                JOIN works w ON w.work_id = lwl.label_work_link_work_id
+                ORDER BY w.work_scratch, l.label_text;
+                """
+            ).fetchall()
+            assert [(work, label) for work, label, _priority in linked_labels] == [
+                ("isfdb:title:10", "Shared Tag"),
+                ("isfdb:title:10", "Space Opera"),
+                ("isfdb:title:20", "Space Opera"),
+            ]
+            priorities_by_label = {}
+            for _work, label, priority in linked_labels:
+                priorities_by_label.setdefault(label, set()).add(priority)
+            assert len(priorities_by_label["Space Opera"]) == 2
         finally:
             conn.close()
     finally:
