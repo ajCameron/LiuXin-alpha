@@ -260,3 +260,38 @@ def test_non_wemi_rows_export_from_concrete_surface_not_api() -> None:
         assert not hasattr(api_module, expected_name), (
             f"metadata.api should not export concrete {expected_name}"
         )
+
+
+def test_non_wemi_main_table_rows_are_split_by_table_module() -> None:
+    expected_modules = {
+        "AnnotationRow": "annotation_row",
+        "CommentRow": "comment_row",
+        "EntityIdentifierRow": "entity_identifier_row",
+        "GenreRow": "genre_row",
+        "HumanAgentRow": "human_agent_row",
+        "LabelRow": "label_row",
+        "LanguageRow": "language_row",
+        "NoteRow": "note_row",
+        "ObservedItemIdentifierRow": "observed_item_identifier_row",
+        "OrgAgentRelationRow": "org_agent_relation_row",
+        "OrgAgentRow": "org_agent_row",
+        "RatingRow": "rating_row",
+        "SeriesRow": "series_row",
+        "SubjectRow": "subject_row",
+        "SynopsisRow": "synopsis_row",
+    }
+
+    for class_name, module_leaf in expected_modules.items():
+        module = importlib.import_module(
+            "LiuXin_alpha.metadata.containers.metadata_containers."
+            f"non_wemi_containers.{module_leaf}"
+        )
+        row_class = getattr(module, class_name)
+        assert row_class.__module__.endswith(f".{module_leaf}")
+
+    compatibility_module = importlib.import_module(
+        "LiuXin_alpha.metadata.containers.metadata_containers."
+        "non_wemi_containers.main_table_rows"
+    )
+    for class_name in expected_modules:
+        assert hasattr(compatibility_module, class_name)

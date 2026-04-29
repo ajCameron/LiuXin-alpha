@@ -49,10 +49,15 @@ METADATA_API_ROOT = Path("src/LiuXin_alpha/metadata/api")
                 "ManifestationRelationTarget",
                 "ItemRelationEdge",
                 "ItemRelationTarget",
+                "CalibreMetadataInputAPI",
+                "CalibreMetadataAPI",
+                "CalibreLikeBookMetadataAPI",
+                "LiuXinMetadataAPI",
+                "LiuXinMetaInformationAPI",
             ],
         ),
         (
-            "LiuXin_alpha.metadata.api.metadata_container_api",
+            "LiuXin_alpha.metadata.api.containers_api",
             [
                 "WorkIdentityAPI",
                 "WorkMetadataAPI",
@@ -141,7 +146,7 @@ METADATA_API_ROOT = Path("src/LiuXin_alpha/metadata/api")
             ],
         ),
         (
-            "LiuXin_alpha.metadata.api.metadata_db_source",
+            "LiuXin_alpha.metadata.api.from_database_api",
             ["DBMetadataSourceAPI"],
         ),
     ],
@@ -152,12 +157,22 @@ def test_metadata_package_import_surface(module_name: str, expected_names: list[
         assert hasattr(module, expected_name), f"{module_name} is missing {expected_name}"
 
 
-def test_metadata_api_root_matches_metadata_container_api_root() -> None:
+def test_metadata_api_root_combines_current_public_api_roots() -> None:
     api_root = importlib.import_module("LiuXin_alpha.metadata.api")
     container_api_root = importlib.import_module(
-        "LiuXin_alpha.metadata.api.metadata_container_api"
+        "LiuXin_alpha.metadata.api.containers_api"
     )
-    assert api_root.__all__ == container_api_root.__all__
+    calibre_api_root = importlib.import_module(
+        "LiuXin_alpha.metadata.api.calibre_metadata_api"
+    )
+    liuxin_api_root = importlib.import_module(
+        "LiuXin_alpha.metadata.api.liuxin_metadata_api"
+    )
+    assert api_root.__all__ == [
+        *container_api_root.__all__,
+        *calibre_api_root.__all__,
+        *liuxin_api_root.__all__,
+    ]
 
 
 def test_metadata_container_root_matches_metadata_containers_root() -> None:
@@ -224,7 +239,7 @@ def _name_from_ast(node: ast.AST) -> str | None:
             ],
         ),
         (
-            "LiuXin_alpha.metadata.api.metadata_container_api",
+            "LiuXin_alpha.metadata.api.containers_api",
             [
                 "WorkMetadata",
                 "WorkTitle",
@@ -233,7 +248,7 @@ def _name_from_ast(node: ast.AST) -> str | None:
             ],
         ),
         (
-            "LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api",
+            "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api",
             [
                 "WorkMetadata",
                 "WorkTitle",
@@ -255,8 +270,8 @@ def test_metadata_api_surfaces_do_not_export_concrete_containers(
 @pytest.mark.parametrize(
     "module_name",
     [
-        "LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_metadata_api",
-        "LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api",
+        "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api",
+        "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api",
     ],
 )
 def test_metadata_leaf_all_names_exist(module_name: str) -> None:

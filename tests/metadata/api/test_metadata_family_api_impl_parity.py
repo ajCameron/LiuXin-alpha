@@ -9,7 +9,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import
     WorkTitle,
 )
 
-API_WEMI_DIR = Path("src/LiuXin_alpha/metadata/api/metadata_container_api/wemi_containers_api")
+API_WEMI_DIR = Path("src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api")
 
 REMOVED_API_FAMILY_MODULES = [
     API_WEMI_DIR / "agent_containers" / "agent_credit_containers.py",
@@ -36,7 +36,7 @@ def test_api_family_modules_are_not_duplicated_as_leaf_files() -> None:
 
 def test_api_root_does_not_reexport_canonical_container_implementations() -> None:
     api_module = importlib.import_module(
-        "LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api"
+        "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api"
     )
     container_module = importlib.import_module(
         "LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers"

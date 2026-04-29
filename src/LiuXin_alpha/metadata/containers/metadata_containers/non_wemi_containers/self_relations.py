@@ -6,7 +6,9 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Generic, Iterator, TypeVar
 
 from ._row_base import MetadataTableRow, MetadataRowValue
-from .main_table_rows import GenreRow, SeriesRow, SubjectRow
+from .genre_row import GenreRow
+from .series_row import SeriesRow
+from .subject_row import SubjectRow
 
 
 RowT = TypeVar("RowT", bound=MetadataTableRow)
