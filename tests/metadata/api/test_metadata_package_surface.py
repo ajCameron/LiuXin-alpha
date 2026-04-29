@@ -153,7 +153,16 @@ METADATA_API_ROOT = Path("src/LiuXin_alpha/metadata/api")
         ),
         (
             "LiuXin_alpha.metadata.api.from_database_api",
-            ["DBMetadataSourceAPI"],
+            [
+                "CalibreMetadataGetterAPI",
+                "DBMetadataSourceAPI",
+                "HydratableMetadataKind",
+                "HydratedMetadataAPI",
+                "LiuXinMetadataGetterAPI",
+                "LiuXinWEMIMetadataGetterAPI",
+                "MetadataHydratorAPI",
+                "MetadataObjectGetterAPI",
+            ],
         ),
     ],
 )
