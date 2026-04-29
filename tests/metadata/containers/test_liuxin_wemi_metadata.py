@@ -135,6 +135,42 @@ def test_liuxin_wemi_metadata_routes_wemi_relation_link_access() -> None:
     )
 
 
+def test_liuxin_wemi_metadata_pretty_string_summarizes_slice() -> None:
+    metadata = _sample_metadata()
+    metadata.set_identifier("isbn", "9780306406157")
+    metadata.add_wemi_relation_link(
+        "item",
+        "identifier",
+        ItemRelationLink(
+            target={"scheme": "isbn", "value": "9780306406157"},
+            edge_id="item-identifier-edge",
+            source="unit-test",
+        ),
+    )
+
+    text = metadata.pretty_string()
+
+    assert str(metadata) == text
+    assert metadata.to_pretty_string() == text
+    assert text.splitlines()[0] == "LiuXin WEMI Metadata"
+    assert "Title: Legacy Title" in text
+    assert "Canonical title: Canonical Work Title" in text
+    assert "Sort title: Work Title, Canonical" in text
+    assert "Database ids:" in text
+    assert "work_id: 10" in text
+    assert "expression_id: 20" in text
+    assert "manifestation_id: 30" in text
+    assert "item_id: 40" in text
+    assert "WEMI stack:" in text
+    assert "  Work:" in text
+    assert "    work_canonical_title: Canonical Work Title" in text
+    assert "  Item:" in text
+    assert "    item_source_name: source.epub" in text
+    assert "    relations: identifiers: 1" in text
+    assert "Legacy fields:" in text
+    assert "  identifiers: {isbn=[9780306406157]}" in text
+
+
 def test_liuxin_wemi_metadata_sidecar_mapping_round_trips_slice() -> None:
     metadata = _sample_metadata()
     metadata.set_identifier("isbn", "9780306406157")

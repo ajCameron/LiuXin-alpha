@@ -291,6 +291,38 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         :return:
         """
 
+    def pretty_string(
+        self,
+        *,
+        include_empty: bool = False,
+        include_relations: bool = True,
+        include_legacy: bool = True,
+    ) -> str:
+        """
+        Return a compact human-readable metadata summary.
+
+        :param include_empty:
+        :param include_relations:
+        :param include_legacy:
+        :return:
+        """
+
+    def to_pretty_string(
+        self,
+        *,
+        include_empty: bool = False,
+        include_relations: bool = True,
+        include_legacy: bool = True,
+    ) -> str:
+        """
+        Return a compact human-readable metadata summary.
+
+        :param include_empty:
+        :param include_relations:
+        :param include_legacy:
+        :return:
+        """
+
     def get_wemi_metadata(self, level: WemiLevel) -> WemiMetadataBundleAPI:
         """
         Get the metadata bundle for a WEMI level.

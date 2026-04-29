@@ -115,6 +115,57 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         "manifestation": "manifestation_id",
         "item": "item_id",
     }
+    _PRETTY_IDENTITY_FIELDS: ClassVar[dict[WemiLevel, tuple[str, ...]]] = {
+        "work": (
+            "work_id",
+            "work_canonical_title",
+            "work_title",
+            "work_sort_title",
+            "work_type",
+            "work_original_year",
+        ),
+        "expression": (
+            "expression_id",
+            "expression_work_id",
+            "expression_title_override",
+            "expression_subtitle",
+            "expression_type",
+            "expression_language_id",
+            "expression_year",
+            "expression_wordcount",
+        ),
+        "manifestation": (
+            "manifestation_id",
+            "manifestation_expression_id",
+            "manifestation_format_detail",
+            "manifestation_carrier_type",
+            "manifestation_edition_statement",
+            "manifestation_pub_year",
+        ),
+        "item": (
+            "item_id",
+            "item_manifestation_id",
+            "item_type",
+            "item_source",
+            "item_source_name",
+            "item_source_path",
+            "item_lifecycle_status",
+        ),
+    }
+    _PRETTY_LEGACY_FIELDS: ClassVar[tuple[str, ...]] = (
+        "title",
+        "title_sort",
+        "authors",
+        "creator_sort",
+        "identifiers",
+        "internal_identifiers",
+        "tags",
+        "languages",
+        "publisher",
+        "series",
+        "ratings",
+        "comments",
+    )
 
     def __init__(
         self,
@@ -380,6 +431,84 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
                 return str(value).strip()
         return None
 
+    def pretty_string(
+        self,
+        *,
+        include_empty: bool = False,
+        include_relations: bool = True,
+        include_legacy: bool = True,
+    ) -> str:
+        """Return a compact human-readable view of this metadata slice."""
+        lines = ["LiuXin WEMI Metadata"]
+        self._append_pretty_value(lines, "Title", self.display_title)
+        self._append_pretty_value(lines, "Canonical title", self.canonical_title)
+        self._append_pretty_value(lines, "Sort title", self.sort_title)
+
+        database_ids = self._filtered_mapping(self.database_ids, include_empty)
+        if database_ids:
+            lines.append("")
+            lines.append("Database ids:")
+            self._append_pretty_mapping(lines, database_ids, indent="  ")
+
+        lines.append("")
+        lines.append("WEMI stack:")
+        for level in self._LEVELS:
+            identity = self.get_wemi_identity(level)
+            lines.append(f"  {level.title()}:")
+            if identity is None:
+                lines.append("    empty")
+                continue
+
+            identity_mapping = self._pretty_identity_mapping(level, identity, include_empty)
+            if identity_mapping:
+                self._append_pretty_mapping(lines, identity_mapping, indent="    ")
+
+            if include_relations:
+                relation_summary = self._pretty_relation_summary(
+                    self.get_wemi_metadata(level),
+                    include_empty,
+                )
+                if relation_summary:
+                    lines.append("    relations: " + ", ".join(relation_summary))
+
+        if include_legacy:
+            legacy_mapping = self._pretty_legacy_mapping(include_empty)
+            if legacy_mapping:
+                lines.append("")
+                lines.append("Legacy fields:")
+                self._append_pretty_mapping(lines, legacy_mapping, indent="  ")
+
+        return "\n".join(lines).rstrip()
+
+    def to_pretty_string(
+        self,
+        *,
+        include_empty: bool = False,
+        include_relations: bool = True,
+        include_legacy: bool = True,
+    ) -> str:
+        """Alias for callers that prefer ``to_*`` serialization names."""
+        return self.pretty_string(
+            include_empty=include_empty,
+            include_relations=include_relations,
+            include_legacy=include_legacy,
+        )
+
+    def __unicode__(self) -> str:
+        return self.pretty_string()
+
+    def __str__(self) -> str:
+        return self.__unicode__()
+
+    def __repr__(self) -> str:
+        return (
+            "LiuXinWEMIMetadata(title={!r}, item_id={!r}, work_id={!r})".format(
+                self.display_title,
+                self.get_database_id("item"),
+                self.get_database_id("work"),
+            )
+        )
+
     def _iter_title_candidates(self) -> Iterable[str | None]:
         legacy_title = self.get("title", None)
         work = self.work
@@ -484,6 +613,146 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         if title is not None:
             self.title = title
         return title
+
+    @classmethod
+    def _is_empty_pretty_value(cls, value: Any) -> bool:
+        if value is None:
+            return True
+        if value == "":
+            return True
+        if isinstance(value, (Mapping, list, tuple, set, frozenset)):
+            return len(value) == 0
+        return False
+
+    @classmethod
+    def _filtered_mapping(
+        cls,
+        mapping: Mapping[str, Any],
+        include_empty: bool,
+    ) -> dict[str, Any]:
+        return {
+            str(key): value
+            for key, value in mapping.items()
+            if include_empty or not cls._is_empty_pretty_value(value)
+        }
+
+    @classmethod
+    def _append_pretty_value(
+        cls,
+        lines: list[str],
+        label: str,
+        value: Any,
+        *,
+        indent: str = "",
+    ) -> None:
+        if cls._is_empty_pretty_value(value):
+            return
+        lines.append(f"{indent}{label}: {cls._format_pretty_value(value)}")
+
+    @classmethod
+    def _append_pretty_mapping(
+        cls,
+        lines: list[str],
+        mapping: Mapping[str, Any],
+        *,
+        indent: str,
+    ) -> None:
+        for key, value in mapping.items():
+            lines.append(f"{indent}{key}: {cls._format_pretty_value(value)}")
+
+    @classmethod
+    def _format_pretty_value(
+        cls,
+        value: Any,
+        *,
+        max_items: int = 5,
+        max_chars: int = 160,
+    ) -> str:
+        if value is None:
+            return "None"
+        if isinstance(value, str):
+            text = " ".join(value.split())
+        elif isinstance(value, Mapping):
+            items = list(value.items())
+            rendered = [
+                "{}={}".format(key, cls._format_pretty_value(one_value))
+                for key, one_value in items[:max_items]
+            ]
+            if len(items) > max_items:
+                rendered.append("... (+{} more)".format(len(items) - max_items))
+            text = "{" + ", ".join(rendered) + "}"
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            values = list(value)
+            rendered = [
+                cls._format_pretty_value(one_value)
+                for one_value in values[:max_items]
+            ]
+            if len(values) > max_items:
+                rendered.append("... (+{} more)".format(len(values) - max_items))
+            text = "[" + ", ".join(rendered) + "]"
+        else:
+            text = str(value)
+
+        if len(text) > max_chars:
+            return text[: max(0, max_chars - 4)].rstrip() + " ..."
+        return text
+
+    @classmethod
+    def _identity_to_mapping(cls, identity: WemiIdentity) -> dict[str, Any]:
+        to_mapping = getattr(identity, "to_mapping", None)
+        if callable(to_mapping):
+            return dict(to_mapping())
+        to_dict = getattr(identity, "to_dict", None)
+        if callable(to_dict):
+            return dict(to_dict())
+        return {}
+
+    @classmethod
+    def _pretty_identity_mapping(
+        cls,
+        level: WemiLevel,
+        identity: WemiIdentity,
+        include_empty: bool,
+    ) -> dict[str, Any]:
+        identity_mapping = cls._identity_to_mapping(identity)
+        fields = cls._PRETTY_IDENTITY_FIELDS[level]
+        preferred = {
+            field: identity_mapping.get(field)
+            for field in fields
+            if field in identity_mapping
+        }
+        return cls._filtered_mapping(preferred, include_empty)
+
+    @classmethod
+    def _pretty_relation_summary(
+        cls,
+        metadata: WemiMetadataBundle,
+        include_empty: bool,
+    ) -> list[str]:
+        summaries: list[str] = []
+        for relation in metadata.relation_names():
+            count = len(metadata.get_relation_links(relation))
+            if count or include_empty:
+                summaries.append(f"{relation}: {count}")
+        return summaries
+
+    def _pretty_legacy_mapping(self, include_empty: bool) -> dict[str, Any]:
+        data = object.__getattribute__(self, "_data")
+        preferred: dict[str, Any] = {}
+        for key in self._PRETTY_LEGACY_FIELDS:
+            if key == "identifiers":
+                preferred[key] = self._filtered_mapping(
+                    self.get_identifiers(),
+                    include_empty,
+                )
+            elif key == "internal_identifiers":
+                preferred[key] = self._filtered_mapping(
+                    self.get_internal_identifiers(),
+                    include_empty,
+                )
+            elif key in data:
+                preferred[key] = data.get(key)
+        return self._filtered_mapping(preferred, include_empty)
 
     def to_wemi_mapping(self, include_related: bool = True) -> dict[str, Any]:
         return {
