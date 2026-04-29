@@ -32,6 +32,12 @@ import pkgutil
 from LiuXin_alpha.databases.bootstrap_constants import AGENTS_NULL_CANONICAL_NAME
 
 
+PROFILED_COMMON_TAG = "profiled-fixture"
+PROFILED_FIRST_TAG = "first-work"
+PROFILED_ODD_TAG = "odd-indexed-work"
+PROFILED_EVEN_TAG = "even-indexed-work"
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -814,52 +820,53 @@ def _build_profiled_test_db(
         _ensure_required_null_rows(conn)
 
         if books > 0:
-                seeded = [
-                    _insert_minimal_wemi_book(conn, title=f"{db_name} title {idx + 1:03d}")
-                    for idx in range(books)
-                ]
+            seeded = [
+                _insert_minimal_wemi_book(conn, title=f"{db_name} title {idx + 1:03d}")
+                for idx in range(books)
+            ]
+            work_ids = [row[0] for row in seeded]
+            item_ids = [row[3] for row in seeded]
+            _seed_profiled_tags(conn, db_name=db_name, work_ids=work_ids)
 
-                if folders > 0:
-                    ensure_surface_asset_tables_sqlite(
-                        conn,
-                        include_file_folder_links=True,
-                    )
-                    work_ids = [row[0] for row in seeded]
-                    item_ids = [row[3] for row in seeded]
-                    folder_ids: list[int] = []
+            if folders > 0:
+                ensure_surface_asset_tables_sqlite(
+                    conn,
+                    include_file_folder_links=True,
+                )
+                folder_ids: list[int] = []
 
-                for folder_idx in range(folders):
-                    cur = conn.execute(
-                        "INSERT INTO folders (folder_scratch) VALUES (?);",
-                        (f"{db_name}-folder-{folder_idx}",),
-                    )
-                    folder_id = int(cur.lastrowid)
-                    folder_ids.append(folder_id)
-                    conn.execute(
-                        "INSERT INTO folder_work_links "
-                        "(folder_work_link_folder_id, folder_work_link_work_id, folder_work_link_priority) "
-                        "VALUES (?, ?, ?);",
-                        (folder_id, work_ids[folder_idx % len(work_ids)], folder_idx + 1),
-                    )
+            for folder_idx in range(folders):
+                cur = conn.execute(
+                    "INSERT INTO folders (folder_scratch) VALUES (?);",
+                    (f"{db_name}-folder-{folder_idx}",),
+                )
+                folder_id = int(cur.lastrowid)
+                folder_ids.append(folder_id)
+                conn.execute(
+                    "INSERT INTO folder_work_links "
+                    "(folder_work_link_folder_id, folder_work_link_work_id, folder_work_link_priority) "
+                    "VALUES (?, ?, ?);",
+                    (folder_id, work_ids[folder_idx % len(work_ids)], folder_idx + 1),
+                )
 
-                file_count = files if files > 0 else folders
-                ext_iter = cycle(["epub", "mobi", "pdf"])
-                for file_idx in range(file_count):
-                    folder_id = folder_ids[file_idx % len(folder_ids)]
-                    item_id = item_ids[file_idx % len(item_ids)]
-                    ext = next(ext_iter)
-                    curf = conn.execute(
-                        "INSERT INTO files "
-                        "(file_item_id, file_folder_id, file_size_bytes, file_extension, file_base_name) "
-                        "VALUES (?, ?, ?, ?, ?);",
-                        (item_id, folder_id, 1234, ext, f"{db_name}-file-{file_idx}"),
-                    )
-                    file_id = int(curf.lastrowid)
-                    conn.execute(
-                        "INSERT INTO file_folder_links (file_folder_link_file_id, file_folder_link_folder_id) "
-                        "VALUES (?, ?);",
-                        (file_id, folder_id),
-                    )
+            file_count = files if files > 0 else folders
+            ext_iter = cycle(["epub", "mobi", "pdf"])
+            for file_idx in range(file_count):
+                folder_id = folder_ids[file_idx % len(folder_ids)]
+                item_id = item_ids[file_idx % len(item_ids)]
+                ext = next(ext_iter)
+                curf = conn.execute(
+                    "INSERT INTO files "
+                    "(file_item_id, file_folder_id, file_size_bytes, file_extension, file_base_name) "
+                    "VALUES (?, ?, ?, ?, ?);",
+                    (item_id, folder_id, 1234, ext, f"{db_name}-file-{file_idx}"),
+                )
+                file_id = int(curf.lastrowid)
+                conn.execute(
+                    "INSERT INTO file_folder_links (file_folder_link_file_id, file_folder_link_folder_id) "
+                    "VALUES (?, ?);",
+                    (file_id, folder_id),
+                )
 
         _normalize_test_db_for_determinism(conn, db_name=db_name)
         conn.commit()
@@ -914,6 +921,76 @@ def _insert_minimal_wemi_book(conn, *, title: str) -> tuple[int, int, int, int]:
     )
 
     return work_id, expression_id, manifestation_id, item_id
+
+
+def _norm_text(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", str(value).strip().lower()).strip("-")
+
+
+def _seed_profiled_tags(conn, *, db_name: str, work_ids: Sequence[int]) -> None:
+    """Add deterministic tag-like labels to generated profile databases."""
+
+    if not work_ids or not _table_exists(conn, "labels") or not _table_exists(conn, "label_work_links"):
+        return
+
+    label_ids: dict[str, int] = {}
+
+    def label_id_for(text: str) -> int:
+        existing = label_ids.get(text)
+        if existing is not None:
+            return existing
+
+        norm = _norm_text(text)
+        row = conn.execute(
+            "SELECT label_id FROM labels WHERE label_text_norm = ? LIMIT 1;",
+            (norm,),
+        ).fetchone()
+        if row is None:
+            row = conn.execute(
+                "INSERT INTO labels (label_text, label_text_norm, label_description, label_scratch) "
+                "VALUES (?, ?, ?, ?);",
+                (text, norm, f"Synthetic tag for {db_name}", f"fixture:{db_name}:tag:{norm}"),
+            )
+            label_id = int(row.lastrowid)
+        else:
+            label_id = int(row[0])
+
+        label_ids[text] = label_id
+        return label_id
+
+    common_label_id = label_id_for(PROFILED_COMMON_TAG)
+    db_label_id = label_id_for(db_name)
+    first_label_id = label_id_for(PROFILED_FIRST_TAG)
+
+    link_specs: list[tuple[int, int, str]] = []
+    for offset, work_id in enumerate(work_ids, start=1):
+        parity_tag = PROFILED_ODD_TAG if offset % 2 else PROFILED_EVEN_TAG
+        parity_label_id = label_id_for(parity_tag)
+        link_specs.extend(
+            [
+                (common_label_id, int(work_id), PROFILED_COMMON_TAG),
+                (db_label_id, int(work_id), db_name),
+                (parity_label_id, int(work_id), parity_tag),
+            ]
+        )
+        if offset == 1:
+            link_specs.append((first_label_id, int(work_id), PROFILED_FIRST_TAG))
+
+    per_label_offsets: dict[int, int] = {}
+    for label_id, work_id, tag_text in link_specs:
+        local = per_label_offsets.get(label_id, 0)
+        per_label_offsets[label_id] = local + 1
+        conn.execute(
+            "INSERT INTO label_work_links "
+            "(label_work_link_label_id, label_work_link_work_id, label_work_link_priority, label_work_link_scratch) "
+            "VALUES (?, ?, ?, ?);",
+            (
+                label_id,
+                work_id,
+                (label_id * 1_000_000) + local,
+                f"fixture:{db_name}:work:{work_id}:tag:{_norm_text(tag_text)}",
+            ),
+        )
 
 
 def _normalize_test_db_for_determinism(conn, *, db_name: str) -> None:
