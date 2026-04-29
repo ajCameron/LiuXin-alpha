@@ -6,7 +6,7 @@ implementations live under ``LiuXin_alpha.metadata.containers``.
 
 from __future__ import annotations
 
-from LiuXin_alpha.metadata.api.containers_api.other_containers_api import (
+from LiuXin_alpha.metadata.api.containers_api.main_table_containers_api import (
     AnnotationRowAPI,
     CommentRowAPI,
     EntityIdentifierRowAPI,

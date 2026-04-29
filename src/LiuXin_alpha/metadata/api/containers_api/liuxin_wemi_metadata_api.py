@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Literal, Protocol, Self, TypeAlias
 
-from LiuXin_alpha.metadata.api.calibre_metadata_api import CalibreMetadataAPI
+from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import CalibreMetadataAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ExpressionIdentityAPI,
     ExpressionMetadataAPI,
@@ -31,7 +31,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     WorkRelationLink,
     WorkRelationTarget,
 )
-from LiuXin_alpha.metadata.api.liuxin_metadata_api import (
+from LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api import (
     LiuXinFieldMapping,
     LiuXinMetadataAPI,
 )

@@ -6,9 +6,8 @@ from collections.abc import Iterable, Mapping, Sequence, Set
 from datetime import datetime
 from typing import Protocol, Self, TypeAlias
 
-from LiuXin_alpha.metadata.api.calibre_metadata_api import (
+from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import (
     CalibreCloseableAPI,
-    CalibreFieldDescriptor,
     CalibreFilePayload,
     CalibreIdentifierMapping,
     CalibreIdentifierSnapshot,

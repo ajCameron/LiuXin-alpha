@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from LiuXin_alpha.metadata.api.containers_api.other_containers_api.row_api import (
+from LiuXin_alpha.metadata.api.containers_api.main_table_containers_api.row_api import (
     AnnotationRowAPI,
     CommentRowAPI,
     EntityIdentifierRowAPI,
@@ -22,7 +22,7 @@ from LiuXin_alpha.metadata.api.containers_api.other_containers_api.row_api impor
     SubjectRowAPI,
     SynopsisRowAPI,
 )
-from LiuXin_alpha.metadata.api.containers_api.other_containers_api.self_relation_api import (
+from LiuXin_alpha.metadata.api.containers_api.main_table_containers_api.self_relation_api import (
     GenreTreeRelationAPI,
     GenreTreeRelationsContainerAPI,
     InlineSelfRelationAPI,

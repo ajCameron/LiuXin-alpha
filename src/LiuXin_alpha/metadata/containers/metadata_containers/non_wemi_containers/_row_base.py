@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import fields
 from typing import ClassVar, Self
 
-from LiuXin_alpha.metadata.api.containers_api.other_containers_api import (
+from LiuXin_alpha.metadata.api.containers_api.main_table_containers_api import (
     MetadataRowMapping,
     MetadataRowValue,
     MetadataTableRowAPI,
