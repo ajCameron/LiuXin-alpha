@@ -48,7 +48,12 @@ ExpressionRelationLink: TypeAlias = ExpressionRelationEdge
 
 
 class ExpressionMetadataAPI(abc.ABC):
-    """Rich metadata bundle centred on one expression."""
+    """
+    API for a container that holds all metadata associated with one expression.
+
+    Implementations should expose the core expression row, parent work context,
+    child manifestation/item context, and relation-edge metadata.
+    """
 
     RELATION_KEYS: ClassVar[tuple[str, ...]] = (
         "works",
@@ -122,20 +127,20 @@ class ExpressionMetadataAPI(abc.ABC):
     @property
     @abc.abstractmethod
     def expression(self) -> Optional[ExpressionIdentityAPI]:
-        raise NotImplementedError
+        """Primary expression row for this metadata bundle."""
 
     @expression.setter
     @abc.abstractmethod
     def expression(self, value: Optional[ExpressionIdentityAPI]) -> None:
-        raise NotImplementedError
+        """Set primary expression row."""
 
     @abc.abstractmethod
     def get_relation_links(self, relation: str) -> list[ExpressionRelationLink]:
-        raise NotImplementedError
+        """Get edge metadata links for one relation type."""
 
     @abc.abstractmethod
     def set_relation_links(self, relation: str, links: Iterable[ExpressionRelationLink]) -> None:
-        raise NotImplementedError
+        """Replace edge metadata links for one relation type."""
 
     def add_relation_link(self, relation: str, link: ExpressionRelationLink) -> None:
         relation_key = self.validate_relation_name(relation)
@@ -332,12 +337,22 @@ class ExpressionMetadataAPI(abc.ABC):
 
     @abc.abstractmethod
     def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
-        raise NotImplementedError
+        """
+        Serialize this expression metadata bundle to a metadata record.
+
+        :param include_related:
+        :return:
+        """
 
     @classmethod
     @abc.abstractmethod
     def from_mapping(cls, payload: MetadataRecord) -> Self:
-        raise NotImplementedError
+        """
+        Build an expression metadata bundle from a metadata record.
+
+        :param payload:
+        :return:
+        """
 
 __all__ = [
     "ExpressionRelationEdge",

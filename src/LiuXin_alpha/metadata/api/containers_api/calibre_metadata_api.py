@@ -1,4 +1,9 @@
-"""API contracts for Calibre-shaped book metadata objects."""
+"""API contracts for Calibre-shaped book metadata objects.
+
+Category: high-level metadata compatibility API.
+This module defines the subset of Calibre's mutable book metadata surface used
+by LiuXin import/export and plugin-facing workflows.
+"""
 
 from __future__ import annotations
 

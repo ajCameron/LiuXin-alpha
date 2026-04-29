@@ -87,6 +87,7 @@ def test_relation_name_validation_supports_aliases() -> None:
     assert ItemMetadataAPI.validate_relation_name("digital_asset") == "digital_assets"
     assert ItemMetadataAPI.validate_relation_name("replica") == "asset_replicas"
     assert ItemMetadataAPI.validate_relation_name("cover") == "images"
+    assert ItemMetadataAPI.validate_relation_name("title") == "titles"
     with pytest.raises(KeyError):
         ItemMetadataAPI.validate_relation_name("not-a-relation")
 

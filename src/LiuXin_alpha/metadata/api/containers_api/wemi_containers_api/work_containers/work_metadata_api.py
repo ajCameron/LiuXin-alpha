@@ -67,6 +67,7 @@ class WorkMetadataAPI(abc.ABC):
         "manifestations",
         "items",
         "files",
+        "titles",
         "genres",
         "subjects",
         "series",
@@ -96,6 +97,7 @@ class WorkMetadataAPI(abc.ABC):
         "manifestation": "manifestations",
         "item": "items",
         "file": "files",
+        "title": "titles",
         "genre": "genres",
         "subject": "subjects",
         "tag": "tags",
@@ -113,6 +115,7 @@ class WorkMetadataAPI(abc.ABC):
     }
     RELATION_CARDINALITIES: ClassVar[Mapping[str, RelationCardinality]] = {
         "expressions": RelationCardinality.ONE_TO_MANY,
+        "titles": RelationCardinality.ONE_TO_MANY,
         "identifiers": RelationCardinality.ONE_TO_MANY,
         "ratings": RelationCardinality.ONE_TO_MANY,
         "notes": RelationCardinality.ONE_TO_MANY,
@@ -318,6 +321,14 @@ class WorkMetadataAPI(abc.ABC):
     @files.setter
     def files(self, values: Iterable[WorkRelationTarget]) -> None:
         self.set_related("files", values)
+
+    @property
+    def titles(self) -> list[WorkRelationTarget]:
+        return self.get_related("titles")
+
+    @titles.setter
+    def titles(self, values: Iterable[WorkRelationTarget]) -> None:
+        self.set_related("titles", values)
 
     @property
     def genres(self) -> list[WorkRelationTarget]:

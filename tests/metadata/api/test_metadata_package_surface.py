@@ -169,13 +169,13 @@ def test_metadata_api_root_combines_current_public_api_roots() -> None:
         "LiuXin_alpha.metadata.api.containers_api"
     )
     calibre_api_root = importlib.import_module(
-        "LiuXin_alpha.metadata.api.calibre_metadata_api"
+        "LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api"
     )
     liuxin_api_root = importlib.import_module(
-        "LiuXin_alpha.metadata.api.liuxin_metadata_api"
+        "LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api"
     )
     liuxin_wemi_api_root = importlib.import_module(
-        "LiuXin_alpha.metadata.api.liuxin_wemi_metadata_api"
+        "LiuXin_alpha.metadata.api.containers_api.liuxin_wemi_metadata_api"
     )
     assert api_root.__all__ == [
         *container_api_root.__all__,
@@ -199,6 +199,15 @@ def test_metadata_api_source_avoids_unbounded_typing() -> None:
         str(path)
         for path in METADATA_API_ROOT.rglob("*.py")
         if pattern.search(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
+
+
+def test_metadata_api_source_avoids_abstract_implementation_placeholders() -> None:
+    offenders = [
+        str(path)
+        for path in METADATA_API_ROOT.rglob("*.py")
+        if "raise NotImplementedError" in path.read_text(encoding="utf-8")
     ]
     assert offenders == []
 

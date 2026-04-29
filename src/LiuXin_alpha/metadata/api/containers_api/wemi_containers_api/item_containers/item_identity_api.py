@@ -36,12 +36,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_id(self) -> Optional[int]:
-        raise NotImplementedError
+        ...
 
     @item_id.setter
     @abc.abstractmethod
     def item_id(self, item_id: Optional[int]) -> None:
-        raise NotImplementedError
+        ...
 
     # ------------------------------------------------------------------
     # Parent manifestation
@@ -58,12 +58,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_manifestation_id(self) -> Optional[int]:
-        raise NotImplementedError
+        ...
 
     @item_manifestation_id.setter
     @abc.abstractmethod
     def item_manifestation_id(self, item_manifestation_id: Optional[int]) -> None:
-        raise NotImplementedError
+        ...
 
     # ------------------------------------------------------------------
     # Core item identity / handling
@@ -80,12 +80,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_flags(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_flags.setter
     @abc.abstractmethod
     def item_flags(self, item_flags: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def type(self) -> Optional[str]:
@@ -98,12 +98,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_type(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_type.setter
     @abc.abstractmethod
     def item_type(self, item_type: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def location(self) -> Optional[str]:
@@ -116,12 +116,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_location(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_location.setter
     @abc.abstractmethod
     def item_location(self, item_location: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def inventory_code(self) -> Optional[str]:
@@ -134,12 +134,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_inventory_code(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_inventory_code.setter
     @abc.abstractmethod
     def item_inventory_code(self, item_inventory_code: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     # ------------------------------------------------------------------
     # Provenance / acquisition
@@ -156,12 +156,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_source(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_source.setter
     @abc.abstractmethod
     def item_source(self, item_source: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def source_detail(self) -> Optional[str]:
@@ -174,12 +174,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_source_detail(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_source_detail.setter
     @abc.abstractmethod
     def item_source_detail(self, item_source_detail: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def source_path(self) -> Optional[str]:
@@ -192,12 +192,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_source_path(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_source_path.setter
     @abc.abstractmethod
     def item_source_path(self, item_source_path: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def source_name(self) -> Optional[str]:
@@ -210,12 +210,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_source_name(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_source_name.setter
     @abc.abstractmethod
     def item_source_name(self, item_source_name: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def acquired_date(self) -> Optional[str]:
@@ -228,12 +228,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_acquired_date(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_acquired_date.setter
     @abc.abstractmethod
     def item_acquired_date(self, item_acquired_date: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def acquired_price_minor(self) -> Optional[int | float]:
@@ -246,12 +246,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_acquired_price_minor(self) -> Optional[int | float]:
-        raise NotImplementedError
+        ...
 
     @item_acquired_price_minor.setter
     @abc.abstractmethod
     def item_acquired_price_minor(self, item_acquired_price_minor: Optional[int | float]) -> None:
-        raise NotImplementedError
+        ...
 
     # ------------------------------------------------------------------
     # State
@@ -268,12 +268,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_lifecycle_status(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_lifecycle_status.setter
     @abc.abstractmethod
     def item_lifecycle_status(self, item_lifecycle_status: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def condition(self) -> Optional[str]:
@@ -286,12 +286,12 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def item_condition(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @item_condition.setter
     @abc.abstractmethod
     def item_condition(self, item_condition: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
 
 class ItemIdentityAPI(ItemIdentityPropertiesAPI):

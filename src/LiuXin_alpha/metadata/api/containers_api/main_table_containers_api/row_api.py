@@ -1,4 +1,9 @@
-"""Pure API contracts for non-WEMI metadata main-table row containers."""
+"""Pure API contracts for non-WEMI metadata main-table row containers.
+
+Category: metadata main-table row API.
+This module defines structural contracts for metadata-owned lookup and agent
+rows that sit outside the core W/E/M/I entity stack.
+"""
 
 from __future__ import annotations
 
@@ -14,18 +19,39 @@ MetadataRowMapping: TypeAlias = Mapping[str, MetadataRowValue]
 
 @runtime_checkable
 class MetadataTableRowAPI(Protocol):
-    """Structural API for one metadata-owned non-WEMI table row."""
+    """
+    Structural API for one metadata-owned non-WEMI table row.
+
+    Implementations should expose a stable table name, primary-id column, and
+    mapping round-trip for database-bound row payloads.
+    """
 
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
 
     @classmethod
-    def from_mapping(cls, row: MetadataRowMapping) -> Self: ...
+    def from_mapping(cls, row: MetadataRowMapping) -> Self:
+        """
+        Build a row container from a database-like mapping.
+
+        :param row:
+        :return:
+        """
 
     @property
-    def primary_id(self) -> int | None: ...
+    def primary_id(self) -> int | None:
+        """
+        Primary database id for this row.
 
-    def to_mapping(self) -> dict[str, MetadataRowValue]: ...
+        :return:
+        """
+
+    def to_mapping(self) -> dict[str, MetadataRowValue]:
+        """
+        Serialize this row container to column-keyed mapping form.
+
+        :return:
+        """
 
 
 @runtime_checkable
@@ -48,7 +74,12 @@ class LanguageRowAPI(MetadataTableRowAPI, Protocol):
     language_scratch: str | None
 
     @property
-    def display_name(self) -> str | None: ...
+    def display_name(self) -> str | None:
+        """
+        Human-facing language display name.
+
+        :return:
+        """
 
 
 @runtime_checkable

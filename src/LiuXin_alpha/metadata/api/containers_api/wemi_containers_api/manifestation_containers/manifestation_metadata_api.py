@@ -48,7 +48,12 @@ ManifestationRelationLink: TypeAlias = ManifestationRelationEdge
 
 
 class ManifestationMetadataAPI(abc.ABC):
-    """Rich metadata bundle centred on one manifestation."""
+    """
+    API for a container that holds all metadata associated with one manifestation.
+
+    Implementations should expose the core manifestation row, WEMI context,
+    attached assets/files, and relation-edge metadata.
+    """
 
     RELATION_KEYS: ClassVar[tuple[str, ...]] = (
         "works",
@@ -132,20 +137,20 @@ class ManifestationMetadataAPI(abc.ABC):
     @property
     @abc.abstractmethod
     def manifestation(self) -> Optional[ManifestationIdentityAPI]:
-        raise NotImplementedError
+        """Primary manifestation row for this metadata bundle."""
 
     @manifestation.setter
     @abc.abstractmethod
     def manifestation(self, value: Optional[ManifestationIdentityAPI]) -> None:
-        raise NotImplementedError
+        """Set primary manifestation row."""
 
     @abc.abstractmethod
     def get_relation_links(self, relation: str) -> list[ManifestationRelationLink]:
-        raise NotImplementedError
+        """Get edge metadata links for one relation type."""
 
     @abc.abstractmethod
     def set_relation_links(self, relation: str, links: Iterable[ManifestationRelationLink]) -> None:
-        raise NotImplementedError
+        """Replace edge metadata links for one relation type."""
 
     def add_relation_link(self, relation: str, link: ManifestationRelationLink) -> None:
         relation_key = self.validate_relation_name(relation)
@@ -374,12 +379,22 @@ class ManifestationMetadataAPI(abc.ABC):
 
     @abc.abstractmethod
     def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
-        raise NotImplementedError
+        """
+        Serialize this manifestation metadata bundle to a metadata record.
+
+        :param include_related:
+        :return:
+        """
 
     @classmethod
     @abc.abstractmethod
     def from_mapping(cls, payload: MetadataRecord) -> Self:
-        raise NotImplementedError
+        """
+        Build a manifestation metadata bundle from a metadata record.
+
+        :param payload:
+        :return:
+        """
 
 __all__ = [
     "ManifestationRelationEdge",

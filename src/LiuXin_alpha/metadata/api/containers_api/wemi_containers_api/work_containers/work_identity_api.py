@@ -52,12 +52,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
 
         :return:
         """
-        raise NotImplementedError
+        ...
 
     @work_id.setter
     @abstractmethod
     def work_id(self, work_id: Optional[int]) -> None:
-        raise NotImplementedError
+        ...
 
     # ------------------------------------------------------------------
     # Core work identity
@@ -90,7 +90,7 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
 
         :return:
         """
-        raise NotImplementedError
+        ...
 
     @work_type.setter
     @abstractmethod
@@ -101,7 +101,7 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
         :param work_type:
         :return:
         """
-        raise NotImplementedError
+        ...
 
     @property
     def medium(self) -> Optional[str]:
@@ -124,12 +124,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
 
         :return:
         """
-        raise NotImplementedError
+        ...
 
     @work_medium.setter
     @abstractmethod
     def work_medium(self, work_medium: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     # - Title methods
 
@@ -150,12 +150,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_title(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @work_title.setter
     @abstractmethod
     def work_title(self, work_title: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def name(self) -> Optional[str]:
@@ -168,12 +168,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_name(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @work_name.setter
     @abstractmethod
     def work_name(self, work_name: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def canonical_title(self) -> Optional[str]:
@@ -186,12 +186,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_canonical_title(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @work_canonical_title.setter
     @abstractmethod
     def work_canonical_title(self, work_canonical_title: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def sort_title(self) -> Optional[str]:
@@ -204,12 +204,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_sort_title(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @work_sort_title.setter
     @abstractmethod
     def work_sort_title(self, work_sort_title: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     # ------------------------------------------------------------------
     # High-level classification
@@ -227,12 +227,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @abstractmethod
     def work_is_fiction(self) -> Optional[int]:
         """Stored as SQLite-ish 1/0/NULL."""
-        raise NotImplementedError
+        ...
 
     @work_is_fiction.setter
     @abstractmethod
     def work_is_fiction(self, work_is_fiction: Optional[int]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def audience(self) -> Optional[str]:
@@ -245,12 +245,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_audience(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @work_audience.setter
     @abstractmethod
     def work_audience(self, work_audience: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def completion_status(self) -> Optional[str]:
@@ -263,12 +263,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_completion_status(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @work_completion_status.setter
     @abstractmethod
     def work_completion_status(self, work_completion_status: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def original_language_id(self) -> Optional[int]:
@@ -281,12 +281,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_original_language_id(self) -> Optional[int]:
-        raise NotImplementedError
+        ...
 
     @work_original_language_id.setter
     @abstractmethod
     def work_original_language_id(self, work_original_language_id: Optional[int]) -> None:
-        raise NotImplementedError
+        ...
 
     # ------------------------------------------------------------------
     # Notes / provenance
@@ -303,12 +303,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_discovery_note(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @work_discovery_note.setter
     @abstractmethod
     def work_discovery_note(self, work_discovery_note: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     # ------------------------------------------------------------------
     # Timestamps
@@ -333,22 +333,22 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_created_timestamp_ep_k(self) -> Optional[int]:
-        raise NotImplementedError
+        ...
 
     @work_created_timestamp_ep_k.setter
     @abstractmethod
     def work_created_timestamp_ep_k(self, work_created_timestamp_ep_k: Optional[int]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     @abstractmethod
     def work_modified_timestamp_ep_k(self) -> Optional[int]:
-        raise NotImplementedError
+        ...
 
     @work_modified_timestamp_ep_k.setter
     @abstractmethod
     def work_modified_timestamp_ep_k(self, work_modified_timestamp_ep_k: Optional[int]) -> None:
-        raise NotImplementedError
+        ...
 
     @property
     def original_year(self) -> Optional[int]:
@@ -361,12 +361,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_original_year(self) -> Optional[int]:
-        raise NotImplementedError
+        ...
 
     @work_original_year.setter
     @abstractmethod
     def work_original_year(self, work_original_year: Optional[int]) -> None:
-        raise NotImplementedError
+        ...
 
     # ------------------------------------------------------------------
     # Scratch / misc
@@ -383,12 +383,12 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     @abstractmethod
     def work_scratch(self) -> Optional[str]:
-        raise NotImplementedError
+        ...
 
     @work_scratch.setter
     @abstractmethod
     def work_scratch(self, work_scratch: Optional[str]) -> None:
-        raise NotImplementedError
+        ...
 
     # ------------------------------------------------------------------
     # Mapping helpers
@@ -397,11 +397,11 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @classmethod
     @abstractmethod
     def from_mapping(cls, row: MetadataRecord) -> Self:
-        raise NotImplementedError
+        ...
 
     @abstractmethod
     def to_mapping(self) -> MutableMetadataRecord:
-        raise NotImplementedError
+        ...
 
 
 class WorkIdentityAPI(WorkIdentityPropertiesAPI, metaclass=abc.ABCMeta):

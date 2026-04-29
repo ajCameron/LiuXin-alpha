@@ -77,6 +77,7 @@ class ItemMetadataAPI(abc.ABC):
         "files",
         "images",
         "identifiers",
+        "titles",
         "annotations",
         "genres",
         "subjects",
@@ -117,6 +118,7 @@ class ItemMetadataAPI(abc.ABC):
         "cover": "images",
         "covers": "images",
         "identifier": "identifiers",
+        "title": "titles",
         "annotation": "annotations",
         "genre": "genres",
         "subject": "subjects",
@@ -128,6 +130,7 @@ class ItemMetadataAPI(abc.ABC):
     }
     RELATION_CARDINALITIES: ClassVar[Mapping[str, RelationCardinality]] = {
         "identifiers": RelationCardinality.ONE_TO_MANY,
+        "titles": RelationCardinality.ONE_TO_MANY,
         "annotations": RelationCardinality.ONE_TO_MANY,
         "notes": RelationCardinality.ONE_TO_MANY,
         "comments": RelationCardinality.ONE_TO_MANY,
@@ -382,6 +385,14 @@ class ItemMetadataAPI(abc.ABC):
     @identifiers.setter
     def identifiers(self, values: Iterable[ItemRelationTarget]) -> None:
         self.set_related("identifiers", values)
+
+    @property
+    def titles(self) -> list[ItemRelationTarget]:
+        return self.get_related("titles")
+
+    @titles.setter
+    def titles(self, values: Iterable[ItemRelationTarget]) -> None:
+        self.set_related("titles", values)
 
     @property
     def annotations(self) -> list[ItemRelationTarget]:

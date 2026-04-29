@@ -1,4 +1,9 @@
-"""Pure API contracts for non-WEMI same-table relation containers."""
+"""Pure API contracts for non-WEMI same-table relation containers.
+
+Category: metadata main-table relation API.
+This module defines tree/parent-child relation contracts for metadata-owned
+lookup tables such as genres, subjects, and series.
+"""
 
 from __future__ import annotations
 
@@ -38,16 +43,41 @@ class InlineSelfRelationAPI(Protocol[RowAPIT]):
     source: str | None
 
     @property
-    def child_id(self) -> int | None: ...
+    def child_id(self) -> int | None:
+        """
+        Primary id of the child row in this relation.
+
+        :return:
+        """
 
     @property
-    def resolved_parent_id(self) -> int | None: ...
+    def resolved_parent_id(self) -> int | None:
+        """
+        Parent id resolved from the parent row or direct parent-id field.
 
-    def validate(self) -> None: ...
+        :return:
+        """
 
-    def as_child_update_payload(self) -> dict[str, MetadataRowValue]: ...
+    def validate(self) -> None:
+        """
+        Validate that this same-table relation is internally consistent.
 
-    def as_relation_payload(self) -> dict[str, MetadataRowValue]: ...
+        :return:
+        """
+
+    def as_child_update_payload(self) -> dict[str, MetadataRowValue]:
+        """
+        Serialize fields needed to update the child row inline.
+
+        :return:
+        """
+
+    def as_relation_payload(self) -> dict[str, MetadataRowValue]:
+        """
+        Serialize this relation as a relation-edge payload.
+
+        :return:
+        """
 
 
 @runtime_checkable
@@ -72,19 +102,56 @@ class SeriesTreeRelationAPI(InlineSelfRelationAPI[SeriesRowAPI], Protocol):
 class SelfRelationsContainerAPI(Protocol[RelationAPIT]):
     """Structural API for a collection of same-table relation edges."""
 
-    def __iter__(self) -> Iterator[RelationAPIT]: ...
+    def __iter__(self) -> Iterator[RelationAPIT]:
+        """
+        Iterate over contained relation edges.
 
-    def __len__(self) -> int: ...
+        :return:
+        """
 
-    def relations(self) -> tuple[RelationAPIT, ...]: ...
+    def __len__(self) -> int:
+        """
+        Number of contained relation edges.
 
-    def add_relation(self, relation: RelationAPIT) -> None: ...
+        :return:
+        """
 
-    def roots(self) -> tuple[RelationAPIT, ...]: ...
+    def relations(self) -> tuple[RelationAPIT, ...]:
+        """
+        Return contained relation edges as an immutable tuple.
 
-    def children_of(self, parent_id: int) -> tuple[RelationAPIT, ...]: ...
+        :return:
+        """
 
-    def validate(self) -> None: ...
+    def add_relation(self, relation: RelationAPIT) -> None:
+        """
+        Add one relation edge to this container.
+
+        :param relation:
+        :return:
+        """
+
+    def roots(self) -> tuple[RelationAPIT, ...]:
+        """
+        Return root-level relations with no parent.
+
+        :return:
+        """
+
+    def children_of(self, parent_id: int) -> tuple[RelationAPIT, ...]:
+        """
+        Return relation edges whose parent id matches ``parent_id``.
+
+        :param parent_id:
+        :return:
+        """
+
+    def validate(self) -> None:
+        """
+        Validate every relation edge in this container.
+
+        :return:
+        """
 
 
 @runtime_checkable
