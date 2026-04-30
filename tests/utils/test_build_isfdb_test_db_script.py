@@ -31,7 +31,7 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
         stage_conn.executemany(
             module.STAGE_SPECS["authors"].insert_sql,
             [
-                (1, "Jane Author", "Jane Author", None, "Author", 1, None),
+                (1, "Jane Author", "Jane Author", 504, "Author", 1, "Seeded author row note"),
             ],
         )
         stage_conn.executemany(
@@ -41,8 +41,8 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
                     10,
                     "Book One",
                     None,
-                    None,
-                    None,
+                    502,
+                    501,
                     7,
                     1,
                     "2000-01-01",
@@ -85,8 +85,8 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
                     "320",
                     "NOVEL",
                     "hc",
-                    None,
-                    None,
+                    "978-0-306-40615-7",
+                    503,
                     None,
                     None,
                     None,
@@ -100,7 +100,7 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
                     "322",
                     "NOVEL",
                     "pb",
-                    None,
+                    "0-306-40615-2",
                     None,
                     None,
                     None,
@@ -134,7 +134,7 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
         stage_conn.executemany(
             module.STAGE_SPECS["publishers"].insert_sql,
             [
-                (5, "Acme Press", None),
+                (5, "Acme Press", 505),
             ],
         )
         stage_conn.executemany(
@@ -158,11 +158,40 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
             ],
         )
         stage_conn.executemany(
+            module.STAGE_SPECS["identifier_types"].insert_sql,
+            [
+                (1, "ASIN", "Amazon Standard Identification Number"),
+                (8, "Goodreads", "Goodreads"),
+                (17, "Audible-ASIN", "Audible ASIN"),
+            ],
+        )
+        stage_conn.executemany(
+            module.STAGE_SPECS["identifiers"].insert_sql,
+            [
+                (1, 1, "B000123456", 100),
+                (2, 17, "B000AUD123", 101),
+                (3, 8, "goodreads-ignored", 100),
+                (4, 1, "B000UNUSED", 999),
+            ],
+        )
+        stage_conn.executemany(
+            module.STAGE_SPECS["notes"].insert_sql,
+            [
+                (501, "Title note for Book One."),
+                (502, "Synopsis for Book One."),
+                (503, "Publication note for the first edition."),
+                (504, "Author biographical note."),
+                (505, "Publisher history note."),
+                (506, "Unselected note."),
+            ],
+        )
+        stage_conn.executemany(
             module.STAGE_SPECS["tags"].insert_sql,
             [
                 (1, "Space Opera", 0),
                 (2, "Shared Tag", 1),
                 (3, "Unselected Tag", 0),
+                (4, "sci fi", 0),
             ],
         )
         stage_conn.executemany(
@@ -173,14 +202,22 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
                 (3, 1, 10, 4),
                 (4, 1, 20, 2),
                 (5, 3, 999, 2),
+                (6, 4, 20, 2),
             ],
         )
         stage_conn.commit()
 
         module._create_stage_indexes(stage_conn)
         selection_counts = module._materialize_selected_subset(stage_conn, max_pubs=None)
-        assert selection_counts["selected_tags"] == 2
-        assert selection_counts["selected_tag_mappings"] == 3
+        assert selection_counts["selected_tags"] == 3
+        assert selection_counts["selected_tag_mappings"] == 4
+        assert selection_counts["selected_pub_isbns"] == 2
+        assert selection_counts["selected_pub_external_identifiers"] == 2
+        assert selection_counts["selected_title_notes"] == 1
+        assert selection_counts["selected_title_synopses"] == 1
+        assert selection_counts["selected_author_notes"] == 1
+        assert selection_counts["selected_publisher_notes"] == 1
+        assert selection_counts["selected_pub_notes"] == 1
 
         output_db = tmp_path / "isfdb_regression.test_db"
         counts = module._build_frbr_target(stage_conn=stage_conn, output_db=output_db)
@@ -192,8 +229,24 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
         assert counts["agent_manifestation_links"] == 3
         assert counts["language_work_links"] == 2
         assert counts["series_work_links"] == 2
-        assert counts["labels"] == 2
-        assert counts["label_work_links"] == 3
+        assert counts["labels"] == 3
+        assert counts["label_work_links"] == 4
+        assert counts["genres"] == 2
+        assert counts["genre_work_links"] == 3
+        assert counts["subjects"] == 5
+        assert counts["subject_work_links"] == 4
+        assert counts["notes"] == 3
+        assert counts["comments"] == 1
+        assert counts["comment_work_links"] == 1
+        assert counts["synopses"] == 1
+        assert counts["ratings"] == 2
+        assert counts["rating_work_links"] == 2
+        assert counts["annotations"] == 2
+        assert counts["note_work_links"] == 1
+        assert counts["agent_note_links"] == 2
+        assert counts["synopsis_work_links"] == 1
+        assert counts["entity_identifiers"] == 4
+        assert counts["item_identifiers"] == 4
         assert counts["expression_manifestation_links"] == 3
 
         conn = sqlite3.connect(str(output_db))
@@ -272,6 +325,7 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
                 """
             ).fetchall()
             assert label_rows == [
+                ("sci fi", "sci-fi", "isfdb:tag:4;status:0"),
                 ("Shared Tag", "shared-tag", "isfdb:tag:2;status:1"),
                 ("Space Opera", "space-opera", "isfdb:tag:1;status:0"),
             ]
@@ -289,11 +343,260 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
                 ("isfdb:title:10", "Shared Tag"),
                 ("isfdb:title:10", "Space Opera"),
                 ("isfdb:title:20", "Space Opera"),
+                ("isfdb:title:20", "sci fi"),
             ]
             priorities_by_label = {}
             for _work, label, priority in linked_labels:
                 priorities_by_label.setdefault(label, set()).add(priority)
             assert len(priorities_by_label["Space Opera"]) == 2
+
+            genre_rows = conn.execute(
+                """
+                SELECT genre, genre_sort, genre_phash, genre_full, genre_scratch
+                FROM genres
+                ORDER BY genre;
+                """
+            ).fetchall()
+            assert genre_rows == [
+                (
+                    "Science Fiction",
+                    "Science Fiction",
+                    "science_fiction",
+                    "Science Fiction",
+                    "isfdb:genre_from_tag:4;tag:sci fi",
+                ),
+                (
+                    "Space Opera",
+                    "Space Opera",
+                    "space_opera",
+                    "Space Opera",
+                    "isfdb:genre_from_tag:1;tag:Space Opera",
+                ),
+            ]
+
+            linked_genres = conn.execute(
+                """
+                SELECT w.work_scratch, g.genre, gwl.genre_work_link_type, gwl.genre_work_link_source
+                FROM genre_work_links gwl
+                JOIN genres g ON g.genre_id = gwl.genre_work_link_genre_id
+                JOIN works w ON w.work_id = gwl.genre_work_link_work_id
+                ORDER BY w.work_scratch, g.genre;
+                """
+            ).fetchall()
+            assert linked_genres == [
+                ("isfdb:title:10", "Space Opera", "genre", "isfdb:tag"),
+                ("isfdb:title:20", "Science Fiction", "genre", "isfdb:tag"),
+                ("isfdb:title:20", "Space Opera", "genre", "isfdb:tag"),
+            ]
+
+            subject_rows = conn.execute(
+                """
+                SELECT s.subject, parent.subject, s.subject_full, s.subject_tree_id
+                FROM subjects s
+                LEFT JOIN subjects parent ON parent.subject_id = s.subject_parent_id
+                ORDER BY s.subject_full;
+                """
+            ).fetchall()
+            assert subject_rows == [
+                ("ISFDB Generated", None, "ISFDB Generated", "isfdb-generated"),
+                (
+                    "Original Decade",
+                    "ISFDB Generated",
+                    "ISFDB Generated > Original Decade",
+                    "isfdb-generated",
+                ),
+                (
+                    "2000s",
+                    "Original Decade",
+                    "ISFDB Generated > Original Decade > 2000s",
+                    "isfdb-generated",
+                ),
+                (
+                    "Title Type",
+                    "ISFDB Generated",
+                    "ISFDB Generated > Title Type",
+                    "isfdb-generated",
+                ),
+                (
+                    "Novel",
+                    "Title Type",
+                    "ISFDB Generated > Title Type > Novel",
+                    "isfdb-generated",
+                ),
+            ]
+
+            linked_subjects = conn.execute(
+                """
+                SELECT w.work_scratch, s.subject_full, swl.subject_work_link_source
+                FROM subject_work_links swl
+                JOIN subjects s ON s.subject_id = swl.subject_work_link_subject_id
+                JOIN works w ON w.work_id = swl.subject_work_link_work_id
+                ORDER BY w.work_scratch, s.subject_full;
+                """
+            ).fetchall()
+            assert linked_subjects == [
+                ("isfdb:title:10", "ISFDB Generated > Original Decade > 2000s", "isfdb:generated"),
+                ("isfdb:title:10", "ISFDB Generated > Title Type > Novel", "isfdb:generated"),
+                ("isfdb:title:20", "ISFDB Generated > Original Decade > 2000s", "isfdb:generated"),
+                ("isfdb:title:20", "ISFDB Generated > Title Type > Novel", "isfdb:generated"),
+            ]
+
+            generated_comments = conn.execute(
+                """
+                SELECT w.work_scratch, c.comment, c.comment_scratch, cwl.comment_work_link_source
+                FROM comment_work_links cwl
+                JOIN comments c ON c.comment_id = cwl.comment_work_link_comment_id
+                JOIN works w ON w.work_id = cwl.comment_work_link_work_id;
+                """
+            ).fetchall()
+            assert generated_comments == [
+                (
+                    "isfdb:title:10",
+                    "Generated deterministic ISFDB test comment for Book One (source title 10).",
+                    "isfdb:title:10;generated_comment",
+                    "isfdb:generated",
+                ),
+            ]
+
+            generated_ratings = conn.execute(
+                """
+                SELECT
+                    w.work_scratch,
+                    r.rating,
+                    r.rating_out_of,
+                    r.rating_for_calibre_tag_viewer,
+                    r.rating_source,
+                    rwl.rating_work_link_type,
+                    rwl.rating_work_link_origin,
+                    rwl.rating_work_link_source
+                FROM rating_work_links rwl
+                JOIN ratings r ON r.rating_id = rwl.rating_work_link_rating_id
+                JOIN works w ON w.work_id = rwl.rating_work_link_work_id
+                ORDER BY w.work_scratch;
+                """
+            ).fetchall()
+            assert generated_ratings == [
+                ("isfdb:title:10", 3.5, 5, 7, "isfdb:generated", "generated", "synthetic", "isfdb:generated"),
+                ("isfdb:title:20", 5.0, 5, 10, "isfdb:generated", "generated", "synthetic", "isfdb:generated"),
+            ]
+
+            entity_identifiers = conn.execute(
+                """
+                SELECT entity_identifier_scheme, entity_identifier_value, entity_identifier_is_primary
+                FROM entity_identifiers
+                ORDER BY entity_identifier_scheme, entity_identifier_value;
+                """
+            ).fetchall()
+            assert entity_identifiers == [
+                ("asin", "B000123456", 1),
+                ("asin", "B000AUD123", 1),
+                ("isbn_10", "0306406152", 1),
+                ("isbn_13", "9780306406157", 1),
+            ]
+
+            item_identifiers = conn.execute(
+                """
+                SELECT item_identifier_scheme, item_identifier_value
+                FROM item_identifiers
+                ORDER BY item_identifier_scheme, item_identifier_value;
+                """
+            ).fetchall()
+            assert item_identifiers == [
+                ("asin", "B000123456"),
+                ("asin", "B000AUD123"),
+                ("isbn_10", "0306406152"),
+                ("isbn_13", "9780306406157"),
+            ]
+
+            work_notes = conn.execute(
+                """
+                SELECT w.work_scratch, n.note, n.note_scratch, nwl.note_work_link_source
+                FROM note_work_links nwl
+                JOIN notes n ON n.note_id = nwl.note_work_link_note_id
+                JOIN works w ON w.work_id = nwl.note_work_link_work_id;
+                """
+            ).fetchall()
+            assert work_notes == [
+                ("isfdb:title:10", "Title note for Book One.", "isfdb:note:501", "isfdb"),
+            ]
+
+            agent_notes = conn.execute(
+                """
+                SELECT a.agent_canonical_name, n.note
+                FROM agent_note_links anl
+                JOIN agents a ON a.agent_id = anl.agent_note_link_agent_id
+                JOIN notes n ON n.note_id = anl.agent_note_link_note_id
+                ORDER BY a.agent_canonical_name;
+                """
+            ).fetchall()
+            assert agent_notes == [
+                ("Acme Press", "Publisher history note."),
+                ("Jane Author", "Author biographical note."),
+            ]
+
+            work_synopses = conn.execute(
+                """
+                SELECT w.work_scratch, s.synopsis, swl.synopsis_work_link_type
+                FROM synopsis_work_links swl
+                JOIN synopses s ON s.synopsis_id = swl.synopsis_work_link_synopsis_id
+                JOIN works w ON w.work_id = swl.synopsis_work_link_work_id;
+                """
+            ).fetchall()
+            assert work_synopses == [
+                ("isfdb:title:10", "Synopsis for Book One.", "short"),
+            ]
+
+            manifestation_note = conn.execute(
+                """
+                SELECT manifestation_note
+                FROM manifestations
+                WHERE manifestation_scratch = 'isfdb:pub:100';
+                """
+            ).fetchone()
+            assert manifestation_note is not None
+            assert "Publication note for the first edition." in manifestation_note[0]
+
+            generated_annotations = conn.execute(
+                """
+                SELECT
+                    i.item_scratch,
+                    a.annotation_kind,
+                    a.annotation_anchor_start,
+                    a.annotation_anchor_end,
+                    a.annotation_selected_text,
+                    a.annotation_note_text,
+                    a.annotation_source,
+                    a.annotation_extra_json,
+                    a.annotation_scratch
+                FROM annotations a
+                JOIN items i ON i.item_id = a.annotation_item_id
+                ORDER BY i.item_scratch;
+                """
+            ).fetchall()
+            assert generated_annotations == [
+                (
+                    "isfdb:pub:101",
+                    "highlight",
+                    "0.510",
+                    "0.525",
+                    "Generated highlight for Book One Second.",
+                    "Deterministic annotation for ISFDB publication 101.",
+                    "isfdb:generated",
+                    '{"source_pub_id": 101}',
+                    "isfdb:pub:101;generated_annotation",
+                ),
+                (
+                    "isfdb:pub:200",
+                    "highlight",
+                    "0.027",
+                    "0.042",
+                    "Generated highlight for Book Two First.",
+                    "Deterministic annotation for ISFDB publication 200.",
+                    "isfdb:generated",
+                    '{"source_pub_id": 200}',
+                    "isfdb:pub:200;generated_annotation",
+                ),
+            ]
         finally:
             conn.close()
     finally:
