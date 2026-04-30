@@ -21,10 +21,13 @@ The import is intentionally conservative rather than exhaustive:
 - title series mapped to ``series_work_links``
 - title language mapped to ``language_work_links``
 - title tags mapped to ``labels`` and ``label_work_links``
+- uncommon title words also mapped to generated ``labels`` and ``label_work_links``
 - genre-like title tags normalized into ``genres`` and ``genre_work_links``
+- generated fallback labels, genres, and standalone series links for otherwise empty works
 - title notes/synopses mapped to ``notes``/``synopses`` and work links
 - selected publication ISBN/ASIN values mapped to item and manifestation identifiers
 - deterministic generated comments, ratings, subjects, and annotations
+- deterministic fixture values for otherwise empty non-storage metadata fields
 
 This gives a large, realistic metadata corpus for cache and query benchmarks
 without trying to mirror every ISFDB concept.
@@ -95,6 +98,203 @@ LOCAL_ORDER_PRIORITY_STRIDE = 1_000_000
 GENERATED_METADATA_SOURCE = "isfdb:generated"
 GENERATED_METADATA_EPOCH_S = 1_700_000_000
 GENERATED_METADATA_EPOCH_MS = GENERATED_METADATA_EPOCH_S * 1000
+GENERATED_METADATA_DATE = "2023-11-14"
+GENERATED_FALLBACK_LABEL_TEXT = "Untagged"
+GENERATED_FALLBACK_LABEL_NORM = "isfdb-generated-untagged"
+GENERATED_FALLBACK_GENRE = "Unclassified"
+GENERATED_STANDALONE_SERIES = "Standalone / Unseriesed"
+METADATA_FIXTURE_BACKFILL_TABLES = (
+    "works",
+    "expressions",
+    "manifestations",
+    "items",
+    "agents",
+    "human_agents",
+    "org_agents",
+    "series",
+    "labels",
+    "genres",
+    "subjects",
+    "notes",
+    "comments",
+    "synopses",
+    "ratings",
+    "annotations",
+    "entity_identifiers",
+    "item_identifiers",
+    "expression_work_links",
+    "expression_manifestation_links",
+    "agent_work_links",
+    "agent_manifestation_links",
+    "agent_note_links",
+    "language_work_links",
+    "series_work_links",
+    "label_work_links",
+    "genre_work_links",
+    "subject_work_links",
+    "note_work_links",
+    "comment_work_links",
+    "synopsis_work_links",
+    "rating_work_links",
+)
+METADATA_FIXTURE_SKIP_COLUMN_SUBSTRINGS = (
+    "_deleted_",
+    "_parent_",
+)
+TITLE_WORD_LABEL_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9']*")
+TITLE_WORD_LABEL_STOPWORDS = frozenset(
+    {
+        "a",
+        "about",
+        "above",
+        "after",
+        "again",
+        "against",
+        "all",
+        "also",
+        "am",
+        "an",
+        "and",
+        "any",
+        "are",
+        "around",
+        "as",
+        "at",
+        "be",
+        "because",
+        "been",
+        "before",
+        "being",
+        "below",
+        "between",
+        "book",
+        "both",
+        "but",
+        "by",
+        "can",
+        "did",
+        "do",
+        "does",
+        "doing",
+        "down",
+        "during",
+        "each",
+        "eight",
+        "either",
+        "eleven",
+        "else",
+        "even",
+        "ever",
+        "every",
+        "few",
+        "five",
+        "for",
+        "four",
+        "from",
+        "further",
+        "had",
+        "has",
+        "have",
+        "having",
+        "he",
+        "her",
+        "here",
+        "hers",
+        "herself",
+        "him",
+        "himself",
+        "his",
+        "how",
+        "i",
+        "if",
+        "in",
+        "into",
+        "is",
+        "it",
+        "its",
+        "itself",
+        "just",
+        "me",
+        "more",
+        "most",
+        "my",
+        "myself",
+        "nine",
+        "no",
+        "nor",
+        "not",
+        "of",
+        "off",
+        "on",
+        "once",
+        "one",
+        "only",
+        "or",
+        "other",
+        "our",
+        "ours",
+        "ourselves",
+        "out",
+        "over",
+        "own",
+        "part",
+        "seven",
+        "she",
+        "should",
+        "six",
+        "so",
+        "some",
+        "such",
+        "ten",
+        "than",
+        "that",
+        "the",
+        "their",
+        "theirs",
+        "them",
+        "themselves",
+        "then",
+        "there",
+        "these",
+        "they",
+        "thing",
+        "this",
+        "those",
+        "three",
+        "through",
+        "to",
+        "too",
+        "twelve",
+        "two",
+        "under",
+        "until",
+        "up",
+        "upon",
+        "us",
+        "very",
+        "volume",
+        "was",
+        "we",
+        "were",
+        "what",
+        "when",
+        "where",
+        "which",
+        "while",
+        "who",
+        "whom",
+        "why",
+        "will",
+        "with",
+        "within",
+        "without",
+        "you",
+        "your",
+        "yours",
+        "yourself",
+        "yourselves",
+    }
+)
 
 
 def _find_repo_root(start: Path) -> Optional[Path]:
@@ -358,6 +558,31 @@ def _normalize_asin(value: Any) -> Optional[str]:
     return compact if len(compact) == 10 else None
 
 
+def _title_label_words(title: Any) -> tuple[str, ...]:
+    text = _safe_str(title)
+    if text is None:
+        return ()
+
+    words: list[str] = []
+    seen_norms: set[str] = set()
+    for match in TITLE_WORD_LABEL_TOKEN_RE.finditer(text):
+        word = match.group(0).strip("'")
+        if len(word) > 2 and word.lower().endswith("'s"):
+            word = word[:-2]
+
+        norm = _norm_text(word)
+        if len(norm) < 2 or norm in seen_norms:
+            continue
+
+        stopword_key = word.lower().replace("'", "")
+        if stopword_key in TITLE_WORD_LABEL_STOPWORDS:
+            continue
+
+        seen_norms.add(norm)
+        words.append(word)
+    return tuple(words)
+
+
 def _canonical_genre_from_tag(tag_name: Any) -> Optional[str]:
     text = _safe_str(tag_name)
     if text is None:
@@ -393,6 +618,216 @@ def _stable_mod(source_id: int, modulus: int, *, salt: int = 0) -> int:
     value = (value * 0xC4CEB9FE1A85EC53) & 0xFFFFFFFFFFFFFFFF
     value ^= value >> 33
     return value % modulus
+
+
+def _stable_text_salt(value: str) -> int:
+    salt = 0
+    for index, char in enumerate(value):
+        salt += (index + 1) * ord(char)
+    return salt % 1_000_000
+
+
+def _sql_identifier(name: str) -> str:
+    escaped = name.replace('"', '""')
+    return f'"{escaped}"'
+
+
+def _sql_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _metadata_fixture_table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    return (
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?;",
+            (table,),
+        ).fetchone()
+        is not None
+    )
+
+
+def _should_backfill_metadata_fixture_column(column_name: str, pk_column: str) -> bool:
+    if column_name == pk_column:
+        return False
+    if column_name.endswith("_id"):
+        return False
+    return not any(
+        skipped in column_name for skipped in METADATA_FIXTURE_SKIP_COLUMN_SUBSTRINGS
+    )
+
+
+def _metadata_fixture_text_expression(
+    *,
+    table: str,
+    column: str,
+    pk_sql: str,
+) -> str:
+    suffix = f"{table}:{column}:"
+    if column.endswith("_flags"):
+        return _sql_literal("isfdb;fixture")
+    if column.endswith("_source"):
+        return _sql_literal(GENERATED_METADATA_SOURCE)
+    if column.endswith("_origin"):
+        return _sql_literal("synthetic")
+    if column.endswith("_scratch"):
+        return (
+            _sql_literal(f"{GENERATED_METADATA_SOURCE}:fixture:{suffix}")
+            + f" || CAST({pk_sql} AS TEXT)"
+        )
+    if column.endswith("_path"):
+        return _sql_literal(f"isfdb://fixture/{table}/") + f" || CAST({pk_sql} AS TEXT)"
+    if column.endswith("_wikipedia_link") or column.endswith("_website"):
+        return (
+            _sql_literal(f"https://example.invalid/liuxin-fixture/{table}/")
+            + f" || CAST({pk_sql} AS TEXT)"
+        )
+    if column.endswith("_contact_email"):
+        return (
+            _sql_literal("metadata+")
+            + f" || CAST({pk_sql} AS TEXT) || "
+            + _sql_literal("@example.invalid")
+        )
+    if column.endswith("_extra_json"):
+        return _sql_literal(f'{{"fixture":true,"source":"{GENERATED_METADATA_SOURCE}"}}')
+    if column.endswith("_audience"):
+        return _sql_literal("general")
+    if column.endswith("_completion_status"):
+        return _sql_literal("complete")
+    if column.endswith("_condition"):
+        return _sql_literal("unknown")
+    if column.endswith("_region_code"):
+        return _sql_literal("global")
+    if column.endswith("_location"):
+        return _sql_literal("isfdb-fixture")
+    if column.endswith("_inventory_code"):
+        return _sql_literal("ISFDB-FIXTURE-") + f" || CAST({pk_sql} AS TEXT)"
+    if column.endswith("_cut_type"):
+        return _sql_literal("standard")
+    if column.endswith("_fiction_length_category"):
+        return _sql_literal("unknown_length")
+    if column.endswith("_subtitle"):
+        return _sql_literal("ISFDB fixture subtitle ") + f" || CAST({pk_sql} AS TEXT)"
+    if column.endswith("_aliases"):
+        return _sql_literal("ISFDB fixture alias ") + f" || CAST({pk_sql} AS TEXT)"
+    if column.endswith("_date") or column.endswith("_copyright_date"):
+        return _sql_literal(GENERATED_METADATA_DATE)
+    if (
+        column.endswith("_description")
+        or column.endswith("_note")
+        or column.endswith("_biography")
+        or column.endswith("_discovery_note")
+        or column.endswith("_selected_text")
+        or column.endswith("_note_text")
+    ):
+        return (
+            _sql_literal(f"Generated fixture value for {table}.{column} ")
+            + f" || CAST({pk_sql} AS TEXT)"
+        )
+    return (
+        _sql_literal(f"{GENERATED_METADATA_SOURCE}:fixture:{suffix}")
+        + f" || CAST({pk_sql} AS TEXT)"
+    )
+
+
+def _metadata_fixture_value_expression(
+    *,
+    table: str,
+    column: str,
+    column_type: str,
+    pk_sql: str,
+) -> str:
+    normalized_type = column_type.upper()
+    if column.endswith("_created_timestamp_ep_k") or column.endswith(
+        "_modified_timestamp_ep_k"
+    ):
+        return str(GENERATED_METADATA_EPOCH_MS)
+    if column.endswith("_source_created_datestamp_ep_k") or column.endswith(
+        "_source_modified_datestamp_ep_k"
+    ):
+        return str(GENERATED_METADATA_EPOCH_MS)
+    if column.endswith("_datestamp"):
+        return str(GENERATED_METADATA_EPOCH_S)
+    if (
+        "REAL" in normalized_type
+        or "FLOAT" in normalized_type
+        or "DOUBLE" in normalized_type
+    ):
+        return f"((ABS({pk_sql}) % 50) + 1) / 10.0"
+    if "INT" in normalized_type:
+        if (
+            column.endswith("_primary")
+            or column.endswith("_is_preferred")
+            or "_is_" in column
+        ):
+            return "1"
+        if column.endswith("_date") or column.endswith("_year"):
+            return "0"
+        salt = _stable_text_salt(f"{table}:{column}")
+        return f"(ABS(({pk_sql} * 1103515245) + {salt}) % 100000) + 1"
+    return _metadata_fixture_text_expression(table=table, column=column, pk_sql=pk_sql)
+
+
+def _populate_metadata_fixture_fields(conn: sqlite3.Connection) -> int:
+    """Fill nullable non-storage metadata fields with deterministic fixture values.
+
+    Relationship columns, hierarchy parent columns, device links, and soft-delete
+    markers are intentionally left alone because filling them fabricates state
+    rather than increasing object surface area for tests.
+    """
+
+    _log("Backfilling deterministic metadata fixture fields...")
+    phase_started_at = time.time()
+    changed_cells = 0
+
+    for table in METADATA_FIXTURE_BACKFILL_TABLES:
+        if not _metadata_fixture_table_exists(conn, table):
+            continue
+        row_count = _count(conn, table)
+        if row_count == 0:
+            continue
+
+        columns = conn.execute(f"PRAGMA table_info({_sql_identifier(table)});").fetchall()
+        pk_columns = [str(row[1]) for row in columns if int(row[5] or 0) > 0]
+        if len(pk_columns) != 1:
+            continue
+        pk_column = pk_columns[0]
+        table_sql = _sql_identifier(table)
+        pk_sql = _sql_identifier(pk_column)
+
+        for _cid, column_name, column_type, _not_null, _default, _pk in columns:
+            column = str(column_name)
+            if not _should_backfill_metadata_fixture_column(column, pk_column):
+                continue
+
+            column_sql = _sql_identifier(column)
+            value_expr = _metadata_fixture_value_expression(
+                table=table,
+                column=column,
+                column_type=str(column_type or ""),
+                pk_sql=pk_sql,
+            )
+            if (
+                column.endswith("_created_timestamp_ep_k")
+                or column.endswith("_modified_timestamp_ep_k")
+                or column.endswith("_source_created_datestamp_ep_k")
+                or column.endswith("_source_modified_datestamp_ep_k")
+                or column.endswith("_datestamp")
+            ):
+                where_sql = f"{column_sql} IS NULL OR {column_sql} <> {value_expr}"
+            else:
+                where_sql = f"{column_sql} IS NULL"
+
+            before = conn.total_changes
+            conn.execute(
+                f"UPDATE {table_sql} SET {column_sql} = {value_expr} WHERE {where_sql};"
+            )
+            changed_cells += conn.total_changes - before
+
+    _log(
+        "  fixture field backfill: completed "
+        f"{changed_cells:,} cell updates in {_elapsed_seconds(phase_started_at)}"
+    )
+    return changed_cells
 
 
 def _generated_rating_from_title_id(title_id: int) -> tuple[float, int]:
@@ -1625,11 +2060,16 @@ def _build_frbr_target(
         source_tag_to_label_id: dict[int, int] = {}
         source_tag_to_genre_id: dict[int, int] = {}
         canonical_genre_to_genre_id: dict[str, int] = {}
+        label_norm_to_label_id: dict[str, int] = {}
+        title_to_generated_label_words: dict[int, tuple[tuple[int, str], ...]] = {}
         source_note_to_note_id: dict[int, int] = {}
         source_note_to_synopsis_id: dict[int, int] = {}
         pending_series_parent_links: list[tuple[int, int, Optional[int]]] = []
         used_series_norms: set[str] = set()
         used_label_norms: set[str] = set()
+        generated_fallback_label_id: Optional[int] = None
+        generated_fallback_genre_id: Optional[int] = None
+        generated_standalone_series_id: Optional[int] = None
 
         _log("Creating series rows...")
         phase_started_at = time.time()
@@ -1804,6 +2244,12 @@ def _build_frbr_target(
             """
         ):
             tag_id, tag_name, tag_status = row
+            label_norm = _allocate_unique_norm(
+                str(tag_name),
+                source_id=int(tag_id),
+                seen=used_label_norms,
+                fallback_prefix="tag",
+            )
             cur = conn.execute(
                 """
                 INSERT INTO labels (
@@ -1814,16 +2260,13 @@ def _build_frbr_target(
                 """,
                 (
                     str(tag_name),
-                    _allocate_unique_norm(
-                        str(tag_name),
-                        source_id=int(tag_id),
-                        seen=used_label_norms,
-                        fallback_prefix="tag",
-                    ),
+                    label_norm,
                     f"isfdb:tag:{int(tag_id)};status:{_safe_int(tag_status) if tag_status is not None else 0}",
                 ),
             )
-            source_tag_to_label_id[int(tag_id)] = int(cur.lastrowid)
+            label_id = int(cur.lastrowid)
+            source_tag_to_label_id[int(tag_id)] = label_id
+            label_norm_to_label_id[label_norm] = label_id
             processed += 1
             next_progress = _log_periodic_progress(
                 "labels",
@@ -1834,6 +2277,62 @@ def _build_frbr_target(
             )
         _log(
             f"  labels: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+        )
+
+        _log("Creating generated labels from title words...")
+        phase_started_at = time.time()
+        processed_titles = 0
+        processed_labels = 0
+        next_progress = BUILD_PROGRESS_EVERY_ROWS
+        for title_id, title_title in stage_conn.execute(
+            """
+            SELECT t.title_id, t.title_title
+            FROM stage_titles t
+            JOIN selected_titles st ON st.title_id = t.title_id
+            ORDER BY t.title_id;
+            """
+        ):
+            generated_label_words: list[tuple[int, str]] = []
+            for word in _title_label_words(title_title):
+                label_norm = _norm_text(word)
+                label_id = label_norm_to_label_id.get(label_norm)
+                if label_id is None:
+                    used_label_norms.add(label_norm)
+                    cur = conn.execute(
+                        """
+                        INSERT INTO labels (
+                            label_text,
+                            label_text_norm,
+                            label_description,
+                            label_scratch
+                        ) VALUES (?, ?, ?, ?);
+                        """,
+                        (
+                            word,
+                            label_norm,
+                            "Generated from uncommon words in selected ISFDB work titles.",
+                            f"{GENERATED_METADATA_SOURCE}:title_word:{label_norm}",
+                        ),
+                    )
+                    label_id = int(cur.lastrowid)
+                    label_norm_to_label_id[label_norm] = label_id
+                    processed_labels += 1
+                generated_label_words.append((label_id, label_norm))
+
+            if generated_label_words:
+                title_to_generated_label_words[int(title_id)] = tuple(generated_label_words)
+            processed_titles += 1
+            next_progress = _log_periodic_progress(
+                "title-word labels",
+                processed_titles,
+                every=BUILD_PROGRESS_EVERY_ROWS,
+                next_threshold=next_progress,
+                started_at=phase_started_at,
+            )
+        _log(
+            "  title-word labels: completed "
+            f"{processed_labels:,} generated labels across {processed_titles:,} titles "
+            f"in {_elapsed_seconds(phase_started_at)}"
         )
 
         _log("Creating genres from normalized ISFDB tags...")
@@ -2343,6 +2842,7 @@ def _build_frbr_target(
         phase_started_at = time.time()
         processed = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
+        series_linked_work_ids: set[int] = set()
         for title_id, series_id, title_seriesnum in stage_conn.execute(
             """
             SELECT t.title_id, t.series_id, t.title_seriesnum
@@ -2362,16 +2862,21 @@ def _build_frbr_target(
                     series_work_link_series_id,
                     series_work_link_work_id,
                     series_work_link_priority,
-                    series_work_link_type
-                ) VALUES (?, ?, ?, ?);
+                    series_work_link_type,
+                    series_work_link_source,
+                    series_work_link_scratch
+                ) VALUES (?, ?, ?, ?, ?, ?);
                 """,
                 (
                     target_series_id,
                     work_id,
                     _priority_from_sort_key_and_unique_id(_safe_int(title_seriesnum), work_id),
                     "main",
+                    "isfdb",
+                    f"isfdb:title:{int(title_id)};series:{int(series_id)}",
                 ),
             )
+            series_linked_work_ids.add(work_id)
             processed += 1
             next_progress = _log_periodic_progress(
                 "series links",
@@ -2387,8 +2892,79 @@ def _build_frbr_target(
         phase_started_at = time.time()
         processed = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
+        missing_series_title_ids = [
+            title_id
+            for title_id, work_id in sorted(title_to_work_id.items())
+            if work_id not in series_linked_work_ids
+        ]
+        if missing_series_title_ids:
+            standalone_series_norm = _allocate_unique_norm(
+                GENERATED_STANDALONE_SERIES,
+                source_id=0,
+                seen=used_series_norms,
+                fallback_prefix="generated-series",
+            )
+            cur = conn.execute(
+                """
+                INSERT INTO series (
+                    series,
+                    series_name_norm,
+                    series_sort,
+                    series_full,
+                    series_scratch
+                ) VALUES (?, ?, ?, ?, ?);
+                """,
+                (
+                    GENERATED_STANDALONE_SERIES,
+                    standalone_series_norm,
+                    GENERATED_STANDALONE_SERIES,
+                    GENERATED_STANDALONE_SERIES,
+                    f"{GENERATED_METADATA_SOURCE}:standalone_series",
+                ),
+            )
+            generated_standalone_series_id = int(cur.lastrowid)
+            for title_id in missing_series_title_ids:
+                work_id = title_to_work_id[int(title_id)]
+                conn.execute(
+                    """
+                    INSERT INTO series_work_links (
+                        series_work_link_series_id,
+                        series_work_link_work_id,
+                        series_work_link_priority,
+                        series_work_link_type,
+                        series_work_link_source,
+                        series_work_link_scratch
+                    ) VALUES (?, ?, ?, ?, ?, ?);
+                    """,
+                    (
+                        generated_standalone_series_id,
+                        work_id,
+                        _priority_from_group_and_local_order(work_id),
+                        "generated_standalone",
+                        GENERATED_METADATA_SOURCE,
+                        f"isfdb:title:{int(title_id)};generated_standalone_series",
+                    ),
+                )
+                series_linked_work_ids.add(work_id)
+                processed += 1
+                next_progress = _log_periodic_progress(
+                    "generated standalone series links",
+                    processed,
+                    every=BUILD_PROGRESS_EVERY_ROWS,
+                    next_threshold=next_progress,
+                    started_at=phase_started_at,
+                )
+        _log(
+            "  generated standalone series links: completed "
+            f"{processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+        )
+
+        phase_started_at = time.time()
+        processed = 0
+        next_progress = BUILD_PROGRESS_EVERY_ROWS
         label_local_order_by_work: dict[int, int] = defaultdict(int)
         seen_label_links: set[tuple[int, int]] = set()
+        label_linked_work_ids: set[int] = set()
         for title_id, tag_id in stage_conn.execute(
             """
             SELECT stm.title_id, stm.tag_id
@@ -2413,17 +2989,20 @@ def _build_frbr_target(
                     label_work_link_label_id,
                     label_work_link_work_id,
                     label_work_link_priority,
+                    label_work_link_source,
                     label_work_link_scratch
-                ) VALUES (?, ?, ?, ?);
+                ) VALUES (?, ?, ?, ?, ?);
                 """,
                 (
                     label_id,
                     work_id,
                     _priority_from_group_and_local_order(work_id, local_order),
+                    "isfdb:tag",
                     f"isfdb:title:{int(title_id)};tag:{int(tag_id)}",
                 ),
             )
             processed += 1
+            label_linked_work_ids.add(work_id)
             next_progress = _log_periodic_progress(
                 "label links",
                 processed,
@@ -2438,8 +3017,126 @@ def _build_frbr_target(
         phase_started_at = time.time()
         processed = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
+        for title_id in sorted(title_to_generated_label_words):
+            work_id = title_to_work_id.get(int(title_id))
+            if work_id is None:
+                continue
+            for label_id, label_norm in title_to_generated_label_words[title_id]:
+                if (work_id, label_id) in seen_label_links:
+                    continue
+                seen_label_links.add((work_id, label_id))
+                local_order = label_local_order_by_work[work_id]
+                label_local_order_by_work[work_id] += 1
+                conn.execute(
+                    """
+                    INSERT INTO label_work_links (
+                        label_work_link_label_id,
+                        label_work_link_work_id,
+                        label_work_link_priority,
+                        label_work_link_source,
+                        label_work_link_scratch
+                    ) VALUES (?, ?, ?, ?, ?);
+                    """,
+                    (
+                        label_id,
+                        work_id,
+                        _priority_from_group_and_local_order(work_id, local_order),
+                        GENERATED_METADATA_SOURCE,
+                        f"isfdb:title:{int(title_id)};generated_title_word:{label_norm}",
+                    ),
+                )
+                processed += 1
+                label_linked_work_ids.add(work_id)
+                next_progress = _log_periodic_progress(
+                    "title-word label links",
+                    processed,
+                    every=BUILD_PROGRESS_EVERY_ROWS,
+                    next_threshold=next_progress,
+                    started_at=phase_started_at,
+                )
+        _log(
+            f"  title-word label links: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+        )
+
+        phase_started_at = time.time()
+        processed = 0
+        next_progress = BUILD_PROGRESS_EVERY_ROWS
+        missing_label_title_ids = [
+            title_id
+            for title_id, work_id in sorted(title_to_work_id.items())
+            if work_id not in label_linked_work_ids
+        ]
+        if missing_label_title_ids:
+            fallback_label_norm = GENERATED_FALLBACK_LABEL_NORM
+            if fallback_label_norm in used_label_norms:
+                fallback_label_norm = _allocate_unique_norm(
+                    GENERATED_FALLBACK_LABEL_NORM,
+                    source_id=len(used_label_norms) + 1,
+                    seen=used_label_norms,
+                    fallback_prefix="generated-label",
+                )
+            else:
+                used_label_norms.add(fallback_label_norm)
+            cur = conn.execute(
+                """
+                INSERT INTO labels (
+                    label_text,
+                    label_text_norm,
+                    label_description,
+                    label_scratch
+                ) VALUES (?, ?, ?, ?);
+                """,
+                (
+                    GENERATED_FALLBACK_LABEL_TEXT,
+                    fallback_label_norm,
+                    "Generated fallback label for selected ISFDB works with no source or title-word labels.",
+                    f"{GENERATED_METADATA_SOURCE}:fallback_label",
+                ),
+            )
+            generated_fallback_label_id = int(cur.lastrowid)
+            label_norm_to_label_id[fallback_label_norm] = generated_fallback_label_id
+            for title_id in missing_label_title_ids:
+                work_id = title_to_work_id[int(title_id)]
+                local_order = label_local_order_by_work[work_id]
+                label_local_order_by_work[work_id] += 1
+                conn.execute(
+                    """
+                    INSERT INTO label_work_links (
+                        label_work_link_label_id,
+                        label_work_link_work_id,
+                        label_work_link_priority,
+                        label_work_link_source,
+                        label_work_link_scratch
+                    ) VALUES (?, ?, ?, ?, ?);
+                    """,
+                    (
+                        generated_fallback_label_id,
+                        work_id,
+                        _priority_from_group_and_local_order(work_id, local_order),
+                        GENERATED_METADATA_SOURCE,
+                        f"isfdb:title:{int(title_id)};generated_fallback_label",
+                    ),
+                )
+                label_linked_work_ids.add(work_id)
+                processed += 1
+                next_progress = _log_periodic_progress(
+                    "generated fallback label links",
+                    processed,
+                    every=BUILD_PROGRESS_EVERY_ROWS,
+                    next_threshold=next_progress,
+                    started_at=phase_started_at,
+                )
+        _log(
+            "  generated fallback label links: completed "
+            f"{processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+        )
+
+        phase_started_at = time.time()
+        processed = 0
+        next_progress = BUILD_PROGRESS_EVERY_ROWS
         genre_local_order_by_work: dict[int, int] = defaultdict(int)
         seen_genre_links: set[tuple[int, int]] = set()
+        genre_linked_work_ids: set[int] = set()
         for title_id, tag_id in stage_conn.execute(
             """
             SELECT stm.title_id, stm.tag_id
@@ -2479,6 +3176,7 @@ def _build_frbr_target(
                 ),
             )
             processed += 1
+            genre_linked_work_ids.add(work_id)
             next_progress = _log_periodic_progress(
                 "genre links",
                 processed,
@@ -2488,6 +3186,79 @@ def _build_frbr_target(
             )
         _log(
             f"  genre links: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+        )
+
+        phase_started_at = time.time()
+        processed = 0
+        next_progress = BUILD_PROGRESS_EVERY_ROWS
+        missing_genre_title_ids = [
+            title_id
+            for title_id, work_id in sorted(title_to_work_id.items())
+            if work_id not in genre_linked_work_ids
+        ]
+        if missing_genre_title_ids:
+            generated_fallback_genre_id = canonical_genre_to_genre_id.get(
+                GENERATED_FALLBACK_GENRE
+            )
+            if generated_fallback_genre_id is None:
+                cur = conn.execute(
+                    """
+                    INSERT INTO genres (
+                        genre,
+                        genre_sort,
+                        genre_phash,
+                        genre_full,
+                        genre_scratch
+                    ) VALUES (?, ?, ?, ?, ?);
+                    """,
+                    (
+                        GENERATED_FALLBACK_GENRE,
+                        GENERATED_FALLBACK_GENRE,
+                        make_title_search_term(GENERATED_FALLBACK_GENRE),
+                        GENERATED_FALLBACK_GENRE,
+                        f"{GENERATED_METADATA_SOURCE}:fallback_genre",
+                    ),
+                )
+                generated_fallback_genre_id = int(cur.lastrowid)
+                canonical_genre_to_genre_id[GENERATED_FALLBACK_GENRE] = (
+                    generated_fallback_genre_id
+                )
+            for title_id in missing_genre_title_ids:
+                work_id = title_to_work_id[int(title_id)]
+                local_order = genre_local_order_by_work[work_id]
+                genre_local_order_by_work[work_id] += 1
+                conn.execute(
+                    """
+                    INSERT INTO genre_work_links (
+                        genre_work_link_genre_id,
+                        genre_work_link_work_id,
+                        genre_work_link_priority,
+                        genre_work_link_type,
+                        genre_work_link_source,
+                        genre_work_link_scratch
+                    ) VALUES (?, ?, ?, ?, ?, ?);
+                    """,
+                    (
+                        generated_fallback_genre_id,
+                        work_id,
+                        _priority_from_group_and_local_order(work_id, local_order),
+                        "generated_fallback",
+                        GENERATED_METADATA_SOURCE,
+                        f"isfdb:title:{int(title_id)};generated_fallback_genre",
+                    ),
+                )
+                genre_linked_work_ids.add(work_id)
+                processed += 1
+                next_progress = _log_periodic_progress(
+                    "generated fallback genre links",
+                    processed,
+                    every=BUILD_PROGRESS_EVERY_ROWS,
+                    next_threshold=next_progress,
+                    started_at=phase_started_at,
+                )
+        _log(
+            "  generated fallback genre links: completed "
+            f"{processed:,} rows in {_elapsed_seconds(phase_started_at)}"
         )
 
         phase_started_at = time.time()
@@ -3025,6 +3796,8 @@ def _build_frbr_target(
             "  expression/manifestation links: completed "
             f"{processed:,} rows in {_elapsed_seconds(phase_started_at)}"
         )
+
+        _populate_metadata_fixture_fields(conn)
 
         _log("Finalizing target database...")
         conn.commit()
