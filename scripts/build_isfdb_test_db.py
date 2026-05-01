@@ -830,6 +830,42 @@ def _populate_metadata_fixture_fields(conn: sqlite3.Connection) -> int:
     return changed_cells
 
 
+def _assert_metadata_facet_coverage(conn: sqlite3.Connection) -> None:
+    _log("Checking per-work metadata facet coverage...")
+    phase_started_at = time.time()
+    missing_by_table: dict[str, int] = {}
+
+    for link_table, work_column in (
+        ("label_work_links", "label_work_link_work_id"),
+        ("genre_work_links", "genre_work_link_work_id"),
+        ("series_work_links", "series_work_link_work_id"),
+    ):
+        missing_count = conn.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM works w
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM {_sql_identifier(link_table)} links
+                WHERE links.{_sql_identifier(work_column)} = w.work_id
+            );
+            """
+        ).fetchone()[0]
+        if int(missing_count) != 0:
+            missing_by_table[link_table] = int(missing_count)
+
+    if missing_by_table:
+        raise AssertionError(
+            "metadata facet coverage failed: "
+            + ", ".join(
+                f"{table} missing {count} works"
+                for table, count in sorted(missing_by_table.items())
+            )
+        )
+
+    _log(f"  facet coverage: passed in {_elapsed_seconds(phase_started_at)}")
+
+
 def _generated_rating_from_title_id(title_id: int) -> tuple[float, int]:
     half_star_units = _stable_mod(int(title_id), 10, salt=17) + 1
     return half_star_units / 2.0, half_star_units
@@ -3810,6 +3846,8 @@ def _build_frbr_target(
         fk_violations = conn.execute("PRAGMA foreign_key_check;").fetchall()
         if fk_violations:
             raise AssertionError(f"foreign_key_check failed: {fk_violations[:10]}")
+
+        _assert_metadata_facet_coverage(conn)
 
         counts = {
             "works": _count(conn, "works"),
