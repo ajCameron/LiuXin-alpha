@@ -614,6 +614,92 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
             self.title = title
         return title
 
+    def sync_legacy_tags_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy ``tags`` from WEMI label/tag relation targets.
+
+        The generated ISFDB metadata stores test tags as WEMI labels. Legacy
+        callers, including the Calibre compatibility path, still read
+        ``md.tags``.
+        """
+        data = object.__getattribute__(self, "_data")
+        tags = data["tags"]
+        synced: list[str] = []
+        seen = {str(tag).casefold() for tag in tags}
+
+        for level in self._LEVELS:
+            for relation in ("tags", "labels"):
+                try:
+                    links = self.get_wemi_relation_links(level, relation)
+                except KeyError:
+                    continue
+                for link in links:
+                    tag = self._wemi_tag_text(link.target)
+                    if tag is None:
+                        continue
+                    tag_key = tag.casefold()
+                    if tag_key in seen:
+                        continue
+                    tags[tag] = self._wemi_tag_id(link.target)
+                    synced.append(tag)
+                    seen.add(tag_key)
+
+        return tuple(synced)
+
+    @staticmethod
+    def _wemi_tag_text(target: Any) -> str | None:
+        mapping: Mapping[str, Any]
+        if isinstance(target, Row):
+            mapping = target.row_dict
+        elif isinstance(target, Mapping):
+            mapping = target
+        elif isinstance(target, str):
+            text = target.strip()
+            return text or None
+        else:
+            mapping = {}
+
+        for key in (
+            "label_text",
+            "tag_name",
+            "tag",
+            "name",
+            "text",
+        ):
+            value = mapping.get(key)
+            if value is None and not mapping:
+                value = getattr(target, key, None)
+            if value is None:
+                continue
+            text = str(value).strip()
+            if text:
+                return text
+        return None
+
+    @staticmethod
+    def _wemi_tag_id(target: Any) -> int | None:
+        mapping: Mapping[str, Any]
+        if isinstance(target, Row):
+            mapping = target.row_dict
+        elif isinstance(target, Mapping):
+            mapping = target
+        else:
+            mapping = {}
+
+        for key in ("label_id", "tag_id", "id"):
+            value = mapping.get(key)
+            if value is None and not mapping:
+                value = getattr(target, key, None)
+            if value in (None, ""):
+                continue
+            try:
+                return int(value)
+            except (TypeError, ValueError, OverflowError):
+                continue
+        if isinstance(target, Row) and target.row_id is not None:
+            return int(target.row_id)
+        return None
+
     @classmethod
     def _is_empty_pretty_value(cls, value: Any) -> bool:
         if value is None:

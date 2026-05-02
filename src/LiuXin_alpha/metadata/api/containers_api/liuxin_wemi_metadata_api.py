@@ -256,6 +256,20 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         :return:
         """
 
+    def sync_legacy_title_from_wemi(self) -> str | None:
+        """
+        Populate the legacy title field from the WEMI title surface.
+
+        :return:
+        """
+
+    def sync_legacy_tags_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy tags from WEMI label/tag relation targets.
+
+        :return:
+        """
+
     @classmethod
     def from_mapping(cls, payload: Mapping[str, LiuXinWEMISidecarValue]) -> Self:
         """

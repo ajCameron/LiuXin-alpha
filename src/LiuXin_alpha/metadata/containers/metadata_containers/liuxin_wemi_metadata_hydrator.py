@@ -209,6 +209,7 @@ class LiuXinWEMIMetadataHydrator(MetadataHydratorAPI):
             item_metadata=item_metadata,
         )
         metadata.sync_legacy_title_from_wemi()
+        metadata.sync_legacy_tags_from_wemi()
         return metadata
 
     def hydrate_metadata(
