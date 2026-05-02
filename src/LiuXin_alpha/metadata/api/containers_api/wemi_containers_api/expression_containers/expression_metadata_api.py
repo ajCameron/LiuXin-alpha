@@ -354,6 +354,9 @@ class ExpressionMetadataAPI(abc.ABC):
         :return:
         """
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
 __all__ = [
     "ExpressionRelationEdge",
     "ExpressionRelationLink",

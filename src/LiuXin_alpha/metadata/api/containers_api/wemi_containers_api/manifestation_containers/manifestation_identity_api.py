@@ -119,6 +119,9 @@ class ManifestationIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     def to_mapping(self) -> MutableMetadataRecord:
         ...
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
 
 class ManifestationIdentityAPI(ManifestationIdentityPropertiesAPI, metaclass=abc.ABCMeta):
     """Marker ABC for a concrete manifestation identity container."""

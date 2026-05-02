@@ -443,6 +443,9 @@ class WorkMetadataAPI(abc.ABC):
     def from_mapping(cls, payload: MetadataRecord) -> Self:
         """Hydrate container from mapping representation."""
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
 __all__ = [
     "WorkMetadataAPI",
     "WorkRelationEdge",

@@ -136,4 +136,7 @@ class AgentProfileAPI(abc.ABC):
     def to_mapping(self) -> MutableMetadataRecord:
         """Convert to a plain mapping for storage / serialisation."""
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
 __all__ = ["AgentProfileAPI"]

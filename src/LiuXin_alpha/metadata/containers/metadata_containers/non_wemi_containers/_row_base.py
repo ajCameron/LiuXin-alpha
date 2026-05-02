@@ -10,6 +10,9 @@ from LiuXin_alpha.metadata.api.containers_api.main_table_containers_api import (
     MetadataRowValue,
     MetadataTableRowAPI,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    compact_mapping_string,
+)
 
 
 class MetadataTableRow(MetadataTableRowAPI):
@@ -40,6 +43,13 @@ class MetadataTableRow(MetadataTableRowAPI):
             for field in fields(self)
             if field.init
         }
+
+    def __str__(self) -> str:
+        return compact_mapping_string(
+            self,
+            self.to_mapping(),
+            id_keys=(self.ID_COLUMN,),
+        )
 
 
 __all__ = [

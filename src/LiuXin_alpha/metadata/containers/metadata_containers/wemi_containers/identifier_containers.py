@@ -19,6 +19,10 @@ from LiuXin_alpha.databases.db_types import (
     ITEM_IDENTIFIER_SCHEMES,
 )
 from LiuXin_alpha.metadata.constants.container_vocabularies import IdentifierStatus
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import (
     WorkID,
     ExpressionID,
@@ -34,7 +38,7 @@ SchemeContainerT = TypeVar("SchemeContainerT", bound="SchemeIdentifiersContainer
 
 
 @dataclass(slots=True, kw_only=True)
-class IdentifierBase(abc.ABC):
+class IdentifierBase(MetadataValueStringMixin, abc.ABC):
     """
     Shared relation data for an identifier attached to a bibliographic entity.
 
@@ -58,6 +62,11 @@ class IdentifierBase(abc.ABC):
 
     association_start_ep_k: int | None = None
     association_end_ep_k: int | None = None
+    STRING_DISPLAY_KEYS: ClassVar[tuple[str, ...]] = (
+        "value",
+        "scheme",
+        "status",
+    )
 
     @property
     @abc.abstractmethod
@@ -229,7 +238,11 @@ class ItemIdentifier(IdentifierBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class SchemeIdentifiersContainer(Generic[IdentifierT], abc.ABC):
+class SchemeIdentifiersContainer(
+    MetadataSequenceStringMixin,
+    Generic[IdentifierT],
+    abc.ABC,
+):
     """
     Ordered editable container for all identifiers of one scheme on one target entity.
     """
@@ -239,6 +252,7 @@ class SchemeIdentifiersContainer(Generic[IdentifierT], abc.ABC):
     _identifiers: list[IdentifierT] = field(default_factory=list)
 
     target_kind: ClassVar[str]
+    STRING_COUNT_LABEL: ClassVar[str] = "identifiers"
 
     def __iter__(self) -> Iterator[IdentifierT]:
         return iter(self._identifiers)
@@ -388,6 +402,7 @@ class ItemSchemeIdentifiersContainer(SchemeIdentifiersContainer[ItemIdentifier])
 
 @dataclass(slots=True, kw_only=True)
 class BaseTargetIdentifiersContainer(
+    MetadataSequenceStringMixin,
     Generic[IdentifierT, SchemeContainerT],
     abc.ABC,
 ):
@@ -399,6 +414,7 @@ class BaseTargetIdentifiersContainer(
     _by_scheme: dict[IdentifierScheme, SchemeContainerT] = field(default_factory=dict)
 
     ALLOWED_SCHEMES: ClassVar[frozenset[IdentifierScheme]] = frozenset()
+    STRING_COUNT_LABEL: ClassVar[str] = "identifiers"
 
     @property
     @abc.abstractmethod

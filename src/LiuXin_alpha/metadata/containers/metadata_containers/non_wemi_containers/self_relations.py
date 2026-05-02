@@ -6,6 +6,10 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Generic, Iterator, TypeVar
 
 from ._row_base import MetadataTableRow, MetadataRowValue
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    compact_container_string,
+    compact_mapping_string,
+)
 from .genre_row import GenreRow
 from .series_row import SeriesRow
 from .subject_row import SubjectRow
@@ -115,6 +119,14 @@ class InlineSelfRelation(Generic[RowT]):
             "source": self.source,
         }
 
+    def __str__(self) -> str:
+        return compact_mapping_string(
+            self,
+            self.as_relation_payload(),
+            id_keys=("child_id", "parent_id"),
+            display_keys=("relation_name", "table_name"),
+        )
+
     @staticmethod
     def _int_or_none(value: MetadataRowValue) -> int | None:
         return value if type(value) is int else None
@@ -205,6 +217,9 @@ class SelfRelationsContainer(Generic[RelationT]):
             if child_id in seen_child_ids:
                 raise ValueError(f"Duplicate self-relation for child id {child_id}")
             seen_child_ids.add(child_id)
+
+    def __str__(self) -> str:
+        return compact_container_string(self, count_label="relations")
 
 
 @dataclass(slots=True, kw_only=True)

@@ -79,6 +79,13 @@ class InlineSelfRelationAPI(Protocol[RowAPIT]):
         :return:
         """
 
+    def __str__(self) -> str:
+        """
+        Return a compact human-readable relation summary.
+
+        :return:
+        """
+
 
 @runtime_checkable
 class GenreTreeRelationAPI(InlineSelfRelationAPI[GenreRowAPI], Protocol):
@@ -149,6 +156,13 @@ class SelfRelationsContainerAPI(Protocol[RelationAPIT]):
     def validate(self) -> None:
         """
         Validate every relation edge in this container.
+
+        :return:
+        """
+
+    def __str__(self) -> str:
+        """
+        Return a compact human-readable container summary.
 
         :return:
         """

@@ -53,6 +53,13 @@ class MetadataTableRowAPI(Protocol):
         :return:
         """
 
+    def __str__(self) -> str:
+        """
+        Return a compact human-readable row summary.
+
+        :return:
+        """
+
 
 @runtime_checkable
 class LanguageRowAPI(MetadataTableRowAPI, Protocol):

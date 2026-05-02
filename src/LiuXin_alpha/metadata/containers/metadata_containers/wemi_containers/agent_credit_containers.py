@@ -10,6 +10,10 @@ import abc
 from dataclasses import dataclass
 from typing import ClassVar, Generic, Iterator, TypeVar
 
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import (
     AgentID,
     WorkID,
@@ -30,7 +34,7 @@ RoleContainerT = TypeVar('RoleContainerT', bound='RoleCreditsContainer')
 
 
 @dataclass(slots=True, kw_only=True)
-class AgentCreditBase(abc.ABC):
+class AgentCreditBase(MetadataValueStringMixin, abc.ABC):
     """Shared relation data for an agent attached to a bibliographic entity."""
 
     agent_id: AgentID | None = None
@@ -44,6 +48,7 @@ class AgentCreditBase(abc.ABC):
     source: CreditSource = CreditSource.USER_SET
     confidence: float | None = None
     notes: str | None = None
+    STRING_DISPLAY_KEYS: ClassVar[tuple[str, ...]] = ("credited_as", "role", "agent_id")
 
     @property
     @abc.abstractmethod
@@ -231,7 +236,11 @@ class ItemAgentCredit(AgentCreditBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class RoleCreditsContainer(Generic[CreditT, RoleT], abc.ABC):
+class RoleCreditsContainer(
+    MetadataSequenceStringMixin,
+    Generic[CreditT, RoleT],
+    abc.ABC,
+):
     """Ordered editable container for all credits of one role on one target entity."""
 
     role: RoleT
@@ -239,6 +248,7 @@ class RoleCreditsContainer(Generic[CreditT, RoleT], abc.ABC):
     _credits: list[CreditT]
 
     target_kind: ClassVar[str]
+    STRING_COUNT_LABEL: ClassVar[str] = "credits"
 
     def __init__(self, *, role: RoleT, target_id: int, credits: list[CreditT] | None = None) -> None:
         self.role = role
@@ -368,8 +378,14 @@ class ItemRoleCreditsContainer(RoleCreditsContainer[ItemAgentCredit, ItemAgentRo
         return self.target_id
 
 
-class BaseTargetAgentCreditsContainer(Generic[RoleT, CreditT, RoleContainerT], abc.ABC):
+class BaseTargetAgentCreditsContainer(
+    MetadataSequenceStringMixin,
+    Generic[RoleT, CreditT, RoleContainerT],
+    abc.ABC,
+):
     """Top-level editable credit container for one target entity."""
+
+    STRING_COUNT_LABEL: ClassVar[str] = "credits"
 
     def __init__(self) -> None:
         self._by_role: dict[RoleT, RoleContainerT] = {}

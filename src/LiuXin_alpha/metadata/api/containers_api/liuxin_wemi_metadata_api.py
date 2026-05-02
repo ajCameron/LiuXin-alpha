@@ -323,6 +323,13 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         :return:
         """
 
+    def __str__(self) -> str:
+        """
+        Return the default human-readable metadata summary.
+
+        :return:
+        """
+
     def get_wemi_metadata(self, level: WemiLevel) -> WemiMetadataBundleAPI:
         """
         Get the metadata bundle for a WEMI level.

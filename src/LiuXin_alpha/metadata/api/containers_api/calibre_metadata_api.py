@@ -180,6 +180,8 @@ class CalibreMetadataAPI(CalibreMetadataInputAPI, Protocol):
 
     def deepcopy_metadata(self) -> Self: ...
 
+    def __str__(self) -> str: ...
+
 
 class CalibreLikeBookMetadataAPI(CalibreMetadataInputAPI, Protocol):
     """LiuXin's richer Calibre-like book metadata container shape."""
@@ -286,6 +288,8 @@ class CalibreLikeBookMetadataAPI(CalibreMetadataInputAPI, Protocol):
     def finalize(self) -> None: ...
 
     def to_calibre(self) -> CalibreMetadataAPI: ...
+
+    def __str__(self) -> str: ...
 
 
 __all__ = [

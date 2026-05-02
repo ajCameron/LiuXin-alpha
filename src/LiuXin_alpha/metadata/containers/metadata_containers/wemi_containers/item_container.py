@@ -9,6 +9,9 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import ItemIdentityAPI
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    compact_mapping_string,
+)
 
 
 class ItemIdentity(ItemIdentityAPI):
@@ -118,6 +121,14 @@ class ItemIdentity(ItemIdentityAPI):
             "item_source_modified_datestamp_ep_k": self.item_source_modified_datestamp_ep_k,
             "item_scratch": self.item_scratch,
         }
+
+    def __str__(self) -> str:
+        return compact_mapping_string(
+            self,
+            self.to_mapping(),
+            id_keys=("item_id", "item_manifestation_id"),
+            display_keys=("item_source_name", "item_source_path", "item_type"),
+        )
 
     @property
     def item_id(self) -> Optional[int]:

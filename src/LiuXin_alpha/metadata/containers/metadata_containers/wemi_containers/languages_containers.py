@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import Iterator, Literal, Generic, TypeVar
 
 from LiuXin_alpha.metadata.constants.container_vocabularies import LanguageKind
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import WorkID, ExpressionID, ManifestationID, ItemID, LanguageID
 
 
@@ -20,7 +24,7 @@ KindContainerT = TypeVar("KindContainerT", bound="KindLanguagesContainer")
 
 
 @dataclass(slots=True, kw_only=True)
-class LanguageBase(abc.ABC):
+class LanguageBase(MetadataValueStringMixin, abc.ABC):
     """Shared relation data for one language record attached to a bibliographic entity."""
 
     language_kind: LanguageKind
@@ -33,6 +37,7 @@ class LanguageBase(abc.ABC):
 
     source: str = "user_set"
     notes: str | None = None
+    STRING_DISPLAY_KEYS = ("language_name", "language_code", "display_text")
 
     @property
     @abc.abstractmethod
@@ -152,7 +157,7 @@ class ItemLanguage(LanguageBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class KindLanguagesContainer(Generic[LanguageT], abc.ABC):
+class KindLanguagesContainer(MetadataSequenceStringMixin, Generic[LanguageT], abc.ABC):
     """Ordered editable container for all languages of one kind on one target entity."""
 
     language_kind: LanguageKind
@@ -160,6 +165,7 @@ class KindLanguagesContainer(Generic[LanguageT], abc.ABC):
     _languages: list[LanguageT] = field(default_factory=list)
 
     target_kind: Literal["work", "expression", "manifestation", "item"]
+    STRING_COUNT_LABEL = "languages"
 
     def __iter__(self) -> Iterator[LanguageT]:
         return iter(self._languages)
@@ -255,10 +261,15 @@ class ItemKindLanguagesContainer(KindLanguagesContainer[ItemLanguage]):
 
 
 @dataclass(slots=True, kw_only=True)
-class BaseTargetLanguagesContainer(Generic[LanguageT, KindContainerT], abc.ABC):
+class BaseTargetLanguagesContainer(
+    MetadataSequenceStringMixin,
+    Generic[LanguageT, KindContainerT],
+    abc.ABC,
+):
     """Top-level editable language container for one target entity."""
 
     _by_kind: dict[LanguageKind, KindContainerT] = field(default_factory=dict)
+    STRING_COUNT_LABEL = "languages"
 
     @property
     @abc.abstractmethod

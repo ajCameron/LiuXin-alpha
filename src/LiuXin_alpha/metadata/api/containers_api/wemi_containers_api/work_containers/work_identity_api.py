@@ -403,6 +403,9 @@ class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     def to_mapping(self) -> MutableMetadataRecord:
         ...
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
 
 class WorkIdentityAPI(WorkIdentityPropertiesAPI, metaclass=abc.ABCMeta):
     """Typing interface for a Work container.

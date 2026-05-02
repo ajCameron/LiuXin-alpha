@@ -9,6 +9,9 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    compact_mapping_string,
+)
 
 
 class ManifestationIdentity(ManifestationIdentityAPI):
@@ -72,6 +75,18 @@ class ManifestationIdentity(ManifestationIdentityAPI):
             'manifestation_modified_timestamp_ep_k': self.manifestation_modified_timestamp_ep_k,
             'manifestation_scratch': self.manifestation_scratch,
         }
+
+    def __str__(self) -> str:
+        return compact_mapping_string(
+            self,
+            self.to_mapping(),
+            id_keys=("manifestation_id", "manifestation_expression_id"),
+            display_keys=(
+                "manifestation_format_detail",
+                "manifestation_edition_statement",
+                "manifestation_pub_year",
+            ),
+        )
 
     @property
     def manifestation_id(self) -> Optional[int]: return self._manifestation_id

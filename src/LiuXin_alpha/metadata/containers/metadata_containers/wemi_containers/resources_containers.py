@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import Iterator, Literal, Generic, TypeVar
 
 from LiuXin_alpha.metadata.constants.container_vocabularies import ResourceKind
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import WorkID, ExpressionID, ManifestationID, ItemID
 
 ResourceT = TypeVar("ResourceT", bound="ResourceBase")
@@ -19,7 +23,7 @@ KindContainerT = TypeVar("KindContainerT", bound="KindResourcesContainer")
 
 
 @dataclass(slots=True, kw_only=True)
-class ResourceBase(abc.ABC):
+class ResourceBase(MetadataValueStringMixin, abc.ABC):
     """Shared relation data for one external resource attached to a bibliographic entity."""
 
     resource_kind: ResourceKind
@@ -34,6 +38,7 @@ class ResourceBase(abc.ABC):
 
     source: str = "user_set"
     notes: str | None = None
+    STRING_DISPLAY_KEYS = ("label", "uri", "resource_kind")
 
     @property
     @abc.abstractmethod
@@ -151,12 +156,13 @@ class ItemResource(ResourceBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class KindResourcesContainer(Generic[ResourceT], abc.ABC):
+class KindResourcesContainer(MetadataSequenceStringMixin, Generic[ResourceT], abc.ABC):
     resource_kind: ResourceKind
     target_id: int
     _resources: list[ResourceT] = field(default_factory=list)
 
     target_kind: Literal["work", "expression", "manifestation", "item"]
+    STRING_COUNT_LABEL = "resources"
 
     def __iter__(self) -> Iterator[ResourceT]:
         return iter(self._resources)
@@ -252,8 +258,13 @@ class ItemKindResourcesContainer(KindResourcesContainer[ItemResource]):
 
 
 @dataclass(slots=True, kw_only=True)
-class BaseTargetResourcesContainer(Generic[ResourceT, KindContainerT], abc.ABC):
+class BaseTargetResourcesContainer(
+    MetadataSequenceStringMixin,
+    Generic[ResourceT, KindContainerT],
+    abc.ABC,
+):
     _by_kind: dict[ResourceKind, KindContainerT] = field(default_factory=dict)
+    STRING_COUNT_LABEL = "resources"
 
     @property
     @abc.abstractmethod

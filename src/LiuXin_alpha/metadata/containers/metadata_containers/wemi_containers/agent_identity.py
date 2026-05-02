@@ -9,6 +9,9 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    compact_mapping_string,
+)
 from LiuXin_alpha.metadata.metadata_types import AgentTypes
 
 
@@ -44,6 +47,14 @@ class AgentIdentity(AgentIdentityAPI):
             'agent_display_name': self.display_name,
             'agent_sort_name': self.sort_name,
         }
+
+    def __str__(self) -> str:
+        return compact_mapping_string(
+            self,
+            self.to_mapping(),
+            id_keys=("agent_id",),
+            display_keys=("agent_display_name", "agent_type", "agent_sort_name"),
+        )
 
     @property
     def agent_id(self) -> int | None:

@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Generic, Iterator, Literal, TypeVar
 
 from LiuXin_alpha.metadata.constants.container_vocabularies import TitleKind
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import (
     WorkID,
     ExpressionID,
@@ -27,7 +31,7 @@ KindContainerT = TypeVar("KindContainerT", bound="KindTitlesContainer")
 
 
 @dataclass(slots=True, kw_only=True)
-class TitleBase(abc.ABC):
+class TitleBase(MetadataValueStringMixin, abc.ABC):
     """
     Shared relation data for one title record attached to a bibliographic entity.
 
@@ -49,6 +53,11 @@ class TitleBase(abc.ABC):
 
     source: str = "user_set"
     notes: str | None = None
+    STRING_DISPLAY_KEYS: ClassVar[tuple[str, ...]] = (
+        "text",
+        "title_kind",
+        "source",
+    )
 
     @property
     @abc.abstractmethod
@@ -241,7 +250,7 @@ class ItemTitle(TitleBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class KindTitlesContainer(Generic[TitleT], abc.ABC):
+class KindTitlesContainer(MetadataSequenceStringMixin, Generic[TitleT], abc.ABC):
     """
     Ordered editable container for all titles of one kind on one target entity.
 
@@ -259,6 +268,7 @@ class KindTitlesContainer(Generic[TitleT], abc.ABC):
     _titles: list[TitleT] = field(default_factory=list)
 
     target_kind: ClassVar[str]
+    STRING_COUNT_LABEL: ClassVar[str] = "titles"
 
     def __iter__(self) -> Iterator[TitleT]:
         return iter(self._titles)
@@ -399,7 +409,11 @@ class ItemKindTitlesContainer(KindTitlesContainer[ItemTitle]):
 
 
 @dataclass(slots=True, kw_only=True)
-class BaseTargetTitlesContainer(Generic[TitleT, KindContainerT], abc.ABC):
+class BaseTargetTitlesContainer(
+    MetadataSequenceStringMixin,
+    Generic[TitleT, KindContainerT],
+    abc.ABC,
+):
     """
     Top-level editable title container for one target entity.
 
@@ -409,6 +423,7 @@ class BaseTargetTitlesContainer(Generic[TitleT, KindContainerT], abc.ABC):
     """
 
     _by_kind: dict[TitleKind, KindContainerT] = field(default_factory=dict)
+    STRING_COUNT_LABEL: ClassVar[str] = "titles"
 
     @property
     @abc.abstractmethod

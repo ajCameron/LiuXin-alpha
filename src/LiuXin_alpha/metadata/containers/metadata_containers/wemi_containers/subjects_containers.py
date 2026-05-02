@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Generic, Iterator, Literal, TypeVar
 
 from LiuXin_alpha.metadata.constants.container_vocabularies import SubjectKind
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import (
     WorkID,
     ExpressionID,
@@ -27,7 +31,7 @@ KindContainerT = TypeVar("KindContainerT", bound="KindSubjectsContainer")
 
 
 @dataclass(slots=True, kw_only=True)
-class SubjectBase(abc.ABC):
+class SubjectBase(MetadataValueStringMixin, abc.ABC):
     """
     Shared relation data for a subject attached to a bibliographic entity.
 
@@ -48,6 +52,7 @@ class SubjectBase(abc.ABC):
 
     source: str = "user_set"
     notes: str | None = None
+    STRING_DISPLAY_KEYS = ("text", "subject_kind", "source")
 
     authority_record_id: int | None = None
     external_key: str | None = None
@@ -203,7 +208,7 @@ class ItemSubject(SubjectBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class KindSubjectsContainer(Generic[SubjectT], abc.ABC):
+class KindSubjectsContainer(MetadataSequenceStringMixin, Generic[SubjectT], abc.ABC):
     """Ordered editable container for all subjects of one kind on one target entity."""
 
     subject_kind: SubjectKind
@@ -211,6 +216,7 @@ class KindSubjectsContainer(Generic[SubjectT], abc.ABC):
     _subjects: list[SubjectT] = field(default_factory=list)
 
     target_kind: ClassVar[str]
+    STRING_COUNT_LABEL = "subjects"
 
     def __iter__(self) -> Iterator[SubjectT]:
         return iter(self._subjects)
@@ -351,13 +357,18 @@ class ItemKindSubjectsContainer(KindSubjectsContainer[ItemSubject]):
 
 
 @dataclass(slots=True, kw_only=True)
-class BaseTargetSubjectsContainer(Generic[SubjectT, KindContainerT], abc.ABC):
+class BaseTargetSubjectsContainer(
+    MetadataSequenceStringMixin,
+    Generic[SubjectT, KindContainerT],
+    abc.ABC,
+):
     """
     Top-level editable subjects container for one target entity.
     Holds one KindSubjectsContainer per subject kind.
     """
 
     _by_kind: dict[SubjectKind, KindContainerT] = field(default_factory=dict)
+    STRING_COUNT_LABEL = "subjects"
 
     @property
     @abc.abstractmethod

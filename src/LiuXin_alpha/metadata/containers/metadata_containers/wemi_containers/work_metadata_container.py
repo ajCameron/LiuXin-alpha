@@ -15,6 +15,9 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_container
     WorkMetadataAPI,
     WorkRelationLink,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    metadata_bundle_string,
+)
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import (
     WorkIdentity,
 )
@@ -57,6 +60,14 @@ class WorkMetadata(WorkMetadataAPI):
     def set_relation_links(self, relation: str, links: Iterable[WorkRelationLink]) -> None:
         relation_key = self.validate_relation_name(relation)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
+
+    def __str__(self) -> str:
+        return metadata_bundle_string(
+            self,
+            identity_name="work",
+            relation_names=self.RELATION_KEYS,
+            get_links=self.get_relation_links,
+        )
 
     @staticmethod
     def _serialize_target(target: Any) -> Any:

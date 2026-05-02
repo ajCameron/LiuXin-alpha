@@ -293,6 +293,9 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     def item_condition(self, item_condition: Optional[str]) -> None:
         ...
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
 
 class ItemIdentityAPI(ItemIdentityPropertiesAPI):
     """

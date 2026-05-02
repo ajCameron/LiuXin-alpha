@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import Iterator, Literal, Generic, TypeVar
 
 from LiuXin_alpha.metadata.constants.container_vocabularies import DateKind
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import WorkID, ExpressionID, ManifestationID, ItemID, LanguageID
 
 DateT = TypeVar("DateT", bound="DateBase")
@@ -19,7 +23,7 @@ KindContainerT = TypeVar("KindContainerT", bound="KindDatesContainer")
 
 
 @dataclass(slots=True, kw_only=True)
-class DateBase(abc.ABC):
+class DateBase(MetadataValueStringMixin, abc.ABC):
     """Shared relation data for one date record attached to a bibliographic entity."""
 
     date_kind: DateKind
@@ -34,6 +38,7 @@ class DateBase(abc.ABC):
 
     source: str = "user_set"
     notes: str | None = None
+    STRING_DISPLAY_KEYS = ("display_text", "start_ep_k", "date_kind")
 
     @property
     @abc.abstractmethod
@@ -161,12 +166,13 @@ class ItemDate(DateBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class KindDatesContainer(Generic[DateT], abc.ABC):
+class KindDatesContainer(MetadataSequenceStringMixin, Generic[DateT], abc.ABC):
     date_kind: DateKind
     target_id: int
     _dates: list[DateT] = field(default_factory=list)
 
     target_kind: Literal["work", "expression", "manifestation", "item"]
+    STRING_COUNT_LABEL = "dates"
 
     def __iter__(self) -> Iterator[DateT]:
         return iter(self._dates)
@@ -262,8 +268,13 @@ class ItemKindDatesContainer(KindDatesContainer[ItemDate]):
 
 
 @dataclass(slots=True, kw_only=True)
-class BaseTargetDatesContainer(Generic[DateT, KindContainerT], abc.ABC):
+class BaseTargetDatesContainer(
+    MetadataSequenceStringMixin,
+    Generic[DateT, KindContainerT],
+    abc.ABC,
+):
     _by_kind: dict[DateKind, KindContainerT] = field(default_factory=dict)
+    STRING_COUNT_LABEL = "dates"
 
     @property
     @abc.abstractmethod

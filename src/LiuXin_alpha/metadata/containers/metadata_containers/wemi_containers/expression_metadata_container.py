@@ -16,6 +16,9 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_con
     ExpressionMetadataAPI,
     ExpressionRelationLink,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    metadata_bundle_string,
+)
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
 
 
@@ -41,6 +44,14 @@ class ExpressionMetadata(ExpressionMetadataAPI):
     def set_relation_links(self, relation: str, links: Iterable[ExpressionRelationLink]) -> None:
         relation_key = self.validate_relation_name(relation)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
+
+    def __str__(self) -> str:
+        return metadata_bundle_string(
+            self,
+            identity_name="expression",
+            relation_names=self.RELATION_KEYS,
+            get_links=self.get_relation_links,
+        )
 
     @staticmethod
     def _serialize_target(target: Any) -> Any:

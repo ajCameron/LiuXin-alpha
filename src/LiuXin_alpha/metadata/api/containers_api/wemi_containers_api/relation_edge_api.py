@@ -84,6 +84,8 @@ class RelationEdgeAPI(Protocol[RelationEdgeTargetT]):
     cardinality: Optional[RelationCardinality]
     extra: MutableMetadataRecord
 
+    def __str__(self) -> str: ...
+
 
 @runtime_checkable
 class OneOneRelationEdgeAPI(RelationEdgeAPI[RelationEdgeTargetT], Protocol[RelationEdgeTargetT]):
@@ -133,6 +135,18 @@ class RelationEdge(Generic[RelationEdgeTargetT]):
     def __post_init__(self) -> None:
         if self.cardinality is not None:
             self.cardinality = normalize_relation_cardinality(self.cardinality)
+
+    def __str__(self) -> str:
+        pieces = [f"target={self.target}"]
+        if self.edge_id is not None:
+            pieces.append(f"edge_id={self.edge_id!r}")
+        if self.type is not None:
+            pieces.append(f"type={self.type!r}")
+        if self.source is not None:
+            pieces.append(f"source={self.source!r}")
+        if self.priority is not None:
+            pieces.append(f"priority={self.priority!r}")
+        return f"{self.__class__.__name__}({', '.join(pieces)})"
 
 
 __all__ = [
