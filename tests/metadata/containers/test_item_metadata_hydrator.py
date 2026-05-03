@@ -5,7 +5,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
+from LiuXin_alpha.metadata.containers import (
+    ItemMetadata,
+    ItemMetadataHydrator,
+    LiuXinWEMIMetadata,
+    LiuXinWEMIMetadataHydrator,
+)
 
 
 SINGULARS = {
@@ -18,6 +23,7 @@ SINGULARS = {
     "images": "image",
     "stores": "store",
     "folders": "folder",
+    "labels": "label",
     "item_identifiers": "item_identifier",
     "entity_identifiers": "entity_identifier",
     "annotations": "annotation",
@@ -167,6 +173,10 @@ def _build_fake_database() -> FakeDatabase:
             "store_name",
             "store_root_uri",
         ],
+        "labels": [
+            "label_id",
+            "label_text",
+        ],
         "item_identifiers": [
             "item_identifier_id",
             "item_identifier_item_id",
@@ -248,6 +258,13 @@ def _build_fake_database() -> FakeDatabase:
         },
     )
     db.add_row(
+        "labels",
+        {
+            "label_id": 90,
+            "label_text": "Science Fiction",
+        },
+    )
+    db.add_row(
         "item_identifiers",
         {
             "item_identifier_id": 70,
@@ -294,6 +311,13 @@ def _build_fake_database() -> FakeDatabase:
             "agent_work_link_type": "author",
         }
     ]
+    db.interlinks[("works", 30, "labels")] = [
+        {
+            "label_work_link_label_id": 90,
+            "label_work_link_priority": 1,
+            "label_work_link_source": "fixture",
+        }
+    ]
     return db
 
 
@@ -326,3 +350,58 @@ def test_item_metadata_hydrator_from_item_id_and_source_row() -> None:
     )
     assert via_mapping.item is not None
     assert via_mapping.item.item_id == 1
+
+
+def test_liuxin_wemi_metadata_hydrator_builds_complete_item_slice() -> None:
+    db = _build_fake_database()
+    hydrator = LiuXinWEMIMetadataHydrator(db)
+
+    metadata = hydrator.get_liuxin_wemi_metadata(item_id=1)
+
+    assert isinstance(metadata, LiuXinWEMIMetadata)
+    assert metadata.item is not None
+    assert metadata.item.item_id == 1
+    assert metadata.manifestation is not None
+    assert metadata.manifestation.manifestation_id == 10
+    assert metadata.expression is not None
+    assert metadata.expression.expression_id == 20
+    assert metadata.work is not None
+    assert metadata.work.work_id == 30
+    assert metadata.title == "Permutation City"
+    assert metadata.database_ids["item_id"] == 1
+    assert metadata.database_ids["manifestation_id"] == 10
+    assert metadata.database_ids["expression_id"] == 20
+    assert metadata.database_ids["work_id"] == 30
+    assert metadata.get_wemi_relation_links("item", "files")
+    label = metadata.get_wemi_related("work", "labels")[0]
+    assert label.row_dict["label_text"] == "Science Fiction"
+    assert list(metadata.tags.keys()) == ["Science Fiction"]
+    assert metadata.tags["Science Fiction"] == 90
+
+
+def test_liuxin_wemi_metadata_from_database_uses_central_hydrator() -> None:
+    db = _build_fake_database()
+
+    metadata = LiuXinWEMIMetadata.from_database(db, item_id=1)
+
+    assert metadata.item is not None
+    assert metadata.item.item_id == 1
+    assert metadata.database_ids["work_id"] == 30
+    assert metadata.title == "Permutation City"
+
+
+def test_liuxin_wemi_metadata_hydrator_dispatches_typed_shapes() -> None:
+    db = _build_fake_database()
+    hydrator = LiuXinWEMIMetadataHydrator(db)
+
+    work_metadata = hydrator.hydrate_metadata("work", work_id=30)
+    item_metadata = hydrator.hydrate_metadata("item", item_id=1)
+    liuxin_metadata = hydrator.hydrate_metadata("liuxin", item_id=1)
+    calibre_metadata = hydrator.hydrate_metadata("calibre", item_id=1)
+
+    assert getattr(work_metadata, "work").work_id == 30
+    assert getattr(item_metadata, "item").item_id == 1
+    assert liuxin_metadata.title == "Permutation City"
+    assert list(liuxin_metadata.tags.keys()) == ["Science Fiction"]
+    assert calibre_metadata.title == "Permutation City"
+    assert calibre_metadata.tags == ["Science Fiction"]

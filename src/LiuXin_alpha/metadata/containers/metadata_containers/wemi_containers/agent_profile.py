@@ -8,8 +8,11 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Mapping, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.agent_containers.agent_profile_api import AgentProfileAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_profile_api import AgentProfileAPI
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    compact_mapping_string,
+)
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_identity import AgentIdentity
 
 
@@ -165,6 +168,14 @@ class AgentProfile(AgentProfileAPI):
             'labels': list(self.labels),
             'extra': dict(self.extra),
         }
+
+    def __str__(self) -> str:
+        return compact_mapping_string(
+            self,
+            self.to_mapping(),
+            id_keys=("agent_id",),
+            display_keys=("agent", "legal_name", "birth_name"),
+        )
 
 
 __all__ = ['AgentProfile']

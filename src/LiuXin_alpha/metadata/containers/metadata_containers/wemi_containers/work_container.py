@@ -11,8 +11,12 @@ from __future__ import annotations
 
 from typing import Any, Iterator, Mapping, Optional, Iterable
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_containers.work_identity_api import \
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import \
     WorkIdentityAPI
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    compact_container_string,
+    compact_mapping_string,
+)
 
 from LiuXin_alpha.utils.adaptors import _boolish_to_bool, _bool_to_int_or_none
 
@@ -122,6 +126,14 @@ class WorkIdentity(WorkIdentityAPI):
 
     def to_mapping(self) -> dict[str, Any]:
         return self.to_dict()
+
+    def __str__(self) -> str:
+        return compact_mapping_string(
+            self,
+            self.to_mapping(),
+            id_keys=("work_id",),
+            display_keys=("work_canonical_title", "work_title", "work_type"),
+        )
 
     # -------------------------
     # Core fields
@@ -305,5 +317,8 @@ class WorkIdentities:
 
     def to_dicts(self) -> list[dict[str, Any]]:
         return [w.to_dict() for w in self._works]
+
+    def __str__(self) -> str:
+        return compact_container_string(self, count_label="works")
 
 __all__ = ["WorkIdentity", "WorkIdentities"]

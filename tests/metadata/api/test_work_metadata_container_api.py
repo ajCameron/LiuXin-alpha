@@ -86,7 +86,7 @@ class _DummyWorkMetadata(WorkMetadataAPI):
 
 
 def test_work_metadata_api_is_exported_from_top_level() -> None:
-    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import WorkMetadataAPI as WorkMetadataAPIFromPackage
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import WorkMetadataAPI as WorkMetadataAPIFromPackage
 
     assert WorkMetadataAPI is WorkMetadataAPIFromPackage
 
@@ -109,6 +109,7 @@ def test_metadata_api_does_not_export_storage_owned_contracts() -> None:
 def test_relation_name_validation_supports_aliases() -> None:
     assert WorkMetadataAPI.validate_relation_name("creator") == "agents"
     assert WorkMetadataAPI.validate_relation_name("cover") == "images"
+    assert WorkMetadataAPI.validate_relation_name("title") == "titles"
     assert WorkMetadataAPI.validate_relation_name("Language") == "languages"
     with pytest.raises(KeyError):
         WorkMetadataAPI.validate_relation_name("not-a-relation")

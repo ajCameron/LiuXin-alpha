@@ -16,6 +16,10 @@ from LiuXin_alpha.metadata.constants.container_vocabularies import (
     NoteFormat,
     NoteVisibility,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import (
     WorkID,
     ExpressionID,
@@ -30,7 +34,7 @@ KindContainerT = TypeVar("KindContainerT", bound="KindNotesContainer")
 
 
 @dataclass(slots=True, kw_only=True)
-class NoteBase(abc.ABC):
+class NoteBase(MetadataValueStringMixin, abc.ABC):
     """
     Shared relation data for one note attached to a bibliographic entity.
 
@@ -55,6 +59,11 @@ class NoteBase(abc.ABC):
 
     association_start_ep_k: int | None = None
     association_end_ep_k: int | None = None
+    STRING_DISPLAY_KEYS: ClassVar[tuple[str, ...]] = (
+        "title",
+        "body",
+        "note_kind",
+    )
 
     @property
     @abc.abstractmethod
@@ -270,7 +279,7 @@ class ItemNote(NoteBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class KindNotesContainer(Generic[NoteT], abc.ABC):
+class KindNotesContainer(MetadataSequenceStringMixin, Generic[NoteT], abc.ABC):
     """
     Ordered editable container for all notes of one kind on one target entity.
 
@@ -288,6 +297,7 @@ class KindNotesContainer(Generic[NoteT], abc.ABC):
     _notes: list[NoteT] = field(default_factory=list)
 
     target_kind: ClassVar[str]
+    STRING_COUNT_LABEL: ClassVar[str] = "notes"
 
     def __iter__(self) -> Iterator[NoteT]:
         return iter(self._notes)
@@ -428,7 +438,11 @@ class ItemKindNotesContainer(KindNotesContainer[ItemNote]):
 
 
 @dataclass(slots=True, kw_only=True)
-class BaseTargetNotesContainer(Generic[NoteT, KindContainerT], abc.ABC):
+class BaseTargetNotesContainer(
+    MetadataSequenceStringMixin,
+    Generic[NoteT, KindContainerT],
+    abc.ABC,
+):
     """
     Top-level editable note container for one target entity.
 
@@ -438,6 +452,7 @@ class BaseTargetNotesContainer(Generic[NoteT, KindContainerT], abc.ABC):
     """
 
     _by_kind: dict[NoteKind, KindContainerT] = field(default_factory=dict)
+    STRING_COUNT_LABEL: ClassVar[str] = "notes"
 
     @property
     @abc.abstractmethod

@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import Iterator, Literal, Generic, TypeVar
 
 from LiuXin_alpha.metadata.constants.container_vocabularies import RatingKind
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import WorkID, ExpressionID, ManifestationID, ItemID
 
 RatingT = TypeVar("RatingT", bound="RatingBase")
@@ -19,7 +23,7 @@ KindContainerT = TypeVar("KindContainerT", bound="KindRatingsContainer")
 
 
 @dataclass(slots=True, kw_only=True)
-class RatingBase(abc.ABC):
+class RatingBase(MetadataValueStringMixin, abc.ABC):
     """Shared relation data for one rating record attached to a bibliographic entity."""
 
     rating_kind: RatingKind
@@ -34,6 +38,7 @@ class RatingBase(abc.ABC):
 
     source: str = "user_set"
     notes: str | None = None
+    STRING_DISPLAY_KEYS = ("display_text", "value", "rating_kind")
 
     @property
     @abc.abstractmethod
@@ -155,12 +160,13 @@ class ItemRating(RatingBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class KindRatingsContainer(Generic[RatingT], abc.ABC):
+class KindRatingsContainer(MetadataSequenceStringMixin, Generic[RatingT], abc.ABC):
     rating_kind: RatingKind
     target_id: int
     _ratings: list[RatingT] = field(default_factory=list)
 
     target_kind: Literal["work", "expression", "manifestation", "item"]
+    STRING_COUNT_LABEL = "ratings"
 
     def __iter__(self) -> Iterator[RatingT]:
         return iter(self._ratings)
@@ -256,8 +262,13 @@ class ItemKindRatingsContainer(KindRatingsContainer[ItemRating]):
 
 
 @dataclass(slots=True, kw_only=True)
-class BaseTargetRatingsContainer(Generic[RatingT, KindContainerT], abc.ABC):
+class BaseTargetRatingsContainer(
+    MetadataSequenceStringMixin,
+    Generic[RatingT, KindContainerT],
+    abc.ABC,
+):
     _by_kind: dict[RatingKind, KindContainerT] = field(default_factory=dict)
+    STRING_COUNT_LABEL = "ratings"
 
     @property
     @abc.abstractmethod

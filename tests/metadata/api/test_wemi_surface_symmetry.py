@@ -68,10 +68,10 @@ LEVELS = [
 @pytest.mark.parametrize("entry", LEVELS, ids=[entry["level"] for entry in LEVELS])
 def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
     api_identity_module = importlib.import_module(
-        f"LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.{entry['api_identity_module']}"
+        f"LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.{entry['api_identity_module']}"
     )
     api_metadata_module = importlib.import_module(
-        f"LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.{entry['api_metadata_module']}"
+        f"LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.{entry['api_metadata_module']}"
     )
     impl_identity_module = importlib.import_module(
         f"LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.{entry['impl_identity_module']}"
@@ -83,7 +83,7 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
         f"LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.{entry['hydrator_module']}"
     )
     source_root = importlib.import_module(
-        "LiuXin_alpha.metadata.api.metadata_db_source.wemi_sources"
+        "LiuXin_alpha.metadata.api.from_database_api.wemi_sources"
     )
 
     assert hasattr(api_identity_module, entry["api_identity_class"])

@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import Iterator, Literal, Generic, TypeVar
 
 from LiuXin_alpha.metadata.constants.container_vocabularies import SeriesKind
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import WorkID, ExpressionID, ManifestationID, ItemID, LanguageID
 
 SeriesT = TypeVar("SeriesT", bound="SeriesEntryBase")
@@ -19,7 +23,7 @@ KindContainerT = TypeVar("KindContainerT", bound="KindSeriesEntriesContainer")
 
 
 @dataclass(slots=True, kw_only=True)
-class SeriesEntryBase(abc.ABC):
+class SeriesEntryBase(MetadataValueStringMixin, abc.ABC):
     """Shared relation data for one series-like attachment."""
 
     series_kind: SeriesKind
@@ -37,6 +41,7 @@ class SeriesEntryBase(abc.ABC):
 
     source: str = "user_set"
     notes: str | None = None
+    STRING_DISPLAY_KEYS = ("display_text", "name", "series_kind")
 
     @property
     @abc.abstractmethod
@@ -162,12 +167,13 @@ class ItemSeriesEntry(SeriesEntryBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class KindSeriesEntriesContainer(Generic[SeriesT], abc.ABC):
+class KindSeriesEntriesContainer(MetadataSequenceStringMixin, Generic[SeriesT], abc.ABC):
     series_kind: SeriesKind
     target_id: int
     _entries: list[SeriesT] = field(default_factory=list)
 
     target_kind: Literal["work", "expression", "manifestation", "item"]
+    STRING_COUNT_LABEL = "series entries"
 
     def __iter__(self) -> Iterator[SeriesT]:
         return iter(self._entries)
@@ -263,8 +269,13 @@ class ItemKindSeriesEntriesContainer(KindSeriesEntriesContainer[ItemSeriesEntry]
 
 
 @dataclass(slots=True, kw_only=True)
-class BaseTargetSeriesEntriesContainer(Generic[SeriesT, KindContainerT], abc.ABC):
+class BaseTargetSeriesEntriesContainer(
+    MetadataSequenceStringMixin,
+    Generic[SeriesT, KindContainerT],
+    abc.ABC,
+):
     _by_kind: dict[SeriesKind, KindContainerT] = field(default_factory=dict)
+    STRING_COUNT_LABEL = "series entries"
 
     @property
     @abc.abstractmethod

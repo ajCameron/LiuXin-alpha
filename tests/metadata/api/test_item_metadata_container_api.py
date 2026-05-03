@@ -78,7 +78,7 @@ class _DummyItemMetadata(ItemMetadataAPI):
 
 
 def test_item_metadata_api_is_exported_from_top_level() -> None:
-    from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import ItemMetadataAPI as ItemMetadataAPIFromPackage
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import ItemMetadataAPI as ItemMetadataAPIFromPackage
 
     assert ItemMetadataAPI is ItemMetadataAPIFromPackage
 
@@ -87,6 +87,7 @@ def test_relation_name_validation_supports_aliases() -> None:
     assert ItemMetadataAPI.validate_relation_name("digital_asset") == "digital_assets"
     assert ItemMetadataAPI.validate_relation_name("replica") == "asset_replicas"
     assert ItemMetadataAPI.validate_relation_name("cover") == "images"
+    assert ItemMetadataAPI.validate_relation_name("title") == "titles"
     with pytest.raises(KeyError):
         ItemMetadataAPI.validate_relation_name("not-a-relation")
 

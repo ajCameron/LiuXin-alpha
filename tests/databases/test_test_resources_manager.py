@@ -148,6 +148,28 @@ def test_test_db_2_generates_and_is_pruned(provision_test_database) -> None:
 
         book_count = conn.execute("SELECT COUNT(*) FROM books;").fetchone()[0]
         assert int(book_count) == 1
+
+        labels = {
+            str(row[0])
+            for row in conn.execute("SELECT label_text FROM labels ORDER BY label_text;").fetchall()
+        }
+        assert labels == {
+            trm.PROFILED_COMMON_TAG,
+            trm.PROFILED_FIRST_TAG,
+            trm.PROFILED_ODD_TAG,
+            "test_db_2",
+        }
+
+        label_link_count = conn.execute("SELECT COUNT(*) FROM label_work_links;").fetchone()[0]
+        assert int(label_link_count) == 4
+
+        tag_facets = {
+            str(row[0])
+            for row in conn.execute(
+                "SELECT facet_text FROM subjects_tags_v WHERE facet_kind = 'label';"
+            ).fetchall()
+        }
+        assert tag_facets == labels
     finally:
         conn.close()
 

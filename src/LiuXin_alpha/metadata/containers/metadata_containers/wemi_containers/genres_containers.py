@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import Iterator, Literal
 
 from LiuXin_alpha.metadata.constants.container_vocabularies import GenreKind
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import (
     WorkID,
     ExpressionID,
@@ -23,7 +27,7 @@ from LiuXin_alpha.metadata.metadata_types import (
 
 
 @dataclass(slots=True, kw_only=True)
-class GenreBase(abc.ABC):
+class GenreBase(MetadataValueStringMixin, abc.ABC):
     """
     Shared relation data for one genre record attached to a bibliographic entity.
 
@@ -47,6 +51,7 @@ class GenreBase(abc.ABC):
 
     source: str = "user_set"
     notes: str | None = None
+    STRING_DISPLAY_KEYS = ("text", "genre_kind", "source")
 
     @property
     @abc.abstractmethod
@@ -224,7 +229,7 @@ class ItemGenre(GenreBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class GenresContainerBase(abc.ABC):
+class GenresContainerBase(MetadataSequenceStringMixin, abc.ABC):
     """
     Ordered editable container for all genres attached to one target entity.
 
@@ -234,6 +239,7 @@ class GenresContainerBase(abc.ABC):
     """
 
     _genres: list[GenreBase] = field(default_factory=list)
+    STRING_COUNT_LABEL = "genres"
 
     @property
     @abc.abstractmethod

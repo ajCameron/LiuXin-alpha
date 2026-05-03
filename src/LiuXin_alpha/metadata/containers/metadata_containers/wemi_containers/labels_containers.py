@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Generic, Iterator, Literal, TypeVar
 
 from LiuXin_alpha.metadata.constants.container_vocabularies import LabelKind
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    MetadataSequenceStringMixin,
+    MetadataValueStringMixin,
+)
 from LiuXin_alpha.metadata.metadata_types import (
     WorkID,
     ExpressionID,
@@ -27,7 +31,7 @@ KindContainerT = TypeVar("KindContainerT", bound="KindLabelsContainer")
 
 
 @dataclass(slots=True, kw_only=True)
-class LabelBase(abc.ABC):
+class LabelBase(MetadataValueStringMixin, abc.ABC):
     """
     Shared relation data for a label attached to a bibliographic entity.
 
@@ -45,6 +49,7 @@ class LabelBase(abc.ABC):
 
     source: str = "user_set"
     notes: str | None = None
+    STRING_DISPLAY_KEYS = ("text", "label_kind", "source")
 
     # Optional glue to authority / external classification systems.
     authority_record_id: int | None = None
@@ -207,7 +212,7 @@ class ItemLabel(LabelBase):
 
 
 @dataclass(slots=True, kw_only=True)
-class KindLabelsContainer(Generic[LabelT], abc.ABC):
+class KindLabelsContainer(MetadataSequenceStringMixin, Generic[LabelT], abc.ABC):
     """
     Ordered editable container for all labels of one kind on one target entity.
     """
@@ -217,6 +222,7 @@ class KindLabelsContainer(Generic[LabelT], abc.ABC):
     _labels: list[LabelT] = field(default_factory=list)
 
     target_kind: ClassVar[str]
+    STRING_COUNT_LABEL = "labels"
 
     def __iter__(self) -> Iterator[LabelT]:
         return iter(self._labels)
@@ -357,13 +363,18 @@ class ItemKindLabelsContainer(KindLabelsContainer[ItemLabel]):
 
 
 @dataclass(slots=True, kw_only=True)
-class BaseTargetLabelsContainer(Generic[LabelT, KindContainerT], abc.ABC):
+class BaseTargetLabelsContainer(
+    MetadataSequenceStringMixin,
+    Generic[LabelT, KindContainerT],
+    abc.ABC,
+):
     """
     Top-level editable label container for one target entity.
     Holds one KindLabelsContainer per label kind.
     """
 
     _by_kind: dict[LabelKind, KindContainerT] = field(default_factory=dict)
+    STRING_COUNT_LABEL = "labels"
 
     @property
     @abc.abstractmethod

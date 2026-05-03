@@ -8,7 +8,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    compact_mapping_string,
+)
 
 
 class ExpressionIdentity(ExpressionIdentityAPI):
@@ -81,6 +84,18 @@ class ExpressionIdentity(ExpressionIdentityAPI):
             "expression_modified_timestamp_ep_k": self.expression_modified_timestamp_ep_k,
             "expression_scratch": self.expression_scratch,
         }
+
+    def __str__(self) -> str:
+        return compact_mapping_string(
+            self,
+            self.to_mapping(),
+            id_keys=("expression_id", "expression_work_id"),
+            display_keys=(
+                "expression_title_override",
+                "expression_label",
+                "expression_type",
+            ),
+        )
 
     @property
     def expression_id(self) -> Optional[int]: return self._expression_id

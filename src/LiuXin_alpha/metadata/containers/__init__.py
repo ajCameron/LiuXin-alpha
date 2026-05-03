@@ -8,7 +8,16 @@ from LiuXin_alpha.metadata.containers.metadata_containers import WorkIdentity, W
 
 from LiuXin_alpha.metadata.containers.metadata_containers import LanguageKind, LanguageBase, WorkLanguage, ExpressionLanguage, ManifestationLanguage, ItemLanguage, KindLanguagesContainer, WorkKindLanguagesContainer, ExpressionKindLanguagesContainer, ManifestationKindLanguagesContainer, ItemKindLanguagesContainer, BaseTargetLanguagesContainer, WorkLanguagesContainer, ExpressionLanguagesContainer, ManifestationLanguagesContainer, ItemLanguagesContainer, DateKind, DateBase, WorkDate, ExpressionDate, ManifestationDate, ItemDate, KindDatesContainer, WorkKindDatesContainer, ExpressionKindDatesContainer, ManifestationKindDatesContainer, ItemKindDatesContainer, BaseTargetDatesContainer, WorkDatesContainer, ExpressionDatesContainer, ManifestationDatesContainer, ItemDatesContainer, RatingKind, RatingBase, WorkRating, ExpressionRating, ManifestationRating, ItemRating, KindRatingsContainer, WorkKindRatingsContainer, ExpressionKindRatingsContainer, ManifestationKindRatingsContainer, ItemKindRatingsContainer, BaseTargetRatingsContainer, WorkRatingsContainer, ExpressionRatingsContainer, ManifestationRatingsContainer, ItemRatingsContainer, SeriesKind, SeriesEntryBase, WorkSeriesEntry, ExpressionSeriesEntry, ManifestationSeriesEntry, ItemSeriesEntry, KindSeriesEntriesContainer, WorkKindSeriesEntriesContainer, ExpressionKindSeriesEntriesContainer, ManifestationKindSeriesEntriesContainer, ItemKindSeriesEntriesContainer, BaseTargetSeriesEntriesContainer, WorkSeriesEntriesContainer, ExpressionSeriesEntriesContainer, ManifestationSeriesEntriesContainer, ItemSeriesEntriesContainer, ResourceKind, ResourceBase, WorkResource, ExpressionResource, ManifestationResource, ItemResource, KindResourcesContainer, WorkKindResourcesContainer, ExpressionKindResourcesContainer, ManifestationKindResourcesContainer, ItemKindResourcesContainer, BaseTargetResourcesContainer, WorkResourcesContainer, ExpressionResourcesContainer, ManifestationResourcesContainer, ItemResourcesContainer
 
+from LiuXin_alpha.metadata.containers.metadata_containers import MetadataTableRow, MetadataRowMapping, MetadataRowValue, NON_WEMI_MAIN_TABLE_ROW_CONTAINERS, LanguageRow, GenreRow, SubjectRow, SeriesRow, LabelRow, NoteRow, CommentRow, SynopsisRow, RatingRow, AnnotationRow, HumanAgentRow, OrgAgentRow, OrgAgentRelationRow, EntityIdentifierRow, ObservedItemIdentifierRow
+
+from LiuXin_alpha.metadata.containers.metadata_containers import InlineSelfRelation, SelfRelationsContainer, NON_WEMI_SELF_RELATION_CONTAINERS, GenreTreeRelation, SubjectTreeRelation, SeriesTreeRelation, GenreTreeRelationsContainer, SubjectTreeRelationsContainer, SeriesTreeRelationsContainer
+
+from LiuXin_alpha.metadata.containers.metadata_containers import LiuXinWEMI, LiuXinWEMIMetadata, LiuXinWEMIMetadataHydrator
+
 __all__ = [
+    "LiuXinWEMI",
+    "LiuXinWEMIMetadata",
+    "LiuXinWEMIMetadataHydrator",
     "WorkIdentity",
     "WorkIdentities",
     "WorkMetadata",
@@ -221,4 +230,32 @@ __all__ = [
     "ExpressionResourcesContainer",
     "ManifestationResourcesContainer",
     "ItemResourcesContainer",
+    "MetadataTableRow",
+    "MetadataRowMapping",
+    "MetadataRowValue",
+    "NON_WEMI_MAIN_TABLE_ROW_CONTAINERS",
+    "LanguageRow",
+    "GenreRow",
+    "SubjectRow",
+    "SeriesRow",
+    "LabelRow",
+    "NoteRow",
+    "CommentRow",
+    "SynopsisRow",
+    "RatingRow",
+    "AnnotationRow",
+    "HumanAgentRow",
+    "OrgAgentRow",
+    "OrgAgentRelationRow",
+    "EntityIdentifierRow",
+    "ObservedItemIdentifierRow",
+    "InlineSelfRelation",
+    "SelfRelationsContainer",
+    "NON_WEMI_SELF_RELATION_CONTAINERS",
+    "GenreTreeRelation",
+    "SubjectTreeRelation",
+    "SeriesTreeRelation",
+    "GenreTreeRelationsContainer",
+    "SubjectTreeRelationsContainer",
+    "SeriesTreeRelationsContainer",
 ]

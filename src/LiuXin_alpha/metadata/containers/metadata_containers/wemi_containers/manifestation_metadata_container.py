@@ -11,10 +11,13 @@ from collections.abc import Iterable, Mapping
 from LiuXin_alpha.databases.row import Row
 from typing import Any, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
     ManifestationMetadataAPI,
     ManifestationRelationLink,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    metadata_bundle_string,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manifestation_container import ManifestationIdentity
 
@@ -41,6 +44,14 @@ class ManifestationMetadata(ManifestationMetadataAPI):
     def set_relation_links(self, relation: str, links: Iterable[ManifestationRelationLink]) -> None:
         relation_key = self.validate_relation_name(relation)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
+
+    def __str__(self) -> str:
+        return metadata_bundle_string(
+            self,
+            identity_name="manifestation",
+            relation_names=self.RELATION_KEYS,
+            get_links=self.get_relation_links,
+        )
 
     @staticmethod
     def _serialize_target(target: Any) -> Any:
