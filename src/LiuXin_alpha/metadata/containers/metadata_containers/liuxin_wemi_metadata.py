@@ -530,6 +530,27 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     def as_calibre_metadata(self) -> Any:
         return self.to_calibre()
 
+    def write_to_database(
+        self,
+        database: Any,
+        *,
+        fields: Iterable[str] | None = None,
+        target_level: str = "work",
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> Any:
+        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
+            LiuXinWEMIMetadataWriter,
+        )
+
+        return LiuXinWEMIMetadataWriter(database).write(
+            self,
+            fields=fields,
+            target_level=target_level,
+            replace=replace,
+            mark_dirty=mark_dirty,
+        )
+
     def get_wemi_metadata(self, level: str) -> WemiMetadataBundle:
         normalized_level = self.normalize_wemi_level(level)
         return object.__getattribute__(
