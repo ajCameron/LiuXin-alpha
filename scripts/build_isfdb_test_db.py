@@ -20,10 +20,10 @@ The import is intentionally conservative rather than exhaustive:
 - publication publishers mapped to ``agent_manifestation_links``
 - title series mapped to ``series_work_links``
 - title language mapped to ``language_work_links``
-- title tags mapped to ``labels`` and ``label_work_links``
-- uncommon title words also mapped to generated ``labels`` and ``label_work_links``
+- title tags mapped to ``tags`` and ``tag_work_links``
+- uncommon title words also mapped to generated ``tags`` and ``tag_work_links``
 - genre-like title tags normalized into ``genres`` and ``genre_work_links``
-- generated fallback labels, genres, and standalone series links for otherwise empty works
+- generated fallback tags, genres, and standalone series links for otherwise empty works
 - title notes/synopses mapped to ``notes``/``synopses`` and work links
 - selected publication ISBN/ASIN values mapped to item and manifestation identifiers
 - deterministic generated comments, ratings, subjects, and annotations
@@ -99,8 +99,10 @@ GENERATED_METADATA_SOURCE = "isfdb:generated"
 GENERATED_METADATA_EPOCH_S = 1_700_000_000
 GENERATED_METADATA_EPOCH_MS = GENERATED_METADATA_EPOCH_S * 1000
 GENERATED_METADATA_DATE = "2023-11-14"
-GENERATED_FALLBACK_LABEL_TEXT = "Untagged"
-GENERATED_FALLBACK_LABEL_NORM = "isfdb-generated-untagged"
+GENERATED_FALLBACK_TAG_TEXT = "Untagged"
+GENERATED_FALLBACK_TAG_NORM = "isfdb-generated-untagged"
+GENERATED_NEW_ENTRY_LABEL_TEXT = "new_entry"
+GENERATED_NEW_ENTRY_LABEL_NORM = "new-entry"
 GENERATED_FALLBACK_GENRE = "Unclassified"
 GENERATED_STANDALONE_SERIES = "Standalone / Unseriesed"
 METADATA_FIXTURE_BACKFILL_TABLES = (
@@ -112,6 +114,7 @@ METADATA_FIXTURE_BACKFILL_TABLES = (
     "human_agents",
     "org_agents",
     "series",
+    "tags",
     "labels",
     "genres",
     "subjects",
@@ -128,8 +131,12 @@ METADATA_FIXTURE_BACKFILL_TABLES = (
     "agent_manifestation_links",
     "agent_note_links",
     "language_work_links",
-    "series_work_links",
     "label_work_links",
+    "expression_label_links",
+    "label_manifestation_links",
+    "item_label_links",
+    "series_work_links",
+    "tag_work_links",
     "genre_work_links",
     "subject_work_links",
     "note_work_links",
@@ -141,8 +148,8 @@ METADATA_FIXTURE_SKIP_COLUMN_SUBSTRINGS = (
     "_deleted_",
     "_parent_",
 )
-TITLE_WORD_LABEL_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9']*")
-TITLE_WORD_LABEL_STOPWORDS = frozenset(
+TITLE_WORD_TAG_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9']*")
+TITLE_WORD_TAG_STOPWORDS = frozenset(
     {
         "a",
         "about",
@@ -558,14 +565,14 @@ def _normalize_asin(value: Any) -> Optional[str]:
     return compact if len(compact) == 10 else None
 
 
-def _title_label_words(title: Any) -> tuple[str, ...]:
+def _title_tag_words(title: Any) -> tuple[str, ...]:
     text = _safe_str(title)
     if text is None:
         return ()
 
     words: list[str] = []
     seen_norms: set[str] = set()
-    for match in TITLE_WORD_LABEL_TOKEN_RE.finditer(text):
+    for match in TITLE_WORD_TAG_TOKEN_RE.finditer(text):
         word = match.group(0).strip("'")
         if len(word) > 2 and word.lower().endswith("'s"):
             word = word[:-2]
@@ -575,7 +582,7 @@ def _title_label_words(title: Any) -> tuple[str, ...]:
             continue
 
         stopword_key = word.lower().replace("'", "")
-        if stopword_key in TITLE_WORD_LABEL_STOPWORDS:
+        if stopword_key in TITLE_WORD_TAG_STOPWORDS:
             continue
 
         seen_norms.add(norm)
@@ -778,32 +785,63 @@ def _populate_metadata_fixture_fields(conn: sqlite3.Connection) -> int:
     _log("Backfilling deterministic metadata fixture fields...")
     phase_started_at = time.time()
     changed_cells = 0
+    processed_tables = 0
 
-    for table in METADATA_FIXTURE_BACKFILL_TABLES:
+    for table_index, table in enumerate(METADATA_FIXTURE_BACKFILL_TABLES, start=1):
         if not _metadata_fixture_table_exists(conn, table):
+            _log(
+                "  fixture field backfill: "
+                f"skipping {table} ({table_index}/{len(METADATA_FIXTURE_BACKFILL_TABLES)}; missing table)"
+            )
             continue
         row_count = _count(conn, table)
         if row_count == 0:
+            _log(
+                "  fixture field backfill: "
+                f"skipping {table} ({table_index}/{len(METADATA_FIXTURE_BACKFILL_TABLES)}; empty table)"
+            )
             continue
 
         columns = conn.execute(f"PRAGMA table_info({_sql_identifier(table)});").fetchall()
         pk_columns = [str(row[1]) for row in columns if int(row[5] or 0) > 0]
         if len(pk_columns) != 1:
+            _log(
+                "  fixture field backfill: "
+                f"skipping {table} ({table_index}/{len(METADATA_FIXTURE_BACKFILL_TABLES)}; "
+                f"expected 1 primary key, found {len(pk_columns)})"
+            )
             continue
         pk_column = pk_columns[0]
         table_sql = _sql_identifier(table)
         pk_sql = _sql_identifier(pk_column)
+        eligible_columns = [
+            (str(column_name), str(column_type or ""))
+            for _cid, column_name, column_type, _not_null, _default, _pk in columns
+            if _should_backfill_metadata_fixture_column(str(column_name), pk_column)
+        ]
+        if not eligible_columns:
+            _log(
+                "  fixture field backfill: "
+                f"skipping {table} ({table_index}/{len(METADATA_FIXTURE_BACKFILL_TABLES)}; "
+                f"{row_count:,} rows; no eligible fields)"
+            )
+            continue
 
-        for _cid, column_name, column_type, _not_null, _default, _pk in columns:
-            column = str(column_name)
-            if not _should_backfill_metadata_fixture_column(column, pk_column):
-                continue
+        processed_tables += 1
+        table_started_at = time.time()
+        table_changed_cells = 0
+        _log(
+            "  fixture field backfill: "
+            f"{table} ({table_index}/{len(METADATA_FIXTURE_BACKFILL_TABLES)}): "
+            f"{row_count:,} rows, {len(eligible_columns):,} eligible fields"
+        )
 
+        for column_index, (column, column_type) in enumerate(eligible_columns, start=1):
             column_sql = _sql_identifier(column)
             value_expr = _metadata_fixture_value_expression(
                 table=table,
                 column=column,
-                column_type=str(column_type or ""),
+                column_type=column_type,
                 pk_sql=pk_sql,
             )
             if (
@@ -817,15 +855,34 @@ def _populate_metadata_fixture_fields(conn: sqlite3.Connection) -> int:
             else:
                 where_sql = f"{column_sql} IS NULL"
 
+            column_started_at = time.time()
+            _log(
+                "    fixture field backfill: "
+                f"{table}.{column} ({column_index}/{len(eligible_columns)}): updating..."
+            )
             before = conn.total_changes
             conn.execute(
                 f"UPDATE {table_sql} SET {column_sql} = {value_expr} WHERE {where_sql};"
             )
-            changed_cells += conn.total_changes - before
+            column_changed_cells = conn.total_changes - before
+            table_changed_cells += column_changed_cells
+            changed_cells += column_changed_cells
+            _log(
+                "    fixture field backfill: "
+                f"{table}.{column} ({column_index}/{len(eligible_columns)}): "
+                f"{column_changed_cells:,} cell updates in {_elapsed_seconds(column_started_at)}"
+            )
+
+        _log(
+            "  fixture field backfill: "
+            f"{table}: completed {table_changed_cells:,} cell updates "
+            f"across {len(eligible_columns):,} fields in {_elapsed_seconds(table_started_at)}"
+        )
 
     _log(
         "  fixture field backfill: completed "
-        f"{changed_cells:,} cell updates in {_elapsed_seconds(phase_started_at)}"
+        f"{changed_cells:,} cell updates across {processed_tables:,} tables "
+        f"in {_elapsed_seconds(phase_started_at)}"
     )
     return changed_cells
 
@@ -836,7 +893,7 @@ def _assert_metadata_facet_coverage(conn: sqlite3.Connection) -> None:
     missing_by_table: dict[str, int] = {}
 
     for link_table, work_column in (
-        ("label_work_links", "label_work_link_work_id"),
+        ("tag_work_links", "tag_work_link_work_id"),
         ("genre_work_links", "genre_work_link_work_id"),
         ("series_work_links", "series_work_link_work_id"),
     ):
@@ -2093,17 +2150,18 @@ def _build_frbr_target(
         author_to_agent_id: dict[int, int] = {}
         publisher_to_agent_id: dict[int, int] = {}
         source_series_to_target_id: dict[int, int] = {}
-        source_tag_to_label_id: dict[int, int] = {}
+        source_tag_to_tag_id: dict[int, int] = {}
         source_tag_to_genre_id: dict[int, int] = {}
         canonical_genre_to_genre_id: dict[str, int] = {}
-        label_norm_to_label_id: dict[str, int] = {}
-        title_to_generated_label_words: dict[int, tuple[tuple[int, str], ...]] = {}
+        tag_norm_to_tag_id: dict[str, int] = {}
+        title_to_generated_tag_words: dict[int, tuple[tuple[int, str], ...]] = {}
         source_note_to_note_id: dict[int, int] = {}
         source_note_to_synopsis_id: dict[int, int] = {}
         pending_series_parent_links: list[tuple[int, int, Optional[int]]] = []
         used_series_norms: set[str] = set()
-        used_label_norms: set[str] = set()
-        generated_fallback_label_id: Optional[int] = None
+        used_tag_norms: set[str] = set()
+        generated_fallback_tag_id: Optional[int] = None
+        generated_new_entry_label_id: Optional[int] = None
         generated_fallback_genre_id: Optional[int] = None
         generated_standalone_series_id: Optional[int] = None
 
@@ -2266,7 +2324,7 @@ def _build_frbr_target(
             f"  publisher agents: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
         )
 
-        _log("Creating labels from ISFDB tags...")
+        _log("Creating tags from ISFDB tags...")
         phase_started_at = time.time()
         processed = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
@@ -2280,45 +2338,45 @@ def _build_frbr_target(
             """
         ):
             tag_id, tag_name, tag_status = row
-            label_norm = _allocate_unique_norm(
+            tag_norm = _allocate_unique_norm(
                 str(tag_name),
                 source_id=int(tag_id),
-                seen=used_label_norms,
+                seen=used_tag_norms,
                 fallback_prefix="tag",
             )
             cur = conn.execute(
                 """
-                INSERT INTO labels (
-                    label_text,
-                    label_text_norm,
-                    label_scratch
+                INSERT INTO tags (
+                    tag,
+                    tag_phash,
+                    tag_scratch
                 ) VALUES (?, ?, ?);
                 """,
                 (
                     str(tag_name),
-                    label_norm,
+                    tag_norm,
                     f"isfdb:tag:{int(tag_id)};status:{_safe_int(tag_status) if tag_status is not None else 0}",
                 ),
             )
-            label_id = int(cur.lastrowid)
-            source_tag_to_label_id[int(tag_id)] = label_id
-            label_norm_to_label_id[label_norm] = label_id
+            target_tag_id = int(cur.lastrowid)
+            source_tag_to_tag_id[int(tag_id)] = target_tag_id
+            tag_norm_to_tag_id[tag_norm] = target_tag_id
             processed += 1
             next_progress = _log_periodic_progress(
-                "labels",
+                "tags",
                 processed,
                 every=BUILD_PROGRESS_EVERY_ROWS,
                 next_threshold=next_progress,
                 started_at=phase_started_at,
             )
         _log(
-            f"  labels: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+            f"  tags: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
         )
 
-        _log("Creating generated labels from title words...")
+        _log("Creating generated tags from title words...")
         phase_started_at = time.time()
         processed_titles = 0
-        processed_labels = 0
+        processed_tags = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
         for title_id, title_title in stage_conn.execute(
             """
@@ -2328,46 +2386,46 @@ def _build_frbr_target(
             ORDER BY t.title_id;
             """
         ):
-            generated_label_words: list[tuple[int, str]] = []
-            for word in _title_label_words(title_title):
-                label_norm = _norm_text(word)
-                label_id = label_norm_to_label_id.get(label_norm)
-                if label_id is None:
-                    used_label_norms.add(label_norm)
+            generated_tag_words: list[tuple[int, str]] = []
+            for word in _title_tag_words(title_title):
+                tag_norm = _norm_text(word)
+                target_tag_id = tag_norm_to_tag_id.get(tag_norm)
+                if target_tag_id is None:
+                    used_tag_norms.add(tag_norm)
                     cur = conn.execute(
                         """
-                        INSERT INTO labels (
-                            label_text,
-                            label_text_norm,
-                            label_description,
-                            label_scratch
+                        INSERT INTO tags (
+                            tag,
+                            tag_phash,
+                            tag_description,
+                            tag_scratch
                         ) VALUES (?, ?, ?, ?);
                         """,
                         (
                             word,
-                            label_norm,
+                            tag_norm,
                             "Generated from uncommon words in selected ISFDB work titles.",
-                            f"{GENERATED_METADATA_SOURCE}:title_word:{label_norm}",
+                            f"{GENERATED_METADATA_SOURCE}:title_word:{tag_norm}",
                         ),
                     )
-                    label_id = int(cur.lastrowid)
-                    label_norm_to_label_id[label_norm] = label_id
-                    processed_labels += 1
-                generated_label_words.append((label_id, label_norm))
+                    target_tag_id = int(cur.lastrowid)
+                    tag_norm_to_tag_id[tag_norm] = target_tag_id
+                    processed_tags += 1
+                generated_tag_words.append((target_tag_id, tag_norm))
 
-            if generated_label_words:
-                title_to_generated_label_words[int(title_id)] = tuple(generated_label_words)
+            if generated_tag_words:
+                title_to_generated_tag_words[int(title_id)] = tuple(generated_tag_words)
             processed_titles += 1
             next_progress = _log_periodic_progress(
-                "title-word labels",
+                "title-word tags",
                 processed_titles,
                 every=BUILD_PROGRESS_EVERY_ROWS,
                 next_threshold=next_progress,
                 started_at=phase_started_at,
             )
         _log(
-            "  title-word labels: completed "
-            f"{processed_labels:,} generated labels across {processed_titles:,} titles "
+            "  title-word tags: completed "
+            f"{processed_tags:,} generated tags across {processed_titles:,} titles "
             f"in {_elapsed_seconds(phase_started_at)}"
         )
 
@@ -2422,6 +2480,30 @@ def _build_frbr_target(
             source_tag_to_genre_id[int(tag_id)] = genre_id
         _log(
             f"  genres: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+        )
+
+        _log("Creating generated operational labels...")
+        phase_started_at = time.time()
+        cur = conn.execute(
+            """
+            INSERT INTO labels (
+                label_text,
+                label_text_norm,
+                label_description,
+                label_scratch
+            ) VALUES (?, ?, ?, ?);
+            """,
+            (
+                GENERATED_NEW_ENTRY_LABEL_TEXT,
+                GENERATED_NEW_ENTRY_LABEL_NORM,
+                "Generated default operational label for selected ISFDB metadata rows.",
+                f"{GENERATED_METADATA_SOURCE}:label:{GENERATED_NEW_ENTRY_LABEL_NORM}",
+            ),
+        )
+        generated_new_entry_label_id = int(cur.lastrowid)
+        _log(
+            "  operational labels: completed 1 row "
+            f"in {_elapsed_seconds(phase_started_at)}"
         )
 
         _log("Creating works and expressions...")
@@ -2687,6 +2769,126 @@ def _build_frbr_target(
             )
         _log(
             f"  manifestations/items: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+        )
+
+        if generated_new_entry_label_id is None:
+            raise AssertionError("generated new_entry label was not created")
+
+        _log("Linking generated new_entry labels to WEMI rows...")
+        phase_started_at = time.time()
+        processed = 0
+        next_progress = BUILD_PROGRESS_EVERY_ROWS
+        for title_id, work_id in sorted(title_to_work_id.items()):
+            conn.execute(
+                """
+                INSERT INTO label_work_links (
+                    label_work_link_label_id,
+                    label_work_link_work_id,
+                    label_work_link_priority,
+                    label_work_link_source,
+                    label_work_link_scratch
+                ) VALUES (?, ?, ?, ?, ?);
+                """,
+                (
+                    generated_new_entry_label_id,
+                    work_id,
+                    _priority_from_group_and_local_order(work_id),
+                    GENERATED_METADATA_SOURCE,
+                    f"isfdb:title:{int(title_id)};generated_label:{GENERATED_NEW_ENTRY_LABEL_NORM}",
+                ),
+            )
+            processed += 1
+            next_progress = _log_periodic_progress(
+                "new_entry label links",
+                processed,
+                every=BUILD_PROGRESS_EVERY_ROWS,
+                next_threshold=next_progress,
+                started_at=phase_started_at,
+            )
+        for title_id, expression_id in sorted(title_to_expression_id.items()):
+            conn.execute(
+                """
+                INSERT INTO expression_label_links (
+                    expression_label_link_expression_id,
+                    expression_label_link_label_id,
+                    expression_label_link_priority,
+                    expression_label_link_source,
+                    expression_label_link_scratch
+                ) VALUES (?, ?, ?, ?, ?);
+                """,
+                (
+                    expression_id,
+                    generated_new_entry_label_id,
+                    _priority_from_group_and_local_order(expression_id),
+                    GENERATED_METADATA_SOURCE,
+                    f"isfdb:title:{int(title_id)};generated_label:{GENERATED_NEW_ENTRY_LABEL_NORM}",
+                ),
+            )
+            processed += 1
+            next_progress = _log_periodic_progress(
+                "new_entry label links",
+                processed,
+                every=BUILD_PROGRESS_EVERY_ROWS,
+                next_threshold=next_progress,
+                started_at=phase_started_at,
+            )
+        for pub_id, manifestation_id in sorted(pub_to_manifestation_id.items()):
+            conn.execute(
+                """
+                INSERT INTO label_manifestation_links (
+                    label_manifestation_link_label_id,
+                    label_manifestation_link_manifestation_id,
+                    label_manifestation_link_priority,
+                    label_manifestation_link_source,
+                    label_manifestation_link_scratch
+                ) VALUES (?, ?, ?, ?, ?);
+                """,
+                (
+                    generated_new_entry_label_id,
+                    manifestation_id,
+                    _priority_from_group_and_local_order(manifestation_id),
+                    GENERATED_METADATA_SOURCE,
+                    f"isfdb:pub:{int(pub_id)};generated_label:{GENERATED_NEW_ENTRY_LABEL_NORM}",
+                ),
+            )
+            processed += 1
+            next_progress = _log_periodic_progress(
+                "new_entry label links",
+                processed,
+                every=BUILD_PROGRESS_EVERY_ROWS,
+                next_threshold=next_progress,
+                started_at=phase_started_at,
+            )
+        for pub_id, item_id in sorted(pub_to_item_id.items()):
+            conn.execute(
+                """
+                INSERT INTO item_label_links (
+                    item_label_link_item_id,
+                    item_label_link_label_id,
+                    item_label_link_priority,
+                    item_label_link_source,
+                    item_label_link_scratch
+                ) VALUES (?, ?, ?, ?, ?);
+                """,
+                (
+                    item_id,
+                    generated_new_entry_label_id,
+                    _priority_from_group_and_local_order(item_id),
+                    GENERATED_METADATA_SOURCE,
+                    f"isfdb:pub:{int(pub_id)};generated_label:{GENERATED_NEW_ENTRY_LABEL_NORM}",
+                ),
+            )
+            processed += 1
+            next_progress = _log_periodic_progress(
+                "new_entry label links",
+                processed,
+                every=BUILD_PROGRESS_EVERY_ROWS,
+                next_threshold=next_progress,
+                started_at=phase_started_at,
+            )
+        _log(
+            f"  new_entry label links: completed {processed:,} rows "
+            f"in {_elapsed_seconds(phase_started_at)}"
         )
 
         _log("Creating manifestation and item identifiers...")
@@ -2998,9 +3200,9 @@ def _build_frbr_target(
         phase_started_at = time.time()
         processed = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
-        label_local_order_by_work: dict[int, int] = defaultdict(int)
-        seen_label_links: set[tuple[int, int]] = set()
-        label_linked_work_ids: set[int] = set()
+        tag_local_order_by_work: dict[int, int] = defaultdict(int)
+        seen_tag_links: set[tuple[int, int]] = set()
+        tag_linked_work_ids: set[int] = set()
         for title_id, tag_id in stage_conn.execute(
             """
             SELECT stm.title_id, stm.tag_id
@@ -3011,26 +3213,26 @@ def _build_frbr_target(
             """
         ):
             work_id = title_to_work_id.get(int(title_id))
-            label_id = source_tag_to_label_id.get(int(tag_id))
-            if work_id is None or label_id is None:
+            target_tag_id = source_tag_to_tag_id.get(int(tag_id))
+            if work_id is None or target_tag_id is None:
                 continue
-            if (work_id, label_id) in seen_label_links:
+            if (work_id, target_tag_id) in seen_tag_links:
                 continue
-            seen_label_links.add((work_id, label_id))
-            local_order = label_local_order_by_work[work_id]
-            label_local_order_by_work[work_id] += 1
+            seen_tag_links.add((work_id, target_tag_id))
+            local_order = tag_local_order_by_work[work_id]
+            tag_local_order_by_work[work_id] += 1
             conn.execute(
                 """
-                INSERT INTO label_work_links (
-                    label_work_link_label_id,
-                    label_work_link_work_id,
-                    label_work_link_priority,
-                    label_work_link_source,
-                    label_work_link_scratch
+                INSERT INTO tag_work_links (
+                    tag_work_link_tag_id,
+                    tag_work_link_work_id,
+                    tag_work_link_priority,
+                    tag_work_link_source,
+                    tag_work_link_scratch
                 ) VALUES (?, ?, ?, ?, ?);
                 """,
                 (
-                    label_id,
+                    target_tag_id,
                     work_id,
                     _priority_from_group_and_local_order(work_id, local_order),
                     "isfdb:tag",
@@ -3038,132 +3240,132 @@ def _build_frbr_target(
                 ),
             )
             processed += 1
-            label_linked_work_ids.add(work_id)
+            tag_linked_work_ids.add(work_id)
             next_progress = _log_periodic_progress(
-                "label links",
+                "tag links",
                 processed,
                 every=BUILD_PROGRESS_EVERY_ROWS,
                 next_threshold=next_progress,
                 started_at=phase_started_at,
             )
         _log(
-            f"  label links: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+            f"  tag links: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
         )
 
         phase_started_at = time.time()
         processed = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
-        for title_id in sorted(title_to_generated_label_words):
+        for title_id in sorted(title_to_generated_tag_words):
             work_id = title_to_work_id.get(int(title_id))
             if work_id is None:
                 continue
-            for label_id, label_norm in title_to_generated_label_words[title_id]:
-                if (work_id, label_id) in seen_label_links:
+            for target_tag_id, tag_norm in title_to_generated_tag_words[title_id]:
+                if (work_id, target_tag_id) in seen_tag_links:
                     continue
-                seen_label_links.add((work_id, label_id))
-                local_order = label_local_order_by_work[work_id]
-                label_local_order_by_work[work_id] += 1
+                seen_tag_links.add((work_id, target_tag_id))
+                local_order = tag_local_order_by_work[work_id]
+                tag_local_order_by_work[work_id] += 1
                 conn.execute(
                     """
-                    INSERT INTO label_work_links (
-                        label_work_link_label_id,
-                        label_work_link_work_id,
-                        label_work_link_priority,
-                        label_work_link_source,
-                        label_work_link_scratch
+                    INSERT INTO tag_work_links (
+                        tag_work_link_tag_id,
+                        tag_work_link_work_id,
+                        tag_work_link_priority,
+                        tag_work_link_source,
+                        tag_work_link_scratch
                     ) VALUES (?, ?, ?, ?, ?);
                     """,
                     (
-                        label_id,
+                        target_tag_id,
                         work_id,
                         _priority_from_group_and_local_order(work_id, local_order),
                         GENERATED_METADATA_SOURCE,
-                        f"isfdb:title:{int(title_id)};generated_title_word:{label_norm}",
+                        f"isfdb:title:{int(title_id)};generated_title_word:{tag_norm}",
                     ),
                 )
                 processed += 1
-                label_linked_work_ids.add(work_id)
+                tag_linked_work_ids.add(work_id)
                 next_progress = _log_periodic_progress(
-                    "title-word label links",
+                    "title-word tag links",
                     processed,
                     every=BUILD_PROGRESS_EVERY_ROWS,
                     next_threshold=next_progress,
                     started_at=phase_started_at,
                 )
         _log(
-            f"  title-word label links: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
+            f"  title-word tag links: completed {processed:,} rows in {_elapsed_seconds(phase_started_at)}"
         )
 
         phase_started_at = time.time()
         processed = 0
         next_progress = BUILD_PROGRESS_EVERY_ROWS
-        missing_label_title_ids = [
+        missing_tag_title_ids = [
             title_id
             for title_id, work_id in sorted(title_to_work_id.items())
-            if work_id not in label_linked_work_ids
+            if work_id not in tag_linked_work_ids
         ]
-        if missing_label_title_ids:
-            fallback_label_norm = GENERATED_FALLBACK_LABEL_NORM
-            if fallback_label_norm in used_label_norms:
-                fallback_label_norm = _allocate_unique_norm(
-                    GENERATED_FALLBACK_LABEL_NORM,
-                    source_id=len(used_label_norms) + 1,
-                    seen=used_label_norms,
-                    fallback_prefix="generated-label",
+        if missing_tag_title_ids:
+            fallback_tag_norm = GENERATED_FALLBACK_TAG_NORM
+            if fallback_tag_norm in used_tag_norms:
+                fallback_tag_norm = _allocate_unique_norm(
+                    GENERATED_FALLBACK_TAG_NORM,
+                    source_id=len(used_tag_norms) + 1,
+                    seen=used_tag_norms,
+                    fallback_prefix="generated-tag",
                 )
             else:
-                used_label_norms.add(fallback_label_norm)
+                used_tag_norms.add(fallback_tag_norm)
             cur = conn.execute(
                 """
-                INSERT INTO labels (
-                    label_text,
-                    label_text_norm,
-                    label_description,
-                    label_scratch
+                INSERT INTO tags (
+                    tag,
+                    tag_phash,
+                    tag_description,
+                    tag_scratch
                 ) VALUES (?, ?, ?, ?);
                 """,
                 (
-                    GENERATED_FALLBACK_LABEL_TEXT,
-                    fallback_label_norm,
-                    "Generated fallback label for selected ISFDB works with no source or title-word labels.",
-                    f"{GENERATED_METADATA_SOURCE}:fallback_label",
+                    GENERATED_FALLBACK_TAG_TEXT,
+                    fallback_tag_norm,
+                    "Generated fallback tag for selected ISFDB works with no source or title-word tags.",
+                    f"{GENERATED_METADATA_SOURCE}:fallback_tag",
                 ),
             )
-            generated_fallback_label_id = int(cur.lastrowid)
-            label_norm_to_label_id[fallback_label_norm] = generated_fallback_label_id
-            for title_id in missing_label_title_ids:
+            generated_fallback_tag_id = int(cur.lastrowid)
+            tag_norm_to_tag_id[fallback_tag_norm] = generated_fallback_tag_id
+            for title_id in missing_tag_title_ids:
                 work_id = title_to_work_id[int(title_id)]
-                local_order = label_local_order_by_work[work_id]
-                label_local_order_by_work[work_id] += 1
+                local_order = tag_local_order_by_work[work_id]
+                tag_local_order_by_work[work_id] += 1
                 conn.execute(
                     """
-                    INSERT INTO label_work_links (
-                        label_work_link_label_id,
-                        label_work_link_work_id,
-                        label_work_link_priority,
-                        label_work_link_source,
-                        label_work_link_scratch
+                    INSERT INTO tag_work_links (
+                        tag_work_link_tag_id,
+                        tag_work_link_work_id,
+                        tag_work_link_priority,
+                        tag_work_link_source,
+                        tag_work_link_scratch
                     ) VALUES (?, ?, ?, ?, ?);
                     """,
                     (
-                        generated_fallback_label_id,
+                        generated_fallback_tag_id,
                         work_id,
                         _priority_from_group_and_local_order(work_id, local_order),
                         GENERATED_METADATA_SOURCE,
-                        f"isfdb:title:{int(title_id)};generated_fallback_label",
+                        f"isfdb:title:{int(title_id)};generated_fallback_tag",
                     ),
                 )
-                label_linked_work_ids.add(work_id)
+                tag_linked_work_ids.add(work_id)
                 processed += 1
                 next_progress = _log_periodic_progress(
-                    "generated fallback label links",
+                    "generated fallback tag links",
                     processed,
                     every=BUILD_PROGRESS_EVERY_ROWS,
                     next_threshold=next_progress,
                     started_at=phase_started_at,
                 )
         _log(
-            "  generated fallback label links: completed "
+            "  generated fallback tag links: completed "
             f"{processed:,} rows in {_elapsed_seconds(phase_started_at)}"
         )
 
@@ -3856,6 +4058,7 @@ def _build_frbr_target(
             "items": _count(conn, "items"),
             "agents": _count(conn, "agents"),
             "series": _count(conn, "series"),
+            "tags": _count(conn, "tags"),
             "labels": _count(conn, "labels"),
             "genres": _count(conn, "genres"),
             "subjects": _count(conn, "subjects"),
@@ -3872,6 +4075,10 @@ def _build_frbr_target(
             "language_work_links": _count(conn, "language_work_links"),
             "series_work_links": _count(conn, "series_work_links"),
             "label_work_links": _count(conn, "label_work_links"),
+            "expression_label_links": _count(conn, "expression_label_links"),
+            "label_manifestation_links": _count(conn, "label_manifestation_links"),
+            "item_label_links": _count(conn, "item_label_links"),
+            "tag_work_links": _count(conn, "tag_work_links"),
             "genre_work_links": _count(conn, "genre_work_links"),
             "subject_work_links": _count(conn, "subject_work_links"),
             "note_work_links": _count(conn, "note_work_links"),
@@ -3880,6 +4087,15 @@ def _build_frbr_target(
             "rating_work_links": _count(conn, "rating_work_links"),
             "expression_manifestation_links": _count(conn, "expression_manifestation_links"),
         }
+        _log("Checkpointing target database WAL...")
+        checkpoint = conn.execute("PRAGMA wal_checkpoint(TRUNCATE);").fetchone()
+        if checkpoint is not None and int(checkpoint[0]) != 0:
+            raise AssertionError(f"wal_checkpoint failed or was busy: {checkpoint}")
+        journal_mode = conn.execute("PRAGMA journal_mode = DELETE;").fetchone()
+        if journal_mode is not None and str(journal_mode[0]).lower() != "delete":
+            raise AssertionError(f"failed to leave WAL mode: {journal_mode}")
+        conn.commit()
+
         _log(f"Target database build completed in {_elapsed_seconds(build_started_at)}")
         return counts
     finally:

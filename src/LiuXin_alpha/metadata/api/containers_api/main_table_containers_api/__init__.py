@@ -21,6 +21,7 @@ from LiuXin_alpha.metadata.api.containers_api.main_table_containers_api.row_api 
     SeriesRowAPI,
     SubjectRowAPI,
     SynopsisRowAPI,
+    TagRowAPI,
 )
 from LiuXin_alpha.metadata.api.containers_api.main_table_containers_api.self_relation_api import (
     GenreTreeRelationAPI,
@@ -60,4 +61,5 @@ __all__ = [
     "SubjectTreeRelationAPI",
     "SubjectTreeRelationsContainerAPI",
     "SynopsisRowAPI",
+    "TagRowAPI",
 ]

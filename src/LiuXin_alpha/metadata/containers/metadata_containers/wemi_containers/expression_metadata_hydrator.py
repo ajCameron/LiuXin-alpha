@@ -214,6 +214,7 @@ class ExpressionMetadataHydrator:
             "agents",
             "titles",
             "genres",
+            "tags",
             "labels",
             "languages",
             "notes",

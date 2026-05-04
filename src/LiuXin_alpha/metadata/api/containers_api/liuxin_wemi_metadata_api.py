@@ -265,7 +265,14 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
 
     def sync_legacy_tags_from_wemi(self) -> tuple[str, ...]:
         """
-        Populate legacy tags from WEMI label/tag relation targets.
+        Populate legacy tags from WEMI tag relation targets.
+
+        :return:
+        """
+
+    def sync_legacy_labels_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy labels from WEMI label relation targets.
 
         :return:
         """

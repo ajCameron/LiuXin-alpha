@@ -166,6 +166,7 @@ class CalibreCatalogBackend:
     def work_metadata_payload(self, row) -> dict[str, object]:
         payload = self.read_model.work_metadata_payload(row)
         related = self.host._related_rows_by_table(row)
+        tag_table, tag_rows = self.read_model.work_tag_rows(related)
         category_urls = {
             "authors": [
                 "/ajax/books_in/{}/{}/main".format(
@@ -177,9 +178,9 @@ class CalibreCatalogBackend:
             "tags": [
                 "/ajax/books_in/{}/{}/main".format(
                     self.encode_compat_token("tags"),
-                    self.encode_compat_token(str(_row_value(one, self.host._id_column("labels") or ""))),
+                    self.encode_compat_token(str(_row_value(one, self.host._id_column(tag_table or "") or ""))),
                 )
-                for one in related.get("labels", [])
+                for one in tag_rows
             ],
             "series": [
                 "/ajax/books_in/{}/{}/main".format(

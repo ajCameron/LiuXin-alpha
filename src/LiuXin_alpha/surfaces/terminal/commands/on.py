@@ -151,6 +151,21 @@ def _resolve_or_create_tag_row(browser, tag_text: str, *, create: bool):
     tables = set(browser.db.get_tables())
     norm = make_tag_search_term(tag_text)
 
+    if "tags" in tables:
+        columns = set(browser.db.get_column_headings("tags"))
+        search_column = "tag_phash" if "tag_phash" in columns else "tag"
+        search_value = norm if search_column == "tag_phash" else tag_text
+        rows = browser.db.search("tags", search_column, search_value)
+        if rows:
+            return "tags", rows[0]
+        if not create:
+            return None
+        row_dict = {"tag": tag_text}
+        if "tag_phash" in columns:
+            row_dict["tag_phash"] = norm
+        row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="tags")
+        return "tags", row
+
     if "labels" in tables:
         columns = set(browser.db.get_column_headings("labels"))
         if "label_text_norm" in columns:
@@ -185,21 +200,6 @@ def _resolve_or_create_tag_row(browser, tag_text: str, *, create: bool):
             row_dict["label_phash"] = norm
         row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="labels")
         return "labels", row
-
-    if "tags" in tables:
-        columns = set(browser.db.get_column_headings("tags"))
-        search_column = "tag_phash" if "tag_phash" in columns else "tag"
-        search_value = norm if search_column == "tag_phash" else tag_text
-        rows = browser.db.search("tags", search_column, search_value)
-        if rows:
-            return "tags", rows[0]
-        if not create:
-            return None
-        row_dict = {"tag": tag_text}
-        if "tag_phash" in columns:
-            row_dict["tag_phash"] = norm
-        row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="tags")
-        return "tags", row
 
     raise ValueError("Database schema has neither `labels` nor `tags` table.")
 

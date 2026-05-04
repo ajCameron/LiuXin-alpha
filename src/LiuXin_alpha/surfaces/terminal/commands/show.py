@@ -42,7 +42,12 @@ def resolve_show_kind_table(browser, token: str) -> str:
 
     tables = set(browser.db.get_tables())
 
-    if text in {"tag", "tags", "label", "labels"}:
+    if text in {"tag", "tags"}:
+        if "tags" in tables:
+            return "tags"
+        if "labels" in tables:
+            return "labels"
+    if text in {"label", "labels"}:
         if "labels" in tables:
             return "labels"
         if "tags" in tables:

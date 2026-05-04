@@ -24,12 +24,14 @@ def test_calibre_like_container_supports_legacy_liuxin_metadata_contract() -> No
     metadata.add_creators({"editors": ["Editor"]})
     metadata.add_identifiers({"isbn": "9780306406157"})
     metadata.add_internal_identifiers({"uuid": "legacy-uuid"})
+    metadata.labels = ["new_entry"]
     metadata.direct_add("legacy_extra", "value", key_check=False)
 
     assert "Author" in metadata.get_authors_copy()
     assert "editors" in metadata.get_creators_dump()
     assert metadata.has_identifier("isbn") is True
     assert "uuid" in metadata.get_internal_identifiers()
+    assert "new_entry" in metadata.labels
     assert metadata.direct_get("legacy_extra") == "value"
     assert "title" in metadata.standard_field_keys()
 

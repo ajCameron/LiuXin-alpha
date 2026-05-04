@@ -18,6 +18,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.non_wemi_containers im
     GenreTreeRelation,
     GenreTreeRelationsContainer,
     LabelRow,
+    TagRow,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
     AgentIdentity,
@@ -72,6 +73,7 @@ def _assert_sane_string(value: object, *expected_parts: str) -> None:
 
 def test_row_and_relation_containers_have_sane_string_representations() -> None:
     label = LabelRow(label_id=7, label_text="Space Opera")
+    tag = TagRow(tag_id=8, tag="Space Opera")
     parent = GenreRow(genre_id=1, genre="Speculative Fiction")
     child = GenreRow(genre_id=2, genre="Space Opera", genre_parent_id=1)
     relation = GenreTreeRelation(child=child, parent=parent)
@@ -79,6 +81,7 @@ def test_row_and_relation_containers_have_sane_string_representations() -> None:
     relations.add_relation(relation)
 
     _assert_sane_string(label, "LabelRow", "label_id=7", "Space Opera")
+    _assert_sane_string(tag, "TagRow", "tag_id=8", "Space Opera")
     _assert_sane_string(relation, "GenreTreeRelation", "child_id=2", "parent_id=1")
     _assert_sane_string(relations, "GenreTreeRelationsContainer", "1 relations")
 

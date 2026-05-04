@@ -93,6 +93,7 @@ class LiuXinMetadataAPI(Protocol):
     files: LiuXinPayloadToID
     imprint: LiuXinValueToID
     language: str | None
+    labels: LiuXinValueToID
     languages: Sequence[str]
     languages_available: LiuXinValueToID
     last_modified: datetime | None

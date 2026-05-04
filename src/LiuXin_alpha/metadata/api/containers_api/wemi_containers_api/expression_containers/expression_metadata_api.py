@@ -63,6 +63,7 @@ class ExpressionMetadataAPI(abc.ABC):
         "identifiers",
         "titles",
         "genres",
+        "tags",
         "labels",
         "languages",
         "notes",
@@ -78,6 +79,7 @@ class ExpressionMetadataAPI(abc.ABC):
         "identifier": "identifiers",
         "title": "titles",
         "genre": "genres",
+        "tag": "tags",
         "label": "labels",
         "language": "languages",
         "note": "notes",
@@ -302,6 +304,14 @@ class ExpressionMetadataAPI(abc.ABC):
     @genres.setter
     def genres(self, values: Iterable[ExpressionRelationTarget]) -> None:
         self.set_related("genres", values)
+
+    @property
+    def tags(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("tags")
+
+    @tags.setter
+    def tags(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("tags", values)
 
     @property
     def labels(self) -> list[ExpressionRelationTarget]:

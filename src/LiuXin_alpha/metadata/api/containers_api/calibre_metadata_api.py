@@ -191,6 +191,8 @@ class CalibreLikeBookMetadataAPI(CalibreMetadataInputAPI, Protocol):
     internal_identifiers: CalibreIdentifierSnapshot
     creators: Mapping[str, Sequence[str]]
     languages: Sequence[str] | None
+    labels: CalibreValueToID
+    tags: CalibreValueToID
 
     def setattr(self, key: str, value: CalibreFieldValue) -> None: ...
 

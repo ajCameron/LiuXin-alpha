@@ -53,6 +53,9 @@ from LiuXin_alpha.metadata.containers.metadata_containers.non_wemi_containers.su
 from LiuXin_alpha.metadata.containers.metadata_containers.non_wemi_containers.synopsis_row import (
     SynopsisRow,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers.non_wemi_containers.tag_row import (
+    TagRow,
+)
 from LiuXin_alpha.metadata.containers.metadata_containers.non_wemi_containers.self_relations import (
     NON_WEMI_SELF_RELATION_CONTAINERS,
     GenreTreeRelation,
@@ -94,4 +97,5 @@ __all__ = [
     "SubjectTreeRelation",
     "SubjectTreeRelationsContainer",
     "SynopsisRow",
+    "TagRow",
 ]

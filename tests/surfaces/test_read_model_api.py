@@ -67,6 +67,18 @@ def _insert_label_row(db: Database, *, text: str) -> int:
     return int(row["label_id"])
 
 
+def _insert_tag_row(db: Database, *, text: str) -> int:
+    row = Row.from_idless_row_dict(
+        db,
+        row_dict={
+            "tag": text,
+            "tag_phash": make_tag_search_term(text),
+        },
+        table="tags",
+    )
+    return int(row["tag_id"])
+
+
 def _insert_series_row(db: Database, *, name: str) -> int:
     row = Row.from_idless_row_dict(
         db,
@@ -202,6 +214,34 @@ def test_read_model_category_rows_and_counts(driver_spec, tmp_path: Path) -> Non
         assert any(row["label"] == "Alice Author" and row["count"] == 1 for row in author_rows)
         assert any(row["label"] == "Adventure" and row["count"] == 1 for row in tag_rows)
         assert any(row["label"] == "Library Shelf" and row["count"] == 1 for row in series_rows)
+
+
+def test_read_model_prefers_real_tags_over_legacy_labels(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "read_model_real_tags.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        work_id = _insert_work_row(db, title="Tagged Book")
+        label_id = _insert_label_row(db, text="Legacy Label")
+        tag_id = _insert_tag_row(db, text="Canonical Tag")
+
+        work_row = db.get_row_from_id("works", work_id)
+        db.interlink_rows(primary_row=work_row, secondary_row=db.get_row_from_id("labels", label_id))
+        db.interlink_rows(primary_row=work_row, secondary_row=db.get_row_from_id("tags", tag_id))
+
+        _app, backend = _build_backend(db)
+
+        tag_rows = backend.category_rows("tags")
+        metadata = backend.work_metadata_payload(work_row)
+
+        assert backend.tag_category_table() == "tags"
+        assert [row["table"] for row in tag_rows] == ["tags"]
+        assert [row["label"] for row in tag_rows] == ["Canonical Tag"]
+        assert metadata["tags"] == ["Canonical Tag"]
 
 
 def test_read_model_work_and_file_payloads(driver_spec, tmp_path: Path) -> None:

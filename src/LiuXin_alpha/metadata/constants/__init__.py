@@ -204,6 +204,7 @@ METADATA_NULL_VALUES = {
     "imprint": OrderedDict(),
     "internal_identifiers": OrderedDict(),
     "language": "und",
+    "labels": OrderedDict(),
     "languages": [],
     "languages_available": OrderedDict(),
     "last_modified": None,

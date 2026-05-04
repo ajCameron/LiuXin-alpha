@@ -69,6 +69,27 @@ class ReadModelBackend:
                 tables.append(table)
         return tables or ["agents"]
 
+    def tag_category_table(self) -> Optional[str]:
+        if self.host._table_exists("tags"):
+            try:
+                if int(self.host.db.get_record_count("tags")) > 0:
+                    return "tags"
+            except Exception:
+                return "tags"
+            if not self.host._table_exists("labels"):
+                return "tags"
+        if self.host._table_exists("labels"):
+            return "labels"
+        if self.host._table_exists("tags"):
+            return "tags"
+        return None
+
+    def work_tag_rows(self, related_rows_by_table: dict[str, list[object]]) -> tuple[Optional[str], list[object]]:
+        tag_table = self.tag_category_table()
+        if tag_table is None:
+            return None, []
+        return tag_table, list(related_rows_by_table.get(tag_table, []))
+
     def work_rows(self, *, sorted_by: str) -> list[object]:
         if not self.host._table_exists("works"):
             return []
@@ -122,11 +143,14 @@ class ReadModelBackend:
                         }
                     )
             return rows
-        if kind == "tags" and self.host._table_exists("labels"):
-            for row in sorted(self.host.db.get_all_rows("labels", iterator_return=False), key=lambda one: self.host._row_primary_text("labels", one).lower()):
-                row_id = _row_value(row, self.host._id_column("labels") or "")
-                works = self.works_for_linked_entity("labels", str(row_id))
-                rows.append({"table": "labels", "row": row, "id": row_id, "label": self.host._row_primary_text("labels", row), "count": len(works), "url": self.host._row_href("labels", row) or ""})
+        if kind == "tags":
+            tag_table = self.tag_category_table()
+            if tag_table is None:
+                return rows
+            for row in sorted(self.host.db.get_all_rows(tag_table, iterator_return=False), key=lambda one: self.host._row_primary_text(tag_table, one).lower()):
+                row_id = _row_value(row, self.host._id_column(tag_table) or "")
+                works = self.works_for_linked_entity(tag_table, str(row_id))
+                rows.append({"table": tag_table, "row": row, "id": row_id, "label": self.host._row_primary_text(tag_table, row), "count": len(works), "url": self.host._row_href(tag_table, row) or ""})
             return rows
         if kind == "series" and self.host._table_exists("series"):
             for row in sorted(self.host.db.get_all_rows("series", iterator_return=False), key=lambda one: self.host._row_primary_text("series", one).lower()):
@@ -207,9 +231,9 @@ class ReadModelBackend:
         series_rows = related.get("series", [])
         if series_rows:
             parts.append("Series: {}".format(", ".join(self.host._row_primary_text("series", one) for one in series_rows[:2])))
-        label_rows = related.get("labels", [])
-        if label_rows:
-            parts.append("Tags: {}".format(", ".join(self.host._row_primary_text("labels", one) for one in label_rows[:3])))
+        tag_table, tag_rows = self.work_tag_rows(related)
+        if tag_table is not None and tag_rows:
+            parts.append("Tags: {}".format(", ".join(self.host._row_primary_text(tag_table, one) for one in tag_rows[:3])))
         return " · ".join(parts)
 
     def work_sort_value(self, row, *, sort_key: str) -> object:
@@ -226,7 +250,8 @@ class ReadModelBackend:
             return " | ".join(names).lower()
         if lowered == "tags":
             related = self.host._related_rows_by_table(row)
-            names = [self.host._row_primary_text("labels", one) for one in related.get("labels", [])[:5]]
+            tag_table, tag_rows = self.work_tag_rows(related)
+            names = [self.host._row_primary_text(tag_table, one) for one in tag_rows[:5]] if tag_table is not None else []
             return " | ".join(names).lower()
         id_column = self.host._id_column("works") or "work_id"
         return int(_row_value(row, id_column) or 0)
@@ -336,7 +361,8 @@ class ReadModelBackend:
         work_id_value = int(row_id) if row_id not in (None, "") else row_id
         title = self.host._row_primary_text("works", row)
         authors = [self.host._row_primary_text(str(entry["table"]), entry["row"]) for entry in self.host._work_credit_entries(row)]
-        tags = [self.host._row_primary_text("labels", one) for one in related.get("labels", [])]
+        tag_table, tag_rows = self.work_tag_rows(related)
+        tags = [self.host._row_primary_text(tag_table, one) for one in tag_rows] if tag_table is not None else []
         series_values = [self.host._row_primary_text("series", one) for one in related.get("series", [])]
         return {
             "id": work_id_value,

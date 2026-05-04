@@ -172,7 +172,7 @@ def test_identifiers_v_unifies_entity_and_item_identifiers(tmp_path: pathlib.Pat
         cur.execute(
             "INSERT INTO entity_identifiers (entity_identifier_entity_type, entity_identifier_entity_id, entity_identifier_scheme, entity_identifier_value, entity_identifier_is_primary, entity_identifier_provenance) "
             "VALUES (?, ?, ?, ?, ?, ?);",
-            ("work", work_id, "isbn13", "9780441172719", 1, "import"),
+            ("work", work_id, "uuid", "test-work-dune", 1, "import"),
         )
 
         # Raw observed identifier (item)
@@ -190,7 +190,7 @@ def test_identifiers_v_unifies_entity_and_item_identifiers(tmp_path: pathlib.Pat
         ).fetchall()
 
         assert rows == [
-            ("entity", "work", work_id, "isbn13", "9780441172719", 1, "import", None, "Dune"),
+            ("entity", "work", work_id, "uuid", "test-work-dune", 1, "import", None, "Dune"),
             ("item", "item", item_id, "asin", "B000123456", None, None, "calibre", "digital"),
         ]
 
@@ -887,8 +887,8 @@ def test_publishers_v_selects_best_publisher_per_book(tmp_path: pathlib.Path) ->
     finally:
         conn.close()
 
-def test_subjects_tags_v_unifies_subjects_genres_and_labels(tmp_path: pathlib.Path) -> None:
-    """Facets: subject/genre/label projections should appear per book(ray)."""
+def test_subjects_tags_v_unifies_subjects_genres_and_tags(tmp_path: pathlib.Path) -> None:
+    """Facets: subject/genre/tag projections should appear per book(ray)."""
 
     db_path = tmp_path / "frbr_subjects_tags_view.db"
     conn = sqlite3.connect(str(db_path))
@@ -961,41 +961,41 @@ def test_subjects_tags_v_unifies_subjects_genres_and_labels(tmp_path: pathlib.Pa
             (genre_id, work_id, 0, "primary"),
         )
 
-        # Labels (work/expression/item scopes)
+        # Tags (work/expression/item scopes)
         cur.execute(
-            "INSERT INTO labels (label_text, label_text_norm, label_description) VALUES (?, ?, ?);",
+            "INSERT INTO tags (tag, tag_phash, tag_description) VALUES (?, ?, ?);",
             ("classic", "classic", None),
         )
-        label_work_id = cur.lastrowid
+        tag_work_id = cur.lastrowid
 
         cur.execute(
-            "INSERT INTO labels (label_text, label_text_norm, label_description) VALUES (?, ?, ?);",
+            "INSERT INTO tags (tag, tag_phash, tag_description) VALUES (?, ?, ?);",
             ("translated", "translated", None),
         )
-        label_expr_id = cur.lastrowid
+        tag_expr_id = cur.lastrowid
 
         cur.execute(
-            "INSERT INTO labels (label_text, label_text_norm, label_description) VALUES (?, ?, ?);",
+            "INSERT INTO tags (tag, tag_phash, tag_description) VALUES (?, ?, ?);",
             ("ocr", "ocr", None),
         )
-        label_item_id = cur.lastrowid
+        tag_item_id = cur.lastrowid
 
-        lw_table, lw_base = ColumnNameMixin.get_interlink_table_name("labels", "works")
+        lw_table, lw_base = ColumnNameMixin.get_interlink_table_name("tags", "works")
         cur.execute(
-            f"INSERT INTO `{lw_table}` (`{lw_base}_label_id`, `{lw_base}_work_id`, `{lw_base}_priority`) VALUES (?, ?, ?);",
-            (label_work_id, work_id, 0),
+            f"INSERT INTO `{lw_table}` (`{lw_base}_tag_id`, `{lw_base}_work_id`, `{lw_base}_priority`) VALUES (?, ?, ?);",
+            (tag_work_id, work_id, 0),
         )
 
-        el_table, el_base = ColumnNameMixin.get_interlink_table_name("expressions", "labels")
+        el_table, el_base = ColumnNameMixin.get_interlink_table_name("expressions", "tags")
         cur.execute(
-            f"INSERT INTO `{el_table}` (`{el_base}_expression_id`, `{el_base}_label_id`, `{el_base}_priority`) VALUES (?, ?, ?);",
-            (expression_id, label_expr_id, 0),
+            f"INSERT INTO `{el_table}` (`{el_base}_expression_id`, `{el_base}_tag_id`, `{el_base}_priority`) VALUES (?, ?, ?);",
+            (expression_id, tag_expr_id, 0),
         )
 
-        il_table, il_base = ColumnNameMixin.get_interlink_table_name("items", "labels")
+        il_table, il_base = ColumnNameMixin.get_interlink_table_name("items", "tags")
         cur.execute(
-            f"INSERT INTO `{il_table}` (`{il_base}_item_id`, `{il_base}_label_id`, `{il_base}_priority`) VALUES (?, ?, ?);",
-            (item_id, label_item_id, 0),
+            f"INSERT INTO `{il_table}` (`{il_base}_item_id`, `{il_base}_tag_id`, `{il_base}_priority`) VALUES (?, ?, ?);",
+            (item_id, tag_item_id, 0),
         )
 
         conn.commit()
@@ -1012,10 +1012,10 @@ def test_subjects_tags_v_unifies_subjects_genres_and_labels(tmp_path: pathlib.Pa
 
         assert rows == [
             ("genre", "work", "Science Fiction"),
-            ("label", "expression", "translated"),
-            ("label", "item", "ocr"),
-            ("label", "work", "classic"),
             ("subject", "work", "Fiction > Science Fiction"),
+            ("tag", "expression", "translated"),
+            ("tag", "item", "ocr"),
+            ("tag", "work", "classic"),
         ]
 
     finally:
@@ -1057,7 +1057,7 @@ def test_duplicate_candidates_v_groups_isbn_and_title_author_year(tmp_path: path
             cur.execute(
                 "INSERT INTO entity_identifiers (entity_identifier_entity_type, entity_identifier_entity_id, entity_identifier_scheme, entity_identifier_value, entity_identifier_is_primary, entity_identifier_provenance) "
                 "VALUES (?, ?, ?, ?, ?, ?);",
-                ("manifestation", manifestation_id, "isbn13", isbn, 1, "import"),
+                ("manifestation", manifestation_id, "isbn_13", isbn, 1, "import"),
             )
 
             ray_id = f"{work_id}:{expression_id}:{manifestation_id}"
@@ -1180,7 +1180,7 @@ def test_search_seed_v_produces_seed_text(tmp_path: pathlib.Path) -> None:
         cur.execute(
             "INSERT INTO entity_identifiers (entity_identifier_entity_type, entity_identifier_entity_id, entity_identifier_scheme, entity_identifier_value, entity_identifier_is_primary, entity_identifier_provenance) "
             "VALUES (?, ?, ?, ?, ?, ?);",
-            ("manifestation", manifestation_id, "isbn13", "978-0441172719", 1, "import"),
+            ("manifestation", manifestation_id, "isbn_13", "978-0441172719", 1, "import"),
         )
 
         conn.commit()
@@ -1199,12 +1199,12 @@ def test_search_seed_v_produces_seed_text(tmp_path: pathlib.Path) -> None:
         assert seed_title is not None and len(seed_title) > 0
         assert seed_authors == "Frank Herbert"
         assert seed_publisher == "Ace Books"
-        assert "isbn13:978-0441172719" in seed_identifiers
+        assert "isbn_13:978-0441172719" in seed_identifiers
 
         # Seed text should contain the core pieces.
         assert "Frank Herbert" in seed_text
         assert "Ace Books" in seed_text
-        assert "isbn13:978-0441172719" in seed_text
+        assert "isbn_13:978-0441172719" in seed_text
 
     finally:
         conn.close()

@@ -375,8 +375,9 @@ def test_liuxin_wemi_metadata_hydrator_builds_complete_item_slice() -> None:
     assert metadata.get_wemi_relation_links("item", "files")
     label = metadata.get_wemi_related("work", "labels")[0]
     assert label.row_dict["label_text"] == "Science Fiction"
-    assert list(metadata.tags.keys()) == ["Science Fiction"]
-    assert metadata.tags["Science Fiction"] == 90
+    assert list(metadata.labels.keys()) == ["Science Fiction"]
+    assert metadata.labels["Science Fiction"] == 90
+    assert list(metadata.tags.keys()) == []
 
 
 def test_liuxin_wemi_metadata_from_database_uses_central_hydrator() -> None:
@@ -402,6 +403,7 @@ def test_liuxin_wemi_metadata_hydrator_dispatches_typed_shapes() -> None:
     assert getattr(work_metadata, "work").work_id == 30
     assert getattr(item_metadata, "item").item_id == 1
     assert liuxin_metadata.title == "Permutation City"
-    assert list(liuxin_metadata.tags.keys()) == ["Science Fiction"]
+    assert list(liuxin_metadata.labels.keys()) == ["Science Fiction"]
+    assert list(liuxin_metadata.tags.keys()) == []
     assert calibre_metadata.title == "Permutation City"
-    assert calibre_metadata.tags == ["Science Fiction"]
+    assert calibre_metadata.tags == []
