@@ -300,6 +300,38 @@ class calibreMetadata(object):
     def set(self, field, val, extra=None):
         self.__setattr__(field, val, extra)
 
+    def write_to_database(
+        self,
+        database,
+        *,
+        fields=None,
+        target_level="work",
+        item_id=None,
+        target_row=None,
+        replace=False,
+        mark_dirty=True,
+    ):
+        """
+        Persist supported relation-backed fields through the WEMI metadata writer.
+
+        Calibre-shaped metadata can only identify the target database row when
+        ``item_id``/``target_row`` is supplied or ``db_id``/``application_id``
+        contains the LiuXin item id.
+        """
+        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
+            LiuXinWEMIMetadataWriter,
+        )
+
+        return LiuXinWEMIMetadataWriter(database).write(
+            self,
+            fields=fields,
+            target_level=target_level,
+            item_id=item_id,
+            target_row=target_row,
+            replace=replace,
+            mark_dirty=mark_dirty,
+        )
+
     def get_identifiers(self):
         """
         Return a copy of the identifiers dictionary.

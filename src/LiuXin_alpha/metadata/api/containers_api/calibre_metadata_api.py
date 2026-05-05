@@ -178,6 +178,18 @@ class CalibreMetadataAPI(CalibreMetadataInputAPI, Protocol):
         metadata: CalibreFieldDescriptor | None,
     ) -> None: ...
 
+    def write_to_database(
+        self,
+        database: Any,
+        *,
+        fields: Iterable[str] | None = None,
+        target_level: str = "work",
+        item_id: int | None = None,
+        target_row: Any = None,
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> Any: ...
+
     def deepcopy_metadata(self) -> Self: ...
 
     def __str__(self) -> str: ...

@@ -6,6 +6,7 @@ from typing import Any
 
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError
+from LiuXin_alpha.metadata.api import WorkRelationLink
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData,
 )
@@ -752,6 +753,56 @@ def test_liuxin_wemi_metadata_write_to_database_can_replace_relation_terms() -> 
     assert list(rehydrated.tags.keys()) == ["Simulation"]
 
 
+def test_liuxin_wemi_metadata_wemi_relation_edits_round_trip_to_database() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    metadata.add_wemi_relation_link(
+        "work",
+        "tags",
+        WorkRelationLink(
+            target="WEMI Relation Round Trip",
+            extra={"source_entity_type": "work"},
+        ),
+    )
+
+    report = metadata.write_to_database(db, fields=("tags",))
+
+    assert report.changed is True
+    assert [row["text"] for row in report.rows_added] == ["WEMI Relation Round Trip"]
+
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert list(rehydrated.tags.keys()) == [
+        "Space Opera",
+        "WEMI Relation Round Trip",
+    ]
+
+
+def test_liuxin_wemi_metadata_sidecar_without_legacy_round_trips_wemi_relations() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    sidecar = metadata.to_mapping(include_legacy=False)
+    round_tripped = LiuXinWEMIMetadata.from_mapping(sidecar)
+    round_tripped.add_wemi_relation_link(
+        "work",
+        "tags",
+        WorkRelationLink(
+            target="Sidecar WEMI Round Trip",
+            extra={"source_entity_type": "work"},
+        ),
+    )
+
+    report = round_tripped.write_to_database(db, fields=("tags",))
+
+    assert report.changed is True
+    assert [row["text"] for row in report.rows_added] == ["Sidecar WEMI Round Trip"]
+
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert list(rehydrated.tags.keys()) == [
+        "Space Opera",
+        "Sidecar WEMI Round Trip",
+    ]
+
+
 def test_wemi_metadata_bundles_write_supported_relation_terms() -> None:
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
@@ -837,6 +888,28 @@ def test_calibre_like_metadata_write_to_database_resolves_target_from_item_id() 
 
     rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
     assert list(rehydrated.tags.keys()) == ["Space Opera", "Calibre Round Trip"]
+
+
+def test_calibre_metadata_view_round_trips_tags_to_database() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    calibre_metadata = metadata.as_calibre_metadata()
+    assert calibre_metadata.db_id == 1
+
+    calibre_metadata.tags = list(calibre_metadata.tags) + ["Calibre View Round Trip"]
+
+    report = calibre_metadata.write_to_database(db, fields=("tags",))
+
+    assert report.changed is True
+    assert report.target_table == "works"
+    assert report.target_id == 30
+    assert [row["text"] for row in report.rows_added] == ["Calibre View Round Trip"]
+
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert list(rehydrated.tags.keys()) == [
+        "Space Opera",
+        "Calibre View Round Trip",
+    ]
 
 
 def test_liuxin_wemi_metadata_hydrator_dispatches_typed_shapes() -> None:
