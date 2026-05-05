@@ -530,6 +530,29 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     def as_calibre_metadata(self) -> Any:
         return self.to_calibre()
 
+    @classmethod
+    def from_opf(
+        cls,
+        source: Any,
+        *,
+        database: Any = None,
+        item_id: int | None = None,
+        source_row: Mapping[str, Any] | Row | None = None,
+        replace_metadata: bool = False,
+    ) -> "LiuXinWEMIMetadata":
+        from LiuXin_alpha.metadata.opf_tools import liuxin_wemi_metadata_from_opf
+
+        metadata = liuxin_wemi_metadata_from_opf(
+            source,
+            database=database,
+            item_id=item_id,
+            source_row=source_row,
+            replace_metadata=replace_metadata,
+        )
+        if isinstance(metadata, cls):
+            return metadata
+        return cls(other=metadata)
+
     def write_to_database(
         self,
         database: Any,

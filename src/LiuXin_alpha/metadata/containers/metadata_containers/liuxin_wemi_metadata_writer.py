@@ -233,7 +233,13 @@ class LiuXinWEMIMetadataWriter:
                 )
                 continue
 
-            desired = self._desired_terms(metadata, field_name, spec, actual_level)
+            desired = self._desired_terms(
+                metadata,
+                field_name,
+                spec,
+                actual_level,
+                include_wemi_relations=not replace,
+            )
             existing = self._existing_terms(source_row, spec)
             desired_links = self._desired_relation_links(metadata, spec, actual_level)
             for text, row_id in desired.items():
@@ -329,6 +335,8 @@ class LiuXinWEMIMetadataWriter:
             level for level in self._LEVEL_FALLBACKS if level != preferred_level
         )
         for level in levels:
+            if level == "item" and preferred_level != "item":
+                continue
             table = self._LEVEL_TABLES[level]
             row_id = (
                 self._metadata_database_id(metadata, self._LEVEL_ID_NAMES[level])
@@ -493,6 +501,17 @@ class LiuXinWEMIMetadataWriter:
             if isinstance(database_ids, Mapping):
                 value = database_ids.get(name)
         if value in (None, ""):
+            attr_names = [str(name)]
+            if str(name).strip().lower() == "item_id":
+                attr_names.extend(["item_id", "db_id", "application_id"])
+            for attr_name in dict.fromkeys(attr_names):
+                try:
+                    value = getattr(metadata, attr_name)
+                except Exception:
+                    value = None
+                if value not in (None, ""):
+                    break
+        if value in (None, ""):
             return None
         try:
             return int(value)
@@ -512,10 +531,25 @@ class LiuXinWEMIMetadataWriter:
         field_name: str,
         spec: LegacyRelationFieldSpec,
         target_level: str,
+        *,
+        include_wemi_relations: bool = True,
     ) -> OrderedDict[str, Any]:
-        if self._metadata_bundle_level(metadata) is not None:
+        bundle_level = self._metadata_bundle_level(metadata)
+        if bundle_level is not None:
             return self._desired_bundle_terms(metadata, spec, target_level)
 
+        desired = self._desired_legacy_terms(metadata, field_name)
+        if include_wemi_relations:
+            bundle = self._metadata_wemi_bundle(metadata, target_level)
+            if bundle is not None:
+                desired.update(self._desired_bundle_terms(bundle, spec, target_level))
+        return desired
+
+    def _desired_legacy_terms(
+        self,
+        metadata: Any,
+        field_name: str,
+    ) -> OrderedDict[str, Any]:
         getter = getattr(metadata, "direct_get", None)
         try:
             value = getter(field_name) if callable(getter) else getattr(metadata, field_name, None)
@@ -567,9 +601,13 @@ class LiuXinWEMIMetadataWriter:
         spec: LegacyRelationFieldSpec,
         target_level: str,
     ) -> dict[str, Any]:
-        if self._metadata_bundle_level(metadata) is None:
+        bundle = metadata if self._metadata_bundle_level(metadata) is not None else self._metadata_wemi_bundle(
+            metadata,
+            target_level,
+        )
+        if bundle is None:
             return {}
-        getter = getattr(metadata, "get_relation_links", None)
+        getter = getattr(bundle, "get_relation_links", None)
         if not callable(getter):
             return {}
         try:
@@ -847,6 +885,18 @@ class LiuXinWEMIMetadataWriter:
             return tuple(str(name) for name in relation_names())
         except Exception:
             return ()
+
+    def _metadata_wemi_bundle(self, metadata: Any, level: str) -> Any | None:
+        getter = getattr(metadata, "get_wemi_metadata", None)
+        if callable(getter):
+            try:
+                return getter(level)
+            except Exception:
+                return None
+        stack = getattr(metadata, "wemi_stack", None)
+        if isinstance(stack, Mapping):
+            return stack.get(level)
+        return None
 
     def _bundle_has_relation(self, metadata: Any, relation: str) -> bool:
         validator = getattr(metadata, "validate_relation_name", None)

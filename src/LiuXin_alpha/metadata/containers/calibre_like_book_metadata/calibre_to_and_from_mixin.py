@@ -143,6 +143,12 @@ class ToAndFromCalibreMetadataMixin:
 
         # TITLE
         calibre_md = calibreMetadata(title=self.title, authors=None)
+        get_database_id = getattr(self, "get_database_id", None)
+        if callable(get_database_id):
+            item_id = get_database_id("item_id")
+            if item_id is not None:
+                calibre_md.db_id = item_id
+                calibre_md.application_id = item_id
 
         # AUTHORS
         # If there are both authors and editors then the editors go first
@@ -201,6 +207,7 @@ class ToAndFromCalibreMetadataMixin:
         calibre_md.tags = list(self.tags.keys()) + list(self.subject.keys())
 
         # TTITLESORT
+        calibre_md.title_sort = self.titlesort
         calibre_md.titlesort = self.titlesort
 
         return calibre_md

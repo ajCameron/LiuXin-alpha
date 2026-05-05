@@ -170,6 +170,25 @@ class CalibreLikeLiuXinBookMetaData(
         """
         self.__setattr__(key, value)
 
+    @classmethod
+    def from_opf(cls, source):
+        from LiuXin_alpha.metadata.opf_tools import liuxin_metadata_from_opf
+
+        metadata = liuxin_metadata_from_opf(source)
+        if isinstance(metadata, cls):
+            return metadata
+        return cls(None, None, other=metadata)
+
+    def to_opf_bytes(self, *, default_lang=None):
+        from LiuXin_alpha.metadata.opf_tools import metadata_to_opf_bytes
+
+        return metadata_to_opf_bytes(self, default_lang=default_lang)
+
+    def write_to_opf(self, path, *, default_lang=None):
+        from LiuXin_alpha.metadata.opf_tools import metadata_to_opf_file
+
+        return metadata_to_opf_file(self, path, default_lang=default_lang)
+
     def write_to_database(
         self,
         database,
