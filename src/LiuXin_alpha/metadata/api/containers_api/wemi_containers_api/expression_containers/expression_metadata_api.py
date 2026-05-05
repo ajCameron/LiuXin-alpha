@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
+from typing import Any, ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
 
 
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
@@ -63,6 +63,7 @@ class ExpressionMetadataAPI(abc.ABC):
         "identifiers",
         "titles",
         "genres",
+        "tags",
         "labels",
         "languages",
         "notes",
@@ -78,6 +79,7 @@ class ExpressionMetadataAPI(abc.ABC):
         "identifier": "identifiers",
         "title": "titles",
         "genre": "genres",
+        "tag": "tags",
         "label": "labels",
         "language": "languages",
         "note": "notes",
@@ -141,6 +143,19 @@ class ExpressionMetadataAPI(abc.ABC):
     @abc.abstractmethod
     def set_relation_links(self, relation: str, links: Iterable[ExpressionRelationLink]) -> None:
         """Replace edge metadata links for one relation type."""
+
+    def write_to_database(
+        self,
+        database: Any,
+        *,
+        fields: Iterable[str] | None = None,
+        item_id: int | None = None,
+        target_row: Any = None,
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> Any:
+        """Persist supported relation changes for this expression metadata bundle."""
+        raise NotImplementedError
 
     def add_relation_link(self, relation: str, link: ExpressionRelationLink) -> None:
         relation_key = self.validate_relation_name(relation)
@@ -302,6 +317,14 @@ class ExpressionMetadataAPI(abc.ABC):
     @genres.setter
     def genres(self, values: Iterable[ExpressionRelationTarget]) -> None:
         self.set_related("genres", values)
+
+    @property
+    def tags(self) -> list[ExpressionRelationTarget]:
+        return self.get_related("tags")
+
+    @tags.setter
+    def tags(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        self.set_related("tags", values)
 
     @property
     def labels(self) -> list[ExpressionRelationTarget]:

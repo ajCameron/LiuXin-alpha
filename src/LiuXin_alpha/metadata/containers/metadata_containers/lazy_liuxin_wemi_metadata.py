@@ -1,0 +1,378 @@
+"""Lazy item-centered LiuXin metadata slice."""
+
+from __future__ import annotations
+
+from collections import OrderedDict
+from collections.abc import Callable, Iterable, Mapping
+from copy import deepcopy
+from typing import Any
+
+from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.metadata.containers.metadata_containers.lazy_value_to_id import (
+    LazyValueToID,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata import (
+    LiuXinWEMIMetadata,
+    WemiLevel,
+    WemiRelationLink,
+)
+
+
+LegacyValueToIDLoader = Callable[[], Mapping[str, Any]]
+WemiRelationLoader = Callable[[], Iterable[WemiRelationLink]]
+
+
+class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
+    """
+    LiuXin/WEMI metadata slice with opt-in lazy relation-backed fields.
+
+    This class is intentionally separate from ``LiuXinWEMIMetadata``. The eager
+    hydrator keeps returning the existing concrete object; callers must ask for
+    the lazy class through the lazy hydrator/from-database entry point.
+    """
+
+    _LEGACY_FIELD_ALIASES = {
+        "genres": "genre",
+        "genre": "genre",
+        "subjects": "subject",
+        "subject": "subject",
+        "tags": "tags",
+        "tag": "tags",
+        "labels": "labels",
+        "label": "labels",
+        "series": "series",
+        "notes": "notes",
+        "note": "notes",
+        "comments": "comments",
+        "comment": "comments",
+        "synopses": "synopses",
+        "synopsis": "synopses",
+        "rating": "ratings",
+        "ratings": "ratings",
+        "file": "files",
+        "files": "files",
+        "languages_available": "languages_available",
+        "language_available": "languages_available",
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        object.__setattr__(self, "_lazy_relation_loaders", {})
+
+    def install_lazy_value_to_id(
+        self,
+        field: str,
+        loader: LegacyValueToIDLoader,
+    ) -> None:
+        field_key = self._normalize_lazy_legacy_field(field)
+        data = object.__getattribute__(self, "_data")
+        data[field_key] = LazyValueToID(loader, label=field_key)
+
+    def install_lazy_relation_loader(
+        self,
+        level: str,
+        relation: str,
+        loader: WemiRelationLoader,
+    ) -> None:
+        level_key = self.normalize_wemi_level(level)
+        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation)
+        loaders = object.__getattribute__(self, "_lazy_relation_loaders")
+        loaders[(level_key, relation_key)] = loader
+
+    def get_wemi_relation_links(
+        self,
+        level: str,
+        relation: str,
+    ) -> list[WemiRelationLink]:
+        level_key = self.normalize_wemi_level(level)
+        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation)
+        loaders = object.__getattribute__(self, "_lazy_relation_loaders")
+        loader = loaders.pop((level_key, relation_key), None)
+        if loader is not None:
+            self.get_wemi_metadata(level_key).set_relation_links(
+                relation_key,
+                list(loader()),
+            )
+        return super().get_wemi_relation_links(level_key, relation_key)
+
+    def get_wemi_related(
+        self,
+        level: str,
+        relation: str,
+    ) -> list[Any]:
+        return [link.target for link in self.get_wemi_relation_links(level, relation)]
+
+    def hydrate_field(self, field: str) -> OrderedDict[str, Any] | Any:
+        field_key = self._normalize_lazy_legacy_field(field)
+        data = object.__getattribute__(self, "_data")
+        value = data.get(field_key)
+        if isinstance(value, LazyValueToID):
+            materialized = value.materialize()
+            data[field_key] = materialized
+            return materialized
+        return value
+
+    def force_hydrate(
+        self,
+        fields: Iterable[str] | None = None,
+    ) -> "LazyLiuXinWEMIMetadata":
+        if fields is None:
+            data = object.__getattribute__(self, "_data")
+            fields = [
+                key
+                for key, value in data.items()
+                if isinstance(value, LazyValueToID)
+            ]
+        for field in fields:
+            self.hydrate_field(field)
+        return self
+
+    def lazy_fields(self) -> tuple[str, ...]:
+        data = object.__getattribute__(self, "_data")
+        return tuple(
+            key
+            for key, value in data.items()
+            if isinstance(value, LazyValueToID)
+        )
+
+    def is_lazy_field_loaded(self, field: str) -> bool:
+        field_key = self._normalize_lazy_legacy_field(field)
+        data = object.__getattribute__(self, "_data")
+        value = data.get(field_key)
+        if isinstance(value, LazyValueToID):
+            return value.loaded
+        return True
+
+    def direct_get(self, item: str) -> Any:
+        data = object.__getattribute__(self, "_data")
+        field_key = self._LEGACY_FIELD_ALIASES.get(str(item).strip().lower())
+        if field_key is not None and isinstance(data.get(field_key), LazyValueToID):
+            return self.hydrate_field(field_key)
+        return super().direct_get(item)
+
+    def __getattr__(self, item: str) -> Any:
+        data = object.__getattribute__(self, "_data")
+        field_key = self._LEGACY_FIELD_ALIASES.get(str(item).strip().lower())
+        if field_key is not None and isinstance(data.get(field_key), LazyValueToID):
+            return self.hydrate_field(field_key)
+        return super().__getattr__(item)
+
+    def __getitem__(self, item: str) -> Any:
+        data = object.__getattribute__(self, "_data")
+        field_key = self._LEGACY_FIELD_ALIASES.get(str(item).strip().lower())
+        if field_key is not None and isinstance(data.get(field_key), LazyValueToID):
+            return self.hydrate_field(field_key)
+        return super().__getitem__(item)
+
+    @classmethod
+    def _is_empty_pretty_value(cls, value: Any) -> bool:
+        if isinstance(value, LazyValueToID) and not value.loaded:
+            return False
+        return super()._is_empty_pretty_value(value)
+
+    @classmethod
+    def _format_pretty_value(
+        cls,
+        value: Any,
+        *,
+        max_items: int = 5,
+        max_chars: int = 160,
+    ) -> str:
+        if isinstance(value, LazyValueToID) and not value.loaded:
+            return repr(value)
+        return super()._format_pretty_value(
+            value,
+            max_items=max_items,
+            max_chars=max_chars,
+        )
+
+    @classmethod
+    def _normalize_lazy_legacy_field(cls, field: str) -> str:
+        field_key = cls._LEGACY_FIELD_ALIASES.get(str(field).strip().lower())
+        return field_key if field_key is not None else str(field).strip().lower()
+
+    @staticmethod
+    def relation_target_text(target: Any, relation: str) -> str | None:
+        mapping: Mapping[str, Any]
+        if isinstance(target, Row):
+            mapping = target.row_dict
+        elif isinstance(target, Mapping):
+            mapping = target
+        elif isinstance(target, str):
+            text = target.strip()
+            return text or None
+        else:
+            mapping = {}
+
+        text_keys = {
+            "tags": ("tag", "tag_name", "name", "text"),
+            "labels": ("label_text", "label", "name", "text"),
+            "genres": ("genre_full", "genre", "genre_name", "name", "text"),
+            "subjects": ("subject_full", "subject", "subject_name", "name", "text"),
+            "series": ("series_full", "series", "series_name", "name", "text"),
+            "notes": ("note", "note_text", "text"),
+            "comments": ("comment", "comment_text", "text"),
+            "synopses": ("synopsis", "synopsis_text", "text"),
+            "languages": ("language_code", "language", "language_name", "name", "text"),
+            "files": (
+                "file_storage_key",
+                "file_source_path",
+                "file_path",
+                "file_url",
+                "file_name",
+                "file_extension",
+                "name",
+                "text",
+            ),
+        }.get(str(relation), ("name", "text"))
+
+        for key in text_keys:
+            value = mapping.get(key)
+            if value is None and not mapping:
+                value = getattr(target, key, None)
+            if value is None:
+                continue
+            text = str(value).strip()
+            if text:
+                return text
+        return None
+
+    @staticmethod
+    def relation_target_id(target: Any, relation: str) -> int | None:
+        mapping: Mapping[str, Any]
+        if isinstance(target, Row):
+            mapping = target.row_dict
+        elif isinstance(target, Mapping):
+            mapping = target
+        else:
+            mapping = {}
+
+        id_keys = {
+            "tags": ("tag_id", "id"),
+            "labels": ("label_id", "id"),
+            "genres": ("genre_id", "id"),
+            "subjects": ("subject_id", "id"),
+            "series": ("series_id", "id"),
+            "notes": ("note_id", "id"),
+            "comments": ("comment_id", "id"),
+            "synopses": ("synopsis_id", "id"),
+            "languages": ("language_id", "id"),
+            "files": ("file_id", "id"),
+        }.get(str(relation), ("id",))
+
+        for key in id_keys:
+            value = mapping.get(key)
+            if value is None and not mapping:
+                value = getattr(target, key, None)
+            if value in (None, ""):
+                continue
+            try:
+                return int(value)
+            except (TypeError, ValueError, OverflowError):
+                continue
+        if isinstance(target, Row) and target.row_id is not None:
+            return int(target.row_id)
+        return None
+
+    def lazy_legacy_terms_from_relation(
+        self,
+        *,
+        field: str,
+        relation: str,
+    ) -> OrderedDict[str, Any]:
+        terms: OrderedDict[str, Any] = OrderedDict()
+        seen: set[str] = set()
+        for level in self._LEVELS:
+            try:
+                links = self.get_wemi_relation_links(level, relation)
+            except KeyError:
+                continue
+            for link in links:
+                if field == "ratings":
+                    key, value = self._rating_key_value(link.target)
+                    if key is None:
+                        continue
+                    terms[key] = value
+                    continue
+                text = self.relation_target_text(link.target, relation)
+                if text is None:
+                    continue
+                text_key = text.casefold()
+                if text_key in seen:
+                    continue
+                terms[text] = self.relation_target_id(link.target, relation)
+                seen.add(text_key)
+        return terms
+
+    @staticmethod
+    def _rating_key_value(target: Any) -> tuple[str | None, Any]:
+        if isinstance(target, Row):
+            mapping = target.row_dict
+        elif isinstance(target, Mapping):
+            mapping = target
+        else:
+            mapping = {}
+
+        source = mapping.get("rating_source") or mapping.get("source")
+        rating = mapping.get("rating_for_calibre_tag_viewer")
+        if rating in (None, ""):
+            rating = mapping.get("rating")
+        if rating in (None, ""):
+            return None, None
+
+        key = "calibre" if mapping.get("rating_for_calibre_tag_viewer") not in (None, "") else None
+        if key is None and source not in (None, ""):
+            key = str(source)
+        if key is None:
+            key = "rating"
+        return key, rating
+
+    @classmethod
+    def from_database(
+        cls,
+        database: Any,
+        *,
+        item_id: int | None = None,
+        source_row: Mapping[str, Any] | Row | None = None,
+    ) -> "LazyLiuXinWEMIMetadata":
+        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_lazy_metadata_hydrator import (
+            LazyLiuXinWEMIMetadataHydrator,
+        )
+
+        hydrator = LazyLiuXinWEMIMetadataHydrator(database)
+        return hydrator.get_lazy_liuxin_wemi_metadata(
+            item_id=item_id,
+            source_row=source_row,
+        )
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "LazyLiuXinWEMIMetadata":
+        existing = memo.get(id(self))
+        if existing is not None:
+            return existing
+
+        self.force_hydrate()
+        clone = type(self)(
+            work_metadata=deepcopy(self.work_metadata, memo),
+            expression_metadata=deepcopy(self.expression_metadata, memo),
+            manifestation_metadata=deepcopy(self.manifestation_metadata, memo),
+            item_metadata=deepcopy(self.item_metadata, memo),
+        )
+        memo[id(self)] = clone
+        object.__setattr__(
+            clone,
+            "_data",
+            deepcopy(object.__getattribute__(self, "_data"), memo),
+        )
+        return clone
+
+    def deepcopy_metadata(self) -> "LazyLiuXinWEMIMetadata":
+        return deepcopy(self)
+
+
+LazyLiuXinWEMI = LazyLiuXinWEMIMetadata
+
+
+__all__ = [
+    "LazyLiuXinWEMI",
+    "LazyLiuXinWEMIMetadata",
+]

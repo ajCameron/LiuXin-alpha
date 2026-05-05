@@ -16,7 +16,7 @@ def _clean_optional(value: str) -> Optional[str]:
 
 
 class NewTagWizardCommand(TerminalCommandAPI):
-    """Create a tag-like row (`labels` on FRBR schema, `tags` on legacy schemas)."""
+    """Create a tag row, falling back to legacy label rows when needed."""
 
     group = "add"
     name = "tag"
@@ -53,18 +53,18 @@ class NewTagWizardCommand(TerminalCommandAPI):
         tag_norm = make_tag_search_term(tag_text)
         description = _clean_optional(browser.prompt_text("Tag description", default=""))
 
-        if has_labels:
-            existing = browser.db.search("labels", "label_text_norm", tag_norm)
-        else:
+        if has_tags:
             existing = browser.db.search("tags", "tag_phash", tag_norm)
+        else:
+            existing = browser.db.search("labels", "label_text_norm", tag_norm)
 
         if existing:
-            if has_labels:
-                existing_id = existing[0]["label_id"]
-                existing_value = existing[0]["label_text"]
-            else:
+            if has_tags:
                 existing_id = existing[0]["tag_id"]
                 existing_value = existing[0]["tag"]
+            else:
+                existing_id = existing[0]["label_id"]
+                existing_value = existing[0]["label_text"]
             browser.emit(
                 "Possible duplicate tag exists: id={} value={!r}".format(
                     existing_id,
@@ -79,8 +79,7 @@ class NewTagWizardCommand(TerminalCommandAPI):
             ("text", tag_text),
             ("normalized", tag_norm),
         ]
-        if has_labels:
-            summary_rows.append(("description", description or ""))
+        summary_rows.append(("description", description or ""))
         browser.emit_detail_sections(
             [("", summary_rows)],
             title="Tag summary",
@@ -89,6 +88,20 @@ class NewTagWizardCommand(TerminalCommandAPI):
         proceed = browser.prompt_yes_no("Create this tag now?", default=True)
         if not proceed:
             raise ValueError("Tag wizard canceled.")
+
+        if has_tags:
+            add = Add(browser.db)
+            tag_row = add.tag(tag=tag_text, tag_phash=tag_norm)
+            if description is not None and "tag_description" in set(browser.db.get_column_headings("tags")):
+                tag_row["tag_description"] = description
+                tag_row.sync()
+            browser.emit(
+                "Tag created: tag_id={} tag={!r}".format(
+                    tag_row["tag_id"],
+                    tag_row["tag"],
+                )
+            )
+            return True
 
         if has_labels:
             row_dict = {
@@ -109,13 +122,3 @@ class NewTagWizardCommand(TerminalCommandAPI):
                 )
             )
             return True
-
-        add = Add(browser.db)
-        tag_row = add.tag(tag=tag_text, tag_phash=tag_norm)
-        browser.emit(
-            "Tag created: tag_id={} tag={!r}".format(
-                tag_row["tag_id"],
-                tag_row["tag"],
-            )
-        )
-        return True

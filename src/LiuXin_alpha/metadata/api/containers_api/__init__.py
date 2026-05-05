@@ -33,6 +33,7 @@ from LiuXin_alpha.metadata.api.containers_api.main_table_containers_api import (
     SubjectTreeRelationAPI,
     SubjectTreeRelationsContainerAPI,
     SynopsisRowAPI,
+    TagRowAPI,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     AgentIdentityAPI,
@@ -142,6 +143,7 @@ __all__ = [
     "SubjectTreeRelationAPI",
     "SubjectTreeRelationsContainerAPI",
     "SynopsisRowAPI",
+    "TagRowAPI",
     "ManifestationIdentityAPI",
     "ManifestationIdentityPropertiesAPI",
     "ManifestationMetadataAPI",

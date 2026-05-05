@@ -8,7 +8,7 @@ while keeping the LiuXin/Calibre compatibility and full W/E/M/I stack visible.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Literal, Protocol, Self, TypeAlias
+from typing import Any, Literal, Protocol, Self, TypeAlias
 
 from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import CalibreMetadataAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
@@ -265,7 +265,14 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
 
     def sync_legacy_tags_from_wemi(self) -> tuple[str, ...]:
         """
-        Populate legacy tags from WEMI label/tag relation targets.
+        Populate legacy tags from WEMI tag relation targets.
+
+        :return:
+        """
+
+    def sync_legacy_labels_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy labels from WEMI label relation targets.
 
         :return:
         """
@@ -334,6 +341,30 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         :param include_empty:
         :param include_relations:
         :param include_legacy:
+        :return:
+        """
+
+    def write_to_database(
+        self,
+        database: Any,
+        *,
+        fields: Iterable[str] | None = None,
+        target_level: WemiLevel | None = "work",
+        item_id: int | None = None,
+        target_row: Any = None,
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> Any:
+        """
+        Persist supported relation-backed metadata changes.
+
+        :param database:
+        :param fields:
+        :param target_level:
+        :param item_id:
+        :param target_row:
+        :param replace:
+        :param mark_dirty:
         :return:
         """
 

@@ -34,7 +34,11 @@ _ensure_quiet_calibre_config()
 _ensure_importable()
 
 from LiuXin_alpha.databases.database import Database  # noqa: E402
-from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadataHydrator  # noqa: E402
+from LiuXin_alpha.metadata.containers import (  # noqa: E402
+    LazyLiuXinWEMIMetadataHydrator,
+    LiuXinWEMIMetadataHydrator,
+    LiuXinWEMIMetadataWriter,
+)
 
 
 def _existing_path(raw: str | None) -> Path | None:
@@ -159,10 +163,38 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite.")
     parser.add_argument("--item-id", type=int, default=0, help="Sample item id. Defaults to the first item row.")
-    parser.add_argument("--no-sample", action="store_true", help="Do not pre-hydrate md/liuxin_md/calibre_md.")
+    parser.add_argument("--lazy", action="store_true", help="Use the lazy metadata hydrator.")
+    parser.add_argument(
+        "--load-lazy",
+        action="append",
+        default=[],
+        metavar="FIELDS",
+        help=(
+            "Comma-separated lazy fields to materialize after hydration, or 'all'. "
+            "Can be repeated. Applies to lazy metadata objects."
+        ),
+    )
+    parser.add_argument(
+        "--no-sample",
+        action="store_true",
+        help="Do not pre-hydrate md/lazy_md/liuxin_md/calibre_md.",
+    )
     parser.add_argument("--no-quiet", action="store_true", help="Do not suppress noisy relation logs during hydration.")
     parser.add_argument("--no-console", action="store_true", help="Prepare the objects, print a summary, and exit.")
     return parser
+
+
+def _parse_lazy_fields(raw_values: list[str]) -> tuple[str, ...] | None:
+    fields: list[str] = []
+    for raw_value in raw_values:
+        for token in str(raw_value or "").split(","):
+            field = token.strip()
+            if not field:
+                continue
+            if field.lower() == "all":
+                return None
+            fields.append(field)
+    return tuple(fields)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -176,15 +208,39 @@ def main(argv: list[str] | None = None) -> int:
     db: Database | None = None
     try:
         db = quiet_call(open_database, database_path, str(args.db_type), quiet=quiet)
-        hydrator = LiuXinWEMIMetadataHydrator(db)
+        eager_hydrator = LiuXinWEMIMetadataHydrator(db)
+        lazy_hydrator = LazyLiuXinWEMIMetadataHydrator(db)
+        metadata_writer = LiuXinWEMIMetadataWriter(db)
+        hydrator = lazy_hydrator if bool(args.lazy) else eager_hydrator
+        hydrator_class = type(hydrator)
+        lazy_fields_to_load = _parse_lazy_fields(args.load_lazy)
         item_id = int(args.item_id) if int(args.item_id) > 0 else first_item_id(db)
 
-        def get_md(target_item_id: int = item_id):
+        def maybe_load_lazy_fields(metadata):
+            force_hydrate = getattr(metadata, "force_hydrate", None)
+            if args.load_lazy and callable(force_hydrate):
+                force_hydrate(fields=lazy_fields_to_load)
+            return metadata
+
+        def get_eager_md(target_item_id: int = item_id):
             return quiet_call(
-                hydrator.get_liuxin_wemi_metadata,
+                eager_hydrator.get_liuxin_wemi_metadata,
                 item_id=int(target_item_id),
                 quiet=quiet,
             )
+
+        def get_lazy_md(target_item_id: int = item_id):
+            metadata = quiet_call(
+                lazy_hydrator.get_liuxin_wemi_metadata,
+                item_id=int(target_item_id),
+                quiet=quiet,
+            )
+            return maybe_load_lazy_fields(metadata)
+
+        def get_md(target_item_id: int = item_id):
+            if bool(args.lazy):
+                return get_lazy_md(target_item_id)
+            return get_eager_md(target_item_id)
 
         def get_liuxin_md(target_item_id: int = item_id):
             return get_md(target_item_id).as_liuxin_metadata()
@@ -192,15 +248,36 @@ def main(argv: list[str] | None = None) -> int:
         def get_calibre_md(target_item_id: int = item_id):
             return get_md(target_item_id).as_calibre_metadata()
 
+        def get_lazy_liuxin_md(target_item_id: int = item_id):
+            return get_lazy_md(target_item_id).as_liuxin_metadata()
+
+        def get_lazy_calibre_md(target_item_id: int = item_id):
+            return get_lazy_md(target_item_id).as_calibre_metadata()
+
+        def write_md(metadata=None, **kwargs):
+            target_metadata = metadata if metadata is not None else get_md(item_id)
+            kwargs.setdefault("item_id", item_id)
+            return metadata_writer.write(target_metadata, **kwargs)
+
         namespace: dict[str, object] = {
             "db": db,
             "database_path": database_path,
             "hydrator": hydrator,
+            "eager_hydrator": eager_hydrator,
+            "lazy_hydrator": lazy_hydrator,
+            "metadata_writer": metadata_writer,
             "item_id": item_id,
             "get_md": get_md,
+            "get_eager_md": get_eager_md,
+            "get_lazy_md": get_lazy_md,
             "get_liuxin_md": get_liuxin_md,
             "get_calibre_md": get_calibre_md,
+            "get_lazy_liuxin_md": get_lazy_liuxin_md,
+            "get_lazy_calibre_md": get_lazy_calibre_md,
+            "write_md": write_md,
             "LiuXinWEMIMetadataHydrator": LiuXinWEMIMetadataHydrator,
+            "LazyLiuXinWEMIMetadataHydrator": LazyLiuXinWEMIMetadataHydrator,
+            "LiuXinWEMIMetadataWriter": LiuXinWEMIMetadataWriter,
         }
 
         if not bool(args.no_sample):
@@ -208,15 +285,27 @@ def main(argv: list[str] | None = None) -> int:
             namespace["md"] = md
             namespace["liuxin_md"] = md.as_liuxin_metadata()
             namespace["calibre_md"] = md.as_calibre_metadata()
+            namespace["lazy_md"] = get_lazy_md(item_id)
 
         print(f"Database: {database_path}")
+        print(f"Hydrator: {hydrator_class.__name__}")
         print(f"Items: {db.get_record_count('items')}")
         print(f"Sample item_id: {item_id}")
         if "md" in namespace:
             print(f"Sample title: {getattr(namespace['md'], 'title', None)}")
-        print("Bound names: db, hydrator, item_id, get_md, get_liuxin_md, get_calibre_md")
+            lazy_fields = getattr(namespace["md"], "lazy_fields", None)
+            if callable(lazy_fields):
+                print(f"Lazy fields: {', '.join(lazy_fields()) or '<none>'}")
+            lazy_sample_fields = getattr(namespace.get("lazy_md"), "lazy_fields", None)
+            if namespace.get("lazy_md") is not namespace["md"] and callable(lazy_sample_fields):
+                print(f"Lazy sample fields: {', '.join(lazy_sample_fields()) or '<none>'}")
+        print(
+            "Bound names: db, hydrator, eager_hydrator, lazy_hydrator, metadata_writer, "
+            "item_id, get_md, get_eager_md, get_lazy_md, get_liuxin_md, "
+            "get_calibre_md, get_lazy_liuxin_md, get_lazy_calibre_md, write_md"
+        )
         if "md" in namespace:
-            print("Also bound: md, liuxin_md, calibre_md")
+            print("Also bound: md, lazy_md, liuxin_md, calibre_md")
 
         if bool(args.no_console):
             return 0
@@ -225,7 +314,12 @@ def main(argv: list[str] | None = None) -> int:
             "ISFDB metadata shell\n"
             "Examples:\n"
             "  md = get_md(item_id)\n"
+            "  lazy_md = get_lazy_md(item_id)\n"
             "  md.database_ids\n"
+            "  lazy_md.lazy_fields()\n"
+            "  lazy_md.hydrate_field('tags')\n"
+            "  write_md(md, fields=('tags', 'labels'))\n"
+            "  write_md(calibre_md, fields=('tags',), item_id=item_id)\n"
             "  md.work, md.expression, md.manifestation, md.item\n"
             "  calibre_md = get_calibre_md(item_id)\n"
             "Call db.close() when done if you exit unusually."

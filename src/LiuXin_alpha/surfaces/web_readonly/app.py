@@ -117,6 +117,7 @@ class ReadOnlyWebApplication:
     """Small stdlib WSGI app for safe public read-only access."""
 
     _RELATED_TABLE_ORDER = (
+        "tags",
         "labels",
         "genres",
         "subjects",
@@ -297,6 +298,7 @@ class ReadOnlyWebApplication:
             "stores",
             "subjects",
             "synopses",
+            "tags",
             "works",
         }
         helper_tables = {
@@ -394,6 +396,7 @@ class ReadOnlyWebApplication:
             "extension",
             "storage_key",
             "source",
+            "tag",
         )
         ordered: list[str] = []
         if id_column and id_column in columns:
@@ -421,7 +424,7 @@ class ReadOnlyWebApplication:
             "works": ("work_title", "work_canonical_title", "work_sort_title"),
             "stores": ("store_name", "store_kind", "store_root_uri"),
             "labels": ("label_text", "label", "label_text_norm"),
-            "tags": ("tag", "label_text", "label"),
+            "tags": ("tag", "tag_phash", "label_text", "label"),
             "notes": ("note", "note_text", "note_body"),
             "comments": ("comment", "comment_text", "comment_body", "note"),
             "synopses": ("synopsis", "synopsis_text", "note", "note_text"),
@@ -454,7 +457,7 @@ class ReadOnlyWebApplication:
             if len(parts) >= limit:
                 return parts
 
-        keyword_priority = ("name", "title", "label", "note", "text", "path", "uri", "kind", "type", "location", "code")
+        keyword_priority = ("name", "title", "tag", "label", "note", "text", "path", "uri", "kind", "type", "location", "code")
         ordered_columns = sorted(
             self._visible_columns(table),
             key=lambda key: (
@@ -599,7 +602,7 @@ class ReadOnlyWebApplication:
         return " | ".join(label_parts) if label_parts else table
 
     def _public_search_tables(self) -> list[str]:
-        preferred = ("works", "agents", "human_agents", "org_agents", "series", "labels", "genres", "subjects", "files", "stores")
+        preferred = ("works", "agents", "human_agents", "org_agents", "series", "tags", "labels", "genres", "subjects", "files", "stores")
         available = set(self._all_tables())
         ordered = [table for table in preferred if table in available]
         if ordered:
@@ -616,7 +619,7 @@ class ReadOnlyWebApplication:
             if column in columns and column not in ordered:
                 ordered.append(column)
 
-        keyword_tokens = ("name", "title", "label", "note", "text", "canonical", "sort", "path", "uri", "source")
+        keyword_tokens = ("name", "title", "tag", "label", "note", "text", "canonical", "sort", "path", "uri", "source")
         for column in columns:
             lowered = str(column).lower()
             if column in ordered:
@@ -637,6 +640,7 @@ class ReadOnlyWebApplication:
             "human_agents": 28,
             "org_agents": 28,
             "series": 24,
+            "tags": 20,
             "labels": 18,
             "genres": 16,
             "subjects": 16,
@@ -1223,7 +1227,7 @@ class ReadOnlyWebApplication:
         exclude_tables: Optional[set[str]] = None,
     ) -> str:
         sections: list[str] = []
-        pill_tables = {"labels", "genres", "subjects", "languages", "series"}
+        pill_tables = {"tags", "labels", "genres", "subjects", "languages", "series"}
         note_tables = {"notes", "comments", "synopses", "annotations"}
         agent_tables = {"agents", "human_agents", "org_agents"}
         excluded = {str(one) for one in (exclude_tables or set())}
@@ -1308,7 +1312,7 @@ class ReadOnlyWebApplication:
         summary = self._stringify_detail_value(metadata.get("summary"))
 
         hero_pills = ["<span class='pill'>work_id {}</span>".format(_escape(row_id))]
-        for linked_table in ("labels", "genres", "subjects", "series", "agents", "files", "items"):
+        for linked_table in ("tags", "labels", "genres", "subjects", "series", "agents", "files", "items"):
             linked_rows = related_rows_by_table.get(linked_table, [])
             if linked_rows:
                 hero_pills.append(
@@ -1598,7 +1602,7 @@ class ReadOnlyWebApplication:
         for label, value in (("kind", kind), ("protocol", protocol)):
             if value:
                 hero_pills.append("<span class='pill'>{label}: {value}</span>".format(label=_escape(label), value=_escape(value)))
-        for linked_table in ("files", "folders", "items", "labels", "notes", "subjects"):
+        for linked_table in ("files", "folders", "items", "tags", "labels", "notes", "subjects"):
             linked_rows = related_rows_by_table.get(linked_table, [])
             if linked_rows:
                 hero_pills.append(
@@ -1702,7 +1706,7 @@ class ReadOnlyWebApplication:
         for label, value in (("kind", kind), ("protocol", protocol)):
             if value:
                 hero_pills.append("<span class='pill'>{label}: {value}</span>".format(label=_escape(label), value=_escape(value)))
-        for linked_table in ("files", "folders", "items", "labels", "notes", "subjects"):
+        for linked_table in ("files", "folders", "items", "tags", "labels", "notes", "subjects"):
             linked_rows = related_rows_by_table.get(linked_table, [])
             if linked_rows:
                 hero_pills.append(

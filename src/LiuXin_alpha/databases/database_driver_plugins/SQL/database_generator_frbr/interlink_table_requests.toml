@@ -452,6 +452,13 @@ rationale = """You can label an expression independently of a work."""
 
 [[interlinks]]
 left_table = "expressions"
+right_table = "tags"
+link_type = "many_to_many"
+requested_columns = ["priority", "source"]
+rationale = """You can tag an expression independently of a work."""
+
+[[interlinks]]
+left_table = "expressions"
 right_table = "languages"
 link_type = "many_to_many"
 requested_columns = ["priority", "type", ]
@@ -838,6 +845,13 @@ rationale = "You can label an item - mostly used for conversion control and the 
 
 [[interlinks]]
 left_table = "items"
+right_table = "tags"
+link_type = "many_to_many"
+requested_columns = ["priority", "source"]
+rationale = "You can tag an individual item when the tag is copy-specific."
+
+[[interlinks]]
+left_table = "items"
 right_table = "languages"
 link_type = "many_to_many"
 requested_columns = ["priority", "type",]
@@ -884,6 +898,24 @@ left_table = "labels"
 right_table = "works"
 link_type = "many_to_many"
 rationale = "You can label a work and, indeed, should."
+
+[[interlinks]]
+left_table = "manifestations"
+right_table = "labels"
+link_type = "many_to_many"
+rationale = "You can label a manifestation independently of its work, expression, or item."
+
+[[interlinks]]
+left_table = "tags"
+right_table = "works"
+link_type = "many_to_many"
+requested_columns = ["priority", "source"]
+rationale = """
+User/library-facing descriptive tags for a work.
+
+Labels remain available for operational/system labels; bibliographic tag-like
+metadata should use tags.
+"""
 
 [[interlinks]]
 left_table = "languages"
@@ -1053,4 +1085,3 @@ link_type = "many_to_many"
 requested_columns = ["priority", "type",]
 nullable = true
 rationale = "You can assign synopses to works."
-

@@ -17,6 +17,7 @@ from .rating_row import RatingRow
 from .series_row import SeriesRow
 from .subject_row import SubjectRow
 from .synopsis_row import SynopsisRow
+from .tag_row import TagRow
 
 
 NON_WEMI_MAIN_TABLE_ROW_CONTAINERS = (
@@ -24,6 +25,7 @@ NON_WEMI_MAIN_TABLE_ROW_CONTAINERS = (
     GenreRow,
     SubjectRow,
     SeriesRow,
+    TagRow,
     LabelRow,
     NoteRow,
     CommentRow,
@@ -55,4 +57,5 @@ __all__ = [
     "SeriesRow",
     "SubjectRow",
     "SynopsisRow",
+    "TagRow",
 ]

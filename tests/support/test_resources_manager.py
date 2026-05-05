@@ -928,66 +928,66 @@ def _norm_text(value: str) -> str:
 
 
 def _seed_profiled_tags(conn, *, db_name: str, work_ids: Sequence[int]) -> None:
-    """Add deterministic tag-like labels to generated profile databases."""
+    """Add deterministic tags to generated profile databases."""
 
-    if not work_ids or not _table_exists(conn, "labels") or not _table_exists(conn, "label_work_links"):
+    if not work_ids or not _table_exists(conn, "tags") or not _table_exists(conn, "tag_work_links"):
         return
 
-    label_ids: dict[str, int] = {}
+    tag_ids: dict[str, int] = {}
 
-    def label_id_for(text: str) -> int:
-        existing = label_ids.get(text)
+    def tag_id_for(text: str) -> int:
+        existing = tag_ids.get(text)
         if existing is not None:
             return existing
 
         norm = _norm_text(text)
         row = conn.execute(
-            "SELECT label_id FROM labels WHERE label_text_norm = ? LIMIT 1;",
+            "SELECT tag_id FROM tags WHERE tag_phash = ? LIMIT 1;",
             (norm,),
         ).fetchone()
         if row is None:
             row = conn.execute(
-                "INSERT INTO labels (label_text, label_text_norm, label_description, label_scratch) "
+                "INSERT INTO tags (tag, tag_phash, tag_description, tag_scratch) "
                 "VALUES (?, ?, ?, ?);",
                 (text, norm, f"Synthetic tag for {db_name}", f"fixture:{db_name}:tag:{norm}"),
             )
-            label_id = int(row.lastrowid)
+            tag_id = int(row.lastrowid)
         else:
-            label_id = int(row[0])
+            tag_id = int(row[0])
 
-        label_ids[text] = label_id
-        return label_id
+        tag_ids[text] = tag_id
+        return tag_id
 
-    common_label_id = label_id_for(PROFILED_COMMON_TAG)
-    db_label_id = label_id_for(db_name)
-    first_label_id = label_id_for(PROFILED_FIRST_TAG)
+    common_tag_id = tag_id_for(PROFILED_COMMON_TAG)
+    db_tag_id = tag_id_for(db_name)
+    first_tag_id = tag_id_for(PROFILED_FIRST_TAG)
 
     link_specs: list[tuple[int, int, str]] = []
     for offset, work_id in enumerate(work_ids, start=1):
         parity_tag = PROFILED_ODD_TAG if offset % 2 else PROFILED_EVEN_TAG
-        parity_label_id = label_id_for(parity_tag)
+        parity_tag_id = tag_id_for(parity_tag)
         link_specs.extend(
             [
-                (common_label_id, int(work_id), PROFILED_COMMON_TAG),
-                (db_label_id, int(work_id), db_name),
-                (parity_label_id, int(work_id), parity_tag),
+                (common_tag_id, int(work_id), PROFILED_COMMON_TAG),
+                (db_tag_id, int(work_id), db_name),
+                (parity_tag_id, int(work_id), parity_tag),
             ]
         )
         if offset == 1:
-            link_specs.append((first_label_id, int(work_id), PROFILED_FIRST_TAG))
+            link_specs.append((first_tag_id, int(work_id), PROFILED_FIRST_TAG))
 
-    per_label_offsets: dict[int, int] = {}
-    for label_id, work_id, tag_text in link_specs:
-        local = per_label_offsets.get(label_id, 0)
-        per_label_offsets[label_id] = local + 1
+    per_tag_offsets: dict[int, int] = {}
+    for tag_id, work_id, tag_text in link_specs:
+        local = per_tag_offsets.get(tag_id, 0)
+        per_tag_offsets[tag_id] = local + 1
         conn.execute(
-            "INSERT INTO label_work_links "
-            "(label_work_link_label_id, label_work_link_work_id, label_work_link_priority, label_work_link_scratch) "
+            "INSERT INTO tag_work_links "
+            "(tag_work_link_tag_id, tag_work_link_work_id, tag_work_link_priority, tag_work_link_scratch) "
             "VALUES (?, ?, ?, ?);",
             (
-                label_id,
+                tag_id,
                 work_id,
-                (label_id * 1_000_000) + local,
+                (tag_id * 1_000_000) + local,
                 f"fixture:{db_name}:work:{work_id}:tag:{_norm_text(tag_text)}",
             ),
         )

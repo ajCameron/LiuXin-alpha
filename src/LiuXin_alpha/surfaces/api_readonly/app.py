@@ -169,7 +169,7 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
             return "/api/works/{}".format(safe_id)
         if table in {"agents", "human_agents", "org_agents"}:
             return "/api/authors/{}/{}".format(quote(table, safe=""), safe_id)
-        if table == "labels":
+        if table in {"labels", "tags"}:
             return "/api/tags/{}".format(safe_id)
         if table == "series":
             return "/api/series/{}".format(safe_id)
@@ -319,13 +319,13 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
             if len(parts) == 2:
                 return self._json_response(self._category_collection_payload(kind, limit=limit, offset=offset))
             if len(parts) == 3:
-                table = "labels" if kind == "tags" else "series"
+                table = (self.read_model.tag_category_table() or "tags") if kind == "tags" else "series"
                 try:
                     return self._json_response(self._category_detail_payload(kind=kind, table=table, row_id=parts[2]))
                 except Exception:
                     return self._json_response({"error": "missing_category_row", "message": "Category row not found."}, status="404 Not Found")
             if len(parts) == 4 and parts[3] == "works":
-                table = "labels" if kind == "tags" else "series"
+                table = (self.read_model.tag_category_table() or "tags") if kind == "tags" else "series"
                 rows = self.read_model.works_for_linked_entity(table, parts[2])
                 return self._json_response(self._works_for_category_payload(kind, rows, path=path, limit=limit, offset=offset))
         if kind == "authors":

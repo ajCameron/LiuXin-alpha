@@ -47,6 +47,7 @@ def test_non_wemi_api_exports_from_public_metadata_api() -> None:
         "SubjectTreeRelationAPI",
         "SubjectTreeRelationsContainerAPI",
         "SynopsisRowAPI",
+        "TagRowAPI",
     ):
         assert hasattr(api_module, expected_name)
 

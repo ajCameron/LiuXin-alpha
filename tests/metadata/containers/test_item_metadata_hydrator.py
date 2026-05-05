@@ -5,11 +5,20 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.errors import DatabaseIntegrityError
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData,
+)
 from LiuXin_alpha.metadata.containers import (
+    ExpressionMetadata,
     ItemMetadata,
     ItemMetadataHydrator,
+    LazyLiuXinWEMIMetadata,
+    LazyLiuXinWEMIMetadataHydrator,
     LiuXinWEMIMetadata,
     LiuXinWEMIMetadataHydrator,
+    ManifestationMetadata,
+    WorkMetadata,
 )
 
 
@@ -24,6 +33,9 @@ SINGULARS = {
     "stores": "store",
     "folders": "folder",
     "labels": "label",
+    "tags": "tag",
+    "languages": "language",
+    "ratings": "rating",
     "item_identifiers": "item_identifier",
     "entity_identifiers": "entity_identifier",
     "annotations": "annotation",
@@ -34,8 +46,13 @@ SINGULARS = {
 
 
 class FakeDriverWrapper:
-    def __init__(self, tables_and_columns: Mapping[str, list[str]]) -> None:
+    def __init__(
+        self,
+        tables_and_columns: Mapping[str, list[str]],
+        database: "FakeDatabase",
+    ) -> None:
         self.tables_and_columns = dict(tables_and_columns)
+        self.database = database
 
     def get_allowed_tables_snapshot(self) -> list[str]:
         return list(self.tables_and_columns)
@@ -85,6 +102,26 @@ class FakeDriverWrapper:
         link_table = self.get_link_table_name(table1, table2)
         return f"{self.get_column_base(link_table)}_{secondary_id_column}"
 
+    def add_row(self, row_dict: Mapping[str, Any]) -> int:
+        table = self.identify_table_from_row_dict(row_dict)
+        id_column = self.get_id_column(table)
+        existing_ids = [
+            int(row.row_dict[id_column])
+            for row in self.database.rows_by_table.get(table, [])
+            if row.row_dict.get(id_column) not in (None, "")
+        ]
+        row_id = max(existing_ids, default=0) + 1
+        payload = dict(row_dict)
+        payload[id_column] = row_id
+        self.database.add_row(table, payload)
+        return row_id
+
+    def get_row_from_id(self, table: str, row_id: int) -> dict[str, Any]:
+        row = self.database.get_row_from_id(table, row_id)
+        if row is None:
+            raise KeyError((table, row_id))
+        return dict(row.row_dict)
+
 
 @dataclass
 class FakeDatabase:
@@ -92,9 +129,12 @@ class FakeDatabase:
     driver_wrapper: FakeDriverWrapper = field(init=False)
     rows_by_table: dict[str, list[Row]] = field(default_factory=dict)
     interlinks: dict[tuple[str, int, str], list[dict[str, Any]]] = field(default_factory=dict)
+    interlink_queries: list[tuple[str, int, str]] = field(default_factory=list)
+    search_queries: list[tuple[str, str, Any]] = field(default_factory=list)
+    dirtied: list[tuple[str, int, str]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        self.driver_wrapper = FakeDriverWrapper(self.tables_and_columns)
+        self.driver_wrapper = FakeDriverWrapper(self.tables_and_columns, self)
 
     def get_tables(self, force_refresh: bool = False) -> list[str]:
         return list(self.tables_and_columns)
@@ -120,6 +160,7 @@ class FakeDatabase:
         return None
 
     def search(self, table: str, column: str, search_term: Any) -> list[Row]:
+        self.search_queries.append((str(table), str(column), search_term))
         out: list[Row] = []
         for row in self.rows_by_table.get(str(table), []):
             if row.row_dict.get(str(column)) == search_term:
@@ -128,7 +169,72 @@ class FakeDatabase:
 
     def get_interlink_rows(self, primary_row: Row, secondary_table: str) -> list[dict[str, Any]]:
         key = (str(primary_row.table), int(primary_row.row_id), str(secondary_table))
+        self.interlink_queries.append(key)
         return list(self.interlinks.get(key, []))
+
+    def interlink_rows(
+        self,
+        primary_row: Row,
+        secondary_row: Row,
+        priority: Any = "highest",
+        type: str | None = None,
+        **col_value_pairs: Any,
+    ) -> dict[str, Any]:
+        primary_table = str(primary_row.table)
+        secondary_table = str(secondary_row.table)
+        primary_id_column = self.driver_wrapper.get_id_column(primary_table)
+        secondary_id_column = self.driver_wrapper.get_id_column(secondary_table)
+        link_table = self.driver_wrapper.get_link_table_name(primary_table, secondary_table)
+        base = self.driver_wrapper.get_column_base(link_table)
+        primary_link_column = self.driver_wrapper.get_link_column(
+            primary_table,
+            secondary_table,
+            primary_id_column,
+        )
+        secondary_link_column = self.driver_wrapper.get_link_column(
+            primary_table,
+            secondary_table,
+            secondary_id_column,
+        )
+        key = (primary_table, int(primary_row.row_id), secondary_table)
+        links = self.interlinks.setdefault(key, [])
+        for link in links:
+            if int(link.get(secondary_link_column)) == int(secondary_row.row_id):
+                raise DatabaseIntegrityError("Duplicate fake interlink")
+
+        link: dict[str, Any] = {
+            f"{base}_id": len(links) + 1,
+            primary_link_column: int(primary_row.row_id),
+            secondary_link_column: int(secondary_row.row_id),
+        }
+        if priority != "not_set":
+            link[f"{base}_priority"] = len(links) + 1
+        if type is not None:
+            link[f"{base}_type"] = type
+        for column, value in col_value_pairs.items():
+            link[self.driver_wrapper.get_link_column(primary_table, secondary_table, column)] = value
+        links.append(link)
+        return link
+
+    def unlink_interlink(self, primary_row: Row, secondary_row: Row) -> None:
+        primary_table = str(primary_row.table)
+        secondary_table = str(secondary_row.table)
+        secondary_id_column = self.driver_wrapper.get_id_column(secondary_table)
+        secondary_link_column = self.driver_wrapper.get_link_column(
+            primary_table,
+            secondary_table,
+            secondary_id_column,
+        )
+        key = (primary_table, int(primary_row.row_id), secondary_table)
+        kept = [
+            link
+            for link in self.interlinks.get(key, [])
+            if int(link.get(secondary_link_column)) != int(secondary_row.row_id)
+        ]
+        self.interlinks[key] = kept
+
+    def dirty_record(self, table: str, row_id: int, reason: str = "") -> None:
+        self.dirtied.append((str(table), int(row_id), str(reason)))
 
 
 def _build_fake_database() -> FakeDatabase:
@@ -168,6 +274,22 @@ def _build_fake_database() -> FakeDatabase:
             "file_role",
             "file_storage_key",
         ],
+        "images": [
+            "image_id",
+            "image_item_id",
+            "image_role",
+            "image_storage_key",
+        ],
+        "digital_assets": [
+            "digital_asset_id",
+            "digital_asset_name",
+            "digital_asset_media_category",
+        ],
+        "asset_replicas": [
+            "asset_replica_id",
+            "asset_replica_digital_asset_id",
+            "asset_replica_storage_key",
+        ],
         "stores": [
             "store_id",
             "store_name",
@@ -176,6 +298,29 @@ def _build_fake_database() -> FakeDatabase:
         "labels": [
             "label_id",
             "label_text",
+            "label_text_norm",
+        ],
+        "tags": [
+            "tag_id",
+            "tag",
+            "tag_phash",
+        ],
+        "languages": [
+            "language_id",
+            "language_code",
+            "language_name",
+        ],
+        "ratings": [
+            "rating_id",
+            "rating",
+            "rating_for_calibre_tag_viewer",
+            "rating_source",
+        ],
+        "annotations": [
+            "annotation_id",
+            "annotation_item_id",
+            "annotation_kind",
+            "annotation_note_text",
         ],
         "item_identifiers": [
             "item_identifier_id",
@@ -250,6 +395,31 @@ def _build_fake_database() -> FakeDatabase:
         },
     )
     db.add_row(
+        "images",
+        {
+            "image_id": 51,
+            "image_item_id": 1,
+            "image_role": "cover",
+            "image_storage_key": "covers/permutation-city.jpg",
+        },
+    )
+    db.add_row(
+        "digital_assets",
+        {
+            "digital_asset_id": 52,
+            "digital_asset_name": "Permutation City",
+            "digital_asset_media_category": "ebook",
+        },
+    )
+    db.add_row(
+        "asset_replicas",
+        {
+            "asset_replica_id": 53,
+            "asset_replica_digital_asset_id": 52,
+            "asset_replica_storage_key": "replicas/permutation-city.epub",
+        },
+    )
+    db.add_row(
         "stores",
         {
             "store_id": 60,
@@ -262,6 +432,41 @@ def _build_fake_database() -> FakeDatabase:
         {
             "label_id": 90,
             "label_text": "Science Fiction",
+            "label_text_norm": "sciencefiction",
+        },
+    )
+    db.add_row(
+        "tags",
+        {
+            "tag_id": 91,
+            "tag": "Space Opera",
+            "tag_phash": "spaceopera",
+        },
+    )
+    db.add_row(
+        "languages",
+        {
+            "language_id": 92,
+            "language_code": "eng",
+            "language_name": "English",
+        },
+    )
+    db.add_row(
+        "ratings",
+        {
+            "rating_id": 93,
+            "rating": 8,
+            "rating_for_calibre_tag_viewer": 4,
+            "rating_source": "fixture",
+        },
+    )
+    db.add_row(
+        "annotations",
+        {
+            "annotation_id": 94,
+            "annotation_item_id": 1,
+            "annotation_kind": "highlight",
+            "annotation_note_text": "A lazy annotation.",
         },
     )
     db.add_row(
@@ -316,6 +521,34 @@ def _build_fake_database() -> FakeDatabase:
             "label_work_link_label_id": 90,
             "label_work_link_priority": 1,
             "label_work_link_source": "fixture",
+        }
+    ]
+    db.interlinks[("works", 30, "tags")] = [
+        {
+            "tag_work_link_tag_id": 91,
+            "tag_work_link_priority": 1,
+            "tag_work_link_source": "fixture",
+        }
+    ]
+    db.interlinks[("works", 30, "languages")] = [
+        {
+            "language_work_link_language_id": 92,
+            "language_work_link_priority": 1,
+            "language_work_link_source": "fixture",
+        }
+    ]
+    db.interlinks[("works", 30, "ratings")] = [
+        {
+            "rating_work_link_rating_id": 93,
+            "rating_work_link_priority": 1,
+            "rating_work_link_source": "fixture",
+        }
+    ]
+    db.interlinks[("items", 1, "digital_assets")] = [
+        {
+            "digital_asset_item_link_digital_asset_id": 52,
+            "digital_asset_item_link_priority": 1,
+            "digital_asset_item_link_source": "fixture",
         }
     ]
     return db
@@ -375,8 +608,10 @@ def test_liuxin_wemi_metadata_hydrator_builds_complete_item_slice() -> None:
     assert metadata.get_wemi_relation_links("item", "files")
     label = metadata.get_wemi_related("work", "labels")[0]
     assert label.row_dict["label_text"] == "Science Fiction"
-    assert list(metadata.tags.keys()) == ["Science Fiction"]
-    assert metadata.tags["Science Fiction"] == 90
+    assert list(metadata.labels.keys()) == ["Science Fiction"]
+    assert metadata.labels["Science Fiction"] == 90
+    assert list(metadata.tags.keys()) == ["Space Opera"]
+    assert metadata.tags["Space Opera"] == 91
 
 
 def test_liuxin_wemi_metadata_from_database_uses_central_hydrator() -> None:
@@ -388,6 +623,220 @@ def test_liuxin_wemi_metadata_from_database_uses_central_hydrator() -> None:
     assert metadata.item.item_id == 1
     assert metadata.database_ids["work_id"] == 30
     assert metadata.title == "Permutation City"
+
+
+def test_lazy_liuxin_wemi_metadata_defers_relation_backed_fields() -> None:
+    db = _build_fake_database()
+    hydrator = LazyLiuXinWEMIMetadataHydrator(db)
+
+    metadata = hydrator.get_lazy_liuxin_wemi_metadata(item_id=1)
+
+    assert isinstance(metadata, LazyLiuXinWEMIMetadata)
+    assert metadata.item is not None
+    assert metadata.work is not None
+    assert metadata.title == "Permutation City"
+    assert metadata.is_lazy_field_loaded("tags") is False
+    assert metadata.is_lazy_field_loaded("labels") is False
+    assert ("works", 30, "tags") not in db.interlink_queries
+    assert ("works", 30, "labels") not in db.interlink_queries
+    assert ("items", "file_item_id", 1) not in db.search_queries
+    assert ("images", "image_item_id", 1) not in db.search_queries
+    assert ("annotations", "annotation_item_id", 1) not in db.search_queries
+    assert ("items", 1, "digital_assets") not in db.interlink_queries
+    assert "<lazy tags>" in str(metadata)
+
+    assert list(metadata.tags.keys()) == ["Space Opera"]
+    assert metadata.tags["Space Opera"] == 91
+    assert metadata.is_lazy_field_loaded("tags") is True
+    assert "tags" not in metadata.lazy_fields()
+    assert ("works", 30, "tags") in db.interlink_queries
+    assert ("works", 30, "labels") not in db.interlink_queries
+
+    assert list(metadata.labels.keys()) == ["Science Fiction"]
+    assert metadata.labels["Science Fiction"] == 90
+    assert metadata.is_lazy_field_loaded("labels") is True
+    assert ("works", 30, "labels") in db.interlink_queries
+
+    assert metadata.ratings["calibre"] == 4
+    assert metadata.is_lazy_field_loaded("ratings") is True
+    assert ("works", 30, "ratings") in db.interlink_queries
+
+    assert metadata.languages_available["eng"] == 92
+    assert ("works", 30, "languages") in db.interlink_queries
+
+    item_files = metadata.get_wemi_relation_links("item", "files")
+    assert item_files[0].target.row_dict["file_id"] == 50
+    assert ("files", "file_item_id", 1) in db.search_queries
+
+    images = metadata.get_wemi_relation_links("item", "images")
+    assert images[0].target.row_dict["image_id"] == 51
+    assert ("images", "image_item_id", 1) in db.search_queries
+
+    annotations = metadata.get_wemi_relation_links("item", "annotations")
+    assert annotations[0].target.row_dict["annotation_id"] == 94
+    assert ("annotations", "annotation_item_id", 1) in db.search_queries
+
+    asset_replicas = metadata.get_wemi_relation_links("item", "asset_replicas")
+    assert asset_replicas[0].target.row_dict["asset_replica_id"] == 53
+    assert ("items", 1, "digital_assets") in db.interlink_queries
+    assert ("asset_replicas", "asset_replica_digital_asset_id", 52) in db.search_queries
+
+
+def test_lazy_liuxin_wemi_metadata_can_force_hydrate_fields() -> None:
+    db = _build_fake_database()
+
+    metadata = LazyLiuXinWEMIMetadata.from_database(db, item_id=1)
+    metadata.force_hydrate(fields=("tags", "labels"))
+
+    assert set(metadata.lazy_fields()) == {
+        "genre",
+        "subject",
+        "series",
+        "notes",
+        "comments",
+        "synopses",
+        "ratings",
+        "files",
+        "languages_available",
+    }
+    assert list(metadata.direct_get("tags").keys()) == ["Space Opera"]
+    assert list(metadata.direct_get("labels").keys()) == ["Science Fiction"]
+
+
+def test_liuxin_wemi_metadata_write_to_database_adds_missing_relation_terms() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    metadata.tags = "Simulation"
+    metadata.labels = "Needs Review"
+
+    report = metadata.write_to_database(db, fields=("tags", "labels"))
+
+    assert report.changed is True
+    assert {row["text"] for row in report.rows_added} == {"Simulation", "Needs Review"}
+    assert [row.row_dict["tag"] for row in db.search("tags", "tag", "Simulation")] == [
+        "Simulation",
+    ]
+    assert [
+        row.row_dict["label_text"]
+        for row in db.search("labels", "label_text", "Needs Review")
+    ] == ["Needs Review"]
+    assert ("works", 30, "tags") in db.interlink_queries
+    assert ("works", 30, "labels") in db.interlink_queries
+    assert ("works", 30, "metadata_write_back") in db.dirtied
+
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert list(rehydrated.tags.keys()) == ["Space Opera", "Simulation"]
+    assert list(rehydrated.labels.keys()) == ["Science Fiction", "Needs Review"]
+
+    no_change_report = rehydrated.write_to_database(db, fields=("tags", "labels"))
+    assert no_change_report.changed is False
+    assert no_change_report.rows_added == []
+    assert no_change_report.links_added == []
+
+
+def test_liuxin_wemi_metadata_write_to_database_can_replace_relation_terms() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    metadata.nullify("tags")
+    metadata.tags = "Simulation"
+
+    report = metadata.write_to_database(db, fields=("tags",), replace=True)
+
+    assert report.changed is True
+    assert [row["text"] for row in report.rows_added] == ["Simulation"]
+    assert len(report.links_removed) == 1
+
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert list(rehydrated.tags.keys()) == ["Simulation"]
+
+
+def test_wemi_metadata_bundles_write_supported_relation_terms() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    cases = [
+        (
+            WorkMetadata(work=metadata.work),
+            "tags",
+            "Work Bundle Tag",
+            "works",
+            30,
+            "tags",
+        ),
+        (
+            ExpressionMetadata(expression=metadata.expression),
+            "tags",
+            "Expression Bundle Tag",
+            "expressions",
+            20,
+            "tags",
+        ),
+        (
+            ManifestationMetadata(manifestation=metadata.manifestation),
+            "labels",
+            "Manifestation Bundle Label",
+            "manifestations",
+            10,
+            "labels",
+        ),
+        (
+            ItemMetadata(item=metadata.item),
+            "tags",
+            "Item Bundle Tag",
+            "items",
+            1,
+            "tags",
+        ),
+    ]
+
+    for bundle, field, value, source_table, source_id, target_table in cases:
+        bundle.add_related(field, value)
+
+        report = bundle.write_to_database(db, fields=(field,))
+
+        assert report.changed is True
+        assert report.target_table == source_table
+        assert report.target_id == source_id
+        assert [row["text"] for row in report.rows_added] == [value]
+        assert (source_table, source_id, target_table) in db.interlink_queries
+
+
+def test_wemi_bundle_write_skips_context_relations_from_other_levels() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    expression_metadata = metadata.expression_metadata
+    assert [row.row_dict["tag"] for row in expression_metadata.tags] == ["Space Opera"]
+
+    expression_metadata.add_related("tags", "Expression Owned Tag")
+
+    report = expression_metadata.write_to_database(db, fields=("tags",))
+
+    assert report.changed is True
+    assert report.target_table == "expressions"
+    assert report.target_id == 20
+    assert [row["text"] for row in report.rows_added] == ["Expression Owned Tag"]
+    assert len(report.links_added) == 1
+
+
+def test_calibre_like_metadata_write_to_database_resolves_target_from_item_id() -> None:
+    db = _build_fake_database()
+    metadata = CalibreLikeLiuXinBookMetaData(
+        title="Permutation City",
+        authors=["Greg Egan"],
+    )
+    metadata.tags = "Calibre Round Trip"
+
+    report = metadata.write_to_database(db, fields=("tags",), item_id=1)
+
+    assert report.changed is True
+    assert report.target_table == "works"
+    assert report.target_id == 30
+    assert [row["text"] for row in report.rows_added] == ["Calibre Round Trip"]
+
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert list(rehydrated.tags.keys()) == ["Space Opera", "Calibre Round Trip"]
 
 
 def test_liuxin_wemi_metadata_hydrator_dispatches_typed_shapes() -> None:
@@ -402,6 +851,7 @@ def test_liuxin_wemi_metadata_hydrator_dispatches_typed_shapes() -> None:
     assert getattr(work_metadata, "work").work_id == 30
     assert getattr(item_metadata, "item").item_id == 1
     assert liuxin_metadata.title == "Permutation City"
-    assert list(liuxin_metadata.tags.keys()) == ["Science Fiction"]
+    assert list(liuxin_metadata.labels.keys()) == ["Science Fiction"]
+    assert list(liuxin_metadata.tags.keys()) == ["Space Opera"]
     assert calibre_metadata.title == "Permutation City"
-    assert calibre_metadata.tags == ["Science Fiction"]
+    assert calibre_metadata.tags == ["Space Opera"]

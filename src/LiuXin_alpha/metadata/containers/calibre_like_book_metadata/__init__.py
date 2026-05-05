@@ -170,6 +170,38 @@ class CalibreLikeLiuXinBookMetaData(
         """
         self.__setattr__(key, value)
 
+    def write_to_database(
+        self,
+        database,
+        *,
+        fields=None,
+        target_level="work",
+        item_id=None,
+        target_row=None,
+        replace=False,
+        mark_dirty=True,
+    ):
+        """
+        Persist supported relation-backed fields through the WEMI metadata writer.
+
+        Plain LiuXin/Calibre-like metadata does not carry WEMI database ids, so
+        callers should pass ``item_id`` or ``target_row`` unless the object was
+        enriched with database id fields elsewhere.
+        """
+        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
+            LiuXinWEMIMetadataWriter,
+        )
+
+        return LiuXinWEMIMetadataWriter(database).write(
+            self,
+            fields=fields,
+            target_level=target_level,
+            item_id=item_id,
+            target_row=target_row,
+            replace=replace,
+            mark_dirty=mark_dirty,
+        )
+
     def __setattr__(self, key: str, value):
         """
         Writes data into the internal _data dictionary - allows for a dot interface.
@@ -280,6 +312,24 @@ class CalibreLikeLiuXinBookMetaData(
                 return
             else:
                 raise NotImplementedError("Unrecognized value type - {}".format(type(value)))
+
+        if key.lower() in ["label", "labels"]:
+            if isinstance(value, six_string_types):
+                label_vals = value.split(";")
+                for label_val in label_vals:
+                    label_val = label_val.strip()
+                    if label_val:
+                        _data["labels"][label_val] = None
+            elif isinstance(value, (list, set, tuple)):
+                for v in value:
+                    if v not in (None, ""):
+                        _data["labels"][v] = None
+            else:
+                err_str = "Couldn't parse the given type of value into labels\n"
+                err_str += "type(value): {}\n".format(type(value))
+                err_str += "value: {}".format(value)
+                raise NotImplementedError(err_str)
+            return
 
         if key.lower() == "languages_available":
             lang_value = standardize_lang(value)

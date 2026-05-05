@@ -188,7 +188,7 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
                     break
             return rows
         if category == "tags":
-            return self.catalog.works_for_linked_entity("labels", item_token)
+            return self.catalog.works_for_linked_entity(self.catalog.read_model.tag_category_table() or "tags", item_token)
         if category == "series":
             return self.catalog.works_for_linked_entity("series", item_token)
         return []
@@ -197,7 +197,7 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
         related: dict[str, list[object]] = {}
         # OPDS entries only need a small subset of linked data. Avoid building the
         # full generic related-entity graph for each work row.
-        for linked_table in ("expressions", "files", "labels", "series"):
+        for linked_table in ("expressions", "files", self.catalog.read_model.tag_category_table() or "tags", "series"):
             if not self._table_exists(linked_table):
                 continue
             try:

@@ -591,7 +591,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
         if path.startswith("/tag/"):
             parts = [unquote(part) for part in path.split("/") if part]
             if len(parts) == 2:
-                return self._html_response(self._render_linked_works_page("labels", parts[1], kind="tags"))
+                return self._html_response(self._render_linked_works_page(self._tag_category_table(), parts[1], kind="tags"))
         return super().handle_request(environ)
 
     def _render_layout(self, *, title: str, body_html: str) -> str:
@@ -696,6 +696,9 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
     def _browse_count(self, kind: str) -> int:
         return self.catalog.browse_count(kind)
 
+    def _tag_category_table(self) -> str:
+        return self.catalog.read_model.tag_category_table() or "tags"
+
     def _nav_buttons(self) -> str:
         buttons = [
             ("/browse/titles", "Titles", self._browse_count("titles")),
@@ -764,7 +767,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             return "/author/{}/{}".format(quote(table, safe=""), safe_id)
         if table == "series":
             return "/series/{}".format(safe_id)
-        if table == "labels":
+        if table in {"labels", "tags"}:
             return "/tag/{}".format(safe_id)
         return super()._row_href(table, row)
 
@@ -900,7 +903,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             offset = _coerce_int((query.get("offset") or [None])[0], default=0, minimum=0)
             sort = str((query.get("sort") or ["title"])[0] or "title")
             sort_order = str((query.get("sort_order") or ["asc"])[0] or "asc")
-            table_map = {"authors": "agents", "tags": "labels", "series": "series"}
+            table_map = {"authors": "agents", "tags": self._tag_category_table(), "series": "series"}
             if category == "authors":
                 # Prefer agents, but fall back to the first available author table.
                 rows: list[object] = []
@@ -1167,14 +1170,14 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
                     break
             return rows
         if category == "tags":
-            return self._works_for_linked_entity("labels", item_token)
+            return self._works_for_linked_entity(self._tag_category_table(), item_token)
         if category == "series":
             return self._works_for_linked_entity("series", item_token)
         return []
 
     def _opds_related_rows_by_table(self, row) -> dict[str, list[object]]:
         related: dict[str, list[object]] = {}
-        for linked_table in ("expressions", "files", "labels", "series"):
+        for linked_table in ("expressions", "files", self._tag_category_table(), "series"):
             if not self._table_exists(linked_table):
                 continue
             try:
@@ -1494,7 +1497,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
         credit_entries = self._work_credit_entries(row)
         byline = ", ".join(self._row_primary_text(str(entry["table"]), entry["row"]) for entry in credit_entries[:4])
         series_rows = related_rows_by_table.get("series", [])
-        label_rows = related_rows_by_table.get("labels", [])
+        tag_table, label_rows = self.catalog.read_model.work_tag_rows(related_rows_by_table)
         note_rows = related_rows_by_table.get("synopses") or related_rows_by_table.get("comments") or related_rows_by_table.get("notes") or []
 
         series_pills = []
@@ -1507,11 +1510,11 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
                 ))
         tag_pills = []
         for label_row in label_rows[:12]:
-            href = self._row_href("labels", label_row)
+            href = self._row_href(tag_table or "tags", label_row)
             if href:
                 tag_pills.append("<a class='inline-pill' href='{href}'>{label}</a>".format(
                     href=_escape(href),
-                    label=_escape(self._row_primary_text("labels", label_row)),
+                    label=_escape(self._row_primary_text(tag_table or "tags", label_row)),
                 ))
 
         note_html = ""
@@ -1582,7 +1585,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             related=self._render_related_sections(
                 row,
                 related_rows_by_table=related_rows_by_table,
-                exclude_tables={"agents", "human_agents", "org_agents", "labels", "series", "files", "notes", "comments", "synopses"},
+                exclude_tables={"agents", "human_agents", "org_agents", "tags", "labels", "series", "files", "notes", "comments", "synopses"},
             ),
         )
         return self._render_layout(title=title, body_html=body)

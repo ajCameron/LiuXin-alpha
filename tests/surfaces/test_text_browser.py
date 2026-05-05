@@ -40,6 +40,23 @@ from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
+def _preferred_tag_table(db: Database) -> str:
+    tables = set(db.get_tables())
+    if "tags" in tables:
+        return "tags"
+    if "labels" in tables:
+        return "labels"
+    pytest.fail("Schema has neither labels nor tags table")
+
+
+def _search_tag_rows(db: Database, tag_text: str):
+    norm = make_tag_search_term(tag_text)
+    table = _preferred_tag_table(db)
+    if table == "tags":
+        return "tags", db.search("tags", "tag_phash", norm)
+    return "labels", db.search("labels", "label_text_norm", norm)
+
+
 def _insert_store_row(
     db: Database,
     *,
@@ -3070,17 +3087,7 @@ def test_text_browser_show_tags_for_work(driver_spec, tmp_path: Path) -> None:
             table="works",
         )
 
-        tables = set(db.get_tables())
-        if "labels" in tables:
-            tag_row = Row.from_idless_row_dict(
-                db,
-                row_dict={
-                    "label_text": "Fish",
-                    "label_text_norm": make_tag_search_term("Fish"),
-                },
-                table="labels",
-            )
-        elif "tags" in tables:
+        if _preferred_tag_table(db) == "tags":
             tag_row = Row.from_idless_row_dict(
                 db,
                 row_dict={
@@ -3090,7 +3097,14 @@ def test_text_browser_show_tags_for_work(driver_spec, tmp_path: Path) -> None:
                 table="tags",
             )
         else:
-            pytest.fail("Schema has neither labels nor tags table")
+            tag_row = Row.from_idless_row_dict(
+                db,
+                row_dict={
+                    "label_text": "Fish",
+                    "label_text_norm": make_tag_search_term("Fish"),
+                },
+                table="labels",
+            )
 
         db.interlink_rows(primary_row=tag_row, secondary_row=work_row, priority=0)
 
@@ -3507,17 +3521,7 @@ def test_text_browser_delete_command_preview_shows_linked_row_samples(driver_spe
             table="works",
         )
 
-        tables = set(db.get_tables())
-        if "labels" in tables:
-            tag_row = Row.from_idless_row_dict(
-                db,
-                row_dict={
-                    "label_text": "Fish",
-                    "label_text_norm": make_tag_search_term("Fish"),
-                },
-                table="labels",
-            )
-        elif "tags" in tables:
+        if _preferred_tag_table(db) == "tags":
             tag_row = Row.from_idless_row_dict(
                 db,
                 row_dict={
@@ -3527,7 +3531,14 @@ def test_text_browser_delete_command_preview_shows_linked_row_samples(driver_spe
                 table="tags",
             )
         else:
-            pytest.fail("Schema has neither labels nor tags table")
+            tag_row = Row.from_idless_row_dict(
+                db,
+                row_dict={
+                    "label_text": "Fish",
+                    "label_text_norm": make_tag_search_term("Fish"),
+                },
+                table="labels",
+            )
 
         db.interlink_rows(primary_row=tag_row, secondary_row=work_row, priority=0)
 
@@ -4251,21 +4262,15 @@ def test_text_browser_new_tag_wizard_creates_tag_or_label(driver_spec, tmp_path:
         shell = TextDatabaseBrowser(db, input=input_stream, output=output)
         assert shell.run_commands(["add tag"]) == 0
 
-        tables = set(db.get_tables())
-        tag_norm = make_tag_search_term("Space Opera")
-        if "labels" in tables:
-            rows = db.search("labels", "label_text_norm", tag_norm)
-            assert rows
-            row = rows[0]
+        tag_table, rows = _search_tag_rows(db, "Space Opera")
+        assert rows
+        row = rows[0]
+        if tag_table == "tags":
+            assert row["tag"] == "Space Opera"
+            assert row["tag_description"] == "Retro SF shelf marker"
+        else:
             assert row["label_text"] == "Space Opera"
             assert row["label_description"] == "Retro SF shelf marker"
-        elif "tags" in tables:
-            rows = db.search("tags", "tag_phash", tag_norm)
-            assert rows
-            row = rows[0]
-            assert row["tag"] == "Space Opera"
-        else:
-            pytest.fail("Schema has neither labels nor tags table")
 
     rendered = output.getvalue()
     assert "New tag wizard" in rendered
@@ -4311,16 +4316,8 @@ def test_text_browser_new_tag_legacy_alias_still_works(driver_spec, tmp_path: Pa
         shell = TextDatabaseBrowser(db, input=input_stream, output=output)
         assert shell.run_commands(["new-tag"]) == 0
 
-        tables = set(db.get_tables())
-        tag_norm = make_tag_search_term("Legacy Tag")
-        if "labels" in tables:
-            rows = db.search("labels", "label_text_norm", tag_norm)
-            assert rows
-        elif "tags" in tables:
-            rows = db.search("tags", "tag_phash", tag_norm)
-            assert rows
-        else:
-            pytest.fail("Schema has neither labels nor tags table")
+        _tag_table, rows = _search_tag_rows(db, "Legacy Tag")
+        assert rows
 
 
 def test_text_browser_new_note_wizard_creates_note(driver_spec, tmp_path: Path) -> None:
@@ -4781,22 +4778,11 @@ def test_text_browser_on_tag_creates_and_links_tag(driver_spec, tmp_path: Path) 
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.execute_line("on works {} tag \"Speculative Fiction\"".format(work_row["work_id"]))
 
-        tables = set(db.get_tables())
-        norm = make_tag_search_term("Speculative Fiction")
-        if "labels" in tables:
-            tag_rows = db.search("labels", "label_text_norm", norm)
-            assert tag_rows
-            tag_row = tag_rows[0]
-            link_row = db.get_interlink_row(primary_row=tag_row, secondary_row=work_row)
-            assert link_row is not None
-        elif "tags" in tables:
-            tag_rows = db.search("tags", "tag_phash", norm)
-            assert tag_rows
-            tag_row = tag_rows[0]
-            link_row = db.get_interlink_row(primary_row=tag_row, secondary_row=work_row)
-            assert link_row is not None
-        else:
-            pytest.fail("Schema has neither labels nor tags table")
+        _tag_table, tag_rows = _search_tag_rows(db, "Speculative Fiction")
+        assert tag_rows
+        tag_row = tag_rows[0]
+        link_row = db.get_interlink_row(primary_row=tag_row, secondary_row=work_row)
+        assert link_row is not None
 
     assert "Tag linked:" in output.getvalue()
 
@@ -4824,16 +4810,9 @@ def test_text_browser_on_tag_supports_multiple_values(driver_spec, tmp_path: Pat
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.execute_line("on works {} tag \"testing\" \"fish\" \"chips\"".format(work_row["work_id"]))
 
-        tables = set(db.get_tables())
         expected = ["testing", "fish", "chips"]
         for tag_text in expected:
-            norm = make_tag_search_term(tag_text)
-            if "labels" in tables:
-                rows = db.search("labels", "label_text_norm", norm)
-            elif "tags" in tables:
-                rows = db.search("tags", "tag_phash", norm)
-            else:
-                pytest.fail("Schema has neither labels nor tags table")
+            _tag_table, rows = _search_tag_rows(db, tag_text)
             assert rows
             tag_row = rows[0]
             link_row = db.get_interlink_row(primary_row=tag_row, secondary_row=work_row)
@@ -4863,16 +4842,9 @@ def test_text_browser_on_tag_supports_csv_values(driver_spec, tmp_path: Path) ->
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.execute_line("on works {} tag \"testing,fish,chips,beans\"".format(work_row["work_id"]))
 
-        tables = set(db.get_tables())
         expected = ["testing", "fish", "chips", "beans"]
         for tag_text in expected:
-            norm = make_tag_search_term(tag_text)
-            if "labels" in tables:
-                rows = db.search("labels", "label_text_norm", norm)
-            elif "tags" in tables:
-                rows = db.search("tags", "tag_phash", norm)
-            else:
-                pytest.fail("Schema has neither labels nor tags table")
+            _tag_table, rows = _search_tag_rows(db, tag_text)
             assert rows
             tag_row = rows[0]
             link_row = db.get_interlink_row(primary_row=tag_row, secondary_row=work_row)
@@ -4902,16 +4874,9 @@ def test_text_browser_on_tag_supports_compact_target_and_unquoted_csv(driver_spe
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.execute_line("on work:{} tag fish,chips,sauce".format(work_row["work_id"]))
 
-        tables = set(db.get_tables())
         expected = ["fish", "chips", "sauce"]
         for tag_text in expected:
-            norm = make_tag_search_term(tag_text)
-            if "labels" in tables:
-                rows = db.search("labels", "label_text_norm", norm)
-            elif "tags" in tables:
-                rows = db.search("tags", "tag_phash", norm)
-            else:
-                pytest.fail("Schema has neither labels nor tags table")
+            _tag_table, rows = _search_tag_rows(db, tag_text)
             assert rows
             tag_row = rows[0]
             link_row = db.get_interlink_row(primary_row=tag_row, secondary_row=work_row)
@@ -4942,16 +4907,9 @@ def test_text_browser_on_legacy_compact_target_kind_then_csv_values(driver_spec,
         # Keep legacy ordering support: on <target> <kind> <csv...>
         assert shell.execute_line("on work:{} tag fish,sausage,pies".format(work_row["work_id"]))
 
-        tables = set(db.get_tables())
         expected = ["fish", "sausage", "pies"]
         for tag_text in expected:
-            norm = make_tag_search_term(tag_text)
-            if "labels" in tables:
-                rows = db.search("labels", "label_text_norm", norm)
-            elif "tags" in tables:
-                rows = db.search("tags", "tag_phash", norm)
-            else:
-                pytest.fail("Schema has neither labels nor tags table")
+            _tag_table, rows = _search_tag_rows(db, tag_text)
             assert rows
             tag_row = rows[0]
             link_row = db.get_interlink_row(primary_row=tag_row, secondary_row=work_row)
@@ -4981,16 +4939,9 @@ def test_text_browser_on_tag_subcommand_style(driver_spec, tmp_path: Path) -> No
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.execute_line("on tag work:{} fish,chips,sauce".format(work_row["work_id"]))
 
-        tables = set(db.get_tables())
         expected = ["fish", "chips", "sauce"]
         for tag_text in expected:
-            norm = make_tag_search_term(tag_text)
-            if "labels" in tables:
-                rows = db.search("labels", "label_text_norm", norm)
-            elif "tags" in tables:
-                rows = db.search("tags", "tag_phash", norm)
-            else:
-                pytest.fail("Schema has neither labels nor tags table")
+            _tag_table, rows = _search_tag_rows(db, tag_text)
             assert rows
             tag_row = rows[0]
             link_row = db.get_interlink_row(primary_row=tag_row, secondary_row=work_row)
@@ -5026,14 +4977,7 @@ def test_text_browser_on_tag_subcommand_supports_target_ranges(driver_spec, tmp_
         shell = TextDatabaseBrowser(db, output=output)
         assert shell.execute_line("on tag work:{}-{} fish".format(first_id, last_id))
 
-        tables = set(db.get_tables())
-        norm = make_tag_search_term("fish")
-        if "labels" in tables:
-            rows = db.search("labels", "label_text_norm", norm)
-        elif "tags" in tables:
-            rows = db.search("tags", "tag_phash", norm)
-        else:
-            pytest.fail("Schema has neither labels nor tags table")
+        _tag_table, rows = _search_tag_rows(db, "fish")
         assert rows
         tag_row = rows[0]
 
@@ -5083,14 +5027,7 @@ def test_text_browser_on_tag_bulk_atomic_rollback_on_error(monkeypatch, driver_s
         with pytest.raises(ValueError, match="Bulk `on` aborted"):
             shell.execute_line("on tag work:{},{} fish".format(first_id, second_id))
 
-        tables = set(db.get_tables())
-        norm = make_tag_search_term("fish")
-        if "labels" in tables:
-            rows = db.search("labels", "label_text_norm", norm)
-        elif "tags" in tables:
-            rows = db.search("tags", "tag_phash", norm)
-        else:
-            pytest.fail("Schema has neither labels nor tags table")
+        _tag_table, rows = _search_tag_rows(db, "fish")
 
         if rows:
             tag_row = rows[0]
@@ -5138,14 +5075,7 @@ def test_text_browser_on_tag_bulk_best_effort_keeps_successes(monkeypatch, drive
 
         assert shell.execute_line("on tag work:{},{} --best-effort fish".format(first_id, second_id))
 
-        tables = set(db.get_tables())
-        norm = make_tag_search_term("fish")
-        if "labels" in tables:
-            rows = db.search("labels", "label_text_norm", norm)
-        elif "tags" in tables:
-            rows = db.search("tags", "tag_phash", norm)
-        else:
-            pytest.fail("Schema has neither labels nor tags table")
+        _tag_table, rows = _search_tag_rows(db, "fish")
         assert rows
         tag_row = rows[0]
         assert db.get_interlink_row(primary_row=tag_row, secondary_row=work_rows[0]) is not None
@@ -5231,14 +5161,7 @@ def test_text_browser_off_tag_subcommand_supports_batch_targets(driver_spec, tmp
         assert shell.execute_line("on tag work:{}-{} fish".format(first_id, last_id))
         assert shell.execute_line("off tag work:{},{} fish".format(first_id, last_id))
 
-        tables = set(db.get_tables())
-        norm = make_tag_search_term("fish")
-        if "labels" in tables:
-            rows = db.search("labels", "label_text_norm", norm)
-        elif "tags" in tables:
-            rows = db.search("tags", "tag_phash", norm)
-        else:
-            pytest.fail("Schema has neither labels nor tags table")
+        _tag_table, rows = _search_tag_rows(db, "fish")
         assert rows
         tag_row = rows[0]
 
@@ -5289,14 +5212,7 @@ def test_text_browser_off_tag_bulk_atomic_rollback_on_error(monkeypatch, driver_
         with pytest.raises(ValueError, match="Bulk `off` aborted"):
             shell.execute_line("off tag work:{},{} fish".format(first_id, second_id))
 
-        tables = set(db.get_tables())
-        norm = make_tag_search_term("fish")
-        if "labels" in tables:
-            rows = db.search("labels", "label_text_norm", norm)
-        elif "tags" in tables:
-            rows = db.search("tags", "tag_phash", norm)
-        else:
-            pytest.fail("Schema has neither labels nor tags table")
+        _tag_table, rows = _search_tag_rows(db, "fish")
         assert rows
         tag_row = rows[0]
         assert db.get_interlink_row(primary_row=tag_row, secondary_row=work_rows[0]) is not None
@@ -5327,15 +5243,8 @@ def test_text_browser_off_legacy_compact_target_kind_then_csv_values(driver_spec
         assert shell.execute_line("on tag work:{} fish,sausage,pies".format(work_row["work_id"]))
         assert shell.execute_line("off work:{} tag fish,sausage,pies".format(work_row["work_id"]))
 
-        tables = set(db.get_tables())
         for tag_text in ["fish", "sausage", "pies"]:
-            norm = make_tag_search_term(tag_text)
-            if "labels" in tables:
-                rows = db.search("labels", "label_text_norm", norm)
-            elif "tags" in tables:
-                rows = db.search("tags", "tag_phash", norm)
-            else:
-                pytest.fail("Schema has neither labels nor tags table")
+            _tag_table, rows = _search_tag_rows(db, tag_text)
             assert rows
             tag_row = rows[0]
             link_row = db.get_interlink_row(primary_row=tag_row, secondary_row=work_row)

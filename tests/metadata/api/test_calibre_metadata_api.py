@@ -51,5 +51,9 @@ def test_calibre_like_book_container_matches_liuxin_calibre_like_api() -> None:
     )
 
     metadata.set_identifier("isbn", "9780306406157")
+    metadata.labels = ["new_entry"]
+    metadata.tags = ["Space Opera"]
     assert metadata.has_identifier("isbn") is True
     assert "isbn" in metadata.get_identifiers()
+    assert "new_entry" in metadata.labels
+    assert "Space Opera" in metadata.tags

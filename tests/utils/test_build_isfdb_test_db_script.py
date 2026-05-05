@@ -249,8 +249,13 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
         assert counts["language_work_links"] == 3
         assert counts["series"] == 2
         assert counts["series_work_links"] == 3
-        assert counts["labels"] == 6
-        assert counts["label_work_links"] == 7
+        assert counts["labels"] == 1
+        assert counts["label_work_links"] == 3
+        assert counts["expression_label_links"] == 3
+        assert counts["label_manifestation_links"] == 3
+        assert counts["item_label_links"] == 3
+        assert counts["tags"] == 6
+        assert counts["tag_work_links"] == 7
         assert counts["genres"] == 3
         assert counts["genre_work_links"] == 4
         assert counts["subjects"] == 5
@@ -339,6 +344,42 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
                 ),
             ]
 
+            label_rows = conn.execute(
+                """
+                SELECT label_text, label_text_norm, label_scratch
+                FROM labels
+                ORDER BY label_id;
+                """
+            ).fetchall()
+            assert label_rows == [
+                ("new_entry", "new-entry", "isfdb:generated:label:new-entry"),
+            ]
+
+            assert conn.execute(
+                """
+                SELECT COUNT(DISTINCT label_work_link_work_id)
+                FROM label_work_links;
+                """
+            ).fetchone()[0] == counts["works"]
+            assert conn.execute(
+                """
+                SELECT COUNT(DISTINCT expression_label_link_expression_id)
+                FROM expression_label_links;
+                """
+            ).fetchone()[0] == counts["expressions"]
+            assert conn.execute(
+                """
+                SELECT COUNT(DISTINCT label_manifestation_link_manifestation_id)
+                FROM label_manifestation_links;
+                """
+            ).fetchone()[0] == counts["manifestations"]
+            assert conn.execute(
+                """
+                SELECT COUNT(DISTINCT item_label_link_item_id)
+                FROM item_label_links;
+                """
+            ).fetchone()[0] == counts["items"]
+
             per_expression = conn.execute(
                 """
                 SELECT
@@ -357,37 +398,37 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
             )
             assert all(primary_count == 1 for _, _, primary_count, _ in per_expression)
 
-            label_rows = conn.execute(
+            tag_rows = conn.execute(
                 """
-                SELECT label_text, label_text_norm, label_scratch
-                FROM labels
-                ORDER BY label_text_norm;
+                SELECT tag, tag_phash, tag_scratch
+                FROM tags
+                ORDER BY tag_phash;
                 """
             ).fetchall()
-            assert label_rows == [
+            assert tag_rows == [
                 ("Arabian", "arabian", "isfdb:generated:title_word:arabian"),
                 ("Frights", "frights", "isfdb:generated:title_word:frights"),
-                ("Untagged", "isfdb-generated-untagged", "isfdb:generated:fallback_label"),
+                ("Untagged", "isfdb-generated-untagged", "isfdb:generated:fallback_tag"),
                 ("sci fi", "sci-fi", "isfdb:tag:4;status:0"),
                 ("Shared Tag", "shared-tag", "isfdb:tag:2;status:1"),
                 ("Space Opera", "space-opera", "isfdb:tag:1;status:0"),
             ]
 
-            linked_labels = conn.execute(
+            linked_tags = conn.execute(
                 """
                 SELECT
                     w.work_scratch,
-                    l.label_text,
-                    lwl.label_work_link_priority,
-                    lwl.label_work_link_source
-                FROM label_work_links lwl
-                JOIN labels l ON l.label_id = lwl.label_work_link_label_id
-                JOIN works w ON w.work_id = lwl.label_work_link_work_id
-                ORDER BY w.work_scratch, l.label_text;
+                    t.tag,
+                    twl.tag_work_link_priority,
+                    twl.tag_work_link_source
+                FROM tag_work_links twl
+                JOIN tags t ON t.tag_id = twl.tag_work_link_tag_id
+                JOIN works w ON w.work_id = twl.tag_work_link_work_id
+                ORDER BY w.work_scratch, t.tag;
                 """
             ).fetchall()
             assert [
-                (work, label) for work, label, _priority, _source in linked_labels
+                (work, tag) for work, tag, _priority, _source in linked_tags
             ] == [
                 ("isfdb:title:10", "Shared Tag"),
                 ("isfdb:title:10", "Space Opera"),
@@ -397,15 +438,15 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
                 ("isfdb:title:20", "sci fi"),
                 ("isfdb:title:30", "Untagged"),
             ]
-            priorities_by_label = {}
-            sources_by_label = {}
-            for _work, label, priority, source in linked_labels:
-                priorities_by_label.setdefault(label, set()).add(priority)
-                sources_by_label.setdefault(label, set()).add(source)
-            assert len(priorities_by_label["Space Opera"]) == 2
-            assert sources_by_label["Arabian"] == {"isfdb:generated"}
-            assert sources_by_label["Untagged"] == {"isfdb:generated"}
-            assert sources_by_label["Space Opera"] == {"isfdb:tag"}
+            priorities_by_tag = {}
+            sources_by_tag = {}
+            for _work, tag, priority, source in linked_tags:
+                priorities_by_tag.setdefault(tag, set()).add(priority)
+                sources_by_tag.setdefault(tag, set()).add(source)
+            assert len(priorities_by_tag["Space Opera"]) == 2
+            assert sources_by_tag["Arabian"] == {"isfdb:generated"}
+            assert sources_by_tag["Untagged"] == {"isfdb:generated"}
+            assert sources_by_tag["Space Opera"] == {"isfdb:tag"}
 
             genre_rows = conn.execute(
                 """
@@ -672,7 +713,7 @@ def test_build_frbr_target_handles_reused_agents_publishers_and_series(tmp_path:
             ]
 
             for link_table, work_column in [
-                ("label_work_links", "label_work_link_work_id"),
+                ("tag_work_links", "tag_work_link_work_id"),
                 ("genre_work_links", "genre_work_link_work_id"),
                 ("series_work_links", "series_work_link_work_id"),
             ]:

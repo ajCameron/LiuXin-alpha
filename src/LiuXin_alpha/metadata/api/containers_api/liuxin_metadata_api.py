@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence, Set
 from datetime import datetime
-from typing import Protocol, Self, TypeAlias
+from typing import Any, Protocol, Self, TypeAlias
 
 from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import (
     CalibreCloseableAPI,
@@ -93,6 +93,7 @@ class LiuXinMetadataAPI(Protocol):
     files: LiuXinPayloadToID
     imprint: LiuXinValueToID
     language: str | None
+    labels: LiuXinValueToID
     languages: Sequence[str]
     languages_available: LiuXinValueToID
     last_modified: datetime | None
@@ -134,6 +135,18 @@ class LiuXinMetadataAPI(Protocol):
     def read_creators(self, creators_dict: Mapping[str, str | Sequence[str]]) -> None: ...
 
     def direct_get(self, item: str) -> LiuXinFieldValue: ...
+
+    def write_to_database(
+        self,
+        database: Any,
+        *,
+        fields: Iterable[str] | None = None,
+        target_level: str = "work",
+        item_id: int | None = None,
+        target_row: Any = None,
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> Any: ...
 
     def __getitem__(self, item: str) -> LiuXinFieldValue: ...
 

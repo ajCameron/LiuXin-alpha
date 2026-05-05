@@ -168,6 +168,22 @@ class LabelRowAPI(MetadataTableRowAPI, Protocol):
 
 
 @runtime_checkable
+class TagRowAPI(MetadataTableRowAPI, Protocol):
+    TABLE_NAME: ClassVar[str]
+    ID_COLUMN: ClassVar[str]
+
+    tag_id: int | None
+    tag: str | None
+    tag_phash: str | None
+    tag_description: str | None
+    tag_scratch: str | None
+    tag_created_timestamp_ep_k: int | None
+    tag_modified_timestamp_ep_k: int | None
+    tag_source_created_datestamp_ep_k: int | None
+    tag_source_modified_datestamp_ep_k: int | None
+
+
+@runtime_checkable
 class NoteRowAPI(MetadataTableRowAPI, Protocol):
     TABLE_NAME: ClassVar[str]
     ID_COLUMN: ClassVar[str]
@@ -368,4 +384,5 @@ __all__ = [
     "SeriesRowAPI",
     "SubjectRowAPI",
     "SynopsisRowAPI",
+    "TagRowAPI",
 ]

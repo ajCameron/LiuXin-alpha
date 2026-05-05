@@ -2045,7 +2045,12 @@ class TextDatabaseBrowser:
             return text
 
         # Common logical aliases that appear in user-facing command usage.
-        if text in {"tag", "tags", "label", "labels"}:
+        if text in {"tag", "tags"}:
+            if "tags" in tables:
+                return "tags"
+            if "labels" in tables:
+                return "labels"
+        if text in {"label", "labels"}:
             if "labels" in tables:
                 return "labels"
             if "tags" in tables:
@@ -2145,7 +2150,7 @@ class TextDatabaseBrowser:
             "works": ("work_title", "work_canonical_title", "work_sort_title"),
             "stores": ("store_name", "store_kind", "store_root_uri"),
             "labels": ("label_text", "label", "label_text_norm"),
-            "tags": ("tag", "label_text", "label"),
+            "tags": ("tag", "tag_phash", "label_text", "label"),
             "notes": ("note", "note_text", "note_body"),
             "folders": ("folder_name", "folder_relpath"),
             "files": ("file_name", "file_original_name", "file_storage_key"),

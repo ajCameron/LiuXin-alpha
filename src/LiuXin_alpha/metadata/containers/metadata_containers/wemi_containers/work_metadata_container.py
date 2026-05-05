@@ -69,6 +69,30 @@ class WorkMetadata(WorkMetadataAPI):
             get_links=self.get_relation_links,
         )
 
+    def write_to_database(
+        self,
+        database: Any,
+        *,
+        fields: Iterable[str] | None = None,
+        item_id: int | None = None,
+        target_row: Row | Mapping[str, Any] | None = None,
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> Any:
+        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
+            LiuXinWEMIMetadataWriter,
+        )
+
+        return LiuXinWEMIMetadataWriter(database).write(
+            self,
+            fields=fields,
+            target_level="work",
+            item_id=item_id,
+            target_row=target_row,
+            replace=replace,
+            mark_dirty=mark_dirty,
+        )
+
     @staticmethod
     def _serialize_target(target: Any) -> Any:
         if target is None:

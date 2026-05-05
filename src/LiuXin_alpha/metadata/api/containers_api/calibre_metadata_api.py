@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence, Set
 from datetime import datetime
 from os import PathLike
-from typing import Protocol, Self, TypeAlias, runtime_checkable
+from typing import Any, Protocol, Self, TypeAlias, runtime_checkable
 
 
 CalibrePath: TypeAlias = str | PathLike[str]
@@ -191,6 +191,8 @@ class CalibreLikeBookMetadataAPI(CalibreMetadataInputAPI, Protocol):
     internal_identifiers: CalibreIdentifierSnapshot
     creators: Mapping[str, Sequence[str]]
     languages: Sequence[str] | None
+    labels: CalibreValueToID
+    tags: CalibreValueToID
 
     def setattr(self, key: str, value: CalibreFieldValue) -> None: ...
 
@@ -207,6 +209,18 @@ class CalibreLikeBookMetadataAPI(CalibreMetadataInputAPI, Protocol):
     ) -> CalibreFieldValue: ...
 
     def direct_get(self, item: str) -> CalibreFieldValue: ...
+
+    def write_to_database(
+        self,
+        database: Any,
+        *,
+        fields: Iterable[str] | None = None,
+        target_level: str = "work",
+        item_id: int | None = None,
+        target_row: Any = None,
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> Any: ...
 
     def nullify(self, field: str) -> None: ...
 

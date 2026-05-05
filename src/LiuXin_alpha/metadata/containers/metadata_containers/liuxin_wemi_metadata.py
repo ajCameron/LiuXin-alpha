@@ -160,6 +160,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         "identifiers",
         "internal_identifiers",
         "tags",
+        "labels",
         "languages",
         "publisher",
         "series",
@@ -529,6 +530,31 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     def as_calibre_metadata(self) -> Any:
         return self.to_calibre()
 
+    def write_to_database(
+        self,
+        database: Any,
+        *,
+        fields: Iterable[str] | None = None,
+        target_level: str | None = "work",
+        item_id: int | None = None,
+        target_row: Row | Mapping[str, Any] | None = None,
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> Any:
+        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
+            LiuXinWEMIMetadataWriter,
+        )
+
+        return LiuXinWEMIMetadataWriter(database).write(
+            self,
+            fields=fields,
+            target_level=target_level,
+            item_id=item_id,
+            target_row=target_row,
+            replace=replace,
+            mark_dirty=mark_dirty,
+        )
+
     def get_wemi_metadata(self, level: str) -> WemiMetadataBundle:
         normalized_level = self.normalize_wemi_level(level)
         return object.__getattribute__(
@@ -616,33 +642,37 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     def sync_legacy_tags_from_wemi(self) -> tuple[str, ...]:
         """
-        Populate legacy ``tags`` from WEMI label/tag relation targets.
-
-        The generated ISFDB metadata stores test tags as WEMI labels. Legacy
-        callers, including the Calibre compatibility path, still read
-        ``md.tags``.
+        Populate legacy ``tags`` from WEMI tag relation targets.
         """
+        return self._sync_legacy_terms_from_wemi(field="tags", relation="tags")
+
+    def sync_legacy_labels_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy ``labels`` from WEMI label relation targets.
+        """
+        return self._sync_legacy_terms_from_wemi(field="labels", relation="labels")
+
+    def _sync_legacy_terms_from_wemi(self, *, field: str, relation: str) -> tuple[str, ...]:
         data = object.__getattribute__(self, "_data")
-        tags = data["tags"]
+        terms = data[field]
         synced: list[str] = []
-        seen = {str(tag).casefold() for tag in tags}
+        seen = {str(term).casefold() for term in terms}
 
         for level in self._LEVELS:
-            for relation in ("tags", "labels"):
-                try:
-                    links = self.get_wemi_relation_links(level, relation)
-                except KeyError:
+            try:
+                links = self.get_wemi_relation_links(level, relation)
+            except KeyError:
+                continue
+            for link in links:
+                term = self._wemi_tag_text(link.target)
+                if term is None:
                     continue
-                for link in links:
-                    tag = self._wemi_tag_text(link.target)
-                    if tag is None:
-                        continue
-                    tag_key = tag.casefold()
-                    if tag_key in seen:
-                        continue
-                    tags[tag] = self._wemi_tag_id(link.target)
-                    synced.append(tag)
-                    seen.add(tag_key)
+                term_key = term.casefold()
+                if term_key in seen:
+                    continue
+                terms[term] = self._wemi_tag_id(link.target)
+                synced.append(term)
+                seen.add(term_key)
 
         return tuple(synced)
 

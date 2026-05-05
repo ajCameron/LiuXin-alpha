@@ -244,6 +244,7 @@ def test_non_wemi_rows_export_from_concrete_surface_not_api() -> None:
         "SubjectTreeRelation",
         "SubjectTreeRelationsContainer",
         "SynopsisRow",
+        "TagRow",
     ]
 
     for module_name in (
@@ -279,6 +280,7 @@ def test_non_wemi_main_table_rows_are_split_by_table_module() -> None:
         "SeriesRow": "series_row",
         "SubjectRow": "subject_row",
         "SynopsisRow": "synopsis_row",
+        "TagRow": "tag_row",
     }
 
     for class_name, module_leaf in expected_modules.items():
