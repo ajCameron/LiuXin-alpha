@@ -6,13 +6,19 @@ from typing import Any
 
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData,
+)
 from LiuXin_alpha.metadata.containers import (
+    ExpressionMetadata,
     ItemMetadata,
     ItemMetadataHydrator,
     LazyLiuXinWEMIMetadata,
     LazyLiuXinWEMIMetadataHydrator,
     LiuXinWEMIMetadata,
     LiuXinWEMIMetadataHydrator,
+    ManifestationMetadata,
+    WorkMetadata,
 )
 
 
@@ -744,6 +750,93 @@ def test_liuxin_wemi_metadata_write_to_database_can_replace_relation_terms() -> 
 
     rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
     assert list(rehydrated.tags.keys()) == ["Simulation"]
+
+
+def test_wemi_metadata_bundles_write_supported_relation_terms() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    cases = [
+        (
+            WorkMetadata(work=metadata.work),
+            "tags",
+            "Work Bundle Tag",
+            "works",
+            30,
+            "tags",
+        ),
+        (
+            ExpressionMetadata(expression=metadata.expression),
+            "tags",
+            "Expression Bundle Tag",
+            "expressions",
+            20,
+            "tags",
+        ),
+        (
+            ManifestationMetadata(manifestation=metadata.manifestation),
+            "labels",
+            "Manifestation Bundle Label",
+            "manifestations",
+            10,
+            "labels",
+        ),
+        (
+            ItemMetadata(item=metadata.item),
+            "tags",
+            "Item Bundle Tag",
+            "items",
+            1,
+            "tags",
+        ),
+    ]
+
+    for bundle, field, value, source_table, source_id, target_table in cases:
+        bundle.add_related(field, value)
+
+        report = bundle.write_to_database(db, fields=(field,))
+
+        assert report.changed is True
+        assert report.target_table == source_table
+        assert report.target_id == source_id
+        assert [row["text"] for row in report.rows_added] == [value]
+        assert (source_table, source_id, target_table) in db.interlink_queries
+
+
+def test_wemi_bundle_write_skips_context_relations_from_other_levels() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    expression_metadata = metadata.expression_metadata
+    assert [row.row_dict["tag"] for row in expression_metadata.tags] == ["Space Opera"]
+
+    expression_metadata.add_related("tags", "Expression Owned Tag")
+
+    report = expression_metadata.write_to_database(db, fields=("tags",))
+
+    assert report.changed is True
+    assert report.target_table == "expressions"
+    assert report.target_id == 20
+    assert [row["text"] for row in report.rows_added] == ["Expression Owned Tag"]
+    assert len(report.links_added) == 1
+
+
+def test_calibre_like_metadata_write_to_database_resolves_target_from_item_id() -> None:
+    db = _build_fake_database()
+    metadata = CalibreLikeLiuXinBookMetaData(
+        title="Permutation City",
+        authors=["Greg Egan"],
+    )
+    metadata.tags = "Calibre Round Trip"
+
+    report = metadata.write_to_database(db, fields=("tags",), item_id=1)
+
+    assert report.changed is True
+    assert report.target_table == "works"
+    assert report.target_id == 30
+    assert [row["text"] for row in report.rows_added] == ["Calibre Round Trip"]
+
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert list(rehydrated.tags.keys()) == ["Space Opera", "Calibre Round Trip"]
 
 
 def test_liuxin_wemi_metadata_hydrator_dispatches_typed_shapes() -> None:

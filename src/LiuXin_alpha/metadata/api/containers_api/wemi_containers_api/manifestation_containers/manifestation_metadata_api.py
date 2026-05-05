@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
+from typing import Any, ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
 
 
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
@@ -151,6 +151,19 @@ class ManifestationMetadataAPI(abc.ABC):
     @abc.abstractmethod
     def set_relation_links(self, relation: str, links: Iterable[ManifestationRelationLink]) -> None:
         """Replace edge metadata links for one relation type."""
+
+    def write_to_database(
+        self,
+        database: Any,
+        *,
+        fields: Iterable[str] | None = None,
+        item_id: int | None = None,
+        target_row: Any = None,
+        replace: bool = False,
+        mark_dirty: bool = True,
+    ) -> Any:
+        """Persist supported relation changes for this manifestation metadata bundle."""
+        raise NotImplementedError
 
     def add_relation_link(self, relation: str, link: ManifestationRelationLink) -> None:
         relation_key = self.validate_relation_name(relation)

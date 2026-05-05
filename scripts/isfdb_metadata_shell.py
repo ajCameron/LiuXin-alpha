@@ -256,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:
 
         def write_md(metadata=None, **kwargs):
             target_metadata = metadata if metadata is not None else get_md(item_id)
+            kwargs.setdefault("item_id", item_id)
             return metadata_writer.write(target_metadata, **kwargs)
 
         namespace: dict[str, object] = {
@@ -318,6 +319,7 @@ def main(argv: list[str] | None = None) -> int:
             "  lazy_md.lazy_fields()\n"
             "  lazy_md.hydrate_field('tags')\n"
             "  write_md(md, fields=('tags', 'labels'))\n"
+            "  write_md(calibre_md, fields=('tags',), item_id=item_id)\n"
             "  md.work, md.expression, md.manifestation, md.item\n"
             "  calibre_md = get_calibre_md(item_id)\n"
             "Call db.close() when done if you exit unusually."

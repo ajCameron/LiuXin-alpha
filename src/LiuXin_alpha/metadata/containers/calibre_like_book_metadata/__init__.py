@@ -170,6 +170,38 @@ class CalibreLikeLiuXinBookMetaData(
         """
         self.__setattr__(key, value)
 
+    def write_to_database(
+        self,
+        database,
+        *,
+        fields=None,
+        target_level="work",
+        item_id=None,
+        target_row=None,
+        replace=False,
+        mark_dirty=True,
+    ):
+        """
+        Persist supported relation-backed fields through the WEMI metadata writer.
+
+        Plain LiuXin/Calibre-like metadata does not carry WEMI database ids, so
+        callers should pass ``item_id`` or ``target_row`` unless the object was
+        enriched with database id fields elsewhere.
+        """
+        from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
+            LiuXinWEMIMetadataWriter,
+        )
+
+        return LiuXinWEMIMetadataWriter(database).write(
+            self,
+            fields=fields,
+            target_level=target_level,
+            item_id=item_id,
+            target_row=target_row,
+            replace=replace,
+            mark_dirty=mark_dirty,
+        )
+
     def __setattr__(self, key: str, value):
         """
         Writes data into the internal _data dictionary - allows for a dot interface.

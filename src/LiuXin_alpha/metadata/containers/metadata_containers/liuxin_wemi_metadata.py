@@ -535,7 +535,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         database: Any,
         *,
         fields: Iterable[str] | None = None,
-        target_level: str = "work",
+        target_level: str | None = "work",
+        item_id: int | None = None,
+        target_row: Row | Mapping[str, Any] | None = None,
         replace: bool = False,
         mark_dirty: bool = True,
     ) -> Any:
@@ -547,6 +549,8 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
             self,
             fields=fields,
             target_level=target_level,
+            item_id=item_id,
+            target_row=target_row,
             replace=replace,
             mark_dirty=mark_dirty,
         )
