@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence, Set
 from datetime import datetime
 from os import PathLike
+from pathlib import Path
 from typing import Any, Protocol, Self, TypeAlias, runtime_checkable
 
 
@@ -190,6 +191,15 @@ class CalibreMetadataAPI(CalibreMetadataInputAPI, Protocol):
         mark_dirty: bool = True,
     ) -> Any: ...
 
+    def to_opf_bytes(self, *, default_lang: str | None = None) -> bytes: ...
+
+    def write_to_opf(
+        self,
+        path: CalibrePath,
+        *,
+        default_lang: str | None = None,
+    ) -> Path: ...
+
     def deepcopy_metadata(self) -> Self: ...
 
     def __str__(self) -> str: ...
@@ -233,6 +243,15 @@ class CalibreLikeBookMetadataAPI(CalibreMetadataInputAPI, Protocol):
         replace: bool = False,
         mark_dirty: bool = True,
     ) -> Any: ...
+
+    def to_opf_bytes(self, *, default_lang: str | None = None) -> bytes: ...
+
+    def write_to_opf(
+        self,
+        path: CalibrePath,
+        *,
+        default_lang: str | None = None,
+    ) -> Path: ...
 
     def nullify(self, field: str) -> None: ...
 

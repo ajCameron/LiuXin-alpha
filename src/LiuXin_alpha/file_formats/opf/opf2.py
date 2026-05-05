@@ -2715,7 +2715,7 @@ def calibre_metadata_to_opf(mi, as_string=True, default_lang=None):
         try:
             elem = metadata.makeelement(tag, attrib=attrib)
         except ValueError:
-            elem = metadata.makeelement(tag, attrib={k: clean_xml_chars(v) for k, v in attrib.iteritems()})
+            elem = metadata.makeelement(tag, attrib={k: clean_xml_chars(v) for k, v in iteritems(attrib)})
         elem.tail = "\n" + (" " * 8)
         if text:
             try:
@@ -2736,7 +2736,7 @@ def calibre_metadata_to_opf(mi, as_string=True, default_lang=None):
         factory(DC("description"), clean_ascii_chars(mi.comments))
     if mi.publisher:
         factory(DC("publisher"), mi.publisher)
-    for key, val in mi.get_identifiers().iteritems():
+    for key, val in iteritems(mi.get_identifiers()):
         factory(DC("identifier"), val, scheme=icu_upper(key))
     if mi.rights:
         factory(DC("rights"), mi.rights)

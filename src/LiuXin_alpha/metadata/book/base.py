@@ -300,6 +300,25 @@ class calibreMetadata(object):
     def set(self, field, val, extra=None):
         self.__setattr__(field, val, extra)
 
+    @classmethod
+    def from_opf(cls, source):
+        from LiuXin_alpha.metadata.opf_tools import calibre_metadata_from_opf
+
+        metadata = calibre_metadata_from_opf(source)
+        if cls is calibreMetadata:
+            return metadata
+        return cls(metadata.title, metadata.authors, other=metadata)
+
+    def to_opf_bytes(self, *, default_lang=None):
+        from LiuXin_alpha.metadata.opf_tools import metadata_to_opf_bytes
+
+        return metadata_to_opf_bytes(self, default_lang=default_lang)
+
+    def write_to_opf(self, path, *, default_lang=None):
+        from LiuXin_alpha.metadata.opf_tools import metadata_to_opf_file
+
+        return metadata_to_opf_file(self, path, default_lang=default_lang)
+
     def write_to_database(
         self,
         database,

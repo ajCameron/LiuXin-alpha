@@ -207,6 +207,7 @@ class ToAndFromCalibreMetadataMixin:
         calibre_md.tags = list(self.tags.keys()) + list(self.subject.keys())
 
         # TTITLESORT
+        calibre_md.title_sort = self.titlesort
         calibre_md.titlesort = self.titlesort
 
         return calibre_md
