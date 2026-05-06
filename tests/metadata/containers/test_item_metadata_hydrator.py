@@ -21,6 +21,7 @@ from LiuXin_alpha.metadata.containers import (
     ManifestationMetadata,
     WorkMetadata,
 )
+from LiuXin_alpha.metadata.read_sources import CacheMetadataReadSource
 
 
 SINGULARS = {
@@ -236,6 +237,142 @@ class FakeDatabase:
 
     def dirty_record(self, table: str, row_id: int, reason: str = "") -> None:
         self.dirtied.append((str(table), int(row_id), str(reason)))
+
+
+class FakeCacheMainTable:
+    def __init__(self, database: FakeDatabase, table: str) -> None:
+        self.database = database
+        self.table = table
+        self.column_headings = tuple(database.tables_and_columns[str(table)])
+        self.id_column = database.driver_wrapper.get_id_column(str(table))
+        self._rows = {
+            int(row.row_dict[self.id_column]): dict(row.row_dict)
+            for row in database.rows_by_table.get(str(table), [])
+            if row.row_dict.get(self.id_column) not in (None, "")
+        }
+
+    def get_row_snapshot(self, table_id: int) -> dict[str, Any]:
+        return dict(self._rows[int(table_id)])
+
+    def get_ids_for_value(self, column: str, value: Any) -> set[int]:
+        return {
+            row_id
+            for row_id, row in self._rows.items()
+            if row.get(str(column)) == value
+        }
+
+
+class FakeCacheLinkTable:
+    def __init__(
+        self,
+        database: FakeDatabase,
+        primary_table: str,
+        secondary_table: str,
+        links_by_source_id: Mapping[int, list[dict[str, Any]]],
+    ) -> None:
+        self.database = database
+        self.primary_table = primary_table
+        self.secondary_table = secondary_table
+        self._links_by_source_id = {
+            int(source_id): [dict(link) for link in links]
+            for source_id, links in links_by_source_id.items()
+        }
+
+    def get_link_rows_for_src(
+        self,
+        src_id: int,
+        require_ordering: bool = False,
+        type_filter: str | None = None,
+    ) -> list[dict[str, Any]]:
+        links = [dict(link) for link in self._links_by_source_id.get(int(src_id), [])]
+        if type_filter is not None:
+            links = [
+                link
+                for link in links
+                if any(str(key).endswith("_type") and value == type_filter for key, value in link.items())
+            ]
+        if require_ordering:
+            links.sort(
+                key=lambda link: next(
+                    (
+                        value
+                        for key, value in link.items()
+                        if str(key).endswith("_priority")
+                    ),
+                    0,
+                )
+            )
+        return links
+
+
+class FakeStorageCache:
+    def __init__(self, database: FakeDatabase) -> None:
+        self.db = database
+        self.main_tables = {
+            table: FakeCacheMainTable(database, table)
+            for table in database.tables_and_columns
+        }
+        self.link_tables: dict[tuple[str, str], FakeCacheLinkTable] = {}
+        grouped_links: dict[tuple[str, str], dict[int, list[dict[str, Any]]]] = {}
+        for (primary_table, source_id, secondary_table), links in database.interlinks.items():
+            key = (primary_table, secondary_table)
+            grouped_links.setdefault(key, {})[int(source_id)] = [
+                self._normalize_link(database, primary_table, source_id, secondary_table, link, index)
+                for index, link in enumerate(links, start=1)
+            ]
+        for (primary_table, secondary_table), links_by_source_id in grouped_links.items():
+            self.link_tables[(primary_table, secondary_table)] = FakeCacheLinkTable(
+                database,
+                primary_table,
+                secondary_table,
+                links_by_source_id,
+            )
+
+    @property
+    def is_initialized(self) -> bool:
+        return True
+
+    def assert_ready(self) -> None:
+        return None
+
+    def get_main_table(self, table: str) -> FakeCacheMainTable:
+        return self.main_tables[str(table)]
+
+    def get_link_table(self, primary_table: str, secondary_table: str) -> FakeCacheLinkTable:
+        return self.link_tables[(str(primary_table), str(secondary_table))]
+
+    @staticmethod
+    def _normalize_link(
+        database: FakeDatabase,
+        primary_table: str,
+        source_id: int,
+        secondary_table: str,
+        link: Mapping[str, Any],
+        index: int,
+    ) -> dict[str, Any]:
+        link_table = database.driver_wrapper.get_link_table_name(primary_table, secondary_table)
+        base = database.driver_wrapper.get_column_base(link_table)
+        primary_id_column = database.driver_wrapper.get_id_column(primary_table)
+        secondary_id_column = database.driver_wrapper.get_id_column(secondary_table)
+        primary_link_column = database.driver_wrapper.get_link_column(
+            primary_table,
+            secondary_table,
+            primary_id_column,
+        )
+        secondary_link_column = database.driver_wrapper.get_link_column(
+            primary_table,
+            secondary_table,
+            secondary_id_column,
+        )
+        payload = dict(link)
+        payload.setdefault(f"{base}_id", index)
+        payload.setdefault(primary_link_column, int(source_id))
+        if secondary_link_column not in payload:
+            for key, value in list(payload.items()):
+                if str(key).endswith("_" + secondary_id_column):
+                    payload[secondary_link_column] = value
+                    break
+        return payload
 
 
 def _build_fake_database() -> FakeDatabase:
@@ -613,6 +750,31 @@ def test_liuxin_wemi_metadata_hydrator_builds_complete_item_slice() -> None:
     assert metadata.labels["Science Fiction"] == 90
     assert list(metadata.tags.keys()) == ["Space Opera"]
     assert metadata.tags["Space Opera"] == 91
+
+
+def test_liuxin_wemi_metadata_hydrator_can_read_from_loaded_cache_source() -> None:
+    db = _build_fake_database()
+    cache_source = CacheMetadataReadSource(
+        FakeStorageCache(db),
+        allow_database_fallback=False,
+    )
+
+    metadata = LiuXinWEMIMetadataHydrator(cache_source).get_liuxin_wemi_metadata(item_id=1)
+
+    assert metadata.item is not None
+    assert metadata.item.item_id == 1
+    assert metadata.manifestation is not None
+    assert metadata.manifestation.manifestation_id == 10
+    assert metadata.expression is not None
+    assert metadata.expression.expression_id == 20
+    assert metadata.work is not None
+    assert metadata.work.work_id == 30
+    assert metadata.title == "Permutation City"
+    assert list(metadata.tags.keys()) == ["Space Opera"]
+    assert metadata.tags["Space Opera"] == 91
+    assert list(metadata.labels.keys()) == ["Science Fiction"]
+    assert metadata.get_wemi_relation_links("item", "files")
+    assert metadata.get_wemi_related("work", "agents")[0].row_dict["agent_canonical_name"] == "Greg Egan"
 
 
 def test_liuxin_wemi_metadata_from_database_uses_central_hydrator() -> None:
