@@ -39,6 +39,21 @@ def main() -> int:
         help="Exact JSON report file path to write (overrides --results-dir)",
     )
     parser.add_argument(
+        "--create-venv",
+        action="store_true",
+        help="Create/reuse .venv via scripts/create_venv.sh before testing",
+    )
+    parser.add_argument(
+        "--new-venv",
+        action="store_true",
+        help="Recreate .venv via scripts/create_venv.sh before testing",
+    )
+    parser.add_argument(
+        "--python",
+        default=os.environ.get("PYTHON_BIN", "python3"),
+        help="Python interpreter for --create-venv/--new-venv",
+    )
+    parser.add_argument(
         "--skip-install",
         action="store_true",
         help="Skip pip upgrade and dependency install",
@@ -58,14 +73,22 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     venv_dir = repo_root / ".venv"
     python_exe = venv_python_path(venv_dir)
-    if not python_exe.exists():
-        parser.error(f"Expected venv interpreter at {python_exe}. Create the repo-local .venv first.")
+    create_venv = args.create_venv or args.new_venv
 
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
     results_dir = Path(args.results_dir) if args.results_dir else repo_root / "working-memory" / "test-results"
     report_file = Path(args.report_file) if args.report_file else results_dir / f"full-suite-{timestamp}.json"
     results_dir = report_file.parent
     results_dir.mkdir(parents=True, exist_ok=True)
+
+    create_venv_cmd = [
+        "bash",
+        str(repo_root / "scripts" / "create_venv.sh"),
+        "--python",
+        str(args.python),
+    ]
+    if args.new_venv:
+        create_venv_cmd.append("--recreate")
 
     pip_upgrade_cmd = [str(python_exe), "-m", "pip", "install", "-U", "pip"]
     pip_install_cmd = [
@@ -98,7 +121,9 @@ def main() -> int:
 
     print(f"Repo root: {repo_root}", flush=True)
     print(f"Report file: {report_file}", flush=True)
-    if not args.skip_install:
+    if create_venv:
+        print(f"Venv step: {shell_join(create_venv_cmd)}", flush=True)
+    if not args.skip_install and not create_venv:
         print(f"Install step: {shell_join(pip_upgrade_cmd)}", flush=True)
         print(f"Install step: {shell_join(pip_install_cmd)}", flush=True)
     print(f"Test step: {shell_join(pytest_cmd)}", flush=True)
@@ -106,7 +131,13 @@ def main() -> int:
     if args.dry_run:
         return 0
 
-    if not args.skip_install:
+    if create_venv:
+        subprocess.run(create_venv_cmd, cwd=repo_root, check=True)
+
+    if not python_exe.exists():
+        parser.error(f"Expected venv interpreter at {python_exe}. Create the repo-local .venv first.")
+
+    if not args.skip_install and not create_venv:
         subprocess.run(pip_upgrade_cmd, cwd=repo_root, check=True)
         subprocess.run(pip_install_cmd, cwd=repo_root, check=True)
 
