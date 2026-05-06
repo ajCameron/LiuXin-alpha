@@ -4,20 +4,22 @@ many-many fields represent items such as manifestation tags.
 from __future__ import annotations
 
 import abc
-import dataclasses
 
-from typing import TYPE_CHECKING, Union, Generic, TypeVar, Optional, Sequence
+from typing import TYPE_CHECKING, Union, TypeVar, Optional, Sequence
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api import (
     RelationFieldBasicInterfaceAPI,
 )
+from LiuXin_alpha.caches.updates.field_updates import ManyManyInTwoTableFieldUpdate
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import (
+    IndividualLinkProperties)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.single_table import (
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
         StorageStorageCacheSingleTableAPI,
     )
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.many_many_tables import (
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.many_many_tables_api import (
         StorageCacheManyToManyLinkTable,
     )
     from LiuXin_alpha.databases.db_types import (
@@ -28,91 +30,6 @@ if TYPE_CHECKING:
     )
 
 T = TypeVar("T")
-
-
-@dataclasses.dataclass
-class SrcDstIDMixin:
-    """
-    Identify one concrete src/dst edge.
-    """
-
-    src_table: MainTableName
-    src_table_id: MainTableID
-
-    dst_table: MainTableName
-    dst_table_id: MainTableID
-
-
-@dataclasses.dataclass
-class LinkPropertiesMixin:
-    """
-    Link-level properties for many-many relationships.
-    """
-
-    priority: Optional[int] = None
-    primary: Optional[bool] = None
-    type: Optional[str] = None
-    origin: Optional[str] = None
-    policy: Optional[str] = None
-    data: Optional[str] = None
-    index: Optional[int] = None
-
-
-@dataclasses.dataclass
-class IndividualLinkProperties(LinkPropertiesMixin, SrcDstIDMixin):
-    """
-    Properties of one concrete link between two tables.
-    """
-
-
-@dataclasses.dataclass
-class ManyManyInTwoTableFieldUpdate(Generic[T]):
-    """
-    Update for a many-to-many field stored across a link table and a dst table.
-
-    The mapping is keyed by the src table id and valued with the values to be
-    written into the dst table target column.
-
-    ``deleted_ids`` means "detach/clear this field from these src rows", not
-    "delete the src rows themselves". Implementations may mutate links and, if
-    explicitly supported, create or remove related dst rows.
-    """
-
-    src_table: MainTableName
-    dst_table: MainTableName
-
-    dst_table_target_column: MainTableColumnName
-
-    added_maps: dict[MainTableID, Sequence[Optional[T]]]
-    updated_maps: dict[MainTableID, Sequence[Optional[T]]]
-    deleted_ids: set[MainTableID]
-    dirtied: set[MainTableID]
-
-    unique: bool = False
-
-    # Explicit per-src replacement payload for link-oriented operations.
-    # When provided for a src id, implementations should treat the sequence as
-    # the authoritative desired set of linked dst rows for that src.
-    link_replacements: dict[MainTableID, Sequence[LinkDstUpdate[T]]] = dataclasses.field(default_factory=dict)
-
-
-@dataclasses.dataclass
-class LinkDstUpdateMixin(Generic[T]):
-    """
-    We're adding/updating a dst row with optional link properties.
-    """
-
-    dst_table: MainTableName
-    dst_table_target_column: MainTableColumnName
-    dst_col_val: Optional[T]
-    dst_table_id: Optional[MainTableID] = None
-
-
-@dataclasses.dataclass
-class LinkDstUpdate(LinkPropertiesMixin, LinkDstUpdateMixin[T]):
-    """
-    Update for one concrete linked dst row.
-    """
 
 
 class ManyToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):

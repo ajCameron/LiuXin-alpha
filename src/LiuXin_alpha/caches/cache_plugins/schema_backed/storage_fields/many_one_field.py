@@ -6,12 +6,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, cast
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.many_one_field import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_one_field import (
     IndividualLinkProperties,
     ManyOneInTwoTableFieldUpdate,
     ManyToOneFieldAPI,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.single_table import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table import (
     StorageCacheSingleTableAPI,
 )
 

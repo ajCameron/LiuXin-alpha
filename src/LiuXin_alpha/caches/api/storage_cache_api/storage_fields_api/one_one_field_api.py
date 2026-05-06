@@ -1,86 +1,173 @@
 """
-many-one fields represent items such as a manifestation's publisher.
+Fields within and without tables on the database.
 """
 from __future__ import annotations
 
 import abc
 import dataclasses
 
-from typing import TYPE_CHECKING, Union, Generic, TypeVar, Optional, Sequence
+from typing import TYPE_CHECKING, Union, TypeVar, Generic, Optional
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api import (
     RelationFieldBasicInterfaceAPI,
+    ScalarFieldBasicInterfaceAPI,
 )
+
+from LiuXin_alpha.caches.updates.field_updates import OneOneInOneTableFieldUpdate
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.single_table import (
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_one_tables_api import (
+        StorageCacheOneToOneLinkTableAPI,
+    )
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
         StorageStorageCacheSingleTableAPI,
     )
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.many_one_tables import (
-        StorageCacheManyToOneLinkTable,
-    )
     from LiuXin_alpha.databases.db_types import (
-        MainTableName,
         MainTableColumnName,
         MainTableID,
-        InterlinkExtraTypes,
+        MainTableName,
     )
 
 T = TypeVar("T")
 
 
+class CacheOneOneInSameTableFieldAPI(ScalarFieldBasicInterfaceAPI[T]):
+    """
+    Represents a one-to-one field stored directly in a single table.
+    """
+
+    # The table the column is in.
+    in_table: "StorageStorageCacheSingleTableAPI"
+
+    _table_id_col: "MainTableName"
+    _table_cached_col: "MainTableName"
+
+    _db: "DatabaseAPI"
+
+    def __init__(
+        self,
+        in_table: Union["StorageStorageCacheSingleTableAPI", "MainTableName"],
+        db: "DatabaseAPI",
+    ) -> None:
+        """
+        Startup the cache.
+
+        :param in_table:
+        :param db:
+        """
+        self.in_table = self.get_main_table(in_table)
+        self._db = db
+
+    @abc.abstractmethod
+    def update(self, update: OneOneInOneTableFieldUpdate[T]) -> None:
+        """
+        Update the field, and the underlying table/db.
+
+        Implementations should treat this as a field-value mutation surface.
+        Clearing a field value must not delete the owning rows.
+
+        :param update:
+        :return:
+        """
+
+    @property
+    def table_name(self) -> MainTableName:
+        """
+        Get the name of the table we're in.
+
+        :return:
+        """
+        return self.in_table.table
+
+    @property
+    @abc.abstractmethod
+    def ids(self) -> set[MainTableID]:
+        """
+        Return all the ids known to this field.
+
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def values(self) -> list[T]:
+        """
+        Return all the values known to this field.
+
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def values_set(self) -> set[T]:
+        """
+        Return all the values known to this field.
+
+        :return:
+        """
+
+    @property
+    @abc.abstractmethod
+    def ids_values_map(self) -> dict[MainTableID, Optional[T]]:
+        """
+        Return all known ids mapped to their current value.
+
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_value_from_id(self, table_id: MainTableID) -> Optional[T]:
+        """
+        Get the cached value for the given id.
+
+        :param table_id:
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_ids_from_value(self, value: T) -> list[MainTableID]:
+        """
+        Get ids matching the given value.
+
+        Uniqueness is not guaranteed.
+
+        :param value:
+        :return:
+        """
+
+
+class CacheOneOneInSameTableFieldUniqueAPI(CacheOneOneInSameTableFieldAPI[T]):
+    """
+    Field in one table where the values are unique.
+    """
+
+    @abc.abstractmethod
+    def get_id_from_value(self, value: T) -> Optional[MainTableID]:
+        """
+        Match an id to an existing value.
+
+        :param value:
+        :return:
+        """
+
+
 @dataclasses.dataclass
-class SrcDstIDMixin:
+class OneOneInTwoTableFieldUpdate(Generic[T]):
     """
-    Identify one concrete src/dst edge.
-    """
-
-    src_table: MainTableName
-    src_table_id: MainTableID
-
-    dst_table: MainTableName
-    dst_table_id: MainTableID
-
-
-@dataclasses.dataclass
-class LinkPropertiesMixin:
-    """
-    Link-level properties for many-one relationships.
-    """
-
-    priority: Optional[int] = None
-    primary: Optional[bool] = None
-    type: Optional[str] = None
-    origin: Optional[str] = None
-    policy: Optional[str] = None
-    data: Optional[str] = None
-    index: Optional[int] = None
-
-
-@dataclasses.dataclass
-class IndividualLinkProperties(LinkPropertiesMixin, SrcDstIDMixin):
-    """
-    Properties of one concrete link between two tables.
-    """
-
-
-@dataclasses.dataclass
-class ManyOneInTwoTableFieldUpdate(Generic[T]):
-    """
-    Update for a many-to-one field stored across a link table and a dst table.
+    Update for a one-to-one field stored across a link table and a dst table.
 
     The mapping is keyed by the src table id and valued with the value to be
     written into the dst table target column.
 
-    ``deleted_ids`` means "detach/clear this field from these src rows", not
-    "delete the src rows themselves". Implementations may mutate links and, if
-    explicitly supported, create or remove related dst rows.
+    As with same-table field updates, ``deleted_ids`` is field-oriented and
+    should clear/sever the field mapping rather than delete the src rows.
+    A concrete relation field may also clean up link rows or related rows if it
+    explicitly advertises that capability.
     """
 
     src_table: MainTableName
     dst_table: MainTableName
-
     dst_table_target_column: MainTableColumnName
 
     added_maps: dict[MainTableID, Optional[T]]
@@ -101,51 +188,29 @@ class ManyOneInTwoTableFieldUpdate(Generic[T]):
     create_missing_related_rows: bool = False
 
 
-@dataclasses.dataclass
-class LinkDstUpdateMixin(Generic[T]):
+class CacheOneOneInTwoTableFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     """
-    We're adding/updating a dst row with optional link properties.
-    """
-
-    dst_table: MainTableName
-    dst_table_target_column: MainTableColumnName
-    dst_col_val: Optional[T]
-
-
-@dataclasses.dataclass
-class LinkDstUpdate(LinkPropertiesMixin, LinkDstUpdateMixin[T]):
-    """
-    Update for one concrete linked dst row.
+    Represents a one-to-one field where the value lives in a dst table linked
+    to a src table by a one-to-one link table.
     """
 
-
-class ManyToOneFieldAPI(RelationFieldBasicInterfaceAPI[T]):
-    """
-    Many-to-one field over a src table, a dst table, and a many-to-one link table.
-
-    The field is keyed by src ids and exposes values from the dst table.
-    Each src id resolves to at most one dst row/value, while one dst row may be
-    shared by many src rows.
-    """
-
-    # Many-to-one fields have many entries in one table and one entry in another.
     src_table: "StorageStorageCacheSingleTableAPI"
     dst_table: "StorageStorageCacheSingleTableAPI"
 
-    # We key by a src id column and cache values from this dst column.
+    # We identify the src row by this column and cache the value from this dst column.
     src_table_id_col: MainTableColumnName
     dst_table_cache_col: MainTableColumnName
 
     # Connecting the two tables.
-    link_table: "StorageCacheManyToOneLinkTable"
+    link_table: "StorageCacheOneToOneLinkTableAPI"
 
     _db: "DatabaseAPI"
 
     def __init__(
         self,
-        src_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
+        src_table: Union["StorageStorageCacheSingleTableAPI", "MainTableName"],
         src_table_id_col: MainTableColumnName,
-        dst_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
+        dst_table: Union["StorageStorageCacheSingleTableAPI", "MainTableName"],
         dst_table_cache_col: MainTableColumnName,
         db: "DatabaseAPI",
     ) -> None:
@@ -173,9 +238,9 @@ class ManyToOneFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         self,
         src_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
         dst_table: Union["StorageStorageCacheSingleTableAPI", MainTableName],
-    ) -> "StorageCacheManyToOneLinkTable":
+    ) -> "StorageCacheOneToOneLinkTableAPI":
         """
-        Resolve the many-to-one link table connecting the two tables.
+        Resolve the one-to-one link table connecting the two tables.
 
         :param src_table:
         :param dst_table:
@@ -183,7 +248,7 @@ class ManyToOneFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         """
 
     @abc.abstractmethod
-    def update(self, update: ManyOneInTwoTableFieldUpdate[T]) -> None:
+    def update(self, update: OneOneInTwoTableFieldUpdate[T]) -> None:
         """
         Update the field, and the underlying tables/db.
 
@@ -282,39 +347,27 @@ class ManyToOneFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         """
 
     @abc.abstractmethod
-    def get_dst_id_from_src_id(
-        self,
-        src_id: MainTableID,
-        type_filter: Optional[str] = None,
-    ) -> Optional[MainTableID]:
+    def get_dst_id_from_src_id(self, src_id: MainTableID) -> Optional[MainTableID]:
         """
         Resolve the linked dst id for the given src id.
 
         :param src_id:
-        :param type_filter:
         :return:
         """
 
     @abc.abstractmethod
-    def get_src_ids_from_dst_id(
-        self,
-        dst_id: MainTableID,
-        require_ordering: bool = False,
-        type_filter: Optional[str] = None,
-    ) -> Sequence[MainTableID]:
+    def get_src_id_from_dst_id(self, dst_id: MainTableID) -> Optional[MainTableID]:
         """
-        Resolve linked src ids for the given dst id.
+        Resolve the linked src id for the given dst id.
 
         :param dst_id:
-        :param require_ordering:
-        :param type_filter:
         :return:
         """
 
     @abc.abstractmethod
     def get_src_ids_from_value(self, value: T) -> list[MainTableID]:
         """
-        Get src ids whose linked dst rows expose the given value.
+        Get src ids matching the given value.
 
         Uniqueness is not guaranteed.
 
@@ -333,62 +386,26 @@ class ManyToOneFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         :return:
         """
 
-    @abc.abstractmethod
-    def get_link_properties(
-        self,
-        src_id: MainTableID,
-        dst_id: MainTableID,
-    ) -> IndividualLinkProperties:
-        """
-        Return link properties for the given src/dst pair.
 
-        :param src_id:
-        :param dst_id:
+class CacheOneOneInTwoTableFieldUniqueAPI(CacheOneOneInTwoTableFieldAPI[T]):
+    """
+    Field across two tables where the values are unique.
+    """
+
+    @abc.abstractmethod
+    def get_src_id_from_unique_value(self, value: T) -> Optional[MainTableID]:
+        """
+        Match a src id to an existing unique value.
+
+        :param value:
         :return:
         """
 
     @abc.abstractmethod
-    def set_link_properties(
-        self,
-        updated_link_properties: IndividualLinkProperties,
-    ) -> None:
+    def get_dst_id_from_unique_value(self, value: T) -> Optional[MainTableID]:
         """
-        Write link properties out to the cache.
+        Match a dst id to an existing unique value.
 
-        :param updated_link_properties:
-        :return:
-        """
-
-    @abc.abstractmethod
-    def get_extra(
-        self,
-        src_id: MainTableID,
-        dst_id: MainTableID,
-        extra_type: InterlinkExtraTypes,
-    ) -> Optional[str | bool | int]:
-        """
-        Get one extra value from the link row.
-
-        :param src_id:
-        :param dst_id:
-        :param extra_type:
-        :return:
-        """
-
-    @abc.abstractmethod
-    def set_extra(
-        self,
-        src_id: MainTableID,
-        dst_id: MainTableID,
-        extra_type: InterlinkExtraTypes,
-        new_extra_value: Optional[str | bool | int],
-    ) -> None:
-        """
-        Write one extra value to the cache.
-
-        :param src_id:
-        :param dst_id:
-        :param extra_type:
-        :param new_extra_value:
+        :param value:
         :return:
         """

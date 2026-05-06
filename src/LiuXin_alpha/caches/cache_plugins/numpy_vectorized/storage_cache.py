@@ -14,47 +14,48 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
     StorageCacheAPI,
     StorageCacheCapabilities,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field import (
     FieldBasicInterfaceAPI,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.many_many_field import (
-    IndividualLinkProperties as ManyManyIndividualLinkProperties,
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_many_field import (
     ManyManyInTwoTableFieldUpdate,
     ManyToManyFieldAPI,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.many_one_field import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import \
+    IndividualLinkProperties as ManyManyIndividualLinkProperties
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_one_field import (
     IndividualLinkProperties as ManyOneIndividualLinkProperties,
     ManyOneInTwoTableFieldUpdate,
     ManyToOneFieldAPI,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.one_many_field import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.one_many_field import (
     IndividualLinkProperties as OneManyIndividualLinkProperties,
     OneManyInTwoTableFieldUpdate,
     OneToManyFieldAPI,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.one_one_field import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.one_one_field import (
     CacheOneOneInSameTableFieldAPI,
     CacheOneOneInTwoTableFieldAPI,
     OneOneInOneTableFieldUpdate,
     OneOneInTwoTableFieldUpdate,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.base_table import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table import (
     TableMetadata,
     TableTypes,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.many_many_tables import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.many_many_tables import (
     StorageCacheManyToManyLinkTable,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.many_one_tables import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.many_one_tables import (
     StorageCacheManyToOneLinkTable,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.one_many_tables import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_many_tables import (
     StorageCacheOneToManyLinkTable,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.one_one_tables import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_one_tables import (
     StorageCacheOneToOneLinkTable,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.single_table import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table import (
     StorageCacheSingleTableAPI,
 )
 from LiuXin_alpha.caches.cache_plugins.numpy_vectorized.link_table import (

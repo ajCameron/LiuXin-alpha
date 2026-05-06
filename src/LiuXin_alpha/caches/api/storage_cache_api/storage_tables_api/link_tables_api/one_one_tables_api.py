@@ -8,14 +8,14 @@ import dataclasses
 
 from typing import Optional, TYPE_CHECKING, Sequence, Any
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.base_table import TableTypes
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.link_table_base import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table import TableTypes
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.link_table_base_api import (
     StorageCacheLinkTableBaseAPI,
     T,
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.table_updates import (
+    from LiuXin_alpha.caches.updates.table_updates import (
         OneOneInterLinkTableUpdate,
         OneOneInterLinkTableUpdateResults,
     )

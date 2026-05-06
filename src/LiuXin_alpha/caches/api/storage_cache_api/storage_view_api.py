@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from LiuXin_alpha.databases.db_types import MainTableID, MainTableName
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field import (
         FieldBasicInterfaceAPI,
     )
 

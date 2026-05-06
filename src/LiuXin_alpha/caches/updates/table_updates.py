@@ -278,7 +278,9 @@ class ManyManyInterlinkTableUpdate:
 
 
 class ManyManyInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
-    ...
+    """
+    The results of updating a Many to Many table.
+    """
 
 
 
