@@ -1007,7 +1007,7 @@ class calibreMetadata(object):
         return "<table>%s</table>" % "\n".join(ans)
 
     def __str__(self):
-        return self.__unicode__().encode("utf-8")
+        return self.__unicode__()
 
     def __nonzero__(self):
         return bool(self.title or self.author or self.comments or self.tags)

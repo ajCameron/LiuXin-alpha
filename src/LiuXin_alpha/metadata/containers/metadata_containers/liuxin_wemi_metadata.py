@@ -675,6 +675,55 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         """
         return self._sync_legacy_terms_from_wemi(field="labels", relation="labels")
 
+    def sync_legacy_genres_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy ``genre`` from WEMI genre relation targets.
+        """
+        return self._sync_legacy_terms_from_wemi(field="genre", relation="genres")
+
+    def sync_legacy_series_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy ``series`` from WEMI series relation targets.
+        """
+        return self._sync_legacy_terms_from_wemi(field="series", relation="series")
+
+    def sync_legacy_identifiers_from_wemi(self) -> tuple[tuple[str, str], ...]:
+        """
+        Populate legacy external identifiers from WEMI identifier relation targets.
+        """
+        synced: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = {
+            (str(scheme).casefold(), str(value).casefold())
+            for scheme, values in self.get_identifiers().items()
+            for value in values
+        }
+
+        for level in self._LEVELS:
+            try:
+                links = self.get_wemi_relation_links(level, "identifiers")
+            except KeyError:
+                continue
+            for link in links:
+                pair = self._wemi_identifier_pair(link.target)
+                if pair is None:
+                    continue
+                scheme, value = pair
+                key = (scheme.casefold(), value.casefold())
+                if key in seen:
+                    continue
+                before = set(seen)
+                self.set_identifier(scheme, value)
+                seen = {
+                    (str(saved_scheme).casefold(), str(saved_value).casefold())
+                    for saved_scheme, values in self.get_identifiers().items()
+                    for saved_value in values
+                }
+                if seen == before:
+                    continue
+                synced.append((scheme, value))
+
+        return tuple(synced)
+
     def _sync_legacy_terms_from_wemi(self, *, field: str, relation: str) -> tuple[str, ...]:
         data = object.__getattribute__(self, "_data")
         terms = data[field]
@@ -714,6 +763,15 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
         for key in (
             "label_text",
+            "genre_full",
+            "genre",
+            "genre_name",
+            "series_full",
+            "series",
+            "series_name",
+            "subject_full",
+            "subject",
+            "subject_name",
             "tag_name",
             "tag",
             "name",
@@ -739,7 +797,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         else:
             mapping = {}
 
-        for key in ("label_id", "tag_id", "id"):
+        for key in ("label_id", "genre_id", "series_id", "subject_id", "tag_id", "id"):
             value = mapping.get(key)
             if value is None and not mapping:
                 value = getattr(target, key, None)
@@ -752,6 +810,52 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         if isinstance(target, Row) and target.row_id is not None:
             return int(target.row_id)
         return None
+
+    @staticmethod
+    def _wemi_identifier_pair(target: Any) -> tuple[str, str] | None:
+        mapping: Mapping[str, Any]
+        if isinstance(target, Row):
+            mapping = target.row_dict
+        elif isinstance(target, Mapping):
+            mapping = target
+        else:
+            mapping = {}
+
+        scheme = None
+        for key in (
+            "entity_identifier_scheme",
+            "item_identifier_scheme",
+            "identifier_scheme",
+            "scheme",
+            "type",
+        ):
+            scheme = mapping.get(key)
+            if scheme is None and not mapping:
+                scheme = getattr(target, key, None)
+            if scheme not in (None, ""):
+                break
+
+        value = None
+        for key in (
+            "entity_identifier_value",
+            "item_identifier_value",
+            "identifier_value",
+            "value",
+            "identifier",
+        ):
+            value = mapping.get(key)
+            if value is None and not mapping:
+                value = getattr(target, key, None)
+            if value not in (None, ""):
+                break
+
+        if scheme in (None, "") or value in (None, ""):
+            return None
+        scheme_text = str(scheme).strip()
+        value_text = str(value).strip()
+        if not scheme_text or not value_text:
+            return None
+        return scheme_text, value_text
 
     @classmethod
     def _is_empty_pretty_value(cls, value: Any) -> bool:
