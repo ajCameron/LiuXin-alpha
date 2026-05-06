@@ -8,6 +8,7 @@ user-facing sort semantics, and views belong in the InterfaceCache layer.
 from __future__ import annotations
 
 import abc
+import inspect
 from dataclasses import dataclass
 
 from typing import TYPE_CHECKING, Any, ClassVar, Iterable, Mapping, Optional, Sequence, Union
@@ -413,6 +414,127 @@ class StorageCacheAPI(abc.ABC):
         :param table_type:
         :return:
         """
+
+    @staticmethod
+    def _call_link_row_getter(
+        link_table: StorageCacheLinkTableBaseAPI[Any],
+        getter_name: str,
+        row_id: int,
+        *,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence[Any]:
+        getter = getattr(link_table, getter_name, None)
+        if not callable(getter):
+            raise AttributeError(
+                f"Link table {link_table.table!r} does not expose {getter_name!r}"
+            )
+
+        kwargs: dict[str, Any] = {}
+        try:
+            parameters = inspect.signature(getter).parameters
+        except (TypeError, ValueError):
+            parameters = {}
+            accepts_arbitrary_kwargs = True
+        else:
+            accepts_arbitrary_kwargs = any(
+                parameter.kind == inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters.values()
+            )
+        if accepts_arbitrary_kwargs or "require_ordering" in parameters:
+            kwargs["require_ordering"] = require_ordering
+        if accepts_arbitrary_kwargs or "type_filter" in parameters:
+            kwargs["type_filter"] = type_filter
+
+        rows = getter(int(row_id), **kwargs)
+        if rows is None:
+            return ()
+        if hasattr(rows, "row_dict") or isinstance(rows, dict):
+            return (rows,)
+        if isinstance(rows, (str, bytes)):
+            return (rows,)
+        try:
+            return tuple(rows)
+        except TypeError:
+            return (rows,)
+
+    @classmethod
+    def _call_link_rows_for_side(
+        cls,
+        link_table: StorageCacheLinkTableBaseAPI[Any],
+        row_id: int,
+        *,
+        side: str,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence[Any]:
+        plural_getter = f"get_link_rows_for_{side}"
+        singular_getter = f"get_link_row_for_{side}"
+
+        try:
+            return cls._call_link_row_getter(
+                link_table,
+                plural_getter,
+                int(row_id),
+                require_ordering=require_ordering,
+                type_filter=type_filter,
+            )
+        except AttributeError:
+            row = cls._call_link_row_getter(
+                link_table,
+                singular_getter,
+                int(row_id),
+                type_filter=type_filter,
+            )
+            return row
+
+    def get_link_rows_for_source(
+        self,
+        source_table: Union["MainTableName", StorageCacheSingleTableAPI],
+        source_id: "MainTableID",
+        target_table: Union["MainTableName", StorageCacheSingleTableAPI],
+        *,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence[Any]:
+        """
+        Return raw link rows from the caller's source row toward a target table.
+
+        This is source-oriented: callers do not need to know whether the cache
+        stores the underlying link table in the requested direction or in the
+        reverse direction.
+
+        :param source_table:
+        :param source_id:
+        :param target_table:
+        :param require_ordering:
+        :param type_filter:
+        :return:
+        """
+        try:
+            link_table = self.get_link_table(source_table, target_table)
+        except KeyError:
+            link_table = None
+        if link_table is not None:
+            return self._call_link_rows_for_side(
+                link_table,
+                int(source_id),
+                side="src",
+                require_ordering=require_ordering,
+                type_filter=type_filter,
+            )
+
+        try:
+            reverse_link_table = self.get_link_table(target_table, source_table)
+        except KeyError as exc:
+            raise KeyError((source_table, target_table)) from exc
+        return self._call_link_rows_for_side(
+            reverse_link_table,
+            int(source_id),
+            side="dst",
+            require_ordering=require_ordering,
+            type_filter=type_filter,
+        )
 
     @abc.abstractmethod
     def get_one_one_link_table(

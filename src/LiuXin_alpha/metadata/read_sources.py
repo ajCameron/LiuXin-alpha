@@ -147,6 +147,27 @@ class CacheMetadataReadSource:
         if primary_id is None:
             return ()
 
+        source_getter = getattr(self.cache, "get_link_rows_for_source", None)
+        if callable(source_getter):
+            try:
+                return tuple(
+                    source_getter(
+                        primary_table,
+                        int(primary_id),
+                        str(secondary_table),
+                        require_ordering=True,
+                    )
+                )
+            except KeyError:
+                pass
+            except TypeError:
+                try:
+                    return tuple(source_getter(primary_table, int(primary_id), str(secondary_table)))
+                except KeyError:
+                    pass
+                except TypeError:
+                    pass
+
         link_table = self._get_link_table(primary_table, secondary_table)
         if link_table is not None:
             getter = getattr(link_table, "get_link_rows_for_src", None)

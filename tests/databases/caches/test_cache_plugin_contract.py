@@ -226,6 +226,30 @@ def test_cache_plugin_link_table_reverse_and_pair_lookups_are_readable(contract_
     assert many_many.has_link(1, 40) is True
 
 
+def test_cache_plugin_source_oriented_link_rows_hide_storage_orientation(contract_cache) -> None:
+    forward_rows = tuple(
+        contract_cache.get_link_rows_for_source(
+            "books",
+            1,
+            "tags",
+            require_ordering=True,
+        )
+    )
+    reverse_rows = tuple(
+        contract_cache.get_link_rows_for_source(
+            "tags",
+            40,
+            "books",
+            require_ordering=True,
+        )
+    )
+
+    assert [row.row_dict["id"] for row in forward_rows] == [200, 201]
+    assert [row.row_dict["tag_id"] for row in forward_rows] == [40, 41]
+    assert [row.row_dict["id"] for row in reverse_rows] == [200]
+    assert [row.row_dict["book_id"] for row in reverse_rows] == [1]
+
+
 def test_cache_plugin_one_to_one_relation_fields_are_discovered_and_readable(
     contract_cache,
 ) -> None:
