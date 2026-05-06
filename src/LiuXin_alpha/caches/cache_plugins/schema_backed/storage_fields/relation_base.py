@@ -9,7 +9,7 @@ import dataclasses
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Generic, Iterable, Optional, Sequence, TypeVar, Union, cast
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.single_table import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table import (
     StorageCacheSingleTableAPI,
 )
 

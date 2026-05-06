@@ -8,7 +8,7 @@ import abc
 
 from typing import TYPE_CHECKING, Mapping, Sequence, Any, Optional, Iterable
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.base_table import StorageCacheBaseTableAPI
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table_api import StorageCacheBaseTableAPI
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI

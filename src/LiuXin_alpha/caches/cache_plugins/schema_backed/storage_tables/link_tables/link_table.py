@@ -9,23 +9,23 @@ from copy import deepcopy
 
 from typing import Any, Mapping, Optional, Sequence, cast
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.base_table import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table import (
     TableMetadata,
     TableTypes,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.many_many_tables import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.many_many_tables import (
     ManyManyLink,
     StorageCacheManyToManyLinkTable,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.many_one_tables import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.many_one_tables import (
     ManyOneLink,
     StorageCacheManyToOneLinkTable,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.one_many_tables import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_many_tables import (
     OneManyLink,
     StorageCacheOneToManyLinkTable,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.link_tables.one_one_tables import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_one_tables import (
     OneOneLink,
     StorageCacheOneToOneLinkTable,
 )

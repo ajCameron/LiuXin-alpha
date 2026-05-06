@@ -11,10 +11,10 @@ import abc
 
 from typing import TYPE_CHECKING, TypeVar, Generic
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.base_table import StorageCacheBaseTableAPI
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table import StorageCacheBaseTableAPI
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.base_table import TableTypes
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table import TableTypes
 
 T = TypeVar("T")
 

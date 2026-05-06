@@ -6,7 +6,7 @@ from typing import ClassVar, Generic, TYPE_CHECKING, Union, TypeVar, Iterable, O
 from LiuXin_alpha.databases.api import DatabaseAPI
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables.single_table import (
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table import (
         StorageStorageCacheSingleTableAPI,
     )
     from LiuXin_alpha.databases.db_types import MainTableName, MainTableID

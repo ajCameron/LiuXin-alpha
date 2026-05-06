@@ -1,4 +1,8 @@
 
+"""
+Base class for all cache table APIS.
+"""
+
 import abc
 
 from typing import TYPE_CHECKING
