@@ -902,6 +902,7 @@ def test_lazy_liuxin_wemi_metadata_can_force_hydrate_fields() -> None:
         "synopses",
         "ratings",
         "files",
+        "identifiers",
         "languages_available",
     }
     assert list(metadata.direct_get("tags").keys()) == ["Space Opera"]

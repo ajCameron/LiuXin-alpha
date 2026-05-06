@@ -916,7 +916,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         if isinstance(value, str):
             text = " ".join(value.split())
         elif isinstance(value, Mapping):
-            items = list(value.items())
+            items = sorted(value.items(), key=lambda item: str(item[0]).casefold())
             rendered = [
                 "{}={}".format(key, cls._format_pretty_value(one_value))
                 for key, one_value in items[:max_items]

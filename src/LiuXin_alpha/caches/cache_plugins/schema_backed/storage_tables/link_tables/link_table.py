@@ -140,8 +140,12 @@ class SchemaBackedLinkTable(
         return ordered
 
     def _to_row_dicts(self) -> list[dict[str, Any]]:
-        rows = self.db.get_all_rows(self.table, iterator_return=False)
-        return [deepcopy(row.row_dict) for row in rows]
+        try:
+            rows = self.db.driver_wrapper.get_all_rows(self.table)
+            return [deepcopy(dict(row)) for row in rows]
+        except AttributeError:
+            rows = self.db.get_all_rows(self.table, iterator_return=False)
+            return [deepcopy(row.row_dict) for row in rows]
 
     def _unique_single_columns(self) -> set[str]:
         conn = getattr(self.db, "conn", None)

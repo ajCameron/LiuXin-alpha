@@ -111,8 +111,11 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
     def read(self, db: Any) -> None:
         db = _ensure_db(self.db, db)
         self.db = db
-        rows = db.get_all_rows(self.table, iterator_return=False)
-        row_dicts = [row.row_dict for row in rows]
+        try:
+            row_dicts = db.driver_wrapper.get_all_rows(self.table)
+        except AttributeError:
+            rows = db.get_all_rows(self.table, iterator_return=False)
+            row_dicts = [row.row_dict for row in rows]
         self._replace_rows(row_dicts)
 
     def reload(self, db: Any) -> None:
