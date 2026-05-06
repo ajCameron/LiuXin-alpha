@@ -18,7 +18,7 @@ concurrency:
 env:
   # Which version of the reports Sonar receives.
   DEFAULT_OS: ubuntu
-  DEFAULT_PYTHON: "3.10"
+  DEFAULT_PYTHON: "3.12"
 
 jobs:
   test:
@@ -30,11 +30,11 @@ jobs:
       matrix:
         name: ["lint", "test"]
         os: ["ubuntu", "macos", "windows"]
-        version: ["3.10", "3.11"]
+        version: ["3.12"]
         exclude:
-          - name: Lint
+          - name: lint
             os: macos
-          - name: Lint
+          - name: lint
             os: windows
 
     steps:
@@ -47,7 +47,7 @@ jobs:
           python-version: ${{ matrix.version }}
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            pyproject.toml
             requirements-dev.txt
 
       - name: Install mewbot-dev-tools to allow dep install
@@ -104,7 +104,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            pyproject.toml
             requirements-dev.txt
 
       - name: Download Artifacts
