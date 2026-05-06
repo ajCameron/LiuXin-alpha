@@ -1,11 +1,14 @@
-"""Central database-backed metadata hydrator API.
 
-Category: metadata source orchestration API.
-This module defines the high-level hydrator surface that composes specialised
-database sources into complete metadata objects for callers such as stores.
+"""
+Methods for loading metadata back to the database.
+
+The intent is to take a metadata object and write it back into the table.
 """
 
 from __future__ import annotations
+
+import abc
+
 
 import abc
 from typing import TYPE_CHECKING, Literal, TypeAlias
@@ -52,8 +55,8 @@ HydratedMetadataAPI: TypeAlias = (
 )
 
 
-class LiuXinWEMIMetadataGetterAPI(abc.ABC):
-    """Read complete LiuXin/WEMI item metadata slices from the database."""
+class LiuXinWEMIMetadataSetterAPI(abc.ABC):
+    """Write complete LiuXin/WEMI item metadata slices from the database."""
 
     db: "DatabaseAPI"
 
@@ -61,18 +64,17 @@ class LiuXinWEMIMetadataGetterAPI(abc.ABC):
         self.db = db
 
     @abc.abstractmethod
-    def get_liuxin_wemi_metadata(
+    def set_liuxin_wemi_metadata(
         self,
-        item_id: "ItemID | None" = None,
-        source_row: "MetadataRecord | Row | None" = None,
-    ) -> "LiuXinWEMIMetadataAPI":
+        setting_md: "LiuXinWEMIMetadataAPI"
+    ) -> bool:
         """
         Get the complete item-centred metadata slice for sidecar storage.
 
-        :param item_id:
-        :param source_row:
+        :para, setting_md: The metadata to set.
         :return:
         """
+
 
 
 class LiuXinMetadataGetterAPI(LiuXinWEMIMetadataGetterAPI):
@@ -121,51 +123,3 @@ class CalibreMetadataGetterAPI(LiuXinWEMIMetadataGetterAPI):
             item_id=item_id,
             source_row=source_row,
         ).as_calibre_metadata()
-
-
-class MetadataObjectGetterAPI(LiuXinMetadataGetterAPI, CalibreMetadataGetterAPI):
-    """Read high-level metadata objects from the database."""
-
-
-class MetadataHydratorAPI(MetadataObjectGetterAPI):
-    """
-    Central hydrator surface for metadata objects produced from the database.
-
-    Specific typed getters remain the canonical path. ``hydrate_metadata`` is a
-    thin dispatch helper for boundary code that chooses the target shape at
-    runtime.
-    """
-
-    @abc.abstractmethod
-    def hydrate_metadata(
-        self,
-        kind: HydratableMetadataKind,
-        *,
-        work_id: "WorkID | None" = None,
-        expression_id: "ExpressionID | None" = None,
-        manifestation_id: "ManifestationID | None" = None,
-        item_id: "ItemID | None" = None,
-        source_row: "MetadataRecord | Row | None" = None,
-    ) -> HydratedMetadataAPI:
-        """
-        Hydrate one metadata shape by explicit kind.
-
-        :param kind:
-        :param work_id:
-        :param expression_id:
-        :param manifestation_id:
-        :param item_id:
-        :param source_row:
-        :return:
-        """
-
-
-__all__ = [
-    "CalibreMetadataGetterAPI",
-    "HydratableMetadataKind",
-    "HydratedMetadataAPI",
-    "LiuXinMetadataGetterAPI",
-    "LiuXinWEMIMetadataGetterAPI",
-    "MetadataHydratorAPI",
-    "MetadataObjectGetterAPI",
-]
