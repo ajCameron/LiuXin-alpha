@@ -20,22 +20,23 @@ env:
 
 jobs:
   test:
-    name: ${{ matrix.name }} Python code (ubuntu/py${{ env.DEFAULT_PYTHON }})
+    name: ${{ matrix.name }} Python code (ubuntu/py${{ matrix.version }})
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
         name: ["lint", "test"]
+        version: ["3.12"]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python ${{ env.DEFAULT_PYTHON }}
+      - name: Setup Python ${{ matrix.version }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.DEFAULT_PYTHON }}
+          python-version: ${{ matrix.version }}
           cache: pip
           cache-dependency-path: |
             pyproject.toml
@@ -52,16 +53,12 @@ jobs:
         shell: bash
         run: python -m compileall -q src tests scripts
 
-      - name: Run focused tests
+      - name: Run tests
         if: matrix.name == 'test'
         env:
           PYTHONPATH: src
         shell: bash
-        run: |
-          pytest -q \
-            tests/metadata/containers \
-            tests/metadata/api \
-            tests/databases/caches/test_cache_plugin_contract.py
+        run: pytest -q tests
 
   tests-passed:
     name: Tests Passed
