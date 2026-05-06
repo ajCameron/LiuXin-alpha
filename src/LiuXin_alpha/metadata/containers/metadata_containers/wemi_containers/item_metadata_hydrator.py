@@ -17,6 +17,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_c
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import (
     ItemMetadata,
 )
+from LiuXin_alpha.metadata.read_sources import metadata_read_source_from
 from LiuXin_alpha.utils.adaptors import _boolish_to_bool
 
 
@@ -34,7 +35,7 @@ class ItemMetadataHydrator:
     def __init__(self, database: Any) -> None:
         if database is None:
             raise ValueError("ItemMetadataHydrator requires a database instance.")
-        self.db = database
+        self.db = metadata_read_source_from(database)
         try:
             self._tables = set(self.db.get_tables(force_refresh=False))
         except Exception:

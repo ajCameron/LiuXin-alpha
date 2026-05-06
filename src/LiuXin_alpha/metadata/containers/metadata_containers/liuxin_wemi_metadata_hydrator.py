@@ -17,6 +17,7 @@ from LiuXin_alpha.metadata.api.from_database_api.metadata_hydrator_api import (
     HydratedMetadataAPI,
     MetadataHydratorAPI,
 )
+from LiuXin_alpha.metadata.read_sources import metadata_read_source_from
 from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata import (
     LiuXinWEMIMetadata,
 )
@@ -57,11 +58,11 @@ class LiuXinWEMIMetadataHydrator(MetadataHydratorAPI):
     def __init__(self, database: Any) -> None:
         if database is None:
             raise ValueError("LiuXinWEMIMetadataHydrator requires a database instance.")
-        self.db = database
-        self._work_hydrator = WorkMetadataHydrator(database)
-        self._expression_hydrator = ExpressionMetadataHydrator(database)
-        self._manifestation_hydrator = ManifestationMetadataHydrator(database)
-        self._item_hydrator = ItemMetadataHydrator(database)
+        self.db = metadata_read_source_from(database)
+        self._work_hydrator = WorkMetadataHydrator(self.db)
+        self._expression_hydrator = ExpressionMetadataHydrator(self.db)
+        self._manifestation_hydrator = ManifestationMetadataHydrator(self.db)
+        self._item_hydrator = ItemMetadataHydrator(self.db)
 
     def get_work_identity(self, work_id: int) -> WorkIdentityAPI:
         metadata = self.get_work_metadata(work_id)
