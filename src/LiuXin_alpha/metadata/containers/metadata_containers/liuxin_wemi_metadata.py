@@ -681,6 +681,12 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         """
         return self._sync_legacy_terms_from_wemi(field="genre", relation="genres")
 
+    def sync_legacy_subjects_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy ``subject`` from WEMI subject relation targets.
+        """
+        return self._sync_legacy_terms_from_wemi(field="subject", relation="subjects")
+
     def sync_legacy_series_from_wemi(self) -> tuple[str, ...]:
         """
         Populate legacy ``series`` from WEMI series relation targets.

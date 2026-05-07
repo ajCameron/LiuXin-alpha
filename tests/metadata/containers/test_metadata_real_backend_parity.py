@@ -7,6 +7,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import pytest
+
+from LiuXin_alpha import metadata as metadata_facade
 from LiuXin_alpha.caches import create_storage_cache
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.metadata.containers import (
@@ -14,6 +17,16 @@ from LiuXin_alpha.metadata.containers import (
     LiuXinWEMIMetadataHydrator,
 )
 from LiuXin_alpha.metadata.read_sources import CacheMetadataReadSource
+
+
+_FORCED_RELATION_FIELDS = (
+    "tags",
+    "labels",
+    "genre",
+    "subject",
+    "series",
+    "identifiers",
+)
 
 
 def _load_isfdb_builder_script() -> Any:
@@ -174,10 +187,11 @@ def _identifier_snapshot(metadata: Any) -> dict[str, tuple[str, ...]]:
 
 def _metadata_snapshot(metadata: Any) -> dict[str, Any]:
     return {
-        "title": metadata.display_title,
+        "title": getattr(metadata, "display_title", None) or getattr(metadata, "title", None),
         "tags": _metadata_values(metadata.tags),
         "labels": _metadata_values(metadata.labels),
         "genres": _metadata_values(metadata.genre),
+        "subjects": _metadata_values(metadata.subject),
         "series": _metadata_values(metadata.series),
         "identifiers": _identifier_snapshot(metadata),
     }
@@ -198,8 +212,49 @@ def _lazy_metadata(db: Any, item_id: int) -> Any:
     metadata = LazyLiuXinWEMIMetadataHydrator(db).get_lazy_liuxin_wemi_metadata(
         item_id=item_id,
     )
-    metadata.force_hydrate(fields=("tags", "labels", "genre", "series", "identifiers"))
+    metadata.force_hydrate(fields=_FORCED_RELATION_FIELDS)
     return metadata
+
+
+def _facade_metadata(
+    db: Any,
+    item_id: int,
+    *,
+    kind: str = "wemi",
+    source: str = "database",
+    lazy: bool = False,
+    cache: Any = None,
+) -> Any:
+    return metadata_facade.metadata_from_database(
+        db,
+        item_id=item_id,
+        kind=kind,
+        source=source,
+        lazy=lazy,
+        cache=cache,
+        allow_database_fallback=False if source == "cache" else True,
+        force_hydrate=_FORCED_RELATION_FIELDS,
+    )
+
+
+def _calibre_snapshot(metadata: Any) -> dict[str, Any]:
+    return {
+        "title": getattr(metadata, "title", None),
+        "tags": _metadata_values(getattr(metadata, "tags", None)),
+        "series": _metadata_values(getattr(metadata, "series", None)),
+        "identifiers": _identifier_snapshot(metadata),
+    }
+
+
+def _flatten_identifier_values(snapshot: dict[str, Any]) -> set[str]:
+    identifiers = snapshot.get("identifiers", {})
+    if not isinstance(identifiers, Mapping):
+        return set()
+    return {
+        str(value)
+        for values in identifiers.values()
+        for value in _metadata_values(values)
+    }
 
 
 def test_isfdb_backed_metadata_database_cache_lazy_parity_and_write_back(
@@ -253,3 +308,99 @@ def test_isfdb_backed_metadata_database_cache_lazy_parity_and_write_back(
         )
         assert rehydrated_snapshot == _metadata_snapshot(_cache_metadata(db, item_id))
         assert rehydrated_snapshot == _metadata_snapshot(_lazy_metadata(db, item_id))
+
+
+@pytest.mark.db
+def test_metadata_rich_fixture_operational_round_trip_contract(
+    provision_test_database,
+) -> None:
+    provisioned = provision_test_database("metadata_rich_db_1")
+    item_id = 1
+
+    with Database(metadata={"database_path": str(provisioned.db_path)}, create=False, backup=False) as db:
+        database_metadata = _facade_metadata(db, item_id, source="database")
+        lazy_database_metadata = _facade_metadata(
+            db,
+            item_id,
+            source="database",
+            lazy=True,
+        )
+
+        baseline = _metadata_snapshot(database_metadata)
+        assert baseline == _metadata_snapshot(lazy_database_metadata)
+
+        assert baseline["title"] == "Metadata Spectrum One"
+        assert set(baseline["tags"]) >= {
+            "dense-roundtrip",
+            "first-work",
+            "metadata_rich_db_1",
+            "odd-indexed-work",
+            "operational-metadata",
+            "profiled-fixture",
+        }
+        assert baseline["labels"] == ("metadata-spectrum",)
+        assert baseline["genres"] == ("Speculative Fiction",)
+        assert baseline["subjects"] == ("Libraries",)
+        assert baseline["series"] == ("Meridian Cycle",)
+        assert "9781111111111" in _flatten_identifier_values(baseline)
+
+        liuxin_metadata = database_metadata.as_liuxin_metadata()
+        assert _metadata_snapshot(liuxin_metadata) == baseline
+        assert "Metadata Spectrum One" in str(liuxin_metadata)
+
+        calibre_database = _calibre_snapshot(database_metadata.as_calibre_metadata())
+        calibre_lazy = _calibre_snapshot(lazy_database_metadata.as_calibre_metadata())
+
+        assert calibre_database == calibre_lazy
+        assert calibre_database["title"] == baseline["title"]
+        assert set(calibre_database["tags"]) >= {
+            "Libraries",
+            "dense-roundtrip",
+            "operational-metadata",
+        }
+        assert calibre_database["series"] == ("Meridian Cycle",)
+        assert "9781111111111" in _flatten_identifier_values(calibre_database)
+
+        no_change_report = database_metadata.write_to_database(
+            db,
+            fields=_FORCED_RELATION_FIELDS,
+        )
+        assert no_change_report.changed is False
+        assert no_change_report.rows_added == []
+        assert no_change_report.links_added == []
+        assert no_change_report.rows_removed == []
+        assert no_change_report.links_removed == []
+
+        database_metadata.tags = "rich-contract-tag"
+        database_metadata.labels = "rich-contract-label"
+        database_metadata.genre = "Rich Contract Genre"
+        database_metadata.subject = "Rich Contract Subject"
+        database_metadata.series = "Rich Contract Series"
+        database_metadata.set_identifier("doi", "10.5555/rich-contract")
+
+        write_report = database_metadata.write_to_database(
+            db,
+            fields=_FORCED_RELATION_FIELDS,
+        )
+        assert write_report.changed is True
+
+        rehydrated = _facade_metadata(db, item_id, source="database")
+        rehydrated_snapshot = _metadata_snapshot(rehydrated)
+        assert "rich-contract-tag" in rehydrated_snapshot["tags"]
+        assert "rich-contract-label" in rehydrated_snapshot["labels"]
+        assert "Rich Contract Genre" in rehydrated_snapshot["genres"]
+        assert "Rich Contract Subject" in rehydrated_snapshot["subjects"]
+        assert "Rich Contract Series" in rehydrated_snapshot["series"]
+        assert "10.5555/rich-contract" in _flatten_identifier_values(rehydrated_snapshot)
+
+        opf_metadata = metadata_facade.metadata_from_opf(
+            metadata_facade.metadata_to_opf_bytes(rehydrated),
+            kind="wemi",
+            database=db,
+            item_id=item_id,
+        )
+        opf_snapshot = _metadata_snapshot(opf_metadata)
+        assert opf_snapshot["title"] == "Metadata Spectrum One"
+        assert "rich-contract-tag" in opf_snapshot["tags"]
+        assert "Rich Contract Series" in opf_snapshot["series"]
+        assert "10.5555/rich-contract" in _flatten_identifier_values(opf_snapshot)
