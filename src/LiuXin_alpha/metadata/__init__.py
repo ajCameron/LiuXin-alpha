@@ -23,17 +23,6 @@ from LiuXin_alpha.metadata.containers import (
     LiuXinWEMIMetadataWriteReport,
     LiuXinWEMIMetadataWriter,
 )
-from LiuXin_alpha.metadata.opf_tools import (
-    OPFMetadataKind,
-    calibre_metadata_from_opf,
-    liuxin_metadata_from_opf,
-    liuxin_wemi_metadata_from_opf,
-    metadata_from_opf,
-    metadata_to_opf_bytes,
-    metadata_to_opf_file,
-    update_opf_bytes,
-    update_opf_file,
-)
 from LiuXin_alpha.metadata.read_sources import (
     CacheMetadataReadSource,
     DatabaseMetadataReadSource,
@@ -44,6 +33,7 @@ from LiuXin_alpha.metadata.utils import fmt_sidx
 
 MetadataDatabaseSource = Literal["database", "cache"]
 MetadataObjectKind = Literal["wemi", "liuxin_wemi", "liuxin", "calibre"]
+OPFMetadataKind = Literal["calibre", "liuxin", "wemi"]
 ForceHydrateFields = Iterable[str] | bool | None
 
 
@@ -149,6 +139,85 @@ def cache_metadata_from_database(
         allow_database_fallback=allow_database_fallback,
         force_hydrate=force_hydrate,
     )
+
+
+def metadata_to_opf_bytes(metadata: Any, *, default_lang: str | None = None) -> bytes:
+    """Serialize a metadata object to OPF bytes without importing OPF tooling at facade import time."""
+    return _opf_tools().metadata_to_opf_bytes(metadata, default_lang=default_lang)
+
+
+def metadata_to_opf_file(
+    metadata: Any,
+    path: Any,
+    *,
+    default_lang: str | None = None,
+) -> Any:
+    """Serialize a metadata object to an OPF file."""
+    return _opf_tools().metadata_to_opf_file(metadata, path, default_lang=default_lang)
+
+
+def update_opf_bytes(opf_source: Any, metadata: Any, **kwargs: Any) -> bytes:
+    """Update an OPF payload with metadata while preserving the package structure."""
+    return _opf_tools().update_opf_bytes(opf_source, metadata, **kwargs)
+
+
+def update_opf_file(opf_source: Any, metadata: Any, output_path: Any = None, **kwargs: Any) -> Any:
+    """Update an OPF file with metadata."""
+    return _opf_tools().update_opf_file(opf_source, metadata, output_path=output_path, **kwargs)
+
+
+def calibre_metadata_from_opf(source: Any) -> Any:
+    """Read OPF/XML metadata into a Calibre-shaped metadata object."""
+    return _opf_tools().calibre_metadata_from_opf(source)
+
+
+def liuxin_metadata_from_opf(source: Any) -> Any:
+    """Read OPF/XML metadata into a LiuXin metadata object."""
+    return _opf_tools().liuxin_metadata_from_opf(source)
+
+
+def liuxin_wemi_metadata_from_opf(
+    source: Any,
+    *,
+    database: Any = None,
+    item_id: int | None = None,
+    source_row: Any = None,
+    replace_metadata: bool = False,
+) -> Any:
+    """Read OPF/XML metadata into an item-centred WEMI metadata object."""
+    return _opf_tools().liuxin_wemi_metadata_from_opf(
+        source,
+        database=database,
+        item_id=item_id,
+        source_row=source_row,
+        replace_metadata=replace_metadata,
+    )
+
+
+def metadata_from_opf(
+    source: Any,
+    *,
+    kind: OPFMetadataKind | str = "liuxin",
+    database: Any = None,
+    item_id: int | None = None,
+    source_row: Any = None,
+    replace_metadata: bool = False,
+) -> Any:
+    """Read OPF/XML metadata as ``liuxin``, ``calibre``, or ``wemi`` metadata."""
+    return _opf_tools().metadata_from_opf(
+        source,
+        kind=kind,
+        database=database,
+        item_id=item_id,
+        source_row=source_row,
+        replace_metadata=replace_metadata,
+    )
+
+
+def _opf_tools() -> Any:
+    from LiuXin_alpha.metadata import opf_tools
+
+    return opf_tools
 
 
 def _database_read_source(
