@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 from tests.support.test_databases._semantic_fixture_builders import (
     build_base_profiled_db,
+    bundle_token_path,
     finalize_fixture,
     lookup_language_id,
     norm_text,
@@ -19,6 +21,19 @@ def populate_bundle(bundle_dir: Path) -> None:
     bundle_dir = Path(bundle_dir)
     bundle_dir.mkdir(parents=True, exist_ok=True)
     db_path = build_base_profiled_db(bundle_dir=bundle_dir, db_name=DB_NAME, books=4)
+
+    store_root = bundle_dir / "metadata_store"
+    books_root = store_root / "books"
+    books_root.mkdir(parents=True, exist_ok=True)
+    book_assets = {
+        "spectrum-one.epub": (b"METADATA-SPECTRUM-ONE\n", "application/epub+zip", "primary"),
+        "spectrum-one.pdf": (b"%PDF-1.4\nMETADATA-SPECTRUM-ONE-ALT\n", "application/pdf", "alternate"),
+        "spectrum-two.pdf": (b"%PDF-1.4\nMETADATA-SPECTRUM-TWO\n", "application/pdf", "primary"),
+        "spectrum-three.mobi": (b"MOBI-METADATA-SPECTRUM-THREE\n", "application/x-mobipocket-ebook", "primary"),
+        "spectrum-four.html": (b"<html><body>Metadata Spectrum Four</body></html>\n", "text/html", "primary"),
+    }
+    for filename, (payload, _mime, _role) in book_assets.items():
+        (books_root / filename).write_bytes(payload)
 
     conn = open_fixture_db(db_path)
     try:
@@ -84,10 +99,24 @@ def populate_bundle(bundle_dir: Path) -> None:
                 (detail, "digital", edition, "available", manifestation_id),
             )
 
-        for item_id, source_name in zip(item_ids, ("mara-src", "jules-src", "nia-src", "ref-src"), strict=True):
+        primary_asset_names = ("spectrum-one.epub", "spectrum-two.pdf", "spectrum-three.mobi", "spectrum-four.html")
+        for item_id, source_name, asset_name in zip(
+            item_ids,
+            ("mara-src", "jules-src", "nia-src", "ref-src"),
+            primary_asset_names,
+            strict=True,
+        ):
             conn.execute(
-                "UPDATE items SET item_type = ?, item_source = ?, item_source_detail = ?, item_lifecycle_status = ? WHERE item_id = ?;",
-                ("digital", "fixture-import", source_name, "active", item_id),
+                "UPDATE items SET item_type = ?, item_source = ?, item_source_detail = ?, item_source_path = ?, item_source_name = ?, item_lifecycle_status = ? WHERE item_id = ?;",
+                (
+                    "digital",
+                    "fixture-import",
+                    source_name,
+                    bundle_token_path("metadata_store", "books", asset_name),
+                    asset_name,
+                    "active",
+                    item_id,
+                ),
             )
 
         def _insert_agent(agent_type: str, canonical_name: str, sort_name: str) -> int:
@@ -171,6 +200,46 @@ def populate_bundle(bundle_dir: Path) -> None:
             ),
         )
 
+        tag_ids = {
+            "operational-metadata": int(
+                conn.execute(
+                    "INSERT INTO tags (tag, tag_description, tag_scratch) VALUES (?, ?, ?);",
+                    ("operational-metadata", f"fixture:{DB_NAME}:operational-metadata", f"fixture:{DB_NAME}"),
+                ).lastrowid
+            ),
+            "multilingual": int(
+                conn.execute(
+                    "INSERT INTO tags (tag, tag_description, tag_scratch) VALUES (?, ?, ?);",
+                    ("multilingual", f"fixture:{DB_NAME}:multilingual", f"fixture:{DB_NAME}"),
+                ).lastrowid
+            ),
+            "dense-roundtrip": int(
+                conn.execute(
+                    "INSERT INTO tags (tag, tag_description, tag_scratch) VALUES (?, ?, ?);",
+                    ("dense-roundtrip", f"fixture:{DB_NAME}:dense-roundtrip", f"fixture:{DB_NAME}"),
+                ).lastrowid
+            ),
+            "sparse-edge": int(
+                conn.execute(
+                    "INSERT INTO tags (tag, tag_description, tag_scratch) VALUES (?, ?, ?);",
+                    ("sparse-edge", f"fixture:{DB_NAME}:sparse-edge", f"fixture:{DB_NAME}"),
+                ).lastrowid
+            ),
+        }
+        conn.executemany(
+            "INSERT INTO tag_work_links (tag_work_link_tag_id, tag_work_link_work_id, tag_work_link_priority, tag_work_link_source) VALUES (?, ?, ?, ?);",
+            (
+                (tag_ids["operational-metadata"], work_ids[0], 10, "fixture"),
+                (tag_ids["dense-roundtrip"], work_ids[0], 20, "fixture"),
+                (tag_ids["operational-metadata"], work_ids[1], 11, "fixture"),
+                (tag_ids["multilingual"], work_ids[1], 20, "fixture"),
+                (tag_ids["sparse-edge"], work_ids[2], 10, "fixture"),
+                (tag_ids["multilingual"], work_ids[2], 21, "fixture"),
+                (tag_ids["operational-metadata"], work_ids[3], 12, "fixture"),
+                (tag_ids["sparse-edge"], work_ids[3], 11, "fixture"),
+            ),
+        )
+
         series_ids = {
             "Meridian Cycle": int(
                 conn.execute(
@@ -198,6 +267,38 @@ def populate_bundle(bundle_dir: Path) -> None:
                 (series_ids["Meridian Cycle"], work_ids[1], 2, "main"),
                 (series_ids["Field Reports"], work_ids[2], 1, "main"),
                 (series_ids["Reference Shelf"], work_ids[3], 1, "main"),
+            ),
+        )
+
+        genre_ids = {
+            "Speculative Fiction": int(
+                conn.execute(
+                    "INSERT INTO genres (genre, genre_sort, genre_full, genre_scratch) VALUES (?, ?, ?, ?);",
+                    ("Speculative Fiction", "Speculative Fiction", "Speculative Fiction", f"fixture:{DB_NAME}"),
+                ).lastrowid
+            ),
+            "Translation": int(
+                conn.execute(
+                    "INSERT INTO genres (genre, genre_sort, genre_full, genre_scratch) VALUES (?, ?, ?, ?);",
+                    ("Translation", "Translation", "Translation", f"fixture:{DB_NAME}"),
+                ).lastrowid
+            ),
+            "Reference": int(
+                conn.execute(
+                    "INSERT INTO genres (genre, genre_sort, genre_full, genre_scratch) VALUES (?, ?, ?, ?);",
+                    ("Reference", "Reference", "Reference", f"fixture:{DB_NAME}"),
+                ).lastrowid
+            ),
+        }
+        conn.executemany(
+            "INSERT INTO genre_work_links (genre_work_link_genre_id, genre_work_link_work_id, genre_work_link_priority, genre_work_link_type, genre_work_link_source) VALUES (?, ?, ?, ?, ?);",
+            (
+                (genre_ids["Speculative Fiction"], work_ids[0], 1, "primary", "fixture"),
+                (genre_ids["Speculative Fiction"], work_ids[1], 2, "primary", "fixture"),
+                (genre_ids["Translation"], work_ids[1], 2, "facet", "fixture"),
+                (genre_ids["Reference"], work_ids[2], 1, "primary", "fixture"),
+                (genre_ids["Reference"], work_ids[3], 2, "primary", "fixture"),
+                (genre_ids["Translation"], work_ids[3], 3, "facet", "fixture"),
             ),
         )
 
@@ -231,6 +332,74 @@ def populate_bundle(bundle_dir: Path) -> None:
                 (eng_id, work_ids[3], 3, "translation"),
             ),
         )
+
+        store_id = int(
+            conn.execute(
+                "INSERT INTO stores (store_name, store_kind, store_access_protocol, store_root_uri, store_online_status, store_supports_folders, store_supports_random_read, store_is_read_only, store_location_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);",
+                (
+                    "metadata_fixture_store",
+                    "on_disk_existing_unmanaged_drive",
+                    "file",
+                    bundle_token_path("metadata_store"),
+                    "online",
+                    1,
+                    1,
+                    1,
+                    f"fixture:{DB_NAME}",
+                ),
+            ).lastrowid
+        )
+        books_folder_id = int(
+            conn.execute(
+                "INSERT INTO folders (folder_store_id, folder_name, folder_relpath, folder_policy_json) VALUES (?, ?, ?, ?);",
+                (store_id, "books", "books", "{}"),
+            ).lastrowid
+        )
+        conn.executemany(
+            "INSERT INTO folder_work_links (folder_work_link_folder_id, folder_work_link_work_id, folder_work_link_priority, folder_work_link_source) VALUES (?, ?, ?, ?);",
+            (
+                (books_folder_id, work_ids[0], 1, "fixture"),
+                (books_folder_id, work_ids[1], 2, "fixture"),
+                (books_folder_id, work_ids[2], 3, "fixture"),
+                (books_folder_id, work_ids[3], 4, "fixture"),
+            ),
+        )
+        file_rows = (
+            (item_ids[0], "spectrum-one.epub"),
+            (item_ids[0], "spectrum-one.pdf"),
+            (item_ids[1], "spectrum-two.pdf"),
+            (item_ids[2], "spectrum-three.mobi"),
+            (item_ids[3], "spectrum-four.html"),
+        )
+        for item_id, filename in file_rows:
+            path = books_root / filename
+            payload, mime_type, role = book_assets[filename]
+            file_id = int(
+                conn.execute(
+                    "INSERT INTO files (file_item_id, file_store_id, file_folder_id, file_storage_key, file_name, file_base_name, file_extension, file_mime_type, file_role, file_media_category, file_size_bytes, file_hash_sha256, file_source, file_original_name, file_original_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+                    (
+                        item_id,
+                        store_id,
+                        books_folder_id,
+                        f"books/{filename}",
+                        filename,
+                        path.stem,
+                        path.suffix.lstrip("."),
+                        mime_type,
+                        role,
+                        "ebook",
+                        len(payload),
+                        hashlib.sha256(payload).hexdigest(),
+                        "fixture-store",
+                        filename,
+                        bundle_token_path("metadata_store", "books", filename),
+                    ),
+                ).lastrowid
+            )
+            conn.execute(
+                "INSERT INTO file_folder_links (file_folder_link_file_id, file_folder_link_folder_id) VALUES (?, ?);",
+                (file_id, books_folder_id),
+            )
 
         note_ids = [
             _insert_simple_row("notes", "note", "Metadata spectrum note one."),
@@ -305,4 +474,3 @@ def populate_bundle(bundle_dir: Path) -> None:
         finalize_fixture(conn, db_name=DB_NAME)
     finally:
         conn.close()
-

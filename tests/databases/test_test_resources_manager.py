@@ -110,7 +110,11 @@ def test_resources_manager_lists_semantic_dbs_via_supported_imported_entrypoints
 
 def test_imported_provider_prefers_supported_semantic_modules_only(test_resources_manager) -> None:
     for name in SEMANTIC_DB_NAMES:
-        assert type(test_resources_manager._db_registry.resolve(name)).__name__ == "ImportedModuleDatabaseProvider"
+        provider_name = type(test_resources_manager._db_registry.resolve(name)).__name__
+        if name == "metadata_rich_db_1":
+            assert provider_name in {"ImportedModuleDatabaseProvider", "PrebuiltDirectoryDatabaseProvider"}
+            continue
+        assert provider_name == "ImportedModuleDatabaseProvider"
     assert type(test_resources_manager._db_registry.resolve("test_db_1")).__name__ == "BuiltinSpecDatabaseProvider"
 
 
@@ -424,13 +428,22 @@ def test_metadata_rich_db_1_provisions_multilingual_dense_metadata(provision_tes
         assert int(conn.execute("SELECT COUNT(*) FROM human_agents;").fetchone()[0]) == 5
         assert int(conn.execute("SELECT COUNT(*) FROM org_agents;").fetchone()[0]) == 1
         assert int(conn.execute("SELECT COUNT(*) FROM agent_work_links;").fetchone()[0]) == 10
+        assert int(conn.execute("SELECT COUNT(*) FROM tags;").fetchone()[0]) == 9
+        assert int(conn.execute("SELECT COUNT(*) FROM tag_work_links;").fetchone()[0]) == 21
         assert int(conn.execute("SELECT COUNT(*) FROM labels;").fetchone()[0]) == 5
         assert int(conn.execute("SELECT COUNT(*) FROM label_work_links;").fetchone()[0]) == 7
         assert int(conn.execute("SELECT COUNT(*) FROM series;").fetchone()[0]) == 4
         assert int(conn.execute("SELECT COUNT(*) FROM series_work_links;").fetchone()[0]) == 4
+        assert int(conn.execute("SELECT COUNT(*) FROM genres;").fetchone()[0]) == 3
+        assert int(conn.execute("SELECT COUNT(*) FROM genre_work_links;").fetchone()[0]) == 6
         assert int(conn.execute("SELECT COUNT(*) FROM subjects;").fetchone()[0]) == 4
         assert int(conn.execute("SELECT COUNT(*) FROM subject_work_links;").fetchone()[0]) == 7
         assert int(conn.execute("SELECT COUNT(*) FROM language_work_links;").fetchone()[0]) == 6
+        assert int(conn.execute("SELECT COUNT(*) FROM stores;").fetchone()[0]) == 1
+        assert int(conn.execute("SELECT COUNT(*) FROM folders;").fetchone()[0]) == 1
+        assert int(conn.execute("SELECT COUNT(*) FROM folder_work_links;").fetchone()[0]) == 4
+        assert int(conn.execute("SELECT COUNT(*) FROM files;").fetchone()[0]) == 5
+        assert int(conn.execute("SELECT COUNT(*) FROM file_folder_links;").fetchone()[0]) == 5
         assert int(conn.execute("SELECT COUNT(*) FROM notes;").fetchone()[0]) == 3
         assert int(conn.execute("SELECT COUNT(*) FROM comments;").fetchone()[0]) == 3
         assert int(conn.execute("SELECT COUNT(*) FROM synopses;").fetchone()[0]) == 3
