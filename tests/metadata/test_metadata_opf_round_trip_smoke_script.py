@@ -5,6 +5,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
+from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadata
 from tests.metadata.containers.test_item_metadata_hydrator import _build_fake_database
 
 
@@ -85,3 +88,48 @@ def test_metadata_opf_round_trip_smoke_runs_against_fake_database(tmp_path: Path
     assert result.opf_bytes > 0
     assert result.opf_path is not None
     assert Path(result.opf_path).is_file()
+
+
+def test_metadata_opf_round_trip_smoke_can_write_back_after_opf(tmp_path: Path) -> None:
+    module = _load_script_module()
+    db = _build_fake_database()
+
+    result = module.round_trip_item(
+        db,
+        1,
+        opf_dir=tmp_path,
+        write_back=True,
+        write_back_fields=("tags",),
+        write_back_add_tags=("smoke-writeback-tag",),
+    )
+    rehydrated = LiuXinWEMIMetadata.from_database(db, item_id=1)
+
+    assert result.ok is True
+    assert result.write_report is not None
+    assert result.write_report["changed"] is True
+    assert "smoke-writeback-tag" in rehydrated.tags
+
+
+def test_metadata_opf_round_trip_smoke_requires_safe_write_back_target(tmp_path: Path) -> None:
+    module = _load_script_module()
+    source = tmp_path / "source.test_db"
+    source.write_bytes(b"db")
+
+    with pytest.raises(ValueError, match="Refusing metadata write-back"):
+        module.prepare_write_back_database(
+            source,
+            write_back=True,
+            scratch_db=None,
+            allow_write_original=False,
+        )
+
+    scratch = tmp_path / "scratch.test_db"
+    opened = module.prepare_write_back_database(
+        source,
+        write_back=True,
+        scratch_db=scratch,
+        allow_write_original=False,
+    )
+
+    assert opened == scratch
+    assert scratch.read_bytes() == b"db"
