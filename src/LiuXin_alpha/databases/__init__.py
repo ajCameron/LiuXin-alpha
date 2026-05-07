@@ -13,12 +13,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES, VALID_DATA_TYPES
-from LiuXin_alpha.databases.utils import (
-    _get_next_series_num_for_list,
-    _get_series_values,
-    cleanup_tags,
-    get_data_as_dict,
-)
 
 __all__ = [
     "CUSTOM_DATA_TYPES",
@@ -65,6 +59,15 @@ def __getattr__(name: str):
         from LiuXin_alpha.databases import database_driver_plugins as _drivers
 
         return getattr(_drivers, name)
+    if name in {
+        "_get_next_series_num_for_list",
+        "_get_series_values",
+        "cleanup_tags",
+        "get_data_as_dict",
+    }:
+        from LiuXin_alpha.databases import utils as _utils
+
+        return getattr(_utils, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

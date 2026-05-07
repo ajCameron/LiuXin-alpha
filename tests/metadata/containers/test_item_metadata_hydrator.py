@@ -49,6 +49,23 @@ SINGULARS = {
 }
 
 
+def _metadata_values(raw: Any) -> list[Any]:
+    if raw is None:
+        return []
+    if isinstance(raw, Mapping):
+        return list(raw.keys())
+    if isinstance(raw, str):
+        return [raw]
+    try:
+        return list(raw)
+    except TypeError:
+        return [raw]
+
+
+def _identifier_values(metadata: Any, scheme: str) -> list[Any]:
+    return _metadata_values(metadata.get_identifiers().get(scheme))
+
+
 class FakeDriverWrapper:
     def __init__(
         self,
@@ -126,6 +143,13 @@ class FakeDriverWrapper:
             raise KeyError((table, row_id))
         return dict(row.row_dict)
 
+    def update_column(self, table: str, row_id: int, column: str, new_value: Any) -> bool:
+        row = self.database.get_row_from_id(table, row_id)
+        if row is None:
+            raise KeyError((table, row_id))
+        row.row_dict[str(column)] = new_value
+        return True
+
 
 @dataclass
 class FakeDatabase:
@@ -162,6 +186,18 @@ class FakeDatabase:
             if int(row.row_dict.get(id_column)) == target_row_id:
                 return row
         return None
+
+    def delete(self, row: Row) -> None:
+        target_table = str(row.table)
+        if row.row_id is None:
+            raise KeyError((target_table, None))
+        target_row_id = int(row.row_id)
+        id_column = self.driver_wrapper.get_id_column(target_table)
+        self.rows_by_table[target_table] = [
+            existing
+            for existing in self.rows_by_table.get(target_table, [])
+            if int(existing.row_dict.get(id_column)) != target_row_id
+        ]
 
     def search(self, table: str, column: str, search_term: Any) -> list[Row]:
         self.search_queries.append((str(table), str(column), search_term))
@@ -956,6 +992,42 @@ def test_liuxin_wemi_metadata_write_to_database_can_replace_relation_terms() -> 
 
     rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
     assert list(rehydrated.tags.keys()) == ["Simulation"]
+
+
+def test_liuxin_wemi_metadata_write_to_database_can_replace_identifier_rows() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert [
+        row.row_dict["entity_identifier_value"]
+        for row in db.rows_by_table["entity_identifiers"]
+    ] == ["OL123W"]
+
+    metadata.set_identifiers({"doi": {"10.5555/replacement"}}, update=False)
+
+    report = metadata.write_to_database(db, fields=("identifiers",), replace=True)
+
+    assert report.changed is True
+    assert report.skipped == []
+    assert report.errors == []
+    assert [row["value"] for row in report.rows_removed] == ["OL123W"]
+    assert {row["value"] for row in report.rows_added} == {
+        "9780000000001",
+        "10.5555/replacement",
+    }
+
+    identifier_rows = db.rows_by_table["entity_identifiers"]
+    assert {
+        row.row_dict["entity_identifier_value"]: row.row_dict["entity_identifier_is_primary"]
+        for row in identifier_rows
+    } == {
+        "9780000000001": 1,
+        "10.5555/replacement": 1,
+    }
+
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert _identifier_values(rehydrated, "openlibrary") == []
+    assert _identifier_values(rehydrated, "doi") == ["10.5555/replacement"]
+    assert _identifier_values(rehydrated, "isbn") == ["9780000000001"]
 
 
 def test_liuxin_wemi_metadata_wemi_relation_edits_round_trip_to_database() -> None:
