@@ -13,7 +13,6 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any, Literal
 
-from LiuXin_alpha.caches import create_storage_cache
 from LiuXin_alpha.metadata.containers import (
     LazyLiuXinWEMI,
     LazyLiuXinWEMIMetadata,
@@ -192,6 +191,8 @@ def _loaded_storage_cache(
     cache_kwargs: Mapping[str, Any] | None,
 ) -> Any:
     if cache is None:
+        from LiuXin_alpha.caches import create_storage_cache
+
         resolved_cache = create_storage_cache(
             database,
             cache_type,

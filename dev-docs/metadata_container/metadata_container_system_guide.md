@@ -19,6 +19,7 @@ See also:
 - `metadata_container_db_constraint_alignment.md`
 - `metadata_container_test_surface.md`
 - `metadata_db_source_layer.md`
+- `metadata_facade_workflows.md`
 
 ## 1. The core split
 

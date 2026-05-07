@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Generic, Sequence, Optional
+from typing import Generic, Sequence, Optional, TypeVar
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_many_field_api import T
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_one_field_api import T
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.one_many_field_api import T
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.one_one_field_api import T
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import LinkDstUpdate
 from LiuXin_alpha.databases.db_types import MainTableName, MainTableColumnName, MainTableID
+
+
+T = TypeVar("T")
 
 
 @dataclasses.dataclass

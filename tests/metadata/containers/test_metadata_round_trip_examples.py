@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from LiuXin_alpha import metadata as metadata_facade
 from LiuXin_alpha.metadata.api import WorkRelationLink
 from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadata
 from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_hydrator import (
@@ -108,6 +109,36 @@ def test_example_standalone_wemi_bundle_round_trip() -> None:
     assert report.changed is True
     assert report.target_table == "works"
     assert list(rehydrated.tags.keys()) == ["Space Opera", "example-work-bundle"]
+
+
+def test_example_opf_metadata_round_trip_writes_supported_fields_back_to_database() -> None:
+    """Exercise DB -> metadata -> OPF -> metadata -> DB for supported fields."""
+    db = _build_fake_database()
+    hydrated = LiuXinWEMIMetadata.from_database(db, item_id=1)
+
+    opf_bytes = metadata_facade.metadata_to_opf_bytes(hydrated)
+    from_opf = metadata_facade.metadata_from_opf(
+        opf_bytes,
+        kind="wemi",
+        database=db,
+        item_id=1,
+    )
+
+    from_opf.tags = [*from_opf.tags.keys(), "example-opf-db-tag"]
+    from_opf.series = "Example OPF DB Series"
+    from_opf.set_identifier("doi", "10.5555/opf-db-round-trip")
+
+    report = from_opf.write_to_database(
+        db,
+        fields=("tags", "series", "identifiers"),
+        item_id=1,
+    )
+    rehydrated = LiuXinWEMIMetadata.from_database(db, item_id=1)
+
+    assert report.changed is True
+    assert "example-opf-db-tag" in rehydrated.tags
+    assert "Example OPF DB Series" in rehydrated.series
+    assert "10.5555/opf-db-round-trip" in _identifier_values(rehydrated, "doi")
 
 
 def test_contract_wemi_metadata_round_trips_editable_metadata_fields() -> None:

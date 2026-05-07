@@ -118,6 +118,7 @@ class Database(
         enable_storage_manager: bool = True,
         strict_storage_manager_bootstrap: bool = False,
         storage_startup_on_add: bool = False,
+        repair_bootstrap_rows: bool = True,
     ) -> None:
         """
         If the database type is not set defaults to SQLite.
@@ -141,10 +142,16 @@ class Database(
 
         # Fundamental constants for this database
         if existing_driver is None:
-            self.standard_init(metadata=metadata, db_type=db_type, create=create, backup=backup)
+            self.standard_init(
+                metadata=metadata,
+                db_type=db_type,
+                create=create,
+                backup=backup,
+                repair_bootstrap_rows=repair_bootstrap_rows,
+            )
         else:
             assert metadata is None, "driver is provided - it's assumed that the db metadata is contained within"
-            self.existing_driver_init(existing_driver)
+            self.existing_driver_init(existing_driver, repair_bootstrap_rows=repair_bootstrap_rows)
         # Used as a lookup cache for if the link table in question has a priority column
         # Keyed with the table, value with True or False
         self._link_has_priority = dict()
@@ -201,7 +208,12 @@ class Database(
         assert new_macros is not None, "Need to set macros to something that exists"
         self._macros = new_macros
 
-    def existing_driver_init(self, existing_driver: DatabaseDriverAPI) -> None:
+    def existing_driver_init(
+        self,
+        existing_driver: DatabaseDriverAPI,
+        *,
+        repair_bootstrap_rows: bool = True,
+    ) -> None:
         """
         Startup method called when the drivber already exists. Useful for testing.
 
@@ -257,8 +269,9 @@ class Database(
         self.driver_wrapper.dirtiable_tables = self.dirtiable_tables
 
         # The rating table should be in a particular form - check that it is
-        self.check_rating_table()
-        self.ensure_null_rows()
+        if repair_bootstrap_rows:
+            self.check_rating_table()
+            self.ensure_null_rows()
 
         initialise_database_runtime(
             self,
@@ -266,7 +279,14 @@ class Database(
             preferences_obj=preferences,
         )
 
-    def standard_init(self, metadata=None, db_type="SQLite", create=False, backup=True):
+    def standard_init(
+        self,
+        metadata=None,
+        db_type="SQLite",
+        create=False,
+        backup=True,
+        repair_bootstrap_rows: bool = True,
+    ):
         """
         Standard constructor - for when the driver doesn't already exist.
 
@@ -333,9 +353,12 @@ class Database(
             self.driver_wrapper.helper_tables = self.helper_tables
             self.driver_wrapper.dirtiable_tables = self.dirtiable_tables
 
-            # The rating table should be in a particular form - check that it is
-            self.check_rating_table()
-            self.ensure_null_rows()
+            # The rating/null sentinel helpers can write to the database. Most
+            # callers want that repair, but read-only probes should be able to
+            # open an existing database without taking a write lock.
+            if repair_bootstrap_rows:
+                self.check_rating_table()
+                self.ensure_null_rows()
 
         # Todo: What is going on here naming wise? Merge these two
         self.maintenance = Maintainer(self)

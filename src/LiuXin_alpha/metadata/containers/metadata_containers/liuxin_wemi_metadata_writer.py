@@ -33,13 +33,22 @@ class LiuXinWEMIMetadataWriteReport:
     target_id: int | None = None
     fields_checked: list[str] = field(default_factory=list)
     rows_added: list[dict[str, Any]] = field(default_factory=list)
+    rows_updated: list[dict[str, Any]] = field(default_factory=list)
+    rows_removed: list[dict[str, Any]] = field(default_factory=list)
     links_added: list[dict[str, Any]] = field(default_factory=list)
     links_removed: list[dict[str, Any]] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def changed(self) -> bool:
-        return bool(self.rows_added or self.links_added or self.links_removed)
+        return bool(
+            self.rows_added
+            or self.rows_updated
+            or self.rows_removed
+            or self.links_added
+            or self.links_removed
+        )
 
     def to_mapping(self) -> dict[str, Any]:
         return {
@@ -49,9 +58,12 @@ class LiuXinWEMIMetadataWriteReport:
             "target_id": self.target_id,
             "fields_checked": list(self.fields_checked),
             "rows_added": list(self.rows_added),
+            "rows_updated": list(self.rows_updated),
+            "rows_removed": list(self.rows_removed),
             "links_added": list(self.links_added),
             "links_removed": list(self.links_removed),
             "skipped": list(self.skipped),
+            "errors": list(self.errors),
             "changed": self.changed,
         }
 
@@ -64,6 +76,12 @@ class LiuXinWEMIMetadataWriter:
     the metadata object's desired value-to-id mappings with the current database
     links for one WEMI target row. It deliberately leaves core identity fields
     and file/storage rows alone.
+
+    Append mode only adds missing relation terms, links, and entity identifier
+    rows. Replace mode treats the requested field values as authoritative for
+    the target row: stale relation links are unlinked, and stale
+    ``entity_identifiers`` rows are deleted. Item identifier rows are outside
+    this writer's scope.
     """
 
     _LEVEL_TABLES = {
@@ -849,6 +867,40 @@ class LiuXinWEMIMetadataWriter:
         except Exception:
             return False
 
+    def _delete_row(self, row: Row) -> bool:
+        if row.row_id is None:
+            return False
+
+        delete = getattr(self.db, "delete", None)
+        if callable(delete):
+            try:
+                delete(row)
+                return True
+            except Exception:
+                return False
+
+        delete_by_id = getattr(getattr(self.db, "driver_wrapper", None), "delete_by_id", None)
+        if not callable(delete_by_id):
+            return False
+        try:
+            delete_by_id(target_table=str(row.table), row_id=int(row.row_id))
+            return True
+        except Exception:
+            return False
+
+    def _update_row_column(self, row: Row, column: str, value: Any) -> bool:
+        if row.row_id is None:
+            return False
+        update_column = getattr(getattr(self.db, "driver_wrapper", None), "update_column", None)
+        if not callable(update_column):
+            return False
+        try:
+            update_column(str(row.table), int(row.row_id), column, value)
+            row.row_dict[column] = value
+            return True
+        except Exception:
+            return False
+
     def _write_identifier_rows(
         self,
         metadata: Any,
@@ -881,22 +933,58 @@ class LiuXinWEMIMetadataWriter:
                 )
             )
             return
-        if replace:
-            report.skipped.append(
-                "identifiers: replace does not remove existing identifier rows yet."
-            )
 
         existing = self._existing_identifiers(source_row, actual_level)
-        primary_schemes = {
-            scheme
-            for scheme, _value in existing
-            if existing[(scheme, _value)].row_dict.get("entity_identifier_is_primary")
-        }
         desired = self._desired_identifiers(
             metadata,
             actual_level,
             include_wemi_relations=not replace,
         )
+
+        if replace:
+            for key, row in list(existing.items()):
+                if key in desired:
+                    continue
+                if self._delete_row(row):
+                    report.rows_removed.append(self._identifier_report_row(row))
+                    existing.pop(key, None)
+                else:
+                    row_ref = self._row_ref(row)
+                    report.errors.append(
+                        "identifiers: could not remove row {}:{} ({!r}).".format(
+                            row_ref["table"],
+                            row_ref["row_id"],
+                            key,
+                        )
+                    )
+
+        primary_schemes = {
+            scheme
+            for scheme, _value in existing
+            if existing[(scheme, _value)].row_dict.get("entity_identifier_is_primary")
+        }
+        if self._has_column(table, "entity_identifier_is_primary"):
+            for key, row in existing.items():
+                if key not in desired or key[0] in primary_schemes:
+                    continue
+                if self._update_row_column(row, "entity_identifier_is_primary", 1):
+                    report.rows_updated.append(
+                        {
+                            **self._identifier_report_row(row),
+                            "column": "entity_identifier_is_primary",
+                            "value": 1,
+                        }
+                    )
+                    primary_schemes.add(key[0])
+                else:
+                    row_ref = self._row_ref(row)
+                    report.errors.append(
+                        "identifiers: could not mark row {}:{} as primary.".format(
+                            row_ref["table"],
+                            row_ref["row_id"],
+                        )
+                    )
+
         for key, (scheme, value, relation_link) in desired.items():
             if key in existing:
                 continue
@@ -917,15 +1005,7 @@ class LiuXinWEMIMetadataWriter:
                     f"identifiers: could not create row for {scheme}:{value}."
                 )
                 continue
-            report.rows_added.append(
-                {
-                    "field": field_name,
-                    "table": table,
-                    "scheme": scheme,
-                    "value": value,
-                    "row_id": int(row.row_id) if row.row_id is not None else None,
-                }
-            )
+            report.rows_added.append(self._identifier_report_row(row))
             existing[key] = row
 
     def _existing_identifiers(
@@ -1084,6 +1164,19 @@ class LiuXinWEMIMetadataWriter:
             )
         except Exception:
             return None
+
+    def _identifier_report_row(self, row: Row) -> dict[str, Any]:
+        return {
+            "field": "identifiers",
+            "table": "entity_identifiers",
+            "scheme": self._identifier_component(
+                row.row_dict.get("entity_identifier_scheme")
+            ),
+            "value": self._identifier_component(
+                row.row_dict.get("entity_identifier_value")
+            ),
+            "row_id": int(row.row_id) if row.row_id is not None else None,
+        }
 
     @staticmethod
     def _identifier_values(raw_values: Any) -> tuple[Any, ...]:
