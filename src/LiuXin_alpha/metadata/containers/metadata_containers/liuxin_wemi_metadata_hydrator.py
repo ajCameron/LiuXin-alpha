@@ -213,6 +213,7 @@ class LiuXinWEMIMetadataHydrator(MetadataHydratorAPI):
         metadata.sync_legacy_tags_from_wemi()
         metadata.sync_legacy_labels_from_wemi()
         metadata.sync_legacy_genres_from_wemi()
+        metadata.sync_legacy_subjects_from_wemi()
         metadata.sync_legacy_series_from_wemi()
         metadata.sync_legacy_identifiers_from_wemi()
         return metadata
