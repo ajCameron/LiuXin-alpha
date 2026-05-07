@@ -351,7 +351,9 @@ class LazyLiuXinWEMIMetadataHydrator:
             for relation in metadata.get_wemi_metadata(level).relation_names():
                 if relation in self._STRUCTURAL_RELATIONS_BY_LEVEL[level]:
                     continue
-                if level == "item" and relation == "asset_replicas":
+                if relation == "identifiers":
+                    loader = self._make_identifier_loader(level, source_row)
+                elif level == "item" and relation == "asset_replicas":
                     loader = self._make_item_asset_replicas_loader(metadata)
                 else:
                     loader = self._make_relation_loader(level, source_row, relation)
@@ -388,6 +390,9 @@ class LazyLiuXinWEMIMetadataHydrator:
 
     def _make_item_asset_replicas_loader(self, metadata: LazyLiuXinWEMIMetadata):
         return lambda: self._collect_item_asset_replica_links(metadata)
+
+    def _make_identifier_loader(self, level: str, source_row: Row):
+        return lambda: self._collect_identifier_links(level=level, source_row=source_row)
 
     @staticmethod
     def _direct_fk_spec(*, level: str, relation: str) -> tuple[str, str, str] | None:
@@ -543,6 +548,72 @@ class LazyLiuXinWEMIMetadataHydrator:
             )
             for index, row in enumerate(rows)
         ]
+
+    def _collect_identifier_links(
+        self,
+        *,
+        level: str,
+        source_row: Row,
+    ) -> list[Any]:
+        links: list[Any] = []
+        link_class = self._RELATION_LINK_CLASS_BY_LEVEL[level]
+
+        if (
+            level == "item"
+            and source_row.row_id is not None
+            and self._has_table("item_identifiers")
+            and self._has_column("item_identifiers", "item_identifier_item_id")
+        ):
+            try:
+                item_identifier_rows = list(
+                    self.db.search(
+                        table="item_identifiers",
+                        column="item_identifier_item_id",
+                        search_term=int(source_row.row_id),
+                    )
+                )
+            except Exception:
+                item_identifier_rows = []
+            for row in item_identifier_rows:
+                links.append(
+                    link_class(
+                        target=row,
+                        type="item_identifier",
+                        extra={"source_entity_type": "item"},
+                    )
+                )
+
+        if (
+            source_row.row_id is not None
+            and self._has_table("entity_identifiers")
+            and self._has_column("entity_identifiers", "entity_identifier_entity_id")
+            and self._has_column("entity_identifiers", "entity_identifier_entity_type")
+        ):
+            try:
+                entity_identifier_rows = list(
+                    self.db.search(
+                        table="entity_identifiers",
+                        column="entity_identifier_entity_id",
+                        search_term=int(source_row.row_id),
+                    )
+                )
+            except Exception:
+                entity_identifier_rows = []
+            for row in entity_identifier_rows:
+                mapping = row.row_dict if isinstance(row, Row) else dict(row)
+                if str(mapping.get("entity_identifier_entity_type", "")).strip().lower() != level:
+                    continue
+                links.append(
+                    link_class(
+                        target=row,
+                        primary=_boolish_to_bool(mapping.get("entity_identifier_is_primary")),
+                        type="entity_identifier",
+                        origin=mapping.get("entity_identifier_provenance"),
+                        extra={"source_entity_type": level},
+                    )
+                )
+
+        return links
 
     def _collect_item_asset_replica_links(
         self,

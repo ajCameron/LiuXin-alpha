@@ -11,6 +11,9 @@ REPORT_FILE="${RESULTS_DIR}/full-suite-${TIMESTAMP}.json"
 WORKERS="auto"
 DIST_MODE="worksteal"
 SKIP_INSTALL=0
+CREATE_VENV=0
+RECREATE_VENV=0
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 DRY_RUN=0
 PYTEST_ARGS=()
 
@@ -23,12 +26,16 @@ Options:
   --dist <mode>            Pytest xdist distribution mode (default: worksteal)
   --results-dir <path>     Directory for JSON report output
   --report-file <path>     Exact JSON report file path to write
+  --create-venv            Create/reuse .venv via scripts/create_venv.sh before testing
+  --new-venv               Recreate .venv via scripts/create_venv.sh before testing
+  --python <path>          Python interpreter for --create-venv/--new-venv
   --skip-install           Skip pip upgrade and dependency install
   --dry-run                Print commands without executing them
   -h, --help               Show this help
 
 Examples:
   scripts/run_full_test_suite.sh
+  scripts/run_full_test_suite.sh --new-venv --python python3.12
   scripts/run_full_test_suite.sh --workers 8
   scripts/run_full_test_suite.sh -- --maxfail=1 -k sync_store
 EOF
@@ -58,6 +65,19 @@ while [[ $# -gt 0 ]]; do
             REPORT_FILE="$2"
             shift 2
             ;;
+        --create-venv)
+            CREATE_VENV=1
+            shift
+            ;;
+        --new-venv)
+            CREATE_VENV=1
+            RECREATE_VENV=1
+            shift
+            ;;
+        --python)
+            PYTHON_BIN="$2"
+            shift 2
+            ;;
         --skip-install)
             SKIP_INSTALL=1
             shift
@@ -83,13 +103,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ ! -x "${VENV_PYTHON}" ]]; then
-    echo "Expected venv interpreter at ${VENV_PYTHON}. Create the repo-local .venv first." >&2
-    exit 1
-fi
-
 mkdir -p "${RESULTS_DIR}"
 
+CREATE_VENV_CMD=("bash" "${SCRIPT_DIR}/create_venv.sh" "--python" "${PYTHON_BIN}")
+if [[ ${RECREATE_VENV} -eq 1 ]]; then
+    CREATE_VENV_CMD+=("--recreate")
+fi
 PIP_UPGRADE_CMD=("${VENV_PYTHON}" -m pip install -U pip)
 PIP_INSTALL_CMD=("${VENV_PYTHON}" -m pip install -e ".[test,search]")
 PYTEST_CMD=(
@@ -108,7 +127,12 @@ fi
 printf 'Repo root: %s\n' "${REPO_ROOT}"
 printf 'Report file: %s\n' "${REPORT_FILE}"
 
-if [[ ${SKIP_INSTALL} -eq 0 ]]; then
+if [[ ${CREATE_VENV} -eq 1 ]]; then
+    printf 'Venv step: '
+    print_cmd "${CREATE_VENV_CMD[@]}"
+fi
+
+if [[ ${SKIP_INSTALL} -eq 0 && ${CREATE_VENV} -eq 0 ]]; then
     printf 'Install step: '
     print_cmd "${PIP_UPGRADE_CMD[@]}"
     printf 'Install step: '
@@ -124,7 +148,16 @@ fi
 
 cd "${REPO_ROOT}"
 
-if [[ ${SKIP_INSTALL} -eq 0 ]]; then
+if [[ ${CREATE_VENV} -eq 1 ]]; then
+    "${CREATE_VENV_CMD[@]}"
+fi
+
+if [[ ! -x "${VENV_PYTHON}" ]]; then
+    echo "Expected venv interpreter at ${VENV_PYTHON}. Create the repo-local .venv first." >&2
+    exit 1
+fi
+
+if [[ ${SKIP_INSTALL} -eq 0 && ${CREATE_VENV} -eq 0 ]]; then
     "${PIP_UPGRADE_CMD[@]}"
     "${PIP_INSTALL_CMD[@]}"
 fi

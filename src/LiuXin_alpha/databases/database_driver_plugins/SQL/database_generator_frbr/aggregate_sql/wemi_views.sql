@@ -1068,7 +1068,7 @@ JOIN `tags` t
 -- View: identifiers_v
 --
 -- One row per identifier, across both:
---   * entity_identifiers (curated, per Work/Expression/Manifestation/Item)
+--   * entity_identifiers (curated, per Work/Expression/Manifestation/Item/Agent)
 --   * item_identifiers   (raw observations on Items)
 --
 -- This is intended for UI/debugging/interoperability.
@@ -1130,6 +1130,7 @@ SELECT
     WHEN b.`entity_type` = 'expression' THEN COALESCE(e.`expression_title_override`, e.`expression_label`, CAST(e.`expression_year` AS TEXT))
     WHEN b.`entity_type` = 'manifestation' THEN COALESCE(m.`manifestation_edition_statement`, m.`manifestation_format_detail`, CAST(m.`manifestation_pub_year` AS TEXT))
     WHEN b.`entity_type` = 'item' THEN COALESCE(i.`item_type`, CAST(i.`item_id` AS TEXT))
+    WHEN b.`entity_type` = 'agent' THEN COALESCE(a.`agent_canonical_name`, a.`agent_sort_name`, CAST(a.`agent_id` AS TEXT))
     ELSE NULL
   END AS `entity_display_text`
 
@@ -1142,6 +1143,8 @@ LEFT JOIN `manifestations` m
   ON b.`entity_type` = 'manifestation' AND m.`manifestation_id` = b.`entity_id`
 LEFT JOIN `items` i
   ON b.`entity_type` = 'item' AND i.`item_id` = b.`entity_id`
+LEFT JOIN `agents` a
+  ON b.`entity_type` = 'agent' AND a.`agent_id` = b.`entity_id`
 ;
 
 -- Alias for older code that expects an `identifiers` relation.

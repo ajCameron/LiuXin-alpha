@@ -155,7 +155,7 @@ UUIDStr = str
 IdentifiersStr = str
 
 
-IdentifierEntityTypeStr = Literal["work", "expression", "manifestation", "item"]
+IdentifierEntityTypeStr = Literal["work", "expression", "manifestation", "item", "agent"]
 
 
 class IdentifierEntityType(StrEnum):
@@ -165,14 +165,33 @@ class IdentifierEntityType(StrEnum):
     EXPRESSION = "expression"
     MANIFESTATION = "manifestation"
     ITEM = "item"
+    AGENT = "agent"
 
 
 IdentifierSchemeStr = Literal[
     "isbn_10",
     "isbn_13",
+    "isbn10",
+    "isbn13",
     "asin",
     "uuid",
     "calibre_uuid",
+    "doi",
+    "oclc",
+    "uri",
+    "urn",
+    "handle",
+    "asset-id",
+    "archive-id",
+    "local-call",
+    "barcode",
+    "vendor",
+    "uuid-ish",
+    "shortcode",
+    "url",
+    "wikipedia_url",
+    "imdb_id",
+    "publisher_phash",
 ]
 
 
@@ -181,9 +200,27 @@ class IdentifierScheme(StrEnum):
 
     ISBN_10 = "isbn_10"
     ISBN_13 = "isbn_13"
+    ISBN10 = "isbn10"
+    ISBN13 = "isbn13"
     ASIN = "asin"
     UUID = "uuid"
     CALIBRE_UUID = "calibre_uuid"
+    DOI = "doi"
+    OCLC = "oclc"
+    URI = "uri"
+    URN = "urn"
+    HANDLE = "handle"
+    ASSET_ID = "asset-id"
+    ARCHIVE_ID = "archive-id"
+    LOCAL_CALL = "local-call"
+    BARCODE = "barcode"
+    VENDOR = "vendor"
+    UUID_ISH = "uuid-ish"
+    SHORTCODE = "shortcode"
+    URL = "url"
+    WIKIPEDIA_URL = "wikipedia_url"
+    IMDB_ID = "imdb_id"
+    PUBLISHER_PHASH = "publisher_phash"
 
 
 ALL_IDENTIFIER_ENTITY_TYPES: Final[tuple[str, ...]] = tuple(
@@ -196,26 +233,48 @@ ALL_IDENTIFIER_SCHEMES: Final[tuple[str, ...]] = tuple(
 
 
 WORK_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
+    IdentifierScheme.ISBN_10,
+    IdentifierScheme.ISBN_13,
+    IdentifierScheme.ISBN10,
+    IdentifierScheme.ISBN13,
     IdentifierScheme.UUID,
     IdentifierScheme.CALIBRE_UUID,
+    IdentifierScheme.DOI,
+    IdentifierScheme.OCLC,
 })
 
 EXPRESSION_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
     IdentifierScheme.UUID,
     IdentifierScheme.CALIBRE_UUID,
+    IdentifierScheme.URI,
+    IdentifierScheme.URN,
 })
 
 MANIFESTATION_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
     IdentifierScheme.ISBN_10,
     IdentifierScheme.ISBN_13,
+    IdentifierScheme.ISBN10,
+    IdentifierScheme.ISBN13,
     IdentifierScheme.ASIN,
     IdentifierScheme.UUID,
     IdentifierScheme.CALIBRE_UUID,
+    IdentifierScheme.OCLC,
+    IdentifierScheme.HANDLE,
+    IdentifierScheme.LOCAL_CALL,
 })
 
 ITEM_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
     IdentifierScheme.UUID,
     IdentifierScheme.CALIBRE_UUID,
+    IdentifierScheme.ASSET_ID,
+    IdentifierScheme.ARCHIVE_ID,
+})
+
+AGENT_IDENTIFIER_SCHEMES: Final[frozenset[IdentifierScheme]] = frozenset({
+    IdentifierScheme.URL,
+    IdentifierScheme.WIKIPEDIA_URL,
+    IdentifierScheme.IMDB_ID,
+    IdentifierScheme.PUBLISHER_PHASH,
 })
 
 # Item-observed identifiers are intentionally broader than curated item identifiers.
@@ -229,6 +288,7 @@ ENTITY_IDENTIFIER_SCHEMES_BY_TYPE: Final[dict[IdentifierEntityType, frozenset[Id
     IdentifierEntityType.EXPRESSION: EXPRESSION_IDENTIFIER_SCHEMES,
     IdentifierEntityType.MANIFESTATION: MANIFESTATION_IDENTIFIER_SCHEMES,
     IdentifierEntityType.ITEM: ITEM_IDENTIFIER_SCHEMES,
+    IdentifierEntityType.AGENT: AGENT_IDENTIFIER_SCHEMES,
 }
 
 

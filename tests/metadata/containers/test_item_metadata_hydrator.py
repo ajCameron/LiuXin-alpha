@@ -34,7 +34,9 @@ SINGULARS = {
     "images": "image",
     "stores": "store",
     "folders": "folder",
+    "genres": "genre",
     "labels": "label",
+    "series": "series",
     "tags": "tag",
     "languages": "language",
     "ratings": "rating",
@@ -438,6 +440,16 @@ def _build_fake_database() -> FakeDatabase:
             "label_text",
             "label_text_norm",
         ],
+        "genres": [
+            "genre_id",
+            "genre",
+            "genre_full",
+        ],
+        "series": [
+            "series_id",
+            "series",
+            "series_full",
+        ],
         "tags": [
             "tag_id",
             "tag",
@@ -574,6 +586,22 @@ def _build_fake_database() -> FakeDatabase:
         },
     )
     db.add_row(
+        "genres",
+        {
+            "genre_id": 95,
+            "genre": "Cyberpunk",
+            "genre_full": "Science Fiction: Cyberpunk",
+        },
+    )
+    db.add_row(
+        "series",
+        {
+            "series_id": 96,
+            "series": "Permutation Cycle",
+            "series_full": "Permutation Cycle",
+        },
+    )
+    db.add_row(
         "tags",
         {
             "tag_id": 91,
@@ -659,6 +687,20 @@ def _build_fake_database() -> FakeDatabase:
             "label_work_link_label_id": 90,
             "label_work_link_priority": 1,
             "label_work_link_source": "fixture",
+        }
+    ]
+    db.interlinks[("works", 30, "genres")] = [
+        {
+            "genre_work_link_genre_id": 95,
+            "genre_work_link_priority": 1,
+            "genre_work_link_source": "fixture",
+        }
+    ]
+    db.interlinks[("works", 30, "series")] = [
+        {
+            "series_work_link_series_id": 96,
+            "series_work_link_priority": 1,
+            "series_work_link_source": "fixture",
         }
     ]
     db.interlinks[("works", 30, "tags")] = [
@@ -860,6 +902,7 @@ def test_lazy_liuxin_wemi_metadata_can_force_hydrate_fields() -> None:
         "synopses",
         "ratings",
         "files",
+        "identifiers",
         "languages_available",
     }
     assert list(metadata.direct_get("tags").keys()) == ["Space Opera"]

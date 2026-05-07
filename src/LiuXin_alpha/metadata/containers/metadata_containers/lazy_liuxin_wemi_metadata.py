@@ -16,6 +16,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata i
     WemiLevel,
     WemiRelationLink,
 )
+from LiuXin_alpha.metadata.standardize import standardize_id_name
 
 
 LegacyValueToIDLoader = Callable[[], Mapping[str, Any]]
@@ -53,11 +54,14 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         "files": "files",
         "languages_available": "languages_available",
         "language_available": "languages_available",
+        "identifier": "identifiers",
+        "identifiers": "identifiers",
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         object.__setattr__(self, "_lazy_relation_loaders", {})
+        object.__setattr__(self, "_lazy_identifiers_loaded", False)
 
     def install_lazy_value_to_id(
         self,
@@ -104,6 +108,9 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
 
     def hydrate_field(self, field: str) -> OrderedDict[str, Any] | Any:
         field_key = self._normalize_lazy_legacy_field(field)
+        if field_key == "identifiers":
+            self._hydrate_identifiers()
+            return self.get_identifiers()
         data = object.__getattribute__(self, "_data")
         value = data.get(field_key)
         if isinstance(value, LazyValueToID):
@@ -123,29 +130,48 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
                 for key, value in data.items()
                 if isinstance(value, LazyValueToID)
             ]
+            if not object.__getattribute__(self, "_lazy_identifiers_loaded"):
+                fields.append("identifiers")
         for field in fields:
             self.hydrate_field(field)
         return self
 
     def lazy_fields(self) -> tuple[str, ...]:
         data = object.__getattribute__(self, "_data")
-        return tuple(
+        fields = [
             key
             for key, value in data.items()
             if isinstance(value, LazyValueToID)
-        )
+        ]
+        if not object.__getattribute__(self, "_lazy_identifiers_loaded"):
+            fields.append("identifiers")
+        return tuple(fields)
 
     def is_lazy_field_loaded(self, field: str) -> bool:
         field_key = self._normalize_lazy_legacy_field(field)
+        if field_key == "identifiers":
+            return bool(object.__getattribute__(self, "_lazy_identifiers_loaded"))
         data = object.__getattribute__(self, "_data")
         value = data.get(field_key)
         if isinstance(value, LazyValueToID):
             return value.loaded
         return True
 
+    def get_identifiers(self):
+        self._hydrate_identifiers()
+        return super().get_identifiers()
+
+    def _hydrate_identifiers(self) -> None:
+        if object.__getattribute__(self, "_lazy_identifiers_loaded"):
+            return
+        object.__setattr__(self, "_lazy_identifiers_loaded", True)
+        self.sync_legacy_identifiers_from_wemi()
+
     def direct_get(self, item: str) -> Any:
         data = object.__getattribute__(self, "_data")
         field_key = self._LEGACY_FIELD_ALIASES.get(str(item).strip().lower())
+        if field_key == "identifiers":
+            return self.get_identifiers()
         if field_key is not None and isinstance(data.get(field_key), LazyValueToID):
             return self.hydrate_field(field_key)
         return super().direct_get(item)
@@ -153,6 +179,8 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     def __getattr__(self, item: str) -> Any:
         data = object.__getattribute__(self, "_data")
         field_key = self._LEGACY_FIELD_ALIASES.get(str(item).strip().lower())
+        if field_key == "identifiers" or standardize_id_name(str(item)) is not None:
+            self._hydrate_identifiers()
         if field_key is not None and isinstance(data.get(field_key), LazyValueToID):
             return self.hydrate_field(field_key)
         return super().__getattr__(item)
@@ -160,6 +188,8 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     def __getitem__(self, item: str) -> Any:
         data = object.__getattribute__(self, "_data")
         field_key = self._LEGACY_FIELD_ALIASES.get(str(item).strip().lower())
+        if field_key == "identifiers":
+            return self.get_identifiers()
         if field_key is not None and isinstance(data.get(field_key), LazyValueToID):
             return self.hydrate_field(field_key)
         return super().__getitem__(item)

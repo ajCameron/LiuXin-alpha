@@ -8,8 +8,8 @@ CREATE TRIGGER IF NOT EXISTS `trg_entity_identifiers_validate_entity_ref`
 BEFORE INSERT ON `entity_identifiers`
 BEGIN
   SELECT CASE
-    WHEN NEW.`entity_identifier_entity_type` NOT IN ('work','expression','manifestation','item')
-    THEN RAISE(ABORT, 'entity_identifiers.entity_identifier_entity_type must be one of: work, expression, manifestation, item')
+    WHEN NEW.`entity_identifier_entity_type` NOT IN ('work','expression','manifestation','item','agent')
+    THEN RAISE(ABORT, 'entity_identifiers.entity_identifier_entity_type must be one of: work, expression, manifestation, item, agent')
   END;
 
   SELECT CASE
@@ -25,6 +25,9 @@ BEGIN
     WHEN NEW.`entity_identifier_entity_type` = 'item'
      AND NOT EXISTS (SELECT 1 FROM `items` WHERE `item_id` = NEW.`entity_identifier_entity_id`)
     THEN RAISE(ABORT, 'entity_identifiers references missing item_id')
+    WHEN NEW.`entity_identifier_entity_type` = 'agent'
+     AND NOT EXISTS (SELECT 1 FROM `agents` WHERE `agent_id` = NEW.`entity_identifier_entity_id`)
+    THEN RAISE(ABORT, 'entity_identifiers references missing agent_id')
   END;
 
   SELECT CASE
@@ -52,8 +55,8 @@ CREATE TRIGGER IF NOT EXISTS `trg_entity_identifiers_validate_entity_ref_upd`
 BEFORE UPDATE OF `entity_identifier_entity_type`, `entity_identifier_entity_id`, `entity_identifier_scheme`, `entity_identifier_value`, `entity_identifier_is_primary` ON `entity_identifiers`
 BEGIN
   SELECT CASE
-    WHEN NEW.`entity_identifier_entity_type` NOT IN ('work','expression','manifestation','item')
-    THEN RAISE(ABORT, 'entity_identifiers.entity_identifier_entity_type must be one of: work, expression, manifestation, item')
+    WHEN NEW.`entity_identifier_entity_type` NOT IN ('work','expression','manifestation','item','agent')
+    THEN RAISE(ABORT, 'entity_identifiers.entity_identifier_entity_type must be one of: work, expression, manifestation, item, agent')
   END;
 
   SELECT CASE
@@ -69,6 +72,9 @@ BEGIN
     WHEN NEW.`entity_identifier_entity_type` = 'item'
      AND NOT EXISTS (SELECT 1 FROM `items` WHERE `item_id` = NEW.`entity_identifier_entity_id`)
     THEN RAISE(ABORT, 'entity_identifiers references missing item_id')
+    WHEN NEW.`entity_identifier_entity_type` = 'agent'
+     AND NOT EXISTS (SELECT 1 FROM `agents` WHERE `agent_id` = NEW.`entity_identifier_entity_id`)
+    THEN RAISE(ABORT, 'entity_identifiers references missing agent_id')
   END;
 
   SELECT CASE

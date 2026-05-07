@@ -147,6 +147,7 @@ class LiuXinWEMIMetadataWriter:
             id_column="synopsis_id",
         ),
     }
+    _SPECIAL_FIELDS = ("identifiers",)
     _FIELD_ALIASES = {
         "tag": "tags",
         "tags": "tags",
@@ -163,6 +164,8 @@ class LiuXinWEMIMetadataWriter:
         "comments": "comments",
         "synopsis": "synopses",
         "synopses": "synopses",
+        "identifier": "identifiers",
+        "identifiers": "identifiers",
     }
 
     def __init__(self, database: Any) -> None:
@@ -215,6 +218,16 @@ class LiuXinWEMIMetadataWriter:
 
         for field_name in self._normalize_fields(fields, metadata=metadata):
             report.fields_checked.append(field_name)
+            if field_name == "identifiers":
+                self._write_identifier_rows(
+                    metadata,
+                    source_row=source_row,
+                    actual_level=actual_level,
+                    replace=replace,
+                    report=report,
+                )
+                continue
+
             spec = self._FIELD_SPECS[field_name]
             if self._metadata_bundle_level(metadata) is not None and not self._bundle_has_relation(
                 metadata,
@@ -304,12 +317,15 @@ class LiuXinWEMIMetadataWriter:
         if fields is None:
             if metadata is not None and self._metadata_bundle_level(metadata) is not None:
                 exposed_relations = set(self._bundle_relation_names(metadata))
-                return tuple(
+                relation_fields = tuple(
                     field
                     for field, spec in self._FIELD_SPECS.items()
                     if spec.relation in exposed_relations
                 )
-            return tuple(self._FIELD_SPECS)
+                if "identifiers" in exposed_relations:
+                    return relation_fields + ("identifiers",)
+                return relation_fields
+            return tuple(self._FIELD_SPECS) + self._SPECIAL_FIELDS
         out: list[str] = []
         for field in fields:
             key = self._FIELD_ALIASES.get(str(field).strip().lower())
@@ -832,6 +848,277 @@ class LiuXinWEMIMetadataWriter:
             return True
         except Exception:
             return False
+
+    def _write_identifier_rows(
+        self,
+        metadata: Any,
+        *,
+        source_row: Row,
+        actual_level: str,
+        replace: bool,
+        report: LiuXinWEMIMetadataWriteReport,
+    ) -> None:
+        field_name = "identifiers"
+        table = "entity_identifiers"
+        required_columns = {
+            "entity_identifier_entity_type",
+            "entity_identifier_entity_id",
+            "entity_identifier_scheme",
+            "entity_identifier_value",
+        }
+        if not self._has_table(table):
+            report.skipped.append(f"{field_name}: table {table!r} is not present.")
+            return
+        missing_columns = [
+            column for column in sorted(required_columns) if not self._has_column(table, column)
+        ]
+        if missing_columns:
+            report.skipped.append(
+                "{}: table {!r} is missing columns {}.".format(
+                    field_name,
+                    table,
+                    ", ".join(missing_columns),
+                )
+            )
+            return
+        if replace:
+            report.skipped.append(
+                "identifiers: replace does not remove existing identifier rows yet."
+            )
+
+        existing = self._existing_identifiers(source_row, actual_level)
+        primary_schemes = {
+            scheme
+            for scheme, _value in existing
+            if existing[(scheme, _value)].row_dict.get("entity_identifier_is_primary")
+        }
+        desired = self._desired_identifiers(
+            metadata,
+            actual_level,
+            include_wemi_relations=not replace,
+        )
+        for key, (scheme, value, relation_link) in desired.items():
+            if key in existing:
+                continue
+            primary = 0
+            if key[0] not in primary_schemes:
+                primary = 1
+                primary_schemes.add(key[0])
+            row = self._create_identifier_row(
+                source_row=source_row,
+                actual_level=actual_level,
+                scheme=scheme,
+                value=value,
+                primary=primary,
+                relation_link=relation_link,
+            )
+            if row is None:
+                report.skipped.append(
+                    f"identifiers: could not create row for {scheme}:{value}."
+                )
+                continue
+            report.rows_added.append(
+                {
+                    "field": field_name,
+                    "table": table,
+                    "scheme": scheme,
+                    "value": value,
+                    "row_id": int(row.row_id) if row.row_id is not None else None,
+                }
+            )
+            existing[key] = row
+
+    def _existing_identifiers(
+        self,
+        source_row: Row,
+        actual_level: str,
+    ) -> dict[tuple[str, str], Row]:
+        out: dict[tuple[str, str], Row] = {}
+        rows = self._search(
+            "entity_identifiers",
+            "entity_identifier_entity_id",
+            int(source_row.row_id),
+        )
+        for row in rows:
+            mapping = row.row_dict
+            if str(mapping.get("entity_identifier_entity_type", "")).strip().lower() != actual_level:
+                continue
+            scheme = self._identifier_component(mapping.get("entity_identifier_scheme"))
+            value = self._identifier_component(mapping.get("entity_identifier_value"))
+            if scheme is None or value is None:
+                continue
+            out[(scheme.casefold(), value.casefold())] = row
+        return out
+
+    def _desired_identifiers(
+        self,
+        metadata: Any,
+        target_level: str,
+        *,
+        include_wemi_relations: bool = True,
+    ) -> OrderedDict[tuple[str, str], tuple[str, str, Any | None]]:
+        desired: OrderedDict[tuple[str, str], tuple[str, str, Any | None]] = OrderedDict()
+        for scheme, value in self._iter_legacy_identifier_pairs(metadata):
+            key = (scheme.casefold(), value.casefold())
+            desired.setdefault(key, (scheme, value, None))
+
+        bundle_level = self._metadata_bundle_level(metadata)
+        if bundle_level is not None:
+            self._add_desired_bundle_identifiers(
+                desired,
+                metadata,
+                target_level,
+            )
+            return desired
+
+        if include_wemi_relations:
+            bundle = self._metadata_wemi_bundle(metadata, target_level)
+            if bundle is not None:
+                self._add_desired_bundle_identifiers(
+                    desired,
+                    bundle,
+                    target_level,
+                )
+        return desired
+
+    def _add_desired_bundle_identifiers(
+        self,
+        desired: OrderedDict[tuple[str, str], tuple[str, str, Any | None]],
+        metadata: Any,
+        target_level: str,
+    ) -> None:
+        getter = getattr(metadata, "get_relation_links", None)
+        if not callable(getter):
+            return
+        try:
+            links = list(getter("identifiers"))
+        except Exception:
+            return
+        for link in links:
+            if not self._relation_link_applies_to_level(link, target_level):
+                continue
+            pair = self._identifier_pair_from_target(getattr(link, "target", link))
+            if pair is None:
+                continue
+            scheme, value = pair
+            key = (scheme.casefold(), value.casefold())
+            desired.setdefault(key, (scheme, value, link))
+
+    def _iter_legacy_identifier_pairs(self, metadata: Any) -> Iterable[tuple[str, str]]:
+        getter = getattr(metadata, "get_identifiers", None)
+        try:
+            identifiers = getter() if callable(getter) else getattr(metadata, "identifiers", None)
+        except Exception:
+            identifiers = None
+        if not isinstance(identifiers, Mapping):
+            return ()
+
+        pairs: list[tuple[str, str]] = []
+        for raw_scheme, raw_values in identifiers.items():
+            scheme = self._identifier_component(raw_scheme)
+            if scheme is None:
+                continue
+            for raw_value in self._identifier_values(raw_values):
+                value = self._identifier_component(raw_value)
+                if value is not None:
+                    pairs.append((scheme, value))
+        return tuple(pairs)
+
+    def _identifier_pair_from_target(self, target: Any) -> tuple[str, str] | None:
+        mapping = self._target_mapping(target)
+        scheme = self._first_mapping_value(
+            mapping,
+            (
+                "entity_identifier_scheme",
+                "item_identifier_scheme",
+                "identifier_scheme",
+                "scheme",
+                "type",
+            ),
+            target=target,
+        )
+        value = self._first_mapping_value(
+            mapping,
+            (
+                "entity_identifier_value",
+                "item_identifier_value",
+                "identifier_value",
+                "value",
+                "identifier",
+            ),
+            target=target,
+        )
+        scheme_text = self._identifier_component(scheme)
+        value_text = self._identifier_component(value)
+        if scheme_text is None or value_text is None:
+            return None
+        return scheme_text, value_text
+
+    def _create_identifier_row(
+        self,
+        *,
+        source_row: Row,
+        actual_level: str,
+        scheme: str,
+        value: str,
+        primary: int,
+        relation_link: Any | None,
+    ) -> Row | None:
+        payload = {
+            "entity_identifier_entity_type": actual_level,
+            "entity_identifier_entity_id": int(source_row.row_id),
+            "entity_identifier_scheme": scheme,
+            "entity_identifier_value": value,
+        }
+        if self._has_column("entity_identifiers", "entity_identifier_is_primary"):
+            payload["entity_identifier_is_primary"] = int(bool(primary))
+        if self._has_column("entity_identifiers", "entity_identifier_provenance"):
+            provenance = getattr(relation_link, "origin", None) if relation_link is not None else None
+            payload["entity_identifier_provenance"] = provenance or "metadata_write_back"
+        try:
+            return Row.from_idless_row_dict(
+                self.db,
+                payload,
+                table="entity_identifiers",
+                read_only=True,
+            )
+        except Exception:
+            return None
+
+    @staticmethod
+    def _identifier_values(raw_values: Any) -> tuple[Any, ...]:
+        if raw_values in (None, ""):
+            return ()
+        if isinstance(raw_values, Mapping):
+            return tuple(raw_values.keys())
+        if isinstance(raw_values, (str, bytes)):
+            return (raw_values,)
+        try:
+            return tuple(raw_values)
+        except TypeError:
+            return (raw_values,)
+
+    @staticmethod
+    def _identifier_component(value: Any) -> str | None:
+        if value in (None, ""):
+            return None
+        text = str(value).strip()
+        return text or None
+
+    @staticmethod
+    def _first_mapping_value(
+        mapping: Mapping[str, Any],
+        keys: tuple[str, ...],
+        *,
+        target: Any,
+    ) -> Any:
+        for key in keys:
+            value = mapping.get(key)
+            if value is None and not mapping:
+                value = getattr(target, key, None)
+            if value not in (None, ""):
+                return value
+        return None
 
     def _mark_dirty(self, row: Row, *, reason: str) -> None:
         dirty_record = getattr(self.db, "dirty_record", None)

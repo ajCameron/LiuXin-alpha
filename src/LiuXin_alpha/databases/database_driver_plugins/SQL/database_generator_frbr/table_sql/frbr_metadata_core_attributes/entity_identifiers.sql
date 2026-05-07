@@ -3,14 +3,14 @@
 
 -- -----------------------------------------------------
 -- Table `entity_identifiers`
--- Curated/derived identifiers for any entity (Work/Expression/Manifestation/Item)
+-- Curated/derived identifiers for any entity (Work/Expression/Manifestation/Item/Agent)
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `entity_identifiers` (
   `entity_identifier_id` INTEGER PRIMARY KEY,
 
   -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
   -- Application logic can enforce presence later.
-  `entity_identifier_entity_type` TEXT NULL,  -- 'work', 'expression', 'manifestation', 'item'
+  `entity_identifier_entity_type` TEXT NULL,  -- 'work', 'expression', 'manifestation', 'item', 'agent'
   `entity_identifier_entity_id`   INTEGER NULL,
   `entity_identifier_scheme`      TEXT NULL,  -- 'isbn13', 'asin', 'uuid', ...
   `entity_identifier_value`       TEXT NULL,

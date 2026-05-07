@@ -146,7 +146,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         self.main_tables = {
             table_name: SchemaBackedMainTableCache(spec, db)
             for table_name, spec in schema.tables.items()
-            if spec.is_main_table
+            if spec.is_main_table and spec.id_column is not None
         }
 
         link_tables: dict[tuple[str, str], SchemaBackedLinkTable] = {}
