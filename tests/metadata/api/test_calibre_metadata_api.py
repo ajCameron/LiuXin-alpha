@@ -4,9 +4,8 @@ from collections.abc import Mapping
 
 from LiuXin_alpha.metadata.api import (
     CalibreLikeBookMetadataAPI,
-    CalibreMetadataAPI,
-    CalibreMetadataInputAPI,
 )
+from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import CalibreMetadataInputAPI, CalibreMetadataAPI
 from LiuXin_alpha.metadata.api import __all__ as metadata_api_all
 from LiuXin_alpha.metadata.book.base import calibreMetadata
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
