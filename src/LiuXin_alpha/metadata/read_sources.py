@@ -29,6 +29,15 @@ class DatabaseMetadataReadSource:
     def get_row_from_id(self, table: str, row_id: int) -> Row | None:
         return self.database.get_row_from_id(table, row_id)
 
+    def get_all_rows(self, table: str, iterator_return: bool = False) -> Sequence[Row]:
+        return self.database.get_all_rows(
+            table,
+            iterator_return=iterator_return,
+        )
+
+    def get_record_count(self, table: str) -> int:
+        return int(self.database.get_record_count(table))
+
     def search(self, table: str, column: str, search_term: Any) -> Sequence[Row]:
         return self.database.search(table, column, search_term)
 
@@ -36,6 +45,18 @@ class DatabaseMetadataReadSource:
         return self.database.get_interlink_rows(
             primary_row=primary_row,
             secondary_table=secondary_table,
+        )
+
+    def get_interlinked_rows(
+        self,
+        target_row: Row,
+        secondary_table: str,
+        type_filter: str | None = None,
+    ) -> Sequence[Row]:
+        return self.database.get_interlinked_rows(
+            target_row=target_row,
+            secondary_table=secondary_table,
+            type_filter=type_filter,
         )
 
     def __getattr__(self, name: str) -> Any:
@@ -121,6 +142,31 @@ class CacheMetadataReadSource:
             return self.database.get_row_from_id(table, row_id)
         return None
 
+    def get_all_rows(self, table: str, iterator_return: bool = False) -> Sequence[Row]:
+        del iterator_return
+        table_cache = self._get_main_table(table)
+        if table_cache is not None:
+            row_ids = self._cached_row_ids(table_cache)
+            if row_ids is not None:
+                return tuple(
+                    row
+                    for row_id in row_ids
+                    if (row := self.get_row_from_id(table, row_id)) is not None
+                )
+        if self.allow_database_fallback:
+            return self.database.get_all_rows(table, iterator_return=False)
+        return ()
+
+    def get_record_count(self, table: str) -> int:
+        table_cache = self._get_main_table(table)
+        if table_cache is not None:
+            row_ids = self._cached_row_ids(table_cache)
+            if row_ids is not None:
+                return len(row_ids)
+        if self.allow_database_fallback:
+            return int(self.database.get_record_count(table))
+        return 0
+
     def search(self, table: str, column: str, search_term: Any) -> Sequence[Row]:
         table_cache = self._get_main_table(table)
         if table_cache is not None:
@@ -197,6 +243,67 @@ class CacheMetadataReadSource:
             )
         return ()
 
+    def get_interlinked_rows(
+        self,
+        target_row: Row,
+        secondary_table: str,
+        type_filter: str | None = None,
+    ) -> Sequence[Row]:
+        try:
+            link_rows = list(
+                self.get_interlink_rows(
+                    primary_row=target_row,
+                    secondary_table=secondary_table,
+                )
+            )
+        except Exception:
+            if self.allow_database_fallback:
+                return self.database.get_interlinked_rows(
+                    target_row=target_row,
+                    secondary_table=secondary_table,
+                    type_filter=type_filter,
+                )
+            return ()
+
+        if not link_rows:
+            return ()
+
+        try:
+            secondary_id_column = self.driver_wrapper.get_id_column(secondary_table)
+            secondary_link_column = self.driver_wrapper.get_link_column(
+                target_row.table,
+                secondary_table,
+                secondary_id_column,
+            )
+        except Exception:
+            return ()
+
+        type_column = None
+        if type_filter is not None:
+            try:
+                type_column = self.driver_wrapper.get_link_column(
+                    target_row.table,
+                    secondary_table,
+                    "type",
+                )
+            except Exception:
+                type_column = None
+
+        rows: list[Row] = []
+        for link_row in link_rows:
+            if type_column is not None and _mapping_value(link_row, type_column) != type_filter:
+                continue
+            linked_row_id = _mapping_value(link_row, secondary_link_column)
+            if linked_row_id in (None, ""):
+                continue
+            try:
+                linked_row = self.get_row_from_id(secondary_table, int(linked_row_id))
+            except Exception:
+                linked_row = None
+            if linked_row is not None:
+                rows.append(linked_row)
+        return tuple(rows)
+
     def _get_main_table(self, table: str) -> Any | None:
         getter = getattr(self.cache, "get_main_table", None)
         if not callable(getter):
@@ -215,9 +322,42 @@ class CacheMetadataReadSource:
         except Exception:
             return None
 
+    @staticmethod
+    def _cached_row_ids(table_cache: Any) -> tuple[int, ...] | None:
+        row_ids = getattr(table_cache, "row_ids", None)
+        if row_ids is not None:
+            try:
+                return tuple(int(row_id) for row_id in row_ids)
+            except Exception:
+                return None
+        rows = getattr(table_cache, "_rows", None)
+        if isinstance(rows, Mapping):
+            try:
+                return tuple(sorted(int(row_id) for row_id in rows.keys()))
+            except Exception:
+                return None
+        rows_by_id = getattr(table_cache, "_rows_by_id", None)
+        if isinstance(rows_by_id, Mapping):
+            try:
+                return tuple(sorted(int(row_id) for row_id in rows_by_id.keys()))
+            except Exception:
+                return None
+        return None
+
     def _row_from_mapping(self, row: Any) -> Row:
         mapping = row.row_dict if isinstance(row, Row) else row
         return Row(database=self, row_dict=dict(mapping), read_only=True)
+
+
+def _mapping_value(row: Any, column: str) -> Any:
+    if isinstance(row, Row):
+        return row[column]
+    if isinstance(row, Mapping):
+        return row.get(column)
+    try:
+        return row[column]
+    except Exception:
+        return getattr(row, column, None)
 
 
 def metadata_read_source_from(source: Any) -> Any:

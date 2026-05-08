@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
+from LiuXin_alpha.metadata.read_sources import metadata_read_source_from
 from LiuXin_alpha.surfaces.api import ReadModelHostApi
 from LiuXin_alpha.surfaces.images import ImageBackend
 from LiuXin_alpha.surfaces.metadata_facets import preferred_tag_table
@@ -14,10 +15,167 @@ from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _escape,
 class ReadModelBackend:
     host: ReadModelHostApi
     images: Optional[ImageBackend] = None
+    read_source: Any | None = None
 
     def __post_init__(self) -> None:
         if self.images is None:
             self.images = ImageBackend(self.host)
+        self.read_source = metadata_read_source_from(self.read_source or self.host.db)
+
+    def _table_exists(self, table: str) -> bool:
+        try:
+            table_names = {
+                str(name)
+                for name in self.read_source.get_tables(force_refresh=False)
+            }
+            return str(table) in table_names
+        except Exception:
+            return self.host._table_exists(table)
+
+    def _all_rows(self, table: str) -> list[object]:
+        try:
+            return list(self.read_source.get_all_rows(table, iterator_return=False))
+        except Exception:
+            try:
+                return list(self.host.db.get_all_rows(table, iterator_return=False))
+            except Exception:
+                return []
+
+    def _get_row_from_id(self, table: str, row_id: int) -> object | None:
+        try:
+            return self.read_source.get_row_from_id(table, int(row_id))
+        except Exception:
+            try:
+                return self.host.db.get_row_from_id(table, int(row_id))
+            except Exception:
+                return None
+
+    def _search_rows(self, table: str, column: str, value: object) -> list[object]:
+        try:
+            return list(self.read_source.search(table, column, value))
+        except Exception:
+            try:
+                return list(self.host.db.search(table, column, value))
+            except Exception:
+                return []
+
+    def _interlinked_rows(self, row, secondary_table: str) -> list[object]:
+        try:
+            return list(
+                self.read_source.get_interlinked_rows(
+                    target_row=row,
+                    secondary_table=secondary_table,
+                )
+            )
+        except Exception:
+            try:
+                return list(
+                    self.host.db.get_interlinked_rows(
+                        target_row=row,
+                        secondary_table=secondary_table,
+                    )
+                )
+            except Exception:
+                return []
+
+    def _related_rows_by_table(self, row) -> dict[str, list[object]]:
+        ordered_getter = getattr(self.host, "_ordered_related_tables", None)
+        if not callable(ordered_getter):
+            return self.host._related_rows_by_table(row)
+        related: dict[str, list[object]] = {}
+        for linked_table in ordered_getter(row):
+            linked_rows = self._interlinked_rows(row, str(linked_table))
+            if linked_rows:
+                related[str(linked_table)] = linked_rows
+        return related
+
+    def _work_credit_entries(self, row) -> list[dict[str, object]]:
+        entries: list[dict[str, object]] = []
+        if str(getattr(row, "table", "") or "") != "works":
+            return entries
+
+        pretty_role = getattr(self.host, "_pretty_credit_role", None)
+        for linked_table in ("agents", "human_agents", "org_agents"):
+            try:
+                link_table = self.read_source.driver_wrapper.get_link_table_name(
+                    "works",
+                    linked_table,
+                )
+            except Exception:
+                link_table = None
+            if not link_table:
+                continue
+            try:
+                link_rows = list(
+                    self.read_source.get_interlink_rows(
+                        primary_row=row,
+                        secondary_table=linked_table,
+                    )
+                )
+            except Exception:
+                continue
+            if not link_rows:
+                continue
+
+            try:
+                secondary_id_column = self.read_source.driver_wrapper.get_id_column(
+                    linked_table,
+                )
+                secondary_link_column = self.read_source.driver_wrapper.get_link_column(
+                    "works",
+                    linked_table,
+                    secondary_id_column,
+                )
+            except Exception:
+                continue
+
+            try:
+                type_column = self.read_source.driver_wrapper.get_link_column(
+                    "works",
+                    linked_table,
+                    "type",
+                )
+            except Exception:
+                type_column = None
+            try:
+                priority_column = self.read_source.driver_wrapper.get_link_column(
+                    "works",
+                    linked_table,
+                    "priority",
+                )
+            except Exception:
+                priority_column = None
+
+            for position, link_row in enumerate(link_rows):
+                linked_row_id = _row_value(link_row, secondary_link_column)
+                if linked_row_id in (None, ""):
+                    continue
+                linked_row = self._get_row_from_id(linked_table, int(linked_row_id))
+                if linked_row is None:
+                    continue
+                role_raw = _row_value(link_row, type_column) if type_column else None
+                priority_value = _row_value(link_row, priority_column) if priority_column else None
+                try:
+                    priority_sort = -int(priority_value)
+                except Exception:
+                    priority_sort = position
+                role = (
+                    pretty_role(role_raw)
+                    if callable(pretty_role)
+                    else str(role_raw or "Contributors")
+                )
+                entries.append(
+                    {
+                        "table": linked_table,
+                        "row": linked_row,
+                        "role": role,
+                        "role_raw": role_raw,
+                        "priority": priority_value,
+                        "sort_key": (str(role), priority_sort, position),
+                    }
+                )
+
+        return sorted(entries, key=lambda item: item["sort_key"])
 
     @staticmethod
     def category_display_name(category: str) -> str:
@@ -35,12 +193,12 @@ class ReadModelBackend:
     def author_tables(self) -> list[str]:
         tables = []
         for table in ("agents", "human_agents", "org_agents"):
-            if self.host._table_exists(table):
+            if self._table_exists(table):
                 tables.append(table)
         return tables or ["agents"]
 
     def tag_category_table(self) -> Optional[str]:
-        return preferred_tag_table(self.host.db, prefer_populated_tags=True)
+        return preferred_tag_table(self.read_source, prefer_populated_tags=True)
 
     def work_tag_rows(self, related_rows_by_table: dict[str, list[object]]) -> tuple[Optional[str], list[object]]:
         tag_table = self.tag_category_table()
@@ -49,24 +207,24 @@ class ReadModelBackend:
         return tag_table, list(related_rows_by_table.get(tag_table, []))
 
     def work_rows(self, *, sorted_by: str) -> list[object]:
-        if not self.host._table_exists("works"):
+        if not self._table_exists("works"):
             return []
-        rows = list(self.host.db.get_all_rows("works", iterator_return=False))
+        rows = self._all_rows("works")
         if sorted_by == "recent":
             id_column = self.host._id_column("works") or "work_id"
             return sorted(rows, key=lambda row: int(_row_value(row, id_column) or 0), reverse=True)
         return sorted(rows, key=lambda row: self.host._row_primary_text("works", row).lower())
 
     def works_for_linked_entity(self, table: str, raw_row_id: str) -> list[object]:
-        if not self.host._table_exists(table):
+        if not self._table_exists(table):
             return []
         try:
-            row = self.host.db.get_row_from_id(table, int(str(raw_row_id).strip()))
+            row = self._get_row_from_id(table, int(str(raw_row_id).strip()))
         except Exception:
             row = None
         if row is None:
             return []
-        return list(self.host._related_rows_by_table(row).get("works", []))
+        return list(self._related_rows_by_table(row).get("works", []))
 
     def category_rows(self, kind: str) -> list[dict[str, object]]:
         rows: list[dict[str, object]] = []
@@ -87,7 +245,10 @@ class ReadModelBackend:
             return rows
         if kind == "authors":
             for table in self.author_tables():
-                for row in sorted(self.host.db.get_all_rows(table, iterator_return=False), key=lambda one: self.host._row_primary_text(table, one).lower()):
+                for row in sorted(
+                    self._all_rows(table),
+                    key=lambda one: self.host._row_primary_text(table, one).lower(),
+                ):
                     row_id = _row_value(row, self.host._id_column(table) or "")
                     works = self.works_for_linked_entity(table, str(row_id))
                     rows.append(
@@ -105,21 +266,50 @@ class ReadModelBackend:
             tag_table = self.tag_category_table()
             if tag_table is None:
                 return rows
-            for row in sorted(self.host.db.get_all_rows(tag_table, iterator_return=False), key=lambda one: self.host._row_primary_text(tag_table, one).lower()):
+            for row in sorted(
+                self._all_rows(tag_table),
+                key=lambda one: self.host._row_primary_text(tag_table, one).lower(),
+            ):
                 row_id = _row_value(row, self.host._id_column(tag_table) or "")
                 works = self.works_for_linked_entity(tag_table, str(row_id))
-                rows.append({"table": tag_table, "row": row, "id": row_id, "label": self.host._row_primary_text(tag_table, row), "count": len(works), "url": self.host._row_href(tag_table, row) or ""})
+                rows.append(
+                    {
+                        "table": tag_table,
+                        "row": row,
+                        "id": row_id,
+                        "label": self.host._row_primary_text(tag_table, row),
+                        "count": len(works),
+                        "url": self.host._row_href(tag_table, row) or "",
+                    }
+                )
             return rows
-        if kind == "series" and self.host._table_exists("series"):
-            for row in sorted(self.host.db.get_all_rows("series", iterator_return=False), key=lambda one: self.host._row_primary_text("series", one).lower()):
+        if kind == "series" and self._table_exists("series"):
+            for row in sorted(
+                self._all_rows("series"),
+                key=lambda one: self.host._row_primary_text("series", one).lower(),
+            ):
                 row_id = _row_value(row, self.host._id_column("series") or "")
                 works = self.works_for_linked_entity("series", str(row_id))
-                rows.append({"table": "series", "row": row, "id": row_id, "label": self.host._row_primary_text("series", row), "count": len(works), "url": self.host._row_href("series", row) or ""})
+                rows.append(
+                    {
+                        "table": "series",
+                        "row": row,
+                        "id": row_id,
+                        "label": self.host._row_primary_text("series", row),
+                        "count": len(works),
+                        "url": self.host._row_href("series", row) or "",
+                    }
+                )
             return rows
         return rows
 
     def browse_count(self, kind: str) -> int:
-        return len(self.category_rows(kind) if kind in {"authors", "tags", "series"} else self.work_rows(sorted_by=("recent" if kind == "recent" else "title")) if kind in {"titles", "recent", "allbooks", "newest"} else [])
+        if kind in {"authors", "tags", "series"}:
+            return len(self.category_rows(kind))
+        if kind in {"titles", "recent", "allbooks", "newest"}:
+            sorted_by = "recent" if kind == "recent" else "title"
+            return len(self.work_rows(sorted_by=sorted_by))
+        return 0
 
     def category_summary_payload(self) -> list[dict[str, object]]:
         return [
@@ -174,18 +364,18 @@ class ReadModelBackend:
 
     def related_payload(self, row) -> dict[str, list[dict[str, object]]]:
         payload: dict[str, list[dict[str, object]]] = {}
-        for table, rows in self.host._related_rows_by_table(row).items():
+        for table, rows in self._related_rows_by_table(row).items():
             payload[str(table)] = [self.entity_summary_payload(str(table), linked_row) for linked_row in rows]
         return payload
 
     def work_subtitle(self, row) -> str:
         parts: list[str] = []
-        credit_entries = self.host._work_credit_entries(row)
+        credit_entries = self._work_credit_entries(row)
         if credit_entries:
             names = [self.host._row_primary_text(str(entry["table"]), entry["row"]) for entry in credit_entries[:3]]
             if names:
                 parts.append("by {}".format(", ".join(names)))
-        related = self.host._related_rows_by_table(row)
+        related = self._related_rows_by_table(row)
         series_rows = related.get("series", [])
         if series_rows:
             parts.append("Series: {}".format(", ".join(self.host._row_primary_text("series", one) for one in series_rows[:2])))
@@ -199,15 +389,15 @@ class ReadModelBackend:
         if lowered == "title":
             return self.host._row_primary_text("works", row).lower()
         if lowered == "author":
-            credit_entries = self.host._work_credit_entries(row)
+            credit_entries = self._work_credit_entries(row)
             names = [self.host._row_primary_text(str(entry["table"]), entry["row"]) for entry in credit_entries[:4]]
             return " | ".join(names).lower()
         if lowered == "series":
-            related = self.host._related_rows_by_table(row)
+            related = self._related_rows_by_table(row)
             names = [self.host._row_primary_text("series", one) for one in related.get("series", [])[:3]]
             return " | ".join(names).lower()
         if lowered == "tags":
-            related = self.host._related_rows_by_table(row)
+            related = self._related_rows_by_table(row)
             tag_table, tag_rows = self.work_tag_rows(related)
             names = [self.host._row_primary_text(tag_table, one) for one in tag_rows[:5]] if tag_table is not None else []
             return " | ".join(names).lower()
@@ -230,26 +420,17 @@ class ReadModelBackend:
             add_file_row(file_row)
 
         for expression_row in related_rows_by_table.get("expressions", []):
-            try:
-                manifestation_rows = list(self.host.db.get_interlinked_rows(target_row=expression_row, secondary_table="manifestations"))
-            except Exception:
-                manifestation_rows = []
+            manifestation_rows = self._interlinked_rows(expression_row, "manifestations")
             for manifestation_row in manifestation_rows:
                 manifestation_id = _row_value(manifestation_row, "manifestation_id")
                 if manifestation_id in (None, ""):
                     continue
-                try:
-                    item_rows = list(self.host.db.search("items", "item_manifestation_id", manifestation_id))
-                except Exception:
-                    item_rows = []
+                item_rows = self._search_rows("items", "item_manifestation_id", manifestation_id)
                 for item_row in item_rows:
                     item_id = _row_value(item_row, "item_id")
                     if item_id in (None, ""):
                         continue
-                    try:
-                        discovered_file_rows = list(self.host.db.search("files", "file_item_id", item_id))
-                    except Exception:
-                        discovered_file_rows = []
+                    discovered_file_rows = self._search_rows("files", "file_item_id", item_id)
                     for file_row in discovered_file_rows:
                         add_file_row(file_row)
         return list(file_rows_by_id.values())
@@ -297,28 +478,50 @@ class ReadModelBackend:
         related_rows_by_table: Optional[dict[str, list[object]]] = None,
     ) -> dict[str, object]:
         row_id = _row_value(row, self.host._id_column("works") or "work_id")
-        related = related_rows_by_table if related_rows_by_table is not None else self.host._related_rows_by_table(row)
+        related = related_rows_by_table if related_rows_by_table is not None else self._related_rows_by_table(row)
         format_rows = self.work_file_rows(related)
         formats = []
         format_metadata: dict[str, dict[str, object]] = {}
-        for file_row in sorted(format_rows, key=lambda one: self.host._download_name_for_file_row(one).lower()):
+        for file_row in sorted(
+            format_rows,
+            key=lambda one: self.host._download_name_for_file_row(one).lower(),
+        ):
             file_id = _row_value(file_row, "file_id")
             if file_id in (None, ""):
                 continue
             name = self.host._download_name_for_file_row(file_row)
             fmt = Path(name).suffix.lower().lstrip(".") or "file"
             download_url = "/files/{}/download".format(file_id)
-            preview_url = "/files/{}/preview".format(file_id) if self.host._file_capabilities(file_row).get("preview_kind") else ""
-            formats.append({"format": fmt.upper(), "name": name, "download_url": download_url, "preview_url": preview_url})
+            preview_url = (
+                "/files/{}/preview".format(file_id)
+                if self.host._file_capabilities(file_row).get("preview_kind")
+                else ""
+            )
+            formats.append(
+                {
+                    "format": fmt.upper(),
+                    "name": name,
+                    "download_url": download_url,
+                    "preview_url": preview_url,
+                }
+            )
             size_value = _row_value(file_row, "file_size_bytes") or _row_value(file_row, "file_size")
             try:
                 size_int = int(size_value) if size_value not in (None, "") else None
             except Exception:
                 size_int = None
-            format_metadata[fmt.upper()] = {"path": download_url, "name": name, "size": size_int, "preview": preview_url}
+            format_metadata[fmt.upper()] = {
+                "path": download_url,
+                "name": name,
+                "size": size_int,
+                "preview": preview_url,
+            }
         work_id_value = int(row_id) if row_id not in (None, "") else row_id
         title = self.host._row_primary_text("works", row)
-        authors = [self.host._row_primary_text(str(entry["table"]), entry["row"]) for entry in self.host._work_credit_entries(row)]
+        authors = [
+            self.host._row_primary_text(str(entry["table"]), entry["row"])
+            for entry in self._work_credit_entries(row)
+        ]
         tag_table, tag_rows = self.work_tag_rows(related)
         tags = [self.host._row_primary_text(tag_table, one) for one in tag_rows] if tag_table is not None else []
         series_values = [self.host._row_primary_text("series", one) for one in related.get("series", [])]
@@ -349,9 +552,9 @@ class ReadModelBackend:
 
     def work_detail_payload(self, row) -> dict[str, object]:
         metadata = self.work_metadata_payload(row)
-        related_rows_by_table = self.host._related_rows_by_table(row)
+        related_rows_by_table = self._related_rows_by_table(row)
         credits = []
-        for entry in self.host._work_credit_entries(row):
+        for entry in self._work_credit_entries(row):
             table = str(entry["table"])
             linked_row = entry["row"]
             linked_row_data = self.host._row_dict(table, linked_row)
@@ -405,8 +608,31 @@ class ReadModelBackend:
             payload[str(metadata["id"])] = metadata
         return payload
 
+    def search_entries(self, query_text: str, *, table_filter: str = "") -> list[dict[str, object]]:
+        needle = str(query_text or "").strip()
+        if not needle:
+            return []
+
+        if table_filter and self._table_exists(table_filter):
+            tables = [table_filter]
+        else:
+            public_tables = getattr(self.host, "_public_search_tables", None)
+            tables = public_tables() if callable(public_tables) else ["works"]
+
+        entry_builder = getattr(self.host, "_global_search_entry", None)
+        if not callable(entry_builder):
+            return []
+
+        results: list[dict[str, object]] = []
+        for table in tables:
+            for row in self._all_rows(str(table)):
+                entry = entry_builder(str(table), row, needle)
+                if entry is not None:
+                    results.append(entry)
+        return sorted(results, key=lambda item: item["sort_key"])
+
     def search_results_payload(self, *, query_text: str, table_filter: str, limit: int, offset: int) -> dict[str, object]:
-        entries = self.host._global_search_entries(query_text, table_filter=table_filter)
+        entries = self.search_entries(query_text, table_filter=table_filter)
         visible = entries[offset : offset + limit]
         group_counts: dict[str, int] = {}
         for entry in entries:
@@ -429,7 +655,15 @@ class ReadModelBackend:
                     "html_url": self.host._row_href(table, row),
                 }
             )
-        return {"query": query_text, "table_filter": table_filter, "results": results, "group_counts": group_counts, "total": len(entries), "limit": limit, "offset": offset}
+        return {
+            "query": query_text,
+            "table_filter": table_filter,
+            "results": results,
+            "group_counts": group_counts,
+            "total": len(entries),
+            "limit": limit,
+            "offset": offset,
+        }
 
     def work_image_rows(self, related_rows_by_table: dict[str, list[object]]) -> list[object]:
         return self.images.work_image_rows(related_rows_by_table)

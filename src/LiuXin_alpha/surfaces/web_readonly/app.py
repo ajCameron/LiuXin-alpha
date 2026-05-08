@@ -13,7 +13,7 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Iterable, Iterator, Optional
+from typing import Any, Callable, Iterable, Iterator, Optional
 from urllib.parse import parse_qs, quote, unquote, urljoin
 from wsgiref.simple_server import make_server
 from wsgiref.util import FileWrapper
@@ -137,14 +137,24 @@ class ReadOnlyWebApplication:
         "manifestations",
     )
 
-    def __init__(self, db: Database, *, config: Optional[ReadOnlyWebConfig] = None) -> None:
+    def __init__(
+        self,
+        db: Database,
+        *,
+        config: Optional[ReadOnlyWebConfig] = None,
+        read_source: Any = None,
+    ) -> None:
         self.db = db
         self.config = config or ReadOnlyWebConfig()
         from LiuXin_alpha.surfaces.images import ImageBackend
         from LiuXin_alpha.surfaces.read_model import ReadModelBackend
 
         self.images = ImageBackend(self)
-        self.read_model = ReadModelBackend(self, images=self.images)
+        self.read_model = ReadModelBackend(
+            self,
+            images=self.images,
+            read_source=read_source,
+        )
 
     def __call__(self, environ, start_response):
         response = self.handle_request(environ)

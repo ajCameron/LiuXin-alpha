@@ -9,7 +9,7 @@ import sys
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import parse_qs, quote, unquote
 from wsgiref.simple_server import make_server
 
@@ -513,8 +513,18 @@ class CalibreReadOnlyWebConfig(ReadOnlyWebConfig):
 class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
     """Calibre mobile/content-server inspired read-only web interface."""
 
-    def __init__(self, db: Database, *, config: Optional[CalibreReadOnlyWebConfig] = None) -> None:
-        super().__init__(db, config=config or CalibreReadOnlyWebConfig())
+    def __init__(
+        self,
+        db: Database,
+        *,
+        config: Optional[CalibreReadOnlyWebConfig] = None,
+        read_source: Any = None,
+    ) -> None:
+        super().__init__(
+            db,
+            config=config or CalibreReadOnlyWebConfig(),
+            read_source=read_source,
+        )
         self.catalog = CalibreCatalogBackend(self, read_model=self.read_model, images=self.images)
         self.acquisition_api = AcquisitionCompatApi(self)
         self.opds_api = OpdsApi(self)
