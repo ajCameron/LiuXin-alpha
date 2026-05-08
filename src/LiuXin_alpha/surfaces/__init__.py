@@ -12,12 +12,14 @@ from importlib import import_module
 
 _LAZY_SUBMODULES = {
     "acquisition",
+    "api",
     "api_readonly",
     "catalog",
     "categories",
     "cli",
     "field_metadata",
     "images",
+    "metadata_facets",
     "opds",
     "opds_readonly",
     "read_model",

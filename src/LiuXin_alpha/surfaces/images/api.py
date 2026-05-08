@@ -4,23 +4,11 @@ import mimetypes
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Protocol
+from typing import Optional
 from urllib.parse import urljoin
 
+from LiuXin_alpha.surfaces.api import ImageHostApi
 from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _escape, _row_value, _short_text
-
-
-class ImageHostApi(Protocol):
-    @property
-    def db(self): ...
-
-    def _related_rows_by_table(self, row) -> dict[str, list[object]]: ...
-
-    def _row_dict(self, table: str, row) -> dict[str, object]: ...
-
-    def _row_primary_text(self, table: str, row) -> str: ...
-
-    def _refresh_storage_manager(self) -> bool: ...
 
 
 @dataclass

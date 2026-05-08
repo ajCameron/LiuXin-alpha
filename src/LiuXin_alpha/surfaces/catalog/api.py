@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from typing import Optional
 from urllib.parse import quote
 
+from LiuXin_alpha.surfaces.api import CalibreCatalogHostApi
 from LiuXin_alpha.surfaces.images import ImageBackend
 from LiuXin_alpha.surfaces.read_model import ReadModelBackend
 from LiuXin_alpha.surfaces.opds.api import decode_compat_token, encode_compat_token, normalized_category_key
@@ -15,40 +16,6 @@ PLACEHOLDER_PNG = (
     b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc`\x00\x01"
     b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
 )
-
-
-class CalibreCatalogHostApi(Protocol):
-    @property
-    def db(self): ...
-
-    @property
-    def config(self): ...
-
-    def _table_exists(self, table: str) -> bool: ...
-
-    def _id_column(self, table: str) -> Optional[str]: ...
-
-    def _row_primary_text(self, table: str, row) -> str: ...
-
-    def _row_label(self, table: str, row) -> str: ...
-
-    def _row_dict(self, table: str, row) -> dict[str, object]: ...
-
-    def _row_href(self, table: str, row) -> Optional[str]: ...
-
-    def _related_rows_by_table(self, row) -> dict[str, list[object]]: ...
-
-    def _global_search_entries(self, query_text: str, *, table_filter: str = "") -> list[dict[str, object]]: ...
-
-    def _download_name_for_file_row(self, file_row) -> str: ...
-
-    def _refresh_storage_manager(self) -> bool: ...
-
-    def _work_credit_entries(self, row) -> list[dict[str, object]]: ...
-
-    def _file_capabilities(self, file_row) -> dict[str, object]: ...
-
-    def _stringify_detail_value(self, value: object) -> str: ...
 
 
 @dataclass
