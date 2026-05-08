@@ -44,7 +44,7 @@ def test_store_spec_from_row_parses_mapping_values_and_defaults() -> None:
 
 
 @dataclass
-class _RowObject:
+class FakeRowObject:
     store_name: str | None = None
     store_kind: str | None = None
     store_root_uri: str | None = None
@@ -53,7 +53,7 @@ class _RowObject:
 
 def test_store_spec_from_row_supports_attribute_rows_and_fallback_id() -> None:
     spec = store_spec_from_row(
-        _RowObject(
+        FakeRowObject(
             store_name=None,
             store_kind="  ftp_readonly  ",
             store_root_uri="",
@@ -124,6 +124,6 @@ def test_store_spec_to_row_dict_filters_allowed_columns_and_skips_none() -> None
 
     assert row == {
         "store_name": "Filtered",
-        "store_kind": "native_html_readonly",
         "store_root_uri": "https://example.invalid/",
+        "store_kind": "native_html_readonly",
     }
