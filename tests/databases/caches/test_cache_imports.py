@@ -19,10 +19,15 @@ class TestCacheImportAPIs:
     def test_storage_cache_plugin_imports(self) -> None:
         from LiuXin_alpha.caches import (
             DatabaseBackedStorageCache,
+            FieldBasicInterfaceAPI,
             NumpyVectorizedStorageCache,
             SchemaBackedStorageCache,
             StorageCache,
+            StorageCacheAPI,
+            StorageCacheBaseTableAPI,
             StorageCacheCapabilities,
+            StorageCacheSingleTableAPI,
+            TableTypes,
             create_storage_cache,
             get_cache_plugin_capabilities,
             get_registered_cache_plugin_names,
@@ -30,6 +35,11 @@ class TestCacheImportAPIs:
         )
 
         assert StorageCache is SchemaBackedStorageCache
+        assert StorageCacheAPI is not None
+        assert StorageCacheBaseTableAPI is not None
+        assert StorageCacheSingleTableAPI is not None
+        assert FieldBasicInterfaceAPI is not None
+        assert TableTypes is not None
         assert load_cache_plugin("schema_backed") is SchemaBackedStorageCache
         assert load_cache_plugin("database_backed") is DatabaseBackedStorageCache
         assert load_cache_plugin("numpy_vectorized") is NumpyVectorizedStorageCache
@@ -75,6 +85,36 @@ class TestCacheImportAPIs:
             numpy_cache.capabilities.vectorized_helpers
             is NumpyVectorizedStorageCache.numpy_available()
         )
+
+    def test_cache_api_contract_root_exports_storage_contracts(self) -> None:
+        import LiuXin_alpha.caches.api as cache_api
+        import LiuXin_alpha.caches.api.storage_cache_api as storage_cache_api
+
+        expected = {
+            "CacheViewAPI",
+            "CacheViewSpec",
+            "FieldBasicInterfaceAPI",
+            "ManyToManyFieldAPI",
+            "RelationFieldBasicInterfaceAPI",
+            "StorageCacheAPI",
+            "StorageCacheBaseTableAPI",
+            "StorageCacheCapabilities",
+            "StorageCacheLinkTableBaseAPI",
+            "StorageCacheSingleTableAPI",
+            "TableTypes",
+        }
+
+        assert cache_api.__all__ == storage_cache_api.__all__
+        assert expected <= set(cache_api.__all__)
+        for name in expected:
+            assert hasattr(cache_api, name), f"caches.api is missing {name}"
+
+        for concrete_name in (
+            "SchemaBackedStorageCache",
+            "DatabaseBackedStorageCache",
+            "NumpyVectorizedStorageCache",
+        ):
+            assert not hasattr(cache_api, concrete_name)
 
     def test_numpy_vectorized_plugin_can_be_loaded_even_if_numpy_is_optional(self) -> None:
         from LiuXin_alpha.caches import NumpyVectorizedStorageCache

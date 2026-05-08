@@ -6,8 +6,8 @@ Branch: `metadata-interface-review-plan`
 
 Reviewed the current metadata public facade, abstract API/protocol layer,
 metadata container implementations, metadata read-source adapters, and storage
-cache public API. This is a planning branch only; no interface behavior has
-been changed yet.
+cache public API. The branch now contains the first implementation pass for
+test/source hygiene and public import-root cleanup.
 
 Primary files inspected:
 - `src/LiuXin_alpha/metadata/__init__.py`
@@ -28,14 +28,31 @@ Commands run:
 ```bash
 .venv/bin/python -m pytest -q tests/metadata/api tests/metadata/test_metadata_top_level_facade.py
 .venv/bin/python -m pytest -q tests/databases/caches/test_cache_imports.py tests/databases/caches/test_cache_plugin_contract.py
+.venv/bin/python -m pytest -q tests/metadata/api tests/metadata/test_metadata_top_level_facade.py tests/databases/caches/test_cache_imports.py tests/databases/caches/test_cache_plugin_contract.py
 ```
 
 Results:
 - metadata API/facade slice: `56 passed`
 - cache import/plugin contract slice: `53 passed`
+- combined metadata/cache surface slice after import-root cleanup: `111 passed`
 
-These tests confirm basic imports and current behavior, but they do not fully
-protect the interface contracts.
+These tests now cover the fixed metadata API source scan plus explicit
+metadata/cache public import roots. They still do not fully protect the
+remaining WEMI/lazy/read-source behavioral contracts.
+
+## Progress This Branch
+
+Completed:
+- Fixed the metadata API source-hygiene tests so they scan repo files under
+  pytest's temporary cwd fixture.
+- Removed the current `Any` and abstract placeholder offenders from
+  `metadata/api`.
+- Exported metadata read-source/hydrator/getter contracts from
+  `LiuXin_alpha.metadata.api`.
+- Made `LiuXin_alpha.caches.api` the cache contract root and pinned key storage
+  cache field/table/view contracts in tests.
+- Re-exported core cache contract types from `LiuXin_alpha.caches` alongside
+  the existing concrete/cache workflow helpers.
 
 ## Findings
 
@@ -115,6 +132,8 @@ protect the interface contracts.
 
 ### 1. Fix the interface tests first
 
+Status: done in this branch.
+
 - Resolve repo paths in source-scanning tests via `Path(__file__).resolve()`
   instead of cwd-relative paths.
 - Add a regression test proving the API source scan sees at least one known API
@@ -124,6 +143,8 @@ protect the interface contracts.
   annotations with explicit protocol/type aliases.
 
 ### 2. Define public import roots
+
+Status: done in this branch for the current metadata/cache roots.
 
 - Make `LiuXin_alpha.metadata` the workflow facade:
   database/cache hydration, OPF conversion, concrete high-level metadata
@@ -182,8 +203,8 @@ protect the interface contracts.
 
 ## Suggested PR Order
 
-1. Test harness/root-path fix plus current API drift assertions.
-2. Public import-root cleanup for `metadata.api` and `caches.api`.
+1. Done: test harness/root-path fix plus current API drift assertions.
+2. Done: public import-root cleanup for `metadata.api` and `caches.api`.
 3. WEMI/lazy/write-report protocol updates.
 4. Read-source/cache contract tightening.
 5. Stale namespace cleanup.

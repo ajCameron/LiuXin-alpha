@@ -5,8 +5,13 @@ prefer :mod:`LiuXin_alpha.caches.schema_backed` instead of reaching into
 ``cache_plugins`` internals.
 """
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
+from LiuXin_alpha.caches.api import (
+    FieldBasicInterfaceAPI,
     StorageCacheCapabilities,
+    StorageCacheAPI,
+    StorageCacheBaseTableAPI,
+    StorageCacheSingleTableAPI,
+    TableTypes,
 )
 from LiuXin_alpha.caches.cache_plugins import (
     create_storage_cache,
@@ -54,11 +59,16 @@ __all__ = [
     "SchemaBackedStorageCache",
     "SchemaBackedTwoTableOneOneField",
     "StorageCache",
+    "StorageCacheAPI",
+    "StorageCacheBaseTableAPI",
     "StorageCacheCapabilities",
     "StorageCacheField",
     "StorageCacheLinkTable",
     "StorageCacheMainTable",
+    "StorageCacheSingleTableAPI",
     "StorageCacheView",
+    "TableTypes",
+    "FieldBasicInterfaceAPI",
     "create_storage_cache",
     "get_cache_plugin_capabilities",
     "get_cache_plugin_location",

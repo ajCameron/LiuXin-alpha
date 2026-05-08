@@ -308,3 +308,13 @@ class CacheViewAPI(abc.ABC):
         """
         Add the given ids to the view.
         """
+
+
+__all__ = [
+    "CacheViewAPI",
+    "CacheViewColumnSpec",
+    "CacheViewRowAPI",
+    "CacheViewSortSpec",
+    "CacheViewSpec",
+    "CacheViewState",
+]
