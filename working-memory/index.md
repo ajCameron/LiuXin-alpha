@@ -1,10 +1,15 @@
 # Working Memory Index
 
-Updated: 2026-04-21
+Updated: 2026-05-08
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [metadata-interface-review-plan-2026-05-08.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-interface-review-plan-2026-05-08.md)
+  Fresh metadata interface review covering the public facade, API contracts,
+  lazy/cache read paths, write-back reports, stale namespaces, and a staged plan
+  for bringing the interface layer up to the current metadata implementation.
 
 - [cache-performance-exploration-2026-04-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-cache-impl/working-memory/cache-performance-exploration-2026-04-21.md)
   Cache backend review concluded that the current `numpy_vectorized` layer is
