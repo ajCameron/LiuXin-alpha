@@ -12,6 +12,7 @@ from importlib import import_module
 
 _LAZY_SUBMODULES = {
     "acquisition",
+    "api",
     "api_readonly",
     "catalog",
     "categories",

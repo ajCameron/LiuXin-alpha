@@ -3,10 +3,10 @@ from __future__ import annotations
 import mimetypes
 
 from dataclasses import dataclass
-from typing import Protocol
 from urllib.parse import quote, unquote
 
-from LiuXin_alpha.surfaces.web_readonly.app import _Response, _coerce_int, _escape
+from LiuXin_alpha.surfaces.api import OpdsHostApi, SurfaceResponseAPI
+from LiuXin_alpha.surfaces.web_readonly.app import _coerce_int, _escape
 
 
 def encode_compat_token(value: object) -> str:
@@ -202,27 +202,6 @@ def opds_feed(
     )
 
 
-class OpdsHostApi(Protocol):
-    @property
-    def config(self): ...
-
-    def opds_xml_response(self, xml_text: str, *, status: str = "200 OK") -> _Response: ...
-
-    def opds_text_response(self, status: str, text: str, *, content_type: str) -> _Response: ...
-
-    def opds_search_work_rows(self, query_text: str) -> list[object]: ...
-
-    def opds_work_rows(self, *, sorted_by: str) -> list[object]: ...
-
-    def opds_category_rows(self, category: str) -> list[dict[str, object]]: ...
-
-    def opds_category_display_name(self, category: str) -> str: ...
-
-    def opds_rows_for_category_item(self, category: str, item_token: str) -> list[object]: ...
-
-    def opds_work_metadata_payload(self, row) -> dict[str, object]: ...
-
-
 @dataclass
 class OpdsApi:
     host: OpdsHostApi
@@ -278,7 +257,7 @@ class OpdsApi:
             summary=_escape(str(content)),
         )
 
-    def serve(self, path: str, query: dict[str, list[str]]) -> _Response:
+    def serve(self, path: str, query: dict[str, list[str]]) -> SurfaceResponseAPI:
         parts = [unquote(part) for part in path.split("/") if part]
         if parts == ["opds"]:
             entries = [

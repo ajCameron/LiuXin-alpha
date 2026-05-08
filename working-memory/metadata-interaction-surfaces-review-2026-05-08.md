@@ -39,6 +39,34 @@ Result:
 
 Treat this as an incomplete smoke signal, not a passing surface-suite result.
 
+Follow-up focused validation after the first implementation slice:
+
+```bash
+.venv/bin/python -m pytest -q tests/surfaces/test_surface_package_api.py
+.venv/bin/python -m compileall -q src/LiuXin_alpha/surfaces
+.venv/bin/python -m pytest -q tests/surfaces/test_read_model_api.py tests/surfaces/test_catalog_api.py tests/surfaces/test_images_api.py tests/surfaces/test_acquisition_api.py tests/surfaces/test_opds_api.py tests/surfaces/test_opds_readonly.py tests/surfaces/test_api_readonly.py
+.venv/bin/python -m pytest -q tests/surfaces/test_web_readonly.py tests/surfaces/test_web_calibre_readonly.py tests/surfaces/test_web_readwrite.py
+```
+
+Results:
+- surface API import contract: `3 passed`
+- compileall over `src/LiuXin_alpha/surfaces`: passed
+- affected read/API/OPDS/acquisition/image slice: `19 passed`
+- web read-only/Calibre/read-write outer slice: `30 passed`
+
+## Progress This Branch
+
+Completed:
+- Added `LiuXin_alpha.surfaces.api` as a shared public contract root for
+  surface host protocols, response/file-target protocols, and presentation DTO
+  aliases.
+- Added `api` to the lazy top-level `LiuXin_alpha.surfaces` package surface.
+- Replaced duplicated host Protocol definitions in `read_model`, `catalog`,
+  `images`, `acquisition`, and `opds` with imports from the shared contract
+  root.
+- Added surface package tests proving the public contract names exist and the
+  previous per-surface import paths still re-export the same protocol objects.
+
 ## Findings
 
 1. The shared browse/API/OPDS read path is still row/dict based.
