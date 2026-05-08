@@ -1,9 +1,12 @@
-"""Pure API contracts for non-WEMI metadata main-table row containers.
+"""
+Pure API contracts for non-WEMI metadata main-table row containers.
 
 Category: metadata main-table row API.
 This module defines structural contracts for metadata-owned lookup and agent
 rows that sit outside the core W/E/M/I entity stack.
 """
+
+# Todo: Check we have one of these for every table
 
 from __future__ import annotations
 
