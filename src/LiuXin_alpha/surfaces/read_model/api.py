@@ -2,42 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Protocol
+from typing import Optional
 
+from LiuXin_alpha.surfaces.api import ReadModelHostApi
 from LiuXin_alpha.surfaces.images import ImageBackend
+from LiuXin_alpha.surfaces.metadata_facets import preferred_tag_table
 from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _escape, _row_value
-
-
-class ReadModelHostApi(Protocol):
-    @property
-    def db(self): ...
-
-    @property
-    def config(self): ...
-
-    def _table_exists(self, table: str) -> bool: ...
-
-    def _id_column(self, table: str) -> Optional[str]: ...
-
-    def _row_primary_text(self, table: str, row) -> str: ...
-
-    def _row_label(self, table: str, row) -> str: ...
-
-    def _row_dict(self, table: str, row) -> dict[str, object]: ...
-
-    def _row_href(self, table: str, row) -> Optional[str]: ...
-
-    def _related_rows_by_table(self, row) -> dict[str, list[object]]: ...
-
-    def _download_name_for_file_row(self, file_row) -> str: ...
-
-    def _refresh_storage_manager(self) -> bool: ...
-
-    def _work_credit_entries(self, row) -> list[dict[str, object]]: ...
-
-    def _file_capabilities(self, file_row) -> dict[str, object]: ...
-
-    def _stringify_detail_value(self, value: object) -> str: ...
 
 
 @dataclass
@@ -70,19 +40,7 @@ class ReadModelBackend:
         return tables or ["agents"]
 
     def tag_category_table(self) -> Optional[str]:
-        if self.host._table_exists("tags"):
-            try:
-                if int(self.host.db.get_record_count("tags")) > 0:
-                    return "tags"
-            except Exception:
-                return "tags"
-            if not self.host._table_exists("labels"):
-                return "tags"
-        if self.host._table_exists("labels"):
-            return "labels"
-        if self.host._table_exists("tags"):
-            return "tags"
-        return None
+        return preferred_tag_table(self.host.db, prefer_populated_tags=True)
 
     def work_tag_rows(self, related_rows_by_table: dict[str, list[object]]) -> tuple[Optional[str], list[object]]:
         tag_table = self.tag_category_table()

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Mapping, Optional, Sequence, TextIO
 
 from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.surfaces.metadata_facets import resolve_tag_or_label_table_token
 from LiuXin_alpha.surfaces.terminal.commands import TerminalCommandAPI, build_default_commands
 from LiuXin_alpha.surfaces.terminal.plugins import TerminalLifecyclePluginAPI
 from LiuXin_alpha.utils.jobs import default_job_manager
@@ -2044,17 +2045,9 @@ class TextDatabaseBrowser:
         if text in tables:
             return text
 
-        # Common logical aliases that appear in user-facing command usage.
-        if text in {"tag", "tags"}:
-            if "tags" in tables:
-                return "tags"
-            if "labels" in tables:
-                return "labels"
-        if text in {"label", "labels"}:
-            if "labels" in tables:
-                return "labels"
-            if "tags" in tables:
-                return "tags"
+        tag_or_label_table = resolve_tag_or_label_table_token(text, tables)
+        if tag_or_label_table is not None:
+            return tag_or_label_table
 
         common_aliases = {
             "note": "notes",

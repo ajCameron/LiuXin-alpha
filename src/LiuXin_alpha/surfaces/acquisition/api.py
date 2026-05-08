@@ -2,60 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Protocol
 
-from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _Response
-
-
-class AcquisitionHostApi(Protocol):
-    def acquisition_text_response(self, status: str, text: str, *, content_type: str) -> _Response: ...
-
-    def acquisition_bytes_response(
-        self,
-        payload: bytes,
-        *,
-        download_name: str,
-        disposition: str = "attachment",
-        content_type_override: Optional[str] = None,
-    ) -> _Response: ...
-
-    def acquisition_redirect_response(self, location: str) -> _Response: ...
-
-    def acquisition_file_response(
-        self,
-        path: Path,
-        *,
-        download_name: str,
-        environ,
-        disposition: str = "attachment",
-        content_type_override: Optional[str] = None,
-    ) -> _Response: ...
-
-    def acquisition_split_book_token(self, raw_book_id: str) -> tuple[Optional[int], str]: ...
-
-    def acquisition_work_row(self, row_id: int): ...
-
-    def acquisition_work_image_row(self, work_row): ...
-
-    def acquisition_resolve_storage_image(self, image_row): ...
-
-    def acquisition_resolve_image_target(self, image_row) -> Optional[_ResolvedFileTarget]: ...
-
-    def acquisition_image_download_name(self, image_row) -> str: ...
-
-    def acquisition_image_content_type(self, image_row) -> str: ...
-
-    def acquisition_placeholder_cover_svg(self, work_row, *, width: int, height: int) -> bytes: ...
-
-    def acquisition_related_rows_by_table(self, work_row) -> dict[str, list[object]]: ...
-
-    def acquisition_work_file_rows(self, related_rows_by_table: dict[str, list[object]]) -> list[object]: ...
-
-    def acquisition_download_name_for_file_row(self, file_row) -> str: ...
-
-    def acquisition_file_id(self, file_row) -> object: ...
-
-    def acquisition_serve_file_download(self, raw_file_id: str, environ) -> _Response: ...
+from LiuXin_alpha.surfaces.api import AcquisitionHostApi, SurfaceResponseAPI
 
 
 def _coerce_payload_bytes(payload) -> bytes:
@@ -95,7 +43,7 @@ def _cover_dimensions(*, suffix: str, query: dict[str, list[str]], thumb: bool) 
 class AcquisitionCompatApi:
     host: AcquisitionHostApi
 
-    def serve_cover_or_thumb(self, raw_book_id: str, *, query: dict[str, list[str]], environ, thumb: bool) -> _Response:
+    def serve_cover_or_thumb(self, raw_book_id: str, *, query: dict[str, list[str]], environ, thumb: bool) -> SurfaceResponseAPI:
         row_id, suffix = self.host.acquisition_split_book_token(raw_book_id)
         if row_id is None:
             return self.host.acquisition_text_response("400 Bad Request", "Invalid book id.\n", content_type="text/plain")
@@ -136,7 +84,7 @@ class AcquisitionCompatApi:
             content_type_override="image/svg+xml",
         )
 
-    def serve_compat_get(self, what: str, raw_book_id: str, query: dict[str, list[str]], environ) -> _Response:
+    def serve_compat_get(self, what: str, raw_book_id: str, query: dict[str, list[str]], environ) -> SurfaceResponseAPI:
         lowered = str(what or "").strip().lower()
         if lowered in {"thumb", "cover"}:
             return self.serve_cover_or_thumb(raw_book_id, query=query, environ=environ, thumb=(lowered == "thumb"))

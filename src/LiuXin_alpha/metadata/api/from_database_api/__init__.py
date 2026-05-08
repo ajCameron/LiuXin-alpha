@@ -25,6 +25,7 @@ from LiuXin_alpha.metadata.api.from_database_api.metadata_hydrator_api import (
     MetadataObjectGetterAPI,
 )
 from LiuXin_alpha.metadata.api.from_database_api.metadata_read_source_api import (
+    MetadataDriverWrapperAPI,
     MetadataReadSourceAPI,
 )
 
@@ -49,13 +50,19 @@ class DBMetadataSourceAPI(
 
 
 __all__ = [
+    "AgentProfileGetterAPI",
     "CalibreMetadataGetterAPI",
     "DBMetadataSourceAPI",
+    "ExpressionMetadataGetterAPI",
     "HydratableMetadataKind",
     "HydratedMetadataAPI",
+    "ItemMetadataGetterAPI",
     "LiuXinMetadataGetterAPI",
     "LiuXinWEMIMetadataGetterAPI",
+    "ManifestationMetadataGetterAPI",
+    "MetadataDriverWrapperAPI",
     "MetadataHydratorAPI",
     "MetadataObjectGetterAPI",
     "MetadataReadSourceAPI",
+    "WorkMetadataGetterAPI",
 ]

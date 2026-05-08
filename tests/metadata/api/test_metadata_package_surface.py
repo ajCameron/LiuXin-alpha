@@ -53,10 +53,25 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
                 "CalibreMetadataInputAPI",
                 "CalibreMetadataAPI",
                 "CalibreLikeBookMetadataAPI",
+                "CalibreMetadataGetterAPI",
+                "DBMetadataSourceAPI",
+                "HydratableMetadataKind",
+                "HydratedMetadataAPI",
                 "LiuXinMetadataAPI",
+                "LiuXinMetadataGetterAPI",
                 "LiuXinMetaInformationAPI",
                 "LiuXinWEMIMetadataAPI",
+                "LiuXinWEMIMetadataGetterAPI",
                 "LiuXinWEMIAPI",
+                "MetadataDriverWrapperAPI",
+                "MetadataHydratorAPI",
+                "MetadataObjectGetterAPI",
+                "MetadataReadSourceAPI",
+                "WorkMetadataGetterAPI",
+                "ExpressionMetadataGetterAPI",
+                "ManifestationMetadataGetterAPI",
+                "ItemMetadataGetterAPI",
+                "AgentProfileGetterAPI",
             ],
         ),
         (
@@ -169,12 +184,19 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
             [
                 "CalibreMetadataGetterAPI",
                 "DBMetadataSourceAPI",
+                "WorkMetadataGetterAPI",
+                "ExpressionMetadataGetterAPI",
+                "ManifestationMetadataGetterAPI",
+                "ItemMetadataGetterAPI",
+                "AgentProfileGetterAPI",
                 "HydratableMetadataKind",
                 "HydratedMetadataAPI",
                 "LiuXinMetadataGetterAPI",
                 "LiuXinWEMIMetadataGetterAPI",
+                "MetadataDriverWrapperAPI",
                 "MetadataHydratorAPI",
                 "MetadataObjectGetterAPI",
+                "MetadataReadSourceAPI",
             ],
         ),
     ],
@@ -199,8 +221,12 @@ def test_metadata_api_root_combines_current_public_api_roots() -> None:
     liuxin_wemi_api_root = importlib.import_module(
         "LiuXin_alpha.metadata.api.containers_api.liuxin_wemi_metadata_api"
     )
+    from_database_api_root = importlib.import_module(
+        "LiuXin_alpha.metadata.api.from_database_api"
+    )
     assert api_root.__all__ == [
         *container_api_root.__all__,
+        *from_database_api_root.__all__,
         *calibre_api_root.__all__,
         *liuxin_api_root.__all__,
         *liuxin_wemi_api_root.__all__,
