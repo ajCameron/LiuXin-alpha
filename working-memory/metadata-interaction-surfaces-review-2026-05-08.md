@@ -69,6 +69,17 @@ Results:
 - read/API/web/OPDS consumers: `29 passed`
 - surface package/facet import tests: `16 passed`
 
+Follow-up focused validation after the third implementation slice:
+
+```bash
+python3 -m pytest tests/surfaces/test_read_model_metadata_parity.py
+python3 -m pytest tests/surfaces/test_read_model_api.py tests/surfaces/test_metadata_facets.py tests/surfaces/test_read_model_metadata_parity.py
+```
+
+Results:
+- metadata-object parity tests across configured DB drivers: `6 passed`
+- read-model/facet/parity slice: `27 passed`
+
 ## Progress This Branch
 
 Completed:
@@ -88,6 +99,11 @@ Completed:
 - Added focused tests for tag-table preference, tag/label token resolution,
   normalized search-column selection, tag row payloads, and legacy row text
   precedence.
+- Added read-model metadata-object parity tests for a complete WEMI fixture,
+  checking the shared title/id/tag/series/file projection against
+  `WorkMetadata` and item-centered `LiuXinWEMIMetadata`.
+- Pinned the transitional fallback where the read-model `tags` projection comes
+  from WEMI labels when the real `tags` table exists but is empty.
 
 ## Findings
 
@@ -167,7 +183,8 @@ Completed:
    extraction, and work-centered related-row selection behind a common helper
    used by read model, terminal commands, and write surfaces.
 
-4. Add metadata-object parity tests for the read model.
+4. Add metadata-object parity tests for the read model. Completed in this
+   branch.
 
    For a fixture database, compare surface payload values for title, authors,
    tags, labels, series, formats, and identifiers against the relevant
