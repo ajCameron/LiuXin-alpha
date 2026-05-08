@@ -54,6 +54,21 @@ Results:
 - affected read/API/OPDS/acquisition/image slice: `19 passed`
 - web read-only/Calibre/read-write outer slice: `30 passed`
 
+Follow-up focused validation after the second implementation slice:
+
+```bash
+.venv/bin/python -m pytest -q tests/surfaces/test_metadata_facets.py tests/surfaces/test_read_model_api.py tests/surfaces/test_text_browser.py -k "tag or tags or table_token or show_tags or new_tag or on_tag or off_tag"
+.venv/bin/python -m compileall -q src/LiuXin_alpha/surfaces
+.venv/bin/python -m pytest -q tests/surfaces/test_read_model_api.py tests/surfaces/test_catalog_api.py tests/surfaces/test_api_readonly.py tests/surfaces/test_web_readonly.py tests/surfaces/test_web_calibre_readonly.py tests/surfaces/test_opds_readonly.py
+.venv/bin/python -m pytest -q tests/surfaces/test_surface_package_api.py tests/surfaces/test_metadata_facets.py
+```
+
+Results:
+- focused metadata-facet/read-model/terminal tag slice: `32 passed, 158 deselected`
+- compileall over `src/LiuXin_alpha/surfaces`: passed
+- read/API/web/OPDS consumers: `29 passed`
+- surface package/facet import tests: `16 passed`
+
 ## Progress This Branch
 
 Completed:
@@ -66,6 +81,13 @@ Completed:
   root.
 - Added surface package tests proving the public contract names exist and the
   previous per-surface import paths still re-export the same protocol objects.
+- Added `surfaces.metadata_facets` as the shared tag/label resolver helper for
+  interaction surfaces.
+- Replaced duplicated tag-vs-label table selection in the read model, terminal
+  table resolution, `show tags`, `on tag`, and `add tag` with the shared helper.
+- Added focused tests for tag-table preference, tag/label token resolution,
+  normalized search-column selection, tag row payloads, and legacy row text
+  precedence.
 
 ## Findings
 

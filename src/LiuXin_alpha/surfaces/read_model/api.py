@@ -6,6 +6,7 @@ from typing import Optional
 
 from LiuXin_alpha.surfaces.api import ReadModelHostApi
 from LiuXin_alpha.surfaces.images import ImageBackend
+from LiuXin_alpha.surfaces.metadata_facets import preferred_tag_table
 from LiuXin_alpha.surfaces.web_readonly.app import _ResolvedFileTarget, _escape, _row_value
 
 
@@ -39,19 +40,7 @@ class ReadModelBackend:
         return tables or ["agents"]
 
     def tag_category_table(self) -> Optional[str]:
-        if self.host._table_exists("tags"):
-            try:
-                if int(self.host.db.get_record_count("tags")) > 0:
-                    return "tags"
-            except Exception:
-                return "tags"
-            if not self.host._table_exists("labels"):
-                return "tags"
-        if self.host._table_exists("labels"):
-            return "labels"
-        if self.host._table_exists("tags"):
-            return "tags"
-        return None
+        return preferred_tag_table(self.host.db, prefer_populated_tags=True)
 
     def work_tag_rows(self, related_rows_by_table: dict[str, list[object]]) -> tuple[Optional[str], list[object]]:
         tag_table = self.tag_category_table()

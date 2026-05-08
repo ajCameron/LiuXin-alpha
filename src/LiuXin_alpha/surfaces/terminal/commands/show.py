@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from LiuXin_alpha.surfaces.metadata_facets import resolve_tag_or_label_table_token, tag_row_text
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.commands.link import _split_row_ref
 
@@ -42,16 +43,9 @@ def resolve_show_kind_table(browser, token: str) -> str:
 
     tables = set(browser.db.get_tables())
 
-    if text in {"tag", "tags"}:
-        if "tags" in tables:
-            return "tags"
-        if "labels" in tables:
-            return "labels"
-    if text in {"label", "labels"}:
-        if "labels" in tables:
-            return "labels"
-        if "tags" in tables:
-            return "tags"
+    tag_or_label_table = resolve_tag_or_label_table_token(text, tables)
+    if tag_or_label_table is not None:
+        return tag_or_label_table
 
     aliases = {
         "note": "notes",
@@ -192,13 +186,7 @@ class ShowTagsCommand(_ShowLinkedBaseCommand):
 
         labels: list[str] = []
         for row in rows:
-            text = ""
-            if "label_text" in row and row["label_text"] is not None:
-                text = str(row["label_text"]).strip()
-            elif "label" in row and row["label"] is not None:
-                text = str(row["label"]).strip()
-            elif "tag" in row and row["tag"] is not None:
-                text = str(row["tag"]).strip()
+            text = tag_row_text(row)
             if text:
                 labels.append(text)
 

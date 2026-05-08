@@ -19,6 +19,7 @@ _LAZY_SUBMODULES = {
     "cli",
     "field_metadata",
     "images",
+    "metadata_facets",
     "opds",
     "opds_readonly",
     "read_model",
