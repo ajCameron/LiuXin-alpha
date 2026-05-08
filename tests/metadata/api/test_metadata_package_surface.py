@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 
-METADATA_API_ROOT = Path("src/LiuXin_alpha/metadata/api")
+REPO_ROOT = Path(__file__).resolve().parents[3]
+METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
 
 
 @pytest.mark.parametrize(
@@ -212,6 +213,11 @@ def test_metadata_container_root_matches_metadata_containers_root() -> None:
         "LiuXin_alpha.metadata.containers.metadata_containers"
     )
     assert container_root.__all__ == metadata_containers_root.__all__
+
+
+def test_metadata_api_source_scan_observes_repo_files() -> None:
+    assert (METADATA_API_ROOT / "__init__.py").is_file()
+    assert any(METADATA_API_ROOT.rglob("*.py"))
 
 
 def test_metadata_api_source_avoids_unbounded_typing() -> None:

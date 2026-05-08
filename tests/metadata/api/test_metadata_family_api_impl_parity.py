@@ -9,7 +9,16 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import
     WorkTitle,
 )
 
-API_WEMI_DIR = Path("src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api")
+REPO_ROOT = Path(__file__).resolve().parents[3]
+API_WEMI_DIR = (
+    REPO_ROOT
+    / "src"
+    / "LiuXin_alpha"
+    / "metadata"
+    / "api"
+    / "containers_api"
+    / "wemi_containers_api"
+)
 
 REMOVED_API_FAMILY_MODULES = [
     API_WEMI_DIR / "agent_containers" / "agent_credit_containers.py",

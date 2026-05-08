@@ -10,8 +10,13 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence, Set
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol, Self, TypeAlias
+from typing import Protocol, Self, TypeAlias
 
+from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
+    MetadataWriteDatabaseAPI,
+    MetadataWriteReportAPI,
+    MetadataWriteTargetRow,
+)
 from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import (
     CalibreCloseableAPI,
     CalibreFilePayload,
@@ -139,15 +144,15 @@ class LiuXinMetadataAPI(Protocol):
 
     def write_to_database(
         self,
-        database: Any,
+        database: MetadataWriteDatabaseAPI,
         *,
         fields: Iterable[str] | None = None,
         target_level: str = "work",
         item_id: int | None = None,
-        target_row: Any = None,
+        target_row: MetadataWriteTargetRow | None = None,
         replace: bool = False,
         mark_dirty: bool = True,
-    ) -> Any: ...
+    ) -> MetadataWriteReportAPI: ...
 
     def to_opf_bytes(self, *, default_lang: str | None = None) -> bytes: ...
 

@@ -37,6 +37,9 @@ class _DummyItemMetadata(ItemMetadataAPI):
         relation_key = self.validate_relation_name(relation)
         self._links[relation_key] = list(links)
 
+    def write_to_database(self, *args, **kwargs):
+        return None
+
     def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
         payload: MutableMetadataRecord = {"item": self.item}
         if include_related:

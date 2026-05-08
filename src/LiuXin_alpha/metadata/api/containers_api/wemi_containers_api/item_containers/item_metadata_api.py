@@ -9,9 +9,14 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import Any, ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
+from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
 
 
+from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
+    MetadataWriteDatabaseAPI,
+    MetadataWriteReportAPI,
+    MetadataWriteTargetRow,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import AgentIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
@@ -192,18 +197,18 @@ class ItemMetadataAPI(abc.ABC):
     def set_relation_links(self, relation: str, links: Iterable[ItemRelationLink]) -> None:
         """Replace edge metadata links for one relation type."""
 
+    @abc.abstractmethod
     def write_to_database(
         self,
-        database: Any,
+        database: MetadataWriteDatabaseAPI,
         *,
         fields: Iterable[str] | None = None,
         item_id: int | None = None,
-        target_row: Any = None,
+        target_row: MetadataWriteTargetRow | None = None,
         replace: bool = False,
         mark_dirty: bool = True,
-    ) -> Any:
+    ) -> MetadataWriteReportAPI:
         """Persist supported relation changes for this item metadata bundle."""
-        raise NotImplementedError
 
     def add_relation_link(self, relation: str, link: ItemRelationLink) -> None:
         relation_key = self.validate_relation_name(relation)
