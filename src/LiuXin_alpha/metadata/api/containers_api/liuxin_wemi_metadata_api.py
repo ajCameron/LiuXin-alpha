@@ -8,9 +8,14 @@ while keeping the LiuXin/Calibre compatibility and full W/E/M/I stack visible.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Literal, Protocol, Self, TypeAlias
+from typing import Literal, Protocol, Self, TypeAlias
 
 from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import CalibreMetadataAPI
+from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
+    MetadataWriteDatabaseAPI,
+    MetadataWriteReportAPI,
+    MetadataWriteTargetRow,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ExpressionIdentityAPI,
     ExpressionMetadataAPI,
@@ -346,15 +351,15 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
 
     def write_to_database(
         self,
-        database: Any,
+        database: MetadataWriteDatabaseAPI,
         *,
         fields: Iterable[str] | None = None,
         target_level: WemiLevel | None = "work",
         item_id: int | None = None,
-        target_row: Any = None,
+        target_row: MetadataWriteTargetRow | None = None,
         replace: bool = False,
         mark_dirty: bool = True,
-    ) -> Any:
+    ) -> MetadataWriteReportAPI:
         """
         Persist supported relation-backed metadata changes.
 

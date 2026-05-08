@@ -11,7 +11,13 @@ from collections.abc import Iterable, Mapping, Sequence, Set
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import Any, Protocol, Self, TypeAlias, runtime_checkable
+from typing import Protocol, Self, TypeAlias, runtime_checkable
+
+from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
+    MetadataWriteDatabaseAPI,
+    MetadataWriteReportAPI,
+    MetadataWriteTargetRow,
+)
 
 
 CalibrePath: TypeAlias = str | PathLike[str]
@@ -181,15 +187,15 @@ class CalibreMetadataAPI(CalibreMetadataInputAPI, Protocol):
 
     def write_to_database(
         self,
-        database: Any,
+        database: MetadataWriteDatabaseAPI,
         *,
         fields: Iterable[str] | None = None,
         target_level: str = "work",
         item_id: int | None = None,
-        target_row: Any = None,
+        target_row: MetadataWriteTargetRow | None = None,
         replace: bool = False,
         mark_dirty: bool = True,
-    ) -> Any: ...
+    ) -> MetadataWriteReportAPI: ...
 
     def to_opf_bytes(self, *, default_lang: str | None = None) -> bytes: ...
 
@@ -234,15 +240,15 @@ class CalibreLikeBookMetadataAPI(CalibreMetadataInputAPI, Protocol):
 
     def write_to_database(
         self,
-        database: Any,
+        database: MetadataWriteDatabaseAPI,
         *,
         fields: Iterable[str] | None = None,
         target_level: str = "work",
         item_id: int | None = None,
-        target_row: Any = None,
+        target_row: MetadataWriteTargetRow | None = None,
         replace: bool = False,
         mark_dirty: bool = True,
-    ) -> Any: ...
+    ) -> MetadataWriteReportAPI: ...
 
     def to_opf_bytes(self, *, default_lang: str | None = None) -> bytes: ...
 

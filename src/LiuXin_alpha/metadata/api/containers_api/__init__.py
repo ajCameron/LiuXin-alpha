@@ -35,6 +35,15 @@ from LiuXin_alpha.metadata.api.containers_api.main_table_containers_api import (
     SynopsisRowAPI,
     TagRowAPI,
 )
+from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
+    MetadataWriteDatabaseAPI,
+    MetadataWriteRecord,
+    MetadataWriteReportAPI,
+    MetadataWriteScalar,
+    MetadataWriteTargetRow,
+    MetadataWriteTargetRowAPI,
+    MetadataWriteValue,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     AgentIdentityAPI,
     AgentProfileAPI,
@@ -117,6 +126,13 @@ __all__ = [
     "MetadataScalar",
     "MetadataTableRowAPI",
     "MetadataValue",
+    "MetadataWriteDatabaseAPI",
+    "MetadataWriteRecord",
+    "MetadataWriteReportAPI",
+    "MetadataWriteScalar",
+    "MetadataWriteTargetRow",
+    "MetadataWriteTargetRowAPI",
+    "MetadataWriteValue",
     "MutableMetadataRecord",
     "NoteRowAPI",
     "ObservedItemIdentifierRowAPI",
