@@ -516,20 +516,20 @@ class TestCcAdaptBool:
         with pytest.raises(InvalidUpdate):
             cc_adapt_bool("not_a_bool", {})
 
-    def test_none_raises_attribute_error_due_to_shadowed_datetime_import(self) -> None:
+    def test_none_input_raises_attribute_error(self) -> None:
         # Pre-existing bug: `from datetime import datetime` in adaptors.py shadows the
         # `datetime` module, so `isinstance(x, datetime.datetime)` fails with
         # AttributeError for any non-string, non-float input (including None, bool).
         with pytest.raises(AttributeError):
             cc_adapt_bool(None, {})
 
-    def test_bool_true_raises_attribute_error_due_to_shadowed_datetime_import(self) -> None:
-        # Same pre-existing bug as above.
+    def test_bool_true_input_raises_attribute_error(self) -> None:
+        # Pre-existing bug: same shadowed import causes AttributeError for bool inputs.
         with pytest.raises(AttributeError):
             cc_adapt_bool(True, {})
 
-    def test_bool_false_raises_attribute_error_due_to_shadowed_datetime_import(self) -> None:
-        # Same pre-existing bug as above.
+    def test_bool_false_input_raises_attribute_error(self) -> None:
+        # Pre-existing bug: same shadowed import causes AttributeError for bool inputs.
         with pytest.raises(AttributeError):
             cc_adapt_bool(False, {})
 
@@ -551,7 +551,7 @@ class TestCcAdaptEnum:
     def test_none_returns_none(self) -> None:
         assert cc_adapt_enum(None, self._d) is None
 
-    def test_strips_whitespace(self) -> None:
+    def test_does_not_strip_whitespace(self) -> None:
         # cc_adapt_enum delegates to cc_adapt_text for single fields, which
         # does not strip whitespace for single (non-multiple) text columns.
         result = cc_adapt_enum("  Active  ", self._d)

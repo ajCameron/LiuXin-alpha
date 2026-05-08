@@ -278,8 +278,12 @@ class TestBuildRowDataclassForTable:
     def test_column_with_default(self) -> None:
         table = self._make_table("items", [("count", "INTEGER", True, True, 0)])
         cls = build_row_dataclass_for_table(table)
+        # Default value is used when no argument is provided.
         instance = cls()
         assert instance.count == 0
+        # Callers can still override the default with an explicit value.
+        override = cls(count=42)
+        assert override.count == 42
 
     def test_multiple_columns(self) -> None:
         table = self._make_table(
@@ -296,7 +300,7 @@ class TestBuildRowDataclassForTable:
         assert instance.title == "Dune"
         assert abs(instance.rating - 4.5) < 1e-9
 
-    def test_returns_a_class(self) -> None:
+    def test_returns_class_type(self) -> None:
         table = self._make_table("empty", [])
         cls = build_row_dataclass_for_table(table)
         assert isinstance(cls, type)

@@ -94,7 +94,9 @@ class TestFuzzyTitle:
 class TestFindIdenticalBooks:
     """Tests that find_identical_books returns expected sets."""
 
-    def _make_data(self):
+    def _make_data(
+        self,
+    ) -> tuple[dict[str, list[int]], dict[int, set[int]], dict[int, str]]:
         """
         Build the (author_map, aid_map, title_map) triple expected by
         find_identical_books.

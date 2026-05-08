@@ -157,22 +157,18 @@ class TestSHLockExclusive:
     def test_downgrade_raises(self) -> None:
         lock = SHLock()
         lock.acquire(shared=False)
-        try:
-            with pytest.raises(LockingError):
-                # Trying to acquire shared while holding exclusive should raise
-                lock.acquire(shared=True)
-        finally:
-            lock.release()
+        with pytest.raises(LockingError):
+            # Trying to acquire shared while holding exclusive should raise
+            lock.acquire(shared=True)
+        lock.release()
 
     def test_upgrade_raises(self) -> None:
         lock = SHLock()
         lock.acquire(shared=True)
-        try:
-            with pytest.raises(LockingError):
-                # Trying to acquire exclusive while holding shared (same thread) raises
-                lock.acquire(shared=False)
-        finally:
-            lock.release()
+        with pytest.raises(LockingError):
+            # Trying to acquire exclusive while holding shared (same thread) raises
+            lock.acquire(shared=False)
+        lock.release()
 
     def test_release_unheld_exclusive_lock_raises(self) -> None:
         lock = SHLock()
