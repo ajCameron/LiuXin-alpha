@@ -94,6 +94,9 @@ class ReadOnlyWebConfig:
     max_page_size: int = 200
     expose_database_path: bool = False
     enable_file_downloads: bool = True
+    metadata_read_source: str = "database"
+    metadata_cache_type: str = "schema_backed"
+    metadata_cache_allow_database_fallback: bool = True
     hidden_column_tokens: tuple[str, ...] = ("credential", "password", "secret", "token", "policy_json")
     hidden_column_suffixes: tuple[str, ...] = ("_scratch",)
 
@@ -146,6 +149,14 @@ class ReadOnlyWebApplication:
     ) -> None:
         self.db = db
         self.config = config or ReadOnlyWebConfig()
+        resolved_read_source = read_source
+        if resolved_read_source is None:
+            resolved_read_source = build_metadata_read_source(
+                db,
+                source=self.config.metadata_read_source,
+                cache_type=self.config.metadata_cache_type,
+                allow_database_fallback=self.config.metadata_cache_allow_database_fallback,
+            )
         from LiuXin_alpha.surfaces.images import ImageBackend
         from LiuXin_alpha.surfaces.read_model import ReadModelBackend
 
@@ -153,7 +164,7 @@ class ReadOnlyWebApplication:
         self.read_model = ReadModelBackend(
             self,
             images=self.images,
-            read_source=read_source,
+            read_source=resolved_read_source,
         )
 
     def __call__(self, environ, start_response):
@@ -2770,6 +2781,22 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the LiuXin read-only web interface.")
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
+    parser.add_argument(
+        "--metadata-read-source",
+        choices=("database", "cache"),
+        default="database",
+        help="Read metadata directly from the database or from a loaded storage cache.",
+    )
+    parser.add_argument(
+        "--cache-type",
+        default="schema_backed",
+        help="Storage cache backend to use when --metadata-read-source=cache.",
+    )
+    parser.add_argument(
+        "--no-cache-db-fallback",
+        action="store_true",
+        help="When using cache metadata reads, do not fall back to live database reads.",
+    )
     parser.add_argument("--host", default=ReadOnlyWebConfig.host, help="Bind host. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=ReadOnlyWebConfig.port, help="Bind port. Default: 8080")
     parser.add_argument("--page-size", type=int, default=ReadOnlyWebConfig.default_page_size, help="Default page size.")
@@ -2790,6 +2817,37 @@ def _open_database(*, database_path: str, db_type: str) -> Database:
     )
 
 
+def build_metadata_read_source(
+    db: Database,
+    *,
+    source: str = "database",
+    cache_type: str = "schema_backed",
+    allow_database_fallback: bool = True,
+):
+    normalized_source = str(source or "database").strip().lower()
+    if normalized_source in {"database", "db"}:
+        return None
+    if normalized_source not in {"cache", "storage_cache"}:
+        raise ValueError(
+            "Unknown metadata read source {!r}. Expected 'database' or 'cache'.".format(
+                source,
+            )
+        )
+
+    from LiuXin_alpha.caches import create_storage_cache
+    from LiuXin_alpha.metadata.read_sources import CacheMetadataReadSource
+
+    cache = create_storage_cache(db, str(cache_type or "schema_backed"))
+    read = getattr(cache, "read", None)
+    if callable(read):
+        read()
+    return CacheMetadataReadSource(
+        cache,
+        database=db,
+        allow_database_fallback=allow_database_fallback,
+    )
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
@@ -2801,6 +2859,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         max_page_size=max(1, int(args.max_page_size)),
         expose_database_path=bool(args.expose_database_path),
         enable_file_downloads=not bool(args.no_file_downloads),
+        metadata_read_source=str(args.metadata_read_source),
+        metadata_cache_type=str(args.cache_type),
+        metadata_cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
     )
     with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
         app = ReadOnlyWebApplication(db, config=config)
@@ -2816,5 +2877,6 @@ __all__ = [
     "ReadOnlyWebApplication",
     "ReadOnlyWebConfig",
     "build_arg_parser",
+    "build_metadata_read_source",
     "main",
 ]

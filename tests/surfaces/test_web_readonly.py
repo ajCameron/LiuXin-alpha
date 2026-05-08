@@ -5,7 +5,11 @@ from wsgiref.util import setup_testing_defaults
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.surfaces.web_readonly import ReadOnlyWebApplication, ReadOnlyWebConfig
+from LiuXin_alpha.surfaces.web_readonly import (
+    ReadOnlyWebApplication,
+    ReadOnlyWebConfig,
+    build_arg_parser,
+)
 from LiuXin_alpha.metadata.standardization import make_tag_search_term
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
@@ -197,6 +201,45 @@ def test_web_readonly_home_table_row_and_search(driver_spec, tmp_path: Path) -> 
         assert "matches=1" in text
         assert "The Public Domain Web Test" in text
         assert "class='table-wrap'" in text
+
+
+def test_web_readonly_cache_read_source_cli_options_serve_snapshot(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "web_readonly_cache_source.sqlite"
+    args = build_arg_parser().parse_args(
+        [
+            "--database",
+            str(db_path),
+            "--metadata-read-source",
+            "cache",
+            "--cache-type",
+            "schema_backed",
+            "--no-cache-db-fallback",
+        ]
+    )
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        _insert_work_row(db, title="Cached Web Title")
+        config = ReadOnlyWebConfig(
+            metadata_read_source=str(args.metadata_read_source),
+            metadata_cache_type=str(args.cache_type),
+            metadata_cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
+        )
+        app = ReadOnlyWebApplication(db, config=config)
+        _insert_work_row(db, title="Uncached Web Title")
+
+        status, _headers, body = _call_app(app, "/search?global_q=Title&search_table=works")
+
+        assert getattr(app.read_model.read_source, "allow_database_fallback") is False
+        assert status == "200 OK"
+        text = body.decode("utf-8")
+        assert "Cached Web" in text
+        assert "Uncached Web" not in text
 
 
 def test_web_readonly_table_classifier_splits_main_helper_interlink_and_intralink() -> None:
