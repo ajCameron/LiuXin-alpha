@@ -173,7 +173,7 @@ def test_catalog_backend_category_summary_and_tag_browser(driver_spec, tmp_path:
         storage_startup_on_add=False,
     ) as db:
         work_id = _insert_work_row(db, title="Alpha Book")
-        _insert_work_row(db, title="Beta Book")
+        beta_id = _insert_work_row(db, title="Beta Book")
         agent_id = _insert_agent_row(db, name="Alice Author")
         label_id = _insert_label_row(db, text="Adventure")
         series_id = _insert_series_row(db, name="Library Shelf")
@@ -198,6 +198,10 @@ def test_catalog_backend_category_summary_and_tag_browser(driver_spec, tmp_path:
         assert any(row["label"] == "Alice Author" and row["count"] == 1 for row in author_rows)
         assert any(row["label"] == "Adventure" and row["count"] == 1 for row in tag_rows)
         assert any(row["label"] == "Library Shelf" and row["count"] == 1 for row in series_rows)
+        assert [int(row["work_id"]) for row in backend.work_rows_for_category_item("authors", agent_id)] == [work_id]
+        assert [int(row["work_id"]) for row in backend.work_rows_for_category_item("tags", label_id)] == [work_id]
+        assert [int(row["work_id"]) for row in backend.work_rows_for_category_item("series", series_id)] == [work_id]
+        assert [int(row["work_id"]) for row in backend.work_rows_for_category_item("allbooks", 0)] == [work_id, beta_id]
 
         tag_browser = backend.tag_browser_payload()
         assert len(tag_browser["root"]["children"]) == 3
@@ -250,6 +254,13 @@ def test_catalog_backend_work_metadata_and_search_payload(driver_spec, tmp_path:
         assert metadata["formats_detail"][0]["download_url"].endswith("/download")
         assert metadata["category_urls"]["authors"]
         assert metadata["thumbnail"].startswith("/get/thumb/")
+        token_row = backend.work_row_from_token("{}_main".format(work_id))
+        assert token_row is not None
+        assert int(token_row["work_id"]) == work_id
+        assert backend.work_row_from_token("not-a-book") is None
+        assert [int(row["work_id"]) for row in backend.work_rows_for_ids("{},9999".format(work_id))] == [work_id]
+        assert [int(row["work_id"]) for row in backend.search_work_rows("Alpha")] == [work_id]
+        assert [int(row["work_id"]) for row in backend.work_rows_for_query_or_recent("Alpha")] == [work_id]
 
         payload = backend.search_result_payload(
             query_text="Alpha",
@@ -263,6 +274,7 @@ def test_catalog_backend_work_metadata_and_search_payload(driver_spec, tmp_path:
         assert payload["book_ids"] == [work_id]
         assert payload["num_books_without_search"] == 1
         assert payload["query"] == "Alpha"
+        assert [int(row["work_id"]) for row in backend.metadata_rows_for_search_result([work_row], payload)] == [work_id]
 
         books_metadata = backend.books_metadata_payload([work_row])
         assert str(work_id) in books_metadata

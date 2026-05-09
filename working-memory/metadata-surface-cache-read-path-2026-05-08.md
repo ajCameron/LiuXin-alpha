@@ -50,6 +50,11 @@ source/cache snapshot.
 - Left direct live DB reads in the read-only surfaces only where they are still
   file-serving/storage-resolution paths or image-backend fallbacks for hosts
   without a read model.
+- Tightened Calibre-style web category/detail paths by moving shared work-row
+  resolution into `CalibreCatalogBackend`: id-list lookup, book-token lookup,
+  category-item lookup, work search, recent/search selection, and metadata-row
+  selection for interface payloads now use catalog/read-model helpers rather
+  than route-local loops.
 - Fixed a metadata API import cycle exposed by importing metadata read sources
   from the surface test path: Calibre metadata API leaf modules now import
   write contracts and Calibre type contracts from their leaf modules rather
@@ -68,6 +73,8 @@ python3 -m pytest tests/surfaces/test_read_model_api.py tests/surfaces/test_web_
 python3 -m pytest tests/surfaces/test_read_model_api.py tests/surfaces/test_api_readonly.py tests/surfaces/test_opds_readonly.py tests/surfaces/test_web_readonly.py tests/surfaces/test_web_calibre_readonly.py
 python3 -m pytest tests/surfaces/test_read_model_api.py tests/surfaces/test_api_readonly.py tests/surfaces/test_opds_readonly.py
 python3 -m pytest tests/surfaces/test_read_model_api.py tests/surfaces/test_api_readonly.py tests/surfaces/test_opds_readonly.py tests/surfaces/test_web_readonly.py tests/surfaces/test_web_calibre_readonly.py tests/surfaces/test_images_api.py
+python3 -m pytest tests/surfaces/test_catalog_api.py tests/surfaces/test_web_calibre_readonly.py::test_web_calibre_readonly_cache_read_source_detail_routes_serve_snapshot tests/surfaces/test_web_calibre_readonly.py::test_web_calibre_readonly_ajax_and_interface_data_routes
+python3 -m pytest tests/surfaces/test_catalog_api.py tests/surfaces/test_web_calibre_readonly.py tests/surfaces/test_read_model_api.py tests/surfaces/test_web_readonly.py
 python3 -m compileall -q src/LiuXin_alpha/metadata src/LiuXin_alpha/surfaces
 python3 -m compileall -q src/LiuXin_alpha/surfaces/web_readonly src/LiuXin_alpha/surfaces/web_calibre_readonly
 python3 -m compileall -q src/LiuXin_alpha/surfaces
@@ -85,6 +92,8 @@ Results:
 - read-model plus API/OPDS surface slice: `25 passed`
 - read-only cache route focused slice after direct-read audit: `8 passed`
 - read-model plus API/OPDS/web/image surface slice: `67 passed`
+- Calibre catalog helper focused slice: `10 passed`
+- catalog plus Calibre/web/read-model surface slice: `54 passed`
 - compileall: passed
 - diff check: passed
 
