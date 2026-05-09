@@ -10,6 +10,7 @@ from LiuXin_alpha.surfaces.opds_readonly import (
     OpdsReadOnlyConfig,
     build_arg_parser,
 )
+from LiuXin_alpha.surfaces.opds.api import opds_nav_token
 from LiuXin_alpha.surfaces.web_calibre_readonly import CalibreReadOnlyWebApplication
 from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
@@ -156,6 +157,38 @@ def test_opds_readonly_parser_accepts_cache_read_source_options(tmp_path: Path) 
     assert config.metadata_read_source == "cache"
     assert config.metadata_cache_type == "schema_backed"
     assert config.metadata_cache_allow_database_fallback is False
+
+
+def test_opds_readonly_cache_read_source_route_serves_snapshot(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "opds_cache_source.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        _insert_work_row(db, title="Cached OPDS Route Title")
+        app = OpdsReadOnlyApplication(
+            db,
+            config=OpdsReadOnlyConfig(
+                default_page_size=10,
+                max_page_size=25,
+                metadata_read_source="cache",
+                metadata_cache_type="schema_backed",
+                metadata_cache_allow_database_fallback=False,
+            ),
+        )
+        _insert_work_row(db, title="Uncached OPDS Route Title")
+
+        status, headers, body = _call_app(app, "/opds/navcatalog/{}".format(opds_nav_token("titles")))
+
+        assert getattr(app.read_model.read_source, "allow_database_fallback") is False
+        assert status == "200 OK"
+        assert headers["Content-Type"].startswith("application/atom+xml")
+        text = body.decode("utf-8")
+        assert "Cached OPDS Route Title" in text
+        assert "Uncached OPDS Route Title" not in text
 
 
 def test_opds_readonly_root_and_feed_routes(driver_spec, tmp_path: Path) -> None:

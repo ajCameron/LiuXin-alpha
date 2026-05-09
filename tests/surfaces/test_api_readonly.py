@@ -199,6 +199,37 @@ def test_api_readonly_parser_accepts_cache_read_source_options(tmp_path: Path) -
     assert config.metadata_cache_allow_database_fallback is False
 
 
+def test_api_readonly_cache_read_source_route_serves_snapshot(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "api_cache_source.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        _insert_work_row(db, title="Cached API Route Title")
+        app = ApiReadOnlyApplication(
+            db,
+            config=ApiReadOnlyConfig(
+                default_page_size=10,
+                max_page_size=25,
+                metadata_read_source="cache",
+                metadata_cache_type="schema_backed",
+                metadata_cache_allow_database_fallback=False,
+            ),
+        )
+        _insert_work_row(db, title="Uncached API Route Title")
+
+        status, _headers, payload = _json(app, "/api/works?sort=title&limit=10")
+
+        assert getattr(app.read_model.read_source, "allow_database_fallback") is False
+        assert status == "200 OK"
+        assert payload["pagination"]["total"] == 1
+        titles = [str(item["title"]) for item in payload["items"]]
+        assert titles == ["Cached API Route Title"]
+
+
 def test_api_readonly_index_and_work_routes(driver_spec, tmp_path: Path) -> None:
     db_path = tmp_path / "api_readonly_works.sqlite"
     file_path = tmp_path / "api-book.epub"
