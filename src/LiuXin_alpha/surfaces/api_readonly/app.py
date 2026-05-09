@@ -22,6 +22,8 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
     _coerce_int,
     _open_database,
     _row_value,
+    add_metadata_read_source_arguments,
+    metadata_read_source_config_kwargs,
 )
 
 
@@ -376,6 +378,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the LiuXin read-only JSON API.")
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
+    add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=ApiReadOnlyConfig.host, help="Bind host. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=ApiReadOnlyConfig.port, help="Bind port. Default: 8083")
     parser.add_argument("--page-size", type=int, default=ApiReadOnlyConfig.default_page_size, help="Default page size.")
@@ -395,6 +398,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         default_page_size=max(1, int(args.page_size)),
         max_page_size=max(1, int(args.max_page_size)),
         enable_file_downloads=not bool(args.no_file_downloads),
+        **metadata_read_source_config_kwargs(args),
     )
     with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
         app = ApiReadOnlyApplication(db, config=config)

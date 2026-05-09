@@ -5,7 +5,11 @@ from wsgiref.util import setup_testing_defaults
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.surfaces.opds_readonly import OpdsReadOnlyApplication, OpdsReadOnlyConfig
+from LiuXin_alpha.surfaces.opds_readonly import (
+    OpdsReadOnlyApplication,
+    OpdsReadOnlyConfig,
+    build_arg_parser,
+)
 from LiuXin_alpha.surfaces.web_calibre_readonly import CalibreReadOnlyWebApplication
 from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
@@ -125,6 +129,33 @@ def _insert_file_row_for_item(db: Database, *, store_id: int, item_id: int | Non
 def test_opds_readonly_is_not_a_calibre_ui_subclass() -> None:
     assert issubclass(OpdsReadOnlyApplication, ReadOnlyWebApplication)
     assert not issubclass(OpdsReadOnlyApplication, CalibreReadOnlyWebApplication)
+
+
+def test_opds_readonly_parser_accepts_cache_read_source_options(tmp_path: Path) -> None:
+    db_path = tmp_path / "opds_cli.sqlite"
+    args = build_arg_parser().parse_args(
+        [
+            "--database",
+            str(db_path),
+            "--metadata-read-source",
+            "cache",
+            "--cache-type",
+            "schema_backed",
+            "--no-cache-db-fallback",
+        ]
+    )
+
+    assert args.metadata_read_source == "cache"
+    assert args.cache_type == "schema_backed"
+    assert args.no_cache_db_fallback is True
+    config = OpdsReadOnlyConfig(
+        metadata_read_source=str(args.metadata_read_source),
+        metadata_cache_type=str(args.cache_type),
+        metadata_cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
+    )
+    assert config.metadata_read_source == "cache"
+    assert config.metadata_cache_type == "schema_backed"
+    assert config.metadata_cache_allow_database_fallback is False
 
 
 def test_opds_readonly_root_and_feed_routes(driver_spec, tmp_path: Path) -> None:

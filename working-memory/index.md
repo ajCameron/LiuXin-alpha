@@ -9,7 +9,7 @@ Start here for active handoff notes. This index should stay short.
 - [metadata-surface-cache-read-path-2026-05-08.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-surface-cache-read-path-2026-05-08.md)
   The read model now accepts an explicit metadata read source/cache snapshot
   while keeping direct database reads as the default; this note captures the
-  cache-source adapter additions, constructor wiring, read-only web CLI/config
+  cache-source adapter additions, constructor wiring, read-only surface CLI/config
   wiring, validation, and remaining direct-helper follow-ups.
 
 - [metadata-interaction-surfaces-review-2026-05-08.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-interaction-surfaces-review-2026-05-08.md)

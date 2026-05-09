@@ -33,6 +33,8 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
     _open_database,
     _row_value,
     _short_text,
+    add_metadata_read_source_arguments,
+    metadata_read_source_config_kwargs,
 )
 
 _RESET_CSS = """
@@ -1654,22 +1656,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the LiuXin Calibre-style read-only web interface.")
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
-    parser.add_argument(
-        "--metadata-read-source",
-        choices=("database", "cache"),
-        default="database",
-        help="Read metadata directly from the database or from a loaded storage cache.",
-    )
-    parser.add_argument(
-        "--cache-type",
-        default="schema_backed",
-        help="Storage cache backend to use when --metadata-read-source=cache.",
-    )
-    parser.add_argument(
-        "--no-cache-db-fallback",
-        action="store_true",
-        help="When using cache metadata reads, do not fall back to live database reads.",
-    )
+    add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=CalibreReadOnlyWebConfig.host, help="Bind host. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=CalibreReadOnlyWebConfig.port, help="Bind port. Default: 8080")
     parser.add_argument("--page-size", type=int, default=CalibreReadOnlyWebConfig.default_page_size, help="Default page size.")
@@ -1693,9 +1680,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         opds_max_ungrouped_items=max(0, int(args.opds_max_ungrouped_items)),
         expose_database_path=bool(args.expose_database_path),
         enable_file_downloads=not bool(args.no_file_downloads),
-        metadata_read_source=str(args.metadata_read_source),
-        metadata_cache_type=str(args.cache_type),
-        metadata_cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
+        **metadata_read_source_config_kwargs(args),
     )
     with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
         app = CalibreReadOnlyWebApplication(

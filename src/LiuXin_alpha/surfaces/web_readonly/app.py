@@ -2777,10 +2777,7 @@ class ReadOnlyWebApplication:
         )
 
 
-def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the LiuXin read-only web interface.")
-    parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
-    parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
+def add_metadata_read_source_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument(
         "--metadata-read-source",
         choices=("database", "cache"),
@@ -2797,6 +2794,22 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="When using cache metadata reads, do not fall back to live database reads.",
     )
+    return parser
+
+
+def metadata_read_source_config_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "metadata_read_source": str(args.metadata_read_source),
+        "metadata_cache_type": str(args.cache_type),
+        "metadata_cache_allow_database_fallback": not bool(args.no_cache_db_fallback),
+    }
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run the LiuXin read-only web interface.")
+    parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
+    parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
+    add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=ReadOnlyWebConfig.host, help="Bind host. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=ReadOnlyWebConfig.port, help="Bind port. Default: 8080")
     parser.add_argument("--page-size", type=int, default=ReadOnlyWebConfig.default_page_size, help="Default page size.")
@@ -2859,9 +2872,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         max_page_size=max(1, int(args.max_page_size)),
         expose_database_path=bool(args.expose_database_path),
         enable_file_downloads=not bool(args.no_file_downloads),
-        metadata_read_source=str(args.metadata_read_source),
-        metadata_cache_type=str(args.cache_type),
-        metadata_cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
+        **metadata_read_source_config_kwargs(args),
     )
     with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
         app = ReadOnlyWebApplication(db, config=config)
@@ -2876,7 +2887,9 @@ def main(argv: Optional[list[str]] = None) -> int:
 __all__ = [
     "ReadOnlyWebApplication",
     "ReadOnlyWebConfig",
+    "add_metadata_read_source_arguments",
     "build_arg_parser",
     "build_metadata_read_source",
     "main",
+    "metadata_read_source_config_kwargs",
 ]

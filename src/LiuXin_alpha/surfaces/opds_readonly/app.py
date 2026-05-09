@@ -16,7 +16,15 @@ from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.surfaces.acquisition.api import AcquisitionCompatApi
 from LiuXin_alpha.surfaces.catalog.api import CalibreCatalogBackend, PLACEHOLDER_PNG
 from LiuXin_alpha.surfaces.opds.api import OpdsApi
-from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication, ReadOnlyWebConfig, _Response, _open_database, _row_value
+from LiuXin_alpha.surfaces.web_readonly.app import (
+    ReadOnlyWebApplication,
+    ReadOnlyWebConfig,
+    _Response,
+    _open_database,
+    _row_value,
+    add_metadata_read_source_arguments,
+    metadata_read_source_config_kwargs,
+)
 
 
 @dataclass(frozen=True)
@@ -225,6 +233,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the LiuXin OPDS read-only interface.")
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
+    add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=OpdsReadOnlyConfig.host, help="Bind host. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=OpdsReadOnlyConfig.port, help="Bind port. Default: 8080")
     parser.add_argument("--page-size", type=int, default=25, help="Default page size.")
@@ -251,6 +260,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         max_page_size=max(1, int(args.max_page_size)),
         opds_max_ungrouped_items=max(0, int(args.opds_max_ungrouped_items)),
         enable_file_downloads=not bool(args.no_file_downloads),
+        **metadata_read_source_config_kwargs(args),
     )
     with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
         app = OpdsReadOnlyApplication(db, config=config)
