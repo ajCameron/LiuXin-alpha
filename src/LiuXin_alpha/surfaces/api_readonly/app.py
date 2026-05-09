@@ -106,7 +106,7 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
                 "authors": self.read_model.browse_count("authors"),
                 "tags": self.read_model.browse_count("tags"),
                 "series": self.read_model.browse_count("series"),
-                "files": int(self.db.get_record_count("files")) if self._table_exists("files") else 0,
+                "files": self.read_model.table_record_count("files") if self._table_exists("files") else 0,
             },
         }
 
@@ -254,7 +254,7 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
                 row_id = int(str(parts[2]).strip())
             except Exception:
                 return self._json_response({"error": "bad_work_id", "message": "Invalid work id."}, status="400 Bad Request")
-            row = self.db.get_row_from_id("works", row_id)
+            row = self.read_model.row_by_id("works", row_id)
             if row is None:
                 return self._json_response({"error": "missing_work", "message": "Work not found."}, status="404 Not Found")
             return self._json_response(self._work_detail_payload(row))
@@ -292,7 +292,7 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
         }
 
     def _category_detail_payload(self, *, kind: str, table: str, row_id: str) -> dict[str, object]:
-        row = self.db.get_row_from_id(table, int(str(row_id)))
+        row = self.read_model.row_by_id(table, int(str(row_id)))
         works = self.read_model.works_for_linked_entity(table, row_id)
         return {
             "kind": kind,
@@ -368,7 +368,7 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
             row_id = int(str(parts[2]).strip())
         except Exception:
             return self._json_response({"error": "bad_file_id", "message": "Invalid file id."}, status="400 Bad Request")
-        row = self.db.get_row_from_id("files", row_id)
+        row = self.read_model.row_by_id("files", row_id)
         if row is None:
             return self._json_response({"error": "missing_file", "message": "File not found."}, status="404 Not Found")
         return self._json_response(self._file_detail_payload(row))

@@ -952,7 +952,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
                     if not token:
                         continue
                     try:
-                        row = self.db.get_row_from_id("works", int(token))
+                        row = self.read_model.row_by_id("works", int(token))
                     except Exception:
                         row = None
                     if row is not None:
@@ -964,7 +964,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             work_id, _suffix = self._split_compat_book_token(parts[2])
             if work_id is None:
                 return self._text_response("400 Bad Request", "Invalid book id.\n", content_type="text/plain")
-            row = self.db.get_row_from_id("works", int(work_id))
+            row = self.read_model.row_by_id("works", int(work_id))
             if row is None:
                 return self._text_response("404 Not Found", "Book row not found.\n", content_type="text/plain")
             return self._json_response(self._work_metadata_payload(row))
@@ -1047,7 +1047,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
                     if not token:
                         continue
                     try:
-                        row = self.db.get_row_from_id("works", int(token))
+                        row = self.read_model.row_by_id("works", int(token))
                     except Exception:
                         row = None
                     if row is not None:
@@ -1066,7 +1066,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             work_id, _suffix = self._split_compat_book_token(parts[2])
             if work_id is None:
                 return self._text_response("400 Bad Request", "Invalid book id.\n", content_type="text/plain")
-            row = self.db.get_row_from_id("works", int(work_id))
+            row = self.read_model.row_by_id("works", int(work_id))
             if row is None:
                 return self._text_response("404 Not Found", "Book row not found.\n", content_type="text/plain")
             return self._json_response(self._work_metadata_payload(row))
@@ -1126,7 +1126,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
         return self._split_compat_book_token(raw_book_id)
 
     def acquisition_work_row(self, row_id: int):
-        return self.db.get_row_from_id("works", int(row_id))
+        return self.read_model.row_by_id("works", int(row_id))
 
     def acquisition_work_image_row(self, work_row):
         return self.images.work_image_row(work_row)
@@ -1193,7 +1193,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             if not self._table_exists(linked_table):
                 continue
             try:
-                linked_rows = list(self.db.get_interlinked_rows(target_row=row, secondary_table=linked_table))
+                linked_rows = self.read_model.interlinked_rows(row, linked_table)
             except Exception:
                 continue
             if linked_rows:
@@ -1494,7 +1494,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
                 title="Bad book id",
                 body_html="<section class='panel'><h2 class='section-title'>Invalid book id</h2></section>",
             )
-        row = self.db.get_row_from_id("works", row_id)
+        row = self.read_model.row_by_id("works", row_id)
         if row is None:
             return self._render_layout(
                 title="Missing book",
@@ -1620,7 +1620,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
                 title="Bad row id",
                 body_html="<section class='panel'><h2 class='section-title'>Invalid row id</h2></section>",
             )
-        row = self.db.get_row_from_id(table, row_id)
+        row = self.read_model.row_by_id(table, row_id)
         if row is None:
             return self._render_layout(
                 title="Missing row",

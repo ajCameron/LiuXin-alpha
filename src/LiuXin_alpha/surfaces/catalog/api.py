@@ -178,7 +178,7 @@ class CalibreCatalogBackend:
         if category == "authors":
             for table in self.author_tables():
                 try:
-                    row = self.host.db.get_row_from_id(table, int(item_id))
+                    row = self.read_model.row_by_id(table, int(item_id))
                 except Exception:
                     row = None
                 if row is not None:

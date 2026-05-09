@@ -231,7 +231,7 @@ def test_web_readonly_cache_read_source_cli_options_serve_snapshot(driver_spec, 
             metadata_cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
         )
         app = ReadOnlyWebApplication(db, config=config)
-        _insert_work_row(db, title="Uncached Web Title")
+        uncached_id = _insert_work_row(db, title="Uncached Web Title")
 
         status, _headers, body = _call_app(app, "/search?global_q=Title&search_table=works")
 
@@ -240,6 +240,10 @@ def test_web_readonly_cache_read_source_cli_options_serve_snapshot(driver_spec, 
         text = body.decode("utf-8")
         assert "Cached Web" in text
         assert "Uncached Web" not in text
+
+        status, _headers, body = _call_app(app, "/tables/works/{}".format(uncached_id))
+        assert status == "200 OK"
+        assert "Row not found" in body.decode("utf-8")
 
 
 def test_web_readonly_table_classifier_splits_main_helper_interlink_and_intralink() -> None:

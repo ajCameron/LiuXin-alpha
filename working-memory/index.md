@@ -10,7 +10,8 @@ Start here for active handoff notes. This index should stay short.
   The read model now accepts an explicit metadata read source/cache snapshot
   while keeping direct database reads as the default; this note captures the
   cache-source adapter additions, constructor wiring, read-only surface CLI/config
-  wiring, validation, and remaining direct-helper follow-ups.
+  wiring, route/direct-read audit, validation, and remaining file/storage
+  caveats.
 
 - [metadata-interaction-surfaces-review-2026-05-08.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-interaction-surfaces-review-2026-05-08.md)
   Fresh review of the actual interaction surfaces under `surfaces`, covering

@@ -43,6 +43,13 @@ source/cache snapshot.
   OPDS titles feed. Both tests build a schema-backed cache, disable database
   fallback, mutate the database after app construction, and verify the served
   route only exposes the cached work row.
+- Added public read-model wrappers for row lookup, table rows/counts, exact
+  search, related-row lookup, and work credits, then moved read-only API, web,
+  Calibre-style web, catalog, image, and OPDS routes that should honor cache
+  snapshots onto those wrappers.
+- Left direct live DB reads in the read-only surfaces only where they are still
+  file-serving/storage-resolution paths or image-backend fallbacks for hosts
+  without a read model.
 - Fixed a metadata API import cycle exposed by importing metadata read sources
   from the surface test path: Calibre metadata API leaf modules now import
   write contracts and Calibre type contracts from their leaf modules rather
@@ -56,9 +63,11 @@ python3 -m pytest tests/surfaces/test_read_model_api.py tests/surfaces/test_meta
 python3 -m pytest tests/surfaces/test_web_readonly.py::test_web_readonly_cache_read_source_cli_options_serve_snapshot tests/surfaces/test_web_calibre_readonly.py::test_web_calibre_readonly_parser_accepts_cache_read_source_options
 python3 -m pytest tests/surfaces/test_api_readonly.py::test_api_readonly_parser_accepts_cache_read_source_options tests/surfaces/test_opds_readonly.py::test_opds_readonly_parser_accepts_cache_read_source_options tests/surfaces/test_web_readonly.py::test_web_readonly_cache_read_source_cli_options_serve_snapshot tests/surfaces/test_web_calibre_readonly.py::test_web_calibre_readonly_parser_accepts_cache_read_source_options
 python3 -m pytest tests/surfaces/test_api_readonly.py::test_api_readonly_cache_read_source_route_serves_snapshot tests/surfaces/test_opds_readonly.py::test_opds_readonly_cache_read_source_route_serves_snapshot
+python3 -m pytest tests/surfaces/test_api_readonly.py::test_api_readonly_cache_read_source_route_serves_snapshot tests/surfaces/test_web_readonly.py::test_web_readonly_cache_read_source_cli_options_serve_snapshot tests/surfaces/test_web_calibre_readonly.py::test_web_calibre_readonly_cache_read_source_detail_routes_serve_snapshot tests/surfaces/test_opds_readonly.py::test_opds_readonly_cache_read_source_route_serves_snapshot
 python3 -m pytest tests/surfaces/test_read_model_api.py tests/surfaces/test_web_readonly.py tests/surfaces/test_web_calibre_readonly.py
 python3 -m pytest tests/surfaces/test_read_model_api.py tests/surfaces/test_api_readonly.py tests/surfaces/test_opds_readonly.py tests/surfaces/test_web_readonly.py tests/surfaces/test_web_calibre_readonly.py
 python3 -m pytest tests/surfaces/test_read_model_api.py tests/surfaces/test_api_readonly.py tests/surfaces/test_opds_readonly.py
+python3 -m pytest tests/surfaces/test_read_model_api.py tests/surfaces/test_api_readonly.py tests/surfaces/test_opds_readonly.py tests/surfaces/test_web_readonly.py tests/surfaces/test_web_calibre_readonly.py tests/surfaces/test_images_api.py
 python3 -m compileall -q src/LiuXin_alpha/metadata src/LiuXin_alpha/surfaces
 python3 -m compileall -q src/LiuXin_alpha/surfaces/web_readonly src/LiuXin_alpha/surfaces/web_calibre_readonly
 python3 -m compileall -q src/LiuXin_alpha/surfaces
@@ -74,11 +83,13 @@ Results:
 - read-model plus API/OPDS/web surface slice: `57 passed`
 - API/OPDS cache route focused slice: `4 passed`
 - read-model plus API/OPDS surface slice: `25 passed`
+- read-only cache route focused slice after direct-read audit: `8 passed`
+- read-model plus API/OPDS/web/image surface slice: `67 passed`
 - compileall: passed
 - diff check: passed
 
 ## Follow-Up
 
-- OPDS search now inherits read-model search payload behavior when routed
-  through the read model, but Calibre web still has some direct helper paths
-  for category-specific page rendering. Those can be migrated gradually.
+- The remaining direct live reads in read-only surfaces are intentionally
+  limited to file download/preview and storage resolution paths, plus image
+  backend fallback code for non-read-model hosts.

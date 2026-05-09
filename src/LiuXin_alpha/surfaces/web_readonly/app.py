@@ -793,26 +793,7 @@ class ReadOnlyWebApplication:
         }
 
     def _global_search_entries(self, query_text: str, *, table_filter: str = "") -> list[dict[str, object]]:
-        needle = str(query_text or "").strip()
-        if not needle:
-            return []
-
-        if table_filter and self._table_exists(table_filter):
-            tables = [table_filter]
-        else:
-            tables = self._public_search_tables()
-
-        results: list[dict[str, object]] = []
-        for table in tables:
-            try:
-                rows = list(self.db.get_all_rows(table, iterator_return=False))
-            except Exception:
-                continue
-            for row in rows:
-                entry = self._global_search_entry(table, row, needle)
-                if entry is not None:
-                    results.append(entry)
-        return sorted(results, key=lambda item: item["sort_key"])
+        return self.read_model.search_entries(query_text, table_filter=table_filter)
 
     @staticmethod
     def _group_search_entries(entries: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
@@ -900,68 +881,7 @@ class ReadOnlyWebApplication:
         return text.replace("_", " ").replace("-", " ").title()
 
     def _work_credit_entries(self, row) -> list[dict[str, object]]:
-        entries: list[dict[str, object]] = []
-        work_table = str(getattr(row, "table", "") or "")
-        if work_table != "works":
-            return entries
-
-        for linked_table in ("agents", "human_agents", "org_agents"):
-            try:
-                link_table = self.db.driver_wrapper.get_link_table_name("works", linked_table)
-            except Exception:
-                link_table = None
-            if not link_table:
-                continue
-            try:
-                link_rows = list(self.db.get_interlink_rows(primary_row=row, secondary_table=linked_table))
-            except Exception:
-                continue
-            if not link_rows:
-                continue
-
-            try:
-                secondary_id_column = self.db.driver_wrapper.get_id_column(linked_table)
-                secondary_link_column = self.db.driver_wrapper.get_link_column("works", linked_table, secondary_id_column)
-            except Exception:
-                continue
-
-            try:
-                type_column = self.db.driver_wrapper.get_link_column("works", linked_table, "type")
-            except Exception:
-                type_column = None
-            try:
-                priority_column = self.db.driver_wrapper.get_link_column("works", linked_table, "priority")
-            except Exception:
-                priority_column = None
-
-            for position, link_row in enumerate(link_rows):
-                linked_row_id = _row_value(link_row, secondary_link_column)
-                if linked_row_id in (None, ""):
-                    continue
-                try:
-                    linked_row = self.db.get_row_from_id(linked_table, int(linked_row_id))
-                except Exception:
-                    linked_row = None
-                if linked_row is None:
-                    continue
-                role_raw = _row_value(link_row, type_column) if type_column else None
-                priority_value = _row_value(link_row, priority_column) if priority_column else None
-                try:
-                    priority_sort = -int(priority_value)
-                except Exception:
-                    priority_sort = position
-                entries.append(
-                    {
-                        "table": linked_table,
-                        "row": linked_row,
-                        "role": self._pretty_credit_role(role_raw),
-                        "role_raw": role_raw,
-                        "priority": priority_value,
-                        "sort_key": (str(self._pretty_credit_role(role_raw)), priority_sort, position),
-                    }
-                )
-
-        return sorted(entries, key=lambda item: item["sort_key"])
+        return self.read_model.work_credit_entries(row)
 
     def _render_work_credits_section(self, row) -> str:
         entries = self._work_credit_entries(row)
@@ -1230,15 +1150,7 @@ class ReadOnlyWebApplication:
 """.format(title=_escape(self._pretty_table_name(linked_table)), count=len(rows), items="".join(items))
 
     def _related_rows_by_table(self, row) -> dict[str, list[object]]:
-        related: dict[str, list[object]] = {}
-        for linked_table in self._ordered_related_tables(row):
-            try:
-                linked_rows = list(self.db.get_interlinked_rows(target_row=row, secondary_table=linked_table))
-            except Exception:
-                continue
-            if linked_rows:
-                related[linked_table] = linked_rows
-        return related
+        return self.read_model.related_rows_by_table(row)
 
     def _render_related_sections(
         self,
@@ -1818,7 +1730,7 @@ class ReadOnlyWebApplication:
         )
 
     def _table_page_rows(self, table: str, *, offset: int, limit: int) -> list[object]:
-        rows = list(self.db.get_all_rows(table, iterator_return=False))
+        rows = self.read_model.rows_for_table(table)
         return rows[offset : offset + limit]
 
     def _render_layout(self, *, title: str, body_html: str) -> str:
@@ -2111,7 +2023,7 @@ class ReadOnlyWebApplication:
             cards: list[str] = []
             for table in grouped.get(category, []):
                 try:
-                    count = int(self.db.get_record_count(table))
+                    count = self.read_model.table_record_count(table)
                 except Exception:
                     count = -1
                 href = "/tables/{}".format(quote(table, safe=""))
@@ -2257,7 +2169,7 @@ class ReadOnlyWebApplication:
             return self._render_layout(title="Missing table", body_html="<section class='panel'><h2>Unknown table</h2></section>")
         limit = _coerce_int((query.get("limit") or [None])[0], default=self.config.default_page_size, minimum=1, maximum=self.config.max_page_size)
         offset = _coerce_int((query.get("offset") or [None])[0], default=0, minimum=0)
-        total = int(self.db.get_record_count(table))
+        total = self.read_model.table_record_count(table)
         rows = self._table_page_rows(table, offset=offset, limit=limit)
         columns = self._table_display_columns(table)
 
@@ -2326,7 +2238,7 @@ class ReadOnlyWebApplication:
                 title="Bad row id",
                 body_html="<section class='panel'><h2>Invalid row id</h2><p>{}</p></section>".format(_escape(raw_row_id)),
             )
-        row = self.db.get_row_from_id(table, row_id)
+        row = self.read_model.row_by_id(table, row_id)
         if row is None:
             return self._render_layout(
                 title="Missing row",
@@ -2517,7 +2429,7 @@ class ReadOnlyWebApplication:
             )
 
         if table and column and search_term and self._table_exists(table) and column in self._visible_columns(table):
-            matches = list(self.db.search(table, column, search_term))
+            matches = self.read_model.search_rows(table, column, search_term)
             columns = self._table_display_columns(table)
             header_html = "".join("<th>{}</th>".format(_escape(one)) for one in columns)
             header_html += "<th>detail</th>"

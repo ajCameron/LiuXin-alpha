@@ -219,7 +219,7 @@ def test_api_readonly_cache_read_source_route_serves_snapshot(driver_spec, tmp_p
                 metadata_cache_allow_database_fallback=False,
             ),
         )
-        _insert_work_row(db, title="Uncached API Route Title")
+        uncached_id = _insert_work_row(db, title="Uncached API Route Title")
 
         status, _headers, payload = _json(app, "/api/works?sort=title&limit=10")
 
@@ -228,6 +228,10 @@ def test_api_readonly_cache_read_source_route_serves_snapshot(driver_spec, tmp_p
         assert payload["pagination"]["total"] == 1
         titles = [str(item["title"]) for item in payload["items"]]
         assert titles == ["Cached API Route Title"]
+
+        status, _headers, payload = _json(app, "/api/works/{}".format(uncached_id))
+        assert status == "404 Not Found"
+        assert payload["error"] == "missing_work"
 
 
 def test_api_readonly_index_and_work_routes(driver_spec, tmp_path: Path) -> None:

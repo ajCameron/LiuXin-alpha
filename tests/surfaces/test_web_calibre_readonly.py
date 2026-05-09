@@ -228,6 +228,48 @@ def test_web_calibre_readonly_parser_accepts_cache_read_source_options(tmp_path:
     assert config.metadata_cache_allow_database_fallback is False
 
 
+def test_web_calibre_readonly_cache_read_source_detail_routes_serve_snapshot(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "web_calibre_cache_source.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        cached_id = _insert_work_row(db, title="Cached Calibre Route Title")
+        app = CalibreReadOnlyWebApplication(
+            db,
+            config=CalibreReadOnlyWebConfig(
+                default_page_size=10,
+                max_page_size=25,
+                metadata_read_source="cache",
+                metadata_cache_type="schema_backed",
+                metadata_cache_allow_database_fallback=False,
+            ),
+        )
+        uncached_id = _insert_work_row(db, title="Uncached Calibre Route Title")
+
+        status, _headers, body = _call_app(
+            app,
+            "/ajax/books?ids={},{}".format(cached_id, uncached_id),
+        )
+
+        assert getattr(app.read_model.read_source, "allow_database_fallback") is False
+        assert status == "200 OK"
+        payload = json.loads(body.decode("utf-8"))
+        assert sorted(payload) == [str(cached_id)]
+        assert payload[str(cached_id)]["title"] == "Cached Calibre Route Title"
+
+        status, _headers, body = _call_app(app, "/ajax/book/{}/main".format(uncached_id))
+        assert status == "404 Not Found"
+        assert "Book row not found" in body.decode("utf-8")
+
+        status, _headers, body = _call_app(app, "/interface-data/book-metadata/{}".format(uncached_id))
+        assert status == "404 Not Found"
+        assert "Book row not found" in body.decode("utf-8")
+
+
 def test_web_calibre_readonly_home_and_browse_pages(driver_spec, tmp_path: Path) -> None:
     db_path = tmp_path / "web_calibre_home.sqlite"
     with Database(

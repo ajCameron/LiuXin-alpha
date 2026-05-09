@@ -59,6 +59,24 @@ class ReadModelBackend:
             except Exception:
                 return []
 
+    def row_by_id(self, table: str, row_id: int) -> object | None:
+        return self._get_row_from_id(table, row_id)
+
+    def rows_for_table(self, table: str) -> list[object]:
+        return self._all_rows(table)
+
+    def table_record_count(self, table: str) -> int:
+        try:
+            return int(self.read_source.get_record_count(table))
+        except Exception:
+            try:
+                return int(self.host.db.get_record_count(table))
+            except Exception:
+                return 0
+
+    def search_rows(self, table: str, column: str, value: object) -> list[object]:
+        return self._search_rows(table, column, value)
+
     def _interlinked_rows(self, row, secondary_table: str) -> list[object]:
         try:
             return list(
@@ -77,6 +95,12 @@ class ReadModelBackend:
                 )
             except Exception:
                 return []
+
+    def interlinked_rows(self, row, secondary_table: str) -> list[object]:
+        return self._interlinked_rows(row, secondary_table)
+
+    def related_rows_by_table(self, row) -> dict[str, list[object]]:
+        return self._related_rows_by_table(row)
 
     def _related_rows_by_table(self, row) -> dict[str, list[object]]:
         ordered_getter = getattr(self.host, "_ordered_related_tables", None)
@@ -176,6 +200,9 @@ class ReadModelBackend:
                 )
 
         return sorted(entries, key=lambda item: item["sort_key"])
+
+    def work_credit_entries(self, row) -> list[dict[str, object]]:
+        return self._work_credit_entries(row)
 
     @staticmethod
     def category_display_name(category: str) -> str:

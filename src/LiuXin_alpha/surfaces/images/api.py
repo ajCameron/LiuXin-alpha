@@ -30,9 +30,14 @@ class ImageBackend:
         for image_row in related_rows_by_table.get("images", []):
             add_image_row(image_row)
 
+        read_model = getattr(self.host, "read_model", None)
+
         for expression_row in related_rows_by_table.get("expressions", []):
             try:
-                manifestation_rows = list(self.host.db.get_interlinked_rows(target_row=expression_row, secondary_table="manifestations"))
+                if read_model is not None:
+                    manifestation_rows = read_model.interlinked_rows(expression_row, "manifestations")
+                else:
+                    manifestation_rows = list(self.host.db.get_interlinked_rows(target_row=expression_row, secondary_table="manifestations"))
             except Exception:
                 manifestation_rows = []
             for manifestation_row in manifestation_rows:
@@ -40,7 +45,10 @@ class ImageBackend:
                 if manifestation_id in (None, ""):
                     continue
                 try:
-                    item_rows = list(self.host.db.search("items", "item_manifestation_id", manifestation_id))
+                    if read_model is not None:
+                        item_rows = read_model.search_rows("items", "item_manifestation_id", manifestation_id)
+                    else:
+                        item_rows = list(self.host.db.search("items", "item_manifestation_id", manifestation_id))
                 except Exception:
                     item_rows = []
                 for item_row in item_rows:
@@ -48,7 +56,10 @@ class ImageBackend:
                     if item_id in (None, ""):
                         continue
                     try:
-                        discovered_image_rows = list(self.host.db.search("images", "image_item_id", item_id))
+                        if read_model is not None:
+                            discovered_image_rows = read_model.search_rows("images", "image_item_id", item_id)
+                        else:
+                            discovered_image_rows = list(self.host.db.search("images", "image_item_id", item_id))
                     except Exception:
                         discovered_image_rows = []
                     for image_row in discovered_image_rows:
@@ -124,7 +135,11 @@ class ImageBackend:
         store_id = row.get("image_store_id", None)
         if storage_key and store_id not in (None, ""):
             try:
-                store_row = self.host.db.get_row_from_id("stores", int(store_id))
+                read_model = getattr(self.host, "read_model", None)
+                if read_model is not None:
+                    store_row = read_model.row_by_id("stores", int(store_id))
+                else:
+                    store_row = self.host.db.get_row_from_id("stores", int(store_id))
             except Exception:
                 store_row = None
             if store_row is not None:

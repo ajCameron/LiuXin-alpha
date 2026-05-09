@@ -140,7 +140,7 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
         return self.catalog.split_compat_book_token(raw_book_id)
 
     def acquisition_work_row(self, row_id: int):
-        return self.db.get_row_from_id("works", int(row_id))
+        return self.read_model.row_by_id("works", int(row_id))
 
     def acquisition_work_image_row(self, work_row):
         return self.images.work_image_row(work_row)
@@ -209,7 +209,7 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
             if not self._table_exists(linked_table):
                 continue
             try:
-                linked_rows = list(self.db.get_interlinked_rows(target_row=row, secondary_table=linked_table))
+                linked_rows = self.read_model.interlinked_rows(row, linked_table)
             except Exception:
                 continue
             if linked_rows:
