@@ -2709,6 +2709,19 @@ def add_metadata_read_source_arguments(parser: argparse.ArgumentParser) -> argpa
     return parser
 
 
+def metadata_read_source_help_epilog(command: str) -> str:
+    return (
+        "Examples:\n"
+        "  {command} --database /path/to/library.sqlite\n"
+        "  {command} --database /path/to/library.sqlite --metadata-read-source cache\n"
+        "  {command} --database /path/to/library.sqlite --metadata-read-source cache --cache-type schema_backed --no-cache-db-fallback\n"
+        "\n"
+        "Cache read-source notes:\n"
+        "  cache mode loads the selected storage cache once at startup.\n"
+        "  without --no-cache-db-fallback, cache misses fall back to live database reads."
+    ).format(command=command)
+
+
 def metadata_read_source_config_kwargs(args: argparse.Namespace) -> dict[str, object]:
     return {
         "metadata_read_source": str(args.metadata_read_source),
@@ -2718,7 +2731,11 @@ def metadata_read_source_config_kwargs(args: argparse.Namespace) -> dict[str, ob
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the LiuXin read-only web interface.")
+    parser = argparse.ArgumentParser(
+        description="Run the LiuXin read-only web interface.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=metadata_read_source_help_epilog("PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.web_readonly"),
+    )
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
     add_metadata_read_source_arguments(parser)
@@ -2803,5 +2820,6 @@ __all__ = [
     "build_arg_parser",
     "build_metadata_read_source",
     "main",
+    "metadata_read_source_help_epilog",
     "metadata_read_source_config_kwargs",
 ]

@@ -59,6 +59,13 @@ source/cache snapshot.
   from the surface test path: Calibre metadata API leaf modules now import
   write contracts and Calibre type contracts from their leaf modules rather
   than from `LiuXin_alpha.metadata.api`.
+- Added cache read-source examples to the read-only module CLI help for web,
+  Calibre-style web, JSON API, and OPDS.
+- Updated the repo-local Python and shell wrapper scripts for the same four
+  surfaces so `--metadata-read-source`, `--cache-type`, and
+  `--no-cache-db-fallback` are accepted, forwarded, and shown in help output.
+- Documented cache-backed read-only surface startup commands in the storage
+  cache backend developer notes.
 
 ## Validation
 
@@ -78,6 +85,10 @@ python3 -m pytest tests/surfaces/test_catalog_api.py tests/surfaces/test_web_cal
 python3 -m compileall -q src/LiuXin_alpha/metadata src/LiuXin_alpha/surfaces
 python3 -m compileall -q src/LiuXin_alpha/surfaces/web_readonly src/LiuXin_alpha/surfaces/web_calibre_readonly
 python3 -m compileall -q src/LiuXin_alpha/surfaces
+python3 -m pytest -q tests/surfaces/test_readonly_surface_cli_help.py
+python3 -m pytest -q tests/surfaces/test_readonly_surface_cli_help.py tests/surfaces/test_api_readonly.py::test_api_readonly_parser_accepts_cache_read_source_options tests/surfaces/test_opds_readonly.py::test_opds_readonly_parser_accepts_cache_read_source_options tests/surfaces/test_web_readonly.py::test_web_readonly_cache_read_source_cli_options_serve_snapshot tests/surfaces/test_web_calibre_readonly.py::test_web_calibre_readonly_parser_accepts_cache_read_source_options
+python3 -m py_compile scripts/run_web_readonly.py scripts/run_web_calibre_readonly.py scripts/run_api_readonly.py scripts/run_opds_readonly.py src/LiuXin_alpha/surfaces/web_readonly/__init__.py src/LiuXin_alpha/surfaces/web_readonly/app.py src/LiuXin_alpha/surfaces/web_calibre_readonly/app.py src/LiuXin_alpha/surfaces/api_readonly/app.py src/LiuXin_alpha/surfaces/opds_readonly/app.py tests/surfaces/test_readonly_surface_cli_help.py
+bash -n scripts/run_web_readonly.sh scripts/run_web_calibre_readonly.sh scripts/run_api_readonly.sh scripts/run_opds_readonly.sh
 git diff --check
 ```
 
@@ -94,6 +105,10 @@ Results:
 - read-model plus API/OPDS/web/image surface slice: `67 passed`
 - Calibre catalog helper focused slice: `10 passed`
 - catalog plus Calibre/web/read-model surface slice: `54 passed`
+- read-only CLI help focused slice: `3 passed`
+- read-only CLI help plus cache parser/web focused slice: `8 passed`
+- py_compile for touched Python entrypoints/tests: passed
+- shell wrapper syntax check: passed
 - compileall: passed
 - diff check: passed
 

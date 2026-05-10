@@ -8,6 +8,7 @@ from .app import (
     build_metadata_read_source,
     main,
     metadata_read_source_config_kwargs,
+    metadata_read_source_help_epilog,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "build_metadata_read_source",
     "main",
     "metadata_read_source_config_kwargs",
+    "metadata_read_source_help_epilog",
 ]

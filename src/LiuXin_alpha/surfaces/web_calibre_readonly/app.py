@@ -34,6 +34,7 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
     _row_value,
     _short_text,
     add_metadata_read_source_arguments,
+    metadata_read_source_help_epilog,
     metadata_read_source_config_kwargs,
 )
 
@@ -1584,7 +1585,11 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the LiuXin Calibre-style read-only web interface.")
+    parser = argparse.ArgumentParser(
+        description="Run the LiuXin Calibre-style read-only web interface.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=metadata_read_source_help_epilog("PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.web_calibre_readonly"),
+    )
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
     add_metadata_read_source_arguments(parser)

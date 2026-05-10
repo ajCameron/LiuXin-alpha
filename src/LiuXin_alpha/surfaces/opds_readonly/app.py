@@ -23,6 +23,7 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
     _open_database,
     _row_value,
     add_metadata_read_source_arguments,
+    metadata_read_source_help_epilog,
     metadata_read_source_config_kwargs,
 )
 
@@ -230,7 +231,11 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the LiuXin OPDS read-only interface.")
+    parser = argparse.ArgumentParser(
+        description="Run the LiuXin OPDS read-only interface.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=metadata_read_source_help_epilog("PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.opds_readonly"),
+    )
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
     add_metadata_read_source_arguments(parser)
