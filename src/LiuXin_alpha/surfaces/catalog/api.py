@@ -75,8 +75,58 @@ class CalibreCatalogBackend:
     def work_rows(self, *, sorted_by: str) -> list[object]:
         return self.read_model.work_rows(sorted_by=sorted_by)
 
+    def work_row_from_token(self, raw_book_id: object) -> object | None:
+        work_id, _suffix = self.split_compat_book_token(str(raw_book_id or ""))
+        if work_id is None:
+            return None
+        return self.read_model.row_by_id("works", int(work_id))
+
+    def work_rows_for_ids(self, raw_ids: object) -> list[object]:
+        rows: list[object] = []
+        for token in str(raw_ids or "").split(","):
+            row = self.work_row_from_token(token.strip())
+            if row is not None:
+                rows.append(row)
+        return rows
+
+    def search_work_rows(self, query_text: object) -> list[object]:
+        query = str(query_text or "").strip()
+        if not query:
+            return []
+        return [
+            entry["row"]
+            for entry in self.read_model.search_entries(query, table_filter="works")
+            if str(entry.get("table")) == "works"
+        ]
+
+    def work_rows_for_query_or_recent(self, query_text: object) -> list[object]:
+        query = str(query_text or "").strip()
+        if query:
+            return self.search_work_rows(query)
+        return self.work_rows(sorted_by="recent")
+
     def works_for_linked_entity(self, table: str, raw_row_id: str) -> list[object]:
         return self.read_model.works_for_linked_entity(table, raw_row_id)
+
+    def work_rows_for_category_item(self, category: str, raw_item_token: object) -> list[object]:
+        kind = self.normalized_category_key(category)
+        item_token = str(raw_item_token or "")
+        if kind == "authors":
+            rows: list[object] = []
+            for table in self.author_tables():
+                rows = self.works_for_linked_entity(table, item_token)
+                if rows:
+                    break
+            return rows
+        if kind == "tags":
+            return self.works_for_linked_entity(self.read_model.tag_category_table() or "tags", item_token)
+        if kind == "series":
+            return self.works_for_linked_entity("series", item_token)
+        if kind in {"allbooks", "titles"}:
+            return self.work_rows(sorted_by="title")
+        if kind in {"newest", "recent"}:
+            return self.work_rows(sorted_by="recent")
+        return []
 
     def category_rows(self, category: str) -> list[dict[str, object]]:
         kind = self.normalized_category_key(category)
@@ -178,7 +228,7 @@ class CalibreCatalogBackend:
         if category == "authors":
             for table in self.author_tables():
                 try:
-                    row = self.host.db.get_row_from_id(table, int(item_id))
+                    row = self.read_model.row_by_id(table, int(item_id))
                 except Exception:
                     row = None
                 if row is not None:
@@ -256,6 +306,11 @@ class CalibreCatalogBackend:
             metadata = self.work_metadata_payload(row)
             payload[str(metadata["id"])] = metadata
         return payload
+
+    def metadata_rows_for_search_result(self, rows: list[object], search_result: dict[str, object]) -> list[object]:
+        visible_ids = set(search_result.get("book_ids") or [])
+        id_column = self.host._id_column("works") or "work_id"
+        return [row for row in rows if _row_value(row, id_column) in visible_ids]
 
     def basic_interface_data_payload(self) -> dict[str, object]:
         return {

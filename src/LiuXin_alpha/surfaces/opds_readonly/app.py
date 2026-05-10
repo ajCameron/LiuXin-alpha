@@ -16,7 +16,16 @@ from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.surfaces.acquisition.api import AcquisitionCompatApi
 from LiuXin_alpha.surfaces.catalog.api import CalibreCatalogBackend, PLACEHOLDER_PNG
 from LiuXin_alpha.surfaces.opds.api import OpdsApi
-from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication, ReadOnlyWebConfig, _Response, _open_database, _row_value
+from LiuXin_alpha.surfaces.web_readonly.app import (
+    ReadOnlyWebApplication,
+    ReadOnlyWebConfig,
+    _Response,
+    _open_database,
+    _row_value,
+    add_metadata_read_source_arguments,
+    metadata_read_source_help_epilog,
+    metadata_read_source_config_kwargs,
+)
 
 
 @dataclass(frozen=True)
@@ -132,7 +141,7 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
         return self.catalog.split_compat_book_token(raw_book_id)
 
     def acquisition_work_row(self, row_id: int):
-        return self.db.get_row_from_id("works", int(row_id))
+        return self.read_model.row_by_id("works", int(row_id))
 
     def acquisition_work_image_row(self, work_row):
         return self.images.work_image_row(work_row)
@@ -201,7 +210,7 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
             if not self._table_exists(linked_table):
                 continue
             try:
-                linked_rows = list(self.db.get_interlinked_rows(target_row=row, secondary_table=linked_table))
+                linked_rows = self.read_model.interlinked_rows(row, linked_table)
             except Exception:
                 continue
             if linked_rows:
@@ -222,9 +231,14 @@ class OpdsReadOnlyApplication(ReadOnlyWebApplication):
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the LiuXin OPDS read-only interface.")
+    parser = argparse.ArgumentParser(
+        description="Run the LiuXin OPDS read-only interface.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=metadata_read_source_help_epilog("PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.opds_readonly"),
+    )
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
+    add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=OpdsReadOnlyConfig.host, help="Bind host. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=OpdsReadOnlyConfig.port, help="Bind port. Default: 8080")
     parser.add_argument("--page-size", type=int, default=25, help="Default page size.")
@@ -251,6 +265,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         max_page_size=max(1, int(args.max_page_size)),
         opds_max_ungrouped_items=max(0, int(args.opds_max_ungrouped_items)),
         enable_file_downloads=not bool(args.no_file_downloads),
+        **metadata_read_source_config_kwargs(args),
     )
     with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
         app = OpdsReadOnlyApplication(db, config=config)

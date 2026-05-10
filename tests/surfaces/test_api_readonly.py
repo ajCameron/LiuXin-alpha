@@ -7,7 +7,11 @@ from wsgiref.util import setup_testing_defaults
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.surfaces.api_readonly import ApiReadOnlyApplication, ApiReadOnlyConfig
+from LiuXin_alpha.surfaces.api_readonly import (
+    ApiReadOnlyApplication,
+    ApiReadOnlyConfig,
+    build_arg_parser,
+)
 from LiuXin_alpha.metadata.standardization import make_tag_search_term
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
@@ -166,6 +170,68 @@ def _insert_file_row_for_item(db: Database, *, store_id: int, item_id: int, file
         table="files",
     )
     return int(row["file_id"])
+
+
+def test_api_readonly_parser_accepts_cache_read_source_options(tmp_path: Path) -> None:
+    db_path = tmp_path / "api_cli.sqlite"
+    args = build_arg_parser().parse_args(
+        [
+            "--database",
+            str(db_path),
+            "--metadata-read-source",
+            "cache",
+            "--cache-type",
+            "schema_backed",
+            "--no-cache-db-fallback",
+        ]
+    )
+
+    assert args.metadata_read_source == "cache"
+    assert args.cache_type == "schema_backed"
+    assert args.no_cache_db_fallback is True
+    config = ApiReadOnlyConfig(
+        metadata_read_source=str(args.metadata_read_source),
+        metadata_cache_type=str(args.cache_type),
+        metadata_cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
+    )
+    assert config.metadata_read_source == "cache"
+    assert config.metadata_cache_type == "schema_backed"
+    assert config.metadata_cache_allow_database_fallback is False
+
+
+def test_api_readonly_cache_read_source_route_serves_snapshot(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "api_cache_source.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        _insert_work_row(db, title="Cached API Route Title")
+        app = ApiReadOnlyApplication(
+            db,
+            config=ApiReadOnlyConfig(
+                default_page_size=10,
+                max_page_size=25,
+                metadata_read_source="cache",
+                metadata_cache_type="schema_backed",
+                metadata_cache_allow_database_fallback=False,
+            ),
+        )
+        uncached_id = _insert_work_row(db, title="Uncached API Route Title")
+
+        status, _headers, payload = _json(app, "/api/works?sort=title&limit=10")
+
+        assert getattr(app.read_model.read_source, "allow_database_fallback") is False
+        assert status == "200 OK"
+        assert payload["pagination"]["total"] == 1
+        titles = [str(item["title"]) for item in payload["items"]]
+        assert titles == ["Cached API Route Title"]
+
+        status, _headers, payload = _json(app, "/api/works/{}".format(uncached_id))
+        assert status == "404 Not Found"
+        assert payload["error"] == "missing_work"
 
 
 def test_api_readonly_index_and_work_routes(driver_spec, tmp_path: Path) -> None:

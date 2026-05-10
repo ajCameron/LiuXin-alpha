@@ -9,7 +9,7 @@ import sys
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import parse_qs, quote, unquote
 from wsgiref.simple_server import make_server
 
@@ -33,6 +33,9 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
     _open_database,
     _row_value,
     _short_text,
+    add_metadata_read_source_arguments,
+    metadata_read_source_help_epilog,
+    metadata_read_source_config_kwargs,
 )
 
 _RESET_CSS = """
@@ -513,8 +516,18 @@ class CalibreReadOnlyWebConfig(ReadOnlyWebConfig):
 class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
     """Calibre mobile/content-server inspired read-only web interface."""
 
-    def __init__(self, db: Database, *, config: Optional[CalibreReadOnlyWebConfig] = None) -> None:
-        super().__init__(db, config=config or CalibreReadOnlyWebConfig())
+    def __init__(
+        self,
+        db: Database,
+        *,
+        config: Optional[CalibreReadOnlyWebConfig] = None,
+        read_source: Any = None,
+    ) -> None:
+        super().__init__(
+            db,
+            config=config or CalibreReadOnlyWebConfig(),
+            read_source=read_source,
+        )
         self.catalog = CalibreCatalogBackend(self, read_model=self.read_model, images=self.images)
         self.acquisition_api = AcquisitionCompatApi(self)
         self.opds_api = OpdsApi(self)
@@ -720,7 +733,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
         return "<div class='navigation'><table class='buttons'>{}</table></div>".format("".join(rows))
 
     def _render_home_page(self) -> str:
-        recent_rows = self._work_rows(sorted_by="recent")[:8]
+        recent_rows = self.catalog.work_rows(sorted_by="recent")[:8]
         recent_listing = self._render_work_listing(recent_rows, empty_message="No works available yet.")
         body = """
 {nav}
@@ -774,17 +787,8 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
     def _split_compat_book_token(self, raw_book_id: str) -> tuple[Optional[int], str]:
         return self.catalog.split_compat_book_token(raw_book_id)
 
-    def _work_rows(self, *, sorted_by: str) -> list[object]:
-        return self.catalog.work_rows(sorted_by=sorted_by)
-
     def _browse_entries(self, kind: str) -> list[dict[str, object]]:
         return [{"table": str(entry["table"]), "row": entry["row"]} for entry in self.catalog.category_rows(kind)]
-
-    def _works_for_linked_entity(self, table: str, raw_row_id: str) -> list[object]:
-        return self.catalog.works_for_linked_entity(table, raw_row_id)
-
-    def _category_rows(self, category: str) -> list[dict[str, object]]:
-        return self.catalog.category_rows(category)
 
     def _category_summary_payload(self) -> list[dict[str, object]]:
         return self.catalog.category_summary_payload()
@@ -880,7 +884,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             sort = str((query.get("sort") or ["name"])[0] or "name")
             sort_order = str((query.get("sort_order") or ["asc"])[0] or "asc")
             if category in {"allbooks", "newest"}:
-                rows = self._work_rows(sorted_by=("recent" if category == "newest" else "title"))
+                rows = self.catalog.work_rows_for_category_item(category, "0")
                 return self._json_response(
                     self._search_result_payload(
                         query_text="",
@@ -903,20 +907,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             offset = _coerce_int((query.get("offset") or [None])[0], default=0, minimum=0)
             sort = str((query.get("sort") or ["title"])[0] or "title")
             sort_order = str((query.get("sort_order") or ["asc"])[0] or "asc")
-            table_map = {"authors": "agents", "tags": self._tag_category_table(), "series": "series"}
-            if category == "authors":
-                # Prefer agents, but fall back to the first available author table.
-                rows: list[object] = []
-                for table in self._author_tables():
-                    rows = self._works_for_linked_entity(table, item_token)
-                    if rows:
-                        break
-            elif category in table_map:
-                rows = self._works_for_linked_entity(table_map[category], item_token)
-            elif category in {"allbooks", "newest"}:
-                rows = self._work_rows(sorted_by=("recent" if category == "newest" else "title"))
-            else:
-                rows = []
+            rows = self.catalog.work_rows_for_category_item(category, item_token)
             return self._json_response(
                 self._search_result_payload(
                     query_text="",
@@ -934,31 +925,21 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
         if len(parts) >= 2 and parts[0] == "ajax" and parts[1] == "books":
             ids_raw = str((query.get("ids") or [""])[0] or "").strip()
             if ids_raw:
-                rows = []
-                for token in ids_raw.split(","):
-                    token = token.strip()
-                    if not token:
-                        continue
-                    try:
-                        row = self.db.get_row_from_id("works", int(token))
-                    except Exception:
-                        row = None
-                    if row is not None:
-                        rows.append(row)
+                rows = self.catalog.work_rows_for_ids(ids_raw)
             else:
-                rows = self._work_rows(sorted_by="recent")
+                rows = self.catalog.work_rows(sorted_by="recent")
             return self._json_response(self._books_metadata_payload(rows))
         if len(parts) >= 3 and parts[0] == "ajax" and parts[1] == "book":
             work_id, _suffix = self._split_compat_book_token(parts[2])
             if work_id is None:
                 return self._text_response("400 Bad Request", "Invalid book id.\n", content_type="text/plain")
-            row = self.db.get_row_from_id("works", int(work_id))
+            row = self.catalog.work_row_from_token(parts[2])
             if row is None:
                 return self._text_response("404 Not Found", "Book row not found.\n", content_type="text/plain")
             return self._json_response(self._work_metadata_payload(row))
         if len(parts) >= 2 and parts[0] == "ajax" and parts[1] == "search":
             query_text = str((query.get("query") or [""])[0] or "").strip()
-            rows = [entry["row"] for entry in self._global_search_entries(query_text, table_filter="works") if str(entry.get("table")) == "works"]
+            rows = self.catalog.search_work_rows(query_text)
             num = _coerce_int((query.get("num") or [None])[0], default=self.config.default_page_size, minimum=1, maximum=self.config.max_page_size)
             offset = _coerce_int((query.get("offset") or [None])[0], default=0, minimum=0)
             sort = str((query.get("sort") or ["title"])[0] or "title")
@@ -983,14 +964,9 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             searchq = str((query.get("search") or [""])[0] or "").strip()
             sort = str((query.get("sort") or ["title"])[0] or "title")
             sort_order = str((query.get("sort_order") or ["asc"])[0] or "asc")
-            rows = [entry["row"] for entry in self._global_search_entries(searchq, table_filter="works") if str(entry.get("table")) == "works"] if searchq else self._work_rows(sorted_by="recent")
+            rows = self.catalog.work_rows_for_query_or_recent(searchq)
             visible_search = self._search_result_payload(query_text=searchq, rows=rows, num=num, offset=0, sort=sort, sort_order=sort_order, base_url="/interface-data/get-books")
-            metadata_rows = []
-            visible_ids = set(visible_search["book_ids"])
-            for row in rows:
-                row_id = _row_value(row, self._id_column("works") or "work_id")
-                if row_id in visible_ids:
-                    metadata_rows.append(row)
+            metadata_rows = self.catalog.metadata_rows_for_search_result(rows, visible_search)
             payload = self._basic_interface_data_payload()
             payload.update(
                 {
@@ -1013,14 +989,9 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             sort = str((query.get("sort") or ["title"])[0] or "title")
             sort_order = str((query.get("sort_order") or ["asc"])[0] or "asc")
             searchq = str((query.get("search") or [""])[0] or "").strip()
-            rows = [entry["row"] for entry in self._global_search_entries(searchq, table_filter="works") if str(entry.get("table")) == "works"] if searchq else self._work_rows(sorted_by="recent")
+            rows = self.catalog.work_rows_for_query_or_recent(searchq)
             search_result = self._search_result_payload(query_text=searchq, rows=rows, num=num, offset=0, sort=sort, sort_order=sort_order, base_url="/interface-data/get-books")
-            metadata_rows = []
-            visible_ids = set(search_result["book_ids"])
-            for row in rows:
-                row_id = _row_value(row, self._id_column("works") or "work_id")
-                if row_id in visible_ids:
-                    metadata_rows.append(row)
+            metadata_rows = self.catalog.metadata_rows_for_search_result(rows, search_result)
             return self._json_response({"library_id": "main", "search_result": search_result, "metadata": self._books_metadata_payload(metadata_rows)})
         if len(parts) >= 2 and parts[0] == "interface-data" and parts[1] == "get-books":
             ids_raw = str((query.get("ids") or [""])[0] or "").strip()
@@ -1029,32 +1000,17 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             sort = str((query.get("sort") or ["title"])[0] or "title")
             sort_order = str((query.get("sort_order") or ["asc"])[0] or "asc")
             if ids_raw:
-                rows = []
-                for token in ids_raw.split(","):
-                    token = token.strip()
-                    if not token:
-                        continue
-                    try:
-                        row = self.db.get_row_from_id("works", int(token))
-                    except Exception:
-                        row = None
-                    if row is not None:
-                        rows.append(row)
+                rows = self.catalog.work_rows_for_ids(ids_raw)
             else:
-                rows = [entry["row"] for entry in self._global_search_entries(searchq, table_filter="works") if str(entry.get("table")) == "works"] if searchq else self._work_rows(sorted_by="recent")
+                rows = self.catalog.work_rows_for_query_or_recent(searchq)
             search_result = self._search_result_payload(query_text=searchq, rows=rows, num=num, offset=0, sort=sort, sort_order=sort_order, base_url="/interface-data/get-books")
-            metadata_rows = []
-            visible_ids = set(search_result["book_ids"])
-            for row in rows:
-                row_id = _row_value(row, self._id_column("works") or "work_id")
-                if row_id in visible_ids:
-                    metadata_rows.append(row)
+            metadata_rows = self.catalog.metadata_rows_for_search_result(rows, search_result)
             return self._json_response({"search_result": search_result, "metadata": self._books_metadata_payload(metadata_rows)})
         if len(parts) >= 3 and parts[0] == "interface-data" and parts[1] == "book-metadata":
             work_id, _suffix = self._split_compat_book_token(parts[2])
             if work_id is None:
                 return self._text_response("400 Bad Request", "Invalid book id.\n", content_type="text/plain")
-            row = self.db.get_row_from_id("works", int(work_id))
+            row = self.catalog.work_row_from_token(parts[2])
             if row is None:
                 return self._text_response("404 Not Found", "Book row not found.\n", content_type="text/plain")
             return self._json_response(self._work_metadata_payload(row))
@@ -1114,7 +1070,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
         return self._split_compat_book_token(raw_book_id)
 
     def acquisition_work_row(self, row_id: int):
-        return self.db.get_row_from_id("works", int(row_id))
+        return self.read_model.row_by_id("works", int(row_id))
 
     def acquisition_work_image_row(self, work_row):
         return self.images.work_image_row(work_row)
@@ -1150,30 +1106,19 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
         return self._serve_file_download(raw_file_id, environ)
 
     def opds_search_work_rows(self, query_text: str) -> list[object]:
-        return [entry["row"] for entry in self._global_search_entries(query_text, table_filter="works") if str(entry.get("table")) == "works"]
+        return self.catalog.search_work_rows(query_text)
 
     def opds_work_rows(self, *, sorted_by: str) -> list[object]:
-        return self._work_rows(sorted_by=sorted_by)
+        return self.catalog.work_rows(sorted_by=sorted_by)
 
     def opds_category_rows(self, category: str) -> list[dict[str, object]]:
-        return self._category_rows(category)
+        return self.catalog.category_rows(category)
 
     def opds_category_display_name(self, category: str) -> str:
         return self._category_display_name(category)
 
     def opds_rows_for_category_item(self, category: str, item_token: str) -> list[object]:
-        if category == "authors":
-            rows: list[object] = []
-            for table in self._author_tables():
-                rows = self._works_for_linked_entity(table, item_token)
-                if rows:
-                    break
-            return rows
-        if category == "tags":
-            return self._works_for_linked_entity(self._tag_category_table(), item_token)
-        if category == "series":
-            return self._works_for_linked_entity("series", item_token)
-        return []
+        return self.catalog.work_rows_for_category_item(category, item_token)
 
     def _opds_related_rows_by_table(self, row) -> dict[str, list[object]]:
         related: dict[str, list[object]] = {}
@@ -1181,7 +1126,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
             if not self._table_exists(linked_table):
                 continue
             try:
-                linked_rows = list(self.db.get_interlinked_rows(target_row=row, secondary_table=linked_table))
+                linked_rows = self.read_model.interlinked_rows(row, linked_table)
             except Exception:
                 continue
             if linked_rows:
@@ -1303,10 +1248,9 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
         ascending = order == "ascending"
 
         if search:
-            entries = [entry for entry in self._global_search_entries(search, table_filter="works") if str(entry.get("table")) == "works"]
-            rows = [entry["row"] for entry in entries]
+            rows = self.catalog.search_work_rows(search)
         else:
-            rows = self._work_rows(sorted_by="recent")
+            rows = self.catalog.work_rows(sorted_by="recent")
 
         rows = sorted(rows, key=lambda row: self._work_sort_value(row, sort_key=sort_key), reverse=not ascending)
         total = len(rows)
@@ -1482,7 +1426,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
                 title="Bad book id",
                 body_html="<section class='panel'><h2 class='section-title'>Invalid book id</h2></section>",
             )
-        row = self.db.get_row_from_id("works", row_id)
+        row = self.read_model.row_by_id("works", row_id)
         if row is None:
             return self._render_layout(
                 title="Missing book",
@@ -1608,7 +1552,7 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
                 title="Bad row id",
                 body_html="<section class='panel'><h2 class='section-title'>Invalid row id</h2></section>",
             )
-        row = self.db.get_row_from_id(table, row_id)
+        row = self.read_model.row_by_id(table, row_id)
         if row is None:
             return self._render_layout(
                 title="Missing row",
@@ -1641,9 +1585,14 @@ class CalibreReadOnlyWebApplication(ReadOnlyWebApplication):
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the LiuXin Calibre-style read-only web interface.")
+    parser = argparse.ArgumentParser(
+        description="Run the LiuXin Calibre-style read-only web interface.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=metadata_read_source_help_epilog("PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.web_calibre_readonly"),
+    )
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
+    add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=CalibreReadOnlyWebConfig.host, help="Bind host. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=CalibreReadOnlyWebConfig.port, help="Bind port. Default: 8080")
     parser.add_argument("--page-size", type=int, default=CalibreReadOnlyWebConfig.default_page_size, help="Default page size.")
@@ -1667,9 +1616,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         opds_max_ungrouped_items=max(0, int(args.opds_max_ungrouped_items)),
         expose_database_path=bool(args.expose_database_path),
         enable_file_downloads=not bool(args.no_file_downloads),
+        **metadata_read_source_config_kwargs(args),
     )
     with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
-        app = CalibreReadOnlyWebApplication(db, config=config)
+        app = CalibreReadOnlyWebApplication(
+            db,
+            config=config,
+        )
         url = "http://{}:{}/".format(config.host, config.port)
         sys.stdout.write("Serving Calibre-style read-only web UI on {}\n".format(url))
         sys.stdout.flush()

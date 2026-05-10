@@ -6,7 +6,11 @@ from wsgiref.util import setup_testing_defaults
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.surfaces.web_calibre_readonly import CalibreReadOnlyWebApplication, CalibreReadOnlyWebConfig
+from LiuXin_alpha.surfaces.web_calibre_readonly import (
+    CalibreReadOnlyWebApplication,
+    CalibreReadOnlyWebConfig,
+    build_arg_parser,
+)
 from LiuXin_alpha.metadata.standardization import make_tag_search_term
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
@@ -195,6 +199,75 @@ def _insert_item_row(db: Database, *, manifestation_id: int, source_path: str, s
         table="items",
     )
     return int(row["item_id"])
+
+
+def test_web_calibre_readonly_parser_accepts_cache_read_source_options(tmp_path: Path) -> None:
+    db_path = tmp_path / "calibre_cli.sqlite"
+    args = build_arg_parser().parse_args(
+        [
+            "--database",
+            str(db_path),
+            "--metadata-read-source",
+            "cache",
+            "--cache-type",
+            "schema_backed",
+            "--no-cache-db-fallback",
+        ]
+    )
+
+    assert args.metadata_read_source == "cache"
+    assert args.cache_type == "schema_backed"
+    assert args.no_cache_db_fallback is True
+    config = CalibreReadOnlyWebConfig(
+        metadata_read_source=str(args.metadata_read_source),
+        metadata_cache_type=str(args.cache_type),
+        metadata_cache_allow_database_fallback=not bool(args.no_cache_db_fallback),
+    )
+    assert config.metadata_read_source == "cache"
+    assert config.metadata_cache_type == "schema_backed"
+    assert config.metadata_cache_allow_database_fallback is False
+
+
+def test_web_calibre_readonly_cache_read_source_detail_routes_serve_snapshot(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "web_calibre_cache_source.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        cached_id = _insert_work_row(db, title="Cached Calibre Route Title")
+        app = CalibreReadOnlyWebApplication(
+            db,
+            config=CalibreReadOnlyWebConfig(
+                default_page_size=10,
+                max_page_size=25,
+                metadata_read_source="cache",
+                metadata_cache_type="schema_backed",
+                metadata_cache_allow_database_fallback=False,
+            ),
+        )
+        uncached_id = _insert_work_row(db, title="Uncached Calibre Route Title")
+
+        status, _headers, body = _call_app(
+            app,
+            "/ajax/books?ids={},{}".format(cached_id, uncached_id),
+        )
+
+        assert getattr(app.read_model.read_source, "allow_database_fallback") is False
+        assert status == "200 OK"
+        payload = json.loads(body.decode("utf-8"))
+        assert sorted(payload) == [str(cached_id)]
+        assert payload[str(cached_id)]["title"] == "Cached Calibre Route Title"
+
+        status, _headers, body = _call_app(app, "/ajax/book/{}/main".format(uncached_id))
+        assert status == "404 Not Found"
+        assert "Book row not found" in body.decode("utf-8")
+
+        status, _headers, body = _call_app(app, "/interface-data/book-metadata/{}".format(uncached_id))
+        assert status == "404 Not Found"
+        assert "Book row not found" in body.decode("utf-8")
 
 
 def test_web_calibre_readonly_home_and_browse_pages(driver_spec, tmp_path: Path) -> None:
