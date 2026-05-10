@@ -1,10 +1,16 @@
 # Working Memory Index
 
-Updated: 2026-05-08
+Updated: 2026-05-10
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [metadata-surface-write-report-integration-2026-05-10.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-surface-write-report-integration-2026-05-10.md)
+  Current branch note for the first metadata write/report integration slice in
+  surfaces: web read-write metadata relation add/create routes now use the WEMI
+  metadata writer/report path where supported, with direct database writes kept
+  for generic links and CRUD.
 
 - [metadata-interaction-surfaces-review-2026-05-08.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-interaction-surfaces-review-2026-05-08.md)
   Fresh review of the actual interaction surfaces under `surfaces`, covering
