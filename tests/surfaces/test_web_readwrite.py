@@ -133,6 +133,14 @@ def _insert_agent_row(db: Database, *, name: str) -> int:
     return int(row["agent_id"])
 
 
+def _insert_tag_row(db: Database, *, text: str) -> int:
+    payload: dict[str, object] = {"tag": text}
+    if "tag_phash" in set(db.get_column_headings("tags")):
+        payload["tag_phash"] = "".join(str(text or "").split()).lower()
+    row = Row.from_idless_row_dict(db, row_dict=payload, table="tags")
+    return int(row["tag_id"])
+
+
 def _insert_store_row(db: Database, *, name: str) -> int:
     ensure_surface_asset_tables(db)
     row = Row.from_idless_row_dict(
@@ -410,6 +418,53 @@ def test_web_readwrite_row_pages_can_add_edit_and_remove_interlinks(driver_spec,
         assert "Link removed" in body.decode("utf-8")
 
 
+def test_web_readwrite_work_tag_links_use_metadata_write_reports(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "web_readwrite_metadata_tag_link.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        work_id = _insert_work_row(db, title="Metadata Link Work")
+        tag_id = _insert_tag_row(db, text="Surface Metadata Tag")
+        app = ReadWriteWebApplication(db, config=ReadWriteWebConfig(title="Write Test"))
+
+        status, headers, _body = _call_app(
+            app,
+            "/tables/works/{}/links/tags/new".format(work_id),
+            method="POST",
+            form={
+                "secondary_row_id": tag_id,
+                "tag_work_link_priority": 5,
+                "tag_work_link_source": "web-test",
+            },
+        )
+        assert status == "302 Found"
+        location = str(headers["Location"])
+        assert location.endswith("#links-tags")
+        assert "notice_title=Link+added" in location
+
+        work_row = db.get_row_from_id("works", work_id)
+        assert work_row is not None
+        linked_tags = db.get_interlinked_rows(target_row=work_row, secondary_table="tags")
+        assert [int(row["tag_id"]) for row in linked_tags] == [tag_id]
+
+        link_rows = db.get_interlink_rows(primary_row=work_row, secondary_table="tags")
+        assert len(link_rows) == 1
+        assert int(link_rows[0]["tag_work_link_priority"]) == 5
+        assert str(link_rows[0]["tag_work_link_source"]) == "web-test"
+
+        status, _headers, body = _call_app(app, location)
+        assert status == "200 OK"
+        text = body.decode("utf-8")
+        assert "Link added" in text
+        assert "Added tag via metadata writer" in text
+        assert "metadata report:" in text
+        assert "links_added=1" in text
+
+
 def test_web_readwrite_work_pages_can_create_and_link_new_targets(driver_spec, tmp_path: Path) -> None:
     db_path = tmp_path / "web_readwrite_create_link_target.sqlite"
     with Database(
@@ -451,6 +506,54 @@ def test_web_readwrite_work_pages_can_create_and_link_new_targets(driver_spec, t
         text = body.decode("utf-8")
         assert "Linked row created" in text
         assert "Created and linked credit." in text
+
+
+def test_web_readwrite_work_tag_create_uses_metadata_write_reports(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "web_readwrite_metadata_tag_create.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        work_id = _insert_work_row(db, title="Metadata Create Link Work")
+        app = ReadWriteWebApplication(db, config=ReadWriteWebConfig(title="Write Test"))
+
+        status, headers, _body = _call_app(
+            app,
+            "/tables/works/{}/links/tags/create".format(work_id),
+            method="POST",
+            form={
+                "create__tag": "Created Surface Tag",
+                "tag_work_link_source": "web-create-test",
+            },
+        )
+        assert status == "302 Found"
+        location = str(headers["Location"])
+        assert location.endswith("#links-tags")
+        assert "notice_title=Linked+row+created" in location
+
+        tag_rows = list(db.search("tags", "tag", "Created Surface Tag"))
+        assert len(tag_rows) == 1
+        assert str(tag_rows[0]["tag"]) == "Created Surface Tag"
+
+        work_row = db.get_row_from_id("works", work_id)
+        assert work_row is not None
+        linked_tags = db.get_interlinked_rows(target_row=work_row, secondary_table="tags")
+        assert [int(row["tag_id"]) for row in linked_tags] == [int(tag_rows[0]["tag_id"])]
+
+        link_rows = db.get_interlink_rows(primary_row=work_row, secondary_table="tags")
+        assert len(link_rows) == 1
+        assert str(link_rows[0]["tag_work_link_source"]) == "web-create-test"
+
+        status, _headers, body = _call_app(app, location)
+        assert status == "200 OK"
+        text = body.decode("utf-8")
+        assert "Linked row created" in text
+        assert "Created and linked tag via metadata writer" in text
+        assert "metadata report:" in text
+        assert "links_added=1" in text
 
 
 def test_web_readwrite_uses_specialized_grouped_forms_for_core_tables(driver_spec, tmp_path: Path) -> None:

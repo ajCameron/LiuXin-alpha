@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol, Mapping, Sequence, Iterable, AbstractSet, Self, Set
+from typing import TYPE_CHECKING, Protocol, Mapping, Sequence, Iterable, AbstractSet, Self, Set
 
-from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api.calibre_metadata_api import (
-    CalibreMetadataAPI,
+from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
+    MetadataWriteDatabaseAPI,
+    MetadataWriteReportAPI,
+    MetadataWriteTargetRow,
 )
 from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api.calibre_metadata_input_api import (
     CalibreMetadataInputAPI,

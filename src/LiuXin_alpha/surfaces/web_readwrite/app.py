@@ -1783,7 +1783,85 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             name = str(payload.get("series") or "").strip()
             if name and not str(payload.get("series_sort") or "").strip():
                 payload["series_sort"] = name
+        if secondary_table == "tags":
+            text = str(payload.get("tag") or "").strip()
+            if text and "tag_phash" in self.db.get_column_headings("tags") and not str(payload.get("tag_phash") or "").strip():
+                payload["tag_phash"] = self._metadata_tag_search_term(text)
+        if secondary_table == "labels":
+            text = str(payload.get("label_text") or payload.get("label") or "").strip()
+            if text and "label_text_norm" in self.db.get_column_headings("labels") and not str(payload.get("label_text_norm") or "").strip():
+                payload["label_text_norm"] = self._metadata_tag_search_term(text)
         return payload
+
+    @staticmethod
+    def _metadata_tag_search_term(text: str) -> str:
+        return "".join(str(text or "").split()).lower()
+
+    def _link_values_from_form(
+        self,
+        *,
+        link_table: str,
+        editable_columns: list[str],
+        form: dict[str, str],
+    ) -> tuple[Any, Any, dict[str, Any]]:
+        priority: Any = "not_set"
+        link_type = None
+        extra_values: dict[str, Any] = {}
+        link_column_base = self.db.driver_wrapper.get_column_base(link_table)
+        blank_link = self.db.driver_wrapper.get_blank_row(link_table)
+        for column in editable_columns:
+            if column not in form:
+                continue
+            value = self._coerce_form_value(
+                form[column],
+                column=column,
+                current_value=blank_link.get(column),
+                for_create=True,
+            )
+            if value is None:
+                continue
+            suffix = str(column)
+            prefix = "{}_".format(link_column_base)
+            if suffix.startswith(prefix):
+                suffix = suffix[len(prefix):]
+            if suffix == "priority":
+                priority = value
+            elif suffix == "type":
+                link_type = value
+            else:
+                extra_values[suffix] = value
+        return priority, link_type, extra_values
+
+    def _write_metadata_relation_link(
+        self,
+        *,
+        primary_row,
+        secondary_table: str,
+        secondary_row,
+        priority: Any,
+        link_type: Any,
+        extra_values: dict[str, Any],
+    ):
+        from LiuXin_alpha.surfaces.metadata_write_bridge import write_wemi_metadata_relation_link
+
+        return write_wemi_metadata_relation_link(
+            self.db,
+            target_row=primary_row,
+            relation_table=secondary_table,
+            relation_row=secondary_row,
+            priority=priority,
+            link_type=link_type,
+            extra_values=extra_values,
+        )
+
+    def _metadata_relation_notice_message(self, *, action: str, item_name: str, report: Any) -> str:
+        from LiuXin_alpha.surfaces.metadata_write_bridge import metadata_write_report_summary
+
+        return "{} {} via metadata writer ({})".format(
+            action,
+            item_name,
+            metadata_write_report_summary(report),
+        )
 
     def _ordered_link_fields(self, editable_columns: list[str], spec: dict[str, Any]) -> list[str]:
         requested = [str(one) for one in (spec.get("field_order") or [])]
@@ -2301,40 +2379,61 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 status="404 Not Found",
             )
 
-        priority = "not_set"
-        link_type = None
-        extra_values: dict[str, Any] = {}
-        link_column_base = self.db.driver_wrapper.get_column_base(link_table)
-        blank_link = self.db.driver_wrapper.get_blank_row(link_table)
         try:
-            for column in editable_columns:
-                if column not in form:
-                    continue
-                value = self._coerce_form_value(form[column], column=column, current_value=blank_link.get(column), for_create=True)
-                if value is None:
-                    continue
-                suffix = str(column)
-                prefix = "{}_".format(link_column_base)
-                if suffix.startswith(prefix):
-                    suffix = suffix[len(prefix):]
-                if suffix == "priority":
-                    priority = value
-                elif suffix == "type":
-                    link_type = value
-                else:
-                    extra_values[suffix] = value
-        except Exception as exc:
-            return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
-        try:
-            self.db.interlink_rows(primary_row=primary_row, secondary_row=secondary_row, priority=priority, type=link_type, **extra_values)
+            priority, link_type, extra_values = self._link_values_from_form(
+                link_table=link_table,
+                editable_columns=editable_columns,
+                form=form,
+            )
         except Exception as exc:
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
         spec = self._link_section_spec(str(primary_row.table), secondary_table, link_table)
+        item_name = str(spec.get("item_name") or "link")
+        try:
+            report = self._write_metadata_relation_link(
+                primary_row=primary_row,
+                secondary_table=secondary_table,
+                secondary_row=secondary_row,
+                priority=priority,
+                link_type=link_type,
+                extra_values=extra_values,
+            )
+            if report is None:
+                self.db.interlink_rows(primary_row=primary_row, secondary_row=secondary_row, priority=priority, type=link_type, **extra_values)
+        except Exception as exc:
+            return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
+        if report is not None:
+            errors = list(getattr(report, "errors", []) or [])
+            if errors:
+                return self._html_response(
+                    self._render_row_page(table, raw_row_id, write_error_text="; ".join(str(error) for error in errors)),
+                    status="400 Bad Request",
+                )
+            if not bool(getattr(report, "changed", False)):
+                return self._redirect_with_notice(
+                    self._row_path(table, int(primary_row.row_id)),
+                    kind="info",
+                    title="No changes",
+                    message=self._metadata_relation_notice_message(
+                        action="No change for",
+                        item_name=item_name,
+                        report=report,
+                    ),
+                    anchor=self._interlink_anchor(secondary_table),
+                )
         return self._redirect_with_notice(
             self._row_path(table, int(primary_row.row_id)),
             kind="success",
             title="Link added",
-            message="Added {}.".format(str(spec.get("item_name") or "link")),
+            message=(
+                self._metadata_relation_notice_message(
+                    action="Added",
+                    item_name=item_name,
+                    report=report,
+                )
+                if report is not None
+                else "Added {}.".format(item_name)
+            ),
             anchor=self._interlink_anchor(secondary_table),
         )
 
@@ -2381,39 +2480,47 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         except Exception as exc:
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
 
-        priority = "not_set"
-        link_type = None
-        extra_values: dict[str, Any] = {}
-        link_column_base = self.db.driver_wrapper.get_column_base(link_table)
-        blank_link = self.db.driver_wrapper.get_blank_row(link_table)
         try:
-            for column in editable_columns:
-                if column not in form:
-                    continue
-                value = self._coerce_form_value(form[column], column=column, current_value=blank_link.get(column), for_create=True)
-                if value is None:
-                    continue
-                suffix = str(column)
-                prefix = "{}_".format(link_column_base)
-                if suffix.startswith(prefix):
-                    suffix = suffix[len(prefix):]
-                if suffix == "priority":
-                    priority = value
-                elif suffix == "type":
-                    link_type = value
-                else:
-                    extra_values[suffix] = value
+            priority, link_type, extra_values = self._link_values_from_form(
+                link_table=link_table,
+                editable_columns=editable_columns,
+                form=form,
+            )
         except Exception as exc:
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
         try:
-            self.db.interlink_rows(primary_row=primary_row, secondary_row=secondary_row, priority=priority, type=link_type, **extra_values)
+            report = self._write_metadata_relation_link(
+                primary_row=primary_row,
+                secondary_table=secondary_table,
+                secondary_row=secondary_row,
+                priority=priority,
+                link_type=link_type,
+                extra_values=extra_values,
+            )
+            if report is None:
+                self.db.interlink_rows(primary_row=primary_row, secondary_row=secondary_row, priority=priority, type=link_type, **extra_values)
         except Exception as exc:
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
+        errors = list(getattr(report, "errors", []) or []) if report is not None else []
+        if errors:
+            return self._html_response(
+                self._render_row_page(table, raw_row_id, write_error_text="; ".join(str(error) for error in errors)),
+                status="400 Bad Request",
+            )
+        item_name = str(spec.get("item_name") or secondary_table).rstrip(".")
         return self._redirect_with_notice(
             self._row_path(table, int(primary_row.row_id)),
             kind="success",
             title="Linked row created",
-            message="Created and linked {}.".format(str(spec.get("item_name") or secondary_table).rstrip(".")),
+            message=(
+                self._metadata_relation_notice_message(
+                    action="Created and linked",
+                    item_name=item_name,
+                    report=report,
+                )
+                if report is not None
+                else "Created and linked {}.".format(item_name)
+            ),
             anchor=self._interlink_anchor(secondary_table),
         )
 
