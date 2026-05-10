@@ -8,6 +8,9 @@ VENV_PYTHON="${VENV_DIR}/bin/python"
 
 DATABASE_PATH=""
 DB_TYPE="sqlite"
+METADATA_READ_SOURCE="database"
+CACHE_TYPE="schema_backed"
+NO_CACHE_DB_FALLBACK=0
 HOST="127.0.0.1"
 PORT="8083"
 TITLE="LiuXin API Read-Only"
@@ -20,11 +23,19 @@ Usage: scripts/run_api_readonly.sh --database <path> [options]
 Options:
   --database <path>        Database path to open (required)
   --db-type <type>         Database driver type (default: sqlite)
+  --metadata-read-source <database|cache>
+                           Read metadata from the live database or cache (default: database)
+  --cache-type <type>      Storage cache backend for --metadata-read-source cache (default: schema_backed)
+  --no-cache-db-fallback   Do not fall back to live database reads for cache metadata reads
   --host <host>            Bind host (default: 127.0.0.1)
   --port <port>            Bind port (default: 8083)
   --title <text>           Service title (default: LiuXin API Read-Only)
   --no-file-downloads      Disable file download / redirect links
   -h, --help               Show this help
+
+Examples:
+  scripts/run_api_readonly.sh --database /home/blackjane/scratch_library.sqlite
+  scripts/run_api_readonly.sh --database /home/blackjane/scratch_library.sqlite --metadata-read-source cache
 EOU
 }
 
@@ -42,6 +53,18 @@ while [[ $# -gt 0 ]]; do
         --db-type)
             DB_TYPE="$2"
             shift 2
+            ;;
+        --metadata-read-source)
+            METADATA_READ_SOURCE="$2"
+            shift 2
+            ;;
+        --cache-type)
+            CACHE_TYPE="$2"
+            shift 2
+            ;;
+        --no-cache-db-fallback)
+            NO_CACHE_DB_FALLBACK=1
+            shift
             ;;
         --host)
             HOST="$2"
@@ -90,6 +113,18 @@ API_CMD=(
     --port "${PORT}"
     --title "${TITLE}"
 )
+
+if [[ "${METADATA_READ_SOURCE}" != "database" ]]; then
+    API_CMD+=(--metadata-read-source "${METADATA_READ_SOURCE}")
+fi
+
+if [[ "${CACHE_TYPE}" != "schema_backed" ]]; then
+    API_CMD+=(--cache-type "${CACHE_TYPE}")
+fi
+
+if [[ ${NO_CACHE_DB_FALLBACK} -eq 1 ]]; then
+    API_CMD+=(--no-cache-db-fallback)
+fi
 
 if [[ ${NO_FILE_DOWNLOADS} -eq 1 ]]; then
     API_CMD+=(--no-file-downloads)

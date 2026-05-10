@@ -2,16 +2,26 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from LiuXin_alpha.caches import create_storage_cache
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.metadata.read_sources import CacheMetadataReadSource
 from LiuXin_alpha.surfaces.read_model import ReadModelBackend
 from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication, ReadOnlyWebConfig
 from LiuXin_alpha.metadata.standardization import make_tag_search_term
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
-def _build_backend(db: Database) -> tuple[ReadOnlyWebApplication, ReadModelBackend]:
-    app = ReadOnlyWebApplication(db, config=ReadOnlyWebConfig(title="Read Model Test"))
+def _build_backend(
+    db: Database,
+    *,
+    read_source=None,
+) -> tuple[ReadOnlyWebApplication, ReadModelBackend]:
+    app = ReadOnlyWebApplication(
+        db,
+        config=ReadOnlyWebConfig(title="Read Model Test"),
+        read_source=read_source,
+    )
     return app, app.read_model
 
 
@@ -305,6 +315,82 @@ def test_read_model_work_and_file_payloads(driver_spec, tmp_path: Path) -> None:
         assert file_payload["file"]["store_id"] == store_id
         assert file_payload["file"]["item_id"] == item_id
         assert file_payload["download_url"].endswith("/download")
+
+
+def test_read_model_can_use_cache_read_source_without_database_fallback(
+    driver_spec,
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "read_model_cache_source.sqlite"
+    book_path = tmp_path / "cached-book.epub"
+    book_path.write_bytes(b"epub payload")
+
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        work_id = _insert_work_row(db, title="Cached Book")
+        store_id = _insert_store_row(db, name="Shelf", root_uri=str(tmp_path))
+        agent_id = _insert_agent_row(db, name="Cache Author")
+        tag_id = _insert_tag_row(db, text="Cached Tag")
+        series_id = _insert_series_row(db, name="Cached Series")
+        expression_id = _insert_expression_row(db, title_override="Cached Book")
+        manifestation_id = _insert_manifestation_row(db, format_detail="EPUB")
+        item_id = _insert_item_row(
+            db,
+            manifestation_id=manifestation_id,
+            source_path=str(book_path),
+            source_name=book_path.name,
+        )
+        _insert_file_row_for_item(
+            db,
+            store_id=store_id,
+            item_id=item_id,
+            file_path=book_path,
+        )
+
+        work_row = db.get_row_from_id("works", work_id)
+        db.interlink_rows(
+            primary_row=work_row,
+            secondary_row=db.get_row_from_id("agents", agent_id),
+        )
+        db.interlink_rows(
+            primary_row=work_row,
+            secondary_row=db.get_row_from_id("tags", tag_id),
+        )
+        db.interlink_rows(
+            primary_row=work_row,
+            secondary_row=db.get_row_from_id("series", series_id),
+        )
+        expression_row = db.get_row_from_id("expressions", expression_id)
+        manifestation_row = db.get_row_from_id("manifestations", manifestation_id)
+        db.interlink_rows(primary_row=work_row, secondary_row=expression_row)
+        db.interlink_rows(primary_row=expression_row, secondary_row=manifestation_row)
+
+        cache = create_storage_cache(db, "schema_backed")
+        cache.read()
+        read_source = CacheMetadataReadSource(
+            cache,
+            database=db,
+            allow_database_fallback=False,
+        )
+
+        _insert_work_row(db, title="Uncached Book")
+        _app, backend = _build_backend(db, read_source=read_source)
+
+        work_rows = backend.work_rows(sorted_by="title")
+        payload = backend.work_metadata_payload(work_rows[0])
+
+        assert [row["work_title"] for row in work_rows] == ["Cached Book"]
+        assert backend.browse_count("titles") == 1
+        assert payload["authors"] == ["Cache Author"]
+        assert payload["tags"] == ["Cached Tag"]
+        assert payload["series"] == "Cached Series"
+        assert payload["formats"] == ["EPUB"]
+        assert payload["format_metadata"]["EPUB"]["name"] == "cached-book.epub"
 
 
 def test_read_model_discovers_images_and_resolves_targets(driver_spec, tmp_path: Path) -> None:

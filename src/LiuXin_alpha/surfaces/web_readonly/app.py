@@ -13,7 +13,7 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Iterable, Iterator, Optional
+from typing import Any, Callable, Iterable, Iterator, Optional
 from urllib.parse import parse_qs, quote, unquote, urljoin
 from wsgiref.simple_server import make_server
 from wsgiref.util import FileWrapper
@@ -94,6 +94,9 @@ class ReadOnlyWebConfig:
     max_page_size: int = 200
     expose_database_path: bool = False
     enable_file_downloads: bool = True
+    metadata_read_source: str = "database"
+    metadata_cache_type: str = "schema_backed"
+    metadata_cache_allow_database_fallback: bool = True
     hidden_column_tokens: tuple[str, ...] = ("credential", "password", "secret", "token", "policy_json")
     hidden_column_suffixes: tuple[str, ...] = ("_scratch",)
 
@@ -137,14 +140,32 @@ class ReadOnlyWebApplication:
         "manifestations",
     )
 
-    def __init__(self, db: Database, *, config: Optional[ReadOnlyWebConfig] = None) -> None:
+    def __init__(
+        self,
+        db: Database,
+        *,
+        config: Optional[ReadOnlyWebConfig] = None,
+        read_source: Any = None,
+    ) -> None:
         self.db = db
         self.config = config or ReadOnlyWebConfig()
+        resolved_read_source = read_source
+        if resolved_read_source is None:
+            resolved_read_source = build_metadata_read_source(
+                db,
+                source=self.config.metadata_read_source,
+                cache_type=self.config.metadata_cache_type,
+                allow_database_fallback=self.config.metadata_cache_allow_database_fallback,
+            )
         from LiuXin_alpha.surfaces.images import ImageBackend
         from LiuXin_alpha.surfaces.read_model import ReadModelBackend
 
         self.images = ImageBackend(self)
-        self.read_model = ReadModelBackend(self, images=self.images)
+        self.read_model = ReadModelBackend(
+            self,
+            images=self.images,
+            read_source=resolved_read_source,
+        )
 
     def __call__(self, environ, start_response):
         response = self.handle_request(environ)
@@ -772,26 +793,7 @@ class ReadOnlyWebApplication:
         }
 
     def _global_search_entries(self, query_text: str, *, table_filter: str = "") -> list[dict[str, object]]:
-        needle = str(query_text or "").strip()
-        if not needle:
-            return []
-
-        if table_filter and self._table_exists(table_filter):
-            tables = [table_filter]
-        else:
-            tables = self._public_search_tables()
-
-        results: list[dict[str, object]] = []
-        for table in tables:
-            try:
-                rows = list(self.db.get_all_rows(table, iterator_return=False))
-            except Exception:
-                continue
-            for row in rows:
-                entry = self._global_search_entry(table, row, needle)
-                if entry is not None:
-                    results.append(entry)
-        return sorted(results, key=lambda item: item["sort_key"])
+        return self.read_model.search_entries(query_text, table_filter=table_filter)
 
     @staticmethod
     def _group_search_entries(entries: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
@@ -879,68 +881,7 @@ class ReadOnlyWebApplication:
         return text.replace("_", " ").replace("-", " ").title()
 
     def _work_credit_entries(self, row) -> list[dict[str, object]]:
-        entries: list[dict[str, object]] = []
-        work_table = str(getattr(row, "table", "") or "")
-        if work_table != "works":
-            return entries
-
-        for linked_table in ("agents", "human_agents", "org_agents"):
-            try:
-                link_table = self.db.driver_wrapper.get_link_table_name("works", linked_table)
-            except Exception:
-                link_table = None
-            if not link_table:
-                continue
-            try:
-                link_rows = list(self.db.get_interlink_rows(primary_row=row, secondary_table=linked_table))
-            except Exception:
-                continue
-            if not link_rows:
-                continue
-
-            try:
-                secondary_id_column = self.db.driver_wrapper.get_id_column(linked_table)
-                secondary_link_column = self.db.driver_wrapper.get_link_column("works", linked_table, secondary_id_column)
-            except Exception:
-                continue
-
-            try:
-                type_column = self.db.driver_wrapper.get_link_column("works", linked_table, "type")
-            except Exception:
-                type_column = None
-            try:
-                priority_column = self.db.driver_wrapper.get_link_column("works", linked_table, "priority")
-            except Exception:
-                priority_column = None
-
-            for position, link_row in enumerate(link_rows):
-                linked_row_id = _row_value(link_row, secondary_link_column)
-                if linked_row_id in (None, ""):
-                    continue
-                try:
-                    linked_row = self.db.get_row_from_id(linked_table, int(linked_row_id))
-                except Exception:
-                    linked_row = None
-                if linked_row is None:
-                    continue
-                role_raw = _row_value(link_row, type_column) if type_column else None
-                priority_value = _row_value(link_row, priority_column) if priority_column else None
-                try:
-                    priority_sort = -int(priority_value)
-                except Exception:
-                    priority_sort = position
-                entries.append(
-                    {
-                        "table": linked_table,
-                        "row": linked_row,
-                        "role": self._pretty_credit_role(role_raw),
-                        "role_raw": role_raw,
-                        "priority": priority_value,
-                        "sort_key": (str(self._pretty_credit_role(role_raw)), priority_sort, position),
-                    }
-                )
-
-        return sorted(entries, key=lambda item: item["sort_key"])
+        return self.read_model.work_credit_entries(row)
 
     def _render_work_credits_section(self, row) -> str:
         entries = self._work_credit_entries(row)
@@ -1209,15 +1150,7 @@ class ReadOnlyWebApplication:
 """.format(title=_escape(self._pretty_table_name(linked_table)), count=len(rows), items="".join(items))
 
     def _related_rows_by_table(self, row) -> dict[str, list[object]]:
-        related: dict[str, list[object]] = {}
-        for linked_table in self._ordered_related_tables(row):
-            try:
-                linked_rows = list(self.db.get_interlinked_rows(target_row=row, secondary_table=linked_table))
-            except Exception:
-                continue
-            if linked_rows:
-                related[linked_table] = linked_rows
-        return related
+        return self.read_model.related_rows_by_table(row)
 
     def _render_related_sections(
         self,
@@ -1797,7 +1730,7 @@ class ReadOnlyWebApplication:
         )
 
     def _table_page_rows(self, table: str, *, offset: int, limit: int) -> list[object]:
-        rows = list(self.db.get_all_rows(table, iterator_return=False))
+        rows = self.read_model.rows_for_table(table)
         return rows[offset : offset + limit]
 
     def _render_layout(self, *, title: str, body_html: str) -> str:
@@ -2090,7 +2023,7 @@ class ReadOnlyWebApplication:
             cards: list[str] = []
             for table in grouped.get(category, []):
                 try:
-                    count = int(self.db.get_record_count(table))
+                    count = self.read_model.table_record_count(table)
                 except Exception:
                     count = -1
                 href = "/tables/{}".format(quote(table, safe=""))
@@ -2236,7 +2169,7 @@ class ReadOnlyWebApplication:
             return self._render_layout(title="Missing table", body_html="<section class='panel'><h2>Unknown table</h2></section>")
         limit = _coerce_int((query.get("limit") or [None])[0], default=self.config.default_page_size, minimum=1, maximum=self.config.max_page_size)
         offset = _coerce_int((query.get("offset") or [None])[0], default=0, minimum=0)
-        total = int(self.db.get_record_count(table))
+        total = self.read_model.table_record_count(table)
         rows = self._table_page_rows(table, offset=offset, limit=limit)
         columns = self._table_display_columns(table)
 
@@ -2305,7 +2238,7 @@ class ReadOnlyWebApplication:
                 title="Bad row id",
                 body_html="<section class='panel'><h2>Invalid row id</h2><p>{}</p></section>".format(_escape(raw_row_id)),
             )
-        row = self.db.get_row_from_id(table, row_id)
+        row = self.read_model.row_by_id(table, row_id)
         if row is None:
             return self._render_layout(
                 title="Missing row",
@@ -2496,7 +2429,7 @@ class ReadOnlyWebApplication:
             )
 
         if table and column and search_term and self._table_exists(table) and column in self._visible_columns(table):
-            matches = list(self.db.search(table, column, search_term))
+            matches = self.read_model.search_rows(table, column, search_term)
             columns = self._table_display_columns(table)
             header_html = "".join("<th>{}</th>".format(_escape(one)) for one in columns)
             header_html += "<th>detail</th>"
@@ -2756,10 +2689,56 @@ class ReadOnlyWebApplication:
         )
 
 
+def add_metadata_read_source_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    parser.add_argument(
+        "--metadata-read-source",
+        choices=("database", "cache"),
+        default="database",
+        help="Read metadata directly from the database or from a loaded storage cache.",
+    )
+    parser.add_argument(
+        "--cache-type",
+        default="schema_backed",
+        help="Storage cache backend to use when --metadata-read-source=cache.",
+    )
+    parser.add_argument(
+        "--no-cache-db-fallback",
+        action="store_true",
+        help="When using cache metadata reads, do not fall back to live database reads.",
+    )
+    return parser
+
+
+def metadata_read_source_help_epilog(command: str) -> str:
+    return (
+        "Examples:\n"
+        "  {command} --database /path/to/library.sqlite\n"
+        "  {command} --database /path/to/library.sqlite --metadata-read-source cache\n"
+        "  {command} --database /path/to/library.sqlite --metadata-read-source cache --cache-type schema_backed --no-cache-db-fallback\n"
+        "\n"
+        "Cache read-source notes:\n"
+        "  cache mode loads the selected storage cache once at startup.\n"
+        "  without --no-cache-db-fallback, cache misses fall back to live database reads."
+    ).format(command=command)
+
+
+def metadata_read_source_config_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "metadata_read_source": str(args.metadata_read_source),
+        "metadata_cache_type": str(args.cache_type),
+        "metadata_cache_allow_database_fallback": not bool(args.no_cache_db_fallback),
+    }
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the LiuXin read-only web interface.")
+    parser = argparse.ArgumentParser(
+        description="Run the LiuXin read-only web interface.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=metadata_read_source_help_epilog("PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.web_readonly"),
+    )
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
+    add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=ReadOnlyWebConfig.host, help="Bind host. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=ReadOnlyWebConfig.port, help="Bind port. Default: 8080")
     parser.add_argument("--page-size", type=int, default=ReadOnlyWebConfig.default_page_size, help="Default page size.")
@@ -2780,6 +2759,37 @@ def _open_database(*, database_path: str, db_type: str) -> Database:
     )
 
 
+def build_metadata_read_source(
+    db: Database,
+    *,
+    source: str = "database",
+    cache_type: str = "schema_backed",
+    allow_database_fallback: bool = True,
+):
+    normalized_source = str(source or "database").strip().lower()
+    if normalized_source in {"database", "db"}:
+        return None
+    if normalized_source not in {"cache", "storage_cache"}:
+        raise ValueError(
+            "Unknown metadata read source {!r}. Expected 'database' or 'cache'.".format(
+                source,
+            )
+        )
+
+    from LiuXin_alpha.caches import create_storage_cache
+    from LiuXin_alpha.metadata.read_sources import CacheMetadataReadSource
+
+    cache = create_storage_cache(db, str(cache_type or "schema_backed"))
+    read = getattr(cache, "read", None)
+    if callable(read):
+        read()
+    return CacheMetadataReadSource(
+        cache,
+        database=db,
+        allow_database_fallback=allow_database_fallback,
+    )
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
@@ -2791,6 +2801,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         max_page_size=max(1, int(args.max_page_size)),
         expose_database_path=bool(args.expose_database_path),
         enable_file_downloads=not bool(args.no_file_downloads),
+        **metadata_read_source_config_kwargs(args),
     )
     with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
         app = ReadOnlyWebApplication(db, config=config)
@@ -2805,6 +2816,10 @@ def main(argv: Optional[list[str]] = None) -> int:
 __all__ = [
     "ReadOnlyWebApplication",
     "ReadOnlyWebConfig",
+    "add_metadata_read_source_arguments",
     "build_arg_parser",
+    "build_metadata_read_source",
     "main",
+    "metadata_read_source_help_epilog",
+    "metadata_read_source_config_kwargs",
 ]

@@ -23,11 +23,11 @@ from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api.calibre_metad
     CalibreUserMetadata,
     CalibreValueToID,
 )
-
-if TYPE_CHECKING:
-    from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api.calibre_metadata_api import (
-        CalibreMetadataAPI,
-    )
+from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
+    MetadataWriteDatabaseAPI,
+    MetadataWriteReportAPI,
+    MetadataWriteTargetRow,
+)
 
 
 class CalibreLikeBookMetadataAPI(CalibreMetadataInputAPI, Protocol):

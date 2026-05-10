@@ -132,6 +132,35 @@ The intended rule of thumb is:
 - `database_backed` when freshness against external mutation matters more than speed
 - `numpy_vectorized` when read-heavy paths need a faster backend and snapshot semantics are acceptable
 
+## Read-only surface startup
+
+The read-only web, Calibre-style web, JSON API, and OPDS surfaces can serve
+metadata reads through either the live database or a storage-cache snapshot.
+The live database remains the default.
+
+Use cache-backed metadata reads when startup can afford to load the cache and
+route handlers should avoid repeated direct database lookups:
+
+```bash
+scripts/run_web_readonly.sh --database /path/to/library.sqlite --metadata-read-source cache
+scripts/run_web_calibre_readonly.sh --database /path/to/library.sqlite --metadata-read-source cache --port 8081
+scripts/run_api_readonly.sh --database /path/to/library.sqlite --metadata-read-source cache
+scripts/run_opds_readonly.sh --database /path/to/library.sqlite --metadata-read-source cache --port 8082
+```
+
+The cache backend defaults to `schema_backed` and can be selected explicitly:
+
+```bash
+scripts/run_api_readonly.sh --database /path/to/library.sqlite --metadata-read-source cache --cache-type schema_backed
+```
+
+By default, cache read-source misses fall back to the live database. Disable
+that fallback when testing snapshot behavior:
+
+```bash
+scripts/run_opds_readonly.sh --database /path/to/library.sqlite --metadata-read-source cache --no-cache-db-fallback
+```
+
 ## Design rule for future backends
 
 New cache backends should be explicit about what they promise.

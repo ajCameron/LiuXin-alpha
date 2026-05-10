@@ -22,6 +22,9 @@ from LiuXin_alpha.surfaces.web_readonly.app import (
     _coerce_int,
     _open_database,
     _row_value,
+    add_metadata_read_source_arguments,
+    metadata_read_source_help_epilog,
+    metadata_read_source_config_kwargs,
 )
 
 
@@ -104,7 +107,7 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
                 "authors": self.read_model.browse_count("authors"),
                 "tags": self.read_model.browse_count("tags"),
                 "series": self.read_model.browse_count("series"),
-                "files": int(self.db.get_record_count("files")) if self._table_exists("files") else 0,
+                "files": self.read_model.table_record_count("files") if self._table_exists("files") else 0,
             },
         }
 
@@ -252,7 +255,7 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
                 row_id = int(str(parts[2]).strip())
             except Exception:
                 return self._json_response({"error": "bad_work_id", "message": "Invalid work id."}, status="400 Bad Request")
-            row = self.db.get_row_from_id("works", row_id)
+            row = self.read_model.row_by_id("works", row_id)
             if row is None:
                 return self._json_response({"error": "missing_work", "message": "Work not found."}, status="404 Not Found")
             return self._json_response(self._work_detail_payload(row))
@@ -290,7 +293,7 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
         }
 
     def _category_detail_payload(self, *, kind: str, table: str, row_id: str) -> dict[str, object]:
-        row = self.db.get_row_from_id(table, int(str(row_id)))
+        row = self.read_model.row_by_id(table, int(str(row_id)))
         works = self.read_model.works_for_linked_entity(table, row_id)
         return {
             "kind": kind,
@@ -366,16 +369,21 @@ class ApiReadOnlyApplication(ReadOnlyWebApplication):
             row_id = int(str(parts[2]).strip())
         except Exception:
             return self._json_response({"error": "bad_file_id", "message": "Invalid file id."}, status="400 Bad Request")
-        row = self.db.get_row_from_id("files", row_id)
+        row = self.read_model.row_by_id("files", row_id)
         if row is None:
             return self._json_response({"error": "missing_file", "message": "File not found."}, status="404 Not Found")
         return self._json_response(self._file_detail_payload(row))
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the LiuXin read-only JSON API.")
+    parser = argparse.ArgumentParser(
+        description="Run the LiuXin read-only JSON API.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=metadata_read_source_help_epilog("PYTHONPATH=src python3 -m LiuXin_alpha.surfaces.api_readonly"),
+    )
     parser.add_argument("--database", required=True, help="Path to the LiuXin database.")
     parser.add_argument("--db-type", default="sqlite", help="Database driver type. Default: sqlite")
+    add_metadata_read_source_arguments(parser)
     parser.add_argument("--host", default=ApiReadOnlyConfig.host, help="Bind host. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=ApiReadOnlyConfig.port, help="Bind port. Default: 8083")
     parser.add_argument("--page-size", type=int, default=ApiReadOnlyConfig.default_page_size, help="Default page size.")
@@ -395,6 +403,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         default_page_size=max(1, int(args.page_size)),
         max_page_size=max(1, int(args.max_page_size)),
         enable_file_downloads=not bool(args.no_file_downloads),
+        **metadata_read_source_config_kwargs(args),
     )
     with _open_database(database_path=str(args.database), db_type=str(args.db_type)) as db:
         app = ApiReadOnlyApplication(db, config=config)
