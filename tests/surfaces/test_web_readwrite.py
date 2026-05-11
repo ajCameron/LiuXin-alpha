@@ -465,6 +465,51 @@ def test_web_readwrite_work_tag_links_use_metadata_write_reports(driver_spec, tm
         assert "links_added=1" in text
 
 
+def test_web_readwrite_cache_read_source_refreshes_after_metadata_write(driver_spec, tmp_path: Path) -> None:
+    db_path = tmp_path / "web_readwrite_metadata_cache_refresh.sqlite"
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        work_id = _insert_work_row(db, title="Cache Refresh Work")
+        tag_id = _insert_tag_row(db, text="Fresh Cache Tag")
+        app = ReadWriteWebApplication(
+            db,
+            config=ReadWriteWebConfig(
+                title="Write Test",
+                metadata_read_source="cache",
+                metadata_cache_type="schema_backed",
+                metadata_cache_allow_database_fallback=False,
+            ),
+        )
+
+        assert getattr(app.read_model.read_source, "allow_database_fallback", None) is False
+
+        work_row = db.get_row_from_id("works", work_id)
+        assert work_row is not None
+        assert app.read_model.interlinked_rows(work_row, "tags") == []
+
+        status, headers, _body = _call_app(
+            app,
+            "/tables/works/{}/links/tags/new".format(work_id),
+            method="POST",
+            form={"secondary_row_id": tag_id},
+        )
+        assert status == "302 Found"
+
+        linked_tags = app.read_model.interlinked_rows(work_row, "tags")
+        assert [int(row["tag_id"]) for row in linked_tags] == [tag_id]
+
+        status, _headers, body = _call_app(app, str(headers["Location"]))
+        assert status == "200 OK"
+        text = body.decode("utf-8")
+        assert "Fresh Cache Tag" in text
+        assert "Read cache refreshed." in text
+
+
 def test_web_readwrite_work_pages_can_create_and_link_new_targets(driver_spec, tmp_path: Path) -> None:
     db_path = tmp_path / "web_readwrite_create_link_target.sqlite"
     with Database(

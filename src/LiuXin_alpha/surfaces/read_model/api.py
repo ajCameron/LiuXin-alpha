@@ -22,6 +22,16 @@ class ReadModelBackend:
             self.images = ImageBackend(self.host)
         self.read_source = metadata_read_source_from(self.read_source or self.host.db)
 
+    def refresh_read_source(self) -> bool:
+        refresh = getattr(self.read_source, "refresh", None)
+        if callable(refresh):
+            return bool(refresh())
+        reload_source = getattr(self.read_source, "reload", None)
+        if callable(reload_source):
+            reload_source()
+            return True
+        return False
+
     def _table_exists(self, table: str) -> bool:
         try:
             table_names = {

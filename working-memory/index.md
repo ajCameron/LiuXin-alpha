@@ -1,10 +1,15 @@
 # Working Memory Index
 
-Updated: 2026-05-09
+Updated: 2026-05-11
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [metadata-cache-freshness-after-writes-2026-05-11.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-cache-freshness-after-writes-2026-05-11.md)
+  Cache-backed metadata read sources now expose a refresh hook, and the
+  read-write web surface reloads that cache after successful row, file, and
+  interlink writes so no-fallback cached row pages see freshly written metadata.
 
 - [metadata-surface-cache-read-path-2026-05-08.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-surface-cache-read-path-2026-05-08.md)
   The read model now accepts an explicit metadata read source/cache snapshot

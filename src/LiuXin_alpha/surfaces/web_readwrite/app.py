@@ -1863,6 +1863,21 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             metadata_write_report_summary(report),
         )
 
+    def _refresh_read_source_after_write(self) -> bool:
+        refresh = getattr(self, "refresh_metadata_read_source", None)
+        if not callable(refresh):
+            return False
+        try:
+            return bool(refresh())
+        except Exception:
+            return False
+
+    @staticmethod
+    def _with_cache_refresh_note(message: str, *, refreshed: bool) -> str:
+        if not refreshed:
+            return message
+        return "{} Read cache refreshed.".format(message)
+
     def _ordered_link_fields(self, editable_columns: list[str], spec: dict[str, Any]) -> list[str]:
         requested = [str(one) for one in (spec.get("field_order") or [])]
         ordered = [column for column in requested if column in editable_columns]
@@ -2202,12 +2217,16 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             row = Row.from_idless_row_dict(self.db, row_dict=payload, table=table)
         except Exception as exc:
             return self._html_response(self._render_new_row_page(table, error_text=str(exc), values=form), status="400 Bad Request")
+        read_source_refreshed = self._refresh_read_source_after_write()
         row_path = self._row_href(table, row) or self._row_path(table, int(_row_value(row, self._id_column(table) or "")))
         return self._redirect_with_notice(
             row_path,
             kind="success",
             title="Row created",
-            message="Created {} row.".format(table),
+            message=self._with_cache_refresh_note(
+                "Created {} row.".format(table),
+                refreshed=read_source_refreshed,
+            ),
         )
 
     def _handle_edit_row(self, table: str, raw_row_id: str, environ) -> _Response:
@@ -2227,11 +2246,15 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             self.library.update_row_fields(table=table, row_id=row_id, updates=updates)
         except Exception as exc:
             return self._html_response(self._render_edit_row_page(table, raw_row_id, error_text=str(exc), values=form), status="400 Bad Request")
+        read_source_refreshed = self._refresh_read_source_after_write()
         return self._redirect_with_notice(
             self._row_path(table, row_id),
             kind="success",
             title="Row updated",
-            message="Saved changes to {}:{}.".format(table, row_id),
+            message=self._with_cache_refresh_note(
+                "Saved changes to {}:{}.".format(table, row_id),
+                refreshed=read_source_refreshed,
+            ),
         )
 
     def _handle_delete_row(self, table: str, raw_row_id: str, environ) -> _Response:
@@ -2244,11 +2267,15 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             self.library.delete_row(table=table, row_id=row_id)
         except Exception as exc:
             return self._html_response(self._render_delete_row_page(table, raw_row_id, error_text=str(exc)), status="400 Bad Request")
+        read_source_refreshed = self._refresh_read_source_after_write()
         return self._redirect_with_notice(
             "/tables/{}?{}".format(quote(table, safe=""), _build_query_string({"deleted": row_id})),
             kind="success",
             title="Row deleted",
-            message="Deleted {}:{}.".format(table, row_id),
+            message=self._with_cache_refresh_note(
+                "Deleted {}:{}.".format(table, row_id),
+                refreshed=read_source_refreshed,
+            ),
         )
 
     def _handle_file_upload(self, environ, *, context_table: Optional[str] = None, raw_row_id: Optional[str] = None) -> _Response:
@@ -2340,6 +2367,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 self._render_file_upload_page(error_text="Upload failed: {}".format(exc), values=form, context_table=context_table, raw_row_id=raw_row_id),
                 status="400 Bad Request",
             )
+        read_source_refreshed = self._refresh_read_source_after_write()
         if upload_context is not None:
             resolved_table, resolved_row = upload_context
             row_id = int(_row_value(resolved_row, self._id_column(resolved_table)) or 0)
@@ -2347,13 +2375,19 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 self._row_path(resolved_table, row_id),
                 kind="success",
                 title="File uploaded",
-                message="Stored file bytes and attached the new file to {}:{}.".format(resolved_table, row_id),
+                message=self._with_cache_refresh_note(
+                    "Stored file bytes and attached the new file to {}:{}.".format(resolved_table, row_id),
+                    refreshed=read_source_refreshed,
+                ),
             )
         return self._redirect_with_notice(
             self._row_path("files", int(file_row["file_id"])),
             kind="success",
             title="File uploaded",
-            message="Stored file bytes and created the matching file row.",
+            message=self._with_cache_refresh_note(
+                "Stored file bytes and created the matching file row.",
+                refreshed=read_source_refreshed,
+            ),
         )
 
     def _handle_add_interlink(self, table: str, raw_row_id: str, secondary_table: str, environ) -> _Response:
@@ -2389,6 +2423,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
         spec = self._link_section_spec(str(primary_row.table), secondary_table, link_table)
         item_name = str(spec.get("item_name") or "link")
+        read_source_refreshed = False
         try:
             report = self._write_metadata_relation_link(
                 primary_row=primary_row,
@@ -2400,6 +2435,7 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
             )
             if report is None:
                 self.db.interlink_rows(primary_row=primary_row, secondary_row=secondary_row, priority=priority, type=link_type, **extra_values)
+                read_source_refreshed = self._refresh_read_source_after_write()
         except Exception as exc:
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
         if report is not None:
@@ -2421,18 +2457,23 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                     ),
                     anchor=self._interlink_anchor(secondary_table),
                 )
+            read_source_refreshed = self._refresh_read_source_after_write()
+        message = (
+            self._metadata_relation_notice_message(
+                action="Added",
+                item_name=item_name,
+                report=report,
+            )
+            if report is not None
+            else "Added {}.".format(item_name)
+        )
         return self._redirect_with_notice(
             self._row_path(table, int(primary_row.row_id)),
             kind="success",
             title="Link added",
-            message=(
-                self._metadata_relation_notice_message(
-                    action="Added",
-                    item_name=item_name,
-                    report=report,
-                )
-                if report is not None
-                else "Added {}.".format(item_name)
+            message=self._with_cache_refresh_note(
+                message,
+                refreshed=read_source_refreshed,
             ),
             anchor=self._interlink_anchor(secondary_table),
         )
@@ -2508,18 +2549,23 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
                 status="400 Bad Request",
             )
         item_name = str(spec.get("item_name") or secondary_table).rstrip(".")
+        read_source_refreshed = self._refresh_read_source_after_write()
+        message = (
+            self._metadata_relation_notice_message(
+                action="Created and linked",
+                item_name=item_name,
+                report=report,
+            )
+            if report is not None
+            else "Created and linked {}.".format(item_name)
+        )
         return self._redirect_with_notice(
             self._row_path(table, int(primary_row.row_id)),
             kind="success",
             title="Linked row created",
-            message=(
-                self._metadata_relation_notice_message(
-                    action="Created and linked",
-                    item_name=item_name,
-                    report=report,
-                )
-                if report is not None
-                else "Created and linked {}.".format(item_name)
+            message=self._with_cache_refresh_note(
+                message,
+                refreshed=read_source_refreshed,
             ),
             anchor=self._interlink_anchor(secondary_table),
         )
@@ -2572,11 +2618,15 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         except Exception as exc:
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
         spec = self._link_section_spec(str(primary_row.table), secondary_table, link_table)
+        read_source_refreshed = self._refresh_read_source_after_write()
         return self._redirect_with_notice(
             self._row_path(table, int(primary_row.row_id)),
             kind="success",
             title="Link updated",
-            message="Updated {}.".format(str(spec.get("item_name") or "link")),
+            message=self._with_cache_refresh_note(
+                "Updated {}.".format(str(spec.get("item_name") or "link")),
+                refreshed=read_source_refreshed,
+            ),
             anchor=self._interlink_anchor(secondary_table),
         )
 
@@ -2611,11 +2661,15 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         except Exception as exc:
             return self._html_response(self._render_row_page(table, raw_row_id, write_error_text=str(exc)), status="400 Bad Request")
         spec = self._link_section_spec(str(primary_row.table), secondary_table, link_table)
+        read_source_refreshed = self._refresh_read_source_after_write()
         return self._redirect_with_notice(
             self._row_path(table, int(primary_row.row_id)),
             kind="success",
             title="Link removed",
-            message="Removed {}.".format(str(spec.get("item_name") or "link")),
+            message=self._with_cache_refresh_note(
+                "Removed {}.".format(str(spec.get("item_name") or "link")),
+                refreshed=read_source_refreshed,
+            ),
             anchor=self._interlink_anchor(secondary_table),
         )
 
