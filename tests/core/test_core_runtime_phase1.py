@@ -47,7 +47,13 @@ def test_core_runtime_emits_command_lifecycle_events(core_runtime_factory: Calla
 
     event_types = [event.event_type for event in events]
     assert "command.started" in event_types
+    assert "write.completed" in event_types
     assert "command.finished" in event_types
+    write_events = [event for event in events if event.event_type == "write.completed"]
+    assert len(write_events) == 1
+    assert write_events[0].payload["target"] == "database"
+    assert write_events[0].payload["method"] == "set_value"
+    assert write_events[0].payload["command_id"] == command.command_id
 
 
 def test_core_runtime_api_describe_exposes_named_handlers_and_targets(

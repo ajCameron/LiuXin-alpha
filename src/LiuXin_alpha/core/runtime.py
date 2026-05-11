@@ -326,6 +326,9 @@ class CoreRuntime(CoreAPI):
                 )
                 raise CoreHandlerError("Command handler failed for {!r}: {}".format(token, exc)) from exc
 
+        write_payload = self._write_completed_payload(token, command)
+        if write_payload is not None:
+            self.emit_event("write.completed", write_payload)
         self.emit_event(
             "command.finished",
             {"command_id": command.command_id, "name": token, "correlation_id": command.correlation_id},
@@ -336,6 +339,22 @@ class CoreRuntime(CoreAPI):
             result=result,
             correlation_id=command.correlation_id,
         )
+
+    def _write_completed_payload(self, token: str, command: CoreCommand) -> dict[str, Any] | None:
+        payload: dict[str, Any] = {
+            "command_id": command.command_id,
+            "name": str(token),
+            "correlation_id": command.correlation_id,
+        }
+        if str(token) != "invoke":
+            return None
+        try:
+            target, method, _args, _kwargs = self._extract_invoke_payload(command.payload)
+        except Exception:
+            return payload
+        payload["target"] = target
+        payload["method"] = method
+        return payload
 
     def execute_query(self, query: CoreQuery) -> CoreQueryResult:
         if self._shutdown:

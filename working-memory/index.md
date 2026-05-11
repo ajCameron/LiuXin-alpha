@@ -6,6 +6,12 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [metadata-write-refresh-hooks-2026-05-11.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-write-refresh-hooks-2026-05-11.md)
+  Dependent on the cache-freshness PR: added a shared surface write-refresh
+  helper, API/core `write.completed` events for successful generic invoke
+  commands, and terminal mutating-command hooks that refresh attached metadata
+  read sources after writes.
+
 - [metadata-cache-freshness-after-writes-2026-05-11.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-cache-freshness-after-writes-2026-05-11.md)
   Cache-backed metadata read sources now expose a refresh hook, and the
   read-write web surface reloads that cache after successful row, file, and

@@ -177,13 +177,9 @@ class ReadOnlyWebApplication:
         return response.body
 
     def refresh_metadata_read_source(self) -> bool:
-        refresh = getattr(self.read_model, "refresh_read_source", None)
-        if not callable(refresh):
-            return False
-        try:
-            return bool(refresh())
-        except Exception:
-            return False
+        from LiuXin_alpha.surfaces.write_refresh import refresh_metadata_read_source_after_write
+
+        return refresh_metadata_read_source_after_write(self)
 
     def handle_request(self, environ) -> _Response:
         method = str(environ.get("REQUEST_METHOD", "GET") or "GET").upper()
