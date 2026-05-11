@@ -4818,7 +4818,10 @@ def test_text_browser_on_tag_creates_and_links_tag(driver_spec, tmp_path: Path) 
         link_row = db.get_interlink_row(primary_row=tag_row, secondary_row=work_row)
         assert link_row is not None
 
-    assert "Tag linked:" in output.getvalue()
+    rendered = output.getvalue()
+    assert "Tag linked:" in rendered
+    assert "metadata writer" in rendered
+    assert "metadata report:" in rendered
 
 
 def test_text_browser_on_tag_supports_multiple_values(driver_spec, tmp_path: Path) -> None:
@@ -5313,6 +5316,10 @@ def test_text_browser_on_language_subcommand_style(driver_spec, tmp_path: Path) 
         language_row = language_rows[0]
         link_row = db.get_interlink_row(primary_row=language_row, secondary_row=work_row)
         assert link_row is not None
+
+    rendered = output.getvalue()
+    assert "Language linked:" in rendered
+    assert "metadata report:" not in rendered
 
 
 def test_text_browser_on_series_subcommand_style(driver_spec, tmp_path: Path) -> None:
