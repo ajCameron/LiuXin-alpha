@@ -141,6 +141,7 @@ def open_database(
     database_path: Path,
     db_type: str,
     *,
+    enable_maintenance: bool = False,
     repair_bootstrap_rows: bool = False,
 ) -> Any:
     from LiuXin_alpha.databases.database import Database
@@ -151,6 +152,7 @@ def open_database(
         create=False,
         backup=False,
         enable_storage_manager=False,
+        enable_maintenance=bool(enable_maintenance),
         repair_bootstrap_rows=repair_bootstrap_rows,
     )
 
@@ -623,6 +625,7 @@ def main(argv: list[str] | None = None) -> int:
         open_database,
         database_path,
         str(args.db_type),
+        enable_maintenance=bool(args.write_back),
         repair_bootstrap_rows=bool(args.repair_bootstrap_rows),
         quiet=quiet,
     ) as db:

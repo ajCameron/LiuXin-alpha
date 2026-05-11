@@ -2761,6 +2761,9 @@ def _open_database(*, database_path: str, db_type: str) -> Database:
         db_type=db_type,
         create=False,
         backup=False,
+        enable_storage_manager=False,
+        enable_maintenance=False,
+        repair_bootstrap_rows=False,
     )
 
 
