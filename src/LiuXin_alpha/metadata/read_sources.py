@@ -59,6 +59,9 @@ class DatabaseMetadataReadSource:
             type_filter=type_filter,
         )
 
+    def refresh(self) -> bool:
+        return False
+
     def __getattr__(self, name: str) -> Any:
         return getattr(self.database, name)
 
@@ -89,6 +92,18 @@ class CacheMetadataReadSource:
         assert_ready = getattr(cache, "assert_ready", None)
         if callable(assert_ready):
             assert_ready()
+
+    def refresh(self) -> bool:
+        loader = getattr(self.cache, "reload", None)
+        if not callable(loader):
+            loader = getattr(self.cache, "read", None)
+        if not callable(loader):
+            return False
+        loader()
+        assert_ready = getattr(self.cache, "assert_ready", None)
+        if callable(assert_ready):
+            assert_ready()
+        return True
 
     def get_tables(self, force_refresh: bool = False) -> Sequence[str]:
         del force_refresh
