@@ -139,6 +139,46 @@ DEFAULT_COMMAND_CLASSES = (
     StoreFilesCommand,
 )
 
+MUTATING_COMMAND_CLASSES = (
+    SetCommand,
+    EditCommand,
+    DeleteCommand,
+    LinkCommand,
+    UnlinkCommand,
+    NoteOnCommand,
+    OnNoteCommand,
+    OnTagCommand,
+    OnGenreCommand,
+    OnSubjectCommand,
+    OnLanguageCommand,
+    OnSeriesCommand,
+    OffNoteCommand,
+    OffTagCommand,
+    OffGenreCommand,
+    OffSubjectCommand,
+    OffLanguageCommand,
+    OffSeriesCommand,
+    NewStoreWizardCommand,
+    NewCreatorWizardCommand,
+    NewExpressionWizardCommand,
+    NewItemWizardCommand,
+    NewGenreWizardCommand,
+    NewNoteWizardCommand,
+    NewOrganisationWizardCommand,
+    NewPublisherWizardCommand,
+    NewSeriesWizardCommand,
+    NewSubjectWizardCommand,
+    NewTagWizardCommand,
+    NewTitleWizardCommand,
+    NewWorkWizardCommand,
+    NewManifestationWizardCommand,
+    IngestDiskCommand,
+    SyncStoreCommand,
+)
+
+for _command_class in MUTATING_COMMAND_CLASSES:
+    _command_class.mutates_data = True
+
 
 def build_default_commands() -> list[TerminalCommandAPI]:
     """Create one instance of each default terminal command class."""

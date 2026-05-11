@@ -83,6 +83,7 @@ def test_core_http_daemon_events_next_poll_scaffold(
         seen_types = [str(event.get("event_type")) for event in events]
 
         assert "command.started" in seen_types
+        assert "write.completed" in seen_types
         assert "command.finished" in seen_types
 
 

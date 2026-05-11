@@ -3342,6 +3342,40 @@ def test_text_browser_set_command_updates_row_with_display_column_token(driver_s
     assert "Updated stores:{} store_name='Set Store Updated'".format(store_id) in rendered
 
 
+def test_text_browser_mutating_commands_refresh_attached_metadata_read_source(driver_spec, tmp_path: Path) -> None:
+    class _RefreshableReadSource:
+        def __init__(self) -> None:
+            self.refresh_count = 0
+
+        def refresh(self) -> bool:
+            self.refresh_count += 1
+            return True
+
+    db_path = tmp_path / "browser_mutation_refreshes_read_source.sqlite"
+    output = io.StringIO()
+    read_source = _RefreshableReadSource()
+    with Database(
+        metadata={"database_path": str(db_path)},
+        db_type=driver_spec.db_type,
+        create=True,
+        backup=False,
+        storage_startup_on_add=False,
+    ) as db:
+        store_id = _insert_store_row(
+            db,
+            name="refresh-store",
+            kind="on_disk_existing_managed_drive",
+            root_uri=str(tmp_path / "store_root"),
+        )
+        shell = TextDatabaseBrowser(db, output=output, metadata_read_source=read_source)
+
+        assert shell.execute_line("row store:{}".format(store_id))
+        assert read_source.refresh_count == 0
+
+        assert shell.execute_line("set store:{} name Refreshed Store".format(store_id))
+        assert read_source.refresh_count == 1
+
+
 def test_text_browser_set_command_routes_via_core(driver_spec, tmp_path: Path, monkeypatch) -> None:
     db_path = tmp_path / "browser_set_command_core.sqlite"
     output = io.StringIO()

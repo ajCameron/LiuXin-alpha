@@ -14,7 +14,7 @@ import sys
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Optional, Sequence, TextIO
+from typing import Any, Mapping, Optional, Sequence, TextIO
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.surfaces.metadata_facets import resolve_tag_or_label_table_token
@@ -558,8 +558,10 @@ class TextDatabaseBrowser:
         lifecycle_plugins: Optional[Sequence[TerminalLifecyclePluginAPI]] = None,
         job_manager=None,
         core_runtime=None,
+        metadata_read_source: Any = None,
     ) -> None:
         self.db = db
+        self.metadata_read_source = metadata_read_source
         self.page_size = max(1, int(page_size))
         self.input = input or sys.stdin
         self.output = output or sys.stdout
@@ -689,6 +691,8 @@ class TextDatabaseBrowser:
 
     def _execute_command(self, command_token: str, command_impl: TerminalCommandAPI, args: list[str]) -> bool:
         should_continue = bool(command_impl.execute(self, args))
+        if bool(getattr(command_impl, "mutates_data", False)):
+            self.notify_write_completed()
         if not should_continue and self._shutdown_reason is None:
             self.request_shutdown("command:{}".format(command_token))
         return should_continue
@@ -1127,6 +1131,12 @@ class TextDatabaseBrowser:
     def emit(self, text: str, *, end: str = "\n") -> None:
         """Public output sink for command implementations."""
         self._write(text, end=end)
+
+    def notify_write_completed(self) -> bool:
+        """Refresh any attached metadata read source after a successful write."""
+        from LiuXin_alpha.surfaces.write_refresh import refresh_metadata_read_source_after_write
+
+        return refresh_metadata_read_source_after_write(self)
 
     def supports_core_commands(self) -> bool:
         """Whether this browser can dispatch write commands through core runtime."""

@@ -20,6 +20,7 @@ class TerminalCommandAPI(abc.ABC):
     summary: str = ""
     usage: str = ""
     expose_direct: bool = True
+    mutates_data: bool = False
 
     @abc.abstractmethod
     def execute(self, browser: "TextDatabaseBrowser", args: list[str]) -> bool:

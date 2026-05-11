@@ -1864,13 +1864,9 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         )
 
     def _refresh_read_source_after_write(self) -> bool:
-        refresh = getattr(self, "refresh_metadata_read_source", None)
-        if not callable(refresh):
-            return False
-        try:
-            return bool(refresh())
-        except Exception:
-            return False
+        from LiuXin_alpha.surfaces.write_refresh import refresh_metadata_read_source_after_write
+
+        return refresh_metadata_read_source_after_write(self)
 
     @staticmethod
     def _with_cache_refresh_note(message: str, *, refreshed: bool) -> str:
