@@ -17,9 +17,6 @@ from LiuXin_alpha.utils.date import utcfromtimestamp
 
 from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_warning_print
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
-    create_new_database,
-)
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import SQLiteDatabaseMacros
 from LiuXin_alpha.databases.database_driver_plugins.SQL.custom_columns import (
     SQLiteCustomColumnsDriverMixin,
@@ -40,8 +37,6 @@ from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.utils.libraries.liuxin_six import user_input
 from LiuXin_alpha.utils.storage.local.filenames import atomic_rename
-
-from LiuXin_alpha.metadata.utils import title_sort
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQLiteTableLinkingMixin
 
@@ -68,6 +63,68 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.add_mixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.update_mixin import UpdateMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.view_mixin import ViewMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_creation_mixin import TableCreationMixin
+
+
+_title_pats = {}
+_ignore_starts = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + [chr(0x2032), chr(0x2033)])
+
+
+def _create_new_database(conn):
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
+        create_new_database,
+    )
+
+    return create_new_database(conn)
+
+
+def _get_title_sort_pat(lang=None):
+    ans = _title_pats.get(lang, None)
+    if ans is not None:
+        return ans
+
+    q = lang
+    if q is None:
+        q = preferences.get("default_language_for_title_sort")
+
+    data = preferences.get("per_language_title_sort_articles", {})
+    try:
+        ans = data.get(q, None)
+    except AttributeError:
+        ans = None
+    try:
+        ans = frozenset(ans) if ans else frozenset(data["eng"])
+    except Exception:
+        ans = frozenset((r"A\s+", r"The\s+", r"An\s+"))
+    ans = "^(%s)" % "|".join(ans)
+    try:
+        ans = re.compile(ans, re.IGNORECASE)
+    except Exception:
+        ans = re.compile(r"^(A|The|An)\s+", re.IGNORECASE)
+    _title_pats[lang] = ans
+    return ans
+
+
+def title_sort(title, order=None, lang=None):
+    if not title:
+        return ""
+    if order is None:
+        order = preferences.get("title_series_sorting", "library_order")
+    title = str(title).strip()
+    if order == "strictly_alphabetic":
+        return title
+    if title and title[0] in _ignore_starts:
+        title = title[1:]
+    match = _get_title_sort_pat(lang).search(title)
+    if match:
+        try:
+            prep = match.group(1)
+        except IndexError:
+            pass
+        else:
+            title = title[len(prep) :] + ", " + prep
+            if title and title[0] in _ignore_starts:
+                title = title[1:]
+    return title.strip()
 
 
 
@@ -178,7 +235,7 @@ class DatabaseDriver(
         :param set_conn: Set the globally used connection for the class
         :return:
         """
-        self._create_new_database = create_new_database
+        self._create_new_database = _create_new_database
 
         self.db_metadata = db_metadata
         self.database_path = db_metadata["database_path"]
@@ -547,7 +604,7 @@ class DatabaseDriver(
             os.makedirs(os.path.dirname(self.database_path))
 
         conn = self.get_connection()
-        create_new_database(conn)
+        self._create_new_database(conn)
 
         # Defensive: ensure languages constants are present/locked even if generator changes.
         try:

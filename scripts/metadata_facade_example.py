@@ -49,6 +49,9 @@ def main() -> int:
         metadata={"database_path": str(args.database)},
         create=False,
         backup=False,
+        enable_storage_manager=False,
+        enable_maintenance=bool(args.write_back),
+        repair_bootstrap_rows=False,
     ) as db:
         hydrated = metadata.metadata_from_database(
             db,

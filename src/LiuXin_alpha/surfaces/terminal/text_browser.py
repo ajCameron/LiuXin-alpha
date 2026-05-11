@@ -70,7 +70,15 @@ def _build_default_core_runtime(db: Database, *, job_manager):
     return CoreRuntime(library=library, job_manager=job_manager)
 
 
-def _open_database(*, database_path: str, db_type: str, create_if_missing: bool = True) -> Database:
+def _open_database(
+    *,
+    database_path: str,
+    db_type: str,
+    create_if_missing: bool = True,
+    enable_storage_manager: bool = False,
+    enable_maintenance: bool = False,
+    repair_bootstrap_rows: bool = False,
+) -> Database:
     db_path = Path(database_path).expanduser()
     should_create = bool(create_if_missing and not db_path.exists())
     if should_create:
@@ -80,6 +88,9 @@ def _open_database(*, database_path: str, db_type: str, create_if_missing: bool 
         db_type=db_type,
         create=should_create,
         backup=False,
+        enable_storage_manager=bool(enable_storage_manager),
+        enable_maintenance=bool(enable_maintenance),
+        repair_bootstrap_rows=bool(repair_bootstrap_rows),
     )
 
 
@@ -2545,6 +2556,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fail if the database path does not exist (default creates a new library database).",
     )
     parser.add_argument(
+        "--enable-storage-manager",
+        action="store_true",
+        help="Bootstrap storage manager integration when opening the database. Slower startup.",
+    )
+    parser.add_argument(
+        "--enable-maintenance",
+        action="store_true",
+        help="Start the background maintenance service when opening the database. Slower startup.",
+    )
+    parser.add_argument(
+        "--repair-bootstrap-rows",
+        action="store_true",
+        help="Run rating/null-row bootstrap repairs while opening the database. May write to the database.",
+    )
+    parser.add_argument(
         "--command",
         action="append",
         default=[],
@@ -2606,6 +2632,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             database_path=database_path,
             db_type=db_type,
             create_if_missing=not bool(args.no_create_if_missing),
+            enable_storage_manager=bool(args.enable_storage_manager),
+            enable_maintenance=bool(args.enable_maintenance),
+            repair_bootstrap_rows=bool(args.repair_bootstrap_rows),
         ) as db:
             if args.command:
                 shell = TextDatabaseBrowser(
