@@ -10,6 +10,10 @@ from LiuXin_alpha.surfaces.metadata_facets import (
     preferred_tag_table,
     search_tag_rows,
 )
+from LiuXin_alpha.surfaces.metadata_write_bridge import (
+    metadata_write_report_summary,
+    write_wemi_metadata_relation_link,
+)
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.commands.link import _resolve_table_token
 from LiuXin_alpha.metadata.standardization import (
@@ -463,6 +467,42 @@ def _link_one_value(
         )
         return False, None
 
+    report = write_wemi_metadata_relation_link(
+        browser.db,
+        target_row=target_row,
+        relation_table=source_table,
+        relation_row=source_row,
+    )
+    if report is not None:
+        errors = list(getattr(report, "errors", []) or [])
+        if errors:
+            raise ValueError("; ".join(str(error) for error in errors))
+        if not bool(getattr(report, "changed", False)):
+            browser.emit(
+                "{} not changed: {}={} -> {}:{} ({})".format(
+                    kind_label.capitalize(),
+                    source_id_column,
+                    source_id,
+                    target_table,
+                    target_id,
+                    metadata_write_report_summary(report),
+                )
+            )
+            return False, None
+
+        link_row = _find_interlink_row(browser, source_row=source_row, target_row=target_row)
+        browser.emit(
+            "{} linked: {}={} -> {}:{} (metadata writer; {})".format(
+                kind_label.capitalize(),
+                source_id_column,
+                source_id,
+                target_table,
+                target_id,
+                metadata_write_report_summary(report),
+            )
+        )
+        return True, link_row
+
     link_row = browser.db.interlink_rows(primary_row=source_row, secondary_row=target_row)
     browser.emit(
         "{} linked: {}={} -> {}:{}".format(
@@ -474,6 +514,25 @@ def _link_one_value(
         )
     )
     return True, link_row
+
+
+def _find_interlink_row(browser, *, source_row, target_row) -> Optional[Row]:
+    for primary_row, secondary_row in ((source_row, target_row), (target_row, source_row)):
+        try:
+            link_row = browser.db.get_interlink_row(
+                primary_row=primary_row,
+                secondary_row=secondary_row,
+                onelink=False,
+            )
+        except Exception:
+            link_row = None
+        if isinstance(link_row, list):
+            if link_row:
+                return link_row[0]
+            continue
+        if link_row is not None:
+            return link_row
+    return None
 
 
 class _OnBaseCommand(TerminalCommandAPI):

@@ -1,15 +1,20 @@
 # Working Memory Index
 
-Updated: 2026-05-11
+Updated: 2026-05-10
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
-- [metadata-cache-freshness-after-writes-2026-05-11.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-cache-freshness-after-writes-2026-05-11.md)
-  Cache-backed metadata read sources now expose a refresh hook, and the
-  read-write web surface reloads that cache after successful row, file, and
-  interlink writes so no-fallback cached row pages see freshly written metadata.
+- [metadata-terminal-write-report-parity-2026-05-10.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-terminal-write-report-parity-2026-05-10.md)
+  Current branch note for terminal parity with metadata write reports: terminal
+  metadata-specific `on` flows now use the WEMI metadata writer/report bridge,
+  while generic links such as languages stay on the direct database path.
+
+- [metadata-surface-write-report-integration-2026-05-10.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-surface-write-report-integration-2026-05-10.md)
+  Web read-write metadata relation add/create routes now use the WEMI metadata
+  writer/report path where supported, with direct database writes kept for
+  generic links and CRUD.
 
 - [metadata-surface-cache-read-path-2026-05-08.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-surface-cache-read-path-2026-05-08.md)
   The read model now accepts an explicit metadata read source/cache snapshot
