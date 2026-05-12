@@ -31,6 +31,22 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--title", default="LiuXin", help="Window title.")
     parser.add_argument("--page-size", type=int, default=100, help="Rows shown per page.")
     parser.add_argument(
+        "--read-source",
+        choices=("direct", "cache"),
+        default="direct",
+        help="Read rows/metadata directly from the database or through a loaded cache. Default: direct.",
+    )
+    parser.add_argument(
+        "--cache-type",
+        default="schema_backed",
+        help="Storage cache backend to load when --read-source=cache. Default: schema_backed.",
+    )
+    parser.add_argument(
+        "--no-cache-database-fallback",
+        action="store_true",
+        help="Disable database fallback for cache-backed reads.",
+    )
+    parser.add_argument(
         "--enable-storage-manager",
         action="store_true",
         help="Bootstrap storage manager integration when opening the database. Slower startup.",
@@ -54,6 +70,9 @@ def config_from_args(args: argparse.Namespace) -> TkGuiConfig:
         db_type=str(args.db_type),
         title=str(args.title),
         page_size=coerce_positive_int(args.page_size, default=100, maximum=1000),
+        read_source_mode=str(args.read_source),
+        cache_type=str(args.cache_type),
+        allow_cache_database_fallback=not bool(args.no_cache_database_fallback),
         enable_storage_manager=bool(args.enable_storage_manager),
         enable_maintenance=bool(args.enable_maintenance),
         repair_bootstrap_rows=bool(args.repair_bootstrap_rows),

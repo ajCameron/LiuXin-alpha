@@ -190,6 +190,8 @@ Acceptance:
 
 ## Phase 5: Cache And Read Source Mode
 
+Status: implemented for read-only inspection.
+
 Add read-source selection to the session:
 
 - direct database
@@ -205,9 +207,15 @@ refresh_metadata_read_source_after_write(gui_session_or_backend)
 
 Acceptance:
 
-- User can select direct DB or cache source at startup.
+- User can select direct DB or cache source at startup with `--read-source`.
+- The toolbar can switch an open session between direct and cache reads, using
+  `Refresh Source` to apply the selected source or reload the current one.
 - Cache refresh/reload is visible in status.
 - After writes, the GUI refreshes the attached read source best-effort.
+
+Current note: the schema-backed cache path works but can take minutes to load
+against generated ISFDB smoke databases. Keep direct mode as the default until a
+lighter immutable read snapshot exists.
 
 ## Phase 6: Core-Backed Metadata Writes
 

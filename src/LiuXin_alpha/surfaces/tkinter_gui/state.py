@@ -30,6 +30,9 @@ class TkGuiConfig:
     title: str = "LiuXin"
     page_size: int = 100
     max_page_size: int = 500
+    read_source_mode: str = "direct"
+    cache_type: str = "schema_backed"
+    allow_cache_database_fallback: bool = True
     enable_storage_manager: bool = False
     enable_maintenance: bool = False
     repair_bootstrap_rows: bool = False

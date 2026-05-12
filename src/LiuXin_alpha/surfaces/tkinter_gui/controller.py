@@ -54,6 +54,8 @@ class TkGuiApplication:
         self.table_filter_var = tk.StringVar(value="")
         self.search_column_var = tk.StringVar(value="")
         self.search_text_var = tk.StringVar(value="")
+        self.read_source_var = tk.StringVar(value=str(config.read_source_mode or "direct"))
+        self.cache_type_var = tk.StringVar(value=str(config.cache_type or "schema_backed"))
         self._table_summaries = ()
 
         self._build_widgets()
@@ -86,8 +88,11 @@ class TkGuiApplication:
             self.root,
             ttk=ttk,
             database_var=self.database_var,
+            read_source_var=self.read_source_var,
+            cache_type_var=self.cache_type_var,
             on_open=self.choose_database,
             on_reload=self.reload_database,
+            on_refresh_source=self.refresh_read_source,
         )
         self.toolbar.frame.pack(side=tk.TOP, fill=tk.X)
 
@@ -147,15 +152,22 @@ class TkGuiApplication:
         self.open_database(Path(self.database_var.get()))
 
     def _status_with_core(self, message: str) -> str:
+        parts = [str(message)]
         if self.backend is None:
-            return str(message)
+            return " | ".join(parts)
         try:
             core_status = self.backend.core_status_text()
         except Exception:
             core_status = ""
         if core_status and core_status != "core unavailable":
-            return "{} | {}".format(message, core_status)
-        return str(message)
+            parts.append(core_status)
+        try:
+            source_status = self.backend.read_source_status_text()
+        except Exception:
+            source_status = ""
+        if source_status:
+            parts.append(source_status)
+        return " | ".join(parts)
 
     def _show_task_error(self, title: str, result: TkGuiTaskResult) -> None:
         if self._closing:
@@ -185,12 +197,21 @@ class TkGuiApplication:
         loading_tables = self._is_busy("load_tables")
         loading_rows = self._is_busy("load_rows")
         hydrating = self._is_busy("hydrate_metadata")
+        refreshing_source = self._is_busy("refresh_read_source")
         has_backend = self.backend is not None
         page = self.current_page
-        page_ready = has_backend and page is not None and not opening and not loading_tables and not loading_rows
+        page_ready = (
+            has_backend
+            and page is not None
+            and not opening
+            and not loading_tables
+            and not loading_rows
+            and not refreshing_source
+        )
 
-        self.toolbar.set_busy(opening)
-        self.table_sidebar.set_enabled(has_backend and not opening and not loading_tables)
+        self.toolbar.set_busy(opening or refreshing_source)
+        self.toolbar.set_source_refresh_enabled(has_backend and not opening and not refreshing_source)
+        self.table_sidebar.set_enabled(has_backend and not opening and not loading_tables and not refreshing_source)
         self.row_grid.set_controls_enabled(
             page_ready,
             has_previous=bool(page.has_previous) if page is not None else False,
@@ -222,9 +243,14 @@ class TkGuiApplication:
             enable_storage_manager=self.config.enable_storage_manager,
             enable_maintenance=self.config.enable_maintenance,
             repair_bootstrap_rows=self.config.repair_bootstrap_rows,
+            read_source_mode=self.read_source_var.get(),
+            cache_type=self.cache_type_var.get(),
+            allow_cache_database_fallback=self.config.allow_cache_database_fallback,
         )
         self.config = config
         self.database_var.set(str(config.database))
+        self.read_source_var.set(str(config.read_source_mode))
+        self.cache_type_var.set(str(config.cache_type))
         self.backend = None
         self.current_page = None
         self.current_row = None
@@ -362,6 +388,50 @@ class TkGuiApplication:
             on_success=_page_loaded,
             on_error=lambda result: self._show_task_error("Load", result),
             on_done=lambda _result: self._set_busy("load_rows", False),
+        )
+
+    def refresh_read_source(self) -> None:
+        if self.backend is None or self._closing:
+            return
+        self._set_busy("refresh_read_source", True)
+        backend = self.backend
+        read_source_mode = self.read_source_var.get()
+        cache_type = self.cache_type_var.get()
+        allow_fallback = self.config.allow_cache_database_fallback
+        self.status_var.set(self._status_with_core("Refreshing read source..."))
+
+        def _configure_or_refresh_source() -> tuple[bool, bool]:
+            changed = backend.configure_read_source(
+                mode=read_source_mode,
+                cache_type=cache_type,
+                allow_database_fallback=allow_fallback,
+            )
+            refreshed = False if changed else backend.refresh_read_source()
+            return changed, refreshed
+
+        def _source_refreshed(result: TkGuiTaskResult) -> None:
+            if backend is not self.backend or self._closing:
+                return
+            changed, refreshed = result.result
+            if backend.session is not None:
+                self.config = backend.session.config
+                self.read_source_var.set(str(self.config.read_source_mode))
+                self.cache_type_var.set(str(self.config.cache_type))
+            if changed:
+                message = "Read source updated"
+            elif refreshed:
+                message = "Read source refreshed"
+            else:
+                message = "Read source is already live"
+            self.status_var.set(self._status_with_core(message))
+            self.refresh_tables()
+
+        self.task_runner.submit(
+            "refresh_read_source",
+            _configure_or_refresh_source,
+            on_success=_source_refreshed,
+            on_error=lambda result: self._show_task_error("Refresh source", result),
+            on_done=lambda _result: self._set_busy("refresh_read_source", False),
         )
 
     def render_rows(self, page: RowPage) -> None:
