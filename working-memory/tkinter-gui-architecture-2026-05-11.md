@@ -36,6 +36,9 @@ Canonical design note:
   source settings, `TkGuiSession` owns direct database and cache-backed metadata
   read sources, the backend can switch/refresh the selected source, and the
   toolbar exposes source mode, cache type, and `Refresh Source`.
+- The full-suite runners now have opt-in Tk smoke flags. Use
+  `--only-tk-smoke` to create/use the repo venv and run just the real Tk smoke;
+  use `--tk-smoke` to append it after the normal full suite.
 - Non-display backend tests exist in `tests/surfaces/test_tkinter_gui.py`.
 
 ## Validation So Far
@@ -53,6 +56,9 @@ Canonical design note:
     instant; first `items` page plus schema still took about 3.0s
 - The local Python environment does not have `tkinter` installed, so the actual
   window was not launched here.
+- Runner syntax/dry-run checks passed for the Tk smoke flags:
+  `python3 scripts/run_full_test_suite.py --new-venv --python python3.12 --only-tk-smoke --dry-run`
+  and the equivalent shell wrapper.
 
 ## Architecture Decision
 
