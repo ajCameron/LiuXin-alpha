@@ -26,6 +26,7 @@ _LAZY_SUBMODULES = {
     "tags_icons",
     "terminal",
     "thumbnail_cache",
+    "tkinter_gui",
     "web_calibre_readonly",
     "web_readonly",
     "web_readwrite",

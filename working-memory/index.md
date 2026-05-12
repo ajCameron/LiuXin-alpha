@@ -1,10 +1,16 @@
 # Working Memory Index
 
-Updated: 2026-05-10
+Updated: 2026-05-12
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [tkinter-gui-architecture-2026-05-11.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/tkinter-gui-architecture-2026-05-11.md)
+  Tkinter GUI spike/design handoff: current `tkinter-gui-foundation` branch/base,
+  validation status, the new canonical dev doc paths, the intended split into
+  backend/state/tasks/views, and a detailed core-backed implementation plan for
+  read, write, job, cache, OPF, and storage slices.
 
 - [metadata-terminal-write-report-parity-2026-05-10.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-terminal-write-report-parity-2026-05-10.md)
   Current branch note for terminal parity with metadata write reports: terminal

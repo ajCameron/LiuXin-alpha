@@ -430,7 +430,10 @@ class CoreRuntime(CoreAPI):
         db = getattr(self.library, "database", None)
         if db is not None:
             bindings.append(("database", ("database", "db"), "Hosted database facade.", db))
-        storage = getattr(self.library, "storage", None)
+        try:
+            storage = getattr(self.library, "storage", None)
+        except Exception:
+            storage = None
         if storage is not None:
             bindings.append(("storage", ("storage", "stores", "store_manager"), "Hosted storage facade.", storage))
         return bindings
