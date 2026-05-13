@@ -41,11 +41,10 @@ class TestSqliteDatetime:
         assert sqlite_datetime("2024-01-01 00:00:00") == "2024-01-01 00:00:00"
 
     def test_formats_datetime_object(self) -> None:
-        dt = datetime.datetime(2024, 6, 15, 12, 30, 0)
+        dt = datetime.datetime(2024, 6, 15, 12, 30, 0, tzinfo=datetime.timezone.utc)
         result = sqlite_datetime(dt)
         assert isinstance(result, str)
-        assert "2024" in result
-        assert "12" in result
+        assert result == "2024-06-15 12:30:00+00:00"
 
     def test_passes_none_through(self) -> None:
         assert sqlite_datetime(None) is None
