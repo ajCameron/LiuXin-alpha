@@ -9,6 +9,10 @@ from typing import Any
 
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError
+from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
+    MetadataWriteRecord,
+    MetadataWriteReportMapping,
+)
 from LiuXin_alpha.metadata.standardization import make_tag_search_term
 
 
@@ -32,11 +36,11 @@ class LiuXinWEMIMetadataWriteReport:
     target_table: str | None = None
     target_id: int | None = None
     fields_checked: list[str] = field(default_factory=list)
-    rows_added: list[dict[str, Any]] = field(default_factory=list)
-    rows_updated: list[dict[str, Any]] = field(default_factory=list)
-    rows_removed: list[dict[str, Any]] = field(default_factory=list)
-    links_added: list[dict[str, Any]] = field(default_factory=list)
-    links_removed: list[dict[str, Any]] = field(default_factory=list)
+    rows_added: list[MetadataWriteRecord] = field(default_factory=list)
+    rows_updated: list[MetadataWriteRecord] = field(default_factory=list)
+    rows_removed: list[MetadataWriteRecord] = field(default_factory=list)
+    links_added: list[MetadataWriteRecord] = field(default_factory=list)
+    links_removed: list[MetadataWriteRecord] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -50,7 +54,7 @@ class LiuXinWEMIMetadataWriteReport:
             or self.links_removed
         )
 
-    def to_mapping(self) -> dict[str, Any]:
+    def to_mapping(self) -> MetadataWriteReportMapping:
         return {
             "item_id": self.item_id,
             "target_level": self.target_level,
