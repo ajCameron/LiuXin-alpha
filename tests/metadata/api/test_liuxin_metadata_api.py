@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from LiuXin_alpha.metadata.api import (
     LiuXinMetaInformationAPI,
-    LiuXinMetadataAPI,
 )
+from LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api import LiuXinMetadataAPI
 from LiuXin_alpha.metadata.api import __all__ as metadata_api_all
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData,

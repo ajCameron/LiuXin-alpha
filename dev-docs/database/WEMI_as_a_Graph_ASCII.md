@@ -1,6 +1,24 @@
-# WEMI as a Graph (Not a Pyramid): Aggregates, Flip-Books, Anthologies, and Shared Content (ASCII)
+# WEMI as a Graph (Not a Pyramid): Aggregates, Flip-Books, Anthologies, and Shared Content
 
-This note explains why the FRBR / LRM WEMI stack (Work -> Expression -> Manifestation -> Item) is not reliably a strict "pyramid" in real cataloguing data, and how to model common "weird" cases (anthologies, dos-a-dos / tete-beche books, collected editions, bound-with volumes, excerpts, etc.) without breaking your database design.
+This note explains why the FRBR / LRM WEMI stack (Work -> Expression -> Manifestation -> Item) is not reliably a strict 
+"pyramid" in real cataloguing data, and how to model common "weird" cases (anthologies, dos-a-dos / tete-beche books, 
+collected editions, bound-with volumes, excerpts, etc.) without breaking your database design.
+
+# What you might think
+
+WEMI is a fan out pyramid, going from
+
+Each Work has one or many Expressions
+Each Expression has one or many Manifestations
+Each Manifestation has one or many Items
+
+Then the items link out to actual files.
+
+# What's actually true
+
+Due to bibliographic weirdness, WEMI is a graph.
+Each step can link on to many others and, occasionally, the individual items can cross-link.
+
 
 Core idea:
 

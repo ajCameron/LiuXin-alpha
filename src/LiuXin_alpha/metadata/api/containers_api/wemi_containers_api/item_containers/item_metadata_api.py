@@ -143,10 +143,21 @@ class ItemMetadataAPI(abc.ABC):
 
     @classmethod
     def relation_names(cls) -> tuple[str, ...]:
+        """
+        Names of the relational edge.
+
+        :return:
+        """
         return cls.RELATION_KEYS
 
     @classmethod
     def validate_relation_name(cls, relation: str) -> str:
+        """
+        Validate the name of a relational.
+
+        :param relation:
+        :return:
+        """
         normalized = str(relation).strip().lower()
         normalized = cls.RELATION_ALIASES.get(normalized, normalized)
         if normalized not in cls.RELATION_KEYS:
@@ -160,6 +171,12 @@ class ItemMetadataAPI(abc.ABC):
 
     @classmethod
     def relation_cardinality(cls, relation: str) -> RelationCardinality:
+        """
+        Checks the cardinality of the relational edge.
+
+        :param relation:
+        :return:
+        """
         relation_key = cls.validate_relation_name(relation)
         return cls.RELATION_CARDINALITIES.get(
             relation_key,
@@ -172,6 +189,13 @@ class ItemMetadataAPI(abc.ABC):
         relation: str,
         links: Iterable[ItemRelationLink],
     ) -> list[ItemRelationLink]:
+        """
+        Validate a collection of relational edges.
+
+        :param relation:
+        :param links:
+        :return:
+        """
         relation_key = cls.validate_relation_name(relation)
         return validate_relation_edge_cardinality(
             relation_key,
@@ -182,20 +206,40 @@ class ItemMetadataAPI(abc.ABC):
     @property
     @abc.abstractmethod
     def item(self) -> Optional[ItemIdentityAPI]:
-        """Primary item row for this metadata bundle."""
+        """
+        Primary item identity for this metadata bundle.
+
+        :return:
+        """
 
     @item.setter
     @abc.abstractmethod
     def item(self, value: Optional[ItemIdentityAPI]) -> None:
-        """Set primary item row."""
+        """
+        Set the primary item identity for this metadata bundle.
+
+        :param value:
+        :return:
+        """
 
     @abc.abstractmethod
     def get_relation_links(self, relation: str) -> list[ItemRelationLink]:
-        """Get edge metadata links for one relation type."""
+        """
+        Get edge metadata links for one relation type.
+
+        :param relation:
+        :return:
+        """
 
     @abc.abstractmethod
     def set_relation_links(self, relation: str, links: Iterable[ItemRelationLink]) -> None:
-        """Replace edge metadata links for one relation type."""
+        """
+        Entirely replace edge metadata links for one relation type.
+
+        :param relation:
+        :param links:
+        :return:
+        """
 
     @abc.abstractmethod
     def write_to_database(
@@ -208,15 +252,40 @@ class ItemMetadataAPI(abc.ABC):
         replace: bool = False,
         mark_dirty: bool = True,
     ) -> MetadataWriteReportAPI:
-        """Persist supported relation changes for this item metadata bundle."""
+        """
+        Persist supported relation changes for this item metadata bundle.
+
+        This is done by writing out to the database.
+        :param database:
+        :param fields:
+        :param item_id:
+        :param target_row:
+        :param replace:
+        :param mark_dirty:
+        :return:
+        """
 
     def add_relation_link(self, relation: str, link: ItemRelationLink) -> None:
+        """
+        Add an existing relational link to the item metadata.
+
+        :param relation:
+        :param link:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         links = list(self.get_relation_links(relation_key))
         links.append(link)
         self.set_relation_links(relation_key, self.validate_relation_links(relation_key, links))
 
     def remove_relation_link(self, relation: str, link: ItemRelationLink) -> bool:
+        """
+        Remove a relational link from this metadata.
+
+        :param relation:
+        :param link:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         links = list(self.get_relation_links(relation_key))
         try:
@@ -227,11 +296,24 @@ class ItemMetadataAPI(abc.ABC):
             return False
 
     def get_related(self, relation: str) -> list[ItemRelationTarget]:
+        """
+        Get the related objects for this relation.
+
+        :param relation:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         links = self.get_relation_links(relation_key)
         return [link.target for link in links]
 
     def set_related(self, relation: str, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the related value of an object to this one.
+
+        :param relation:
+        :param values:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         self.set_relation_links(
             relation_key,
@@ -245,6 +327,13 @@ class ItemMetadataAPI(abc.ABC):
         )
 
     def add_related(self, relation: str, value: ItemRelationTarget) -> None:
+        """
+        Add a related object to this one with a certain relation.
+
+        :param relation:
+        :param value:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         self.add_relation_link(
             relation_key,
@@ -254,16 +343,44 @@ class ItemMetadataAPI(abc.ABC):
             ),
         )
 
+    # Todo: We can probably tighten the typing of relation
     def get_relation_edges(self, relation: str) -> list[ItemRelationEdge]:
+        """
+        Get all relational edges of one type.
+
+        :param relation:
+        :return:
+        """
         return self.get_relation_links(relation)
 
     def set_relation_edges(self, relation: str, edges: Iterable[ItemRelationEdge]) -> None:
+        """
+        Set an entire relation edge for one type
+
+        :param relation:
+        :param edges:
+        :return:
+        """
         self.set_relation_links(relation, edges)
 
     def add_relation_edge(self, relation: str, edge: ItemRelationEdge) -> None:
+        """
+        Add a relation edge to the metadata.
+
+        :param relation:
+        :param edge:
+        :return:
+        """
         self.add_relation_link(relation, edge)
 
     def remove_relation_edge(self, relation: str, edge: ItemRelationEdge) -> bool:
+        """
+        Remove a relation edge from the metadata - if it exists.
+
+        :param relation:
+        :param edge:
+        :return:
+        """
         return self.remove_relation_link(relation, edge)
 
     def get_relation_edge_by_id(
@@ -271,12 +388,27 @@ class ItemMetadataAPI(abc.ABC):
         relation: str,
         edge_id: RelationEdgeID,
     ) -> Optional[ItemRelationEdge]:
+        """
+        Return a relation edge by its ID - if it exists on the system.
+
+        :param relation:
+        :param edge_id:
+        :return:
+        """
         for edge in self.get_relation_edges(relation):
             if edge.edge_id == edge_id:
                 return edge
         return None
 
+    # Todo: Common "WEMIObject" base class for these methods?
     def upsert_relation_edge(self, relation: str, edge: ItemRelationEdge) -> None:
+        """
+        Upsert a relation edge with the given type - if it exists on the system.
+
+        :param relation:
+        :param edge:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         if edge.edge_id is None:
             self.add_relation_edge(relation_key, edge)
@@ -295,6 +427,13 @@ class ItemMetadataAPI(abc.ABC):
         relation: str,
         edge_id: RelationEdgeID,
     ) -> bool:
+        """
+        Remove a relation edge by its ID - if it exists in the metadata object.
+
+        :param relation:
+        :param edge_id:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         edges = list(self.get_relation_edges(relation_key))
         for index, edge in enumerate(edges):
@@ -305,195 +444,464 @@ class ItemMetadataAPI(abc.ABC):
         return False
 
     def clear_related(self, relation: str) -> None:
+        """
+        Clear all related edges of a certain type.
+
+        :param relation:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         self.set_relation_links(relation_key, [])
 
+    # Todo: Something like work_relations for these and works for the actual works
     @property
     def works(self) -> list[ItemRelationTarget]:
+        """
+        Get the works related to this item.
+
+        :return:
+        """
         return self.get_related("works")
 
     @works.setter
     def works(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the works related to this target.
+
+        :param values:
+        :return:
+        """
         self.set_related("works", values)
 
     @property
     def expressions(self) -> list[ItemRelationTarget]:
+        """
+        Get the item-expression relations for this item.
+
+        :return:
+        """
         return self.get_related("expressions")
 
     @expressions.setter
     def expressions(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the item-expression relations for this target.
+
+        :param values:
+        :return:
+        """
         self.set_related("expressions", values)
 
     @property
     def manifestations(self) -> list[ItemRelationTarget]:
+        """
+        Get the manifestation relations for this item.
+
+        :return:
+        """
         return self.get_related("manifestations")
 
     @manifestations.setter
     def manifestations(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the manifestation relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("manifestations", values)
 
     @property
     def agents(self) -> list[ItemRelationTarget]:
+        """
+        Get the agent relations for this item.
+
+        :return:
+        """
         return self.get_related("agents")
 
     @agents.setter
     def agents(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the agent relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("agents", values)
 
     @property
     def digital_assets(self) -> list[ItemRelationTarget]:
+        """
+        Get the digital assets relations for this item.
+
+        Digital assets are actual files - the lowest level of the program.
+        :return:
+        """
         return self.get_related("digital_assets")
 
     @digital_assets.setter
     def digital_assets(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the digital assets relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("digital_assets", values)
 
     @property
     def composite_digital_assets(self) -> list[ItemRelationTarget]:
+        """
+        Gets the composite digital assets relations for this item.
+
+        :return:
+        """
         return self.get_related("composite_digital_assets")
 
     @composite_digital_assets.setter
     def composite_digital_assets(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the composite digital asset relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("composite_digital_assets", values)
 
+    # Todo: Not... entirely sure this should be here - these belong to the digital assets
     @property
     def asset_replicas(self) -> list[ItemRelationTarget]:
+        """
+        Get the asset replica relations for this item.
+
+        :return:
+        """
         return self.get_related("asset_replicas")
 
     @asset_replicas.setter
     def asset_replicas(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Write the asset replica relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("asset_replicas", values)
 
     @property
     def stores(self) -> list[ItemRelationTarget]:
+        """
+        Lists the stores this item is related to.
+
+        :return:
+        """
         return self.get_related("stores")
 
     @stores.setter
     def stores(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the stores this item is related to.
+
+        :param values:
+        :return:
+        """
         self.set_related("stores", values)
 
     @property
     def folders(self) -> list[ItemRelationTarget]:
+        """
+        Lists the "folder" structure which this item might be in.
+
+        :return:
+        """
         return self.get_related("folders")
 
     @folders.setter
     def folders(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the folders this item is connected to.
+
+        :param values:
+        :return:
+        """
         self.set_related("folders", values)
 
+    # Todo: The files concept does not, in fact, exist anymore
     @property
     def files(self) -> list[ItemRelationTarget]:
+        """
+        All the "files" linked to the item.
+
+        :return:
+        """
         return self.get_related("files")
 
     @files.setter
     def files(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the files property for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("files", values)
 
     @property
     def images(self) -> list[ItemRelationTarget]:
+        """
+        Get the image related "images" linked to the item.
+
+        :return:
+        """
         return self.get_related("images")
 
     @images.setter
     def images(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the image-item relations.
+
+        :param values:
+        :return:
+        """
         self.set_related("images", values)
 
     @property
     def identifiers(self) -> list[ItemRelationTarget]:
+        """
+        Return the identifiers relations for this item.
+
+        :return:
+        """
         return self.get_related("identifiers")
 
     @identifiers.setter
     def identifiers(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the identifiers relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("identifiers", values)
 
+    # Todo: As title is a derived property, not sure this makes sense.
     @property
     def titles(self) -> list[ItemRelationTarget]:
+        """
+        Get the title relations for this item.
+
+        :return:
+        """
         return self.get_related("titles")
 
     @titles.setter
     def titles(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the title relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("titles", values)
 
     @property
     def annotations(self) -> list[ItemRelationTarget]:
+        """
+        Get the annotations relations for this item.
+
+        :return:
+        """
         return self.get_related("annotations")
 
     @annotations.setter
     def annotations(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the annotations relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("annotations", values)
 
     @property
     def genres(self) -> list[ItemRelationTarget]:
+        """
+        Get the genres relations for this item.
+
+        :return:
+        """
         return self.get_related("genres")
 
     @genres.setter
     def genres(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the genres relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("genres", values)
 
     @property
     def subjects(self) -> list[ItemRelationTarget]:
+        """
+        Get the subjects relations for this item.
+
+        :return:
+        """
         return self.get_related("subjects")
 
     @subjects.setter
     def subjects(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the subjects relation for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("subjects", values)
 
     @property
     def series(self) -> list[ItemRelationTarget]:
+        """
+        Get the series relations for this item.
+
+        :return:
+        """
         return self.get_related("series")
 
     @series.setter
     def series(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the series relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("series", values)
 
     @property
     def tags(self) -> list[ItemRelationTarget]:
+        """
+        Get the tag relations for this item.
+
+        :return:
+        """
         return self.get_related("tags")
 
     @tags.setter
     def tags(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the tag relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("tags", values)
 
     @property
     def labels(self) -> list[ItemRelationTarget]:
+        """
+        Get the label relations for this item.
+
+        :return:
+        """
         return self.get_related("labels")
 
+    # Todo: I think all methods of this type should be renamed x_relations
     @labels.setter
     def labels(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the label relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("labels", values)
 
     @property
     def languages(self) -> list[ItemRelationTarget]:
+        """
+        Get the languages relations for this item.
+
+        :return:
+        """
         return self.get_related("languages")
 
     @languages.setter
     def languages(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the language relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("languages", values)
 
     @property
     def notes(self) -> list[ItemRelationTarget]:
+        """
+        Get the notes relations for this item.
+
+        :return:
+        """
         return self.get_related("notes")
 
     @notes.setter
     def notes(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the notes relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("notes", values)
 
     @property
     def comments(self) -> list[ItemRelationTarget]:
+        """
+        Get the comments relations for this item.
+
+        :return:
+        """
         return self.get_related("comments")
 
     @comments.setter
     def comments(self, values: Iterable[ItemRelationTarget]) -> None:
+        """
+        Set the comments relations for this item.
+
+        :param values:
+        :return:
+        """
         self.set_related("comments", values)
 
     @abc.abstractmethod
     def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
-        """Serialize container into a mapping representation."""
+        """
+        Serialize container into a mapping representation.
+
+        :param include_related:
+        :return:
+        """
 
     @classmethod
     @abc.abstractmethod
     def from_mapping(cls, payload: MetadataRecord) -> Self:
-        """Hydrate container from mapping representation."""
+        """
+        Hydrate container from mapping representation.
+
+        :param payload:
+        :return:
+        """
 
     def __str__(self) -> str:
+        """
+        String representation.
+
+        :return:
+        """
         return f"{self.__class__.__name__}()"
 
 __all__ = [

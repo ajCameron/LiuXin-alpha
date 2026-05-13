@@ -100,10 +100,21 @@ class ExpressionMetadataAPI(abc.ABC):
 
     @classmethod
     def relation_names(cls) -> tuple[str, ...]:
+        """
+        Tables this class can relate to.
+
+        :return:
+        """
         return cls.RELATION_KEYS
 
     @classmethod
     def validate_relation_name(cls, relation: str) -> str:
+        """
+        Check we are being queried with a valid relation name.
+
+        :param relation:
+        :return:
+        """
         normalized = str(relation).strip().lower()
         normalized = cls.RELATION_ALIASES.get(normalized, normalized)
         if normalized not in cls.RELATION_KEYS:
@@ -112,6 +123,13 @@ class ExpressionMetadataAPI(abc.ABC):
 
     @classmethod
     def relation_cardinality(cls, relation: str) -> RelationCardinality:
+        """
+        What type of relation are we dealing with?
+
+        ONE-ONE, ONE-MANY .e.t.c.
+        :param relation:
+        :return:
+        """
         relation_key = cls.validate_relation_name(relation)
         return cls.RELATION_CARDINALITIES.get(
             relation_key,
@@ -124,6 +142,13 @@ class ExpressionMetadataAPI(abc.ABC):
         relation: str,
         links: Iterable[ExpressionRelationLink],
     ) -> list[ExpressionRelationLink]:
+        """
+        Check the relational link is valid.
+
+        :param relation:
+        :param links:
+        :return:
+        """
         relation_key = cls.validate_relation_name(relation)
         return validate_relation_edge_cardinality(
             relation_key,
@@ -134,12 +159,18 @@ class ExpressionMetadataAPI(abc.ABC):
     @property
     @abc.abstractmethod
     def expression(self) -> Optional[ExpressionIdentityAPI]:
-        """Primary expression row for this metadata bundle."""
+        """
+        Primary expression row for this metadata bundle.
+
+        :return:
+        """
 
     @expression.setter
     @abc.abstractmethod
     def expression(self, value: Optional[ExpressionIdentityAPI]) -> None:
-        """Set primary expression row."""
+        """
+        Set primary expression identity.
+        """
 
     @abc.abstractmethod
     def get_relation_links(self, relation: str) -> list[ExpressionRelationLink]:
@@ -160,15 +191,41 @@ class ExpressionMetadataAPI(abc.ABC):
         replace: bool = False,
         mark_dirty: bool = True,
     ) -> MetadataWriteReportAPI:
-        """Persist supported relation changes for this expression metadata bundle."""
+        """
+        Persist supported relation changes for this expression metadata bundle.
 
+        :param database:
+        :param fields:
+        :param item_id:
+        :param target_row:
+        :param replace:
+        :param mark_dirty:
+        :return:
+        """
+
+    # Todo: How do you set sidecare data at the same time with this?
     def add_relation_link(self, relation: str, link: ExpressionRelationLink) -> None:
+        """
+        Add a relational link to this expression.
+
+        Link target should be in the form of another object which can be linked to this one.
+        :param relation:
+        :param link:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         links = list(self.get_relation_links(relation_key))
         links.append(link)
         self.set_relation_links(relation_key, self.validate_relation_links(relation_key, links))
 
     def remove_relation_link(self, relation: str, link: ExpressionRelationLink) -> bool:
+        """
+        Remove a relation between this expression and another object.
+
+        :param relation:
+        :param link:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         links = list(self.get_relation_links(relation_key))
         try:
@@ -179,10 +236,23 @@ class ExpressionMetadataAPI(abc.ABC):
             return False
 
     def get_related(self, relation: str) -> list[ExpressionRelationTarget]:
+        """
+        Get the related entities for this relation.
+
+        :param relation:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         return [link.target for link in self.get_relation_links(relation_key)]
 
     def set_related(self, relation: str, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Set multiple related values with one call.
+
+        :param relation:
+        :param values:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         self.set_relation_links(
             relation_key,
@@ -196,6 +266,13 @@ class ExpressionMetadataAPI(abc.ABC):
         )
 
     def add_related(self, relation: str, value: ExpressionRelationTarget) -> None:
+        """
+        Add a related object to this metadata.
+
+        :param relation:
+        :param value:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         self.add_relation_link(
             relation_key,
@@ -206,6 +283,12 @@ class ExpressionMetadataAPI(abc.ABC):
         )
 
     def get_relation_edges(self, relation: str) -> list[ExpressionRelationEdge]:
+        """
+        Return the relational edges for objects related to this expression.
+
+        :param relation:
+        :return:
+        """
         return self.get_relation_links(relation)
 
     def set_relation_edges(
@@ -213,12 +296,34 @@ class ExpressionMetadataAPI(abc.ABC):
         relation: str,
         edges: Iterable[ExpressionRelationEdge],
     ) -> None:
+        """
+        Set multiple relations of the same type with one call.
+
+        :param relation:
+        :param edges:
+        :return:
+        """
         self.set_relation_links(relation, edges)
 
+    # Todo: It would be a lot clearer if we could just use arguments
     def add_relation_edge(self, relation: str, edge: ExpressionRelationEdge) -> None:
+        """
+        Add a relational edge to this metadata.
+
+        :param relation:
+        :param edge:
+        :return:
+        """
         self.add_relation_link(relation, edge)
 
     def remove_relation_edge(self, relation: str, edge: ExpressionRelationEdge) -> bool:
+        """
+        Remove an edge from this metadata.
+
+        :param relation:
+        :param edge:
+        :return:
+        """
         return self.remove_relation_link(relation, edge)
 
     def get_relation_edge_by_id(
@@ -226,6 +331,13 @@ class ExpressionMetadataAPI(abc.ABC):
         relation: str,
         edge_id: RelationEdgeID,
     ) -> Optional[ExpressionRelationEdge]:
+        """
+        Get the relation edge from its id.
+
+        :param relation:
+        :param edge_id:
+        :return:
+        """
         for edge in self.get_relation_edges(relation):
             if edge.edge_id == edge_id:
                 return edge
@@ -236,6 +348,14 @@ class ExpressionMetadataAPI(abc.ABC):
         relation: str,
         edge: ExpressionRelationEdge,
     ) -> None:
+        """
+        Upsert a relation edge.
+
+        Bringing it to the top of the stack.
+        :param relation:
+        :param edge:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         if edge.edge_id is None:
             self.add_relation_edge(relation_key, edge)
@@ -254,6 +374,13 @@ class ExpressionMetadataAPI(abc.ABC):
         relation: str,
         edge_id: RelationEdgeID,
     ) -> bool:
+        """
+        Remove a relational edge, if present, from the stack by id.
+
+        :param relation:
+        :param edge_id:
+        :return:
+        """
         relation_key = self.validate_relation_name(relation)
         edges = list(self.get_relation_edges(relation_key))
         for index, edge in enumerate(edges):
@@ -268,95 +395,300 @@ class ExpressionMetadataAPI(abc.ABC):
         self.set_relation_links(relation_key, [])
 
     @property
+    def work_id(self) -> Optional[int]:
+        """
+        Primary Work ID for this expression.
+
+        Each expression should be linked to one, and only one work.
+        :return:
+        """
+        return self.expression_work_id
+
+    @work_id.setter
+    def work_id(self, value: Optional[int]) -> None:
+        """
+        Set the Primary Work ID for this expression.
+
+        :param value:
+        :return:
+        """
+        self.expression_work_id = value
+
+    @property
+    @abc.abstractmethod
+    def work_ids(self) -> Optional[Iterable[int]]:
+        """
+        Get all the work ids this expression is linked to.
+
+        :return:
+        """
+
+    @work_ids.setter
+    @abc.abstractmethod
+    def work_ids(self, work_ids: Optional[Iterable[int]]) -> None:
+        """
+        Set all the work ids this expression is linked to.
+
+        :param work_ids:
+        :return:
+        """
+
+    @property
+    def primary_work_id(self) -> Optional[int]:
+        """
+        Primary Work ID for this expression.
+
+        Each expression should be linked to one, and only one work.
+        :return:
+        """
+        return self.expression_work_id
+
+    @primary_work_id.setter
+    def primary_work_id(self, value: Optional[int]) -> None:
+        """
+        Set the Primary Work ID for this expression.
+
+        :param value:
+        :return:
+        """
+        self.expression_work_id = value
+
+
+    @property
+    @abc.abstractmethod
+    def expression_work_id(self) -> Optional[int]:
+        """
+        The work id of this current expression.
+
+        :return:
+        """
+
+    @expression_work_id.setter
+    @abc.abstractmethod
+    def expression_work_id(self, expression_work_id: Optional[int]) -> None:
+        """
+        Set the work_id for this current expression.
+
+        :param expression_work_id:
+        :return:
+        """
+
+    @property
     def works(self) -> list[ExpressionRelationTarget]:
+        """
+        Get the works linked to this expression.
+
+        :return:
+        """
         return self.get_related("works")
 
     @works.setter
     def works(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Set the works linked to this expression.
+
+        :param values:
+        :return:
+        """
         self.set_related("works", values)
 
     @property
     def manifestations(self) -> list[ExpressionRelationTarget]:
+        """
+        Return the manifestations linked to this expression.
+
+        :return:
+        """
         return self.get_related("manifestations")
 
     @manifestations.setter
     def manifestations(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Set the manifestations linked to this expression.
+
+        :param values:
+        :return:
+        """
         self.set_related("manifestations", values)
 
     @property
     def items(self) -> list[ExpressionRelationTarget]:
+        """
+        Return the items linked to this manifestation.
+
+        :return:
+        """
         return self.get_related("items")
 
     @items.setter
     def items(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Set the items linked to this manifestation.
+
+        :param values:
+        :return:
+        """
         self.set_related("items", values)
 
     @property
     def agents(self) -> list[ExpressionRelationTarget]:
+        """
+        Get the agents responsible for the current expression.
+
+        :return:
+        """
         return self.get_related("agents")
 
     @agents.setter
     def agents(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Set the agents for this container.
+
+        :param values:
+        :return:
+        """
         self.set_related("agents", values)
 
     @property
     def identifiers(self) -> list[ExpressionRelationTarget]:
+        """
+        Get the identifiers linked to this expression.
+
+        :return:
+        """
         return self.get_related("identifiers")
 
     @identifiers.setter
     def identifiers(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Write the identifiers out to the metadata object.
+
+        :param values:
+        :return:
+        """
         self.set_related("identifiers", values)
 
     @property
     def titles(self) -> list[ExpressionRelationTarget]:
+        """
+        Return the titles linked to this expression.
+
+        :return:
+        """
         return self.get_related("titles")
 
     @titles.setter
     def titles(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Set the titles - through setting their relations - with this expression.
+
+        :param values:
+        :return:
+        """
         self.set_related("titles", values)
 
     @property
     def genres(self) -> list[ExpressionRelationTarget]:
+        """
+        Return the genres linked to this metadata expression.
+
+        :return:
+        """
         return self.get_related("genres")
 
     @genres.setter
     def genres(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Set the genres based on their relations to the expression.
+
+        :param values:
+        :return:
+        """
         self.set_related("genres", values)
 
     @property
     def tags(self) -> list[ExpressionRelationTarget]:
+        """
+        Get the tags based on their relations to the expression.
+
+        :return:
+        """
         return self.get_related("tags")
 
     @tags.setter
     def tags(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Set the tags from a series of tag relations.
+
+        :param values:
+        :return:
+        """
         self.set_related("tags", values)
 
     @property
     def labels(self) -> list[ExpressionRelationTarget]:
+        """
+        Get a list of the labels related to this expression.
+
+        :return:
+        """
         return self.get_related("labels")
 
     @labels.setter
     def labels(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Set the values from a list.
+
+        :param values:
+        :return:
+        """
         self.set_related("labels", values)
 
     @property
     def languages(self) -> list[ExpressionRelationTarget]:
+        """
+        Get the expression-language interactions.
+
+        :return:
+        """
         return self.get_related("languages")
 
     @languages.setter
     def languages(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Write the language relation targets out to the metadata object.
+
+        :param values:
+        :return:
+        """
         self.set_related("languages", values)
 
     @property
     def notes(self) -> list[ExpressionRelationTarget]:
+        """
+        Returns the notes relation targets.
+
+        :return:
+        """
         return self.get_related("notes")
 
     @notes.setter
     def notes(self, values: Iterable[ExpressionRelationTarget]) -> None:
+        """
+        Set the notes from the Expression relations.
+
+        :param values:
+        :return:
+        """
         self.set_related("notes", values)
 
     @property
     def comments(self) -> list[ExpressionRelationTarget]:
+        """
+        Get the comment relations.
+
+        :return:
+        """
         return self.get_related("comments")
 
     @comments.setter

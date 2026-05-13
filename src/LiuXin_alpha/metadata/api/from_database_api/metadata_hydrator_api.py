@@ -16,7 +16,7 @@ from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import (
 from LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api import (
     LiuXinMetadataAPI,
 )
-from LiuXin_alpha.metadata.api.containers_api.liuxin_wemi_metadata_api import (
+from LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api.liuxin_wemi_metadata_api import (
     LiuXinWEMIMetadataAPI,
     WemiMetadataBundleAPI,
 )
