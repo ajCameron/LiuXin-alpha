@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -34,6 +35,28 @@ _RELATION_FIELD_BY_TABLE = {
     "subjects": "subject",
     "synopses": "synopses",
     "tags": "tags",
+}
+
+_METADATA_WRITE_FIELD_ALIASES = {
+    "tag": "tags",
+    "tags": "tags",
+    "label": "labels",
+    "labels": "labels",
+    "genre": "genre",
+    "genres": "genre",
+    "subject": "subject",
+    "subjects": "subject",
+    "series": "series",
+    "identifier": "identifiers",
+    "identifiers": "identifiers",
+}
+
+_METADATA_WRITE_KINDS = {
+    "wemi": "liuxin_wemi",
+    "liuxin-wemi": "liuxin_wemi",
+    "liuxin_wemi": "liuxin_wemi",
+    "liuxin": "liuxin",
+    "calibre": "calibre",
 }
 
 
@@ -70,6 +93,14 @@ _WEMI_SPECS_BY_TABLE = {
 
 def metadata_relation_field_for_table(relation_table: str) -> str | None:
     return _RELATION_FIELD_BY_TABLE.get(str(relation_table).strip().lower())
+
+
+def normalize_metadata_write_field(field: str) -> str:
+    normalized = str(field).strip().lower().replace("-", "_")
+    try:
+        return _METADATA_WRITE_FIELD_ALIASES[normalized]
+    except KeyError as exc:
+        raise ValueError("Unsupported metadata write field: {!r}".format(field)) from exc
 
 
 def supports_wemi_metadata_relation_write(target_table: str, relation_table: str) -> bool:
@@ -151,9 +182,98 @@ def metadata_write_report_summary(report: Any) -> str:
     )
 
 
+def write_wemi_metadata_values(
+    database: Any,
+    *,
+    item_id: int,
+    values: dict[str, Any],
+    fields: list[str] | tuple[str, ...] | None = None,
+    kind: str = "liuxin",
+    replace: bool = False,
+    target_level: str = "work",
+    mark_dirty: bool = True,
+) -> dict[str, Any]:
+    from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadataHydrator
+
+    normalized_kind = str(kind or "liuxin").strip().lower().replace("-", "_")
+    metadata_kind = _METADATA_WRITE_KINDS.get(normalized_kind)
+    if metadata_kind is None:
+        raise ValueError("Unsupported metadata write kind: {!r}".format(kind))
+
+    value_map = dict(values or {})
+    if not value_map:
+        raise ValueError("Metadata write values cannot be empty.")
+
+    if fields is None:
+        requested_fields = tuple(value_map)
+    elif isinstance(fields, str):
+        requested_fields = (fields,)
+    else:
+        requested_fields = tuple(fields)
+    normalized_fields = tuple(normalize_metadata_write_field(field) for field in requested_fields)
+
+    hydrator = LiuXinWEMIMetadataHydrator(database)
+    metadata = hydrator.hydrate_metadata(metadata_kind, item_id=int(item_id))
+    for field_name in normalized_fields:
+        value = _metadata_write_value(value_map, field_name)
+        _apply_metadata_write_value(metadata, field_name, value, replace=bool(replace))
+
+    report = metadata.write_to_database(
+        database,
+        fields=normalized_fields,
+        target_level=str(target_level or "work"),
+        item_id=int(item_id),
+        replace=bool(replace),
+        mark_dirty=bool(mark_dirty),
+    )
+    report_mapping = report.to_mapping() if hasattr(report, "to_mapping") else {}
+    return {
+        "item_id": int(item_id),
+        "kind": metadata_kind,
+        "fields": list(normalized_fields),
+        "replace": bool(replace),
+        "changed": bool(getattr(report, "changed", False)),
+        "summary": metadata_write_report_summary(report),
+        "report": report_mapping,
+    }
+
+
+def _metadata_write_value(values: dict[str, Any], field_name: str) -> Any:
+    candidate_keys = (field_name, field_name.rstrip("s"), field_name + "s")
+    for key in candidate_keys:
+        if key in values:
+            return values[key]
+    raise ValueError("Metadata write values missing field {!r}.".format(field_name))
+
+
+def _apply_metadata_write_value(metadata: Any, field_name: str, value: Any, *, replace: bool) -> None:
+    if replace:
+        try:
+            metadata.nullify(field_name)
+        except KeyError:
+            pass
+
+    if field_name == "identifiers":
+        setter = getattr(metadata, "set_identifiers", None)
+        if not callable(setter):
+            raise ValueError("{} cannot write identifiers.".format(metadata.__class__.__name__))
+        setter(dict(value or {}), update=not bool(replace))
+        return
+
+    if not isinstance(value, (str, bytes, Mapping)) and isinstance(value, Iterable):
+        for entry in value:
+            if entry not in (None, ""):
+                setattr(metadata, field_name, entry)
+        return
+
+    setattr(metadata, field_name, value)
+
+
 __all__ = [
     "metadata_relation_field_for_table",
     "metadata_write_report_summary",
+    "normalize_metadata_write_field",
     "supports_wemi_metadata_relation_write",
+    "write_wemi_metadata_values",
     "write_wemi_metadata_relation_link",
 ]

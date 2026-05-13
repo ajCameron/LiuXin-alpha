@@ -109,6 +109,76 @@ class CoreRuntime(CoreAPI):
             payload_fields=(CorePayloadFieldDescription(name="job_id", required=True, field_type="string"),),
             tags=("jobs",),
         )
+        self.register_command_handler(
+            "metadata.write",
+            self._handle_metadata_write_command,
+            summary="Write supported item-centred metadata fields.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="item_id", required=True, field_type="integer"),
+                CorePayloadFieldDescription(name="values", required=True, field_type="object"),
+                CorePayloadFieldDescription(name="fields", field_type="array"),
+                CorePayloadFieldDescription(name="kind", field_type="string"),
+                CorePayloadFieldDescription(name="replace", field_type="boolean"),
+                CorePayloadFieldDescription(name="target_level", field_type="string"),
+                CorePayloadFieldDescription(name="mark_dirty", field_type="boolean"),
+            ),
+            tags=("metadata", "write"),
+        )
+        self.register_command_handler(
+            "metadata.tags.replace",
+            self._handle_metadata_tags_replace_command,
+            summary="Replace the tags for one item-centred metadata row.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="item_id", required=True, field_type="integer"),
+                CorePayloadFieldDescription(name="tags", required=True, field_type="array"),
+                CorePayloadFieldDescription(name="kind", field_type="string"),
+            ),
+            tags=("metadata", "tags", "write"),
+        )
+        self.register_command_handler(
+            "metadata.labels.replace",
+            self._handle_metadata_labels_replace_command,
+            summary="Replace the labels for one item-centred metadata row.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="item_id", required=True, field_type="integer"),
+                CorePayloadFieldDescription(name="labels", required=True, field_type="array"),
+                CorePayloadFieldDescription(name="kind", field_type="string"),
+            ),
+            tags=("metadata", "labels", "write"),
+        )
+        self.register_command_handler(
+            "metadata.genre.replace",
+            self._handle_metadata_genre_replace_command,
+            summary="Replace the genre values for one item-centred metadata row.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="item_id", required=True, field_type="integer"),
+                CorePayloadFieldDescription(name="genre", required=True, field_type="array"),
+                CorePayloadFieldDescription(name="kind", field_type="string"),
+            ),
+            tags=("metadata", "genre", "write"),
+        )
+        self.register_command_handler(
+            "metadata.series.replace",
+            self._handle_metadata_series_replace_command,
+            summary="Replace the series values for one item-centred metadata row.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="item_id", required=True, field_type="integer"),
+                CorePayloadFieldDescription(name="series", required=True, field_type="array"),
+                CorePayloadFieldDescription(name="kind", field_type="string"),
+            ),
+            tags=("metadata", "series", "write"),
+        )
+        self.register_command_handler(
+            "metadata.identifiers.replace",
+            self._handle_metadata_identifiers_replace_command,
+            summary="Replace identifiers for one item-centred metadata row.",
+            payload_fields=(
+                CorePayloadFieldDescription(name="item_id", required=True, field_type="integer"),
+                CorePayloadFieldDescription(name="identifiers", required=True, field_type="object"),
+                CorePayloadFieldDescription(name="kind", field_type="string"),
+            ),
+            tags=("metadata", "identifiers", "write"),
+        )
         self.register_query_handler(
             "invoke",
             self._handle_invoke_query,
@@ -346,6 +416,12 @@ class CoreRuntime(CoreAPI):
             "name": str(token),
             "correlation_id": command.correlation_id,
         }
+        if str(token).startswith("metadata."):
+            if isinstance(command.payload, Mapping):
+                item_id = command.payload.get("item_id")
+                if item_id is not None:
+                    payload["item_id"] = item_id
+            return payload
         if str(token) != "invoke":
             return None
         try:
@@ -568,6 +644,70 @@ class CoreRuntime(CoreAPI):
     def _handle_invoke_command(self, runtime: "CoreRuntime", command: CoreCommand) -> Any:
         del runtime
         return self._invoke(command.payload)
+
+    def _handle_metadata_write_command(self, runtime: "CoreRuntime", command: CoreCommand) -> dict[str, Any]:
+        del runtime
+        return self._execute_metadata_write(command.payload)
+
+    def _handle_metadata_tags_replace_command(self, runtime: "CoreRuntime", command: CoreCommand) -> dict[str, Any]:
+        del runtime
+        return self._execute_metadata_field_replace(command.payload, field_name="tags")
+
+    def _handle_metadata_labels_replace_command(self, runtime: "CoreRuntime", command: CoreCommand) -> dict[str, Any]:
+        del runtime
+        return self._execute_metadata_field_replace(command.payload, field_name="labels")
+
+    def _handle_metadata_genre_replace_command(self, runtime: "CoreRuntime", command: CoreCommand) -> dict[str, Any]:
+        del runtime
+        return self._execute_metadata_field_replace(command.payload, field_name="genre")
+
+    def _handle_metadata_series_replace_command(self, runtime: "CoreRuntime", command: CoreCommand) -> dict[str, Any]:
+        del runtime
+        return self._execute_metadata_field_replace(command.payload, field_name="series")
+
+    def _handle_metadata_identifiers_replace_command(
+        self,
+        runtime: "CoreRuntime",
+        command: CoreCommand,
+    ) -> dict[str, Any]:
+        del runtime
+        return self._execute_metadata_field_replace(command.payload, field_name="identifiers")
+
+    def _execute_metadata_field_replace(self, payload: Mapping[str, Any], *, field_name: str) -> dict[str, Any]:
+        values = dict(payload.get("values") or {})
+        if field_name not in values:
+            if field_name not in payload:
+                raise CoreDispatchError(
+                    "Metadata {!r} replace payload missing `{}`.".format(field_name, field_name)
+                )
+            values[field_name] = payload.get(field_name)
+        return self._execute_metadata_write(
+            {
+                **dict(payload),
+                "values": values,
+                "fields": (field_name,),
+                "replace": True,
+            }
+        )
+
+    def _execute_metadata_write(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        from LiuXin_alpha.surfaces.metadata_write_bridge import write_wemi_metadata_values
+
+        if "item_id" not in payload:
+            raise CoreDispatchError("Metadata write payload missing `item_id`.")
+        values = payload.get("values")
+        if not isinstance(values, Mapping):
+            raise CoreDispatchError("Metadata write payload `values` must be an object.")
+        return write_wemi_metadata_values(
+            self.library.database,
+            item_id=int(payload["item_id"]),
+            values=dict(values),
+            fields=payload.get("fields"),
+            kind=str(payload.get("kind") or "liuxin"),
+            replace=bool(payload.get("replace", False)),
+            target_level=str(payload.get("target_level") or "work"),
+            mark_dirty=bool(payload.get("mark_dirty", True)),
+        )
 
     def _handle_shutdown_command(self, runtime: "CoreRuntime", command: CoreCommand) -> int:
         del runtime, command
