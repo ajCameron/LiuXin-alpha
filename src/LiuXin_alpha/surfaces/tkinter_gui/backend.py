@@ -49,7 +49,7 @@ class TkGuiBackend:
 
     @classmethod
     def from_session(cls, session: "TkGuiSession") -> "TkGuiBackend":
-        return cls(session.database, session=session)
+        return cls(session.read_source or session.database, session=session)
 
     def close(self) -> None:
         if self.session is not None:
@@ -68,6 +68,39 @@ class TkGuiBackend:
         if self.session is None:
             return "core unavailable"
         return self.session.core_status_text()
+
+    def read_source_status_text(self) -> str:
+        if self.session is None:
+            return "source direct"
+        return self.session.read_source_status_text()
+
+    def refresh_read_source(self) -> bool:
+        if self.session is None:
+            return False
+        refreshed = self.session.refresh_read_source()
+        self.db = self.session.read_source or self.session.database
+        self._tables_and_columns = None
+        self._hydrator = None
+        return bool(refreshed)
+
+    def configure_read_source(
+        self,
+        *,
+        mode: str | None = None,
+        cache_type: str | None = None,
+        allow_database_fallback: bool | None = None,
+    ) -> bool:
+        if self.session is None:
+            return False
+        changed = self.session.select_read_source(
+            mode=mode,
+            cache_type=cache_type,
+            allow_database_fallback=allow_database_fallback,
+        )
+        self.db = self.session.read_source or self.session.database
+        self._tables_and_columns = None
+        self._hydrator = None
+        return bool(changed)
 
     def tables_and_columns(self) -> dict[str, tuple[str, ...]]:
         if self._tables_and_columns is None:

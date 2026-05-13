@@ -64,6 +64,16 @@ def main() -> int:
         help="Print commands without executing them",
     )
     parser.add_argument(
+        "--tk-smoke",
+        action="store_true",
+        help="Run the real Tkinter GUI smoke test after the main suite.",
+    )
+    parser.add_argument(
+        "--only-tk-smoke",
+        action="store_true",
+        help="Run only the real Tkinter GUI smoke test after venv/install steps.",
+    )
+    parser.add_argument(
         "pytest_args",
         nargs=argparse.REMAINDER,
         help="Additional pytest args; prefix with -- to separate them from script args",
@@ -118,6 +128,26 @@ def main() -> int:
     if extra_pytest_args and extra_pytest_args[0] == "--":
         extra_pytest_args = extra_pytest_args[1:]
     pytest_cmd.extend(extra_pytest_args)
+    run_tk_smoke = bool(args.tk_smoke or args.only_tk_smoke)
+    tk_preflight_cmd = [
+        str(python_exe),
+        "-c",
+        (
+            "import tkinter as tk\n"
+            "root = tk.Tk()\n"
+            "root.withdraw()\n"
+            "root.destroy()\n"
+            "print('tkinter smoke preflight ok')"
+        ),
+    ]
+    tk_pytest_cmd = [
+        str(python_exe),
+        "-m",
+        "pytest",
+        "tests/surfaces/test_tkinter_gui.py::test_tkinter_gui_real_tk_smoke_renders_fake_backend",
+        "-q",
+        "-ra",
+    ]
 
     print(f"Repo root: {repo_root}", flush=True)
     print(f"Report file: {report_file}", flush=True)
@@ -126,7 +156,11 @@ def main() -> int:
     if not args.skip_install and not create_venv:
         print(f"Install step: {shell_join(pip_upgrade_cmd)}", flush=True)
         print(f"Install step: {shell_join(pip_install_cmd)}", flush=True)
-    print(f"Test step: {shell_join(pytest_cmd)}", flush=True)
+    if not args.only_tk_smoke:
+        print(f"Test step: {shell_join(pytest_cmd)}", flush=True)
+    if run_tk_smoke:
+        print(f"Tk preflight step: {shell_join(tk_preflight_cmd)}", flush=True)
+        print(f"Tk smoke step: {shell_join(tk_pytest_cmd)}", flush=True)
 
     if args.dry_run:
         return 0
@@ -141,8 +175,24 @@ def main() -> int:
         subprocess.run(pip_upgrade_cmd, cwd=repo_root, check=True)
         subprocess.run(pip_install_cmd, cwd=repo_root, check=True)
 
-    completed = subprocess.run(pytest_cmd, cwd=repo_root)
-    return completed.returncode
+    if not args.only_tk_smoke:
+        completed = subprocess.run(pytest_cmd, cwd=repo_root)
+        if completed.returncode != 0:
+            return completed.returncode
+
+    if run_tk_smoke:
+        preflight = subprocess.run(tk_preflight_cmd, cwd=repo_root)
+        if preflight.returncode != 0:
+            print(
+                "Tkinter smoke preflight failed. The venv inherits tkinter/display support "
+                "from its base Python; install the system tkinter package and ensure a display is available.",
+                file=sys.stderr,
+            )
+            return preflight.returncode
+        smoke = subprocess.run(tk_pytest_cmd, cwd=repo_root)
+        return smoke.returncode
+
+    return 0
 
 
 if __name__ == "__main__":

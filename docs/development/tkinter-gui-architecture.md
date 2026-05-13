@@ -106,10 +106,12 @@ It owns the process resources behind one open GUI database:
 - `LocalLibraryProxy`, including database and jobs child proxies
 - optional read-model/cache/read-source objects
 
-The GUI can still use direct database/read-source reads for fast browsing, but
-write and operational features should be routed through the session's core
-runtime. Closing the session must shut down the runtime, close the library, and
-close the database.
+The session owns read-source selection. It can expose either a direct database
+metadata read source or a cache-backed metadata read source with database
+fallback. The GUI can still use these read sources for fast browsing, but write
+and operational features should be routed through the session's core runtime.
+Closing the session must shut down the runtime, close any attached storage
+cache, close the library, and close the database.
 
 ### Backend
 
@@ -122,7 +124,7 @@ It owns read-oriented LiuXin operations:
 - search table rows
 - produce row labels and detail fields
 - hydrate metadata for rows with `item_id`
-- later, read through cache-backed metadata sources
+- switch between direct and cache-backed metadata read sources
 
 This layer is the main CI test target. It should be possible to test with fake
 database objects and real fixture databases without opening a window.
@@ -215,7 +217,7 @@ providing enough UI to be useful for metadata testing.
 
 After the read-only slice is stable:
 
-- cache-backed read source selection
+- lighter cache/read snapshot backend for faster startup
 - richer metadata inspector with structured W/E/M/I sections
 - metadata edit forms for tags, labels, genres, series, identifiers, notes, and
   comments

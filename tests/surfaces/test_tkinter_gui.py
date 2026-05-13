@@ -51,7 +51,8 @@ class _FakeDatabase:
     def get_record_count(self, table: str) -> int:
         return len(self.rows[str(table)])
 
-    def get_all_rows(self, table: str):
+    def get_all_rows(self, table: str, iterator_return: bool = False):
+        del iterator_return
         return iter(self.rows[str(table)])
 
     def search(self, table: str, column: str, search_term: str):
@@ -61,6 +62,34 @@ class _FakeDatabase:
             for row in self.rows[str(table)]
             if needle in str(row.row_dict.get(str(column), "")).lower()
         ]
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _FakeStorageCache:
+    is_loaded = False
+    is_initialized = False
+    main_tables: dict[str, object] = {}
+
+    def __init__(self) -> None:
+        self.read_calls = 0
+        self.reload_calls = 0
+        self.closed = False
+
+    def read(self) -> None:
+        self.read_calls += 1
+        self.is_loaded = True
+        self.is_initialized = True
+
+    def reload(self) -> None:
+        self.reload_calls += 1
+        self.is_loaded = True
+        self.is_initialized = True
+
+    def assert_ready(self) -> None:
+        if not self.is_loaded or not self.is_initialized:
+            raise RuntimeError("cache not ready")
 
     def close(self) -> None:
         self.closed = True
@@ -142,6 +171,63 @@ def test_tkinter_session_exposes_core_runtime_and_proxies() -> None:
 
     assert session.closed is True
     assert session.core_runtime.is_shutdown is True
+    assert db.closed is True
+
+
+def test_tkinter_session_configures_cache_read_source() -> None:
+    db = _FakeDatabase()
+    cache = _FakeStorageCache()
+    session = TkGuiSession.from_database(
+        db,
+        config=TkGuiConfig(
+            database=Path("library.sqlite"),
+            read_source_mode="cache",
+            cache_type="schema_backed",
+        ),
+        storage_cache=cache,
+    )
+
+    assert cache.read_calls == 1
+    assert session.storage_cache is cache
+    assert session.read_source is not None
+    assert session.metadata_read_source is session.read_source
+    assert session.read_source_status_text() == "source cache:schema_backed with DB fallback"
+
+    backend = TkGuiBackend.from_session(session)
+    assert backend.table_summaries()[0].name == "items"
+    assert backend.read_source_status_text() == "source cache:schema_backed with DB fallback"
+    assert backend.refresh_read_source() is True
+    assert cache.reload_calls == 1
+    assert backend.configure_read_source(mode="direct") is True
+    assert session.read_source_status_text() == "source direct"
+    assert cache.closed is True
+
+    session.close()
+
+    assert cache.closed is True
+    assert db.closed is True
+
+
+def test_tkinter_session_selects_cache_read_source_after_open() -> None:
+    db = _FakeDatabase()
+    cache = _FakeStorageCache()
+    session = TkGuiSession.from_database(
+        db,
+        config=TkGuiConfig(database=Path("library.sqlite")),
+    )
+
+    assert session.read_source_status_text() == "source direct"
+    assert session.select_read_source(mode="cache", cache_type="schema_backed", cache=cache) is True
+    assert cache.read_calls == 1
+    assert session.storage_cache is cache
+    assert session.storage_cache_type == "schema_backed"
+    assert session.read_source_status_text() == "source cache:schema_backed with DB fallback"
+    assert session.select_read_source(mode="cache", cache_type="schema_backed", cache=cache) is False
+    assert cache.read_calls == 1
+
+    session.close()
+
+    assert cache.closed is True
     assert db.closed is True
 
 
@@ -264,6 +350,11 @@ def test_tkinter_gui_parser_builds_config() -> None:
             "Library",
             "--page-size",
             "25",
+            "--read-source",
+            "cache",
+            "--cache-type",
+            "schema_backed",
+            "--no-cache-database-fallback",
             "--enable-maintenance",
         ]
     )
@@ -274,4 +365,7 @@ def test_tkinter_gui_parser_builds_config() -> None:
     assert config.db_type == "SQLite"
     assert config.title == "Library"
     assert config.page_size == 25
+    assert config.read_source_mode == "cache"
+    assert config.cache_type == "schema_backed"
+    assert config.allow_cache_database_fallback is False
     assert config.enable_maintenance is True

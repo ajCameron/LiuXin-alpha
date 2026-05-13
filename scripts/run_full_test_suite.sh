@@ -15,6 +15,8 @@ CREATE_VENV=0
 RECREATE_VENV=0
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 DRY_RUN=0
+RUN_TK_SMOKE=0
+ONLY_TK_SMOKE=0
 PYTEST_ARGS=()
 
 usage() {
@@ -31,11 +33,14 @@ Options:
   --python <path>          Python interpreter for --create-venv/--new-venv
   --skip-install           Skip pip upgrade and dependency install
   --dry-run                Print commands without executing them
+  --tk-smoke               Run the real Tkinter GUI smoke test after the main suite
+  --only-tk-smoke          Run only the real Tkinter GUI smoke test
   -h, --help               Show this help
 
 Examples:
   scripts/run_full_test_suite.sh
   scripts/run_full_test_suite.sh --new-venv --python python3.12
+  scripts/run_full_test_suite.sh --new-venv --python python3.12 --only-tk-smoke
   scripts/run_full_test_suite.sh --workers 8
   scripts/run_full_test_suite.sh -- --maxfail=1 -k sync_store
 EOF
@@ -86,6 +91,15 @@ while [[ $# -gt 0 ]]; do
             DRY_RUN=1
             shift
             ;;
+        --tk-smoke)
+            RUN_TK_SMOKE=1
+            shift
+            ;;
+        --only-tk-smoke)
+            RUN_TK_SMOKE=1
+            ONLY_TK_SMOKE=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -119,6 +133,16 @@ PYTEST_CMD=(
     --json-report-file "${REPORT_FILE}"
     -ra
 )
+TK_PREFLIGHT_CMD=(
+    "${VENV_PYTHON}" -c
+    $'import tkinter as tk\nroot = tk.Tk()\nroot.withdraw()\nroot.destroy()\nprint("tkinter smoke preflight ok")'
+)
+TK_PYTEST_CMD=(
+    "${VENV_PYTHON}" -m pytest
+    tests/surfaces/test_tkinter_gui.py::test_tkinter_gui_real_tk_smoke_renders_fake_backend
+    -q
+    -ra
+)
 
 if [[ ${#PYTEST_ARGS[@]} -gt 0 ]]; then
     PYTEST_CMD+=("${PYTEST_ARGS[@]}")
@@ -139,8 +163,17 @@ if [[ ${SKIP_INSTALL} -eq 0 && ${CREATE_VENV} -eq 0 ]]; then
     print_cmd "${PIP_INSTALL_CMD[@]}"
 fi
 
-printf 'Test step: '
-print_cmd "${PYTEST_CMD[@]}"
+if [[ ${ONLY_TK_SMOKE} -eq 0 ]]; then
+    printf 'Test step: '
+    print_cmd "${PYTEST_CMD[@]}"
+fi
+
+if [[ ${RUN_TK_SMOKE} -eq 1 ]]; then
+    printf 'Tk preflight step: '
+    print_cmd "${TK_PREFLIGHT_CMD[@]}"
+    printf 'Tk smoke step: '
+    print_cmd "${TK_PYTEST_CMD[@]}"
+fi
 
 if [[ ${DRY_RUN} -eq 1 ]]; then
     exit 0
@@ -162,4 +195,18 @@ if [[ ${SKIP_INSTALL} -eq 0 && ${CREATE_VENV} -eq 0 ]]; then
     "${PIP_INSTALL_CMD[@]}"
 fi
 
-"${PYTEST_CMD[@]}"
+if [[ ${ONLY_TK_SMOKE} -eq 0 ]]; then
+    "${PYTEST_CMD[@]}"
+fi
+
+if [[ ${RUN_TK_SMOKE} -eq 1 ]]; then
+    if ! "${TK_PREFLIGHT_CMD[@]}"; then
+        cat >&2 <<'EOF'
+Tkinter smoke preflight failed. The venv inherits tkinter/display support from
+its base Python; install the system tkinter package and ensure a display is
+available.
+EOF
+        exit 1
+    fi
+    "${TK_PYTEST_CMD[@]}"
+fi

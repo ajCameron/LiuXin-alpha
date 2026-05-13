@@ -4,9 +4,10 @@
 
 Started a first `tkinter-gui-surface` spike after the metadata/surface fast-start
 work. On 2026-05-12, after PR #36 landed on `main`, that spike was carried onto
-the new `tkinter-gui-foundation` branch. The spike proves a stdlib Tkinter
+the `tkinter-gui-foundation` branch. After PR #37 merged, the current read-source
+slice moved to `tkinter-gui-read-source-mode`. The spike proves a stdlib Tkinter
 surface can reuse LiuXin database and metadata hydrator paths, but it should be
-treated as a prototype until the GUI is split into clearer layers.
+treated as a prototype until it has been manually validated with a Tk runtime.
 
 Canonical design note:
 
@@ -15,8 +16,8 @@ Canonical design note:
 
 ## Current Spike State
 
-- Branch: `tkinter-gui-foundation`
-- Base: `origin/main` after PR #36 promoted the fast-start changes.
+- Branch: `tkinter-gui-read-source-mode`
+- Base: `origin/main` after PR #37 promoted the GUI foundation changes.
 - Earlier spike branch/context: `tkinter-gui-surface`.
 - New package exists under `src/LiuXin_alpha/surfaces/tkinter_gui/`.
 - Phase 1 refactor has split the spike into `app.py`, `backend.py`,
@@ -31,6 +32,13 @@ Canonical design note:
 - Phase 4 added `TableSchema`/schema display, task-aware control enabling,
   disabled metadata hydration until an item row is selected, disabled paging
   buttons when previous/next pages are unavailable, and clearer loading status.
+- Phase 5 added read-source mode support. `TkGuiConfig` now carries direct/cache
+  source settings, `TkGuiSession` owns direct database and cache-backed metadata
+  read sources, the backend can switch/refresh the selected source, and the
+  toolbar exposes source mode, cache type, and `Refresh Source`.
+- The full-suite runners now have opt-in Tk smoke flags. Use
+  `--only-tk-smoke` to create/use the repo venv and run just the real Tk smoke;
+  use `--tk-smoke` to append it after the normal full suite.
 - Non-display backend tests exist in `tests/surfaces/test_tkinter_gui.py`.
 
 ## Validation So Far
@@ -38,14 +46,19 @@ Canonical design note:
 - `python3 -m pytest tests/surfaces/test_tkinter_gui.py` passed.
 - `py_compile` passed for the new GUI package and tests.
 - Real backend smoke against local ISFDB smoke DB worked:
-  - latest Phase 4 smoke used
+  - latest smoke used
     `LiuXin_data/test_databases/isfdb_smoke_title_word_labels/isfdb_smoke_title_word_labels.test_db`
-  - open: about 9.0s in this environment
-  - table list: 206 tables in about 0.13s
-  - first `items` page plus schema: 50 total rows, 5 rendered rows, 21 columns
-    in about 0.22s
+  - direct mode open: about 9.8s in this environment
+  - direct mode table list: 206 tables in about 0.17s
+  - direct mode first `items` page plus schema: 50 total rows, 5 rendered rows,
+    21 columns in about 2.2s
+  - schema-backed cache mode open: about 193s, then table list was effectively
+    instant; first `items` page plus schema still took about 3.0s
 - The local Python environment does not have `tkinter` installed, so the actual
   window was not launched here.
+- Runner syntax/dry-run checks passed for the Tk smoke flags:
+  `python3 scripts/run_full_test_suite.py --new-venv --python python3.12 --only-tk-smoke --dry-run`
+  and the equivalent shell wrapper.
 
 ## Architecture Decision
 
@@ -62,8 +75,9 @@ page/search rows, inspect raw row details, and hydrate item metadata lazily.
 
 ## Next Step
 
-Move on to cache/read-source mode or perform manual Tk validation on a machine
-with `tkinter` installed before opening the first GUI PR.
+Perform manual Tk validation on a machine with `tkinter` installed before
+opening the first GUI PR. Direct mode should remain the default; the current
+schema-backed cache path is functional but too expensive as a fast-start path.
 
 Use the implementation plan as the detailed checklist. It explicitly routes GUI
 mutations through core command paths, reserves direct DB/read-model access for
