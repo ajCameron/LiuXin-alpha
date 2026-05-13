@@ -7,7 +7,7 @@ while keeping the LiuXin/Calibre compatibility and full W/E/M/I stack visible.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Literal, Protocol, Self, TypeAlias
 
 from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import CalibreMetadataAPI
@@ -42,6 +42,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
 )
 from LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api import (
     LiuXinFieldMapping,
+    LiuXinFieldValue,
     LiuXinMetadataAPI,
 )
 
@@ -98,6 +99,8 @@ WemiRelationEdgeIDMap: TypeAlias = Mapping[
 ]
 WemiMetadataRecordMap: TypeAlias = Mapping[WemiLevel, MetadataRecord]
 OPFMetadataSource: TypeAlias = CalibrePath | bytes
+LazyLegacyTermValue: TypeAlias = str | int | float | bool | None
+LazyLegacyTermMapping: TypeAlias = Mapping[str, LazyLegacyTermValue]
 LiuXinWEMISidecarValue: TypeAlias = (
     str
     | int
@@ -108,6 +111,9 @@ LiuXinWEMISidecarValue: TypeAlias = (
     | WemiMetadataRecordMap
 )
 LiuXinWEMISidecarMapping: TypeAlias = Mapping[str, LiuXinWEMISidecarValue]
+LazyHydratedFieldValue: TypeAlias = LiuXinFieldValue | LazyLegacyTermMapping
+LazyLegacyValueLoaderAPI: TypeAlias = Callable[[], LazyLegacyTermMapping]
+WemiRelationLoaderAPI: TypeAlias = Callable[[], Iterable[WemiRelationLinkAPI]]
 
 
 class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
@@ -614,10 +620,103 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         """
 
 
+class LazyLiuXinWEMIMetadataAPI(LiuXinWEMIMetadataAPI, Protocol):
+    """
+    Structural API for lazy item-centred LiuXin/WEMI metadata slices.
+
+    Lazy slices expose the same complete WEMI metadata surface as the eager
+    object while allowing relation-backed legacy fields to be materialized on
+    first read.
+    """
+
+    def install_lazy_value_to_id(
+        self,
+        field: str,
+        loader: LazyLegacyValueLoaderAPI,
+    ) -> None:
+        """
+        Install a lazy loader for a legacy value-to-id metadata field.
+
+        :param field:
+        :param loader:
+        :return:
+        """
+
+    def install_lazy_relation_loader(
+        self,
+        level: WemiLevel,
+        relation: str,
+        loader: WemiRelationLoaderAPI,
+    ) -> None:
+        """
+        Install a lazy loader for one WEMI relation.
+
+        :param level:
+        :param relation:
+        :param loader:
+        :return:
+        """
+
+    def hydrate_field(self, field: str) -> LazyHydratedFieldValue:
+        """
+        Materialize one lazy legacy field and return its hydrated value.
+
+        :param field:
+        :return:
+        """
+
+    def force_hydrate(
+        self,
+        fields: Iterable[str] | None = None,
+    ) -> Self:
+        """
+        Materialize all lazy fields, or only the supplied fields.
+
+        :param fields:
+        :return:
+        """
+
+    def lazy_fields(self) -> tuple[str, ...]:
+        """
+        Return legacy field names that are still lazy.
+
+        :return:
+        """
+
+    def is_lazy_field_loaded(self, field: str) -> bool:
+        """
+        Return whether one lazy legacy field has been materialized.
+
+        :param field:
+        :return:
+        """
+
+    def lazy_legacy_terms_from_relation(
+        self,
+        *,
+        field: str,
+        relation: str,
+    ) -> LazyLegacyTermMapping:
+        """
+        Build a legacy field mapping from one relation across the WEMI stack.
+
+        :param field:
+        :param relation:
+        :return:
+        """
+
+
 LiuXinWEMIAPI: TypeAlias = LiuXinWEMIMetadataAPI
+LazyLiuXinWEMIAPI: TypeAlias = LazyLiuXinWEMIMetadataAPI
 
 
 __all__ = [
+    "LazyHydratedFieldValue",
+    "LazyLegacyTermMapping",
+    "LazyLegacyTermValue",
+    "LazyLegacyValueLoaderAPI",
+    "LazyLiuXinWEMIAPI",
+    "LazyLiuXinWEMIMetadataAPI",
     "LiuXinWEMIAPI",
     "LiuXinWEMIMetadataAPI",
     "LiuXinWEMISidecarMapping",
@@ -631,6 +730,7 @@ __all__ = [
     "WemiMetadataBundleAPI",
     "WemiMetadataRecordMap",
     "WemiMetadataStack",
+    "WemiRelationLoaderAPI",
     "WemiRelationEdgeIDMap",
     "WemiRelationLinkAPI",
     "WemiRelationTargetAPI",

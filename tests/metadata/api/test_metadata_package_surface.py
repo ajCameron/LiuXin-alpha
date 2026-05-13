@@ -60,6 +60,8 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
                 "LiuXinMetadataAPI",
                 "LiuXinMetadataGetterAPI",
                 "LiuXinMetaInformationAPI",
+                "LazyLiuXinWEMIAPI",
+                "LazyLiuXinWEMIMetadataAPI",
                 "LiuXinWEMIMetadataAPI",
                 "LiuXinWEMIMetadataGetterAPI",
                 "LiuXinWEMIAPI",
