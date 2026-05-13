@@ -46,6 +46,10 @@ Canonical design note:
 - The write bridge expands iterable relation payloads before assigning them to
   metadata containers, because some fields such as `genre` and `series` accept
   scalar entries rather than whole lists.
+- The next slice adds Tk metadata panel edit controls backed by
+  `metadata.write`: users can replace `tags`, `labels`, `genre`, `series`, and
+  `identifiers` for the selected item row, then see a formatted write report in
+  the metadata panel.
 - Non-display backend tests exist in `tests/surfaces/test_tkinter_gui.py`.
 
 ## Validation So Far
@@ -69,6 +73,8 @@ Canonical design note:
 - Core metadata command and Tk backend write checks passed, including direct
   coverage for field-specific replace commands:
   `PYTHONPATH=src python3 -m pytest tests/core/test_core_runtime_metadata_commands.py tests/surfaces/test_tkinter_gui.py tests/metadata/containers/test_metadata_round_trip_examples.py::test_contract_liuxin_metadata_round_trips_editable_metadata_fields -q`.
+- Tk metadata edit parser/report and backend text-edit checks passed as part of
+  `PYTHONPATH=src python3 -m pytest tests/surfaces/test_tkinter_gui.py -q`.
 
 ## Architecture Decision
 
@@ -85,8 +91,8 @@ page/search rows, inspect raw row details, and hydrate item metadata lazily.
 
 ## Next Step
 
-After the core-metadata-write branch, the next useful GUI work is Tk edit forms
-and report rendering for the core-backed metadata commands. Manual Tk
+After the Tk field-replace/report slice, the next GUI work is manual validation
+of the edit controls and then relation add/remove commands. Manual Tk
 validation remains blocked until this environment has `tkinter` installed.
 Direct mode should remain the default; the current schema-backed cache path is
 functional but too expensive as a fast-start path.

@@ -7,6 +7,10 @@ import pytest
 from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadataHydrator
 from LiuXin_alpha.surfaces.tkinter_gui.app import build_arg_parser, config_from_args
 from LiuXin_alpha.surfaces.tkinter_gui.backend import TkGuiBackend
+from LiuXin_alpha.surfaces.tkinter_gui.metadata_editing import (
+    format_metadata_write_result,
+    parse_metadata_edit_payload,
+)
 from LiuXin_alpha.surfaces.tkinter_gui.session import TkGuiSession
 from LiuXin_alpha.surfaces.tkinter_gui.state import TkGuiConfig
 from LiuXin_alpha.surfaces.tkinter_gui.tasks import TkGuiTaskRunner
@@ -146,6 +150,48 @@ def test_tkinter_backend_metadata_message_for_non_item_rows() -> None:
     assert backend.metadata_text_for_row("tags", tag_row) == "No item_id is available for this row."
 
 
+def test_tkinter_metadata_edit_payload_parses_relation_and_identifier_values() -> None:
+    field, values = parse_metadata_edit_payload("genres", "Cyberpunk; Space Opera\nCyberpunk")
+
+    assert field == "genre"
+    assert values == {"genre": ["Cyberpunk", "Space Opera"]}
+
+    field, values = parse_metadata_edit_payload("identifier", "doi=10.5555/gui; isbn:9780000000001")
+
+    assert field == "identifiers"
+    assert values == {
+        "identifiers": {
+            "doi": ["10.5555/gui"],
+            "isbn": ["9780000000001"],
+        }
+    }
+
+
+def test_tkinter_metadata_write_result_formatter_summarizes_report() -> None:
+    rendered = format_metadata_write_result(
+        {
+            "item_id": 1,
+            "kind": "liuxin",
+            "fields": ["tags"],
+            "changed": True,
+            "read_source_refreshed": False,
+            "report": {
+                "rows_added": [{"text": "gui-tag"}],
+                "links_added": [{"field": "tags"}],
+                "links_removed": [],
+                "skipped": ["one skipped row"],
+                "errors": [],
+            },
+        }
+    )
+
+    assert "Metadata write report" in rendered
+    assert "changed: yes" in rendered
+    assert "rows added: 1" in rendered
+    assert "links added: 1" in rendered
+    assert "skipped detail: one skipped row" in rendered
+
+
 def test_tkinter_backend_closes_database() -> None:
     db = _FakeDatabase()
     backend = TkGuiBackend(db)
@@ -271,6 +317,32 @@ def test_tkinter_backend_writes_metadata_through_core_session() -> None:
     rehydrated = LiuXinWEMIMetadataHydrator(db).hydrate_metadata("liuxin", item_id=1)
     assert list(rehydrated.tags.keys()) == ["tk-core-tag"]
     assert "Permutation City" in backend.metadata_text_for_row("items", item_row)
+
+    backend.close()
+
+
+def test_tkinter_backend_replaces_metadata_field_text_through_core_session() -> None:
+    db = _build_metadata_fake_database()
+    session = TkGuiSession.from_database(
+        db,
+        config=TkGuiConfig(database=Path("library.sqlite")),
+    )
+    backend = TkGuiBackend.from_session(session)
+    item_row = db.get_row_from_id("items", 1)
+    assert item_row is not None
+
+    result = backend.replace_metadata_field_for_row(
+        "items",
+        item_row,
+        field="genres",
+        text="Tk Genre; Tk Secondary Genre",
+    )
+
+    assert result["changed"] is True
+    assert result["fields"] == ["genre"]
+    assert "links removed" in backend.metadata_write_result_text(result)
+    rehydrated = LiuXinWEMIMetadataHydrator(db).hydrate_metadata("liuxin", item_id=1)
+    assert list(rehydrated.genre.keys()) == ["Tk Genre", "Tk Secondary Genre"]
 
     backend.close()
 

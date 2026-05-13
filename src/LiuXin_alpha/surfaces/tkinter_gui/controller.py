@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .backend import TkGuiBackend
+from .metadata_editing import METADATA_EDIT_FIELDS
 from .state import RowPage, TableSchema, TkGuiConfig
 from .tasks import TkGuiTaskResult, TkGuiTaskRunner
 from .views import (
@@ -56,6 +57,8 @@ class TkGuiApplication:
         self.search_text_var = tk.StringVar(value="")
         self.read_source_var = tk.StringVar(value=str(config.read_source_mode or "direct"))
         self.cache_type_var = tk.StringVar(value=str(config.cache_type or "schema_backed"))
+        self.metadata_edit_field_var = tk.StringVar(value=METADATA_EDIT_FIELDS[0])
+        self.metadata_edit_value_var = tk.StringVar(value="")
         self._table_summaries = ()
 
         self._build_widgets()
@@ -133,6 +136,9 @@ class TkGuiApplication:
             tk=tk,
             ttk=ttk,
             on_hydrate=self.hydrate_selected_metadata,
+            edit_field_var=self.metadata_edit_field_var,
+            edit_value_var=self.metadata_edit_value_var,
+            on_replace=self.replace_selected_metadata_field,
         )
         detail_pane.add(self.detail_panel.frame, text="Details")
         detail_pane.add(self.metadata_panel.frame, text="Metadata")
@@ -192,11 +198,17 @@ class TkGuiApplication:
             return False
         return self.backend.row_item_id(self.current_page.table, self.current_row) is not None
 
+    def _selected_row_supports_metadata_write(self) -> bool:
+        if not self._selected_row_has_item_id() or self.backend is None:
+            return False
+        return self.backend.supports_metadata_writes()
+
     def _update_control_state(self) -> None:
         opening = self._is_busy("open_database")
         loading_tables = self._is_busy("load_tables")
         loading_rows = self._is_busy("load_rows")
         hydrating = self._is_busy("hydrate_metadata")
+        writing_metadata = self._is_busy("write_metadata")
         refreshing_source = self._is_busy("refresh_read_source")
         has_backend = self.backend is not None
         page = self.current_page
@@ -218,7 +230,13 @@ class TkGuiApplication:
             has_next=bool(page.has_next) if page is not None else False,
         )
         self.metadata_panel.set_hydrate_enabled(
-            page_ready and self._selected_row_has_item_id() and not hydrating
+            page_ready and self._selected_row_has_item_id() and not hydrating and not writing_metadata
+        )
+        self.metadata_panel.set_edit_enabled(
+            page_ready
+            and self._selected_row_supports_metadata_write()
+            and not hydrating
+            and not writing_metadata
         )
 
     @staticmethod
@@ -530,6 +548,50 @@ class TkGuiApplication:
             on_success=_metadata_loaded,
             on_error=lambda result: self._show_task_error("Hydrate metadata", result),
             on_done=lambda _result: self._set_busy("hydrate_metadata", False),
+        )
+
+    def replace_selected_metadata_field(self) -> None:
+        if self.current_page is None or self.current_row is None or self.backend is None:
+            return
+        if not self._selected_row_supports_metadata_write():
+            return
+        self._set_busy("write_metadata", True)
+        self._metadata_generation += 1
+        token = self._metadata_generation
+        backend = self.backend
+        page = self.current_page
+        row = self.current_row
+        field = self.metadata_edit_field_var.get()
+        text = self.metadata_edit_value_var.get()
+        self.status_var.set(self._status_with_core("Writing metadata..."))
+        update_idletasks = getattr(self.root, "update_idletasks", None)
+        if callable(update_idletasks):
+            update_idletasks()
+
+        def _metadata_written(result: TkGuiTaskResult) -> None:
+            if (
+                token != self._metadata_generation
+                or backend is not self.backend
+                or page is not self.current_page
+                or row is not self.current_row
+                or self._closing
+            ):
+                return
+            result_text = backend.metadata_write_result_text(result.result)
+            self.metadata_panel.set_text(result_text)
+            changed = bool((result.result or {}).get("changed"))
+            self.status_var.set(self._status_with_core("Metadata written" if changed else "Metadata unchanged"))
+
+        self.task_runner.submit(
+            "write_metadata",
+            backend.replace_metadata_field_for_row,
+            page.table,
+            row,
+            field=field,
+            text=text,
+            on_success=_metadata_written,
+            on_error=lambda result: self._show_task_error("Write metadata", result),
+            on_done=lambda _result: self._set_busy("write_metadata", False),
         )
 
     def close(self) -> None:

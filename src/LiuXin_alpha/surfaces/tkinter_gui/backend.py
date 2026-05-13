@@ -6,6 +6,7 @@ import itertools
 
 from typing import Any, Mapping, TYPE_CHECKING
 
+from .metadata_editing import format_metadata_write_result, parse_metadata_edit_payload
 from .state import RowPage, TableSchema, TableSummary, TkGuiConfig, coerce_positive_int
 
 if TYPE_CHECKING:
@@ -73,6 +74,9 @@ class TkGuiBackend:
         if self.session is None:
             return "source direct"
         return self.session.read_source_status_text()
+
+    def supports_metadata_writes(self) -> bool:
+        return self.session is not None
 
     def refresh_read_source(self) -> bool:
         if self.session is None:
@@ -296,6 +300,28 @@ class TkGuiBackend:
         self._tables_and_columns = None
         self._hydrator = None
         return result
+
+    def replace_metadata_field_for_row(
+        self,
+        table: str,
+        row: object,
+        *,
+        field: str,
+        text: str,
+        kind: str = "liuxin",
+    ) -> dict[str, Any]:
+        field_name, values = parse_metadata_edit_payload(field, text)
+        return self.write_metadata_for_row(
+            table,
+            row,
+            values=values,
+            fields=(field_name,),
+            kind=kind,
+            replace=True,
+        )
+
+    def metadata_write_result_text(self, result: Mapping[str, Any] | None) -> str:
+        return format_metadata_write_result(result)
 
     def replace_tags_for_row(self, table: str, row: object, tags: list[str] | tuple[str, ...]) -> dict[str, Any]:
         return self.write_metadata_for_row(

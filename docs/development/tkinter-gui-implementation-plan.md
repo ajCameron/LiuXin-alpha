@@ -219,7 +219,8 @@ lighter immutable read snapshot exists.
 
 ## Phase 6: Core-Backed Metadata Writes
 
-Status: non-visual core/session/backend write path implemented.
+Status: core/session/backend write path implemented, with first Tk field
+replace controls and report rendering wired to core commands.
 
 Do not add GUI metadata editing by mutating rows directly.
 
@@ -246,10 +247,14 @@ Implemented so far:
 - `metadata.identifiers.replace`
 - Tk session/backend adapters that execute the core command, clear stale
   hydrator state, and refresh the selected read source best-effort.
+- Tk metadata panel controls for replacing `tags`, `labels`, `genre`,
+  `series`, and `identifiers` on the selected item row.
+- Tk write-report formatting for rows/links changed, skipped entries, errors,
+  and read-source refresh status.
 
 Still pending:
 
-- Tk edit forms and report display
+- Manual Tk validation of the edit controls on a machine with `tkinter`
 - relation add/remove commands
 - OPF import command
 
