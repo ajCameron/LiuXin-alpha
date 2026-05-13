@@ -17,9 +17,12 @@ def test_metadata_top_level_exports_workflow_facade_without_leaf_containers() ->
     expected = {
         "LiuXinWEMIMetadata",
         "LazyLiuXinWEMIMetadata",
+        "DatabaseMetadataReadSource",
+        "CacheMetadataReadSource",
         "metadata_from_database",
         "lazy_metadata_from_database",
         "cache_metadata_from_database",
+        "metadata_read_source_from",
         "metadata_from_opf",
         "metadata_to_opf_bytes",
         "metadata_to_opf_file",

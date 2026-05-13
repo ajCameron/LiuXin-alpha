@@ -26,7 +26,12 @@ from LiuXin_alpha.metadata.api.from_database_api.metadata_hydrator_api import (
 )
 from LiuXin_alpha.metadata.api.from_database_api.metadata_read_source_api import (
     MetadataDriverWrapperAPI,
+    MetadataLinkRow,
+    MetadataLinkRowSequence,
+    MetadataRowSequence,
     MetadataReadSourceAPI,
+    MetadataSearchTerm,
+    MetadataTableColumns,
 )
 
 if TYPE_CHECKING:
@@ -61,8 +66,13 @@ __all__ = [
     "LiuXinWEMIMetadataGetterAPI",
     "ManifestationMetadataGetterAPI",
     "MetadataDriverWrapperAPI",
+    "MetadataLinkRow",
+    "MetadataLinkRowSequence",
     "MetadataHydratorAPI",
     "MetadataObjectGetterAPI",
+    "MetadataRowSequence",
     "MetadataReadSourceAPI",
+    "MetadataSearchTerm",
+    "MetadataTableColumns",
     "WorkMetadataGetterAPI",
 ]

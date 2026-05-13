@@ -30,6 +30,14 @@ class SupportsRowMapping(Protocol):
     """Structural contract for database-row objects exposed by hydrators."""
 
     @property
+    def table(self) -> str:
+        """Return the source table name for this row."""
+
+    @property
+    def row_id(self) -> int | None:
+        """Return the row id when the row has one."""
+
+    @property
     def row_dict(self) -> MetadataRecord:
         """Return the row payload as a metadata record."""
 
