@@ -8,9 +8,12 @@ while keeping the LiuXin/Calibre compatibility and full W/E/M/I stack visible.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Literal, Protocol, Self, TypeAlias
+from typing import TYPE_CHECKING, Literal, Protocol, Self, TypeAlias
 
 from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import CalibreMetadataAPI
+from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api.calibre_metadata_types import (
+    CalibrePath,
+)
 from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
     MetadataWriteDatabaseAPI,
     MetadataWriteReportAPI,
@@ -35,11 +38,17 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     WorkMetadataAPI,
     WorkRelationLink,
     WorkRelationTarget,
+    SupportsRowMapping,
 )
 from LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api import (
     LiuXinFieldMapping,
     LiuXinMetadataAPI,
 )
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.metadata.api.from_database_api.metadata_read_source_api import (
+        MetadataReadSourceAPI,
+    )
 
 
 WemiLevel: TypeAlias = Literal["work", "expression", "manifestation", "item"]
@@ -88,6 +97,7 @@ WemiRelationEdgeIDMap: TypeAlias = Mapping[
     Mapping[str, tuple[RelationEdgeID, ...]],
 ]
 WemiMetadataRecordMap: TypeAlias = Mapping[WemiLevel, MetadataRecord]
+OPFMetadataSource: TypeAlias = CalibrePath | bytes
 LiuXinWEMISidecarValue: TypeAlias = (
     str
     | int
@@ -282,6 +292,34 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         :return:
         """
 
+    def sync_legacy_genres_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy genre values from WEMI genre relation targets.
+
+        :return:
+        """
+
+    def sync_legacy_subjects_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy subject values from WEMI subject relation targets.
+
+        :return:
+        """
+
+    def sync_legacy_series_from_wemi(self) -> tuple[str, ...]:
+        """
+        Populate legacy series values from WEMI series relation targets.
+
+        :return:
+        """
+
+    def sync_legacy_identifiers_from_wemi(self) -> tuple[tuple[str, str], ...]:
+        """
+        Populate legacy external identifiers from WEMI identifier relation targets.
+
+        :return:
+        """
+
     @classmethod
     def from_mapping(cls, payload: Mapping[str, LiuXinWEMISidecarValue]) -> Self:
         """
@@ -300,6 +338,44 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         Build a metadata slice from a sidecar mapping.
 
         :param payload:
+        :return:
+        """
+
+    @classmethod
+    def from_database(
+        cls,
+        database: MetadataReadSourceAPI,
+        *,
+        item_id: int | None = None,
+        source_row: MetadataRecord | SupportsRowMapping | None = None,
+    ) -> Self:
+        """
+        Build a complete item metadata slice from a database/read source.
+
+        :param database:
+        :param item_id:
+        :param source_row:
+        :return:
+        """
+
+    @classmethod
+    def from_opf(
+        cls,
+        source: OPFMetadataSource,
+        *,
+        database: MetadataReadSourceAPI | None = None,
+        item_id: int | None = None,
+        source_row: MetadataRecord | SupportsRowMapping | None = None,
+        replace_metadata: bool = False,
+    ) -> Self:
+        """
+        Build a complete item metadata slice from OPF metadata.
+
+        :param source:
+        :param database:
+        :param item_id:
+        :param source_row:
+        :param replace_metadata:
         :return:
         """
 
@@ -546,6 +622,7 @@ __all__ = [
     "LiuXinWEMIMetadataAPI",
     "LiuXinWEMISidecarMapping",
     "LiuXinWEMISidecarValue",
+    "OPFMetadataSource",
     "WemiDatabaseIDName",
     "WemiIdentityAPI",
     "WemiIdentityIDMap",
