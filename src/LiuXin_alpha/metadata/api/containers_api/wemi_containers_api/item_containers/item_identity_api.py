@@ -27,43 +27,84 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
 
     @property
     def id(self) -> Optional[int]:
+        """
+        ID for the identity entry.
+
+        :return:
+        """
         return self.item_id
 
     @id.setter
     def id(self, value: Optional[int]) -> None:
+        """
+        Set the ID for this identity.
+
+        :param value:
+        :return:
+        """
         self.item_id = value
 
     @property
     @abc.abstractmethod
     def item_id(self) -> Optional[int]:
-        ...
+        """
+        Alias for the ID for this identifier.
+
+        :return:
+        """
 
     @item_id.setter
     @abc.abstractmethod
     def item_id(self, item_id: Optional[int]) -> None:
-        ...
+        """
+        Alias to set the id for this identiifer.
+
+        :param item_id:
+        :return:
+        """
 
     # ------------------------------------------------------------------
     # Parent manifestation
     # ------------------------------------------------------------------
 
+    # Todo: An item can belong to multiple manifestations?
     @property
     def manifestation_id(self) -> Optional[int]:
+        """
+        The ID of the primary manifestation linked to this item - if any.
+
+        :return:
+        """
         return self.item_manifestation_id
 
     @manifestation_id.setter
     def manifestation_id(self, value: Optional[int]) -> None:
+        """
+        Set the primary manifestation ID for this item.
+
+        :param value:
+        :return:
+        """
         self.item_manifestation_id = value
 
     @property
     @abc.abstractmethod
     def item_manifestation_id(self) -> Optional[int]:
-        ...
+        """
+        Primary Manifestation ID for this item.
+
+        :return:
+        """
 
     @item_manifestation_id.setter
     @abc.abstractmethod
     def item_manifestation_id(self, item_manifestation_id: Optional[int]) -> None:
-        ...
+        """
+        Set the Primary Manifestation ID for this item.
+
+        :param item_manifestation_id:
+        :return:
+        """
 
     # ------------------------------------------------------------------
     # Core item identity / handling
@@ -71,46 +112,99 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
 
     @property
     def flags(self) -> Optional[str]:
+        """
+        Get the flags for the item.
+
+        :return:
+        """
         return self.item_flags
 
     @flags.setter
     def flags(self, value: Optional[str]) -> None:
+        """
+        Set the flags for this item.
+
+        :param value:
+        :return:
+        """
         self.item_flags = value
 
     @property
     @abc.abstractmethod
     def item_flags(self) -> Optional[str]:
-        ...
+        """
+        Set flags for the itme.
+
+        :return:
+        """
 
     @item_flags.setter
     @abc.abstractmethod
     def item_flags(self, item_flags: Optional[str]) -> None:
-        ...
+        """
+        Front end to the item flags property.
+
+        :param item_flags:
+        :return:
+        """
 
     @property
     def type(self) -> Optional[str]:
+        """
+        Get the type of the item.
+
+        :return:
+        """
         return self.item_type
 
     @type.setter
     def type(self, value: Optional[str]) -> None:
+        """
+        Set the type for this item.
+
+        :param value:
+        :return:
+        """
         self.item_type = value
 
     @property
     @abc.abstractmethod
     def item_type(self) -> Optional[str]:
-        ...
+        """
+        Front end for the type property.
+
+        :return:
+        """
 
     @item_type.setter
     @abc.abstractmethod
     def item_type(self, item_type: Optional[str]) -> None:
-        ...
+        """
+        Set the type for this item.
+
+        :param item_type:
+        :return:
+        """
 
     @property
     def location(self) -> Optional[str]:
+        """
+        Return the canonical location of the item.
+
+        An item is close to actual files, and should always have at least one file.
+        :return:
+        """
         return self.item_location
 
     @location.setter
     def location(self, value: Optional[str]) -> None:
+        """
+        Set the location of the item.
+
+        Each item should have at least one file.
+        :param value:
+        :return:
+        """
         self.item_location = value
 
     @property

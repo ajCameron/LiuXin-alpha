@@ -173,7 +173,9 @@ class GenreTreeRelationsContainerAPI(
     SelfRelationsContainerAPI[GenreTreeRelationAPI],
     Protocol,
 ):
-    pass
+    """
+    Represents a tree container in the genre metadata.
+    """
 
 
 @runtime_checkable
@@ -181,7 +183,9 @@ class SubjectTreeRelationsContainerAPI(
     SelfRelationsContainerAPI[SubjectTreeRelationAPI],
     Protocol,
 ):
-    pass
+    """
+    Represents a tree container in the subject metadata.
+    """
 
 
 @runtime_checkable
@@ -189,6 +193,9 @@ class SeriesTreeRelationsContainerAPI(
     SelfRelationsContainerAPI[SeriesTreeRelationAPI],
     Protocol,
 ):
+    """
+    Represents a tree container in the series metadata.
+    """
     pass
 
 

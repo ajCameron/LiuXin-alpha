@@ -1,8 +1,8 @@
 """Intrinsic profile API contract for canonical agents.
 
 Category: agent-profile exception.
-This module defines metadata about the agent itself. It is deliberately not a
-WEMI `XMetadataAPI` object and not a graph-spanning participation view.
+This module defines metadata about the agent itself.
+It is deliberately not a WEMI `XMetadataAPI` object and not a graph-spanning participation view.
 """
 from __future__ import annotations
 
@@ -17,14 +17,15 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_targe
 from LiuXin_alpha.metadata.metadata_types import AgentID
 
 
+# Todo: HumanAgentProfile and OrganisationAgentProfile
+
 class AgentProfileAPI(abc.ABC):
     """
     Intrinsic metadata bundle for an agent.
 
     This is deliberately *not* the same kind of object as a WEMI `XMetadataAPI`.
-    It represents metadata about the agent itself rather than a metadata bundle
-    around a WEMI node. Graph-spanning query results belong in dedicated read-side
-    snapshot/view containers.
+    It represents metadata about the agent itself rather than a metadata bundle around a WEMI node.
+    Graph-spanning query results belong in dedicated read-side snapshot/view containers.
     """
 
     @property
