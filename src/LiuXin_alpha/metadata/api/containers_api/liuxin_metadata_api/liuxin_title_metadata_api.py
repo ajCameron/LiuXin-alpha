@@ -24,28 +24,48 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol, Sequence, Mapping, Self, Iterable
 
-from LiuXin_alpha.metadata.api import (
+from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api import (
+    CalibreCloseableAPI,
+    CalibreFilePayload,
+    CalibreIdentifierMapping,
+    CalibreIdentifierSnapshot,
+    CalibreIdentifierValue,
+    CalibreMetadataAPI,
+    CalibreMetadataInputAPI,
+    CalibrePath,
+    CalibreUserMetadata,
+)
+from LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api.liuxin_metadata_types import (
     LiuXinValueToID,
     LiuXinCreatorMapping,
-    CalibreIdentifierSnapshot,
     LiuXinPayloadToID,
     LiuXinFieldValue,
-    CalibrePath,
     LiuXinRatingMapping,
-    CalibreUserMetadata,
-    CalibreMetadataInputAPI,
-    MetadataWriteDatabaseAPI,
-    MetadataWriteTargetRow,
-    MetadataWriteReportAPI,
-    CalibreIdentifierMapping,
-    CalibreIdentifierValue,
     LiuXinCreatorDump,
-    CalibreFilePayload,
     LiuXinFieldKeys,
     LiuXinFieldMapping,
-    LiuXinTitleRowAPI,
-    CalibreMetadataAPI,
-    CalibreCloseableAPI)
+)
+from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
+    MetadataWriteDatabaseAPI,
+    MetadataWriteReportAPI,
+    MetadataWriteTargetRow,
+)
+
+
+class LiuXinMetadataDatabaseAPI(Protocol):
+    """Database methods used by legacy ``MetaData.from_title_row``."""
+
+    def get_categorized_tables(self) -> Mapping[str, Sequence[str]]: ...
+
+    def get_display_column(self, table: str) -> str: ...
+
+
+class LiuXinTitleRowAPI(Protocol):
+    """Database row shape accepted by legacy ``MetaData.from_title_row``."""
+
+    db: LiuXinMetadataDatabaseAPI
+
+    def __getitem__(self, item: str) -> LiuXinFieldValue: ...
 
 
 class LiuXinMetadataAPI(Protocol):

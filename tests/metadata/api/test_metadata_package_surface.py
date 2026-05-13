@@ -219,7 +219,7 @@ def test_metadata_api_root_combines_current_public_api_roots() -> None:
         "LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api"
     )
     liuxin_wemi_api_root = importlib.import_module(
-        "LiuXin_alpha.metadata.api.containers_api.liuxin_wemi_metadata_api"
+        "LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api.liuxin_wemi_metadata_api"
     )
     from_database_api_root = importlib.import_module(
         "LiuXin_alpha.metadata.api.from_database_api"

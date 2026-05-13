@@ -3,12 +3,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TypeAlias, Sequence, Mapping, AbstractSet
 
-from LiuXin_alpha.metadata.api import CalibreFilePayload, CalibreIdentifierSnapshot, CalibreUserMetadata
+from LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api.calibre_metadata_types import (
+    CalibreFilePayload,
+    CalibreIdentifierSnapshot,
+    CalibreUserMetadata,
+)
 
 LiuXinRowID: TypeAlias = int | None
 LiuXinScalar: TypeAlias = str | int | float | bool | bytes | datetime | None
 LiuXinScalarSequence: TypeAlias = Sequence[LiuXinScalar]
-LiuXinStringSet: TypeAlias = set[str] | frozenset[str]
+LiuXinStringSet: TypeAlias = AbstractSet[str]
 LiuXinValueToID: TypeAlias = Mapping[str, LiuXinRowID]
 LiuXinPayloadKey: TypeAlias = tuple[str, CalibreFilePayload]
 LiuXinPayloadToID: TypeAlias = Mapping[LiuXinPayloadKey, LiuXinRowID]
@@ -27,4 +31,4 @@ LiuXinFieldValue: TypeAlias = (
     | CalibreUserMetadata
 )
 LiuXinFieldMapping: TypeAlias = Mapping[str, LiuXinFieldValue]
-LiuXinFieldKeys: TypeAlias = Set[str]
+LiuXinFieldKeys: TypeAlias = AbstractSet[str]
