@@ -245,6 +245,18 @@ def test_metadata_api_root_combines_current_public_api_roots() -> None:
     ]
 
 
+def test_stale_metadata_from_database_namespace_is_removed() -> None:
+    stale_package = (
+        REPO_ROOT
+        / "src"
+        / "LiuXin_alpha"
+        / "metadata"
+        / "from_database"
+        / "__init__.py"
+    )
+    assert not stale_package.exists()
+
+
 def test_metadata_container_root_matches_metadata_containers_root() -> None:
     container_root = importlib.import_module("LiuXin_alpha.metadata.containers")
     metadata_containers_root = importlib.import_module(
