@@ -270,5 +270,41 @@ class TkGuiBackend:
         except Exception as exc:
             return f"Could not hydrate metadata for item_id {item_id}: {exc}"
 
+    def write_metadata_for_row(
+        self,
+        table: str,
+        row: object,
+        *,
+        values: Mapping[str, Any],
+        fields: tuple[str, ...] | list[str] | None = None,
+        kind: str = "liuxin",
+        replace: bool = True,
+    ) -> dict[str, Any]:
+        if self.session is None:
+            raise RuntimeError("Tk GUI metadata writes require a core-backed session.")
+        item_id = self.row_item_id(table, row)
+        if item_id is None:
+            raise ValueError("No item_id is available for this row.")
+        result = self.session.write_metadata_values(
+            item_id=item_id,
+            values=dict(values),
+            fields=fields,
+            kind=kind,
+            replace=replace,
+        )
+        self.db = self.session.read_source or self.session.database
+        self._tables_and_columns = None
+        self._hydrator = None
+        return result
+
+    def replace_tags_for_row(self, table: str, row: object, tags: list[str] | tuple[str, ...]) -> dict[str, Any]:
+        return self.write_metadata_for_row(
+            table,
+            row,
+            values={"tags": list(tags)},
+            fields=("tags",),
+            replace=True,
+        )
+
 
 __all__ = ["TkGuiBackend"]

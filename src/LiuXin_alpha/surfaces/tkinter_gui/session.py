@@ -283,6 +283,28 @@ class TkGuiSession:
 
         return refresh_metadata_read_source_after_write(self)
 
+    def write_metadata_values(
+        self,
+        *,
+        item_id: int,
+        values: Mapping[str, Any],
+        fields: tuple[str, ...] | list[str] | None = None,
+        kind: str = "liuxin",
+        replace: bool = True,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "item_id": int(item_id),
+            "values": dict(values),
+            "kind": str(kind),
+            "replace": bool(replace),
+        }
+        if fields is not None:
+            payload["fields"] = tuple(str(field) for field in fields)
+        result = self.execute_command("metadata.write", payload)
+        out = dict(result or {})
+        out["read_source_refreshed"] = self.refresh_read_source()
+        return out
+
     def _close_storage_cache(self) -> None:
         close_cache = getattr(self.storage_cache, "close", None)
         if callable(close_cache):

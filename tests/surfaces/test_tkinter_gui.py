@@ -4,11 +4,15 @@ from pathlib import Path
 
 import pytest
 
+from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadataHydrator
 from LiuXin_alpha.surfaces.tkinter_gui.app import build_arg_parser, config_from_args
 from LiuXin_alpha.surfaces.tkinter_gui.backend import TkGuiBackend
 from LiuXin_alpha.surfaces.tkinter_gui.session import TkGuiSession
 from LiuXin_alpha.surfaces.tkinter_gui.state import TkGuiConfig
 from LiuXin_alpha.surfaces.tkinter_gui.tasks import TkGuiTaskRunner
+from tests.metadata.containers.test_item_metadata_hydrator import (
+    _build_fake_database as _build_metadata_fake_database,
+)
 
 
 class _FakeDriverWrapper:
@@ -247,6 +251,28 @@ def test_tkinter_backend_can_wrap_core_session() -> None:
 
     assert session.closed is True
     assert db.closed is True
+
+
+def test_tkinter_backend_writes_metadata_through_core_session() -> None:
+    db = _build_metadata_fake_database()
+    session = TkGuiSession.from_database(
+        db,
+        config=TkGuiConfig(database=Path("library.sqlite")),
+    )
+    backend = TkGuiBackend.from_session(session)
+    item_row = db.get_row_from_id("items", 1)
+    assert item_row is not None
+
+    result = backend.replace_tags_for_row("items", item_row, ["tk-core-tag"])
+
+    assert result["changed"] is True
+    assert result["report"]["links_removed"]
+    assert result["read_source_refreshed"] is False
+    rehydrated = LiuXinWEMIMetadataHydrator(db).hydrate_metadata("liuxin", item_id=1)
+    assert list(rehydrated.tags.keys()) == ["tk-core-tag"]
+    assert "Permutation City" in backend.metadata_text_for_row("items", item_row)
+
+    backend.close()
 
 
 def test_tkinter_task_runner_delivers_success_and_done_callbacks() -> None:

@@ -219,6 +219,8 @@ lighter immutable read snapshot exists.
 
 ## Phase 6: Core-Backed Metadata Writes
 
+Status: non-visual core/session/backend write path implemented.
+
 Do not add GUI metadata editing by mutating rows directly.
 
 First add explicit core command handlers for metadata operations, then wire the
@@ -229,8 +231,27 @@ GUI to those commands. Candidate command names:
 - `metadata.relation.remove`
 - `metadata.tags.replace`
 - `metadata.labels.replace`
+- `metadata.genre.replace`
+- `metadata.series.replace`
 - `metadata.identifiers.replace`
 - `metadata.opf.import`
+
+Implemented so far:
+
+- `metadata.write`
+- `metadata.tags.replace`
+- `metadata.labels.replace`
+- `metadata.genre.replace`
+- `metadata.series.replace`
+- `metadata.identifiers.replace`
+- Tk session/backend adapters that execute the core command, clear stale
+  hydrator state, and refresh the selected read source best-effort.
+
+Still pending:
+
+- Tk edit forms and report display
+- relation add/remove commands
+- OPF import command
 
 These commands should call the existing metadata writer/report APIs and return
 structured write reports. The GUI should display:

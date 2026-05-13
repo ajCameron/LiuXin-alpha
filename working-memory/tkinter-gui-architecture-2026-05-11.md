@@ -39,6 +39,13 @@ Canonical design note:
 - The full-suite runners now have opt-in Tk smoke flags. Use
   `--only-tk-smoke` to create/use the repo venv and run just the real Tk smoke;
   use `--tk-smoke` to append it after the normal full suite.
+- The follow-on `tkinter-gui-core-metadata-writes` branch adds the first
+  non-visual metadata write path: core commands for `metadata.write` and
+  field-specific replace operations, plus Tk session/backend adapters that run
+  writes through core and refresh the selected read source.
+- The write bridge expands iterable relation payloads before assigning them to
+  metadata containers, because some fields such as `genre` and `series` accept
+  scalar entries rather than whole lists.
 - Non-display backend tests exist in `tests/surfaces/test_tkinter_gui.py`.
 
 ## Validation So Far
@@ -59,6 +66,9 @@ Canonical design note:
 - Runner syntax/dry-run checks passed for the Tk smoke flags:
   `python3 scripts/run_full_test_suite.py --new-venv --python python3.12 --only-tk-smoke --dry-run`
   and the equivalent shell wrapper.
+- Core metadata command and Tk backend write checks passed, including direct
+  coverage for field-specific replace commands:
+  `PYTHONPATH=src python3 -m pytest tests/core/test_core_runtime_metadata_commands.py tests/surfaces/test_tkinter_gui.py tests/metadata/containers/test_metadata_round_trip_examples.py::test_contract_liuxin_metadata_round_trips_editable_metadata_fields -q`.
 
 ## Architecture Decision
 
@@ -75,9 +85,11 @@ page/search rows, inspect raw row details, and hydrate item metadata lazily.
 
 ## Next Step
 
-Perform manual Tk validation on a machine with `tkinter` installed before
-opening the first GUI PR. Direct mode should remain the default; the current
-schema-backed cache path is functional but too expensive as a fast-start path.
+After the core-metadata-write branch, the next useful GUI work is Tk edit forms
+and report rendering for the core-backed metadata commands. Manual Tk
+validation remains blocked until this environment has `tkinter` installed.
+Direct mode should remain the default; the current schema-backed cache path is
+functional but too expensive as a fast-start path.
 
 Use the implementation plan as the detailed checklist. It explicitly routes GUI
 mutations through core command paths, reserves direct DB/read-model access for
