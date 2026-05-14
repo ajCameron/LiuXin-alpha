@@ -38,6 +38,7 @@ from LiuXin_alpha.metadata.api.containers_api.main_table_containers_api import (
 from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
     MetadataWriteDatabaseAPI,
     MetadataWriteRecord,
+    MetadataWriteReportMapping,
     MetadataWriteReportAPI,
     MetadataWriteScalar,
     MetadataWriteTargetRow,
@@ -128,6 +129,7 @@ __all__ = [
     "MetadataValue",
     "MetadataWriteDatabaseAPI",
     "MetadataWriteRecord",
+    "MetadataWriteReportMapping",
     "MetadataWriteReportAPI",
     "MetadataWriteScalar",
     "MetadataWriteTargetRow",

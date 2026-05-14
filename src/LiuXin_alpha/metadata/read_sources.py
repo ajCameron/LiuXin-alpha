@@ -6,6 +6,13 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.metadata.api.from_database_api.metadata_read_source_api import (
+    MetadataLinkRowSequence,
+    MetadataReadSourceAPI,
+    MetadataRowSequence,
+    MetadataSearchTerm,
+    MetadataTableColumns,
+)
 
 
 class DatabaseMetadataReadSource:
@@ -20,7 +27,7 @@ class DatabaseMetadataReadSource:
     def get_tables(self, force_refresh: bool = False) -> Sequence[str]:
         return self.database.get_tables(force_refresh=force_refresh)
 
-    def get_tables_and_columns(self) -> Mapping[str, Sequence[str]]:
+    def get_tables_and_columns(self) -> MetadataTableColumns:
         return self.database.get_tables_and_columns()
 
     def get_column_headings(self, table: str) -> set[str]:
@@ -29,7 +36,11 @@ class DatabaseMetadataReadSource:
     def get_row_from_id(self, table: str, row_id: int) -> Row | None:
         return self.database.get_row_from_id(table, row_id)
 
-    def get_all_rows(self, table: str, iterator_return: bool = False) -> Sequence[Row]:
+    def get_all_rows(
+        self,
+        table: str,
+        iterator_return: bool = False,
+    ) -> MetadataRowSequence:
         return self.database.get_all_rows(
             table,
             iterator_return=iterator_return,
@@ -38,10 +49,19 @@ class DatabaseMetadataReadSource:
     def get_record_count(self, table: str) -> int:
         return int(self.database.get_record_count(table))
 
-    def search(self, table: str, column: str, search_term: Any) -> Sequence[Row]:
+    def search(
+        self,
+        table: str,
+        column: str,
+        search_term: MetadataSearchTerm,
+    ) -> MetadataRowSequence:
         return self.database.search(table, column, search_term)
 
-    def get_interlink_rows(self, primary_row: Row, secondary_table: str) -> Sequence[Any]:
+    def get_interlink_rows(
+        self,
+        primary_row: Row,
+        secondary_table: str,
+    ) -> MetadataLinkRowSequence:
         return self.database.get_interlink_rows(
             primary_row=primary_row,
             secondary_table=secondary_table,
@@ -52,7 +72,7 @@ class DatabaseMetadataReadSource:
         target_row: Row,
         secondary_table: str,
         type_filter: str | None = None,
-    ) -> Sequence[Row]:
+    ) -> MetadataRowSequence:
         return self.database.get_interlinked_rows(
             target_row=target_row,
             secondary_table=secondary_table,
@@ -115,7 +135,7 @@ class CacheMetadataReadSource:
                 pass
         return tuple(sorted(str(name) for name in names))
 
-    def get_tables_and_columns(self) -> Mapping[str, Sequence[str]]:
+    def get_tables_and_columns(self) -> MetadataTableColumns:
         out: dict[str, Sequence[str]] = {}
         for table_name, table_cache in getattr(self.cache, "main_tables", {}).items():
             headings = getattr(table_cache, "column_headings", None)
@@ -157,7 +177,11 @@ class CacheMetadataReadSource:
             return self.database.get_row_from_id(table, row_id)
         return None
 
-    def get_all_rows(self, table: str, iterator_return: bool = False) -> Sequence[Row]:
+    def get_all_rows(
+        self,
+        table: str,
+        iterator_return: bool = False,
+    ) -> MetadataRowSequence:
         del iterator_return
         table_cache = self._get_main_table(table)
         if table_cache is not None:
@@ -182,7 +206,12 @@ class CacheMetadataReadSource:
             return int(self.database.get_record_count(table))
         return 0
 
-    def search(self, table: str, column: str, search_term: Any) -> Sequence[Row]:
+    def search(
+        self,
+        table: str,
+        column: str,
+        search_term: MetadataSearchTerm,
+    ) -> MetadataRowSequence:
         table_cache = self._get_main_table(table)
         if table_cache is not None:
             ids: set[int] | None = None
@@ -202,7 +231,11 @@ class CacheMetadataReadSource:
             return self.database.search(table, column, search_term)
         return ()
 
-    def get_interlink_rows(self, primary_row: Row, secondary_table: str) -> Sequence[Row]:
+    def get_interlink_rows(
+        self,
+        primary_row: Row,
+        secondary_table: str,
+    ) -> MetadataLinkRowSequence:
         primary_table = str(primary_row.table)
         primary_id = primary_row.row_id
         if primary_id is None:
@@ -263,7 +296,7 @@ class CacheMetadataReadSource:
         target_row: Row,
         secondary_table: str,
         type_filter: str | None = None,
-    ) -> Sequence[Row]:
+    ) -> MetadataRowSequence:
         try:
             link_rows = list(
                 self.get_interlink_rows(
@@ -375,7 +408,7 @@ def _mapping_value(row: Any, column: str) -> Any:
         return getattr(row, column, None)
 
 
-def metadata_read_source_from(source: Any) -> Any:
+def metadata_read_source_from(source: Any) -> MetadataReadSourceAPI:
     """Return a metadata read source for a database, cache, or existing source."""
     if isinstance(source, (DatabaseMetadataReadSource, CacheMetadataReadSource)):
         return source

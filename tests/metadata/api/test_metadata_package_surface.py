@@ -60,13 +60,20 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
                 "LiuXinMetadataAPI",
                 "LiuXinMetadataGetterAPI",
                 "LiuXinMetaInformationAPI",
+                "LazyLiuXinWEMIAPI",
+                "LazyLiuXinWEMIMetadataAPI",
                 "LiuXinWEMIMetadataAPI",
                 "LiuXinWEMIMetadataGetterAPI",
                 "LiuXinWEMIAPI",
                 "MetadataDriverWrapperAPI",
                 "MetadataHydratorAPI",
+                "MetadataLinkRow",
+                "MetadataLinkRowSequence",
                 "MetadataObjectGetterAPI",
+                "MetadataRowSequence",
                 "MetadataReadSourceAPI",
+                "MetadataSearchTerm",
+                "MetadataTableColumns",
                 "WorkMetadataGetterAPI",
                 "ExpressionMetadataGetterAPI",
                 "ManifestationMetadataGetterAPI",
@@ -195,8 +202,13 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
                 "LiuXinWEMIMetadataGetterAPI",
                 "MetadataDriverWrapperAPI",
                 "MetadataHydratorAPI",
+                "MetadataLinkRow",
+                "MetadataLinkRowSequence",
                 "MetadataObjectGetterAPI",
+                "MetadataRowSequence",
                 "MetadataReadSourceAPI",
+                "MetadataSearchTerm",
+                "MetadataTableColumns",
             ],
         ),
     ],
@@ -219,7 +231,7 @@ def test_metadata_api_root_combines_current_public_api_roots() -> None:
         "LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api"
     )
     liuxin_wemi_api_root = importlib.import_module(
-        "LiuXin_alpha.metadata.api.containers_api.liuxin_wemi_metadata_api"
+        "LiuXin_alpha.metadata.api.containers_api.liuxin_metadata_api.liuxin_wemi_metadata_api"
     )
     from_database_api_root = importlib.import_module(
         "LiuXin_alpha.metadata.api.from_database_api"
@@ -231,6 +243,18 @@ def test_metadata_api_root_combines_current_public_api_roots() -> None:
         *liuxin_api_root.__all__,
         *liuxin_wemi_api_root.__all__,
     ]
+
+
+def test_stale_metadata_from_database_namespace_is_removed() -> None:
+    stale_package = (
+        REPO_ROOT
+        / "src"
+        / "LiuXin_alpha"
+        / "metadata"
+        / "from_database"
+        / "__init__.py"
+    )
+    assert not stale_package.exists()
 
 
 def test_metadata_container_root_matches_metadata_containers_root() -> None:
