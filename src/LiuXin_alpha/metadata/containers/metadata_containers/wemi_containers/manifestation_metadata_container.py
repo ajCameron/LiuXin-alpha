@@ -25,10 +25,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manife
 class ManifestationMetadata(ManifestationMetadataAPI):
     def __init__(self, *, manifestation: Optional[ManifestationIdentityAPI] = None, relation_links: Optional[Mapping[str, Iterable[ManifestationRelationLink]]] = None) -> None:
         self._manifestation = manifestation
-        self._relation_links: dict[str, list[ManifestationRelationLink]] = {relation: [] for relation in self.RELATION_KEYS}
+        self._relation_links: dict[str, list[ManifestationRelationLink]] = {relation_key: [] for relation_key in self.RELATION_KEYS}
         if relation_links:
-            for relation, links in relation_links.items():
-                self.set_relation_links(relation, links)
+            for relation_key, links in relation_links.items():
+                self.set_relation_links(relation_key, links)
 
     @property
     def manifestation(self) -> Optional[ManifestationIdentityAPI]:
@@ -38,11 +38,11 @@ class ManifestationMetadata(ManifestationMetadataAPI):
     def manifestation(self, value: Optional[ManifestationIdentityAPI]) -> None:
         self._manifestation = value
 
-    def get_relation_links(self, relation: str) -> list[ManifestationRelationLink]:
-        return self._relation_links[self.validate_relation_name(relation)]
+    def get_relation_links(self, relation_key: str) -> list[ManifestationRelationLink]:
+        return self._relation_links[self.validate_relation_name(relation_key)]
 
-    def set_relation_links(self, relation: str, links: Iterable[ManifestationRelationLink]) -> None:
-        relation_key = self.validate_relation_name(relation)
+    def set_relation_links(self, relation_key: str, links: Iterable[ManifestationRelationLink]) -> None:
+        relation_key = self.validate_relation_name(relation_key)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 
     def __str__(self) -> str:
@@ -97,7 +97,7 @@ class ManifestationMetadata(ManifestationMetadataAPI):
         payload = {'manifestation': self.manifestation.to_mapping() if self.manifestation is not None else None}
         if include_related:
             payload['relations'] = {
-                relation: [
+                relation_key: [
                     {
                         'target': self._serialize_target(link.target),
                         'priority': link.priority,
@@ -116,9 +116,9 @@ class ManifestationMetadata(ManifestationMetadataAPI):
                         ),
                         'extra': dict(link.extra),
                     }
-                    for link in self.get_relation_links(relation)
+                    for link in self.get_relation_links(relation_key)
                 ]
-                for relation in self.RELATION_KEYS
+                for relation_key in self.RELATION_KEYS
             }
         return payload
 
@@ -127,13 +127,13 @@ class ManifestationMetadata(ManifestationMetadataAPI):
         manifestation_payload = payload.get('manifestation')
         manifestation = manifestation_payload if isinstance(manifestation_payload, ManifestationIdentityAPI) else (ManifestationIdentity.from_mapping(manifestation_payload) if isinstance(manifestation_payload, Mapping) else None)
         relation_payload = payload.get('relations') or {}
-        relation_links: dict[str, list[ManifestationRelationLink]] = {relation: [] for relation in cls.RELATION_KEYS}
-        for relation in cls.RELATION_KEYS:
-            for raw_link in relation_payload.get(relation, []):
+        relation_links: dict[str, list[ManifestationRelationLink]] = {relation_key: [] for relation_key in cls.RELATION_KEYS}
+        for relation_key in cls.RELATION_KEYS:
+            for raw_link in relation_payload.get(relation_key, []):
                 if isinstance(raw_link, ManifestationRelationLink):
-                    relation_links[relation].append(raw_link)
+                    relation_links[relation_key].append(raw_link)
                 elif isinstance(raw_link, Mapping):
-                    relation_links[relation].append(ManifestationRelationLink(
+                    relation_links[relation_key].append(ManifestationRelationLink(
                         target=cls._deserialize_target(raw_link.get('target')),
                         priority=raw_link.get('priority'),
                         primary=raw_link.get('primary'),

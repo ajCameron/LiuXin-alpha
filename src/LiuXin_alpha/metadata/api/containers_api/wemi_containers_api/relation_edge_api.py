@@ -50,17 +50,17 @@ def normalize_relation_cardinality(
 
 
 def validate_relation_edge_cardinality(
-    relation: str,
+    relation_key: str,
     edges: Iterable[RelationEdgeT],
     cardinality: RelationCardinality,
 ) -> list[RelationEdgeT]:
-    """Validate local target multiplicity for one relation collection."""
+    """Validate local target multiplicity for one relation key."""
 
     edge_list = list(edges)
     if not cardinality.allows_many_targets and len(edge_list) > 1:
         raise ValueError(
-            "Relation {!r} has cardinality {!s} and accepts at most one target.".format(
-                relation,
+            "Relation key {!r} has cardinality {!s} and accepts at most one target.".format(
+                relation_key,
                 cardinality.value,
             )
         )

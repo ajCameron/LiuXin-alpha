@@ -413,7 +413,7 @@ class LazyLiuXinWEMIMetadataHydrator:
     ):
         return lambda: metadata.lazy_legacy_terms_from_relation(
             field=field,
-            relation=relation,
+            relation_key=relation,
         )
 
     def _first_relation_link(

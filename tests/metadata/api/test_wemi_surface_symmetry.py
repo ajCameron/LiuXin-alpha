@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 
 import pytest
 
@@ -99,6 +100,11 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
     assert hasattr(metadata_class, "to_mapping")
 
     api_metadata_class = getattr(api_metadata_module, entry["api_metadata_class"])
+    api_doc = inspect.getdoc(api_metadata_class) or ""
+    assert "relation_key" in api_doc
+    assert "RELATION_KEYS" in api_doc
+    assert "physical database table" in api_doc
+
     for method_name in (
         "relation_names",
         "validate_relation_name",
@@ -124,3 +130,48 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
 
     for relation_name in api_metadata_class.relation_names():
         assert isinstance(getattr(api_metadata_class, relation_name), property)
+
+
+@pytest.mark.parametrize("entry", LEVELS, ids=[entry["level"] for entry in LEVELS])
+def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str, str]) -> None:
+    api_metadata_module = importlib.import_module(
+        f"LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.{entry['api_metadata_module']}"
+    )
+    impl_metadata_module = importlib.import_module(
+        f"LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.{entry['impl_metadata_module']}"
+    )
+    api_metadata_class = getattr(api_metadata_module, entry["api_metadata_class"])
+    impl_metadata_class = getattr(impl_metadata_module, entry["impl_metadata_class"])
+
+    for metadata_class in (api_metadata_class, impl_metadata_class):
+        for method_name in (
+            "get_relation_links",
+            "set_relation_links",
+        ):
+            parameters = inspect.signature(getattr(metadata_class, method_name)).parameters
+            assert "relation_key" in parameters
+            assert "relation" not in parameters
+
+    for method_name in (
+        "validate_relation_name",
+        "relation_cardinality",
+        "validate_relation_links",
+        "get_relation_edges",
+        "set_relation_edges",
+        "add_relation_edge",
+        "remove_relation_edge",
+        "get_relation_edge_by_id",
+        "upsert_relation_edge",
+        "remove_relation_edge_by_id",
+        "get_relation_links",
+        "set_relation_links",
+        "add_relation_link",
+        "remove_relation_link",
+        "get_related",
+        "set_related",
+        "add_related",
+        "clear_related",
+    ):
+        parameters = inspect.signature(getattr(api_metadata_class, method_name)).parameters
+        assert "relation_key" in parameters
+        assert "relation" not in parameters

@@ -75,21 +75,21 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     def install_lazy_relation_loader(
         self,
         level: str,
-        relation: str,
+        relation_key: str,
         loader: WemiRelationLoader,
     ) -> None:
         level_key = self.normalize_wemi_level(level)
-        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation)
+        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation_key)
         loaders = object.__getattribute__(self, "_lazy_relation_loaders")
         loaders[(level_key, relation_key)] = loader
 
     def get_wemi_relation_links(
         self,
         level: str,
-        relation: str,
+        relation_key: str,
     ) -> list[WemiRelationLink]:
         level_key = self.normalize_wemi_level(level)
-        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation)
+        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation_key)
         loaders = object.__getattribute__(self, "_lazy_relation_loaders")
         loader = loaders.pop((level_key, relation_key), None)
         if loader is not None:
@@ -102,9 +102,9 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     def get_wemi_related(
         self,
         level: str,
-        relation: str,
+        relation_key: str,
     ) -> list[Any]:
-        return [link.target for link in self.get_wemi_relation_links(level, relation)]
+        return [link.target for link in self.get_wemi_relation_links(level, relation_key)]
 
     def hydrate_field(self, field: str) -> OrderedDict[str, Any] | Any:
         field_key = self._normalize_lazy_legacy_field(field)
@@ -222,7 +222,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return field_key if field_key is not None else str(field).strip().lower()
 
     @staticmethod
-    def relation_target_text(target: Any, relation: str) -> str | None:
+    def relation_target_text(target: Any, relation_key: str) -> str | None:
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -254,7 +254,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
                 "name",
                 "text",
             ),
-        }.get(str(relation), ("name", "text"))
+        }.get(str(relation_key), ("name", "text"))
 
         for key in text_keys:
             value = mapping.get(key)
@@ -268,7 +268,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return None
 
     @staticmethod
-    def relation_target_id(target: Any, relation: str) -> int | None:
+    def relation_target_id(target: Any, relation_key: str) -> int | None:
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -288,7 +288,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
             "synopses": ("synopsis_id", "id"),
             "languages": ("language_id", "id"),
             "files": ("file_id", "id"),
-        }.get(str(relation), ("id",))
+        }.get(str(relation_key), ("id",))
 
         for key in id_keys:
             value = mapping.get(key)
@@ -308,13 +308,13 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         self,
         *,
         field: str,
-        relation: str,
+        relation_key: str,
     ) -> OrderedDict[str, Any]:
         terms: OrderedDict[str, Any] = OrderedDict()
         seen: set[str] = set()
         for level in self._LEVELS:
             try:
-                links = self.get_wemi_relation_links(level, relation)
+                links = self.get_wemi_relation_links(level, relation_key)
             except KeyError:
                 continue
             for link in links:
@@ -324,13 +324,13 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
                         continue
                     terms[key] = value
                     continue
-                text = self.relation_target_text(link.target, relation)
+                text = self.relation_target_text(link.target, relation_key)
                 if text is None:
                     continue
                 text_key = text.casefold()
                 if text_key in seen:
                     continue
-                terms[text] = self.relation_target_id(link.target, relation)
+                terms[text] = self.relation_target_id(link.target, relation_key)
                 seen.add(text_key)
         return terms
 

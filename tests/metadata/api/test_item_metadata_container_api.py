@@ -29,12 +29,12 @@ class _DummyItemMetadata(ItemMetadataAPI):
     def item(self, value: MetadataRecord | None) -> None:
         self._item = value
 
-    def get_relation_links(self, relation: str) -> list[ItemRelationLink]:
-        relation_key = self.validate_relation_name(relation)
+    def get_relation_links(self, relation_key: str) -> list[ItemRelationLink]:
+        relation_key = self.validate_relation_name(relation_key)
         return self._links[relation_key]
 
-    def set_relation_links(self, relation: str, links) -> None:
-        relation_key = self.validate_relation_name(relation)
+    def set_relation_links(self, relation_key: str, links) -> None:
+        relation_key = self.validate_relation_name(relation_key)
         self._links[relation_key] = list(links)
 
     def write_to_database(self, *args, **kwargs):
@@ -44,9 +44,9 @@ class _DummyItemMetadata(ItemMetadataAPI):
         payload: MutableMetadataRecord = {"item": self.item}
         if include_related:
             payload["relations"] = {
-                relation: [dataclasses.asdict(link) for link in self.get_relation_links(relation)]
-                for relation in self.relation_names()
-                if self.get_relation_links(relation)
+                relation_key: [dataclasses.asdict(link) for link in self.get_relation_links(relation_key)]
+                for relation_key in self.relation_names()
+                if self.get_relation_links(relation_key)
             }
         return payload
 

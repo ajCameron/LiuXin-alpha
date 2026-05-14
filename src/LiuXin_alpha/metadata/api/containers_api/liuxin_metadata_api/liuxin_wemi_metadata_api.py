@@ -240,7 +240,7 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     @property
     def relation_edge_ids(self) -> WemiRelationEdgeIDMap:
         """
-        Persisted link-table edge ids grouped by WEMI level and relation.
+        Persisted link-table edge ids grouped by WEMI level and relation key.
 
         :return:
         """
@@ -489,27 +489,29 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def get_wemi_relation_links(
         self,
         level: WemiLevel,
-        relation: str,
+        relation_key: str,
     ) -> list[WemiRelationLinkAPI]:
         """
-        Get relation links for one relation on one WEMI bundle.
+        Get relation links for one relation key on one WEMI bundle.
 
         :param level:
-        :param relation:
+        :param relation_key: normalized relation bucket key from the selected
+            bundle's ``RELATION_KEYS``.
         :return:
         """
 
     def set_wemi_relation_links(
         self,
         level: WemiLevel,
-        relation: str,
+        relation_key: str,
         links: Iterable[WemiRelationLinkAPI],
     ) -> None:
         """
-        Replace relation links for one relation on one WEMI bundle.
+        Replace relation links for one relation key on one WEMI bundle.
 
         :param level:
-        :param relation:
+        :param relation_key: normalized relation bucket key from the selected
+            bundle's ``RELATION_KEYS``.
         :param links:
         :return:
         """
@@ -517,14 +519,15 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def add_wemi_relation_link(
         self,
         level: WemiLevel,
-        relation: str,
+        relation_key: str,
         link: WemiRelationLinkAPI,
     ) -> None:
         """
         Add one relation link to one WEMI bundle.
 
         :param level:
-        :param relation:
+        :param relation_key: normalized relation bucket key from the selected
+            bundle's ``RELATION_KEYS``.
         :param link:
         :return:
         """
@@ -532,27 +535,29 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def get_wemi_related(
         self,
         level: WemiLevel,
-        relation: str,
+        relation_key: str,
     ) -> list[WemiRelationTargetAPI]:
         """
-        Get relation targets for one relation on one WEMI bundle.
+        Get relation targets for one relation key on one WEMI bundle.
 
         :param level:
-        :param relation:
+        :param relation_key: normalized relation bucket key from the selected
+            bundle's ``RELATION_KEYS``.
         :return:
         """
 
     def set_wemi_related(
         self,
         level: WemiLevel,
-        relation: str,
+        relation_key: str,
         values: Iterable[WemiRelationTargetAPI],
     ) -> None:
         """
-        Replace relation targets for one relation on one WEMI bundle.
+        Replace relation targets for one relation key on one WEMI bundle.
 
         :param level:
-        :param relation:
+        :param relation_key: normalized relation bucket key from the selected
+            bundle's ``RELATION_KEYS``.
         :param values:
         :return:
         """
@@ -560,14 +565,15 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def add_wemi_related(
         self,
         level: WemiLevel,
-        relation: str,
+        relation_key: str,
         value: WemiRelationTargetAPI,
     ) -> None:
         """
         Add one relation target to one WEMI bundle.
 
         :param level:
-        :param relation:
+        :param relation_key: normalized relation bucket key from the selected
+            bundle's ``RELATION_KEYS``.
         :param value:
         :return:
         """
@@ -575,13 +581,14 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def get_wemi_relation_edge_ids(
         self,
         level: WemiLevel,
-        relation: str,
+        relation_key: str,
     ) -> tuple[RelationEdgeID, ...]:
         """
-        Get persisted edge ids for one WEMI relation.
+        Get persisted edge ids for one WEMI relation key.
 
         :param level:
-        :param relation:
+        :param relation_key: normalized relation bucket key from the selected
+            bundle's ``RELATION_KEYS``.
         :return:
         """
 
@@ -645,14 +652,15 @@ class LazyLiuXinWEMIMetadataAPI(LiuXinWEMIMetadataAPI, Protocol):
     def install_lazy_relation_loader(
         self,
         level: WemiLevel,
-        relation: str,
+        relation_key: str,
         loader: WemiRelationLoaderAPI,
     ) -> None:
         """
-        Install a lazy loader for one WEMI relation.
+        Install a lazy loader for one WEMI relation key.
 
         :param level:
-        :param relation:
+        :param relation_key: normalized relation bucket key from the selected
+            bundle's ``RELATION_KEYS``.
         :param loader:
         :return:
         """
@@ -695,13 +703,14 @@ class LazyLiuXinWEMIMetadataAPI(LiuXinWEMIMetadataAPI, Protocol):
         self,
         *,
         field: str,
-        relation: str,
+        relation_key: str,
     ) -> LazyLegacyTermMapping:
         """
-        Build a legacy field mapping from one relation across the WEMI stack.
+        Build a legacy field mapping from one relation key across the WEMI stack.
 
         :param field:
-        :param relation:
+        :param relation_key: normalized relation bucket key used to read target
+            values from every WEMI bundle that exposes it.
         :return:
         """
 

@@ -25,10 +25,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expres
 class ExpressionMetadata(ExpressionMetadataAPI):
     def __init__(self, *, expression: Optional[ExpressionIdentityAPI] = None, relation_links: Optional[Mapping[str, Iterable[ExpressionRelationLink]]] = None) -> None:
         self._expression = expression
-        self._relation_links: dict[str, list[ExpressionRelationLink]] = {relation: [] for relation in self.RELATION_KEYS}
+        self._relation_links: dict[str, list[ExpressionRelationLink]] = {relation_key: [] for relation_key in self.RELATION_KEYS}
         if relation_links:
-            for relation, links in relation_links.items():
-                self.set_relation_links(relation, links)
+            for relation_key, links in relation_links.items():
+                self.set_relation_links(relation_key, links)
 
     @property
     def expression(self) -> Optional[ExpressionIdentityAPI]:
@@ -109,11 +109,11 @@ class ExpressionMetadata(ExpressionMetadataAPI):
             [{"work_id": work_id} for work_id in ids],
         )
 
-    def get_relation_links(self, relation: str) -> list[ExpressionRelationLink]:
-        return self._relation_links[self.validate_relation_name(relation)]
+    def get_relation_links(self, relation_key: str) -> list[ExpressionRelationLink]:
+        return self._relation_links[self.validate_relation_name(relation_key)]
 
-    def set_relation_links(self, relation: str, links: Iterable[ExpressionRelationLink]) -> None:
-        relation_key = self.validate_relation_name(relation)
+    def set_relation_links(self, relation_key: str, links: Iterable[ExpressionRelationLink]) -> None:
+        relation_key = self.validate_relation_name(relation_key)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 
     def __str__(self) -> str:
@@ -168,7 +168,7 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         payload = {'expression': self.expression.to_mapping() if self.expression is not None else None}
         if include_related:
             payload['relations'] = {
-                relation: [
+                relation_key: [
                     {
                         'target': self._serialize_target(link.target),
                         'priority': link.priority,
@@ -187,9 +187,9 @@ class ExpressionMetadata(ExpressionMetadataAPI):
                         ),
                         'extra': dict(link.extra),
                     }
-                    for link in self.get_relation_links(relation)
+                    for link in self.get_relation_links(relation_key)
                 ]
-                for relation in self.RELATION_KEYS
+                for relation_key in self.RELATION_KEYS
             }
         return payload
 
@@ -198,13 +198,13 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         expression_payload = payload.get('expression')
         expression = expression_payload if isinstance(expression_payload, ExpressionIdentityAPI) else (ExpressionIdentity.from_mapping(expression_payload) if isinstance(expression_payload, Mapping) else None)
         relation_payload = payload.get('relations') or {}
-        relation_links: dict[str, list[ExpressionRelationLink]] = {relation: [] for relation in cls.RELATION_KEYS}
-        for relation in cls.RELATION_KEYS:
-            for raw_link in relation_payload.get(relation, []):
+        relation_links: dict[str, list[ExpressionRelationLink]] = {relation_key: [] for relation_key in cls.RELATION_KEYS}
+        for relation_key in cls.RELATION_KEYS:
+            for raw_link in relation_payload.get(relation_key, []):
                 if isinstance(raw_link, ExpressionRelationLink):
-                    relation_links[relation].append(raw_link)
+                    relation_links[relation_key].append(raw_link)
                 elif isinstance(raw_link, Mapping):
-                    relation_links[relation].append(ExpressionRelationLink(
+                    relation_links[relation_key].append(ExpressionRelationLink(
                         target=cls._deserialize_target(raw_link.get('target')),
                         priority=raw_link.get('priority'),
                         primary=raw_link.get('primary'),

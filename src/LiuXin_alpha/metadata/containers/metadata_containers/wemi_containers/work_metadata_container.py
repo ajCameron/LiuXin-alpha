@@ -39,11 +39,11 @@ class WorkMetadata(WorkMetadataAPI):
     ) -> None:
         self._work = work
         self._relation_links: dict[str, list[WorkRelationLink]] = {
-            relation: [] for relation in self.RELATION_KEYS
+            relation_key: [] for relation_key in self.RELATION_KEYS
         }
         if relation_links:
-            for relation, links in relation_links.items():
-                self.set_relation_links(relation, links)
+            for relation_key, links in relation_links.items():
+                self.set_relation_links(relation_key, links)
 
     @property
     def work(self) -> Optional[WorkIdentityAPI]:
@@ -53,12 +53,12 @@ class WorkMetadata(WorkMetadataAPI):
     def work(self, value: Optional[WorkIdentityAPI]) -> None:
         self._work = value
 
-    def get_relation_links(self, relation: str) -> list[WorkRelationLink]:
-        relation_key = self.validate_relation_name(relation)
+    def get_relation_links(self, relation_key: str) -> list[WorkRelationLink]:
+        relation_key = self.validate_relation_name(relation_key)
         return self._relation_links[relation_key]
 
-    def set_relation_links(self, relation: str, links: Iterable[WorkRelationLink]) -> None:
-        relation_key = self.validate_relation_name(relation)
+    def set_relation_links(self, relation_key: str, links: Iterable[WorkRelationLink]) -> None:
+        relation_key = self.validate_relation_name(relation_key)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 
     def __str__(self) -> str:
@@ -120,7 +120,7 @@ class WorkMetadata(WorkMetadataAPI):
         }
         if include_related:
             payload["relations"] = {
-                relation: [
+                relation_key: [
                     {
                         "target": self._serialize_target(link.target),
                         "priority": link.priority,
@@ -139,9 +139,9 @@ class WorkMetadata(WorkMetadataAPI):
                         ),
                         "extra": dict(link.extra),
                     }
-                    for link in self.get_relation_links(relation)
+                    for link in self.get_relation_links(relation_key)
                 ]
-                for relation in self.RELATION_KEYS
+                for relation_key in self.RELATION_KEYS
             }
         return payload
 
@@ -158,15 +158,15 @@ class WorkMetadata(WorkMetadataAPI):
 
         relation_payload = payload.get("relations") or {}
         relation_links: dict[str, list[WorkRelationLink]] = {}
-        for relation in cls.RELATION_KEYS:
-            relation_links[relation] = []
-            for raw_link in relation_payload.get(relation, []):
+        for relation_key in cls.RELATION_KEYS:
+            relation_links[relation_key] = []
+            for raw_link in relation_payload.get(relation_key, []):
                 if isinstance(raw_link, WorkRelationLink):
-                    relation_links[relation].append(raw_link)
+                    relation_links[relation_key].append(raw_link)
                     continue
                 if not isinstance(raw_link, Mapping):
                     continue
-                relation_links[relation].append(
+                relation_links[relation_key].append(
                     WorkRelationLink(
                         target=cls._deserialize_target(raw_link.get("target")),
                         priority=raw_link.get("priority"),
