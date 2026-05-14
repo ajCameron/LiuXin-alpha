@@ -303,7 +303,8 @@ class LazyLiuXinWEMIMetadataHydrator:
         work_link: ExpressionRelationLink | None,
     ) -> None:
         if item_row is not None and manifestation_row is not None:
-            metadata.add_wemi_relation_link(
+            self._add_wemi_relation_link_unique(
+                metadata,
                 "item",
                 "manifestations",
                 ItemRelationLink(
@@ -313,8 +314,16 @@ class LazyLiuXinWEMIMetadataHydrator:
                     extra={"source_entity_type": "item"},
                 ),
             )
+        if item_row is not None:
+            self._add_structural_relation_links(
+                metadata,
+                level="item",
+                relation="manifestations",
+                source_row=item_row,
+            )
         if manifestation_row is not None and expression_row is not None:
-            metadata.add_wemi_relation_link(
+            self._add_wemi_relation_link_unique(
+                metadata,
                 "manifestation",
                 "expressions",
                 expression_link
@@ -326,8 +335,16 @@ class LazyLiuXinWEMIMetadataHydrator:
                     extra={"source_entity_type": "manifestation"},
                 ),
             )
+        if manifestation_row is not None:
+            self._add_structural_relation_links(
+                metadata,
+                level="manifestation",
+                relation="expressions",
+                source_row=manifestation_row,
+            )
         if expression_row is not None and work_row is not None:
-            metadata.add_wemi_relation_link(
+            self._add_wemi_relation_link_unique(
+                metadata,
                 "expression",
                 "works",
                 work_link
@@ -339,6 +356,104 @@ class LazyLiuXinWEMIMetadataHydrator:
                     extra={"source_entity_type": "expression"},
                 ),
             )
+        if expression_row is not None:
+            self._add_structural_relation_links(
+                metadata,
+                level="expression",
+                relation="works",
+                source_row=expression_row,
+            )
+
+    def _add_structural_relation_links(
+        self,
+        metadata: LazyLiuXinWEMIMetadata,
+        *,
+        level: str,
+        relation: str,
+        source_row: Row,
+    ) -> None:
+        for link in self._collect_relation_links(
+            level=level,
+            source_row=source_row,
+            secondary_table=relation,
+        ):
+            self._add_wemi_relation_link_unique(metadata, level, relation, link)
+
+    def _add_wemi_relation_link_unique(
+        self,
+        metadata: LazyLiuXinWEMIMetadata,
+        level: str,
+        relation: str,
+        link: Any,
+    ) -> None:
+        links = list(metadata.get_wemi_relation_links(level, relation))
+        key = self._row_key(link.target)
+        if key is not None:
+            for index, existing in enumerate(links):
+                if self._row_key(existing.target) == key:
+                    links[index] = self._merge_relation_link_metadata(
+                        existing,
+                        link,
+                    )
+                    metadata.set_wemi_relation_links(level, relation, links)
+                    return
+        links.append(link)
+        metadata.set_wemi_relation_links(level, relation, links)
+
+    @staticmethod
+    def _row_key(row: Row | Any) -> tuple[str, int] | None:
+        if not isinstance(row, Row):
+            return None
+        if row.table is None or row.row_id is None:
+            return None
+        return (str(row.table), int(row.row_id))
+
+    @staticmethod
+    def _merge_relation_link_metadata(existing: Any, incoming: Any) -> Any:
+        extra = dict(getattr(existing, "extra", {}) or {})
+        extra.update(getattr(incoming, "extra", {}) or {})
+        return type(existing)(
+            target=existing.target,
+            priority=(
+                incoming.priority
+                if incoming.priority is not None
+                else existing.priority
+            ),
+            primary=(
+                incoming.primary
+                if incoming.primary is not None
+                else existing.primary
+            ),
+            type=incoming.type if incoming.type is not None else existing.type,
+            origin=(
+                incoming.origin
+                if incoming.origin is not None
+                else existing.origin
+            ),
+            source=(
+                incoming.source
+                if incoming.source is not None
+                else existing.source
+            ),
+            policy=(
+                incoming.policy
+                if incoming.policy is not None
+                else existing.policy
+            ),
+            data=incoming.data if incoming.data is not None else existing.data,
+            index=incoming.index if incoming.index is not None else existing.index,
+            link_id=(
+                incoming.link_id
+                if incoming.link_id is not None
+                else existing.link_id
+            ),
+            cardinality=(
+                incoming.cardinality
+                if incoming.cardinality is not None
+                else existing.cardinality
+            ),
+            extra=extra,
+        )
 
     def _install_lazy_loaders(
         self,

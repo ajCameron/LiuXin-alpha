@@ -44,6 +44,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_
     RelationLinkID,
     RelationLinkSource,
     normalize_relation_cardinality,
+    select_primary_relation_link,
     validate_relation_link_cardinality,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
@@ -51,6 +52,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_targe
     MetadataScalar,
     MetadataValue,
     MutableMetadataRecord,
+    relation_target_id,
     RelationLinkType,
     RelationTarget,
     SupportsMetadataMapping,
@@ -108,6 +110,7 @@ __all__ = [
     "RelationLinkSource",
     "RelationLinkType",
     "RelationTarget",
+    "relation_target_id",
     "SupportsMetadataMapping",
     "SupportsRowMapping",
     "ManifestationIdentityAPI",
@@ -123,5 +126,6 @@ __all__ = [
     "WorkRelationLink",
     "WorkRelationTarget",
     "normalize_relation_cardinality",
+    "select_primary_relation_link",
     "validate_relation_link_cardinality",
 ]

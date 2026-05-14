@@ -67,6 +67,43 @@ def validate_relation_link_cardinality(
     return link_list
 
 
+def select_primary_relation_link(
+    links: Iterable[RelationLinkT],
+) -> RelationLinkT | None:
+    """
+    Select the preferred link without enforcing singleton cardinality.
+
+    Selection is deterministic: explicit ``primary`` links win first, then
+    lower ``priority``, lower ``index``, then original order.
+    """
+
+    link_list = list(links)
+    if not link_list:
+        return None
+    return min(
+        enumerate(link_list),
+        key=lambda item: _primary_relation_sort_key(item[0], item[1]),
+    )[1]
+
+
+def _primary_relation_sort_key(index: int, link) -> tuple:
+    return (
+        0 if bool(getattr(link, "primary", None)) else 1,
+        _optional_order_value(getattr(link, "priority", None)),
+        _optional_order_value(getattr(link, "index", None)),
+        index,
+    )
+
+
+def _optional_order_value(value) -> tuple[int, int, str]:
+    if value in (None, ""):
+        return (1, 0, "")
+    try:
+        return (0, int(value), "")
+    except (TypeError, ValueError, OverflowError):
+        return (0, 0, str(value))
+
+
 @runtime_checkable
 class RelationLinkAPI(Protocol[RelationLinkTargetT]):
     """Structural API for one durable relation link."""
@@ -161,5 +198,6 @@ __all__ = [
     "RelationLinkID",
     "RelationLinkSource",
     "normalize_relation_cardinality",
+    "select_primary_relation_link",
     "validate_relation_link_cardinality",
 ]

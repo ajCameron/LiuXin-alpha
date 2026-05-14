@@ -546,6 +546,14 @@ def _build_fake_database() -> FakeDatabase:
         },
     )
     db.add_row(
+        "manifestations",
+        {
+            "manifestation_id": 11,
+            "manifestation_format_detail": "audiobook",
+            "manifestation_subtitle": "Audio Edition",
+        },
+    )
+    db.add_row(
         "expressions",
         {
             "expression_id": 20,
@@ -702,6 +710,20 @@ def _build_fake_database() -> FakeDatabase:
             "expression_manifestation_link_type": "content_expression",
         }
     ]
+    db.interlinks[("items", 1, "manifestations")] = [
+        {
+            "item_manifestation_link_manifestation_id": 10,
+            "item_manifestation_link_priority": 1,
+            "item_manifestation_link_primary": 1,
+            "item_manifestation_link_type": "stored_as",
+        },
+        {
+            "item_manifestation_link_manifestation_id": 11,
+            "item_manifestation_link_priority": 2,
+            "item_manifestation_link_primary": 0,
+            "item_manifestation_link_type": "also_available_as",
+        },
+    ]
     db.interlinks[("expressions", 20, "works")] = [
         {
             "expression_work_link_work_id": 30,
@@ -780,6 +802,17 @@ def test_item_metadata_hydrator_from_item_id_and_source_row() -> None:
     assert container.item.item_id == 1
     assert container.item.item_manifestation_id == 10
     assert not hasattr(container, "storage_hints")
+
+    manifestation_links = container.get_relation_links("manifestations")
+    assert [
+        link.target.row_id
+        for link in manifestation_links
+        if isinstance(link.target, Row)
+    ] == [10, 11]
+    assert [link.type for link in manifestation_links] == [
+        "stored_as",
+        "also_available_as",
+    ]
 
     work_links = container.get_relation_links("works")
     assert len(work_links) == 1

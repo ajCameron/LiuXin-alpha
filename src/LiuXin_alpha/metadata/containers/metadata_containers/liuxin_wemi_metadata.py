@@ -633,12 +633,34 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     ) -> None:
         self.get_wemi_metadata(level).add_relation_link(relation_key, link)
 
+    def get_primary_wemi_relation_link(
+        self,
+        level: str,
+        relation_key: WemiRelationKey,
+    ) -> WemiRelationLink | None:
+        return self.get_wemi_metadata(level).primary_relation_link(relation_key)
+
+    def set_primary_wemi_relation_link(
+        self,
+        level: str,
+        relation_key: WemiRelationKey,
+        link: WemiRelationLink,
+    ) -> None:
+        self.get_wemi_metadata(level).set_primary_relation_link(relation_key, link)
+
     def get_wemi_related(
         self,
         level: str,
         relation_key: WemiRelationKey,
     ) -> list[WemiRelationTarget]:
         return self.get_wemi_metadata(level).get_related(relation_key)
+
+    def get_primary_wemi_related(
+        self,
+        level: str,
+        relation_key: WemiRelationKey,
+    ) -> WemiRelationTarget | None:
+        return self.get_wemi_metadata(level).primary_related(relation_key)
 
     def set_wemi_related(
         self,

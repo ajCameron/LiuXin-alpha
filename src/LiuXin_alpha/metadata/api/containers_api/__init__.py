@@ -76,6 +76,8 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     RelationLinkSource,
     RelationLinkType,
     RelationTarget,
+    relation_target_id,
+    select_primary_relation_link,
     SupportsMetadataMapping,
     SupportsRowMapping,
     ManifestationIdentityAPI,
@@ -151,6 +153,7 @@ __all__ = [
     "RelationLinkSource",
     "RelationLinkType",
     "RelationTarget",
+    "relation_target_id",
     "SelfRelationsContainerAPI",
     "SeriesRowAPI",
     "SeriesTreeRelationAPI",
@@ -175,5 +178,6 @@ __all__ = [
     "WorkRelationLink",
     "WorkRelationTarget",
     "normalize_relation_cardinality",
+    "select_primary_relation_link",
     "validate_relation_link_cardinality",
 ]

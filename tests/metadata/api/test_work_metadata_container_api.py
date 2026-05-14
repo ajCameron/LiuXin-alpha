@@ -10,8 +10,12 @@ import LiuXin_alpha.metadata.api as metadata_api
 from LiuXin_alpha.metadata.api import (
     ExpressionMetadataAPI,
     ExpressionRelationLink,
+    ItemMetadataAPI,
+    ItemRelationLink,
     ManyManyRelationLinkAPI,
     ManyOneRelationLinkAPI,
+    ManifestationMetadataAPI,
+    ManifestationRelationLink,
     MetadataRecord,
     MutableMetadataRecord,
     OneManyRelationLinkAPI,
@@ -20,6 +24,7 @@ from LiuXin_alpha.metadata.api import (
     RelationTarget,
     WorkMetadataAPI,
     WorkRelationLink,
+    select_primary_relation_link,
 )
 
 
@@ -142,6 +147,34 @@ def test_relation_helpers_round_trip_targets_and_links() -> None:
     assert container.languages == ["en", "fr", "de"]
 
 
+def test_primary_relation_selection_is_deterministic() -> None:
+    links = [
+        WorkRelationLink(target="first", priority=1),
+        WorkRelationLink(target="primary-lower-priority", primary=True, priority=2),
+        WorkRelationLink(target="preferred", primary=True, priority=1),
+    ]
+    container = _DummyWorkMetadata()
+    container.set_relation_links("expressions", links)
+
+    assert select_primary_relation_link(links).target == "preferred"
+    assert container.primary_relation_link("expressions") is links[2]
+    assert container.primary_expression == "preferred"
+
+
+def test_set_primary_relation_link_preserves_plural_graph() -> None:
+    container = _DummyWorkMetadata()
+    first = WorkRelationLink(target="first", primary=True)
+    second = WorkRelationLink(target="second")
+    container.set_relation_links("expressions", [first, second])
+
+    container.set_primary_relation_link("expressions", second)
+
+    links = container.get_relation_links("expressions")
+    assert [link.target for link in links] == ["first", "second"]
+    assert [link.primary for link in links] == [False, True]
+    assert container.primary_expression == "second"
+
+
 def test_relation_links_carry_identity_cardinality_and_source() -> None:
     container = _DummyWorkMetadata()
     link = WorkRelationLink(
@@ -191,15 +224,21 @@ def test_cardinality_specific_relation_link_api_names_are_explicit() -> None:
         assert api_class.__annotations__["cardinality"] == cardinality_hint
 
 
-def test_relation_cardinality_rejects_extra_target_on_to_one_relation() -> None:
-    assert ExpressionMetadataAPI.relation_cardinality("work") is RelationCardinality.MANY_TO_ONE
+def test_wemi_graph_relations_accept_multiple_targets() -> None:
+    cases = (
+        (WorkMetadataAPI, "expressions", WorkRelationLink),
+        (ExpressionMetadataAPI, "works", ExpressionRelationLink),
+        (ManifestationMetadataAPI, "items", ManifestationRelationLink),
+        (ItemMetadataAPI, "manifestations", ItemRelationLink),
+    )
 
-    with pytest.raises(ValueError):
-        ExpressionMetadataAPI.validate_relation_links(
-            "works",
+    for api_class, relation_key, link_class in cases:
+        assert api_class.relation_cardinality(relation_key) is RelationCardinality.MANY_TO_MANY
+        assert api_class.validate_relation_links(
+            relation_key,
             [
-                ExpressionRelationLink(target="work-1"),
-                ExpressionRelationLink(target="work-2"),
+                link_class(target="target-1"),
+                link_class(target="target-2"),
             ],
         )
 

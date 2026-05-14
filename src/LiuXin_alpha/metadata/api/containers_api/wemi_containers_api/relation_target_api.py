@@ -49,11 +49,48 @@ RelationTarget: TypeAlias = (
     | SupportsRowMapping
 )
 
+
+def relation_target_id(target: RelationTarget | None, id_column: str) -> int | None:
+    """Return an integer id from a relation target when one can be found."""
+
+    value = None
+    if isinstance(target, Mapping):
+        value = _first_present_mapping_value(target, id_column, "id", "row_id")
+    else:
+        value = getattr(target, id_column, None)
+        row_dict = getattr(target, "row_dict", None)
+        if value in (None, "") and isinstance(row_dict, Mapping):
+            value = _first_present_mapping_value(row_dict, id_column)
+        if value in (None, ""):
+            value = getattr(target, "row_id", None)
+        if value in (None, ""):
+            value = getattr(target, "id", None)
+
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _first_present_mapping_value(
+    mapping: Mapping[str, MetadataValue],
+    *keys: str,
+) -> MetadataValue:
+    for key in keys:
+        value = mapping.get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+
 __all__ = [
     "MetadataScalar",
     "MetadataValue",
     "MetadataRecord",
     "MutableMetadataRecord",
+    "relation_target_id",
     "RelationLinkType",
     "RelationTarget",
     "SupportsMetadataMapping",

@@ -25,12 +25,14 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_container
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MetadataRecord,
     MutableMetadataRecord,
+    relation_target_id,
     RelationTarget,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
     RelationCardinality,
     RelationLink,
     RelationLinkID,
+    select_primary_relation_link,
     validate_relation_link_cardinality,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
@@ -120,7 +122,9 @@ class ManifestationMetadataAPI(abc.ABC):
         "asset_replica": "asset_replicas",
     }
     RELATION_CARDINALITIES: ClassVar[Mapping[ManifestationRelationKey, RelationCardinality]] = {
-        "items": RelationCardinality.ONE_TO_MANY,
+        "works": RelationCardinality.MANY_TO_MANY,
+        "expressions": RelationCardinality.MANY_TO_MANY,
+        "items": RelationCardinality.MANY_TO_MANY,
         "identifiers": RelationCardinality.ONE_TO_MANY,
         "titles": RelationCardinality.ONE_TO_MANY,
         "notes": RelationCardinality.ONE_TO_MANY,
@@ -288,6 +292,46 @@ class ManifestationMetadataAPI(abc.ABC):
         relation_key = self.validate_relation_name(relation_key)
         return [link.target for link in self.get_relation_links(relation_key)]
 
+    def primary_relation_link(self, relation_key: ManifestationRelationKey) -> Optional[ManifestationRelationLink]:
+        """Return the preferred relation link for one relation key, if any."""
+
+        relation_key = self.validate_relation_name(relation_key)
+        return select_primary_relation_link(self.get_relation_links(relation_key))
+
+    def primary_related(self, relation_key: ManifestationRelationKey) -> ManifestationRelationTarget | None:
+        """Return the preferred relation target for one relation key, if any."""
+
+        link = self.primary_relation_link(relation_key)
+        if link is None:
+            return None
+        return link.target
+
+    def set_primary_relation_link(
+        self,
+        relation_key: ManifestationRelationKey,
+        link: ManifestationRelationLink,
+    ) -> None:
+        """Mark one relation link as the preferred link for one relation key."""
+
+        relation_key = self.validate_relation_name(relation_key)
+        links = list(self.get_relation_links(relation_key))
+        selected_index: int | None = None
+        for index, existing_link in enumerate(links):
+            same_link_id = link.link_id is not None and existing_link.link_id == link.link_id
+            same_target = link.link_id is None and existing_link.target == link.target
+            if existing_link is link or same_link_id or same_target:
+                selected_index = index
+                links[index] = link
+                break
+
+        if selected_index is None:
+            selected_index = len(links)
+            links.append(link)
+
+        for index, existing_link in enumerate(links):
+            existing_link.primary = index == selected_index
+        self.set_relation_links(relation_key, links)
+
     def set_related(self, relation_key: ManifestationRelationKey, values: Iterable[ManifestationRelationTarget]) -> None:
         """
         Set the related values for this manifestation-metadata bundle of a particular type.
@@ -370,6 +414,42 @@ class ManifestationMetadataAPI(abc.ABC):
     def clear_related(self, relation_key: ManifestationRelationKey) -> None:
         relation_key = self.validate_relation_name(relation_key)
         self.set_relation_links(relation_key, [])
+
+    @property
+    def primary_work(self) -> ManifestationRelationTarget | None:
+        """Preferred work traversal from this manifestation."""
+
+        return self.primary_related("works")
+
+    @property
+    def primary_work_id(self) -> Optional[int]:
+        return relation_target_id(self.primary_work, "work_id")
+
+    @property
+    def primary_expression(self) -> ManifestationRelationTarget | None:
+        """Preferred expression traversal from this manifestation."""
+
+        return self.primary_related("expressions")
+
+    @property
+    def primary_expression_id(self) -> Optional[int]:
+        primary_id = relation_target_id(self.primary_expression, "expression_id")
+        if primary_id is not None:
+            return primary_id
+        manifestation = self.manifestation
+        if manifestation is None:
+            return None
+        return manifestation.manifestation_expression_id
+
+    @property
+    def primary_item(self) -> ManifestationRelationTarget | None:
+        """Preferred item traversal from this manifestation."""
+
+        return self.primary_related("items")
+
+    @property
+    def primary_item_id(self) -> Optional[int]:
+        return relation_target_id(self.primary_item, "item_id")
 
     @property
     def works(self) -> list[ManifestationRelationTarget]:

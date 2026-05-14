@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from LiuXin_alpha.metadata.api import ItemRelationLink
+from LiuXin_alpha.metadata.api import (
+    ExpressionRelationLink,
+    ItemRelationLink,
+    ManifestationRelationLink,
+    WorkRelationLink,
+)
 from LiuXin_alpha.metadata.containers import LiuXinWEMI, LiuXinWEMIMetadata
 from LiuXin_alpha.metadata.containers.metadata_containers import (
     LiuXinWEMIMetadata as MetadataContainersLiuXinWEMIMetadata,
@@ -133,6 +138,64 @@ def test_liuxin_wemi_metadata_routes_wemi_relation_link_access() -> None:
     assert metadata.relation_link_ids["item"]["identifiers"] == (
         "item-identifier-link",
     )
+
+
+def test_wemi_primary_projection_prefers_primary_links_over_source_row_hints() -> None:
+    expression = ExpressionMetadata(
+        expression=ExpressionIdentity(expression_id=20, expression_work_id=10),
+    )
+    expression.add_relation_link(
+        "works",
+        ExpressionRelationLink(target={"work_id": 10}, priority=1),
+    )
+    expression.add_relation_link(
+        "works",
+        ExpressionRelationLink(target={"work_id": 11}, primary=True, priority=2),
+    )
+
+    assert expression.primary_work == {"work_id": 11}
+    assert expression.primary_work_id == 11
+
+    manifestation = ManifestationMetadata(
+        manifestation=ManifestationIdentity(
+            manifestation_id=30,
+            manifestation_expression_id=20,
+        ),
+    )
+    manifestation.add_relation_link(
+        "expressions",
+        ManifestationRelationLink(target={"expression_id": 21}, primary=True),
+    )
+
+    assert manifestation.primary_expression == {"expression_id": 21}
+    assert manifestation.primary_expression_id == 21
+
+    item = ItemMetadata(item=ItemIdentity(item_id=40, item_manifestation_id=30))
+    item.add_relation_link(
+        "manifestations",
+        ItemRelationLink(target={"manifestation_id": 31}, primary=True),
+    )
+
+    assert item.primary_manifestation == {"manifestation_id": 31}
+    assert item.primary_manifestation_id == 31
+
+
+def test_liuxin_wemi_metadata_routes_primary_relation_access() -> None:
+    metadata = _sample_metadata()
+    first = WorkRelationLink(target={"expression_id": 20}, primary=True)
+    second = WorkRelationLink(target={"expression_id": 21})
+    metadata.set_wemi_relation_links("work", "expressions", [first, second])
+
+    metadata.set_primary_wemi_relation_link("work", "expressions", second)
+
+    assert metadata.get_wemi_related("work", "expressions") == [
+        {"expression_id": 20},
+        {"expression_id": 21},
+    ]
+    assert metadata.get_primary_wemi_related("work", "expressions") == {
+        "expression_id": 21,
+    }
+    assert metadata.get_primary_wemi_relation_link("work", "expressions") is second
 
 
 def test_liuxin_wemi_metadata_pretty_string_summarizes_slice() -> None:

@@ -64,17 +64,16 @@ class ManifestationIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @property
     def expression_id(self) -> Optional[int]:
         """
-        ID for the expression this is a manifestation of.
+        Legacy/source-row expression id hint for this manifestation.
 
         :return:
         """
         return self.manifestation_expression_id
 
-    # Todo: Again, should be something like primary e.t.c
     @expression_id.setter
     def expression_id(self, value: Optional[int]) -> None:
         """
-        Get the ID of the expression this is a manifestation of.
+        Set the legacy/source-row expression id hint for this manifestation.
 
         :param value:
         :return:
@@ -85,7 +84,7 @@ class ManifestationIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def manifestation_expression_id(self) -> Optional[int]:
         """
-        Get the ID of the expression this is a manifestation of.
+        Legacy/source-row expression id hint for this manifestation.
 
         :return:
         """
@@ -94,7 +93,7 @@ class ManifestationIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def manifestation_expression_id(self, manifestation_expression_id: Optional[int]) -> None:
         """
-        Set the ID of the expression this is a manifestation of.
+        Set the legacy/source-row expression id hint for this manifestation.
 
         :param manifestation_expression_id:
         :return:

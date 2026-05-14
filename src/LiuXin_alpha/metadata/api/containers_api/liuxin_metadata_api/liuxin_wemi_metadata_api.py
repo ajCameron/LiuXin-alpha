@@ -242,7 +242,9 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     @property
     def database_ids(self) -> WemiIdentityIDMap:
         """
-        Fundamental database ids and parent foreign keys for this slice.
+        Row ids and legacy source-row parent id hints for this slice.
+
+        The complete WEMI graph is exposed through relation links.
 
         :return:
         """
@@ -490,7 +492,7 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
 
     def get_database_id(self, name: WemiDatabaseIDName) -> int | None:
         """
-        Get one fundamental WEMI database id or parent foreign key.
+        Get one row id or legacy source-row parent id hint.
 
         :param name:
         :return:
@@ -542,6 +544,34 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         :return:
         """
 
+    def get_primary_wemi_relation_link(
+        self,
+        level: WemiLevel,
+        relation_key: WemiRelationKeyAPI,
+    ) -> WemiRelationLinkAPI | None:
+        """
+        Get the preferred relation link for one relation key on one WEMI bundle.
+
+        :param level:
+        :param relation_key:
+        :return:
+        """
+
+    def set_primary_wemi_relation_link(
+        self,
+        level: WemiLevel,
+        relation_key: WemiRelationKeyAPI,
+        link: WemiRelationLinkAPI,
+    ) -> None:
+        """
+        Mark one relation link as preferred for one relation key on one WEMI bundle.
+
+        :param level:
+        :param relation_key:
+        :param link:
+        :return:
+        """
+
     def get_wemi_related(
         self,
         level: WemiLevel,
@@ -553,6 +583,19 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         :param level:
         :param relation_key: normalized relation bucket key from the selected
             bundle's ``RELATION_KEYS``.
+        :return:
+        """
+
+    def get_primary_wemi_related(
+        self,
+        level: WemiLevel,
+        relation_key: WemiRelationKeyAPI,
+    ) -> WemiRelationTargetAPI | None:
+        """
+        Get the preferred relation target for one relation key on one WEMI bundle.
+
+        :param level:
+        :param relation_key:
         :return:
         """
 

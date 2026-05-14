@@ -21,12 +21,14 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containe
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MetadataRecord,
     MutableMetadataRecord,
+    relation_target_id,
     RelationTarget,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
     RelationCardinality,
     RelationLink,
     RelationLinkID,
+    select_primary_relation_link,
     validate_relation_link_cardinality,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
@@ -69,8 +71,8 @@ class ExpressionMetadataAPI(abc.ABC):
     """
     API for a container that holds all metadata associated with one expression.
 
-    Implementations should expose the core expression row, parent work context,
-    child manifestation/item context, and relation-keyed link metadata.
+    Implementations should expose the core expression row, work context,
+    manifestation/item context, and relation-keyed link metadata.
 
     The ``relation_key`` parameter names one normalized relation bucket from
     ``RELATION_KEYS``. These keys usually mirror related metadata table or
@@ -109,7 +111,9 @@ class ExpressionMetadataAPI(abc.ABC):
         "comment": "comments",
     }
     RELATION_CARDINALITIES: ClassVar[Mapping[ExpressionRelationKey, RelationCardinality]] = {
-        "works": RelationCardinality.MANY_TO_ONE,
+        "works": RelationCardinality.MANY_TO_MANY,
+        "manifestations": RelationCardinality.MANY_TO_MANY,
+        "items": RelationCardinality.MANY_TO_MANY,
         "identifiers": RelationCardinality.ONE_TO_MANY,
         "titles": RelationCardinality.ONE_TO_MANY,
         "notes": RelationCardinality.ONE_TO_MANY,
@@ -263,6 +267,46 @@ class ExpressionMetadataAPI(abc.ABC):
         relation_key = self.validate_relation_name(relation_key)
         return [link.target for link in self.get_relation_links(relation_key)]
 
+    def primary_relation_link(self, relation_key: ExpressionRelationKey) -> Optional[ExpressionRelationLink]:
+        """Return the preferred relation link for one relation key, if any."""
+
+        relation_key = self.validate_relation_name(relation_key)
+        return select_primary_relation_link(self.get_relation_links(relation_key))
+
+    def primary_related(self, relation_key: ExpressionRelationKey) -> ExpressionRelationTarget | None:
+        """Return the preferred relation target for one relation key, if any."""
+
+        link = self.primary_relation_link(relation_key)
+        if link is None:
+            return None
+        return link.target
+
+    def set_primary_relation_link(
+        self,
+        relation_key: ExpressionRelationKey,
+        link: ExpressionRelationLink,
+    ) -> None:
+        """Mark one relation link as the preferred link for one relation key."""
+
+        relation_key = self.validate_relation_name(relation_key)
+        links = list(self.get_relation_links(relation_key))
+        selected_index: int | None = None
+        for index, existing_link in enumerate(links):
+            same_link_id = link.link_id is not None and existing_link.link_id == link.link_id
+            same_target = link.link_id is None and existing_link.target == link.target
+            if existing_link is link or same_link_id or same_target:
+                selected_index = index
+                links[index] = link
+                break
+
+        if selected_index is None:
+            selected_index = len(links)
+            links.append(link)
+
+        for index, existing_link in enumerate(links):
+            existing_link.primary = index == selected_index
+        self.set_relation_links(relation_key, links)
+
     def set_related(self, relation_key: ExpressionRelationKey, values: Iterable[ExpressionRelationTarget]) -> None:
         """
         Set multiple related values with one call.
@@ -369,11 +413,37 @@ class ExpressionMetadataAPI(abc.ABC):
         self.set_relation_links(relation_key, [])
 
     @property
+    def primary_work(self) -> ExpressionRelationTarget | None:
+        """Preferred work traversal from this expression."""
+
+        return self.primary_related("works")
+
+    @property
+    def primary_manifestation(self) -> ExpressionRelationTarget | None:
+        """Preferred manifestation traversal from this expression."""
+
+        return self.primary_related("manifestations")
+
+    @property
+    def primary_manifestation_id(self) -> Optional[int]:
+        return relation_target_id(self.primary_manifestation, "manifestation_id")
+
+    @property
+    def primary_item(self) -> ExpressionRelationTarget | None:
+        """Preferred item traversal from this expression."""
+
+        return self.primary_related("items")
+
+    @property
+    def primary_item_id(self) -> Optional[int]:
+        return relation_target_id(self.primary_item, "item_id")
+
+    @property
     def work_id(self) -> Optional[int]:
         """
-        Primary Work ID for this expression.
+        Legacy/source-row work id hint for this expression.
 
-        Each expression should be linked to one, and only one work.
+        The complete graph is exposed through the ``works`` relation links.
         :return:
         """
         return self.expression_work_id
@@ -381,7 +451,7 @@ class ExpressionMetadataAPI(abc.ABC):
     @work_id.setter
     def work_id(self, value: Optional[int]) -> None:
         """
-        Set the Primary Work ID for this expression.
+        Set the legacy/source-row work id hint for this expression.
 
         :param value:
         :return:
@@ -410,17 +480,23 @@ class ExpressionMetadataAPI(abc.ABC):
     @property
     def primary_work_id(self) -> Optional[int]:
         """
-        Primary Work ID for this expression.
+        Preferred work id for this expression.
 
-        Each expression should be linked to one, and only one work.
+        The selected ``works`` relation link wins when present; otherwise this
+        falls back to the legacy/source-row work id hint.
         :return:
         """
+        primary_id = relation_target_id(self.primary_work, "work_id")
+        if primary_id is not None:
+            return primary_id
         return self.expression_work_id
 
     @primary_work_id.setter
     def primary_work_id(self, value: Optional[int]) -> None:
         """
-        Set the Primary Work ID for this expression.
+        Set the legacy/source-row work id hint for this expression.
+
+        Use ``set_primary_relation_link`` to change graph-link preference.
 
         :param value:
         :return:
@@ -432,7 +508,7 @@ class ExpressionMetadataAPI(abc.ABC):
     @abc.abstractmethod
     def expression_work_id(self) -> Optional[int]:
         """
-        The work id of this current expression.
+        Legacy/source-row work id hint for this expression.
 
         :return:
         """
@@ -441,7 +517,7 @@ class ExpressionMetadataAPI(abc.ABC):
     @abc.abstractmethod
     def expression_work_id(self, expression_work_id: Optional[int]) -> None:
         """
-        Set the work_id for this current expression.
+        Set the legacy/source-row work id hint for this expression.
 
         :param expression_work_id:
         :return:
