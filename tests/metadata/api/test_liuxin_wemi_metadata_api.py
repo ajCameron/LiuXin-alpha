@@ -62,7 +62,7 @@ def test_wemi_metadata_relation_contract_uses_relation_key_parameter() -> None:
             "get_wemi_related",
             "set_wemi_related",
             "add_wemi_related",
-            "get_wemi_relation_edge_ids",
+            "get_wemi_relation_link_ids",
         ):
             parameters = inspect.signature(getattr(metadata_class, method_name)).parameters
             assert "relation_key" in parameters

@@ -36,7 +36,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ManifestationRelationLink,
     ManifestationRelationTarget,
     MetadataRecord,
-    RelationEdgeID,
+    RelationLinkID,
     WorkIdentityAPI,
     WorkMetadataAPI,
     WorkRelationKey,
@@ -103,9 +103,9 @@ WemiRelationKeyAPI: TypeAlias = (
 WemiMetadataStack: TypeAlias = Mapping[WemiLevel, WemiMetadataBundleAPI]
 WemiIdentityStack: TypeAlias = Mapping[WemiLevel, WemiIdentityAPI | None]
 WemiIdentityIDMap: TypeAlias = Mapping[str, int | None]
-WemiRelationEdgeIDMap: TypeAlias = Mapping[
+WemiRelationLinkIDMap: TypeAlias = Mapping[
     WemiLevel,
-    Mapping[WemiRelationKeyAPI, tuple[RelationEdgeID, ...]],
+    Mapping[WemiRelationKeyAPI, tuple[RelationLinkID, ...]],
 ]
 WemiMetadataRecordMap: TypeAlias = Mapping[WemiLevel, MetadataRecord]
 OPFMetadataSource: TypeAlias = CalibrePath | bytes
@@ -116,7 +116,7 @@ LiuXinWEMISidecarValue: TypeAlias = (
     | int
     | Sequence[str]
     | WemiIdentityIDMap
-    | WemiRelationEdgeIDMap
+    | WemiRelationLinkIDMap
     | LiuXinFieldMapping
     | WemiMetadataRecordMap
 )
@@ -248,9 +248,9 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         """
 
     @property
-    def relation_edge_ids(self) -> WemiRelationEdgeIDMap:
+    def relation_link_ids(self) -> WemiRelationLinkIDMap:
         """
-        Persisted link-table edge ids grouped by WEMI level and relation key.
+        Persisted relation-link ids grouped by WEMI level and relation key.
 
         :return:
         """
@@ -588,13 +588,13 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         :return:
         """
 
-    def get_wemi_relation_edge_ids(
+    def get_wemi_relation_link_ids(
         self,
         level: WemiLevel,
         relation_key: WemiRelationKeyAPI,
-    ) -> tuple[RelationEdgeID, ...]:
+    ) -> tuple[RelationLinkID, ...]:
         """
-        Get persisted edge ids for one WEMI relation key.
+        Get persisted relation-link ids for one WEMI relation key.
 
         :param level:
         :param relation_key: normalized relation bucket key from the selected
@@ -750,7 +750,7 @@ __all__ = [
     "WemiMetadataRecordMap",
     "WemiMetadataStack",
     "WemiRelationLoaderAPI",
-    "WemiRelationEdgeIDMap",
+    "WemiRelationLinkIDMap",
     "WemiRelationKeyAPI",
     "WemiRelationLinkAPI",
     "WemiRelationTargetAPI",

@@ -118,7 +118,7 @@ def test_liuxin_wemi_metadata_routes_wemi_relation_link_access() -> None:
     metadata = _sample_metadata()
     link = ItemRelationLink(
         target={"scheme": "isbn", "value": "9780306406157"},
-        edge_id="item-identifier-edge",
+        link_id="item-identifier-link",
         source="unit-test",
     )
 
@@ -127,11 +127,11 @@ def test_liuxin_wemi_metadata_routes_wemi_relation_link_access() -> None:
     assert metadata.get_wemi_related("item", "identifiers") == [
         {"scheme": "isbn", "value": "9780306406157"},
     ]
-    assert metadata.get_wemi_relation_edge_ids("item", "identifiers") == (
-        "item-identifier-edge",
+    assert metadata.get_wemi_relation_link_ids("item", "identifiers") == (
+        "item-identifier-link",
     )
-    assert metadata.relation_edge_ids["item"]["identifiers"] == (
-        "item-identifier-edge",
+    assert metadata.relation_link_ids["item"]["identifiers"] == (
+        "item-identifier-link",
     )
 
 
@@ -143,7 +143,7 @@ def test_liuxin_wemi_metadata_pretty_string_summarizes_slice() -> None:
         "identifier",
         ItemRelationLink(
             target={"scheme": "isbn", "value": "9780306406157"},
-            edge_id="item-identifier-edge",
+            link_id="item-identifier-link",
             source="unit-test",
         ),
     )
@@ -179,7 +179,7 @@ def test_liuxin_wemi_metadata_sidecar_mapping_round_trips_slice() -> None:
         "identifier",
         ItemRelationLink(
             target={"scheme": "isbn", "value": "9780306406157"},
-            edge_id="item-identifier-edge",
+            link_id="item-identifier-link",
             source="unit-test",
         ),
     )
@@ -193,6 +193,6 @@ def test_liuxin_wemi_metadata_sidecar_mapping_round_trips_slice() -> None:
     assert round_tripped.database_ids == metadata.database_ids
     assert round_tripped.titles == metadata.titles
     assert round_tripped.has_identifier("isbn")
-    assert round_tripped.get_wemi_relation_edge_ids("item", "identifier") == (
-        "item-identifier-edge",
+    assert round_tripped.get_wemi_relation_link_ids("item", "identifier") == (
+        "item-identifier-link",
     )

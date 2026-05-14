@@ -510,7 +510,7 @@ class LazyLiuXinWEMIMetadataHydrator:
                     policy=link_map.get(prefix + "_policy") if prefix else None,
                     data=link_map.get(prefix + "_data") if prefix else None,
                     index=link_map.get(prefix + "_index") if prefix else None,
-                    edge_id=link_map.get(prefix + "_id") if prefix else None,
+                    link_id=link_map.get(prefix + "_id") if prefix else None,
                     extra=extra,
                 )
             )

@@ -305,7 +305,7 @@ class ItemMetadataHydrator:
                     policy=link.policy,
                     data=link.data,
                     index=link.index,
-                    edge_id=link.edge_id,
+                    link_id=link.link_id,
                     cardinality=link.cardinality,
                     extra=dict(link.extra),
                 )
@@ -401,7 +401,7 @@ class ItemMetadataHydrator:
                     policy=link_map.get(prefix + "_policy") if prefix else None,
                     data=link_map.get(prefix + "_data") if prefix else None,
                     index=link_map.get(prefix + "_index") if prefix else None,
-                    edge_id=link_map.get(prefix + "_id") if prefix else None,
+                    link_id=link_map.get(prefix + "_id") if prefix else None,
                     extra=extra,
                 )
             )

@@ -24,11 +24,11 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_targe
     MutableMetadataRecord,
     RelationTarget,
 )
-from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_edge_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
     RelationCardinality,
-    RelationEdge,
-    RelationEdgeID,
-    validate_relation_edge_cardinality,
+    RelationLink,
+    RelationLinkID,
+    validate_relation_link_cardinality,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
@@ -43,9 +43,9 @@ ItemRelationTarget: TypeAlias = (
 )
 
 @dataclasses.dataclass(slots=True)
-class ItemRelationEdge(RelationEdge[ItemRelationTarget]):
+class ItemRelationLink(RelationLink[ItemRelationTarget]):
     """
-    Relation edge used by item metadata containers.
+    Relation link used by item metadata containers.
 
     This intentionally mirrors the standard generated interlink metadata used by
     the FRBR schema: ``priority``, ``primary``, ``type``, ``origin``,
@@ -55,7 +55,6 @@ class ItemRelationEdge(RelationEdge[ItemRelationTarget]):
     target: ItemRelationTarget
 
 
-ItemRelationLink: TypeAlias = ItemRelationEdge
 ItemRelationKey: TypeAlias = Literal[
     "works",
     "expressions",
@@ -219,14 +218,14 @@ class ItemMetadataAPI(abc.ABC):
         links: Iterable[ItemRelationLink],
     ) -> list[ItemRelationLink]:
         """
-        Validate edge metadata links for one relation key.
+        Validate relation links for one relation key.
 
         :param relation_key:
         :param links:
         :return:
         """
         relation_key = cls.validate_relation_name(relation_key)
-        return validate_relation_edge_cardinality(
+        return validate_relation_link_cardinality(
             relation_key,
             links,
             cls.relation_cardinality(relation_key),
@@ -254,7 +253,7 @@ class ItemMetadataAPI(abc.ABC):
     @abc.abstractmethod
     def get_relation_links(self, relation_key: ItemRelationKey) -> list[ItemRelationLink]:
         """
-        Get edge metadata links for one relation key.
+        Get relation links for one relation key.
 
         :param relation_key:
         :return:
@@ -263,7 +262,7 @@ class ItemMetadataAPI(abc.ABC):
     @abc.abstractmethod
     def set_relation_links(self, relation_key: ItemRelationKey, links: Iterable[ItemRelationLink]) -> None:
         """
-        Entirely replace edge metadata links for one relation key.
+        Entirely replace relation links for one relation key.
 
         :param relation_key:
         :param links:
@@ -347,7 +346,7 @@ class ItemMetadataAPI(abc.ABC):
         self.set_relation_links(
             relation_key,
             [
-                ItemRelationEdge(
+                ItemRelationLink(
                     target=value,
                     cardinality=self.relation_cardinality(relation_key),
                 )
@@ -366,114 +365,75 @@ class ItemMetadataAPI(abc.ABC):
         relation_key = self.validate_relation_name(relation_key)
         self.add_relation_link(
             relation_key,
-            ItemRelationEdge(
+            ItemRelationLink(
                 target=value,
                 cardinality=self.relation_cardinality(relation_key),
             ),
         )
 
-    def get_relation_edges(self, relation_key: ItemRelationKey) -> list[ItemRelationEdge]:
-        """
-        Get all relational edges of one type.
-
-        :param relation_key:
-        :return:
-        """
-        return self.get_relation_links(relation_key)
-
-    def set_relation_edges(self, relation_key: ItemRelationKey, edges: Iterable[ItemRelationEdge]) -> None:
-        """
-        Set all relation edges for one relation key.
-
-        :param relation_key:
-        :param edges:
-        :return:
-        """
-        self.set_relation_links(relation_key, edges)
-
-    def add_relation_edge(self, relation_key: ItemRelationKey, edge: ItemRelationEdge) -> None:
-        """
-        Add a relation edge to the metadata.
-
-        :param relation_key:
-        :param edge:
-        :return:
-        """
-        self.add_relation_link(relation_key, edge)
-
-    def remove_relation_edge(self, relation_key: ItemRelationKey, edge: ItemRelationEdge) -> bool:
-        """
-        Remove a relation edge from the metadata, if it exists.
-
-        :param relation_key:
-        :param edge:
-        :return:
-        """
-        return self.remove_relation_link(relation_key, edge)
-
-    def get_relation_edge_by_id(
+    def get_relation_link_by_id(
         self,
         relation_key: ItemRelationKey,
-        edge_id: RelationEdgeID,
-    ) -> Optional[ItemRelationEdge]:
+        link_id: RelationLinkID,
+    ) -> Optional[ItemRelationLink]:
         """
-        Return a relation edge by its ID, if it exists on the system.
+        Return a relation link by its ID, if it exists on the system.
 
         :param relation_key:
-        :param edge_id:
+        :param link_id:
         :return:
         """
-        for edge in self.get_relation_edges(relation_key):
-            if edge.edge_id == edge_id:
-                return edge
+        for link in self.get_relation_links(relation_key):
+            if link.link_id == link_id:
+                return link
         return None
 
     # Todo: Common "WEMIObject" base class for these methods?
-    def upsert_relation_edge(self, relation_key: ItemRelationKey, edge: ItemRelationEdge) -> None:
+    def upsert_relation_link(self, relation_key: ItemRelationKey, link: ItemRelationLink) -> None:
         """
-        Upsert a relation edge by id when it already exists.
+        Upsert a relation link by id when it already exists.
 
         :param relation_key:
-        :param edge:
+        :param link:
         :return:
         """
         relation_key = self.validate_relation_name(relation_key)
-        if edge.edge_id is None:
-            self.add_relation_edge(relation_key, edge)
+        if link.link_id is None:
+            self.add_relation_link(relation_key, link)
             return
 
-        edges = list(self.get_relation_edges(relation_key))
-        for index, existing_edge in enumerate(edges):
-            if existing_edge.edge_id == edge.edge_id:
-                edges[index] = edge
-                self.set_relation_edges(relation_key, edges)
+        links = list(self.get_relation_links(relation_key))
+        for index, existing_link in enumerate(links):
+            if existing_link.link_id == link.link_id:
+                links[index] = link
+                self.set_relation_links(relation_key, links)
                 return
-        self.add_relation_edge(relation_key, edge)
+        self.add_relation_link(relation_key, link)
 
-    def remove_relation_edge_by_id(
+    def remove_relation_link_by_id(
         self,
         relation_key: ItemRelationKey,
-        edge_id: RelationEdgeID,
+        link_id: RelationLinkID,
     ) -> bool:
         """
-        Remove a relation edge by its ID, if it exists in the metadata object.
+        Remove a relation link by its ID, if it exists in the metadata object.
 
         :param relation_key:
-        :param edge_id:
+        :param link_id:
         :return:
         """
         relation_key = self.validate_relation_name(relation_key)
-        edges = list(self.get_relation_edges(relation_key))
-        for index, edge in enumerate(edges):
-            if edge.edge_id == edge_id:
-                del edges[index]
-                self.set_relation_edges(relation_key, edges)
+        links = list(self.get_relation_links(relation_key))
+        for index, link in enumerate(links):
+            if link.link_id == link_id:
+                del links[index]
+                self.set_relation_links(relation_key, links)
                 return True
         return False
 
     def clear_related(self, relation_key: ItemRelationKey) -> None:
         """
-        Clear all related edges of a certain type.
+        Clear all related links of a certain type.
 
         :param relation_key:
         :return:
@@ -935,7 +895,6 @@ class ItemMetadataAPI(abc.ABC):
 __all__ = [
     "ItemMetadataAPI",
     "ItemRelationKey",
-    "ItemRelationEdge",
     "ItemRelationLink",
     "ItemRelationTarget",
 ]

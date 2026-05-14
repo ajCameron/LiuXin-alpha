@@ -1,4 +1,4 @@
-"""Shared metadata relation-edge API types."""
+"""Shared metadata relation-link API types."""
 
 from __future__ import annotations
 
@@ -10,16 +10,16 @@ from typing import Generic, Literal, Optional, Protocol, TypeAlias, TypeVar, run
 
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MutableMetadataRecord,
-    RelationEdgeType,
+    RelationLinkType,
     RelationTarget,
 )
 
-RelationEdgeID: TypeAlias = int | str
-RelationEdgeSource: TypeAlias = str
+RelationLinkID: TypeAlias = int | str
+RelationLinkSource: TypeAlias = str
 
 
 class RelationCardinality(StrEnum):
-    """Cardinality for a relation edge from the current container to targets."""
+    """Cardinality for a relation link from the current container to targets."""
 
     ONE_TO_ONE = "one_to_one"
     ONE_TO_MANY = "one_to_many"
@@ -28,14 +28,14 @@ class RelationCardinality(StrEnum):
 
     @property
     def allows_many_targets(self) -> bool:
-        """Return whether this container may expose multiple target edges."""
+        """Return whether this container may expose multiple target links."""
 
         return self in {self.ONE_TO_MANY, self.MANY_TO_MANY}
 
 
 RelationCardinalityValue: TypeAlias = RelationCardinality | str
-RelationEdgeTargetT = TypeVar("RelationEdgeTargetT", bound=RelationTarget)
-RelationEdgeT = TypeVar("RelationEdgeT")
+RelationLinkTargetT = TypeVar("RelationLinkTargetT", bound=RelationTarget)
+RelationLinkT = TypeVar("RelationLinkT")
 
 
 def normalize_relation_cardinality(
@@ -49,38 +49,38 @@ def normalize_relation_cardinality(
     return RelationCardinality(normalized)
 
 
-def validate_relation_edge_cardinality(
+def validate_relation_link_cardinality(
     relation_key: str,
-    edges: Iterable[RelationEdgeT],
+    links: Iterable[RelationLinkT],
     cardinality: RelationCardinality,
-) -> list[RelationEdgeT]:
+) -> list[RelationLinkT]:
     """Validate local target multiplicity for one relation key."""
 
-    edge_list = list(edges)
-    if not cardinality.allows_many_targets and len(edge_list) > 1:
+    link_list = list(links)
+    if not cardinality.allows_many_targets and len(link_list) > 1:
         raise ValueError(
             "Relation key {!r} has cardinality {!s} and accepts at most one target.".format(
                 relation_key,
                 cardinality.value,
             )
         )
-    return edge_list
+    return link_list
 
 
 @runtime_checkable
-class RelationEdgeAPI(Protocol[RelationEdgeTargetT]):
-    """Structural API for one durable link-table edge."""
+class RelationLinkAPI(Protocol[RelationLinkTargetT]):
+    """Structural API for one durable relation link."""
 
-    target: RelationEdgeTargetT
+    target: RelationLinkTargetT
     priority: Optional[int]
     primary: Optional[bool]
-    type: Optional[RelationEdgeType]
+    type: Optional[RelationLinkType]
     origin: Optional[str]
-    source: Optional[RelationEdgeSource]
+    source: Optional[RelationLinkSource]
     policy: Optional[str]
     data: Optional[str]
     index: Optional[int | str]
-    edge_id: Optional[RelationEdgeID]
+    link_id: Optional[RelationLinkID]
     cardinality: Optional[RelationCardinality]
     extra: MutableMetadataRecord
 
@@ -88,49 +88,49 @@ class RelationEdgeAPI(Protocol[RelationEdgeTargetT]):
 
 
 @runtime_checkable
-class OneOneRelationEdgeAPI(RelationEdgeAPI[RelationEdgeTargetT], Protocol[RelationEdgeTargetT]):
-    """Structural API for a one-to-one relation edge."""
+class OneOneRelationLinkAPI(RelationLinkAPI[RelationLinkTargetT], Protocol[RelationLinkTargetT]):
+    """Structural API for a one-to-one relation link."""
 
     cardinality: Literal[RelationCardinality.ONE_TO_ONE]
 
 
 @runtime_checkable
-class OneManyRelationEdgeAPI(RelationEdgeAPI[RelationEdgeTargetT], Protocol[RelationEdgeTargetT]):
-    """Structural API for a one-to-many relation edge."""
+class OneManyRelationLinkAPI(RelationLinkAPI[RelationLinkTargetT], Protocol[RelationLinkTargetT]):
+    """Structural API for a one-to-many relation link."""
 
     cardinality: Literal[RelationCardinality.ONE_TO_MANY]
 
 
 @runtime_checkable
-class ManyOneRelationEdgeAPI(RelationEdgeAPI[RelationEdgeTargetT], Protocol[RelationEdgeTargetT]):
-    """Structural API for a many-to-one relation edge."""
+class ManyOneRelationLinkAPI(RelationLinkAPI[RelationLinkTargetT], Protocol[RelationLinkTargetT]):
+    """Structural API for a many-to-one relation link."""
 
     cardinality: Literal[RelationCardinality.MANY_TO_ONE]
 
 
 @runtime_checkable
-class ManyManyRelationEdgeAPI(RelationEdgeAPI[RelationEdgeTargetT], Protocol[RelationEdgeTargetT]):
-    """Structural API for a many-to-many relation edge."""
+class ManyManyRelationLinkAPI(RelationLinkAPI[RelationLinkTargetT], Protocol[RelationLinkTargetT]):
+    """Structural API for a many-to-many relation link."""
 
     cardinality: Literal[RelationCardinality.MANY_TO_MANY]
 
 
 @dataclasses.dataclass(slots=True)
-class RelationEdge(Generic[RelationEdgeTargetT]):
-    """Backend-agnostic value object for one metadata relation edge."""
+class RelationLink(Generic[RelationLinkTargetT]):
+    """Backend-agnostic value object for one metadata relation link."""
 
-    target: RelationEdgeTargetT
+    target: RelationLinkTargetT
     priority: Optional[int] = None
     primary: Optional[bool] = None
-    type: Optional[RelationEdgeType] = None
+    type: Optional[RelationLinkType] = None
     origin: Optional[str] = None
     policy: Optional[str] = None
     data: Optional[str] = None
     index: Optional[int | str] = None
     extra: MutableMetadataRecord = dataclasses.field(default_factory=dict)
-    edge_id: Optional[RelationEdgeID] = None
+    link_id: Optional[RelationLinkID] = None
     cardinality: Optional[RelationCardinalityValue] = None
-    source: Optional[RelationEdgeSource] = None
+    source: Optional[RelationLinkSource] = None
 
     def __post_init__(self) -> None:
         if self.cardinality is not None:
@@ -138,8 +138,8 @@ class RelationEdge(Generic[RelationEdgeTargetT]):
 
     def __str__(self) -> str:
         pieces = [f"target={self.target}"]
-        if self.edge_id is not None:
-            pieces.append(f"edge_id={self.edge_id!r}")
+        if self.link_id is not None:
+            pieces.append(f"link_id={self.link_id!r}")
         if self.type is not None:
             pieces.append(f"type={self.type!r}")
         if self.source is not None:
@@ -150,16 +150,16 @@ class RelationEdge(Generic[RelationEdgeTargetT]):
 
 
 __all__ = [
-    "ManyManyRelationEdgeAPI",
-    "ManyOneRelationEdgeAPI",
-    "OneManyRelationEdgeAPI",
-    "OneOneRelationEdgeAPI",
+    "ManyManyRelationLinkAPI",
+    "ManyOneRelationLinkAPI",
+    "OneManyRelationLinkAPI",
+    "OneOneRelationLinkAPI",
     "RelationCardinality",
     "RelationCardinalityValue",
-    "RelationEdge",
-    "RelationEdgeAPI",
-    "RelationEdgeID",
-    "RelationEdgeSource",
+    "RelationLink",
+    "RelationLinkAPI",
+    "RelationLinkID",
+    "RelationLinkSource",
     "normalize_relation_cardinality",
-    "validate_relation_edge_cardinality",
+    "validate_relation_link_cardinality",
 ]

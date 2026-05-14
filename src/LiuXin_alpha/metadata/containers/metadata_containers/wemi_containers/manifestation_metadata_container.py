@@ -109,7 +109,7 @@ class ManifestationMetadata(ManifestationMetadataAPI):
                         'policy': link.policy,
                         'data': link.data,
                         'index': link.index,
-                        'edge_id': link.edge_id,
+                        'link_id': link.link_id,
                         'cardinality': (
                             link.cardinality.value
                             if link.cardinality is not None
@@ -144,7 +144,7 @@ class ManifestationMetadata(ManifestationMetadataAPI):
                         policy=raw_link.get('policy'),
                         data=raw_link.get('data'),
                         index=raw_link.get('index'),
-                        edge_id=raw_link.get('edge_id'),
+                        link_id=raw_link.get('link_id'),
                         cardinality=raw_link.get('cardinality'),
                         extra=dict(raw_link.get('extra') or {}),
                     ))

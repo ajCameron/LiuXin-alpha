@@ -20,7 +20,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ManifestationRelationKey,
     ManifestationRelationLink,
     ManifestationRelationTarget,
-    RelationEdgeID,
+    RelationLinkID,
     WorkIdentityAPI,
     WorkRelationKey,
     WorkRelationLink,
@@ -386,13 +386,13 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         }
 
     @property
-    def relation_edge_ids(self) -> dict[WemiLevel, dict[str, tuple[RelationEdgeID, ...]]]:
+    def relation_link_ids(self) -> dict[WemiLevel, dict[str, tuple[RelationLinkID, ...]]]:
         return {
             level: {
                 relation_key: tuple(
-                    link.edge_id
+                    link.link_id
                     for link in metadata.get_relation_links(relation_key)
-                    if link.edge_id is not None
+                    if link.link_id is not None
                 )
                 for relation_key in metadata.relation_names()
             }
@@ -656,15 +656,15 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     ) -> None:
         self.get_wemi_metadata(level).add_related(relation_key, value)
 
-    def get_wemi_relation_edge_ids(
+    def get_wemi_relation_link_ids(
         self,
         level: str,
         relation_key: WemiRelationKey,
-    ) -> tuple[RelationEdgeID, ...]:
+    ) -> tuple[RelationLinkID, ...]:
         return tuple(
-            link.edge_id
+            link.link_id
             for link in self.get_wemi_relation_links(level, relation_key)
-            if link.edge_id is not None
+            if link.link_id is not None
         )
 
     def sync_legacy_title_from_wemi(self) -> str | None:
@@ -1034,7 +1034,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
             "schema": self.SIDECAR_SCHEMA_NAME,
             "schema_version": self.SIDECAR_SCHEMA_VERSION,
             "database_ids": self.database_ids,
-            "relation_edge_ids": self.relation_edge_ids,
+            "relation_link_ids": self.relation_link_ids,
             "titles": list(self.titles),
             "wemi": self.to_wemi_mapping(include_related=include_related),
         }
