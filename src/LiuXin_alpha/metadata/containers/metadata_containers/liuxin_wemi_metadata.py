@@ -9,16 +9,20 @@ from typing import Any, ClassVar, Literal, TypeAlias, cast
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ExpressionIdentityAPI,
+    ExpressionRelationKey,
     ExpressionRelationLink,
     ExpressionRelationTarget,
     ItemIdentityAPI,
+    ItemRelationKey,
     ItemRelationLink,
     ItemRelationTarget,
     ManifestationIdentityAPI,
+    ManifestationRelationKey,
     ManifestationRelationLink,
     ManifestationRelationTarget,
     RelationEdgeID,
     WorkIdentityAPI,
+    WorkRelationKey,
     WorkRelationLink,
     WorkRelationTarget,
 )
@@ -63,6 +67,12 @@ WemiRelationTarget: TypeAlias = (
     | ExpressionRelationTarget
     | ManifestationRelationTarget
     | ItemRelationTarget
+)
+WemiRelationKey: TypeAlias = (
+    WorkRelationKey
+    | ExpressionRelationKey
+    | ManifestationRelationKey
+    | ItemRelationKey
 )
 
 
@@ -603,14 +613,14 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     def get_wemi_relation_links(
         self,
         level: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
     ) -> list[WemiRelationLink]:
         return self.get_wemi_metadata(level).get_relation_links(relation_key)
 
     def set_wemi_relation_links(
         self,
         level: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
         links: Iterable[WemiRelationLink],
     ) -> None:
         self.get_wemi_metadata(level).set_relation_links(relation_key, links)
@@ -618,7 +628,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     def add_wemi_relation_link(
         self,
         level: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
         link: WemiRelationLink,
     ) -> None:
         self.get_wemi_metadata(level).add_relation_link(relation_key, link)
@@ -626,14 +636,14 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     def get_wemi_related(
         self,
         level: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
     ) -> list[WemiRelationTarget]:
         return self.get_wemi_metadata(level).get_related(relation_key)
 
     def set_wemi_related(
         self,
         level: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
         values: Iterable[WemiRelationTarget],
     ) -> None:
         self.get_wemi_metadata(level).set_related(relation_key, values)
@@ -641,7 +651,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     def add_wemi_related(
         self,
         level: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
         value: WemiRelationTarget,
     ) -> None:
         self.get_wemi_metadata(level).add_related(relation_key, value)
@@ -649,7 +659,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     def get_wemi_relation_edge_ids(
         self,
         level: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
     ) -> tuple[RelationEdgeID, ...]:
         return tuple(
             link.edge_id
@@ -730,7 +740,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
         return tuple(synced)
 
-    def _sync_legacy_terms_from_wemi(self, *, field: str, relation_key: str) -> tuple[str, ...]:
+    def _sync_legacy_terms_from_wemi(self, *, field: str, relation_key: WemiRelationKey) -> tuple[str, ...]:
         data = object.__getattribute__(self, "_data")
         terms = data[field]
         synced: list[str] = []
@@ -1177,6 +1187,7 @@ __all__ = [
     "WemiIdentity",
     "WemiLevel",
     "WemiMetadataBundle",
+    "WemiRelationKey",
     "WemiRelationLink",
     "WemiRelationTarget",
 ]

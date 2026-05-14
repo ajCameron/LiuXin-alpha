@@ -13,6 +13,7 @@ from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_metadata_api import (
     ItemMetadataAPI,
+    ItemRelationKey,
     ItemRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
@@ -38,7 +39,7 @@ class ItemMetadata(ItemMetadataAPI):
         relation_links: Optional[Mapping[str, Iterable[ItemRelationLink]]] = None,
     ) -> None:
         self._item = item
-        self._relation_links: dict[str, list[ItemRelationLink]] = {
+        self._relation_links: dict[ItemRelationKey, list[ItemRelationLink]] = {
             relation_key: [] for relation_key in self.RELATION_KEYS
         }
         if relation_links:
@@ -53,11 +54,11 @@ class ItemMetadata(ItemMetadataAPI):
     def item(self, value: Optional[ItemIdentityAPI]) -> None:
         self._item = value
 
-    def get_relation_links(self, relation_key: str) -> list[ItemRelationLink]:
+    def get_relation_links(self, relation_key: ItemRelationKey) -> list[ItemRelationLink]:
         relation_key = self.validate_relation_name(relation_key)
         return self._relation_links[relation_key]
 
-    def set_relation_links(self, relation_key: str, links: Iterable[ItemRelationLink]) -> None:
+    def set_relation_links(self, relation_key: ItemRelationKey, links: Iterable[ItemRelationLink]) -> None:
         relation_key = self.validate_relation_name(relation_key)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 

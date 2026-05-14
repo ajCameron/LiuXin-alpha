@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
+from typing import ClassVar, Iterable, Literal, Mapping, Optional, Self, TypeAlias, cast
 
 from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
     MetadataWriteDatabaseAPI,
@@ -54,6 +54,27 @@ class WorkRelationEdge(RelationEdge[WorkRelationTarget]):
 
 
 WorkRelationLink: TypeAlias = WorkRelationEdge
+WorkRelationKey: TypeAlias = Literal[
+    "agents",
+    "expressions",
+    "manifestations",
+    "items",
+    "files",
+    "titles",
+    "genres",
+    "subjects",
+    "series",
+    "tags",
+    "labels",
+    "languages",
+    "images",
+    "identifiers",
+    "ratings",
+    "notes",
+    "comments",
+    "synopses",
+    "folders",
+]
 
 
 class WorkMetadataAPI(abc.ABC):
@@ -71,7 +92,7 @@ class WorkMetadataAPI(abc.ABC):
     rather than a guarantee about a physical database table.
     """
 
-    RELATION_KEYS: ClassVar[tuple[str, ...]] = (
+    RELATION_KEYS: ClassVar[tuple[WorkRelationKey, ...]] = (
         "agents",
         "expressions",
         "manifestations",
@@ -93,7 +114,7 @@ class WorkMetadataAPI(abc.ABC):
         "folders",
     )
 
-    RELATION_ALIASES: ClassVar[Mapping[str, str]] = {
+    RELATION_ALIASES: ClassVar[Mapping[str, WorkRelationKey]] = {
         "agent": "agents",
         "creator": "agents",
         "creators": "agents",
@@ -123,7 +144,7 @@ class WorkMetadataAPI(abc.ABC):
         "synopsis": "synopses",
         "folder": "folders",
     }
-    RELATION_CARDINALITIES: ClassVar[Mapping[str, RelationCardinality]] = {
+    RELATION_CARDINALITIES: ClassVar[Mapping[WorkRelationKey, RelationCardinality]] = {
         "expressions": RelationCardinality.ONE_TO_MANY,
         "titles": RelationCardinality.ONE_TO_MANY,
         "identifiers": RelationCardinality.ONE_TO_MANY,
@@ -134,7 +155,7 @@ class WorkMetadataAPI(abc.ABC):
     }
 
     @classmethod
-    def relation_names(cls) -> tuple[str, ...]:
+    def relation_names(cls) -> tuple[WorkRelationKey, ...]:
         """
         Things this work can relate to.
 
@@ -143,7 +164,7 @@ class WorkMetadataAPI(abc.ABC):
         return cls.RELATION_KEYS
 
     @classmethod
-    def validate_relation_name(cls, relation_key: str) -> str:
+    def validate_relation_name(cls, relation_key: str) -> WorkRelationKey:
         """Normalize and validate one relation key for this work bundle."""
         normalized = str(relation_key).strip().lower()
         normalized = cls.RELATION_ALIASES.get(normalized, normalized)
@@ -154,10 +175,10 @@ class WorkMetadataAPI(abc.ABC):
                     ", ".join(cls.RELATION_KEYS),
                 )
             )
-        return normalized
+        return cast(WorkRelationKey, normalized)
 
     @classmethod
-    def relation_cardinality(cls, relation_key: str) -> RelationCardinality:
+    def relation_cardinality(cls, relation_key: WorkRelationKey) -> RelationCardinality:
         """Return the cardinality policy for one relation key."""
         relation_key = cls.validate_relation_name(relation_key)
         return cls.RELATION_CARDINALITIES.get(
@@ -168,7 +189,7 @@ class WorkMetadataAPI(abc.ABC):
     @classmethod
     def validate_relation_links(
         cls,
-        relation_key: str,
+        relation_key: WorkRelationKey,
         links: Iterable[WorkRelationLink],
     ) -> list[WorkRelationLink]:
         """Validate edge metadata links for one relation key."""
@@ -190,11 +211,11 @@ class WorkMetadataAPI(abc.ABC):
         """Set primary work row."""
 
     @abc.abstractmethod
-    def get_relation_links(self, relation_key: str) -> list[WorkRelationLink]:
+    def get_relation_links(self, relation_key: WorkRelationKey) -> list[WorkRelationLink]:
         """Get edge metadata links for one relation key."""
 
     @abc.abstractmethod
-    def set_relation_links(self, relation_key: str, links: Iterable[WorkRelationLink]) -> None:
+    def set_relation_links(self, relation_key: WorkRelationKey, links: Iterable[WorkRelationLink]) -> None:
         """Replace edge metadata links for one relation key."""
 
     @abc.abstractmethod
@@ -210,13 +231,13 @@ class WorkMetadataAPI(abc.ABC):
     ) -> MetadataWriteReportAPI:
         """Persist supported relation-backed changes for this work metadata bundle."""
 
-    def add_relation_link(self, relation_key: str, link: WorkRelationLink) -> None:
+    def add_relation_link(self, relation_key: WorkRelationKey, link: WorkRelationLink) -> None:
         relation_key = self.validate_relation_name(relation_key)
         links = list(self.get_relation_links(relation_key))
         links.append(link)
         self.set_relation_links(relation_key, self.validate_relation_links(relation_key, links))
 
-    def remove_relation_link(self, relation_key: str, link: WorkRelationLink) -> bool:
+    def remove_relation_link(self, relation_key: WorkRelationKey, link: WorkRelationLink) -> bool:
         relation_key = self.validate_relation_name(relation_key)
         links = list(self.get_relation_links(relation_key))
         try:
@@ -226,12 +247,12 @@ class WorkMetadataAPI(abc.ABC):
         except ValueError:
             return False
 
-    def get_related(self, relation_key: str) -> list[WorkRelationTarget]:
+    def get_related(self, relation_key: WorkRelationKey) -> list[WorkRelationTarget]:
         relation_key = self.validate_relation_name(relation_key)
         links = self.get_relation_links(relation_key)
         return [link.target for link in links]
 
-    def set_related(self, relation_key: str, values: Iterable[WorkRelationTarget]) -> None:
+    def set_related(self, relation_key: WorkRelationKey, values: Iterable[WorkRelationTarget]) -> None:
         relation_key = self.validate_relation_name(relation_key)
         self.set_relation_links(
             relation_key,
@@ -244,7 +265,7 @@ class WorkMetadataAPI(abc.ABC):
             ],
         )
 
-    def add_related(self, relation_key: str, value: WorkRelationTarget) -> None:
+    def add_related(self, relation_key: WorkRelationKey, value: WorkRelationTarget) -> None:
         relation_key = self.validate_relation_name(relation_key)
         self.add_relation_link(
             relation_key,
@@ -254,21 +275,21 @@ class WorkMetadataAPI(abc.ABC):
             ),
         )
 
-    def get_relation_edges(self, relation_key: str) -> list[WorkRelationEdge]:
+    def get_relation_edges(self, relation_key: WorkRelationKey) -> list[WorkRelationEdge]:
         return self.get_relation_links(relation_key)
 
-    def set_relation_edges(self, relation_key: str, edges: Iterable[WorkRelationEdge]) -> None:
+    def set_relation_edges(self, relation_key: WorkRelationKey, edges: Iterable[WorkRelationEdge]) -> None:
         self.set_relation_links(relation_key, edges)
 
-    def add_relation_edge(self, relation_key: str, edge: WorkRelationEdge) -> None:
+    def add_relation_edge(self, relation_key: WorkRelationKey, edge: WorkRelationEdge) -> None:
         self.add_relation_link(relation_key, edge)
 
-    def remove_relation_edge(self, relation_key: str, edge: WorkRelationEdge) -> bool:
+    def remove_relation_edge(self, relation_key: WorkRelationKey, edge: WorkRelationEdge) -> bool:
         return self.remove_relation_link(relation_key, edge)
 
     def get_relation_edge_by_id(
         self,
-        relation_key: str,
+        relation_key: WorkRelationKey,
         edge_id: RelationEdgeID,
     ) -> Optional[WorkRelationEdge]:
         for edge in self.get_relation_edges(relation_key):
@@ -276,7 +297,7 @@ class WorkMetadataAPI(abc.ABC):
                 return edge
         return None
 
-    def upsert_relation_edge(self, relation_key: str, edge: WorkRelationEdge) -> None:
+    def upsert_relation_edge(self, relation_key: WorkRelationKey, edge: WorkRelationEdge) -> None:
         relation_key = self.validate_relation_name(relation_key)
         if edge.edge_id is None:
             self.add_relation_edge(relation_key, edge)
@@ -292,7 +313,7 @@ class WorkMetadataAPI(abc.ABC):
 
     def remove_relation_edge_by_id(
         self,
-        relation_key: str,
+        relation_key: WorkRelationKey,
         edge_id: RelationEdgeID,
     ) -> bool:
         relation_key = self.validate_relation_name(relation_key)
@@ -304,7 +325,7 @@ class WorkMetadataAPI(abc.ABC):
                 return True
         return False
 
-    def clear_related(self, relation_key: str) -> None:
+    def clear_related(self, relation_key: WorkRelationKey) -> None:
         relation_key = self.validate_relation_name(relation_key)
         self.set_relation_links(relation_key, [])
 
@@ -474,6 +495,7 @@ class WorkMetadataAPI(abc.ABC):
 
 __all__ = [
     "WorkMetadataAPI",
+    "WorkRelationKey",
     "WorkRelationEdge",
     "WorkRelationLink",
     "WorkRelationTarget",

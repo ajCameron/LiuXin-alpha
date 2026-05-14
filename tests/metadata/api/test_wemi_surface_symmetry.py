@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib
 import inspect
 
+from typing import get_args
+
 import pytest
 
 
@@ -13,6 +15,7 @@ LEVELS = [
         "api_identity_class": "WorkIdentityAPI",
         "api_metadata_module": "work_containers.work_metadata_api",
         "api_metadata_class": "WorkMetadataAPI",
+        "api_relation_key": "WorkRelationKey",
         "impl_identity_module": "work_container",
         "impl_identity_class": "WorkIdentity",
         "impl_metadata_module": "work_metadata_container",
@@ -27,6 +30,7 @@ LEVELS = [
         "api_identity_class": "ExpressionIdentityAPI",
         "api_metadata_module": "expression_containers.expression_metadata_api",
         "api_metadata_class": "ExpressionMetadataAPI",
+        "api_relation_key": "ExpressionRelationKey",
         "impl_identity_module": "expression_container",
         "impl_identity_class": "ExpressionIdentity",
         "impl_metadata_module": "expression_metadata_container",
@@ -41,6 +45,7 @@ LEVELS = [
         "api_identity_class": "ManifestationIdentityAPI",
         "api_metadata_module": "manifestation_containers.manifestation_metadata_api",
         "api_metadata_class": "ManifestationMetadataAPI",
+        "api_relation_key": "ManifestationRelationKey",
         "impl_identity_module": "manifestation_container",
         "impl_identity_class": "ManifestationIdentity",
         "impl_metadata_module": "manifestation_metadata_container",
@@ -55,6 +60,7 @@ LEVELS = [
         "api_identity_class": "ItemIdentityAPI",
         "api_metadata_module": "item_containers.item_metadata_api",
         "api_metadata_class": "ItemMetadataAPI",
+        "api_relation_key": "ItemRelationKey",
         "impl_identity_module": "item_container",
         "impl_identity_class": "ItemIdentity",
         "impl_metadata_module": "item_metadata_container",
@@ -100,10 +106,17 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
     assert hasattr(metadata_class, "to_mapping")
 
     api_metadata_class = getattr(api_metadata_module, entry["api_metadata_class"])
+    relation_key_alias = getattr(api_metadata_module, entry["api_relation_key"])
     api_doc = inspect.getdoc(api_metadata_class) or ""
     assert "relation_key" in api_doc
     assert "RELATION_KEYS" in api_doc
     assert "physical database table" in api_doc
+    assert hasattr(api_metadata_module, entry["api_relation_key"])
+    assert get_args(relation_key_alias) == api_metadata_class.relation_names()
+    assert entry["api_relation_key"] in str(inspect.signature(api_metadata_class.relation_names).return_annotation)
+    validate_signature = inspect.signature(api_metadata_class.validate_relation_name)
+    assert validate_signature.parameters["relation_key"].annotation == "str"
+    assert validate_signature.return_annotation == entry["api_relation_key"]
 
     for method_name in (
         "relation_names",
@@ -142,6 +155,7 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
     )
     api_metadata_class = getattr(api_metadata_module, entry["api_metadata_class"])
     impl_metadata_class = getattr(impl_metadata_module, entry["impl_metadata_class"])
+    relation_key_alias = getattr(api_metadata_module, entry["api_relation_key"])
 
     for metadata_class in (api_metadata_class, impl_metadata_class):
         for method_name in (
@@ -151,9 +165,9 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
             parameters = inspect.signature(getattr(metadata_class, method_name)).parameters
             assert "relation_key" in parameters
             assert "relation" not in parameters
+            assert parameters["relation_key"].annotation == entry["api_relation_key"]
 
     for method_name in (
-        "validate_relation_name",
         "relation_cardinality",
         "validate_relation_links",
         "get_relation_edges",
@@ -175,3 +189,4 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
         parameters = inspect.signature(getattr(api_metadata_class, method_name)).parameters
         assert "relation_key" in parameters
         assert "relation" not in parameters
+        assert parameters["relation_key"].annotation == entry["api_relation_key"]

@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
+from typing import ClassVar, Iterable, Literal, Mapping, Optional, Self, TypeAlias, cast
 
 
 from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
@@ -56,6 +56,30 @@ class ItemRelationEdge(RelationEdge[ItemRelationTarget]):
 
 
 ItemRelationLink: TypeAlias = ItemRelationEdge
+ItemRelationKey: TypeAlias = Literal[
+    "works",
+    "expressions",
+    "manifestations",
+    "agents",
+    "digital_assets",
+    "composite_digital_assets",
+    "asset_replicas",
+    "stores",
+    "folders",
+    "files",
+    "images",
+    "identifiers",
+    "titles",
+    "annotations",
+    "genres",
+    "subjects",
+    "series",
+    "tags",
+    "labels",
+    "languages",
+    "notes",
+    "comments",
+]
 
 
 class ItemMetadataAPI(abc.ABC):
@@ -74,7 +98,7 @@ class ItemMetadataAPI(abc.ABC):
     rather than a guarantee about a physical database table.
     """
 
-    RELATION_KEYS: ClassVar[tuple[str, ...]] = (
+    RELATION_KEYS: ClassVar[tuple[ItemRelationKey, ...]] = (
         "works",
         "expressions",
         "manifestations",
@@ -99,7 +123,7 @@ class ItemMetadataAPI(abc.ABC):
         "comments",
     )
 
-    RELATION_ALIASES: ClassVar[Mapping[str, str]] = {
+    RELATION_ALIASES: ClassVar[Mapping[str, ItemRelationKey]] = {
         "work": "works",
         "expression": "expressions",
         "manifestation": "manifestations",
@@ -138,7 +162,7 @@ class ItemMetadataAPI(abc.ABC):
         "note": "notes",
         "comment": "comments",
     }
-    RELATION_CARDINALITIES: ClassVar[Mapping[str, RelationCardinality]] = {
+    RELATION_CARDINALITIES: ClassVar[Mapping[ItemRelationKey, RelationCardinality]] = {
         "identifiers": RelationCardinality.ONE_TO_MANY,
         "titles": RelationCardinality.ONE_TO_MANY,
         "annotations": RelationCardinality.ONE_TO_MANY,
@@ -147,7 +171,7 @@ class ItemMetadataAPI(abc.ABC):
     }
 
     @classmethod
-    def relation_names(cls) -> tuple[str, ...]:
+    def relation_names(cls) -> tuple[ItemRelationKey, ...]:
         """
         Relation keys this item metadata bundle can expose.
 
@@ -156,7 +180,7 @@ class ItemMetadataAPI(abc.ABC):
         return cls.RELATION_KEYS
 
     @classmethod
-    def validate_relation_name(cls, relation_key: str) -> str:
+    def validate_relation_name(cls, relation_key: str) -> ItemRelationKey:
         """
         Normalize and validate one relation key.
 
@@ -172,10 +196,10 @@ class ItemMetadataAPI(abc.ABC):
                     ", ".join(cls.RELATION_KEYS),
                 )
             )
-        return normalized
+        return cast(ItemRelationKey, normalized)
 
     @classmethod
-    def relation_cardinality(cls, relation_key: str) -> RelationCardinality:
+    def relation_cardinality(cls, relation_key: ItemRelationKey) -> RelationCardinality:
         """
         Return the cardinality policy for one relation key.
 
@@ -191,7 +215,7 @@ class ItemMetadataAPI(abc.ABC):
     @classmethod
     def validate_relation_links(
         cls,
-        relation_key: str,
+        relation_key: ItemRelationKey,
         links: Iterable[ItemRelationLink],
     ) -> list[ItemRelationLink]:
         """
@@ -228,7 +252,7 @@ class ItemMetadataAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_relation_links(self, relation_key: str) -> list[ItemRelationLink]:
+    def get_relation_links(self, relation_key: ItemRelationKey) -> list[ItemRelationLink]:
         """
         Get edge metadata links for one relation key.
 
@@ -237,7 +261,7 @@ class ItemMetadataAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def set_relation_links(self, relation_key: str, links: Iterable[ItemRelationLink]) -> None:
+    def set_relation_links(self, relation_key: ItemRelationKey, links: Iterable[ItemRelationLink]) -> None:
         """
         Entirely replace edge metadata links for one relation key.
 
@@ -270,7 +294,7 @@ class ItemMetadataAPI(abc.ABC):
         :return:
         """
 
-    def add_relation_link(self, relation_key: str, link: ItemRelationLink) -> None:
+    def add_relation_link(self, relation_key: ItemRelationKey, link: ItemRelationLink) -> None:
         """
         Add an existing relational link to the item metadata.
 
@@ -283,7 +307,7 @@ class ItemMetadataAPI(abc.ABC):
         links.append(link)
         self.set_relation_links(relation_key, self.validate_relation_links(relation_key, links))
 
-    def remove_relation_link(self, relation_key: str, link: ItemRelationLink) -> bool:
+    def remove_relation_link(self, relation_key: ItemRelationKey, link: ItemRelationLink) -> bool:
         """
         Remove a relational link from this metadata.
 
@@ -300,7 +324,7 @@ class ItemMetadataAPI(abc.ABC):
         except ValueError:
             return False
 
-    def get_related(self, relation_key: str) -> list[ItemRelationTarget]:
+    def get_related(self, relation_key: ItemRelationKey) -> list[ItemRelationTarget]:
         """
         Get the related objects for this relation key.
 
@@ -311,7 +335,7 @@ class ItemMetadataAPI(abc.ABC):
         links = self.get_relation_links(relation_key)
         return [link.target for link in links]
 
-    def set_related(self, relation_key: str, values: Iterable[ItemRelationTarget]) -> None:
+    def set_related(self, relation_key: ItemRelationKey, values: Iterable[ItemRelationTarget]) -> None:
         """
         Set the related value of an object to this one.
 
@@ -331,7 +355,7 @@ class ItemMetadataAPI(abc.ABC):
             ],
         )
 
-    def add_related(self, relation_key: str, value: ItemRelationTarget) -> None:
+    def add_related(self, relation_key: ItemRelationKey, value: ItemRelationTarget) -> None:
         """
         Add a related object to this metadata for one relation key.
 
@@ -348,8 +372,7 @@ class ItemMetadataAPI(abc.ABC):
             ),
         )
 
-    # Todo: We can probably tighten the typing of relation_key
-    def get_relation_edges(self, relation_key: str) -> list[ItemRelationEdge]:
+    def get_relation_edges(self, relation_key: ItemRelationKey) -> list[ItemRelationEdge]:
         """
         Get all relational edges of one type.
 
@@ -358,7 +381,7 @@ class ItemMetadataAPI(abc.ABC):
         """
         return self.get_relation_links(relation_key)
 
-    def set_relation_edges(self, relation_key: str, edges: Iterable[ItemRelationEdge]) -> None:
+    def set_relation_edges(self, relation_key: ItemRelationKey, edges: Iterable[ItemRelationEdge]) -> None:
         """
         Set all relation edges for one relation key.
 
@@ -368,7 +391,7 @@ class ItemMetadataAPI(abc.ABC):
         """
         self.set_relation_links(relation_key, edges)
 
-    def add_relation_edge(self, relation_key: str, edge: ItemRelationEdge) -> None:
+    def add_relation_edge(self, relation_key: ItemRelationKey, edge: ItemRelationEdge) -> None:
         """
         Add a relation edge to the metadata.
 
@@ -378,7 +401,7 @@ class ItemMetadataAPI(abc.ABC):
         """
         self.add_relation_link(relation_key, edge)
 
-    def remove_relation_edge(self, relation_key: str, edge: ItemRelationEdge) -> bool:
+    def remove_relation_edge(self, relation_key: ItemRelationKey, edge: ItemRelationEdge) -> bool:
         """
         Remove a relation edge from the metadata, if it exists.
 
@@ -390,7 +413,7 @@ class ItemMetadataAPI(abc.ABC):
 
     def get_relation_edge_by_id(
         self,
-        relation_key: str,
+        relation_key: ItemRelationKey,
         edge_id: RelationEdgeID,
     ) -> Optional[ItemRelationEdge]:
         """
@@ -406,7 +429,7 @@ class ItemMetadataAPI(abc.ABC):
         return None
 
     # Todo: Common "WEMIObject" base class for these methods?
-    def upsert_relation_edge(self, relation_key: str, edge: ItemRelationEdge) -> None:
+    def upsert_relation_edge(self, relation_key: ItemRelationKey, edge: ItemRelationEdge) -> None:
         """
         Upsert a relation edge by id when it already exists.
 
@@ -429,7 +452,7 @@ class ItemMetadataAPI(abc.ABC):
 
     def remove_relation_edge_by_id(
         self,
-        relation_key: str,
+        relation_key: ItemRelationKey,
         edge_id: RelationEdgeID,
     ) -> bool:
         """
@@ -448,7 +471,7 @@ class ItemMetadataAPI(abc.ABC):
                 return True
         return False
 
-    def clear_related(self, relation_key: str) -> None:
+    def clear_related(self, relation_key: ItemRelationKey) -> None:
         """
         Clear all related edges of a certain type.
 
@@ -911,6 +934,7 @@ class ItemMetadataAPI(abc.ABC):
 
 __all__ = [
     "ItemMetadataAPI",
+    "ItemRelationKey",
     "ItemRelationEdge",
     "ItemRelationLink",
     "ItemRelationTarget",

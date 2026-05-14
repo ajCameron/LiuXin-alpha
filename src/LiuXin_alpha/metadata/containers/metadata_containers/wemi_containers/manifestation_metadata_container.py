@@ -14,6 +14,7 @@ from typing import Any, Optional
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
     ManifestationMetadataAPI,
+    ManifestationRelationKey,
     ManifestationRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
@@ -25,7 +26,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manife
 class ManifestationMetadata(ManifestationMetadataAPI):
     def __init__(self, *, manifestation: Optional[ManifestationIdentityAPI] = None, relation_links: Optional[Mapping[str, Iterable[ManifestationRelationLink]]] = None) -> None:
         self._manifestation = manifestation
-        self._relation_links: dict[str, list[ManifestationRelationLink]] = {relation_key: [] for relation_key in self.RELATION_KEYS}
+        self._relation_links: dict[ManifestationRelationKey, list[ManifestationRelationLink]] = {relation_key: [] for relation_key in self.RELATION_KEYS}
         if relation_links:
             for relation_key, links in relation_links.items():
                 self.set_relation_links(relation_key, links)
@@ -38,10 +39,10 @@ class ManifestationMetadata(ManifestationMetadataAPI):
     def manifestation(self, value: Optional[ManifestationIdentityAPI]) -> None:
         self._manifestation = value
 
-    def get_relation_links(self, relation_key: str) -> list[ManifestationRelationLink]:
+    def get_relation_links(self, relation_key: ManifestationRelationKey) -> list[ManifestationRelationLink]:
         return self._relation_links[self.validate_relation_name(relation_key)]
 
-    def set_relation_links(self, relation_key: str, links: Iterable[ManifestationRelationLink]) -> None:
+    def set_relation_links(self, relation_key: ManifestationRelationKey, links: Iterable[ManifestationRelationLink]) -> None:
         relation_key = self.validate_relation_name(relation_key)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 

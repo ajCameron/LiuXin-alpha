@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
+from typing import ClassVar, Iterable, Literal, Mapping, Optional, Self, TypeAlias, cast
 
 
 from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
@@ -50,6 +50,20 @@ class ExpressionRelationEdge(RelationEdge[ExpressionRelationTarget]):
 
 
 ExpressionRelationLink: TypeAlias = ExpressionRelationEdge
+ExpressionRelationKey: TypeAlias = Literal[
+    "works",
+    "manifestations",
+    "items",
+    "agents",
+    "identifiers",
+    "titles",
+    "genres",
+    "tags",
+    "labels",
+    "languages",
+    "notes",
+    "comments",
+]
 
 
 class ExpressionMetadataAPI(abc.ABC):
@@ -65,7 +79,7 @@ class ExpressionMetadataAPI(abc.ABC):
     keys rather than a guarantee about a physical database table.
     """
 
-    RELATION_KEYS: ClassVar[tuple[str, ...]] = (
+    RELATION_KEYS: ClassVar[tuple[ExpressionRelationKey, ...]] = (
         "works",
         "manifestations",
         "items",
@@ -80,7 +94,7 @@ class ExpressionMetadataAPI(abc.ABC):
         "comments",
     )
 
-    RELATION_ALIASES: ClassVar[Mapping[str, str]] = {
+    RELATION_ALIASES: ClassVar[Mapping[str, ExpressionRelationKey]] = {
         "work": "works",
         "manifestation": "manifestations",
         "item": "items",
@@ -95,7 +109,7 @@ class ExpressionMetadataAPI(abc.ABC):
         "note": "notes",
         "comment": "comments",
     }
-    RELATION_CARDINALITIES: ClassVar[Mapping[str, RelationCardinality]] = {
+    RELATION_CARDINALITIES: ClassVar[Mapping[ExpressionRelationKey, RelationCardinality]] = {
         "works": RelationCardinality.MANY_TO_ONE,
         "identifiers": RelationCardinality.ONE_TO_MANY,
         "titles": RelationCardinality.ONE_TO_MANY,
@@ -104,7 +118,7 @@ class ExpressionMetadataAPI(abc.ABC):
     }
 
     @classmethod
-    def relation_names(cls) -> tuple[str, ...]:
+    def relation_names(cls) -> tuple[ExpressionRelationKey, ...]:
         """
         Relation keys this expression metadata bundle can expose.
 
@@ -113,7 +127,7 @@ class ExpressionMetadataAPI(abc.ABC):
         return cls.RELATION_KEYS
 
     @classmethod
-    def validate_relation_name(cls, relation_key: str) -> str:
+    def validate_relation_name(cls, relation_key: str) -> ExpressionRelationKey:
         """
         Normalize and validate one relation key.
 
@@ -124,10 +138,10 @@ class ExpressionMetadataAPI(abc.ABC):
         normalized = cls.RELATION_ALIASES.get(normalized, normalized)
         if normalized not in cls.RELATION_KEYS:
             raise KeyError(f"Unknown expression-metadata relation key {relation_key!r}. Expected one of {', '.join(cls.RELATION_KEYS)}.")
-        return normalized
+        return cast(ExpressionRelationKey, normalized)
 
     @classmethod
-    def relation_cardinality(cls, relation_key: str) -> RelationCardinality:
+    def relation_cardinality(cls, relation_key: ExpressionRelationKey) -> RelationCardinality:
         """
         Return the cardinality policy for one relation key.
 
@@ -144,7 +158,7 @@ class ExpressionMetadataAPI(abc.ABC):
     @classmethod
     def validate_relation_links(
         cls,
-        relation_key: str,
+        relation_key: ExpressionRelationKey,
         links: Iterable[ExpressionRelationLink],
     ) -> list[ExpressionRelationLink]:
         """
@@ -178,11 +192,11 @@ class ExpressionMetadataAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_relation_links(self, relation_key: str) -> list[ExpressionRelationLink]:
+    def get_relation_links(self, relation_key: ExpressionRelationKey) -> list[ExpressionRelationLink]:
         """Get edge metadata links for one relation key."""
 
     @abc.abstractmethod
-    def set_relation_links(self, relation_key: str, links: Iterable[ExpressionRelationLink]) -> None:
+    def set_relation_links(self, relation_key: ExpressionRelationKey, links: Iterable[ExpressionRelationLink]) -> None:
         """Replace edge metadata links for one relation key."""
 
     @abc.abstractmethod
@@ -209,7 +223,7 @@ class ExpressionMetadataAPI(abc.ABC):
         """
 
     # Todo: How do you set sidecare data at the same time with this?
-    def add_relation_link(self, relation_key: str, link: ExpressionRelationLink) -> None:
+    def add_relation_link(self, relation_key: ExpressionRelationKey, link: ExpressionRelationLink) -> None:
         """
         Add a relational link to this expression.
 
@@ -223,7 +237,7 @@ class ExpressionMetadataAPI(abc.ABC):
         links.append(link)
         self.set_relation_links(relation_key, self.validate_relation_links(relation_key, links))
 
-    def remove_relation_link(self, relation_key: str, link: ExpressionRelationLink) -> bool:
+    def remove_relation_link(self, relation_key: ExpressionRelationKey, link: ExpressionRelationLink) -> bool:
         """
         Remove a relation link between this expression and another object.
 
@@ -240,7 +254,7 @@ class ExpressionMetadataAPI(abc.ABC):
         except ValueError:
             return False
 
-    def get_related(self, relation_key: str) -> list[ExpressionRelationTarget]:
+    def get_related(self, relation_key: ExpressionRelationKey) -> list[ExpressionRelationTarget]:
         """
         Get the related entities for this relation key.
 
@@ -250,7 +264,7 @@ class ExpressionMetadataAPI(abc.ABC):
         relation_key = self.validate_relation_name(relation_key)
         return [link.target for link in self.get_relation_links(relation_key)]
 
-    def set_related(self, relation_key: str, values: Iterable[ExpressionRelationTarget]) -> None:
+    def set_related(self, relation_key: ExpressionRelationKey, values: Iterable[ExpressionRelationTarget]) -> None:
         """
         Set multiple related values with one call.
 
@@ -270,7 +284,7 @@ class ExpressionMetadataAPI(abc.ABC):
             ],
         )
 
-    def add_related(self, relation_key: str, value: ExpressionRelationTarget) -> None:
+    def add_related(self, relation_key: ExpressionRelationKey, value: ExpressionRelationTarget) -> None:
         """
         Add a related object to this metadata.
 
@@ -287,7 +301,7 @@ class ExpressionMetadataAPI(abc.ABC):
             ),
         )
 
-    def get_relation_edges(self, relation_key: str) -> list[ExpressionRelationEdge]:
+    def get_relation_edges(self, relation_key: ExpressionRelationKey) -> list[ExpressionRelationEdge]:
         """
         Return the relational edges for objects related to this expression.
 
@@ -298,7 +312,7 @@ class ExpressionMetadataAPI(abc.ABC):
 
     def set_relation_edges(
         self,
-        relation_key: str,
+        relation_key: ExpressionRelationKey,
         edges: Iterable[ExpressionRelationEdge],
     ) -> None:
         """
@@ -311,7 +325,7 @@ class ExpressionMetadataAPI(abc.ABC):
         self.set_relation_links(relation_key, edges)
 
     # Todo: It would be a lot clearer if we could just use arguments
-    def add_relation_edge(self, relation_key: str, edge: ExpressionRelationEdge) -> None:
+    def add_relation_edge(self, relation_key: ExpressionRelationKey, edge: ExpressionRelationEdge) -> None:
         """
         Add a relational edge to this metadata.
 
@@ -321,7 +335,7 @@ class ExpressionMetadataAPI(abc.ABC):
         """
         self.add_relation_link(relation_key, edge)
 
-    def remove_relation_edge(self, relation_key: str, edge: ExpressionRelationEdge) -> bool:
+    def remove_relation_edge(self, relation_key: ExpressionRelationKey, edge: ExpressionRelationEdge) -> bool:
         """
         Remove an edge from this metadata.
 
@@ -333,7 +347,7 @@ class ExpressionMetadataAPI(abc.ABC):
 
     def get_relation_edge_by_id(
         self,
-        relation_key: str,
+        relation_key: ExpressionRelationKey,
         edge_id: RelationEdgeID,
     ) -> Optional[ExpressionRelationEdge]:
         """
@@ -350,7 +364,7 @@ class ExpressionMetadataAPI(abc.ABC):
 
     def upsert_relation_edge(
         self,
-        relation_key: str,
+        relation_key: ExpressionRelationKey,
         edge: ExpressionRelationEdge,
     ) -> None:
         """
@@ -376,7 +390,7 @@ class ExpressionMetadataAPI(abc.ABC):
 
     def remove_relation_edge_by_id(
         self,
-        relation_key: str,
+        relation_key: ExpressionRelationKey,
         edge_id: RelationEdgeID,
     ) -> bool:
         """
@@ -395,7 +409,7 @@ class ExpressionMetadataAPI(abc.ABC):
                 return True
         return False
 
-    def clear_related(self, relation_key: str) -> None:
+    def clear_related(self, relation_key: ExpressionRelationKey) -> None:
         relation_key = self.validate_relation_name(relation_key)
         self.set_relation_links(relation_key, [])
 
@@ -723,6 +737,7 @@ class ExpressionMetadataAPI(abc.ABC):
         return f"{self.__class__.__name__}()"
 
 __all__ = [
+    "ExpressionRelationKey",
     "ExpressionRelationEdge",
     "ExpressionRelationLink",
     "ExpressionRelationTarget",

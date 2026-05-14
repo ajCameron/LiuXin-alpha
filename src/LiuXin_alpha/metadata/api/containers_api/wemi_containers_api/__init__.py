@@ -19,6 +19,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_con
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
     ExpressionMetadataAPI,
     ExpressionRelationEdge,
+    ExpressionRelationKey,
     ExpressionRelationLink,
     ExpressionRelationTarget,
 )
@@ -29,6 +30,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_container
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_metadata_api import (
     ItemMetadataAPI,
     ItemRelationEdge,
+    ItemRelationKey,
     ItemRelationLink,
     ItemRelationTarget,
 )
@@ -63,6 +65,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_metadata_api import (
     ManifestationMetadataAPI,
     ManifestationRelationEdge,
+    ManifestationRelationKey,
     ManifestationRelationLink,
     ManifestationRelationTarget,
 )
@@ -73,6 +76,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_container
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_metadata_api import (
     WorkMetadataAPI,
     WorkRelationEdge,
+    WorkRelationKey,
     WorkRelationLink,
     WorkRelationTarget,
 )
@@ -84,12 +88,14 @@ __all__ = [
     "ExpressionIdentityPropertiesAPI",
     "ExpressionMetadataAPI",
     "ExpressionRelationEdge",
+    "ExpressionRelationKey",
     "ExpressionRelationLink",
     "ExpressionRelationTarget",
     "ItemIdentityAPI",
     "ItemIdentityPropertiesAPI",
     "ItemMetadataAPI",
     "ItemRelationEdge",
+    "ItemRelationKey",
     "ItemRelationLink",
     "ItemRelationTarget",
     "MetadataRecord",
@@ -114,12 +120,14 @@ __all__ = [
     "ManifestationIdentityPropertiesAPI",
     "ManifestationMetadataAPI",
     "ManifestationRelationEdge",
+    "ManifestationRelationKey",
     "ManifestationRelationLink",
     "ManifestationRelationTarget",
     "WorkIdentityAPI",
     "WorkIdentityPropertiesAPI",
     "WorkMetadataAPI",
     "WorkRelationEdge",
+    "WorkRelationKey",
     "WorkRelationLink",
     "WorkRelationTarget",
     "normalize_relation_cardinality",

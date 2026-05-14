@@ -14,6 +14,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.lazy_value_to_id impor
 from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata import (
     LiuXinWEMIMetadata,
     WemiLevel,
+    WemiRelationKey,
     WemiRelationLink,
 )
 from LiuXin_alpha.metadata.standardize import standardize_id_name
@@ -75,7 +76,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     def install_lazy_relation_loader(
         self,
         level: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
         loader: WemiRelationLoader,
     ) -> None:
         level_key = self.normalize_wemi_level(level)
@@ -86,7 +87,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     def get_wemi_relation_links(
         self,
         level: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
     ) -> list[WemiRelationLink]:
         level_key = self.normalize_wemi_level(level)
         relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation_key)
@@ -102,7 +103,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     def get_wemi_related(
         self,
         level: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
     ) -> list[Any]:
         return [link.target for link in self.get_wemi_relation_links(level, relation_key)]
 
@@ -222,7 +223,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return field_key if field_key is not None else str(field).strip().lower()
 
     @staticmethod
-    def relation_target_text(target: Any, relation_key: str) -> str | None:
+    def relation_target_text(target: Any, relation_key: WemiRelationKey) -> str | None:
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -268,7 +269,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return None
 
     @staticmethod
-    def relation_target_id(target: Any, relation_key: str) -> int | None:
+    def relation_target_id(target: Any, relation_key: WemiRelationKey) -> int | None:
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -308,7 +309,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         self,
         *,
         field: str,
-        relation_key: str,
+        relation_key: WemiRelationKey,
     ) -> OrderedDict[str, Any]:
         terms: OrderedDict[str, Any] = OrderedDict()
         seen: set[str] = set()

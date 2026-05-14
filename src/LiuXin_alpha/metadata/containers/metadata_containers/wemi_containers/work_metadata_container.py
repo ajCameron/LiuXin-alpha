@@ -13,6 +13,7 @@ from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_metadata_api import (
     WorkMetadataAPI,
+    WorkRelationKey,
     WorkRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
@@ -38,7 +39,7 @@ class WorkMetadata(WorkMetadataAPI):
         relation_links: Optional[Mapping[str, Iterable[WorkRelationLink]]] = None,
     ) -> None:
         self._work = work
-        self._relation_links: dict[str, list[WorkRelationLink]] = {
+        self._relation_links: dict[WorkRelationKey, list[WorkRelationLink]] = {
             relation_key: [] for relation_key in self.RELATION_KEYS
         }
         if relation_links:
@@ -53,11 +54,11 @@ class WorkMetadata(WorkMetadataAPI):
     def work(self, value: Optional[WorkIdentityAPI]) -> None:
         self._work = value
 
-    def get_relation_links(self, relation_key: str) -> list[WorkRelationLink]:
+    def get_relation_links(self, relation_key: WorkRelationKey) -> list[WorkRelationLink]:
         relation_key = self.validate_relation_name(relation_key)
         return self._relation_links[relation_key]
 
-    def set_relation_links(self, relation_key: str, links: Iterable[WorkRelationLink]) -> None:
+    def set_relation_links(self, relation_key: WorkRelationKey, links: Iterable[WorkRelationLink]) -> None:
         relation_key = self.validate_relation_name(relation_key)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 

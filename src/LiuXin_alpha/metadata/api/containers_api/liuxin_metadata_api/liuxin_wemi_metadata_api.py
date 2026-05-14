@@ -22,20 +22,24 @@ from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ExpressionIdentityAPI,
     ExpressionMetadataAPI,
+    ExpressionRelationKey,
     ExpressionRelationLink,
     ExpressionRelationTarget,
     ItemIdentityAPI,
     ItemMetadataAPI,
+    ItemRelationKey,
     ItemRelationLink,
     ItemRelationTarget,
     ManifestationIdentityAPI,
     ManifestationMetadataAPI,
+    ManifestationRelationKey,
     ManifestationRelationLink,
     ManifestationRelationTarget,
     MetadataRecord,
     RelationEdgeID,
     WorkIdentityAPI,
     WorkMetadataAPI,
+    WorkRelationKey,
     WorkRelationLink,
     WorkRelationTarget,
     SupportsRowMapping,
@@ -90,12 +94,18 @@ WemiRelationLinkAPI: TypeAlias = (
     | ManifestationRelationLink
     | ItemRelationLink
 )
+WemiRelationKeyAPI: TypeAlias = (
+    WorkRelationKey
+    | ExpressionRelationKey
+    | ManifestationRelationKey
+    | ItemRelationKey
+)
 WemiMetadataStack: TypeAlias = Mapping[WemiLevel, WemiMetadataBundleAPI]
 WemiIdentityStack: TypeAlias = Mapping[WemiLevel, WemiIdentityAPI | None]
 WemiIdentityIDMap: TypeAlias = Mapping[str, int | None]
 WemiRelationEdgeIDMap: TypeAlias = Mapping[
     WemiLevel,
-    Mapping[str, tuple[RelationEdgeID, ...]],
+    Mapping[WemiRelationKeyAPI, tuple[RelationEdgeID, ...]],
 ]
 WemiMetadataRecordMap: TypeAlias = Mapping[WemiLevel, MetadataRecord]
 OPFMetadataSource: TypeAlias = CalibrePath | bytes
@@ -489,7 +499,7 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def get_wemi_relation_links(
         self,
         level: WemiLevel,
-        relation_key: str,
+        relation_key: WemiRelationKeyAPI,
     ) -> list[WemiRelationLinkAPI]:
         """
         Get relation links for one relation key on one WEMI bundle.
@@ -503,7 +513,7 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def set_wemi_relation_links(
         self,
         level: WemiLevel,
-        relation_key: str,
+        relation_key: WemiRelationKeyAPI,
         links: Iterable[WemiRelationLinkAPI],
     ) -> None:
         """
@@ -519,7 +529,7 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def add_wemi_relation_link(
         self,
         level: WemiLevel,
-        relation_key: str,
+        relation_key: WemiRelationKeyAPI,
         link: WemiRelationLinkAPI,
     ) -> None:
         """
@@ -535,7 +545,7 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def get_wemi_related(
         self,
         level: WemiLevel,
-        relation_key: str,
+        relation_key: WemiRelationKeyAPI,
     ) -> list[WemiRelationTargetAPI]:
         """
         Get relation targets for one relation key on one WEMI bundle.
@@ -549,7 +559,7 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def set_wemi_related(
         self,
         level: WemiLevel,
-        relation_key: str,
+        relation_key: WemiRelationKeyAPI,
         values: Iterable[WemiRelationTargetAPI],
     ) -> None:
         """
@@ -565,7 +575,7 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def add_wemi_related(
         self,
         level: WemiLevel,
-        relation_key: str,
+        relation_key: WemiRelationKeyAPI,
         value: WemiRelationTargetAPI,
     ) -> None:
         """
@@ -581,7 +591,7 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
     def get_wemi_relation_edge_ids(
         self,
         level: WemiLevel,
-        relation_key: str,
+        relation_key: WemiRelationKeyAPI,
     ) -> tuple[RelationEdgeID, ...]:
         """
         Get persisted edge ids for one WEMI relation key.
@@ -652,7 +662,7 @@ class LazyLiuXinWEMIMetadataAPI(LiuXinWEMIMetadataAPI, Protocol):
     def install_lazy_relation_loader(
         self,
         level: WemiLevel,
-        relation_key: str,
+        relation_key: WemiRelationKeyAPI,
         loader: WemiRelationLoaderAPI,
     ) -> None:
         """
@@ -703,7 +713,7 @@ class LazyLiuXinWEMIMetadataAPI(LiuXinWEMIMetadataAPI, Protocol):
         self,
         *,
         field: str,
-        relation_key: str,
+        relation_key: WemiRelationKeyAPI,
     ) -> LazyLegacyTermMapping:
         """
         Build a legacy field mapping from one relation key across the WEMI stack.
@@ -741,6 +751,7 @@ __all__ = [
     "WemiMetadataStack",
     "WemiRelationLoaderAPI",
     "WemiRelationEdgeIDMap",
+    "WemiRelationKeyAPI",
     "WemiRelationLinkAPI",
     "WemiRelationTargetAPI",
 ]

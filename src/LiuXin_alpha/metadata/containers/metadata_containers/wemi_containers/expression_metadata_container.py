@@ -14,6 +14,7 @@ from typing import Any, Optional
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
     ExpressionMetadataAPI,
+    ExpressionRelationKey,
     ExpressionRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
@@ -25,7 +26,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expres
 class ExpressionMetadata(ExpressionMetadataAPI):
     def __init__(self, *, expression: Optional[ExpressionIdentityAPI] = None, relation_links: Optional[Mapping[str, Iterable[ExpressionRelationLink]]] = None) -> None:
         self._expression = expression
-        self._relation_links: dict[str, list[ExpressionRelationLink]] = {relation_key: [] for relation_key in self.RELATION_KEYS}
+        self._relation_links: dict[ExpressionRelationKey, list[ExpressionRelationLink]] = {relation_key: [] for relation_key in self.RELATION_KEYS}
         if relation_links:
             for relation_key, links in relation_links.items():
                 self.set_relation_links(relation_key, links)
@@ -109,10 +110,10 @@ class ExpressionMetadata(ExpressionMetadataAPI):
             [{"work_id": work_id} for work_id in ids],
         )
 
-    def get_relation_links(self, relation_key: str) -> list[ExpressionRelationLink]:
+    def get_relation_links(self, relation_key: ExpressionRelationKey) -> list[ExpressionRelationLink]:
         return self._relation_links[self.validate_relation_name(relation_key)]
 
-    def set_relation_links(self, relation_key: str, links: Iterable[ExpressionRelationLink]) -> None:
+    def set_relation_links(self, relation_key: ExpressionRelationKey, links: Iterable[ExpressionRelationLink]) -> None:
         relation_key = self.validate_relation_name(relation_key)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 

@@ -9,6 +9,7 @@ from LiuXin_alpha.metadata.api import (
     LiuXinWEMIMetadataAPI,
     OPFMetadataSource,
     WemiLevel,
+    WemiRelationKeyAPI,
 )
 from LiuXin_alpha.metadata.api import __all__ as metadata_api_all
 from LiuXin_alpha.metadata.containers import LazyLiuXinWEMIMetadata, LiuXinWEMIMetadata
@@ -66,6 +67,7 @@ def test_wemi_metadata_relation_contract_uses_relation_key_parameter() -> None:
             parameters = inspect.signature(getattr(metadata_class, method_name)).parameters
             assert "relation_key" in parameters
             assert "relation" not in parameters
+            assert parameters["relation_key"].annotation in {"WemiRelationKeyAPI", "WemiRelationKey"}
 
     doc = inspect.getdoc(LiuXinWEMIMetadataAPI.get_wemi_relation_links) or ""
     assert "normalized relation bucket key" in doc
@@ -111,6 +113,7 @@ def test_lazy_wemi_metadata_relation_contract_uses_relation_key_parameter() -> N
             parameters = inspect.signature(getattr(metadata_class, method_name)).parameters
             assert "relation_key" in parameters
             assert "relation" not in parameters
+            assert parameters["relation_key"].annotation in {"WemiRelationKeyAPI", "WemiRelationKey"}
 
     doc = inspect.getdoc(LazyLiuXinWEMIMetadataAPI.lazy_legacy_terms_from_relation) or ""
     assert "normalized relation bucket key" in doc
