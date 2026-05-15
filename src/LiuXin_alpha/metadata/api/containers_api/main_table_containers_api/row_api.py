@@ -6,8 +6,6 @@ This module defines structural contracts for metadata-owned lookup and agent
 rows that sit outside the core W/E/M/I entity stack.
 """
 
-# Todo: Check we have one of these for every table
-
 from __future__ import annotations
 
 from collections.abc import Mapping

@@ -14,6 +14,7 @@ from LiuXin_alpha.metadata.containers import (
     GenreTreeRelation,
     GenreTreeRelationsContainer,
     LanguageRow,
+    NON_WEMI_MAIN_TABLE_ROW_CONTAINERS,
 )
 
 
@@ -72,6 +73,30 @@ def test_non_wemi_concrete_rows_satisfy_api_protocols() -> None:
     assert isinstance(language, MetadataTableRowAPI)
     assert isinstance(language, LanguageRowAPI)
     assert isinstance(genre, GenreRowAPI)
+
+
+def test_non_wemi_main_table_row_apis_cover_registered_concrete_rows() -> None:
+    api_module = importlib.import_module("LiuXin_alpha.metadata.api")
+    main_table_api_module = importlib.import_module(
+        "LiuXin_alpha.metadata.api.containers_api.main_table_containers_api"
+    )
+
+    expected_api_names = {
+        f"{row_container.__name__}API"
+        for row_container in NON_WEMI_MAIN_TABLE_ROW_CONTAINERS
+    }
+    exported_api_names = {
+        name
+        for name in getattr(main_table_api_module, "__all__", ())
+        if name.endswith("RowAPI") and name != "MetadataTableRowAPI"
+    }
+
+    assert exported_api_names == expected_api_names
+    for row_container in NON_WEMI_MAIN_TABLE_ROW_CONTAINERS:
+        row_api = getattr(api_module, f"{row_container.__name__}API")
+        row = row_container()
+        assert isinstance(row, MetadataTableRowAPI)
+        assert isinstance(row, row_api), row_container.__name__
 
 
 def test_non_wemi_concrete_self_relations_satisfy_api_protocols() -> None:

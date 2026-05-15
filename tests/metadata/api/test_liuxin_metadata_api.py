@@ -15,6 +15,11 @@ def test_liuxin_metadata_api_is_exported_from_metadata_api_root() -> None:
     assert "LiuXinMetaInformationAPI" in metadata_api_all
 
 
+def test_liuxin_metadata_api_keeps_rendering_out_of_core_contract() -> None:
+    assert not hasattr(LiuXinMetadataAPI, "to_html")
+    assert not hasattr(LiuXinMetadataAPI, "format_series_index")
+
+
 def test_calibre_like_container_supports_legacy_liuxin_metadata_contract() -> None:
     metadata: LiuXinMetadataAPI = CalibreLikeLiuXinBookMetaData(
         "Title",

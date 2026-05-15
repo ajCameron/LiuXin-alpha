@@ -23,6 +23,7 @@ _LAZY_SUBMODULES = {
     "opds",
     "opds_readonly",
     "read_model",
+    "renderers",
     "tags_icons",
     "terminal",
     "thumbnail_cache",
