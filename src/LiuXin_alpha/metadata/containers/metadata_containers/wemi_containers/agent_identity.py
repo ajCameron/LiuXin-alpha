@@ -36,7 +36,11 @@ class AgentIdentity(AgentIdentityAPI):
         return cls(
             agent_id=row.get('agent_id'),
             agent_type=row.get('agent_type'),
-            agent_display_name=row.get('agent_display_name') or row.get('display_name'),
+            agent_display_name=(
+                row.get('agent_display_name')
+                or row.get('agent_canonical_name')
+                or row.get('display_name')
+            ),
             agent_sort_name=row.get('agent_sort_name') or row.get('sort_name'),
         )
 

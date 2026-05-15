@@ -39,6 +39,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     MetadataTextViewAPI,
     MetadataValuesViewAPI,
     RelationLinkID,
+    WemiIdentityAPI,
     WorkIdentityAPI,
     WorkMetadataAPI,
     WorkRelationKey,
@@ -77,12 +78,6 @@ WemiMetadataBundleAPI: TypeAlias = (
     | ExpressionMetadataAPI
     | ManifestationMetadataAPI
     | ItemMetadataAPI
-)
-WemiIdentityAPI: TypeAlias = (
-    WorkIdentityAPI
-    | ExpressionIdentityAPI
-    | ManifestationIdentityAPI
-    | ItemIdentityAPI
 )
 WemiRelationTargetAPI: TypeAlias = (
     WorkRelationTarget

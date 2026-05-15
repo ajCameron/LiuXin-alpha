@@ -16,11 +16,18 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_targe
     MetadataRecord,
     MutableMetadataRecord,
 )
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.identity_api import (
+    WemiIdentityAPI,
+)
 
-class WorkIdentityPropertiesAPI(metaclass=abc.ABCMeta):
+class WorkIdentityPropertiesAPI(WemiIdentityAPI, metaclass=abc.ABCMeta):
     """
     Provides a full interface to the properties of a work row.
     """
+    WEMI_LEVEL: ClassVar[str] = "work"
+    SOURCE_TABLE: ClassVar[str] = "works"
+    ID_FIELD: ClassVar[str] = "work_id"
+
     # ------------------------------------------------------------------
     # Primary key
     # ------------------------------------------------------------------
@@ -416,7 +423,5 @@ class WorkIdentityAPI(WorkIdentityPropertiesAPI, metaclass=abc.ABCMeta):
 
     pass
 
-
-# Todo: This feels like it could be a generic thing
 
 __all__ = ["WorkIdentityPropertiesAPI", "WorkIdentityAPI"]

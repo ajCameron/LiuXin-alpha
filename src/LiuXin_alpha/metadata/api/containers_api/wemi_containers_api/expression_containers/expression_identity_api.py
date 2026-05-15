@@ -11,15 +11,26 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import ClassVar, Iterable, Mapping, Optional, Self
+from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
 
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MutableMetadataRecord,
 )
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.identity_api import (
+    WemiIdentityAPI,
+)
 
-# Todo: Should have a title or subtitle field
-class ExpressionIdentityPropertiesAPI(metaclass=abc.ABCMeta):
+
+ExpressionFlags: TypeAlias = tuple[str, ...]
+"""Normalized expression flag tokens. Empty tuple means no flags."""
+
+
+class ExpressionIdentityPropertiesAPI(WemiIdentityAPI, metaclass=abc.ABCMeta):
     """Row-level API for one expression."""
+
+    WEMI_LEVEL: ClassVar[str] = "expression"
+    SOURCE_TABLE: ClassVar[str] = "expressions"
+    ID_FIELD: ClassVar[str] = "expression_id"
 
     @property
     def id(self) -> Optional[int]:
@@ -154,21 +165,20 @@ class ExpressionIdentityPropertiesAPI(metaclass=abc.ABCMeta):
         :return:
         """
 
-    # Todo: Not sure what this should be, but it shouldn't be a string.
     @property
     @abc.abstractmethod
-    def expression_flags(self) -> Optional[str]:
+    def expression_flags(self) -> ExpressionFlags:
         """
-        Flags associated with the expression.
+        Normalized flag tokens associated with the expression.
 
         :return:
         """
 
     @expression_flags.setter
     @abc.abstractmethod
-    def expression_flags(self, expression_flags: Optional[str]) -> None:
+    def expression_flags(self, expression_flags: ExpressionFlags | None) -> None:
         """
-        Set the flags for the expression.
+        Set normalized flag tokens for the expression.
 
         :param expression_flags:
         :return:
@@ -214,4 +224,4 @@ class ExpressionIdentityPropertiesAPI(metaclass=abc.ABCMeta):
 class ExpressionIdentityAPI(ExpressionIdentityPropertiesAPI, metaclass=abc.ABCMeta):
     """Marker ABC for a concrete expression identity container."""
 
-__all__ = ["ExpressionIdentityPropertiesAPI", "ExpressionIdentityAPI"]
+__all__ = ["ExpressionFlags", "ExpressionIdentityPropertiesAPI", "ExpressionIdentityAPI"]

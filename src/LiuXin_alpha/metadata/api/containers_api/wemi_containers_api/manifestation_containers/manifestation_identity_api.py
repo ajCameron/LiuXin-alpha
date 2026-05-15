@@ -17,11 +17,17 @@ from typing import ClassVar, Iterable, Mapping, Optional, Self
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MutableMetadataRecord,
 )
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.identity_api import (
+    WemiIdentityAPI,
+)
 
-class ManifestationIdentityPropertiesAPI(metaclass=abc.ABCMeta):
+class ManifestationIdentityPropertiesAPI(WemiIdentityAPI, metaclass=abc.ABCMeta):
     """
     Row-level API for one manifestation.
     """
+    WEMI_LEVEL: ClassVar[str] = "manifestation"
+    SOURCE_TABLE: ClassVar[str] = "manifestations"
+    ID_FIELD: ClassVar[str] = "manifestation_id"
 
     @property
     def id(self) -> Optional[int]:
@@ -99,16 +105,29 @@ class ManifestationIdentityPropertiesAPI(metaclass=abc.ABCMeta):
         :return:
         """
 
-    # Todo: Not... sure what this is/is for?
     @property
     @abc.abstractmethod
     def manifestation_format_detail(self) -> Optional[str]:
-        ...
+        """
+        Specific format or product label for this manifestation.
+
+        This is finer-grained than ``manifestation_carrier_type``. Use carrier
+        type for broad families such as ``ebook``, ``print_book``, or
+        ``audiobook``; use format detail for labels such as ``EPUB``, ``PDF``,
+        ``A-format paperback``, or ``4K UHD BD``.
+
+        :return:
+        """
 
     @manifestation_format_detail.setter
     @abc.abstractmethod
     def manifestation_format_detail(self, manifestation_format_detail: Optional[str]) -> None:
-        ...
+        """
+        Set the specific format or product label for this manifestation.
+
+        :param manifestation_format_detail:
+        :return:
+        """
 
     @property
     @abc.abstractmethod

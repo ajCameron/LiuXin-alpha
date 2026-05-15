@@ -1,6 +1,7 @@
 
 import datetime
 
+from collections.abc import Iterable
 from typing import Optional, Union
 
 from LiuXin_alpha.databases.api import RowAPI
@@ -35,6 +36,17 @@ class WEMIAdderMixin:
         if isinstance(value, datetime.date):
             return value.isoformat()
         return str(value)
+
+    @staticmethod
+    def _serialize_expression_flags(value: Optional[Iterable[str]]) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            tokens = value.split(",")
+        else:
+            tokens = value
+        flags = [str(token).strip() for token in tokens if str(token).strip()]
+        return ",".join(dict.fromkeys(flags)) or None
 
     def work(
         self,
@@ -147,7 +159,7 @@ class WEMIAdderMixin:
         expression_original_date: Optional[Union[int, float, datetime.date, datetime.datetime, str]] = None,
         expression_original_copyright_date: Optional[Union[datetime.date, datetime.datetime, str]] = None,
         # - Expression flags
-        expression_flags: Optional[str] = None,
+        expression_flags: Optional[Iterable[str]] = None,
         # - Language & mode
         expression_language: Optional[Union[str, int]] = None,
         expression_mode: Optional[str] = None,
@@ -197,7 +209,7 @@ class WEMIAdderMixin:
         )
 
         # - Expression flags
-        new_row_dict["expression_flags"] = expression_flags
+        new_row_dict["expression_flags"] = self._serialize_expression_flags(expression_flags)
 
         # - Language & mode
         if expression_language is not None:
@@ -245,7 +257,9 @@ class WEMIAdderMixin:
 
         :param manifestation_subtitle:
         :param manifestation_carrier_type:
-        :param manifestation_format_detail:
+        :param manifestation_format_detail: Specific format or product label,
+            such as ``EPUB``, ``PDF``, ``A-format paperback``, or ``4K UHD BD``.
+            Use ``manifestation_carrier_type`` for the broader carrier family.
         :param manifestation_edition_statement:
         :param manifestation_pub_year:
         :param manifestation_pub_date:

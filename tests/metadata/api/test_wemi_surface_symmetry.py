@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 
-from typing import get_args
+from typing import get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -74,6 +74,9 @@ LEVELS = [
 
 @pytest.mark.parametrize("entry", LEVELS, ids=[entry["level"] for entry in LEVELS])
 def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
+    wemi_api_root = importlib.import_module(
+        "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api"
+    )
     api_identity_module = importlib.import_module(
         f"LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.{entry['api_identity_module']}"
     )
@@ -100,13 +103,45 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
     assert hasattr(hydrator_module, entry["hydrator_class"])
     assert hasattr(source_root, entry["source_class"])
 
+    identity_api_class = getattr(api_identity_module, entry["api_identity_class"])
+    identity_impl_class = getattr(impl_identity_module, entry["impl_identity_class"])
+    assert issubclass(identity_api_class, wemi_api_root.WemiIdentityAPI)
+    assert isinstance(identity_impl_class(), wemi_api_root.WemiIdentityAPI)
+    assert identity_api_class.WEMI_LEVEL == entry["level"]
+    assert identity_impl_class.WEMI_LEVEL == entry["level"]
+    assert identity_api_class.SOURCE_TABLE == "{}s".format(entry["level"])
+    assert identity_impl_class.SOURCE_TABLE == "{}s".format(entry["level"])
+    assert identity_api_class.ID_FIELD == "{}_id".format(entry["level"])
+    assert identity_impl_class.ID_FIELD == "{}_id".format(entry["level"])
+    assert hasattr(identity_api_class, "from_mapping")
+    assert hasattr(identity_api_class, "to_mapping")
+
     metadata_class = getattr(impl_metadata_module, entry["impl_metadata_class"])
     assert hasattr(metadata_class, "from_mapping")
     assert hasattr(metadata_class, "from_database")
     assert hasattr(metadata_class, "to_mapping")
 
     api_metadata_class = getattr(api_metadata_module, entry["api_metadata_class"])
+    assert issubclass(api_metadata_class, wemi_api_root.WemiMetadataRelationsAPI)
     relation_key_alias = getattr(api_metadata_module, entry["api_relation_key"])
+    relation_link_alias = getattr(
+        api_metadata_module,
+        entry["api_relation_key"].replace("Key", "Link"),
+    )
+    relation_target_alias = getattr(
+        api_metadata_module,
+        entry["api_relation_key"].replace("Key", "Target"),
+    )
+    relation_base = next(
+        base
+        for base in api_metadata_class.__orig_bases__
+        if get_origin(base) is wemi_api_root.WemiMetadataRelationsAPI
+    )
+    assert get_args(relation_base) == (
+        relation_key_alias,
+        relation_target_alias,
+        relation_link_alias,
+    )
     api_doc = inspect.getdoc(api_metadata_class) or ""
     assert "relation_key" in api_doc
     assert "RELATION_KEYS" in api_doc
@@ -124,6 +159,7 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
         "relation_cardinality",
         "validate_relation_links",
         "get_relation_links",
+        "get_all_related",
         "set_relation_links",
         "add_relation_link",
         "remove_relation_link",
@@ -175,6 +211,13 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
         "validate_relation_links",
         "get_relation_links",
         "set_relation_links",
+    ):
+        parameters = inspect.signature(getattr(api_metadata_class, method_name)).parameters
+        assert "relation_key" in parameters
+        assert "relation" not in parameters
+        assert parameters["relation_key"].annotation == entry["api_relation_key"]
+
+    for method_name in (
         "add_relation_link",
         "remove_relation_link",
         "primary_relation_link",
@@ -188,7 +231,51 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
         "add_related",
         "clear_related",
     ):
-        parameters = inspect.signature(getattr(api_metadata_class, method_name)).parameters
+        method = getattr(api_metadata_class, method_name)
+        parameters = inspect.signature(method).parameters
+        assert method.__qualname__.startswith("WemiMetadataRelationsAPI.")
         assert "relation_key" in parameters
         assert "relation" not in parameters
-        assert parameters["relation_key"].annotation == entry["api_relation_key"]
+        assert parameters["relation_key"].annotation == "RelationKeyT"
+
+
+def test_expression_flags_contract_uses_structured_tokens() -> None:
+    api_module = importlib.import_module(
+        "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api"
+    )
+    impl_module = importlib.import_module(
+        "LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container"
+    )
+    identity_class = api_module.ExpressionIdentityAPI
+    expression_flags_property = identity_class.expression_flags
+
+    assert api_module.ExpressionFlags == tuple[str, ...]
+    assert get_type_hints(expression_flags_property.fget)["return"] == api_module.ExpressionFlags
+    assert (
+        get_type_hints(expression_flags_property.fset)["expression_flags"]
+        == api_module.ExpressionFlags | None
+    )
+
+    identity = impl_module.ExpressionIdentity(
+        expression_flags="review, canonical, review"
+    )
+    assert identity.expression_flags == ("review", "canonical")
+    assert identity.to_mapping()["expression_flags"] == "review,canonical"
+    identity.expression_flags = ("published",)
+    assert identity.to_mapping()["expression_flags"] == "published"
+    identity.expression_flags = ()
+    assert identity.to_mapping()["expression_flags"] is None
+
+
+def test_manifestation_format_detail_contract_is_documented() -> None:
+    api_module = importlib.import_module(
+        "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api"
+    )
+    identity_class = api_module.ManifestationIdentityAPI
+    format_detail_doc = inspect.getdoc(identity_class.manifestation_format_detail.fget)
+
+    assert format_detail_doc is not None
+    assert "Specific format or product label" in format_detail_doc
+    assert "finer-grained than ``manifestation_carrier_type``" in format_detail_doc
+    assert "EPUB" in format_detail_doc
+    assert "A-format paperback" in format_detail_doc

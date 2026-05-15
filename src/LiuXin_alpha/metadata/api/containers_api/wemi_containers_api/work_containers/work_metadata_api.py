@@ -20,6 +20,9 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containe
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.metadata_relations_api import (
+    WemiMetadataRelationsAPI,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MetadataRecord,
     MutableMetadataRecord,
@@ -33,8 +36,6 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.projection_vie
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
     RelationCardinality,
     RelationLink,
-    RelationLinkID,
-    select_primary_relation_link,
     validate_relation_link_cardinality,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
@@ -82,7 +83,7 @@ WorkRelationKey: TypeAlias = Literal[
 ]
 
 
-class WorkMetadataAPI(abc.ABC):
+class WorkMetadataAPI(WemiMetadataRelationsAPI[WorkRelationKey, WorkRelationTarget, WorkRelationLink], abc.ABC):
     """
     API for a container that holds all metadata associated with a work.
 
@@ -96,6 +97,8 @@ class WorkMetadataAPI(abc.ABC):
     bucket names, such as ``tags`` or ``agents``, but they are API contract keys
     rather than a guarantee about a physical database table.
     """
+
+    RELATION_LINK_CLASS: ClassVar[type[WorkRelationLink]] = WorkRelationLink
 
     RELATION_KEYS: ClassVar[tuple[WorkRelationKey, ...]] = (
         "agents",
@@ -247,128 +250,6 @@ class WorkMetadataAPI(abc.ABC):
         mark_dirty: bool = True,
     ) -> MetadataWriteReportAPI:
         """Persist supported relation-backed changes for this work metadata bundle."""
-
-    def add_relation_link(self, relation_key: WorkRelationKey, link: WorkRelationLink) -> None:
-        relation_key = self.validate_relation_name(relation_key)
-        links = list(self.get_relation_links(relation_key))
-        links.append(link)
-        self.set_relation_links(relation_key, self.validate_relation_links(relation_key, links))
-
-    def remove_relation_link(self, relation_key: WorkRelationKey, link: WorkRelationLink) -> bool:
-        relation_key = self.validate_relation_name(relation_key)
-        links = list(self.get_relation_links(relation_key))
-        try:
-            links.remove(link)
-            self.set_relation_links(relation_key, links)
-            return True
-        except ValueError:
-            return False
-
-    def get_related(self, relation_key: WorkRelationKey) -> list[WorkRelationTarget]:
-        relation_key = self.validate_relation_name(relation_key)
-        links = self.get_relation_links(relation_key)
-        return [link.target for link in links]
-
-    def primary_relation_link(self, relation_key: WorkRelationKey) -> Optional[WorkRelationLink]:
-        """Return the preferred relation link for one relation key, if any."""
-
-        relation_key = self.validate_relation_name(relation_key)
-        return select_primary_relation_link(self.get_relation_links(relation_key))
-
-    def primary_related(self, relation_key: WorkRelationKey) -> WorkRelationTarget | None:
-        """Return the preferred relation target for one relation key, if any."""
-
-        link = self.primary_relation_link(relation_key)
-        if link is None:
-            return None
-        return link.target
-
-    def set_primary_relation_link(self, relation_key: WorkRelationKey, link: WorkRelationLink) -> None:
-        """Mark one relation link as the preferred link for one relation key."""
-
-        relation_key = self.validate_relation_name(relation_key)
-        links = list(self.get_relation_links(relation_key))
-        selected_index: int | None = None
-        for index, existing_link in enumerate(links):
-            same_link_id = link.link_id is not None and existing_link.link_id == link.link_id
-            same_target = link.link_id is None and existing_link.target == link.target
-            if existing_link is link or same_link_id or same_target:
-                selected_index = index
-                links[index] = link
-                break
-
-        if selected_index is None:
-            selected_index = len(links)
-            links.append(link)
-
-        for index, existing_link in enumerate(links):
-            existing_link.primary = index == selected_index
-        self.set_relation_links(relation_key, links)
-
-    def set_related(self, relation_key: WorkRelationKey, values: Iterable[WorkRelationTarget]) -> None:
-        relation_key = self.validate_relation_name(relation_key)
-        self.set_relation_links(
-            relation_key,
-            [
-                WorkRelationLink(
-                    target=value,
-                    cardinality=self.relation_cardinality(relation_key),
-                )
-                for value in values
-            ],
-        )
-
-    def add_related(self, relation_key: WorkRelationKey, value: WorkRelationTarget) -> None:
-        relation_key = self.validate_relation_name(relation_key)
-        self.add_relation_link(
-            relation_key,
-            WorkRelationLink(
-                target=value,
-                cardinality=self.relation_cardinality(relation_key),
-            ),
-        )
-
-    def get_relation_link_by_id(
-        self,
-        relation_key: WorkRelationKey,
-        link_id: RelationLinkID,
-    ) -> Optional[WorkRelationLink]:
-        for link in self.get_relation_links(relation_key):
-            if link.link_id == link_id:
-                return link
-        return None
-
-    def upsert_relation_link(self, relation_key: WorkRelationKey, link: WorkRelationLink) -> None:
-        relation_key = self.validate_relation_name(relation_key)
-        if link.link_id is None:
-            self.add_relation_link(relation_key, link)
-            return
-
-        links = list(self.get_relation_links(relation_key))
-        for index, existing_link in enumerate(links):
-            if existing_link.link_id == link.link_id:
-                links[index] = link
-                self.set_relation_links(relation_key, links)
-                return
-        self.add_relation_link(relation_key, link)
-
-    def remove_relation_link_by_id(
-        self,
-        relation_key: WorkRelationKey,
-        link_id: RelationLinkID,
-    ) -> bool:
-        relation_key = self.validate_relation_name(relation_key)
-        links = list(self.get_relation_links(relation_key))
-        for index, link in enumerate(links):
-            if link.link_id == link_id:
-                del links[index]
-                self.set_relation_links(relation_key, links)
-                return True
-        return False
-
-    def clear_related(self, relation_key: WorkRelationKey) -> None:
-        relation_key = self.validate_relation_name(relation_key)
-        self.set_relation_links(relation_key, [])
 
     @property
     def primary_expression(self) -> WorkRelationTarget | None:

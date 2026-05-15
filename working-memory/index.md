@@ -6,6 +6,11 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [metadata-api-todo-followups-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-api-todo-followups-2026-05-15.md)
+  Numbered list of the still-relevant TODOs in the metadata API/container slice
+  after the relation-key/link/projection cleanup, so we can work down them in
+  order.
+
 - [metadata-projection-views-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-projection-views-2026-05-15.md)
   Decision note for the next metadata API slice: add read-only embedded
   `values` and `text` projection views for relation-target values while keeping

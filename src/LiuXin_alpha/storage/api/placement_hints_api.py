@@ -72,6 +72,7 @@ class ManifestationStorageHints:
     expression_id: int | None = None
     title: str | None = None
     edition_statement: str | None = None
+    # Specific format/product label, e.g. EPUB, PDF, or A-format paperback.
     format_detail: str | None = None
     carrier_type: str | None = None
     publication_year: int | None = None

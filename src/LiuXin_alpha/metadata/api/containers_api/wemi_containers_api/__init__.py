@@ -6,13 +6,22 @@ container implementations live under ``LiuXin_alpha.metadata.containers``.
 
 from __future__ import annotations
 
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.identity_api import (
+    WemiIdentityAPI,
+)
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.metadata_relations_api import (
+    WemiMetadataRelationsAPI,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import (
     AgentIdentityAPI,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_profile_api import (
     AgentProfileAPI,
+    HumanAgentProfileAPI,
+    OrganisationAgentProfileAPI,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import (
+    ExpressionFlags,
     ExpressionIdentityAPI,
     ExpressionIdentityPropertiesAPI,
 )
@@ -88,6 +97,11 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_container
 __all__ = [
     "AgentIdentityAPI",
     "AgentProfileAPI",
+    "HumanAgentProfileAPI",
+    "OrganisationAgentProfileAPI",
+    "WemiIdentityAPI",
+    "WemiMetadataRelationsAPI",
+    "ExpressionFlags",
     "ExpressionIdentityAPI",
     "ExpressionIdentityPropertiesAPI",
     "ExpressionMetadataAPI",

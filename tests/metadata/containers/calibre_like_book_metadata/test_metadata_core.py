@@ -13,6 +13,7 @@ from collections import OrderedDict
 import pytest
 
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreLikeLiuXinBookMetaData
+from LiuXin_alpha.surfaces.renderers.metadata import metadata_to_html, series_index_to_text
 from LiuXin_alpha.metadata.constants import METADATA_NULL_VALUES
 from LiuXin_alpha.errors import InputIntegrityError
 
@@ -245,14 +246,20 @@ def test_smart_update_replace_vs_merge() -> None:
     assert "tag_b" in a2.tags
 
 
-def test_clean_finalize_to_html_and_del_cleanup() -> None:
+def test_clean_finalize_metadata_renderer_and_del_cleanup() -> None:
     md = CalibreLikeLiuXinBookMetaData(title="T", authors=["A"])
     md.tag = "  Tag With Spaces  "
     md.clean()
     md.finalize()
 
-    html = md.to_html()
+    html = metadata_to_html(md)
     assert isinstance(html, str)
+    assert html.startswith("<table>")
+    assert not hasattr(md, "to_html")
+
+    assert series_index_to_text("2.0") == "2"
+    assert series_index_to_text(metadata=md) == "1"
+    assert not hasattr(md, "format_series_index")
 
     # __del__ should close any registered cleanup files
     tracker = _CloseTracker()

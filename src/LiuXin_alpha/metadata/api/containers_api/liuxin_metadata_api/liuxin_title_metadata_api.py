@@ -423,23 +423,6 @@ class LiuXinMetadataAPI(Protocol):
         :return:
         """
 
-    # Todo: These might want to live over in surfaces
-    def to_html(self) -> str:
-        """
-        HTML representation of the object.
-
-        :return:
-        """
-
-    # Todo: Likewise this is an interface thing
-    def format_series_index(self, val: str | int | float | None = None) -> str:
-        """
-        Take a series index and render it as a human-readable string.
-
-        :param val:
-        :return:
-        """
-
     @staticmethod
     def standard_field_keys() -> LiuXinFieldKeys:
         """
