@@ -22,6 +22,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting imp
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_container import (
     WorkIdentity,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    MetadataTextView,
+    MetadataValuesView,
+)
 
 
 class WorkMetadata(WorkMetadataAPI):
@@ -53,6 +57,14 @@ class WorkMetadata(WorkMetadataAPI):
     @work.setter
     def work(self, value: Optional[WorkIdentityAPI]) -> None:
         self._work = value
+
+    @property
+    def values(self) -> MetadataValuesView:
+        return MetadataValuesView(self)
+
+    @property
+    def text(self) -> MetadataTextView:
+        return MetadataTextView(self.values)
 
     def get_relation_links(self, relation_key: WorkRelationKey) -> list[WorkRelationLink]:
         relation_key = self.validate_relation_name(relation_key)

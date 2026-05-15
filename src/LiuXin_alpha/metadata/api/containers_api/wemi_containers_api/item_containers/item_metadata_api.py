@@ -25,6 +25,10 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_targe
     relation_target_id,
     RelationTarget,
 )
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.projection_view_api import (
+    MetadataTextViewAPI,
+    MetadataValuesViewAPI,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
     RelationCardinality,
     RelationLink,
@@ -254,6 +258,16 @@ class ItemMetadataAPI(abc.ABC):
         :param value:
         :return:
         """
+
+    @property
+    @abc.abstractmethod
+    def values(self) -> MetadataValuesViewAPI:
+        """Structured, read-only value projections for this metadata bundle."""
+
+    @property
+    @abc.abstractmethod
+    def text(self) -> MetadataTextViewAPI:
+        """Display/export text projections for this metadata bundle."""
 
     @abc.abstractmethod
     def get_relation_links(self, relation_key: ItemRelationKey) -> list[ItemRelationLink]:

@@ -32,6 +32,11 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_container
     ItemRelationLink,
     ItemRelationTarget,
 )
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.projection_view_api import (
+    MetadataTextViewAPI,
+    MetadataValuesViewAPI,
+    ProjectionIdentifierMap,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
     ManyManyRelationLinkAPI,
     ManyOneRelationLinkAPI,
@@ -119,6 +124,9 @@ __all__ = [
     "ManifestationRelationKey",
     "ManifestationRelationLink",
     "ManifestationRelationTarget",
+    "MetadataTextViewAPI",
+    "MetadataValuesViewAPI",
+    "ProjectionIdentifierMap",
     "WorkIdentityAPI",
     "WorkIdentityPropertiesAPI",
     "WorkMetadataAPI",

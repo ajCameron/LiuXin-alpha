@@ -21,6 +21,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting imp
     metadata_bundle_string,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manifestation_container import ManifestationIdentity
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    MetadataTextView,
+    MetadataValuesView,
+)
 
 
 class ManifestationMetadata(ManifestationMetadataAPI):
@@ -38,6 +42,14 @@ class ManifestationMetadata(ManifestationMetadataAPI):
     @manifestation.setter
     def manifestation(self, value: Optional[ManifestationIdentityAPI]) -> None:
         self._manifestation = value
+
+    @property
+    def values(self) -> MetadataValuesView:
+        return MetadataValuesView(self)
+
+    @property
+    def text(self) -> MetadataTextView:
+        return MetadataTextView(self.values)
 
     def get_relation_links(self, relation_key: ManifestationRelationKey) -> list[ManifestationRelationLink]:
         return self._relation_links[self.validate_relation_name(relation_key)]

@@ -143,6 +143,10 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
     for relation_name in api_metadata_class.relation_names():
         assert isinstance(getattr(api_metadata_class, relation_name), property)
 
+    for projection_name in ("values", "text"):
+        assert isinstance(getattr(api_metadata_class, projection_name), property)
+        assert isinstance(getattr(metadata_class, projection_name), property)
+
 
 @pytest.mark.parametrize("entry", LEVELS, ids=[entry["level"] for entry in LEVELS])
 def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str, str]) -> None:

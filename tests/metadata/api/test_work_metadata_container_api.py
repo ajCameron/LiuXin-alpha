@@ -26,6 +26,10 @@ from LiuXin_alpha.metadata.api import (
     WorkRelationLink,
     select_primary_relation_link,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    MetadataTextView,
+    MetadataValuesView,
+)
 
 
 class _DummyWorkMetadata(WorkMetadataAPI):
@@ -40,6 +44,14 @@ class _DummyWorkMetadata(WorkMetadataAPI):
     @work.setter
     def work(self, value: MetadataRecord | None) -> None:
         self._work = value
+
+    @property
+    def values(self):
+        return MetadataValuesView(self)
+
+    @property
+    def text(self):
+        return MetadataTextView(self.values)
 
     def get_relation_links(self, relation_key: str) -> list[WorkRelationLink]:
         relation_key = self.validate_relation_name(relation_key)

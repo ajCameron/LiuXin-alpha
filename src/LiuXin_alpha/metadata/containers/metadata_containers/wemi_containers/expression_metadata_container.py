@@ -21,6 +21,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting imp
     metadata_bundle_string,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    MetadataTextView,
+    MetadataValuesView,
+)
 
 
 class ExpressionMetadata(ExpressionMetadataAPI):
@@ -38,6 +42,14 @@ class ExpressionMetadata(ExpressionMetadataAPI):
     @expression.setter
     def expression(self, value: Optional[ExpressionIdentityAPI]) -> None:
         self._expression = value
+
+    @property
+    def values(self) -> MetadataValuesView:
+        return MetadataValuesView(self)
+
+    @property
+    def text(self) -> MetadataTextView:
+        return MetadataTextView(self.values)
 
     @staticmethod
     def _optional_int(value: Any) -> Optional[int]:

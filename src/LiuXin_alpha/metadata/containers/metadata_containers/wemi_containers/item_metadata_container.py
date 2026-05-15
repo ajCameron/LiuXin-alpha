@@ -22,6 +22,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting imp
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import (
     ItemIdentity,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    MetadataTextView,
+    MetadataValuesView,
+)
 
 
 class ItemMetadata(ItemMetadataAPI):
@@ -53,6 +57,14 @@ class ItemMetadata(ItemMetadataAPI):
     @item.setter
     def item(self, value: Optional[ItemIdentityAPI]) -> None:
         self._item = value
+
+    @property
+    def values(self) -> MetadataValuesView:
+        return MetadataValuesView(self)
+
+    @property
+    def text(self) -> MetadataTextView:
+        return MetadataTextView(self.values)
 
     def get_relation_links(self, relation_key: ItemRelationKey) -> list[ItemRelationLink]:
         relation_key = self.validate_relation_name(relation_key)
