@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 @dataclasses.dataclass(slots=True)
 class ManyManyLink(OneManyLink):
     """
-    Represents one edge in a many-to-many relationship.
+    Represents one link in a many-to-many relationship.
 
     This is the normalized object-level view of a link, distinct from the raw
     interlink row.

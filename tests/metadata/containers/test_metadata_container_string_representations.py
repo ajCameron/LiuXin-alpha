@@ -76,13 +76,13 @@ def test_row_and_relation_containers_have_sane_string_representations() -> None:
     tag = TagRow(tag_id=8, tag="Space Opera")
     parent = GenreRow(genre_id=1, genre="Speculative Fiction")
     child = GenreRow(genre_id=2, genre="Space Opera", genre_parent_id=1)
-    relation = GenreTreeRelation(child=child, parent=parent)
+    relation_link = GenreTreeRelation(child=child, parent=parent)
     relations = GenreTreeRelationsContainer()
-    relations.add_relation(relation)
+    relations.add_relation(relation_link)
 
     _assert_sane_string(label, "LabelRow", "label_id=7", "Space Opera")
     _assert_sane_string(tag, "TagRow", "tag_id=8", "Space Opera")
-    _assert_sane_string(relation, "GenreTreeRelation", "child_id=2", "parent_id=1")
+    _assert_sane_string(relation_link, "GenreTreeRelation", "child_id=2", "parent_id=1")
     _assert_sane_string(relations, "GenreTreeRelationsContainer", "1 relations")
 
 

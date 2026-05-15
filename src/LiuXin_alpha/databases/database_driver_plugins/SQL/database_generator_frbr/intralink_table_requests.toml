@@ -16,7 +16,7 @@ version = 3
 table = "compressed_files"
 requested_cols = ["type"]
 types = ["same_hash", "contained_in", "same_path"]
-# Only these types are symmetric (store one edge; enforce primary_id < secondary_id).
+# Only these types are symmetric (store one link; enforce primary_id < secondary_id).
 symmetric_types = ["same_hash", "same_path"]
 rationale = """
 During mass imports, you might well run into the same file multiple times.

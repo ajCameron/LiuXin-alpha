@@ -77,9 +77,9 @@ def test_non_wemi_concrete_rows_satisfy_api_protocols() -> None:
 def test_non_wemi_concrete_self_relations_satisfy_api_protocols() -> None:
     parent = GenreRow(genre_id=1, genre="Fiction")
     child = GenreRow(genre_id=2, genre="Fantasy", genre_parent_id=1)
-    relation = GenreTreeRelation.from_child_row(child, parent=parent)
+    relation_link = GenreTreeRelation.from_child_row(child, parent=parent)
     container = GenreTreeRelationsContainer()
-    container.add_relation(relation)
+    container.add_relation(relation_link)
 
-    assert isinstance(relation, GenreTreeRelationAPI)
+    assert isinstance(relation_link, GenreTreeRelationAPI)
     assert isinstance(container, GenreTreeRelationsContainerAPI)

@@ -22,7 +22,7 @@ T = TypeVar("T")
 @dataclasses.dataclass
 class SrcDstIDMixin:
     """
-    Identify one concrete src/dst edge.
+    Identify one concrete src/dst link.
     """
 
     src_table: MainTableName

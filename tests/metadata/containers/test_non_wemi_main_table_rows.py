@@ -79,7 +79,7 @@ def test_non_wemi_row_container_accepts_sqlite_row() -> None:
     assert language.to_mapping()["language_code"] == "fre"
 
 
-def test_non_wemi_self_relation_container_models_inline_tree_edge() -> None:
+def test_non_wemi_self_relation_container_models_inline_tree_link() -> None:
     parent = GenreRow(genre_id=1, genre="Fiction")
     child = GenreRow(
         genre_id=2,
@@ -89,16 +89,16 @@ def test_non_wemi_self_relation_container_models_inline_tree_edge() -> None:
         genre_tree_id=1,
     )
 
-    relation = GenreTreeRelation.from_child_row(child, parent=parent, source="manual")
+    relation_link = GenreTreeRelation.from_child_row(child, parent=parent, source="manual")
 
-    assert relation.child_id == 2
-    assert relation.resolved_parent_id == 1
-    assert relation.as_child_update_payload() == {
+    assert relation_link.child_id == 2
+    assert relation_link.resolved_parent_id == 1
+    assert relation_link.as_child_update_payload() == {
         "genre_parent_id": 1,
         "genre_position": 0,
         "genre_tree_id": 1,
     }
-    assert relation.as_relation_payload() == {
+    assert relation_link.as_relation_payload() == {
         "relation_name": "genre_tree_parent",
         "table_name": "genres",
         "child_id": 2,
@@ -109,19 +109,19 @@ def test_non_wemi_self_relation_container_models_inline_tree_edge() -> None:
     }
 
     container = GenreTreeRelationsContainer()
-    container.add_relation(relation)
+    container.add_relation(relation_link)
 
-    assert container.children_of(1) == (relation,)
+    assert container.children_of(1) == (relation_link,)
     assert container.roots() == ()
 
 
 def test_non_wemi_self_relation_container_validates_shape_and_duplicate_children() -> None:
     parent = GenreRow(genre_id=1, genre="Fiction")
     child = GenreRow(genre_id=2, genre="Science Fiction", genre_parent_id=1)
-    relation = GenreTreeRelation(child=child, parent=parent)
+    relation_link = GenreTreeRelation(child=child, parent=parent)
 
     container = GenreTreeRelationsContainer()
-    container.add_relation(relation)
+    container.add_relation(relation_link)
 
     with pytest.raises(ValueError, match="Duplicate self-relation"):
         container.add_relation(GenreTreeRelation(child=child, parent=parent))

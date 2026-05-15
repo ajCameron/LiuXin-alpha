@@ -144,8 +144,8 @@ class StorageHintProvider(Protocol):
 class StorageHintMetadataSource(Protocol):
     """Structural source that storage can project into placement hints."""
 
-    def get_relation_links(self, relation: str) -> Iterable[object]:
-        """Return relation links for a metadata relation name."""
+    def get_relation_links(self, relation_key: str) -> Iterable[object]:
+        """Return relation links for a metadata relation key."""
 
 
 def derive_storage_hints(
@@ -387,12 +387,12 @@ def _derive_manifestation_storage_hints(metadata: object) -> ManifestationStorag
     )
 
 
-def _relation_links(metadata: object, relation: str) -> list[object]:
+def _relation_links(metadata: object, relation_key: str) -> list[object]:
     getter = getattr(metadata, "get_relation_links", None)
     if not callable(getter):
         return []
     try:
-        return list(getter(relation))
+        return list(getter(relation_key))
     except (KeyError, ValueError, TypeError):
         return []
 

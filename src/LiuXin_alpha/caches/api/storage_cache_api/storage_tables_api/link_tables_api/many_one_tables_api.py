@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 @dataclasses.dataclass(slots=True)
 class ManyOneLink:
     """
-    Represents one edge in a many-to-one relationship.
+    Represents one link in a many-to-one relationship.
     """
 
     src_id: "SrcTableID"
