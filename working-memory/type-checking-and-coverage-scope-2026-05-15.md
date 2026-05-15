@@ -67,6 +67,21 @@ Immediate actionable coverage gap:
   direct renderer tests before treating global coverage as a useful quality
   signal.
 
+Follow-up coverage hit:
+
+- Added direct renderer tests for:
+  - `surfaces.renderers.calibre_metadata`
+  - `surfaces.renderers.metadata`
+  - the lazy package loader in `surfaces.renderers`
+- Focused validation:
+
+```bash
+.venv/bin/python -m pytest tests/surfaces/test_renderers_calibre_metadata.py tests/surfaces/test_renderers_metadata.py --cov=LiuXin_alpha.surfaces.renderers --cov-report=term-missing -q
+```
+
+- Result: `14 passed`
+- Focused renderer coverage: `301 / 301` (`100%`)
+
 Warning profile:
 
 - `628 DeprecationWarning`
