@@ -6,12 +6,40 @@ bundle and not a read-side query result.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any, Mapping, Optional
 
-from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import (
+    ExpressionFlags,
+    ExpressionIdentityAPI,
+)
 from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
     compact_mapping_string,
 )
+
+
+def _coerce_expression_flags(value: Iterable[str] | str | None) -> ExpressionFlags:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        tokens = value.split(",")
+    else:
+        tokens = value
+
+    flags: list[str] = []
+    seen: set[str] = set()
+    for raw_token in tokens:
+        token = str(raw_token).strip()
+        if token and token not in seen:
+            flags.append(token)
+            seen.add(token)
+    return tuple(flags)
+
+
+def _serialize_expression_flags(value: ExpressionFlags) -> str | None:
+    if not value:
+        return None
+    return ",".join(value)
 
 
 class ExpressionIdentity(ExpressionIdentityAPI):
@@ -25,7 +53,7 @@ class ExpressionIdentity(ExpressionIdentityAPI):
         expression_label: Optional[str] = None,
         expression_title_override: Optional[str] = None,
         expression_subtitle: Optional[str] = None,
-        expression_flags: Optional[str] = None,
+        expression_flags: Iterable[str] | str | None = None,
         expression_status: Optional[str] = None,
         expression_original_date: Optional[str] = None,
         expression_original_copyright_date: Optional[str] = None,
@@ -43,7 +71,7 @@ class ExpressionIdentity(ExpressionIdentityAPI):
         self._expression_label = expression_label
         self._expression_title_override = expression_title_override
         self._expression_subtitle = expression_subtitle
-        self._expression_flags = expression_flags
+        self._expression_flags = _coerce_expression_flags(expression_flags)
         self._expression_status = expression_status
         self.expression_original_date = expression_original_date
         self.expression_original_copyright_date = expression_original_copyright_date
@@ -73,7 +101,7 @@ class ExpressionIdentity(ExpressionIdentityAPI):
             "expression_label": self.expression_label,
             "expression_title_override": self.expression_title_override,
             "expression_subtitle": self.expression_subtitle,
-            "expression_flags": self.expression_flags,
+            "expression_flags": _serialize_expression_flags(self.expression_flags),
             "expression_status": self.expression_status,
             "expression_original_date": self.expression_original_date,
             "expression_original_copyright_date": self.expression_original_copyright_date,
@@ -128,9 +156,10 @@ class ExpressionIdentity(ExpressionIdentityAPI):
     @expression_subtitle.setter
     def expression_subtitle(self, value: Optional[str]) -> None: self._expression_subtitle = value
     @property
-    def expression_flags(self) -> Optional[str]: return self._expression_flags
+    def expression_flags(self) -> ExpressionFlags: return self._expression_flags
     @expression_flags.setter
-    def expression_flags(self, value: Optional[str]) -> None: self._expression_flags = value
+    def expression_flags(self, value: Iterable[str] | str | None) -> None:
+        self._expression_flags = _coerce_expression_flags(value)
     @property
     def expression_status(self) -> Optional[str]: return self._expression_status
     @expression_status.setter

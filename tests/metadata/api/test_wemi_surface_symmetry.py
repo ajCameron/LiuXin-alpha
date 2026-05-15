@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 
-from typing import get_args
+from typing import get_args, get_type_hints
 
 import pytest
 
@@ -208,3 +208,31 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
         assert "relation_key" in parameters
         assert "relation" not in parameters
         assert parameters["relation_key"].annotation == entry["api_relation_key"]
+
+
+def test_expression_flags_contract_uses_structured_tokens() -> None:
+    api_module = importlib.import_module(
+        "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api"
+    )
+    impl_module = importlib.import_module(
+        "LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container"
+    )
+    identity_class = api_module.ExpressionIdentityAPI
+    expression_flags_property = identity_class.expression_flags
+
+    assert api_module.ExpressionFlags == tuple[str, ...]
+    assert get_type_hints(expression_flags_property.fget)["return"] == api_module.ExpressionFlags
+    assert (
+        get_type_hints(expression_flags_property.fset)["expression_flags"]
+        == api_module.ExpressionFlags | None
+    )
+
+    identity = impl_module.ExpressionIdentity(
+        expression_flags="review, canonical, review"
+    )
+    assert identity.expression_flags == ("review", "canonical")
+    assert identity.to_mapping()["expression_flags"] == "review,canonical"
+    identity.expression_flags = ("published",)
+    assert identity.to_mapping()["expression_flags"] == "published"
+    identity.expression_flags = ()
+    assert identity.to_mapping()["expression_flags"] is None

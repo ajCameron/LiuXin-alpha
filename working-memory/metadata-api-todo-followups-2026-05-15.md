@@ -42,11 +42,26 @@ Current branch context:
     expose `WEMI_LEVEL`, `SOURCE_TABLE`, and `ID_FIELD`
   - replaced the high-level WEMI identity union alias with the shared base
     class export
+- Item 5 is committed in `c47dd95`.
 - Item 5 validation:
   `python3 -m pytest tests/metadata/api/test_wemi_surface_symmetry.py tests/metadata/api/test_metadata_package_surface.py -q`
   -> `25 passed`.
   `python3 -m pytest tests/metadata/api tests/metadata/containers -q`
   -> `218 passed, 1 warning`.
+  `git diff --check` -> clean.
+- Item 6 is committed in the `Tighten expression flags typing` commit:
+  - added public `ExpressionFlags = tuple[str, ...]`
+  - changed `ExpressionIdentityAPI.expression_flags` to expose normalized flag
+    tokens instead of optional free-form text
+  - kept storage compatibility by parsing database text into tokens and
+    serializing tokens back to the existing `expression_flags` text column
+  - updated the expression add wizard/path to pass flag tokens while preserving
+    comma-separated database storage
+- Item 6 validation:
+  `python3 -m pytest tests/metadata/api/test_wemi_surface_symmetry.py tests/metadata/api/test_metadata_package_surface.py tests/metadata/containers/test_metadata_container_string_representations.py tests/surfaces/test_text_browser.py::test_text_browser_new_expression_wizard_creates_expression -q`
+  -> `32 passed`.
+  `python3 -m pytest tests/metadata/api tests/metadata/containers tests/databases/database/database_contract/test_db_add_title_wemi_split.py tests/surfaces/test_text_browser.py::test_text_browser_new_expression_wizard_creates_expression -q`
+  -> `225 passed, 1 warning`.
   `git diff --check` -> clean.
 - This list deliberately excludes older broad metadata TODOs in standardizers,
   file-source parsers, constants, and Calibre-like metadata containers.
@@ -102,11 +117,14 @@ Current branch context:
    - Resolution: added shared `WemiIdentityAPI` and made the four concrete
      WEMI identity APIs inherit it while publishing per-level table/id metadata.
 
-6. Tighten `expression_flags` typing.
+6. DONE - Tighten `expression_flags` typing.
    - Source: `src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api/expression_containers/expression_identity_api.py`
    - Current TODO: `Not sure what this should be, but it shouldn't be a string.`
    - Relevant because flags should probably be a structured enum, bitset, or
      typed collection instead of a free-form text field.
+   - Resolution: `expression_flags` is now `ExpressionFlags`, a normalized
+     tuple of flag tokens. Concrete containers still read/write the existing
+     nullable text database column through parse/serialize boundaries.
 
 7. Add or reject a `get_all_related` helper.
    - Source: `src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api/manifestation_containers/manifestation_metadata_api.py`
@@ -128,7 +146,7 @@ Current branch context:
 
 ## Suggested Working Order
 
-Work down the numbered list unless a dependency suggests otherwise. Items 1-5
-and the renderer consolidation follow-up are complete; item 6 is next. Item 9
+Work down the numbered list unless a dependency suggests otherwise. Items 1-6
+and the renderer consolidation follow-up are complete; item 7 is next. Item 9
 is related to the WEMI identity-base work but should be reviewed separately:
 item 9 is about metadata-bundle relation behavior.

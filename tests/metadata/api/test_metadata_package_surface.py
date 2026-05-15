@@ -20,6 +20,7 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
             [
                 "WorkIdentityAPI",
                 "WorkMetadataAPI",
+                "ExpressionFlags",
                 "ExpressionIdentityAPI",
                 "ExpressionMetadataAPI",
                 "ManifestationIdentityAPI",
@@ -98,6 +99,7 @@ METADATA_API_ROOT = REPO_ROOT / "src" / "LiuXin_alpha" / "metadata" / "api"
             [
                 "WorkIdentityAPI",
                 "WorkMetadataAPI",
+                "ExpressionFlags",
                 "ExpressionIdentityAPI",
                 "ExpressionMetadataAPI",
                 "ManifestationIdentityAPI",

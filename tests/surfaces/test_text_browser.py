@@ -4027,6 +4027,7 @@ def test_text_browser_new_expression_wizard_creates_expression(driver_spec, tmp_
         assert expression_row["expression_year"] == 1969
         assert int(expression_row["expression_is_preferred"]) == 1
         assert expression_row["expression_original_date"] is not None
+        assert expression_row["expression_flags"] == "critical"
         assert expression_row["expression_language_id"] is not None
         assert expression_row["expression_mode"] == "reading"
         assert expression_row["expression_wordcount"] == 102345

@@ -18,6 +18,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containe
     OrganisationAgentProfileAPI,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import (
+    ExpressionFlags,
     ExpressionIdentityAPI,
     ExpressionIdentityPropertiesAPI,
 )
@@ -96,6 +97,7 @@ __all__ = [
     "HumanAgentProfileAPI",
     "OrganisationAgentProfileAPI",
     "WemiIdentityAPI",
+    "ExpressionFlags",
     "ExpressionIdentityAPI",
     "ExpressionIdentityPropertiesAPI",
     "ExpressionMetadataAPI",
