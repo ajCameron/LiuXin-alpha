@@ -257,7 +257,9 @@ class WEMIAdderMixin:
 
         :param manifestation_subtitle:
         :param manifestation_carrier_type:
-        :param manifestation_format_detail:
+        :param manifestation_format_detail: Specific format or product label,
+            such as ``EPUB``, ``PDF``, ``A-format paperback``, or ``4K UHD BD``.
+            Use ``manifestation_carrier_type`` for the broader carrier family.
         :param manifestation_edition_statement:
         :param manifestation_pub_year:
         :param manifestation_pub_date:

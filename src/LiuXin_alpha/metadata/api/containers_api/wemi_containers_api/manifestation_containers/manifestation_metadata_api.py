@@ -40,6 +40,9 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_
     validate_relation_link_cardinality,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.metadata_relations_api import (
+    WemiMetadataRelationsAPI,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
 
 ManifestationRelationTarget: TypeAlias = (
@@ -76,7 +79,7 @@ ManifestationRelationKey: TypeAlias = Literal[
 ]
 
 
-class ManifestationMetadataAPI(abc.ABC):
+class ManifestationMetadataAPI(WemiMetadataRelationsAPI[ManifestationRelationKey, ManifestationRelationTarget], abc.ABC):
     """
     API for a container that holds all metadata associated with one manifestation.
 
@@ -295,7 +298,6 @@ class ManifestationMetadataAPI(abc.ABC):
         except ValueError:
             return False
 
-    # Todo: Add "get_all_related" method
     def get_related(self, relation_key: ManifestationRelationKey) -> list[ManifestationRelationTarget]:
         """
         Return the related relations for this manifestation-metadata bundle of a particular type.

@@ -122,6 +122,7 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
     assert hasattr(metadata_class, "to_mapping")
 
     api_metadata_class = getattr(api_metadata_module, entry["api_metadata_class"])
+    assert issubclass(api_metadata_class, wemi_api_root.WemiMetadataRelationsAPI)
     relation_key_alias = getattr(api_metadata_module, entry["api_relation_key"])
     api_doc = inspect.getdoc(api_metadata_class) or ""
     assert "relation_key" in api_doc
@@ -140,6 +141,7 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
         "relation_cardinality",
         "validate_relation_links",
         "get_relation_links",
+        "get_all_related",
         "set_relation_links",
         "add_relation_link",
         "remove_relation_link",
@@ -236,3 +238,17 @@ def test_expression_flags_contract_uses_structured_tokens() -> None:
     assert identity.to_mapping()["expression_flags"] == "published"
     identity.expression_flags = ()
     assert identity.to_mapping()["expression_flags"] is None
+
+
+def test_manifestation_format_detail_contract_is_documented() -> None:
+    api_module = importlib.import_module(
+        "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api"
+    )
+    identity_class = api_module.ManifestationIdentityAPI
+    format_detail_doc = inspect.getdoc(identity_class.manifestation_format_detail.fget)
+
+    assert format_detail_doc is not None
+    assert "Specific format or product label" in format_detail_doc
+    assert "finer-grained than ``manifestation_carrier_type``" in format_detail_doc
+    assert "EPUB" in format_detail_doc
+    assert "A-format paperback" in format_detail_doc

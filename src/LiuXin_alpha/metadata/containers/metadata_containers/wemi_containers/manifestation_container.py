@@ -99,9 +99,12 @@ class ManifestationIdentity(ManifestationIdentityAPI):
     @manifestation_expression_id.setter
     def manifestation_expression_id(self, value: Optional[int]) -> None: self._manifestation_expression_id = value
     @property
-    def manifestation_format_detail(self) -> Optional[str]: return self._manifestation_format_detail
+    def manifestation_format_detail(self) -> Optional[str]:
+        """Specific format or product label, such as EPUB or A-format paperback."""
+        return self._manifestation_format_detail
     @manifestation_format_detail.setter
-    def manifestation_format_detail(self, value: Optional[str]) -> None: self._manifestation_format_detail = value
+    def manifestation_format_detail(self, value: Optional[str]) -> None:
+        self._manifestation_format_detail = value
     @property
     def manifestation_carrier_type(self) -> Optional[str]: return self._manifestation_carrier_type
     @manifestation_carrier_type.setter

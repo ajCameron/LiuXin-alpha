@@ -9,6 +9,9 @@ from __future__ import annotations
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.identity_api import (
     WemiIdentityAPI,
 )
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.metadata_relations_api import (
+    WemiMetadataRelationsAPI,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import (
     AgentIdentityAPI,
 )
@@ -97,6 +100,7 @@ __all__ = [
     "HumanAgentProfileAPI",
     "OrganisationAgentProfileAPI",
     "WemiIdentityAPI",
+    "WemiMetadataRelationsAPI",
     "ExpressionFlags",
     "ExpressionIdentityAPI",
     "ExpressionIdentityPropertiesAPI",

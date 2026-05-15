@@ -38,6 +38,9 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.metadata_relations_api import (
+    WemiMetadataRelationsAPI,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
 
 ItemRelationTarget: TypeAlias = (
@@ -87,7 +90,7 @@ ItemRelationKey: TypeAlias = Literal[
 ]
 
 
-class ItemMetadataAPI(abc.ABC):
+class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarget], abc.ABC):
     """
     API for a container that holds all metadata associated with one item.
 

@@ -158,6 +158,12 @@ def test_relation_helpers_round_trip_targets_and_links() -> None:
     container.add_related("language", "de")
     assert container.languages == ["en", "fr", "de"]
 
+    all_related = container.get_all_related()
+    assert all_related["languages"] == ["en", "fr", "de"]
+    assert all_related["genres"] == []
+    all_related["languages"].append("es")
+    assert container.languages == ["en", "fr", "de"]
+
 
 def test_primary_relation_selection_is_deterministic() -> None:
     links = [

@@ -20,6 +20,9 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containe
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.metadata_relations_api import (
+    WemiMetadataRelationsAPI,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MetadataRecord,
     MutableMetadataRecord,
@@ -82,7 +85,7 @@ WorkRelationKey: TypeAlias = Literal[
 ]
 
 
-class WorkMetadataAPI(abc.ABC):
+class WorkMetadataAPI(WemiMetadataRelationsAPI[WorkRelationKey, WorkRelationTarget], abc.ABC):
     """
     API for a container that holds all metadata associated with a work.
 

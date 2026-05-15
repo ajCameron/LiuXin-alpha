@@ -82,6 +82,8 @@ class BookAndTitleAdderMixin:
 
     @staticmethod
     def _guess_format_detail(title_source_name=None, title_source_path=None):
+        """Infer the manifestation's specific format label from file extensions."""
+
         extensions = set()
         for val in BookAndTitleAdderMixin._split_break_joined(title_source_name) + BookAndTitleAdderMixin._split_break_joined(
             title_source_path

@@ -36,20 +36,19 @@ Current branch context:
 - Item 4 validation:
   `python3 -m pytest tests/metadata/api tests/metadata/containers -q`
   -> `218 passed, 1 warning`.
-- Item 5 is complete locally:
+- Item 5 is committed in `c47dd95`:
   - added shared `WemiIdentityAPI` for WEMI identity-row contracts
   - made work/expression/manifestation/item identity APIs inherit it and
     expose `WEMI_LEVEL`, `SOURCE_TABLE`, and `ID_FIELD`
   - replaced the high-level WEMI identity union alias with the shared base
     class export
-- Item 5 is committed in `c47dd95`.
 - Item 5 validation:
   `python3 -m pytest tests/metadata/api/test_wemi_surface_symmetry.py tests/metadata/api/test_metadata_package_surface.py -q`
   -> `25 passed`.
   `python3 -m pytest tests/metadata/api tests/metadata/containers -q`
   -> `218 passed, 1 warning`.
   `git diff --check` -> clean.
-- Item 6 is committed in the `Tighten expression flags typing` commit:
+- Item 6 is committed in `a4b9e8f`:
   - added public `ExpressionFlags = tuple[str, ...]`
   - changed `ExpressionIdentityAPI.expression_flags` to expose normalized flag
     tokens instead of optional free-form text
@@ -63,6 +62,31 @@ Current branch context:
   `python3 -m pytest tests/metadata/api tests/metadata/containers tests/databases/database/database_contract/test_db_add_title_wemi_split.py tests/surfaces/test_text_browser.py::test_text_browser_new_expression_wizard_creates_expression -q`
   -> `225 passed, 1 warning`.
   `git diff --check` -> clean.
+- Item 7 is complete locally:
+  - added generic `WemiMetadataRelationsAPI[RelationKeyT, RelationTargetT]`
+    with shared `get_all_related()`
+  - made work/expression/manifestation/item metadata APIs inherit it with
+    their existing relation-key and relation-target aliases
+  - removed the manifestation-only TODO because the helper is now symmetrical
+    across the WEMI metadata APIs
+- Item 7 validation:
+  `python3 -m pytest tests/metadata/api/test_wemi_surface_symmetry.py tests/metadata/api/test_metadata_package_surface.py tests/metadata/api/test_work_metadata_container_api.py -q`
+  -> `37 passed`.
+  `python3 -m pytest tests/metadata/api tests/metadata/containers -q`
+  -> `219 passed, 1 warning`.
+  `git diff --check` -> clean.
+- Item 8 is complete locally:
+  - documented `manifestation_format_detail` as the manifestation's specific
+    format/product label, finer-grained than `manifestation_carrier_type`
+  - clarified examples in the API contract and schema comment: `EPUB`, `PDF`,
+    `A-format paperback`, `4K UHD BD`
+  - added matching notes in the concrete container, add/title inference path,
+    and storage placement hints
+- Item 8 validation:
+  `python3 -m pytest tests/metadata/api/test_wemi_surface_symmetry.py tests/metadata/api/test_metadata_package_surface.py tests/metadata/containers/test_metadata_container_string_representations.py tests/storage/api/test_placement_hints_api.py -q`
+  -> `36 passed`.
+  `python3 -m pytest tests/metadata/api tests/metadata/containers tests/storage/api/test_placement_hints_api.py -q`
+  -> `225 passed, 1 warning`.
 - This list deliberately excludes older broad metadata TODOs in standardizers,
   file-source parsers, constants, and Calibre-like metadata containers.
 
@@ -126,17 +150,22 @@ Current branch context:
      tuple of flag tokens. Concrete containers still read/write the existing
      nullable text database column through parse/serialize boundaries.
 
-7. Add or reject a `get_all_related` helper.
+7. DONE - Add or reject a `get_all_related` helper.
    - Source: `src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api/manifestation_containers/manifestation_metadata_api.py`
    - Current TODO: `Add "get_all_related" method`
    - Relevant because callers may need a typed way to enumerate every relation
      bucket without knowing each relation key in advance.
+   - Resolution: added shared generic `WemiMetadataRelationsAPI` and inherited
+     it from all four WEMI metadata APIs, preserving concrete relation
+     key/target typing while exposing `get_all_related()`.
 
-8. Clarify `manifestation_format_detail`.
+8. DONE - Clarify `manifestation_format_detail`.
    - Source: `src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api/manifestation_containers/manifestation_identity_api.py`
    - Current TODO: `Not... sure what this is/is for?`
    - Relevant because the field exists on the identity contract and hydrators;
      it needs either a documented meaning or removal/rename.
+   - Resolution: kept the field and documented it as the manifestation's
+     specific format/product label, distinct from the broader carrier type.
 
 9. Consider a shared WEMI metadata object/relation-method base class.
    - Source: `src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api/item_containers/item_metadata_api.py`
@@ -146,7 +175,7 @@ Current branch context:
 
 ## Suggested Working Order
 
-Work down the numbered list unless a dependency suggests otherwise. Items 1-6
-and the renderer consolidation follow-up are complete; item 7 is next. Item 9
+Work down the numbered list unless a dependency suggests otherwise. Items 1-8
+and the renderer consolidation follow-up are complete; item 9 is next. Item 9
 is related to the WEMI identity-base work but should be reviewed separately:
 item 9 is about metadata-bundle relation behavior.
