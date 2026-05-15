@@ -42,6 +42,9 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
+working-memory/test-results/.coverage-*
+working-memory/test-results/coverage-*.xml
+working-memory/test-results/coverage-html-*/
 .cache
 nosetests.xml
 coverage.xml

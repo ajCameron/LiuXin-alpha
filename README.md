@@ -31,3 +31,13 @@ The full-suite helper also expects this repo-local venv:
 ```bash
 bash scripts/run_full_test_suite.sh
 ```
+
+Run the strict static typing target set with:
+
+```bash
+bash scripts/run_type_checks.sh
+```
+
+The type-check helper installs the `typing` extra into `.venv` before running
+`basedpyright` and `mypy`. Use `--skip-install` to reuse an already prepared
+environment.
