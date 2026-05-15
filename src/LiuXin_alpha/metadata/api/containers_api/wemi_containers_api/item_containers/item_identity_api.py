@@ -64,14 +64,13 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
         """
 
     # ------------------------------------------------------------------
-    # Parent manifestation
+    # Legacy/source-row manifestation hint
     # ------------------------------------------------------------------
 
-    # Todo: An item can belong to multiple manifestations?
     @property
     def manifestation_id(self) -> Optional[int]:
         """
-        The ID of the primary manifestation linked to this item - if any.
+        Legacy/source-row manifestation id hint for this item.
 
         :return:
         """
@@ -80,7 +79,7 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @manifestation_id.setter
     def manifestation_id(self, value: Optional[int]) -> None:
         """
-        Set the primary manifestation ID for this item.
+        Set the legacy/source-row manifestation id hint for this item.
 
         :param value:
         :return:
@@ -91,7 +90,7 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def item_manifestation_id(self) -> Optional[int]:
         """
-        Primary Manifestation ID for this item.
+        Legacy/source-row manifestation id hint for this item.
 
         :return:
         """
@@ -100,7 +99,7 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def item_manifestation_id(self, item_manifestation_id: Optional[int]) -> None:
         """
-        Set the Primary Manifestation ID for this item.
+        Set the legacy/source-row manifestation id hint for this item.
 
         :param item_manifestation_id:
         :return:

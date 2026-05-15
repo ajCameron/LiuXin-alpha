@@ -1,10 +1,15 @@
 # Working Memory Index
 
-Updated: 2026-05-12
+Updated: 2026-05-15
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [metadata-projection-views-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-projection-views-2026-05-15.md)
+  Decision note for the next metadata API slice: add read-only embedded
+  `values` and `text` projection views for relation-target values while keeping
+  relation links as the authoritative graph/provenance surface.
 
 - [tkinter-gui-architecture-2026-05-11.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/tkinter-gui-architecture-2026-05-11.md)
   Tkinter GUI spike/design handoff: current `tkinter-gui-foundation` branch/base,

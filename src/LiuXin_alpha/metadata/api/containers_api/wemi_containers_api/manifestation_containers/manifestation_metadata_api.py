@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 
-from typing import ClassVar, Iterable, Mapping, Optional, Self, TypeAlias
+from typing import ClassVar, Iterable, Literal, Mapping, Optional, Self, TypeAlias, cast
 
 
 from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
@@ -25,13 +25,19 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_container
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MetadataRecord,
     MutableMetadataRecord,
+    relation_target_id,
     RelationTarget,
 )
-from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_edge_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.projection_view_api import (
+    MetadataTextViewAPI,
+    MetadataValuesViewAPI,
+)
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
     RelationCardinality,
-    RelationEdge,
-    RelationEdgeID,
-    validate_relation_edge_cardinality,
+    RelationLink,
+    RelationLinkID,
+    select_primary_relation_link,
+    validate_relation_link_cardinality,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.manifestation_containers.manifestation_identity_api import ManifestationIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import WorkIdentityAPI
@@ -45,13 +51,29 @@ ManifestationRelationTarget: TypeAlias = (
 )
 
 @dataclasses.dataclass(slots=True)
-class ManifestationRelationEdge(RelationEdge[ManifestationRelationTarget]):
-    """Edge from a manifestation-metadata container to a related entity."""
+class ManifestationRelationLink(RelationLink[ManifestationRelationTarget]):
+    """Link from a manifestation-metadata container to a related entity."""
 
     target: ManifestationRelationTarget
 
 
-ManifestationRelationLink: TypeAlias = ManifestationRelationEdge
+ManifestationRelationKey: TypeAlias = Literal[
+    "works",
+    "expressions",
+    "items",
+    "agents",
+    "identifiers",
+    "titles",
+    "genres",
+    "labels",
+    "languages",
+    "notes",
+    "comments",
+    "files",
+    "images",
+    "digital_assets",
+    "asset_replicas",
+]
 
 
 class ManifestationMetadataAPI(abc.ABC):
@@ -59,10 +81,15 @@ class ManifestationMetadataAPI(abc.ABC):
     API for a container that holds all metadata associated with one manifestation.
 
     Implementations should expose the core manifestation row, WEMI context,
-    attached assets/files, and relation-edge metadata.
+    attached assets/files, and relation-keyed link metadata.
+
+    The ``relation_key`` parameter names one normalized relation bucket from
+    ``RELATION_KEYS``. These keys usually mirror related metadata table or
+    bucket names, such as ``files`` or ``agents``, but they are API contract
+    keys rather than a guarantee about a physical database table.
     """
 
-    RELATION_KEYS: ClassVar[tuple[str, ...]] = (
+    RELATION_KEYS: ClassVar[tuple[ManifestationRelationKey, ...]] = (
         "works",
         "expressions",
         "items",
@@ -79,7 +106,7 @@ class ManifestationMetadataAPI(abc.ABC):
         "digital_assets",
         "asset_replicas",
     )
-    RELATION_ALIASES: ClassVar[Mapping[str, str]] = {
+    RELATION_ALIASES: ClassVar[Mapping[str, ManifestationRelationKey]] = {
         "work": "works",
         "expression": "expressions",
         "item": "items",
@@ -98,8 +125,10 @@ class ManifestationMetadataAPI(abc.ABC):
         "replica": "asset_replicas",
         "asset_replica": "asset_replicas",
     }
-    RELATION_CARDINALITIES: ClassVar[Mapping[str, RelationCardinality]] = {
-        "items": RelationCardinality.ONE_TO_MANY,
+    RELATION_CARDINALITIES: ClassVar[Mapping[ManifestationRelationKey, RelationCardinality]] = {
+        "works": RelationCardinality.MANY_TO_MANY,
+        "expressions": RelationCardinality.MANY_TO_MANY,
+        "items": RelationCardinality.MANY_TO_MANY,
         "identifiers": RelationCardinality.ONE_TO_MANY,
         "titles": RelationCardinality.ONE_TO_MANY,
         "notes": RelationCardinality.ONE_TO_MANY,
@@ -108,60 +137,58 @@ class ManifestationMetadataAPI(abc.ABC):
         "images": RelationCardinality.ONE_TO_MANY,
     }
 
-    # Todo: We can tighten up the typing here?
     @classmethod
-    def relation_names(cls) -> tuple[str, ...]:
+    def relation_names(cls) -> tuple[ManifestationRelationKey, ...]:
         """
-        Get the names of the objects this thing could be linked to.
+        Relation keys this manifestation metadata bundle can expose.
 
         :return:
         """
         return cls.RELATION_KEYS
 
     @classmethod
-    def validate_relation_name(cls, relation: str) -> str:
+    def validate_relation_name(cls, relation_key: str) -> ManifestationRelationKey:
         """
-        Normalize a relational name.
+        Normalize and validate one relation key.
 
-        :param relation:
+        :param relation_key:
         :return:
         """
-        normalized = str(relation).strip().lower()
+        normalized = str(relation_key).strip().lower()
         normalized = cls.RELATION_ALIASES.get(normalized, normalized)
         if normalized not in cls.RELATION_KEYS:
-            raise KeyError(f"Unknown manifestation-metadata relation {relation!r}. Expected one of {', '.join(cls.RELATION_KEYS)}.")
-        return normalized
+            raise KeyError(f"Unknown manifestation-metadata relation key {relation_key!r}. Expected one of {', '.join(cls.RELATION_KEYS)}.")
+        return cast(ManifestationRelationKey, normalized)
 
     @classmethod
-    def relation_cardinality(cls, relation: str) -> RelationCardinality:
+    def relation_cardinality(cls, relation_key: ManifestationRelationKey) -> RelationCardinality:
         """
-        Return the cardinality of the given relation for this class.
+        Return the cardinality policy for one relation key.
 
-        :param relation: agents/tags/e.t.c
+        :param relation_key: agents/tags/e.t.c
         :return:
         """
-        relation_key = cls.validate_relation_name(relation)
+        relation_key = cls.validate_relation_name(relation_key)
         return cls.RELATION_CARDINALITIES.get(
             relation_key,
             RelationCardinality.MANY_TO_MANY,
         )
 
-    # Todo: relation needs to be more descriptive
     @classmethod
     def validate_relation_links(
         cls,
-        relation: str,
+        relation_key: ManifestationRelationKey,
         links: Iterable[ManifestationRelationLink],
     ) -> list[ManifestationRelationLink]:
         """
-        Validate the iterable of relation links for the given relation type.
+        Validate relation links for one relation key.
 
-        :param relation:
+        :param relation_key:
         :param links:
         :return:
         """
-        relation_key = cls.validate_relation_name(relation)
-        return validate_relation_edge_cardinality(
+        relation_key = cls.validate_relation_name(relation_key)
+        return validate_relation_link_cardinality(
             relation_key,
             links,
             cls.relation_cardinality(relation_key),
@@ -186,22 +213,31 @@ class ManifestationMetadataAPI(abc.ABC):
         :return:
         """
 
-    # Todo: We can probably tighten the type up
+    @property
     @abc.abstractmethod
-    def get_relation_links(self, relation: str) -> list[ManifestationRelationLink]:
-        """
-        Get edge metadata links for one relation type.
+    def values(self) -> MetadataValuesViewAPI:
+        """Structured, read-only value projections for this metadata bundle."""
 
-        :param relation:
+    @property
+    @abc.abstractmethod
+    def text(self) -> MetadataTextViewAPI:
+        """Display/export text projections for this metadata bundle."""
+
+    @abc.abstractmethod
+    def get_relation_links(self, relation_key: ManifestationRelationKey) -> list[ManifestationRelationLink]:
+        """
+        Get relation links for one relation key.
+
+        :param relation_key:
         :return:
         """
 
     @abc.abstractmethod
-    def set_relation_links(self, relation: str, links: Iterable[ManifestationRelationLink]) -> None:
+    def set_relation_links(self, relation_key: ManifestationRelationKey, links: Iterable[ManifestationRelationLink]) -> None:
         """
-        Replace edge metadata links for one relation type.
+        Replace relation links for one relation key.
 
-        :param relation:
+        :param relation_key:
         :param links:
         :return:
         """
@@ -218,7 +254,7 @@ class ManifestationMetadataAPI(abc.ABC):
         mark_dirty: bool = True,
     ) -> MetadataWriteReportAPI:
         """
-        Persist supported relation changes for this manifestation metadata bundle.
+        Persist supported relation-backed changes for this manifestation metadata bundle.
 
         :param database:
         :param fields:
@@ -229,28 +265,28 @@ class ManifestationMetadataAPI(abc.ABC):
         :return:
         """
 
-    def add_relation_link(self, relation: str, link: ManifestationRelationLink) -> None:
+    def add_relation_link(self, relation_key: ManifestationRelationKey, link: ManifestationRelationLink) -> None:
         """
-        Add a relation of a particular type.
+        Add one relation link for a relation key.
 
-        :param relation:
+        :param relation_key:
         :param link:
         :return:
         """
-        relation_key = self.validate_relation_name(relation)
+        relation_key = self.validate_relation_name(relation_key)
         links = list(self.get_relation_links(relation_key))
         links.append(link)
         self.set_relation_links(relation_key, self.validate_relation_links(relation_key, links))
 
-    def remove_relation_link(self, relation: str, link: ManifestationRelationLink) -> bool:
+    def remove_relation_link(self, relation_key: ManifestationRelationKey, link: ManifestationRelationLink) -> bool:
         """
-        Remove a relation link of a particular type - if it exists.
+        Remove one relation link for a relation key, if it exists.
 
-        :param relation:
+        :param relation_key:
         :param link:
         :return:
         """
-        relation_key = self.validate_relation_name(relation)
+        relation_key = self.validate_relation_name(relation_key)
         links = list(self.get_relation_links(relation_key))
         try:
             links.remove(link)
@@ -260,29 +296,69 @@ class ManifestationMetadataAPI(abc.ABC):
             return False
 
     # Todo: Add "get_all_related" method
-    def get_related(self, relation: str) -> list[ManifestationRelationTarget]:
+    def get_related(self, relation_key: ManifestationRelationKey) -> list[ManifestationRelationTarget]:
         """
         Return the related relations for this manifestation-metadata bundle of a particular type.
 
-        :param relation:
+        :param relation_key:
         :return:
         """
-        relation_key = self.validate_relation_name(relation)
+        relation_key = self.validate_relation_name(relation_key)
         return [link.target for link in self.get_relation_links(relation_key)]
 
-    def set_related(self, relation: str, values: Iterable[ManifestationRelationTarget]) -> None:
+    def primary_relation_link(self, relation_key: ManifestationRelationKey) -> Optional[ManifestationRelationLink]:
+        """Return the preferred relation link for one relation key, if any."""
+
+        relation_key = self.validate_relation_name(relation_key)
+        return select_primary_relation_link(self.get_relation_links(relation_key))
+
+    def primary_related(self, relation_key: ManifestationRelationKey) -> ManifestationRelationTarget | None:
+        """Return the preferred relation target for one relation key, if any."""
+
+        link = self.primary_relation_link(relation_key)
+        if link is None:
+            return None
+        return link.target
+
+    def set_primary_relation_link(
+        self,
+        relation_key: ManifestationRelationKey,
+        link: ManifestationRelationLink,
+    ) -> None:
+        """Mark one relation link as the preferred link for one relation key."""
+
+        relation_key = self.validate_relation_name(relation_key)
+        links = list(self.get_relation_links(relation_key))
+        selected_index: int | None = None
+        for index, existing_link in enumerate(links):
+            same_link_id = link.link_id is not None and existing_link.link_id == link.link_id
+            same_target = link.link_id is None and existing_link.target == link.target
+            if existing_link is link or same_link_id or same_target:
+                selected_index = index
+                links[index] = link
+                break
+
+        if selected_index is None:
+            selected_index = len(links)
+            links.append(link)
+
+        for index, existing_link in enumerate(links):
+            existing_link.primary = index == selected_index
+        self.set_relation_links(relation_key, links)
+
+    def set_related(self, relation_key: ManifestationRelationKey, values: Iterable[ManifestationRelationTarget]) -> None:
         """
         Set the related values for this manifestation-metadata bundle of a particular type.
 
-        :param relation:
+        :param relation_key:
         :param values:
         :return:
         """
-        relation_key = self.validate_relation_name(relation)
+        relation_key = self.validate_relation_name(relation_key)
         self.set_relation_links(
             relation_key,
             [
-                ManifestationRelationEdge(
+                ManifestationRelationLink(
                     target=value,
                     cardinality=self.relation_cardinality(relation_key),
                 )
@@ -290,113 +366,104 @@ class ManifestationMetadataAPI(abc.ABC):
             ],
         )
 
-    def add_related(self, relation: str, value: ManifestationRelationTarget) -> None:
+    def add_related(self, relation_key: ManifestationRelationKey, value: ManifestationRelationTarget) -> None:
         """
         Add a related value for this manifestation-metadata bundle of a particular type.
 
-        :param relation:
+        :param relation_key:
         :param value:
         :return:
         """
-        relation_key = self.validate_relation_name(relation)
+        relation_key = self.validate_relation_name(relation_key)
         self.add_relation_link(
             relation_key,
-            ManifestationRelationEdge(
+            ManifestationRelationLink(
                 target=value,
                 cardinality=self.relation_cardinality(relation_key),
             ),
         )
 
-    def get_relation_edges(self, relation: str) -> list[ManifestationRelationEdge]:
-        """
-        Get the relational edges pointing to a particular target.
-
-        :param relation:
-        :return:
-        """
-        return self.get_relation_links(relation)
-
-    def set_relation_edges(
+    def get_relation_link_by_id(
         self,
-        relation: str,
-        edges: Iterable[ManifestationRelationEdge],
-    ) -> None:
-        """
-        Entirely replace an edge with a certain target.
-
-        :param relation:
-        :param edges:
-        :return:
-        """
-        self.set_relation_links(relation, edges)
-
-    # Todo: If "edge" is the same as "link" standardize on one. Or, if not, explain how they're different
-    def add_relation_edge(self, relation: str, edge: ManifestationRelationEdge) -> None:
-        """
-        Add a single relational edge.
-
-        :param relation:
-        :param edge:
-        :return:
-        """
-        self.add_relation_link(relation, edge)
-
-    # Todo: If the edge contains target info, then what on Earth is the relation?
-    def remove_relation_edge(self, relation: str, edge: ManifestationRelationEdge) -> bool:
-        """
-
-
-        :param relation:
-        :param edge:
-        :return:
-        """
-        return self.remove_relation_link(relation, edge)
-
-    def get_relation_edge_by_id(
-        self,
-        relation: str,
-        edge_id: RelationEdgeID,
-    ) -> Optional[ManifestationRelationEdge]:
-        for edge in self.get_relation_edges(relation):
-            if edge.edge_id == edge_id:
-                return edge
+        relation_key: ManifestationRelationKey,
+        link_id: RelationLinkID,
+    ) -> Optional[ManifestationRelationLink]:
+        for link in self.get_relation_links(relation_key):
+            if link.link_id == link_id:
+                return link
         return None
 
-    def upsert_relation_edge(
+    def upsert_relation_link(
         self,
-        relation: str,
-        edge: ManifestationRelationEdge,
+        relation_key: ManifestationRelationKey,
+        link: ManifestationRelationLink,
     ) -> None:
-        relation_key = self.validate_relation_name(relation)
-        if edge.edge_id is None:
-            self.add_relation_edge(relation_key, edge)
+        relation_key = self.validate_relation_name(relation_key)
+        if link.link_id is None:
+            self.add_relation_link(relation_key, link)
             return
 
-        edges = list(self.get_relation_edges(relation_key))
-        for index, existing_edge in enumerate(edges):
-            if existing_edge.edge_id == edge.edge_id:
-                edges[index] = edge
-                self.set_relation_edges(relation_key, edges)
+        links = list(self.get_relation_links(relation_key))
+        for index, existing_link in enumerate(links):
+            if existing_link.link_id == link.link_id:
+                links[index] = link
+                self.set_relation_links(relation_key, links)
                 return
-        self.add_relation_edge(relation_key, edge)
+        self.add_relation_link(relation_key, link)
 
-    def remove_relation_edge_by_id(
+    def remove_relation_link_by_id(
         self,
-        relation: str,
-        edge_id: RelationEdgeID,
+        relation_key: ManifestationRelationKey,
+        link_id: RelationLinkID,
     ) -> bool:
-        relation_key = self.validate_relation_name(relation)
-        edges = list(self.get_relation_edges(relation_key))
-        for index, edge in enumerate(edges):
-            if edge.edge_id == edge_id:
-                del edges[index]
-                self.set_relation_edges(relation_key, edges)
+        relation_key = self.validate_relation_name(relation_key)
+        links = list(self.get_relation_links(relation_key))
+        for index, link in enumerate(links):
+            if link.link_id == link_id:
+                del links[index]
+                self.set_relation_links(relation_key, links)
                 return True
         return False
 
-    def clear_related(self, relation: str) -> None:
-        relation_key = self.validate_relation_name(relation)
+    def clear_related(self, relation_key: ManifestationRelationKey) -> None:
+        relation_key = self.validate_relation_name(relation_key)
         self.set_relation_links(relation_key, [])
+
+    @property
+    def primary_work(self) -> ManifestationRelationTarget | None:
+        """Preferred work traversal from this manifestation."""
+
+        return self.primary_related("works")
+
+    @property
+    def primary_work_id(self) -> Optional[int]:
+        return relation_target_id(self.primary_work, "work_id")
+
+    @property
+    def primary_expression(self) -> ManifestationRelationTarget | None:
+        """Preferred expression traversal from this manifestation."""
+
+        return self.primary_related("expressions")
+
+    @property
+    def primary_expression_id(self) -> Optional[int]:
+        primary_id = relation_target_id(self.primary_expression, "expression_id")
+        if primary_id is not None:
+            return primary_id
+        manifestation = self.manifestation
+        if manifestation is None:
+            return None
+        return manifestation.manifestation_expression_id
+
+    @property
+    def primary_item(self) -> ManifestationRelationTarget | None:
+        """Preferred item traversal from this manifestation."""
+
+        return self.primary_related("items")
+
+    @property
+    def primary_item_id(self) -> Optional[int]:
+        return relation_target_id(self.primary_item, "item_id")
 
     @property
     def works(self) -> list[ManifestationRelationTarget]:
@@ -541,7 +608,7 @@ class ManifestationMetadataAPI(abc.ABC):
         return f"{self.__class__.__name__}()"
 
 __all__ = [
-    "ManifestationRelationEdge",
+    "ManifestationRelationKey",
     "ManifestationRelationLink",
     "ManifestationRelationTarget",
     "ManifestationMetadataAPI",

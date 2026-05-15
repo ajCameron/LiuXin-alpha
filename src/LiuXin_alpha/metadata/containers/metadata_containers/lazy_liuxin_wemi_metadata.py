@@ -14,6 +14,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.lazy_value_to_id impor
 from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata import (
     LiuXinWEMIMetadata,
     WemiLevel,
+    WemiRelationKey,
     WemiRelationLink,
 )
 from LiuXin_alpha.metadata.standardize import standardize_id_name
@@ -57,6 +58,22 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         "identifier": "identifiers",
         "identifiers": "identifiers",
     }
+    _PROJECTION_RELATION_ALIASES = {
+        "agent": "agents",
+        "author": "agents",
+        "authors": "agents",
+        "creator": "agents",
+        "creators": "agents",
+        "genre": "genres",
+        "identifier": "identifiers",
+        "label": "labels",
+        "language": "languages",
+        "rating": "ratings",
+        "series_entry": "series",
+        "subject": "subjects",
+        "tag": "tags",
+        "title": "titles",
+    }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -75,21 +92,21 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     def install_lazy_relation_loader(
         self,
         level: str,
-        relation: str,
+        relation_key: WemiRelationKey,
         loader: WemiRelationLoader,
     ) -> None:
         level_key = self.normalize_wemi_level(level)
-        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation)
+        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation_key)
         loaders = object.__getattribute__(self, "_lazy_relation_loaders")
         loaders[(level_key, relation_key)] = loader
 
     def get_wemi_relation_links(
         self,
         level: str,
-        relation: str,
+        relation_key: WemiRelationKey,
     ) -> list[WemiRelationLink]:
         level_key = self.normalize_wemi_level(level)
-        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation)
+        relation_key = self.get_wemi_metadata(level_key).validate_relation_name(relation_key)
         loaders = object.__getattribute__(self, "_lazy_relation_loaders")
         loader = loaders.pop((level_key, relation_key), None)
         if loader is not None:
@@ -102,9 +119,19 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     def get_wemi_related(
         self,
         level: str,
-        relation: str,
+        relation_key: WemiRelationKey,
     ) -> list[Any]:
-        return [link.target for link in self.get_wemi_relation_links(level, relation)]
+        return [link.target for link in self.get_wemi_relation_links(level, relation_key)]
+
+    def load(self, *fields: str) -> "LazyLiuXinWEMIMetadata":
+        if not fields:
+            self.force_hydrate()
+            self._hydrate_all_relation_loaders()
+            return self
+
+        for field in fields:
+            self._hydrate_projection_dependencies(field)
+        return self
 
     def hydrate_field(self, field: str) -> OrderedDict[str, Any] | Any:
         field_key = self._normalize_lazy_legacy_field(field)
@@ -167,6 +194,34 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         object.__setattr__(self, "_lazy_identifiers_loaded", True)
         self.sync_legacy_identifiers_from_wemi()
 
+    def _hydrate_projection_dependencies(self, field: str) -> None:
+        field_key = self._normalize_lazy_legacy_field(field)
+        data = object.__getattribute__(self, "_data")
+        if field_key == "identifiers" or isinstance(data.get(field_key), LazyValueToID):
+            self.hydrate_field(field_key)
+
+        relation_key = self._normalize_projection_relation_key(field)
+        self._hydrate_relation_loaders_for_relation(relation_key)
+
+    def _hydrate_all_relation_loaders(self) -> None:
+        loaders = object.__getattribute__(self, "_lazy_relation_loaders")
+        for level_key, relation_key in list(loaders):
+            self.get_wemi_relation_links(level_key, relation_key)
+
+    def _hydrate_relation_loaders_for_relation(self, relation_key: str) -> None:
+        for level in self._LEVELS:
+            metadata = self.get_wemi_metadata(level)
+            try:
+                normalized_relation_key = metadata.validate_relation_name(relation_key)
+            except KeyError:
+                continue
+            self.get_wemi_relation_links(level, normalized_relation_key)
+
+    @classmethod
+    def _normalize_projection_relation_key(cls, field: str) -> str:
+        normalized = str(field).strip().lower()
+        return cls._PROJECTION_RELATION_ALIASES.get(normalized, normalized)
+
     def direct_get(self, item: str) -> Any:
         data = object.__getattribute__(self, "_data")
         field_key = self._LEGACY_FIELD_ALIASES.get(str(item).strip().lower())
@@ -222,7 +277,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return field_key if field_key is not None else str(field).strip().lower()
 
     @staticmethod
-    def relation_target_text(target: Any, relation: str) -> str | None:
+    def relation_target_text(target: Any, relation_key: WemiRelationKey) -> str | None:
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -254,7 +309,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
                 "name",
                 "text",
             ),
-        }.get(str(relation), ("name", "text"))
+        }.get(str(relation_key), ("name", "text"))
 
         for key in text_keys:
             value = mapping.get(key)
@@ -268,7 +323,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         return None
 
     @staticmethod
-    def relation_target_id(target: Any, relation: str) -> int | None:
+    def relation_target_id(target: Any, relation_key: WemiRelationKey) -> int | None:
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -288,7 +343,7 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
             "synopses": ("synopsis_id", "id"),
             "languages": ("language_id", "id"),
             "files": ("file_id", "id"),
-        }.get(str(relation), ("id",))
+        }.get(str(relation_key), ("id",))
 
         for key in id_keys:
             value = mapping.get(key)
@@ -308,13 +363,13 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         self,
         *,
         field: str,
-        relation: str,
+        relation_key: WemiRelationKey,
     ) -> OrderedDict[str, Any]:
         terms: OrderedDict[str, Any] = OrderedDict()
         seen: set[str] = set()
         for level in self._LEVELS:
             try:
-                links = self.get_wemi_relation_links(level, relation)
+                links = self.get_wemi_relation_links(level, relation_key)
             except KeyError:
                 continue
             for link in links:
@@ -324,13 +379,13 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
                         continue
                     terms[key] = value
                     continue
-                text = self.relation_target_text(link.target, relation)
+                text = self.relation_target_text(link.target, relation_key)
                 if text is None:
                     continue
                 text_key = text.casefold()
                 if text_key in seen:
                     continue
-                terms[text] = self.relation_target_id(link.target, relation)
+                terms[text] = self.relation_target_id(link.target, relation_key)
                 seen.add(text_key)
         return terms
 

@@ -14,21 +14,26 @@ from typing import Any, Optional
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_identity_api import ExpressionIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
     ExpressionMetadataAPI,
+    ExpressionRelationKey,
     ExpressionRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
     metadata_bundle_string,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.expression_container import ExpressionIdentity
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    MetadataTextView,
+    MetadataValuesView,
+)
 
 
 class ExpressionMetadata(ExpressionMetadataAPI):
     def __init__(self, *, expression: Optional[ExpressionIdentityAPI] = None, relation_links: Optional[Mapping[str, Iterable[ExpressionRelationLink]]] = None) -> None:
         self._expression = expression
-        self._relation_links: dict[str, list[ExpressionRelationLink]] = {relation: [] for relation in self.RELATION_KEYS}
+        self._relation_links: dict[ExpressionRelationKey, list[ExpressionRelationLink]] = {relation_key: [] for relation_key in self.RELATION_KEYS}
         if relation_links:
-            for relation, links in relation_links.items():
-                self.set_relation_links(relation, links)
+            for relation_key, links in relation_links.items():
+                self.set_relation_links(relation_key, links)
 
     @property
     def expression(self) -> Optional[ExpressionIdentityAPI]:
@@ -37,6 +42,14 @@ class ExpressionMetadata(ExpressionMetadataAPI):
     @expression.setter
     def expression(self, value: Optional[ExpressionIdentityAPI]) -> None:
         self._expression = value
+
+    @property
+    def values(self) -> MetadataValuesView:
+        return MetadataValuesView(self)
+
+    @property
+    def text(self) -> MetadataTextView:
+        return MetadataTextView(self.values)
 
     @staticmethod
     def _optional_int(value: Any) -> Optional[int]:
@@ -109,11 +122,11 @@ class ExpressionMetadata(ExpressionMetadataAPI):
             [{"work_id": work_id} for work_id in ids],
         )
 
-    def get_relation_links(self, relation: str) -> list[ExpressionRelationLink]:
-        return self._relation_links[self.validate_relation_name(relation)]
+    def get_relation_links(self, relation_key: ExpressionRelationKey) -> list[ExpressionRelationLink]:
+        return self._relation_links[self.validate_relation_name(relation_key)]
 
-    def set_relation_links(self, relation: str, links: Iterable[ExpressionRelationLink]) -> None:
-        relation_key = self.validate_relation_name(relation)
+    def set_relation_links(self, relation_key: ExpressionRelationKey, links: Iterable[ExpressionRelationLink]) -> None:
+        relation_key = self.validate_relation_name(relation_key)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 
     def __str__(self) -> str:
@@ -168,7 +181,7 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         payload = {'expression': self.expression.to_mapping() if self.expression is not None else None}
         if include_related:
             payload['relations'] = {
-                relation: [
+                relation_key: [
                     {
                         'target': self._serialize_target(link.target),
                         'priority': link.priority,
@@ -179,7 +192,7 @@ class ExpressionMetadata(ExpressionMetadataAPI):
                         'policy': link.policy,
                         'data': link.data,
                         'index': link.index,
-                        'edge_id': link.edge_id,
+                        'link_id': link.link_id,
                         'cardinality': (
                             link.cardinality.value
                             if link.cardinality is not None
@@ -187,9 +200,9 @@ class ExpressionMetadata(ExpressionMetadataAPI):
                         ),
                         'extra': dict(link.extra),
                     }
-                    for link in self.get_relation_links(relation)
+                    for link in self.get_relation_links(relation_key)
                 ]
-                for relation in self.RELATION_KEYS
+                for relation_key in self.RELATION_KEYS
             }
         return payload
 
@@ -198,13 +211,13 @@ class ExpressionMetadata(ExpressionMetadataAPI):
         expression_payload = payload.get('expression')
         expression = expression_payload if isinstance(expression_payload, ExpressionIdentityAPI) else (ExpressionIdentity.from_mapping(expression_payload) if isinstance(expression_payload, Mapping) else None)
         relation_payload = payload.get('relations') or {}
-        relation_links: dict[str, list[ExpressionRelationLink]] = {relation: [] for relation in cls.RELATION_KEYS}
-        for relation in cls.RELATION_KEYS:
-            for raw_link in relation_payload.get(relation, []):
+        relation_links: dict[str, list[ExpressionRelationLink]] = {relation_key: [] for relation_key in cls.RELATION_KEYS}
+        for relation_key in cls.RELATION_KEYS:
+            for raw_link in relation_payload.get(relation_key, []):
                 if isinstance(raw_link, ExpressionRelationLink):
-                    relation_links[relation].append(raw_link)
+                    relation_links[relation_key].append(raw_link)
                 elif isinstance(raw_link, Mapping):
-                    relation_links[relation].append(ExpressionRelationLink(
+                    relation_links[relation_key].append(ExpressionRelationLink(
                         target=cls._deserialize_target(raw_link.get('target')),
                         priority=raw_link.get('priority'),
                         primary=raw_link.get('primary'),
@@ -214,7 +227,7 @@ class ExpressionMetadata(ExpressionMetadataAPI):
                         policy=raw_link.get('policy'),
                         data=raw_link.get('data'),
                         index=raw_link.get('index'),
-                        edge_id=raw_link.get('edge_id'),
+                        link_id=raw_link.get('link_id'),
                         cardinality=raw_link.get('cardinality'),
                         extra=dict(raw_link.get('extra') or {}),
                     ))

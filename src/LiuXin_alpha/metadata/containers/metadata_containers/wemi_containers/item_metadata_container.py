@@ -13,6 +13,7 @@ from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_metadata_api import (
     ItemMetadataAPI,
+    ItemRelationKey,
     ItemRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
@@ -20,6 +21,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting imp
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import (
     ItemIdentity,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    MetadataTextView,
+    MetadataValuesView,
 )
 
 
@@ -38,12 +43,12 @@ class ItemMetadata(ItemMetadataAPI):
         relation_links: Optional[Mapping[str, Iterable[ItemRelationLink]]] = None,
     ) -> None:
         self._item = item
-        self._relation_links: dict[str, list[ItemRelationLink]] = {
-            relation: [] for relation in self.RELATION_KEYS
+        self._relation_links: dict[ItemRelationKey, list[ItemRelationLink]] = {
+            relation_key: [] for relation_key in self.RELATION_KEYS
         }
         if relation_links:
-            for relation, links in relation_links.items():
-                self.set_relation_links(relation, links)
+            for relation_key, links in relation_links.items():
+                self.set_relation_links(relation_key, links)
 
     @property
     def item(self) -> Optional[ItemIdentityAPI]:
@@ -53,12 +58,20 @@ class ItemMetadata(ItemMetadataAPI):
     def item(self, value: Optional[ItemIdentityAPI]) -> None:
         self._item = value
 
-    def get_relation_links(self, relation: str) -> list[ItemRelationLink]:
-        relation_key = self.validate_relation_name(relation)
+    @property
+    def values(self) -> MetadataValuesView:
+        return MetadataValuesView(self)
+
+    @property
+    def text(self) -> MetadataTextView:
+        return MetadataTextView(self.values)
+
+    def get_relation_links(self, relation_key: ItemRelationKey) -> list[ItemRelationLink]:
+        relation_key = self.validate_relation_name(relation_key)
         return self._relation_links[relation_key]
 
-    def set_relation_links(self, relation: str, links: Iterable[ItemRelationLink]) -> None:
-        relation_key = self.validate_relation_name(relation)
+    def set_relation_links(self, relation_key: ItemRelationKey, links: Iterable[ItemRelationLink]) -> None:
+        relation_key = self.validate_relation_name(relation_key)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 
     def __str__(self) -> str:
@@ -120,7 +133,7 @@ class ItemMetadata(ItemMetadataAPI):
         }
         if include_related:
             payload["relations"] = {
-                relation: [
+                relation_key: [
                     {
                         "target": self._serialize_target(link.target),
                         "priority": link.priority,
@@ -131,7 +144,7 @@ class ItemMetadata(ItemMetadataAPI):
                         "policy": link.policy,
                         "data": link.data,
                         "index": link.index,
-                        "edge_id": link.edge_id,
+                        "link_id": link.link_id,
                         "cardinality": (
                             link.cardinality.value
                             if link.cardinality is not None
@@ -139,9 +152,9 @@ class ItemMetadata(ItemMetadataAPI):
                         ),
                         "extra": dict(link.extra),
                     }
-                    for link in self.get_relation_links(relation)
+                    for link in self.get_relation_links(relation_key)
                 ]
-                for relation in self.RELATION_KEYS
+                for relation_key in self.RELATION_KEYS
             }
         return payload
 
@@ -158,15 +171,15 @@ class ItemMetadata(ItemMetadataAPI):
 
         relation_payload = payload.get("relations") or {}
         relation_links: dict[str, list[ItemRelationLink]] = {}
-        for relation in cls.RELATION_KEYS:
-            relation_links[relation] = []
-            for raw_link in relation_payload.get(relation, []):
+        for relation_key in cls.RELATION_KEYS:
+            relation_links[relation_key] = []
+            for raw_link in relation_payload.get(relation_key, []):
                 if isinstance(raw_link, ItemRelationLink):
-                    relation_links[relation].append(raw_link)
+                    relation_links[relation_key].append(raw_link)
                     continue
                 if not isinstance(raw_link, Mapping):
                     continue
-                relation_links[relation].append(
+                relation_links[relation_key].append(
                     ItemRelationLink(
                         target=cls._deserialize_target(raw_link.get("target")),
                         priority=raw_link.get("priority"),
@@ -177,7 +190,7 @@ class ItemMetadata(ItemMetadataAPI):
                         policy=raw_link.get("policy"),
                         data=raw_link.get("data"),
                         index=raw_link.get("index"),
-                        edge_id=raw_link.get("edge_id"),
+                        link_id=raw_link.get("link_id"),
                         cardinality=raw_link.get("cardinality"),
                         extra=dict(raw_link.get("extra") or {}),
                     )

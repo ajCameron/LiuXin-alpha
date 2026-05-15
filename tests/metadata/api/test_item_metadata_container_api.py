@@ -7,12 +7,15 @@ from typing import Mapping
 import pytest
 
 from LiuXin_alpha.metadata.api import (
-    ItemRelationEdge,
     ItemMetadataAPI,
     ItemRelationLink,
     MetadataRecord,
     MutableMetadataRecord,
     RelationTarget,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    MetadataTextView,
+    MetadataValuesView,
 )
 
 
@@ -29,12 +32,20 @@ class _DummyItemMetadata(ItemMetadataAPI):
     def item(self, value: MetadataRecord | None) -> None:
         self._item = value
 
-    def get_relation_links(self, relation: str) -> list[ItemRelationLink]:
-        relation_key = self.validate_relation_name(relation)
+    @property
+    def values(self):
+        return MetadataValuesView(self)
+
+    @property
+    def text(self):
+        return MetadataTextView(self.values)
+
+    def get_relation_links(self, relation_key: str) -> list[ItemRelationLink]:
+        relation_key = self.validate_relation_name(relation_key)
         return self._links[relation_key]
 
-    def set_relation_links(self, relation: str, links) -> None:
-        relation_key = self.validate_relation_name(relation)
+    def set_relation_links(self, relation_key: str, links) -> None:
+        relation_key = self.validate_relation_name(relation_key)
         self._links[relation_key] = list(links)
 
     def write_to_database(self, *args, **kwargs):
@@ -44,9 +55,9 @@ class _DummyItemMetadata(ItemMetadataAPI):
         payload: MutableMetadataRecord = {"item": self.item}
         if include_related:
             payload["relations"] = {
-                relation: [dataclasses.asdict(link) for link in self.get_relation_links(relation)]
-                for relation in self.relation_names()
-                if self.get_relation_links(relation)
+                relation_key: [dataclasses.asdict(link) for link in self.get_relation_links(relation_key)]
+                for relation_key in self.relation_names()
+                if self.get_relation_links(relation_key)
             }
         return payload
 
@@ -71,7 +82,7 @@ class _DummyItemMetadata(ItemMetadataAPI):
                             policy=raw_link.get("policy"),
                             data=raw_link.get("data"),
                             index=raw_link.get("index"),
-                            edge_id=raw_link.get("edge_id"),
+                            link_id=raw_link.get("link_id"),
                             cardinality=raw_link.get("cardinality"),
                             extra=dict(raw_link.get("extra") or {}),
                         )
@@ -98,18 +109,18 @@ def test_relation_name_validation_supports_aliases() -> None:
 def test_relation_helpers_round_trip_targets_and_links() -> None:
     container = _DummyItemMetadata()
     asset_target: RelationTarget = "epub-asset"
-    asset_link = ItemRelationEdge(
+    asset_link = ItemRelationLink(
         target=asset_target,
         priority=1,
         primary=True,
         type="primary_payload",
         source="importer",
-        edge_id="item-asset-1",
+        link_id="item-asset-1",
     )
 
     container.add_relation_link("asset", asset_link)
     assert container.get_related("digital_assets") == ["epub-asset"]
-    assert container.get_relation_edges("digital_assets")[0].source == "importer"
+    assert container.get_relation_links("digital_assets")[0].source == "importer"
 
     assert container.remove_relation_link("digital_assets", asset_link) is True
     assert container.remove_relation_link("digital_assets", asset_link) is False

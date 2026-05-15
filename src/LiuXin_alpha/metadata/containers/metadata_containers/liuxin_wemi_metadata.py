@@ -9,16 +9,20 @@ from typing import Any, ClassVar, Literal, TypeAlias, cast
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ExpressionIdentityAPI,
+    ExpressionRelationKey,
     ExpressionRelationLink,
     ExpressionRelationTarget,
     ItemIdentityAPI,
+    ItemRelationKey,
     ItemRelationLink,
     ItemRelationTarget,
     ManifestationIdentityAPI,
+    ManifestationRelationKey,
     ManifestationRelationLink,
     ManifestationRelationTarget,
-    RelationEdgeID,
+    RelationLinkID,
     WorkIdentityAPI,
+    WorkRelationKey,
     WorkRelationLink,
     WorkRelationTarget,
 )
@@ -36,6 +40,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manife
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_container import (
     WorkMetadata,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    LiuXinWEMITextView,
+    LiuXinWEMIValuesView,
 )
 
 
@@ -63,6 +71,12 @@ WemiRelationTarget: TypeAlias = (
     | ExpressionRelationTarget
     | ManifestationRelationTarget
     | ItemRelationTarget
+)
+WemiRelationKey: TypeAlias = (
+    WorkRelationKey
+    | ExpressionRelationKey
+    | ManifestationRelationKey
+    | ItemRelationKey
 )
 
 
@@ -201,6 +215,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     def __setattr__(self, key: str, value: Any) -> None:
         normalized_key = key.lower().strip()
+        if normalized_key in {"values", "text"}:
+            raise AttributeError(f"{normalized_key!r} is a read-only projection view.")
+
         metadata_storage = self._METADATA_STORAGE_BY_ATTRIBUTE.get(normalized_key)
         if metadata_storage is not None:
             object.__setattr__(
@@ -376,18 +393,29 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         }
 
     @property
-    def relation_edge_ids(self) -> dict[WemiLevel, dict[str, tuple[RelationEdgeID, ...]]]:
+    def relation_link_ids(self) -> dict[WemiLevel, dict[str, tuple[RelationLinkID, ...]]]:
         return {
             level: {
-                relation: tuple(
-                    link.edge_id
-                    for link in metadata.get_relation_links(relation)
-                    if link.edge_id is not None
+                relation_key: tuple(
+                    link.link_id
+                    for link in metadata.get_relation_links(relation_key)
+                    if link.link_id is not None
                 )
-                for relation in metadata.relation_names()
+                for relation_key in metadata.relation_names()
             }
             for level, metadata in self.wemi_stack.items()
         }
+
+    @property
+    def values(self) -> LiuXinWEMIValuesView:
+        return LiuXinWEMIValuesView(self)
+
+    @property
+    def text(self) -> LiuXinWEMITextView:
+        return LiuXinWEMITextView(self.values)
+
+    def load(self, *fields: str) -> "LiuXinWEMIMetadata":
+        return self
 
     @property
     def titles(self) -> tuple[str, ...]:
@@ -603,58 +631,80 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     def get_wemi_relation_links(
         self,
         level: str,
-        relation: str,
+        relation_key: WemiRelationKey,
     ) -> list[WemiRelationLink]:
-        return self.get_wemi_metadata(level).get_relation_links(relation)
+        return self.get_wemi_metadata(level).get_relation_links(relation_key)
 
     def set_wemi_relation_links(
         self,
         level: str,
-        relation: str,
+        relation_key: WemiRelationKey,
         links: Iterable[WemiRelationLink],
     ) -> None:
-        self.get_wemi_metadata(level).set_relation_links(relation, links)
+        self.get_wemi_metadata(level).set_relation_links(relation_key, links)
 
     def add_wemi_relation_link(
         self,
         level: str,
-        relation: str,
+        relation_key: WemiRelationKey,
         link: WemiRelationLink,
     ) -> None:
-        self.get_wemi_metadata(level).add_relation_link(relation, link)
+        self.get_wemi_metadata(level).add_relation_link(relation_key, link)
+
+    def get_primary_wemi_relation_link(
+        self,
+        level: str,
+        relation_key: WemiRelationKey,
+    ) -> WemiRelationLink | None:
+        return self.get_wemi_metadata(level).primary_relation_link(relation_key)
+
+    def set_primary_wemi_relation_link(
+        self,
+        level: str,
+        relation_key: WemiRelationKey,
+        link: WemiRelationLink,
+    ) -> None:
+        self.get_wemi_metadata(level).set_primary_relation_link(relation_key, link)
 
     def get_wemi_related(
         self,
         level: str,
-        relation: str,
+        relation_key: WemiRelationKey,
     ) -> list[WemiRelationTarget]:
-        return self.get_wemi_metadata(level).get_related(relation)
+        return self.get_wemi_metadata(level).get_related(relation_key)
+
+    def get_primary_wemi_related(
+        self,
+        level: str,
+        relation_key: WemiRelationKey,
+    ) -> WemiRelationTarget | None:
+        return self.get_wemi_metadata(level).primary_related(relation_key)
 
     def set_wemi_related(
         self,
         level: str,
-        relation: str,
+        relation_key: WemiRelationKey,
         values: Iterable[WemiRelationTarget],
     ) -> None:
-        self.get_wemi_metadata(level).set_related(relation, values)
+        self.get_wemi_metadata(level).set_related(relation_key, values)
 
     def add_wemi_related(
         self,
         level: str,
-        relation: str,
+        relation_key: WemiRelationKey,
         value: WemiRelationTarget,
     ) -> None:
-        self.get_wemi_metadata(level).add_related(relation, value)
+        self.get_wemi_metadata(level).add_related(relation_key, value)
 
-    def get_wemi_relation_edge_ids(
+    def get_wemi_relation_link_ids(
         self,
         level: str,
-        relation: str,
-    ) -> tuple[RelationEdgeID, ...]:
+        relation_key: WemiRelationKey,
+    ) -> tuple[RelationLinkID, ...]:
         return tuple(
-            link.edge_id
-            for link in self.get_wemi_relation_links(level, relation)
-            if link.edge_id is not None
+            link.link_id
+            for link in self.get_wemi_relation_links(level, relation_key)
+            if link.link_id is not None
         )
 
     def sync_legacy_title_from_wemi(self) -> str | None:
@@ -667,31 +717,31 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         """
         Populate legacy ``tags`` from WEMI tag relation targets.
         """
-        return self._sync_legacy_terms_from_wemi(field="tags", relation="tags")
+        return self._sync_legacy_terms_from_wemi(field="tags", relation_key="tags")
 
     def sync_legacy_labels_from_wemi(self) -> tuple[str, ...]:
         """
         Populate legacy ``labels`` from WEMI label relation targets.
         """
-        return self._sync_legacy_terms_from_wemi(field="labels", relation="labels")
+        return self._sync_legacy_terms_from_wemi(field="labels", relation_key="labels")
 
     def sync_legacy_genres_from_wemi(self) -> tuple[str, ...]:
         """
         Populate legacy ``genre`` from WEMI genre relation targets.
         """
-        return self._sync_legacy_terms_from_wemi(field="genre", relation="genres")
+        return self._sync_legacy_terms_from_wemi(field="genre", relation_key="genres")
 
     def sync_legacy_subjects_from_wemi(self) -> tuple[str, ...]:
         """
         Populate legacy ``subject`` from WEMI subject relation targets.
         """
-        return self._sync_legacy_terms_from_wemi(field="subject", relation="subjects")
+        return self._sync_legacy_terms_from_wemi(field="subject", relation_key="subjects")
 
     def sync_legacy_series_from_wemi(self) -> tuple[str, ...]:
         """
         Populate legacy ``series`` from WEMI series relation targets.
         """
-        return self._sync_legacy_terms_from_wemi(field="series", relation="series")
+        return self._sync_legacy_terms_from_wemi(field="series", relation_key="series")
 
     def sync_legacy_identifiers_from_wemi(self) -> tuple[tuple[str, str], ...]:
         """
@@ -730,7 +780,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
         return tuple(synced)
 
-    def _sync_legacy_terms_from_wemi(self, *, field: str, relation: str) -> tuple[str, ...]:
+    def _sync_legacy_terms_from_wemi(self, *, field: str, relation_key: WemiRelationKey) -> tuple[str, ...]:
         data = object.__getattribute__(self, "_data")
         terms = data[field]
         synced: list[str] = []
@@ -738,7 +788,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
         for level in self._LEVELS:
             try:
-                links = self.get_wemi_relation_links(level, relation)
+                links = self.get_wemi_relation_links(level, relation_key)
             except KeyError:
                 continue
             for link in links:
@@ -979,10 +1029,10 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         include_empty: bool,
     ) -> list[str]:
         summaries: list[str] = []
-        for relation in metadata.relation_names():
-            count = len(metadata.get_relation_links(relation))
+        for relation_key in metadata.relation_names():
+            count = len(metadata.get_relation_links(relation_key))
             if count or include_empty:
-                summaries.append(f"{relation}: {count}")
+                summaries.append(f"{relation_key}: {count}")
         return summaries
 
     def _pretty_legacy_mapping(self, include_empty: bool) -> dict[str, Any]:
@@ -1024,7 +1074,7 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
             "schema": self.SIDECAR_SCHEMA_NAME,
             "schema_version": self.SIDECAR_SCHEMA_VERSION,
             "database_ids": self.database_ids,
-            "relation_edge_ids": self.relation_edge_ids,
+            "relation_link_ids": self.relation_link_ids,
             "titles": list(self.titles),
             "wemi": self.to_wemi_mapping(include_related=include_related),
         }
@@ -1162,8 +1212,8 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
             if hasattr(bundle, identity_attr) and getattr(bundle, identity_attr) is not None:
                 return True
 
-        for relation in bundle.relation_names():
-            if bundle.get_relation_links(relation):
+        for relation_key in bundle.relation_names():
+            if bundle.get_relation_links(relation_key):
                 return True
         return False
 
@@ -1177,6 +1227,7 @@ __all__ = [
     "WemiIdentity",
     "WemiLevel",
     "WemiMetadataBundle",
+    "WemiRelationKey",
     "WemiRelationLink",
     "WemiRelationTarget",
 ]

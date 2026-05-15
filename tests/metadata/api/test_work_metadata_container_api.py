@@ -9,18 +9,26 @@ import pytest
 import LiuXin_alpha.metadata.api as metadata_api
 from LiuXin_alpha.metadata.api import (
     ExpressionMetadataAPI,
-    ExpressionRelationEdge,
-    ManyManyRelationEdgeAPI,
-    ManyOneRelationEdgeAPI,
+    ExpressionRelationLink,
+    ItemMetadataAPI,
+    ItemRelationLink,
+    ManyManyRelationLinkAPI,
+    ManyOneRelationLinkAPI,
+    ManifestationMetadataAPI,
+    ManifestationRelationLink,
     MetadataRecord,
     MutableMetadataRecord,
-    OneManyRelationEdgeAPI,
-    OneOneRelationEdgeAPI,
+    OneManyRelationLinkAPI,
+    OneOneRelationLinkAPI,
     RelationCardinality,
     RelationTarget,
-    WorkRelationEdge,
     WorkMetadataAPI,
     WorkRelationLink,
+    select_primary_relation_link,
+)
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    MetadataTextView,
+    MetadataValuesView,
 )
 
 
@@ -37,12 +45,20 @@ class _DummyWorkMetadata(WorkMetadataAPI):
     def work(self, value: MetadataRecord | None) -> None:
         self._work = value
 
-    def get_relation_links(self, relation: str) -> list[WorkRelationLink]:
-        relation_key = self.validate_relation_name(relation)
+    @property
+    def values(self):
+        return MetadataValuesView(self)
+
+    @property
+    def text(self):
+        return MetadataTextView(self.values)
+
+    def get_relation_links(self, relation_key: str) -> list[WorkRelationLink]:
+        relation_key = self.validate_relation_name(relation_key)
         return self._links[relation_key]
 
-    def set_relation_links(self, relation: str, links) -> None:
-        relation_key = self.validate_relation_name(relation)
+    def set_relation_links(self, relation_key: str, links) -> None:
+        relation_key = self.validate_relation_name(relation_key)
         self._links[relation_key] = list(links)
 
     def write_to_database(self, *args, **kwargs):
@@ -52,9 +68,9 @@ class _DummyWorkMetadata(WorkMetadataAPI):
         payload: MutableMetadataRecord = {"work": self.work}
         if include_related:
             payload["relations"] = {
-                relation: [dataclasses.asdict(link) for link in self.get_relation_links(relation)]
-                for relation in self.relation_names()
-                if self.get_relation_links(relation)
+                relation_key: [dataclasses.asdict(link) for link in self.get_relation_links(relation_key)]
+                for relation_key in self.relation_names()
+                if self.get_relation_links(relation_key)
             }
         return payload
 
@@ -79,7 +95,7 @@ class _DummyWorkMetadata(WorkMetadataAPI):
                             policy=raw_link.get("policy"),
                             data=raw_link.get("data"),
                             index=raw_link.get("index"),
-                            edge_id=raw_link.get("edge_id"),
+                            link_id=raw_link.get("link_id"),
                             cardinality=raw_link.get("cardinality"),
                             extra=dict(raw_link.get("extra") or {}),
                         )
@@ -143,65 +159,98 @@ def test_relation_helpers_round_trip_targets_and_links() -> None:
     assert container.languages == ["en", "fr", "de"]
 
 
-def test_relation_edges_carry_identity_cardinality_and_source() -> None:
+def test_primary_relation_selection_is_deterministic() -> None:
+    links = [
+        WorkRelationLink(target="first", priority=1),
+        WorkRelationLink(target="primary-lower-priority", primary=True, priority=2),
+        WorkRelationLink(target="preferred", primary=True, priority=1),
+    ]
     container = _DummyWorkMetadata()
-    edge = WorkRelationEdge(
+    container.set_relation_links("expressions", links)
+
+    assert select_primary_relation_link(links).target == "preferred"
+    assert container.primary_relation_link("expressions") is links[2]
+    assert container.primary_expression == "preferred"
+
+
+def test_set_primary_relation_link_preserves_plural_graph() -> None:
+    container = _DummyWorkMetadata()
+    first = WorkRelationLink(target="first", primary=True)
+    second = WorkRelationLink(target="second")
+    container.set_relation_links("expressions", [first, second])
+
+    container.set_primary_relation_link("expressions", second)
+
+    links = container.get_relation_links("expressions")
+    assert [link.target for link in links] == ["first", "second"]
+    assert [link.primary for link in links] == [False, True]
+    assert container.primary_expression == "second"
+
+
+def test_relation_links_carry_identity_cardinality_and_source() -> None:
+    container = _DummyWorkMetadata()
+    link = WorkRelationLink(
         target="Permutation City",
-        edge_id=123,
+        link_id=123,
         source="manual",
         cardinality="one_to_many",
         type="alternate_title",
     )
 
-    assert WorkRelationLink is WorkRelationEdge
-    assert edge.cardinality is RelationCardinality.ONE_TO_MANY
+    assert link.cardinality is RelationCardinality.ONE_TO_MANY
 
-    container.add_relation_edge("synopsis", edge)
+    container.add_relation_link("synopsis", link)
 
-    stored_edge = container.get_relation_edges("synopses")[0]
-    assert stored_edge.edge_id == 123
-    assert stored_edge.source == "manual"
-    assert stored_edge.type == "alternate_title"
+    stored_link = container.get_relation_links("synopses")[0]
+    assert stored_link.link_id == 123
+    assert stored_link.source == "manual"
+    assert stored_link.type == "alternate_title"
 
-    container.upsert_relation_edge(
+    container.upsert_relation_link(
         "synopsis",
-        WorkRelationEdge(
+        WorkRelationLink(
             target="Permutation City revised",
-            edge_id=123,
+            link_id=123,
             source="manual-edit",
         ),
     )
 
-    updated_edge = container.get_relation_edge_by_id("synopses", 123)
-    assert updated_edge is not None
-    assert updated_edge.target == "Permutation City revised"
-    assert updated_edge.source == "manual-edit"
+    updated_link = container.get_relation_link_by_id("synopses", 123)
+    assert updated_link is not None
+    assert updated_link.target == "Permutation City revised"
+    assert updated_link.source == "manual-edit"
 
-    assert container.remove_relation_edge_by_id("synopses", 123) is True
-    assert container.remove_relation_edge_by_id("synopses", 123) is False
+    assert container.remove_relation_link_by_id("synopses", 123) is True
+    assert container.remove_relation_link_by_id("synopses", 123) is False
 
 
-def test_cardinality_specific_relation_edge_api_names_are_explicit() -> None:
+def test_cardinality_specific_relation_link_api_names_are_explicit() -> None:
     expected = {
-        OneOneRelationEdgeAPI: "Literal[RelationCardinality.ONE_TO_ONE]",
-        OneManyRelationEdgeAPI: "Literal[RelationCardinality.ONE_TO_MANY]",
-        ManyOneRelationEdgeAPI: "Literal[RelationCardinality.MANY_TO_ONE]",
-        ManyManyRelationEdgeAPI: "Literal[RelationCardinality.MANY_TO_MANY]",
+        OneOneRelationLinkAPI: "Literal[RelationCardinality.ONE_TO_ONE]",
+        OneManyRelationLinkAPI: "Literal[RelationCardinality.ONE_TO_MANY]",
+        ManyOneRelationLinkAPI: "Literal[RelationCardinality.MANY_TO_ONE]",
+        ManyManyRelationLinkAPI: "Literal[RelationCardinality.MANY_TO_MANY]",
     }
 
     for api_class, cardinality_hint in expected.items():
         assert api_class.__annotations__["cardinality"] == cardinality_hint
 
 
-def test_relation_cardinality_rejects_extra_target_on_to_one_relation() -> None:
-    assert ExpressionMetadataAPI.relation_cardinality("work") is RelationCardinality.MANY_TO_ONE
+def test_wemi_graph_relations_accept_multiple_targets() -> None:
+    cases = (
+        (WorkMetadataAPI, "expressions", WorkRelationLink),
+        (ExpressionMetadataAPI, "works", ExpressionRelationLink),
+        (ManifestationMetadataAPI, "items", ManifestationRelationLink),
+        (ItemMetadataAPI, "manifestations", ItemRelationLink),
+    )
 
-    with pytest.raises(ValueError):
-        ExpressionMetadataAPI.validate_relation_links(
-            "works",
+    for api_class, relation_key, link_class in cases:
+        assert api_class.relation_cardinality(relation_key) is RelationCardinality.MANY_TO_MANY
+        assert api_class.validate_relation_links(
+            relation_key,
             [
-                ExpressionRelationEdge(target="work-1"),
-                ExpressionRelationEdge(target="work-2"),
+                link_class(target="target-1"),
+                link_class(target="target-2"),
             ],
         )
 

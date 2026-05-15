@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import inspect
+
 from LiuXin_alpha.metadata.api import (
     LazyLiuXinWEMIAPI,
     LazyLiuXinWEMIMetadataAPI,
     LiuXinWEMIAPI,
     LiuXinWEMIMetadataAPI,
+    MetadataTextViewAPI,
+    MetadataValuesViewAPI,
     OPFMetadataSource,
     WemiLevel,
+    WemiRelationKeyAPI,
 )
 from LiuXin_alpha.metadata.api import __all__ as metadata_api_all
 from LiuXin_alpha.metadata.containers import LazyLiuXinWEMIMetadata, LiuXinWEMIMetadata
@@ -37,6 +42,7 @@ def test_opf_source_alias_covers_bytes_and_paths() -> None:
 
 def test_wemi_metadata_api_exposes_current_operational_methods() -> None:
     expected_methods = (
+        "load",
         "sync_legacy_genres_from_wemi",
         "sync_legacy_subjects_from_wemi",
         "sync_legacy_series_from_wemi",
@@ -49,6 +55,32 @@ def test_wemi_metadata_api_exposes_current_operational_methods() -> None:
         assert hasattr(LiuXinWEMIMetadataAPI, method_name)
         assert hasattr(LiuXinWEMIMetadata, method_name)
 
+    assert isinstance(getattr(LiuXinWEMIMetadataAPI, "values"), property)
+    assert isinstance(getattr(LiuXinWEMIMetadataAPI, "text"), property)
+    assert isinstance(getattr(LiuXinWEMIMetadata, "values"), property)
+    assert isinstance(getattr(LiuXinWEMIMetadata, "text"), property)
+
+
+def test_wemi_metadata_relation_contract_uses_relation_key_parameter() -> None:
+    for metadata_class in (LiuXinWEMIMetadataAPI, LiuXinWEMIMetadata):
+        for method_name in (
+            "get_wemi_relation_links",
+            "set_wemi_relation_links",
+            "add_wemi_relation_link",
+            "get_wemi_related",
+            "set_wemi_related",
+            "add_wemi_related",
+            "get_wemi_relation_link_ids",
+        ):
+            parameters = inspect.signature(getattr(metadata_class, method_name)).parameters
+            assert "relation_key" in parameters
+            assert "relation" not in parameters
+            assert parameters["relation_key"].annotation in {"WemiRelationKeyAPI", "WemiRelationKey"}
+
+    doc = inspect.getdoc(LiuXinWEMIMetadataAPI.get_wemi_relation_links) or ""
+    assert "normalized relation bucket key" in doc
+    assert "RELATION_KEYS" in doc
+
 
 def test_concrete_wemi_metadata_supports_extended_legacy_sync_contract() -> None:
     metadata: LiuXinWEMIMetadataAPI = LiuXinWEMIMetadata(
@@ -56,6 +88,9 @@ def test_concrete_wemi_metadata_supports_extended_legacy_sync_contract() -> None
         ["Protocol Author"],
     )
 
+    assert isinstance(metadata.values, MetadataValuesViewAPI)
+    assert isinstance(metadata.text, MetadataTextViewAPI)
+    assert metadata.load("tags") is metadata
     assert metadata.sync_legacy_genres_from_wemi() == ()
     assert metadata.sync_legacy_subjects_from_wemi() == ()
     assert metadata.sync_legacy_series_from_wemi() == ()
@@ -64,6 +99,7 @@ def test_concrete_wemi_metadata_supports_extended_legacy_sync_contract() -> None
 
 def test_lazy_wemi_metadata_api_exposes_lazy_hydration_surface() -> None:
     expected_methods = (
+        "load",
         "install_lazy_value_to_id",
         "install_lazy_relation_loader",
         "hydrate_field",
@@ -76,6 +112,23 @@ def test_lazy_wemi_metadata_api_exposes_lazy_hydration_surface() -> None:
     for method_name in expected_methods:
         assert hasattr(LazyLiuXinWEMIMetadataAPI, method_name)
         assert hasattr(LazyLiuXinWEMIMetadata, method_name)
+
+
+def test_lazy_wemi_metadata_relation_contract_uses_relation_key_parameter() -> None:
+    for metadata_class in (LazyLiuXinWEMIMetadataAPI, LazyLiuXinWEMIMetadata):
+        for method_name in (
+            "install_lazy_relation_loader",
+            "get_wemi_relation_links",
+            "get_wemi_related",
+            "lazy_legacy_terms_from_relation",
+        ):
+            parameters = inspect.signature(getattr(metadata_class, method_name)).parameters
+            assert "relation_key" in parameters
+            assert "relation" not in parameters
+            assert parameters["relation_key"].annotation in {"WemiRelationKeyAPI", "WemiRelationKey"}
+
+    doc = inspect.getdoc(LazyLiuXinWEMIMetadataAPI.lazy_legacy_terms_from_relation) or ""
+    assert "normalized relation bucket key" in doc
 
 
 def test_concrete_lazy_wemi_metadata_supports_lazy_contract() -> None:

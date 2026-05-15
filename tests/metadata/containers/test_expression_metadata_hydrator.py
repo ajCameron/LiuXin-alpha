@@ -180,6 +180,14 @@ def _build_fake_database() -> FakeDatabase:
         },
     )
     db.add_row(
+        "works",
+        {
+            "work_id": 31,
+            "work_title": "Permutation City Shared Universe",
+            "work_canonical_title": "Permutation City Shared Universe",
+        },
+    )
+    db.add_row(
         "manifestations",
         {
             "manifestation_id": 10,
@@ -221,7 +229,13 @@ def _build_fake_database() -> FakeDatabase:
             "expression_work_link_priority": 1,
             "expression_work_link_type": "realisation_of",
             "expression_work_link_primary": 1,
-        }
+        },
+        {
+            "expression_work_link_work_id": 31,
+            "expression_work_link_priority": 2,
+            "expression_work_link_type": "adapted_from",
+            "expression_work_link_primary": 0,
+        },
     ]
     db.interlinks[("expressions", 20, "manifestations")] = [
         {
@@ -249,7 +263,9 @@ def test_expression_metadata_hydrator_from_expression_id_and_source_row() -> Non
     container = hydrator.from_expression_id(20)
     assert container.expression is not None
     assert container.expression.expression_id == 20
-    assert [row.row_id for row in container.get_related("works") if isinstance(row, Row)] == [30]
+    work_links = container.get_relation_links("works")
+    assert [row.row_id for row in container.get_related("works") if isinstance(row, Row)] == [30, 31]
+    assert [link.type for link in work_links] == ["realisation_of", "adapted_from"]
     assert [row.row_id for row in container.get_related("manifestations") if isinstance(row, Row)] == [10]
     assert [row.row_id for row in container.get_related("items") if isinstance(row, Row)] == [1]
     assert [row.row_id for row in container.get_related("agents") if isinstance(row, Row)] == [40]

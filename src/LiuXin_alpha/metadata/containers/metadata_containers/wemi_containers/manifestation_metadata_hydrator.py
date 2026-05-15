@@ -331,7 +331,7 @@ class ManifestationMetadataHydrator:
             policy=incoming.policy if incoming.policy is not None else existing.policy,
             data=incoming.data if incoming.data is not None else existing.data,
             index=incoming.index if incoming.index is not None else existing.index,
-            edge_id=incoming.edge_id if incoming.edge_id is not None else existing.edge_id,
+            link_id=incoming.link_id if incoming.link_id is not None else existing.link_id,
             cardinality=(
                 incoming.cardinality
                 if incoming.cardinality is not None
@@ -447,7 +447,7 @@ class ManifestationMetadataHydrator:
                     policy=link_map.get(prefix + "_policy") if prefix else None,
                     data=link_map.get(prefix + "_data") if prefix else None,
                     index=link_map.get(prefix + "_index") if prefix else None,
-                    edge_id=link_map.get(prefix + "_id") if prefix else None,
+                    link_id=link_map.get(prefix + "_id") if prefix else None,
                     extra=extra,
                 )
             )
