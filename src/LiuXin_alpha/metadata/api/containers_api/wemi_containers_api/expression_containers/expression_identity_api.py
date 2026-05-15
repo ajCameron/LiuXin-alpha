@@ -17,7 +17,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_targe
     MutableMetadataRecord,
 )
 
-# Todo: Should have a title or subtitle field
+
 class ExpressionIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     """Row-level API for one expression."""
 

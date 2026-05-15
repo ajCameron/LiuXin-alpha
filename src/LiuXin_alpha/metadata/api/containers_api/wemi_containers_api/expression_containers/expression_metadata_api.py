@@ -239,7 +239,6 @@ class ExpressionMetadataAPI(abc.ABC):
         :return:
         """
 
-    # Todo: How do you set sidecare data at the same time with this?
     def add_relation_link(self, relation_key: ExpressionRelationKey, link: ExpressionRelationLink) -> None:
         """
         Add a relational link to this expression.

@@ -536,7 +536,6 @@ class ItemMetadataAPI(abc.ABC):
             return None
         return item.item_manifestation_id
 
-    # Todo: Something like work_relations for these and works for the actual works
     @property
     def works(self) -> list[ItemRelationTarget]:
         """
@@ -652,7 +651,6 @@ class ItemMetadataAPI(abc.ABC):
         """
         self.set_related("composite_digital_assets", values)
 
-    # Todo: Not... entirely sure this should be here - these belong to the digital assets
     @property
     def asset_replicas(self) -> list[ItemRelationTarget]:
         """
@@ -710,7 +708,6 @@ class ItemMetadataAPI(abc.ABC):
         """
         self.set_related("folders", values)
 
-    # Todo: The files concept does not, in fact, exist anymore
     @property
     def files(self) -> list[ItemRelationTarget]:
         """
@@ -768,7 +765,6 @@ class ItemMetadataAPI(abc.ABC):
         """
         self.set_related("identifiers", values)
 
-    # Todo: As title is a derived property, not sure this makes sense.
     @property
     def titles(self) -> list[ItemRelationTarget]:
         """
@@ -892,7 +888,6 @@ class ItemMetadataAPI(abc.ABC):
         """
         return self.get_related("labels")
 
-    # Todo: I think all methods of this type should be renamed x_relations
     @labels.setter
     def labels(self, values: Iterable[ItemRelationTarget]) -> None:
         """
