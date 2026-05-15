@@ -62,7 +62,8 @@ Current branch context:
   `python3 -m pytest tests/metadata/api tests/metadata/containers tests/databases/database/database_contract/test_db_add_title_wemi_split.py tests/surfaces/test_text_browser.py::test_text_browser_new_expression_wizard_creates_expression -q`
   -> `225 passed, 1 warning`.
   `git diff --check` -> clean.
-- Item 7 is complete locally:
+- Items 7-8 are committed in `b9d47b9`.
+- Item 7:
   - added generic `WemiMetadataRelationsAPI[RelationKeyT, RelationTargetT]`
     with shared `get_all_related()`
   - made work/expression/manifestation/item metadata APIs inherit it with
@@ -75,7 +76,7 @@ Current branch context:
   `python3 -m pytest tests/metadata/api tests/metadata/containers -q`
   -> `219 passed, 1 warning`.
   `git diff --check` -> clean.
-- Item 8 is complete locally:
+- Item 8:
   - documented `manifestation_format_detail` as the manifestation's specific
     format/product label, finer-grained than `manifestation_carrier_type`
   - clarified examples in the API contract and schema comment: `EPUB`, `PDF`,
@@ -87,6 +88,18 @@ Current branch context:
   -> `36 passed`.
   `python3 -m pytest tests/metadata/api tests/metadata/containers tests/storage/api/test_placement_hints_api.py -q`
   -> `225 passed, 1 warning`.
+- Item 9 is committed in the WEMI relation-helper consolidation commit:
+  - expanded `WemiMetadataRelationsAPI` to cover the shared relation-link CRUD
+    and primary-link helper behavior
+  - parameterized the base by relation key, relation target, and relation link
+    types so concrete WEMI APIs keep their specialized relation contracts
+  - removed the duplicated relation method bodies from work/expression/
+    manifestation/item metadata API classes
+- Item 9 validation:
+  `python3 -m pytest tests/metadata/api/test_wemi_surface_symmetry.py tests/metadata/api/test_metadata_package_surface.py tests/metadata/api/test_work_metadata_container_api.py tests/metadata/api/test_item_metadata_container_api.py -q`
+  -> `43 passed`.
+  `python3 -m pytest tests/metadata/api tests/metadata/containers -q`
+  -> `220 passed, 1 warning`.
 - This list deliberately excludes older broad metadata TODOs in standardizers,
   file-source parsers, constants, and Calibre-like metadata containers.
 
@@ -167,15 +180,18 @@ Current branch context:
    - Resolution: kept the field and documented it as the manifestation's
      specific format/product label, distinct from the broader carrier type.
 
-9. Consider a shared WEMI metadata object/relation-method base class.
+9. DONE - Consider a shared WEMI metadata object/relation-method base class.
    - Source: `src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api/item_containers/item_metadata_api.py`
    - Current TODO: `Common "WEMIObject" base class for these methods?`
    - Relevant because relation-link CRUD, primary-link helpers, validation, and
      convenience relation properties are repeated across WEMI metadata APIs.
+   - Resolution: moved relation CRUD and primary-link helper behavior into the
+     generic `WemiMetadataRelationsAPI`; the concrete WEMI metadata APIs keep
+     their relation keys, targets, link classes, cardinalities, and convenience
+     relation properties.
 
 ## Suggested Working Order
 
-Work down the numbered list unless a dependency suggests otherwise. Items 1-8
-and the renderer consolidation follow-up are complete; item 9 is next. Item 9
-is related to the WEMI identity-base work but should be reviewed separately:
-item 9 is about metadata-bundle relation behavior.
+Work down the numbered list unless a dependency suggests otherwise. Items 1-9
+and the renderer consolidation follow-up are complete. No relevant TODOs remain
+from this metadata API/container follow-up list.

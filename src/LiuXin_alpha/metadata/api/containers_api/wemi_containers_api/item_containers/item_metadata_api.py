@@ -32,8 +32,6 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.projection_vie
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
     RelationCardinality,
     RelationLink,
-    RelationLinkID,
-    select_primary_relation_link,
     validate_relation_link_cardinality,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_identity_api import ItemIdentityAPI
@@ -90,7 +88,7 @@ ItemRelationKey: TypeAlias = Literal[
 ]
 
 
-class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarget], abc.ABC):
+class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarget, ItemRelationLink], abc.ABC):
     """
     API for a container that holds all metadata associated with one item.
 
@@ -105,6 +103,8 @@ class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarg
     bucket names, such as ``files`` or ``tags``, but they are API contract keys
     rather than a guarantee about a physical database table.
     """
+
+    RELATION_LINK_CLASS: ClassVar[type[ItemRelationLink]] = ItemRelationLink
 
     RELATION_KEYS: ClassVar[tuple[ItemRelationKey, ...]] = (
         "works",
@@ -314,194 +314,6 @@ class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarg
         :param mark_dirty:
         :return:
         """
-
-    def add_relation_link(self, relation_key: ItemRelationKey, link: ItemRelationLink) -> None:
-        """
-        Add an existing relational link to the item metadata.
-
-        :param relation_key:
-        :param link:
-        :return:
-        """
-        relation_key = self.validate_relation_name(relation_key)
-        links = list(self.get_relation_links(relation_key))
-        links.append(link)
-        self.set_relation_links(relation_key, self.validate_relation_links(relation_key, links))
-
-    def remove_relation_link(self, relation_key: ItemRelationKey, link: ItemRelationLink) -> bool:
-        """
-        Remove a relational link from this metadata.
-
-        :param relation_key:
-        :param link:
-        :return:
-        """
-        relation_key = self.validate_relation_name(relation_key)
-        links = list(self.get_relation_links(relation_key))
-        try:
-            links.remove(link)
-            self.set_relation_links(relation_key, links)
-            return True
-        except ValueError:
-            return False
-
-    def get_related(self, relation_key: ItemRelationKey) -> list[ItemRelationTarget]:
-        """
-        Get the related objects for this relation key.
-
-        :param relation_key:
-        :return:
-        """
-        relation_key = self.validate_relation_name(relation_key)
-        links = self.get_relation_links(relation_key)
-        return [link.target for link in links]
-
-    def primary_relation_link(self, relation_key: ItemRelationKey) -> Optional[ItemRelationLink]:
-        """Return the preferred relation link for one relation key, if any."""
-
-        relation_key = self.validate_relation_name(relation_key)
-        return select_primary_relation_link(self.get_relation_links(relation_key))
-
-    def primary_related(self, relation_key: ItemRelationKey) -> ItemRelationTarget | None:
-        """Return the preferred relation target for one relation key, if any."""
-
-        link = self.primary_relation_link(relation_key)
-        if link is None:
-            return None
-        return link.target
-
-    def set_primary_relation_link(
-        self,
-        relation_key: ItemRelationKey,
-        link: ItemRelationLink,
-    ) -> None:
-        """Mark one relation link as the preferred link for one relation key."""
-
-        relation_key = self.validate_relation_name(relation_key)
-        links = list(self.get_relation_links(relation_key))
-        selected_index: int | None = None
-        for index, existing_link in enumerate(links):
-            same_link_id = link.link_id is not None and existing_link.link_id == link.link_id
-            same_target = link.link_id is None and existing_link.target == link.target
-            if existing_link is link or same_link_id or same_target:
-                selected_index = index
-                links[index] = link
-                break
-
-        if selected_index is None:
-            selected_index = len(links)
-            links.append(link)
-
-        for index, existing_link in enumerate(links):
-            existing_link.primary = index == selected_index
-        self.set_relation_links(relation_key, links)
-
-    def set_related(self, relation_key: ItemRelationKey, values: Iterable[ItemRelationTarget]) -> None:
-        """
-        Set the related value of an object to this one.
-
-        :param relation_key:
-        :param values:
-        :return:
-        """
-        relation_key = self.validate_relation_name(relation_key)
-        self.set_relation_links(
-            relation_key,
-            [
-                ItemRelationLink(
-                    target=value,
-                    cardinality=self.relation_cardinality(relation_key),
-                )
-                for value in values
-            ],
-        )
-
-    def add_related(self, relation_key: ItemRelationKey, value: ItemRelationTarget) -> None:
-        """
-        Add a related object to this metadata for one relation key.
-
-        :param relation_key:
-        :param value:
-        :return:
-        """
-        relation_key = self.validate_relation_name(relation_key)
-        self.add_relation_link(
-            relation_key,
-            ItemRelationLink(
-                target=value,
-                cardinality=self.relation_cardinality(relation_key),
-            ),
-        )
-
-    def get_relation_link_by_id(
-        self,
-        relation_key: ItemRelationKey,
-        link_id: RelationLinkID,
-    ) -> Optional[ItemRelationLink]:
-        """
-        Return a relation link by its ID, if it exists on the system.
-
-        :param relation_key:
-        :param link_id:
-        :return:
-        """
-        for link in self.get_relation_links(relation_key):
-            if link.link_id == link_id:
-                return link
-        return None
-
-    # Todo: Common "WEMIObject" base class for these methods?
-    def upsert_relation_link(self, relation_key: ItemRelationKey, link: ItemRelationLink) -> None:
-        """
-        Upsert a relation link by id when it already exists.
-
-        :param relation_key:
-        :param link:
-        :return:
-        """
-        relation_key = self.validate_relation_name(relation_key)
-        if link.link_id is None:
-            self.add_relation_link(relation_key, link)
-            return
-
-        links = list(self.get_relation_links(relation_key))
-        for index, existing_link in enumerate(links):
-            if existing_link.link_id == link.link_id:
-                links[index] = link
-                self.set_relation_links(relation_key, links)
-                return
-        self.add_relation_link(relation_key, link)
-
-    def remove_relation_link_by_id(
-        self,
-        relation_key: ItemRelationKey,
-        link_id: RelationLinkID,
-    ) -> bool:
-        """
-        Remove a relation link by its ID, if it exists in the metadata object.
-
-        :param relation_key:
-        :param link_id:
-        :return:
-        """
-        relation_key = self.validate_relation_name(relation_key)
-        links = list(self.get_relation_links(relation_key))
-        for index, link in enumerate(links):
-            if link.link_id == link_id:
-                del links[index]
-                self.set_relation_links(relation_key, links)
-                return True
-        return False
-
-    def clear_related(self, relation_key: ItemRelationKey) -> None:
-        """
-        Clear all related links of a certain type.
-
-        :param relation_key:
-        :return:
-        """
-        relation_key = self.validate_relation_name(relation_key)
-        self.set_relation_links(relation_key, [])
 
     @property
     def primary_work(self) -> ItemRelationTarget | None:

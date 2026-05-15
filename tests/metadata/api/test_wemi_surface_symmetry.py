@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 
-from typing import get_args, get_type_hints
+from typing import get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -124,6 +124,24 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
     api_metadata_class = getattr(api_metadata_module, entry["api_metadata_class"])
     assert issubclass(api_metadata_class, wemi_api_root.WemiMetadataRelationsAPI)
     relation_key_alias = getattr(api_metadata_module, entry["api_relation_key"])
+    relation_link_alias = getattr(
+        api_metadata_module,
+        entry["api_relation_key"].replace("Key", "Link"),
+    )
+    relation_target_alias = getattr(
+        api_metadata_module,
+        entry["api_relation_key"].replace("Key", "Target"),
+    )
+    relation_base = next(
+        base
+        for base in api_metadata_class.__orig_bases__
+        if get_origin(base) is wemi_api_root.WemiMetadataRelationsAPI
+    )
+    assert get_args(relation_base) == (
+        relation_key_alias,
+        relation_target_alias,
+        relation_link_alias,
+    )
     api_doc = inspect.getdoc(api_metadata_class) or ""
     assert "relation_key" in api_doc
     assert "RELATION_KEYS" in api_doc
@@ -193,6 +211,13 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
         "validate_relation_links",
         "get_relation_links",
         "set_relation_links",
+    ):
+        parameters = inspect.signature(getattr(api_metadata_class, method_name)).parameters
+        assert "relation_key" in parameters
+        assert "relation" not in parameters
+        assert parameters["relation_key"].annotation == entry["api_relation_key"]
+
+    for method_name in (
         "add_relation_link",
         "remove_relation_link",
         "primary_relation_link",
@@ -206,10 +231,12 @@ def test_core_wemi_relation_contract_uses_relation_key_parameter(entry: dict[str
         "add_related",
         "clear_related",
     ):
-        parameters = inspect.signature(getattr(api_metadata_class, method_name)).parameters
+        method = getattr(api_metadata_class, method_name)
+        parameters = inspect.signature(method).parameters
+        assert method.__qualname__.startswith("WemiMetadataRelationsAPI.")
         assert "relation_key" in parameters
         assert "relation" not in parameters
-        assert parameters["relation_key"].annotation == entry["api_relation_key"]
+        assert parameters["relation_key"].annotation == "RelationKeyT"
 
 
 def test_expression_flags_contract_uses_structured_tokens() -> None:
