@@ -16,10 +16,17 @@ from typing import ClassVar, Iterable, Mapping, Optional, Self
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MutableMetadataRecord,
 )
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.identity_api import (
+    WemiIdentityAPI,
+)
 
 
-class ExpressionIdentityPropertiesAPI(metaclass=abc.ABCMeta):
+class ExpressionIdentityPropertiesAPI(WemiIdentityAPI, metaclass=abc.ABCMeta):
     """Row-level API for one expression."""
+
+    WEMI_LEVEL: ClassVar[str] = "expression"
+    SOURCE_TABLE: ClassVar[str] = "expressions"
+    ID_FIELD: ClassVar[str] = "expression_id"
 
     @property
     def id(self) -> Optional[int]:

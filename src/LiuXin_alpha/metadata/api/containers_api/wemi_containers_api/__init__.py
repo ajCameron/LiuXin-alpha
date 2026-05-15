@@ -6,6 +6,9 @@ container implementations live under ``LiuXin_alpha.metadata.containers``.
 
 from __future__ import annotations
 
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.identity_api import (
+    WemiIdentityAPI,
+)
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.agent_containers.agent_identity_api import (
     AgentIdentityAPI,
 )
@@ -92,6 +95,7 @@ __all__ = [
     "AgentProfileAPI",
     "HumanAgentProfileAPI",
     "OrganisationAgentProfileAPI",
+    "WemiIdentityAPI",
     "ExpressionIdentityAPI",
     "ExpressionIdentityPropertiesAPI",
     "ExpressionMetadataAPI",

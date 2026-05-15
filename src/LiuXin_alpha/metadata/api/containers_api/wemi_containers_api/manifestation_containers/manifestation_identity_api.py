@@ -17,11 +17,17 @@ from typing import ClassVar, Iterable, Mapping, Optional, Self
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
     MutableMetadataRecord,
 )
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.identity_api import (
+    WemiIdentityAPI,
+)
 
-class ManifestationIdentityPropertiesAPI(metaclass=abc.ABCMeta):
+class ManifestationIdentityPropertiesAPI(WemiIdentityAPI, metaclass=abc.ABCMeta):
     """
     Row-level API for one manifestation.
     """
+    WEMI_LEVEL: ClassVar[str] = "manifestation"
+    SOURCE_TABLE: ClassVar[str] = "manifestations"
+    ID_FIELD: ClassVar[str] = "manifestation_id"
 
     @property
     def id(self) -> Optional[int]:

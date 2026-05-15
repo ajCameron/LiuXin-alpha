@@ -11,8 +11,12 @@ import dataclasses
 
 from typing import ClassVar, Iterable, Mapping, Optional, Self
 
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.identity_api import (
+    WemiIdentityAPI,
+)
 
-class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
+
+class ItemIdentityPropertiesAPI(WemiIdentityAPI, metaclass=abc.ABCMeta):
     """
     Lightweight API for one row from the ``items`` table.
 
@@ -20,6 +24,9 @@ class ItemIdentityPropertiesAPI(metaclass=abc.ABCMeta):
     surface focused on fields that are operationally useful for storage,
     provenance, and copy-level handling.
     """
+    WEMI_LEVEL: ClassVar[str] = "item"
+    SOURCE_TABLE: ClassVar[str] = "items"
+    ID_FIELD: ClassVar[str] = "item_id"
 
     # ------------------------------------------------------------------
     # Primary key

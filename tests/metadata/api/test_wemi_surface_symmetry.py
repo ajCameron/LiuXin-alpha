@@ -74,6 +74,9 @@ LEVELS = [
 
 @pytest.mark.parametrize("entry", LEVELS, ids=[entry["level"] for entry in LEVELS])
 def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
+    wemi_api_root = importlib.import_module(
+        "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api"
+    )
     api_identity_module = importlib.import_module(
         f"LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.{entry['api_identity_module']}"
     )
@@ -99,6 +102,19 @@ def test_core_wemi_surfaces_are_symmetrical(entry: dict[str, str]) -> None:
     assert hasattr(impl_metadata_module, entry["impl_metadata_class"])
     assert hasattr(hydrator_module, entry["hydrator_class"])
     assert hasattr(source_root, entry["source_class"])
+
+    identity_api_class = getattr(api_identity_module, entry["api_identity_class"])
+    identity_impl_class = getattr(impl_identity_module, entry["impl_identity_class"])
+    assert issubclass(identity_api_class, wemi_api_root.WemiIdentityAPI)
+    assert isinstance(identity_impl_class(), wemi_api_root.WemiIdentityAPI)
+    assert identity_api_class.WEMI_LEVEL == entry["level"]
+    assert identity_impl_class.WEMI_LEVEL == entry["level"]
+    assert identity_api_class.SOURCE_TABLE == "{}s".format(entry["level"])
+    assert identity_impl_class.SOURCE_TABLE == "{}s".format(entry["level"])
+    assert identity_api_class.ID_FIELD == "{}_id".format(entry["level"])
+    assert identity_impl_class.ID_FIELD == "{}_id".format(entry["level"])
+    assert hasattr(identity_api_class, "from_mapping")
+    assert hasattr(identity_api_class, "to_mapping")
 
     metadata_class = getattr(impl_metadata_module, entry["impl_metadata_class"])
     assert hasattr(metadata_class, "from_mapping")

@@ -14,7 +14,7 @@ Current branch context:
   `python3 -m pytest tests/metadata/api tests/metadata/containers tests/surfaces/test_renderers_metadata.py -q`
   -> `218 passed, 1 warning`.
   `git diff --check` -> clean.
-- Renderer consolidation follow-up is complete locally:
+- Renderer consolidation follow-up is committed in `4d87f44`:
   - moved Calibre-shaped metadata HTML rendering into
     `src/LiuXin_alpha/surfaces/renderers/calibre_metadata.py`
   - kept `metadata.book.render` and `calibreMetadata.to_html()` as local-import
@@ -25,7 +25,7 @@ Current branch context:
   `python3 -m pytest tests/metadata/api/test_calibre_metadata_api.py tests/surfaces/test_renderers_metadata.py tests/surfaces/test_renderers_calibre_metadata.py -q`
   -> `10 passed`.
   `git diff --check` -> clean.
-- Item 4 is complete locally:
+- Item 4 is committed in `67a2acd`:
   - split the generic agent profile contract into shared `AgentProfileAPI`,
     `HumanAgentProfileAPI`, and `OrganisationAgentProfileAPI`
   - added concrete `HumanAgentProfile` and `OrganisationAgentProfile`
@@ -36,6 +36,18 @@ Current branch context:
 - Item 4 validation:
   `python3 -m pytest tests/metadata/api tests/metadata/containers -q`
   -> `218 passed, 1 warning`.
+- Item 5 is complete locally:
+  - added shared `WemiIdentityAPI` for WEMI identity-row contracts
+  - made work/expression/manifestation/item identity APIs inherit it and
+    expose `WEMI_LEVEL`, `SOURCE_TABLE`, and `ID_FIELD`
+  - replaced the high-level WEMI identity union alias with the shared base
+    class export
+- Item 5 validation:
+  `python3 -m pytest tests/metadata/api/test_wemi_surface_symmetry.py tests/metadata/api/test_metadata_package_surface.py -q`
+  -> `25 passed`.
+  `python3 -m pytest tests/metadata/api tests/metadata/containers -q`
+  -> `218 passed, 1 warning`.
+  `git diff --check` -> clean.
 - This list deliberately excludes older broad metadata TODOs in standardizers,
   file-source parsers, constants, and Calibre-like metadata containers.
 
@@ -82,11 +94,13 @@ Current branch context:
    - Relevant because humans and organisations likely need different intrinsic
      profile fields while still sharing identity/link semantics.
 
-5. Consider a generic identity base class for WEMI identity APIs.
+5. DONE - Consider a generic identity base class for WEMI identity APIs.
    - Source: `src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api/work_containers/work_identity_api.py`
    - Current TODO: `This feels like it could be a generic thing`
    - Relevant because work/expression/manifestation/item identity contracts
      repeat mapping/string/update surface patterns.
+   - Resolution: added shared `WemiIdentityAPI` and made the four concrete
+     WEMI identity APIs inherit it while publishing per-level table/id metadata.
 
 6. Tighten `expression_flags` typing.
    - Source: `src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api/expression_containers/expression_identity_api.py`
@@ -114,7 +128,7 @@ Current branch context:
 
 ## Suggested Working Order
 
-Work down the numbered list unless a dependency suggests otherwise. Items 1-4
-and the renderer consolidation follow-up are complete; item 5 is next. Items 5
-and 9 are related but should be reviewed separately: item 5 is about
-identity-row contracts, while item 9 is about metadata-bundle relation behavior.
+Work down the numbered list unless a dependency suggests otherwise. Items 1-5
+and the renderer consolidation follow-up are complete; item 6 is next. Item 9
+is related to the WEMI identity-base work but should be reviewed separately:
+item 9 is about metadata-bundle relation behavior.
