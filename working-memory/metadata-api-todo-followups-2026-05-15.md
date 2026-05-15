@@ -25,6 +25,17 @@ Current branch context:
   `python3 -m pytest tests/metadata/api/test_calibre_metadata_api.py tests/surfaces/test_renderers_metadata.py tests/surfaces/test_renderers_calibre_metadata.py -q`
   -> `10 passed`.
   `git diff --check` -> clean.
+- Item 4 is complete locally:
+  - split the generic agent profile contract into shared `AgentProfileAPI`,
+    `HumanAgentProfileAPI`, and `OrganisationAgentProfileAPI`
+  - added concrete `HumanAgentProfile` and `OrganisationAgentProfile`
+    containers backed by flat data from `agents` plus the relevant
+    `human_agents` / `org_agents` sidecar columns
+  - kept `AgentProfile.from_mapping()` as a small factory for combined
+    agent/sidecar mappings
+- Item 4 validation:
+  `python3 -m pytest tests/metadata/api tests/metadata/containers -q`
+  -> `218 passed, 1 warning`.
 - This list deliberately excludes older broad metadata TODOs in standardizers,
   file-source parsers, constants, and Calibre-like metadata containers.
 
@@ -65,7 +76,7 @@ Current branch context:
      `LiuXinMetadataAPI`, and removed the concrete Calibre-like LiuXin metadata
      implementation method.
 
-4. Split `AgentProfileAPI` into human and organisation profile shapes.
+4. DONE - Split `AgentProfileAPI` into human and organisation profile shapes.
    - Source: `src/LiuXin_alpha/metadata/api/containers_api/wemi_containers_api/agent_containers/agent_profile_api.py`
    - Current TODO: `HumanAgentProfile and OrganisationAgentProfile`
    - Relevant because humans and organisations likely need different intrinsic
@@ -103,7 +114,7 @@ Current branch context:
 
 ## Suggested Working Order
 
-Work down the numbered list unless a dependency suggests otherwise. Items 1-3
-and the renderer consolidation follow-up are complete; item 4 is next. Items 5
+Work down the numbered list unless a dependency suggests otherwise. Items 1-4
+and the renderer consolidation follow-up are complete; item 5 is next. Items 5
 and 9 are related but should be reviewed separately: item 5 is about
 identity-row contracts, while item 9 is about metadata-bundle relation behavior.

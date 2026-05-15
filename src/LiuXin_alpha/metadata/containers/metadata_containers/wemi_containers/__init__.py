@@ -21,7 +21,7 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_c
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_hydrator import ItemMetadataHydrator
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_identity import AgentIdentity
-from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_profile import AgentProfile
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_profile import AgentProfile, HumanAgentProfile, OrganisationAgentProfile
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_credit_containers import AgentCreditBase, WorkAgentCredit, ExpressionAgentCredit, ManifestationAgentCredit, ItemAgentCredit, RoleCreditsContainer, WorkRoleCreditsContainer, ExpressionRoleCreditsContainer, ManifestationRoleCreditsContainer, ItemRoleCreditsContainer, BaseTargetAgentCreditsContainer, WorkAgentCreditsContainer, ExpressionAgentCreditsContainer, ManifestationAgentCreditsContainer, ItemAgentCreditsContainer
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.agent_participation import AgentProfileSummary, WorkSummary, ExpressionSummary, ManifestationSummary, ItemSummary, AgentParticipationEntry, AgentParticipationsByRole, AgentParticipationSnapshot
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.titles_containers import TitleKind, TitleBase, WorkTitle, ExpressionTitle, ManifestationTitle, ItemTitle, KindTitlesContainer, WorkKindTitlesContainer, ExpressionKindTitlesContainer, ManifestationKindTitlesContainer, ItemKindTitlesContainer, BaseTargetTitlesContainer, WorkTitlesContainer, ExpressionTitlesContainer, ManifestationTitlesContainer, ItemTitlesContainer, ItemWemiTitleSlice
@@ -57,6 +57,8 @@ __all__ = [
     "ItemMetadataHydrator",
     "AgentIdentity",
     "AgentProfile",
+    "HumanAgentProfile",
+    "OrganisationAgentProfile",
     "AgentCreditBase",
     "WorkAgentCredit",
     "ExpressionAgentCredit",

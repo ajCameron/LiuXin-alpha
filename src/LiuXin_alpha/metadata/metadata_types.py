@@ -13,7 +13,14 @@ from os import PathLike
 from typing import Any, Protocol, runtime_checkable, TypeAlias, Union, Literal
 
 
-AgentTypes: TypeAlias = Union[Literal["human"], Literal["organization"]]
+AgentTypes: TypeAlias = Union[
+    Literal["human"],
+    Literal["person"],
+    Literal["organization"],
+    Literal["organisation"],
+    Literal["group"],
+    Literal["pseudonym"],
+]
 
 # Common internal container pattern in your codebase:
 # OrderedDict keyed by "display value", valued by database id or None.
