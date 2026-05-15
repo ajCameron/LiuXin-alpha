@@ -10,6 +10,7 @@ from importlib import import_module
 
 
 _LAZY_SUBMODULES = {
+    "calibre_metadata",
     "metadata",
 }
 

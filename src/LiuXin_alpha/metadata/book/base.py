@@ -958,53 +958,11 @@ class calibreMetadata(object):
         """
         A HTML representation of this object.
         """
-        from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
-        from LiuXin_alpha.utils.date import isoformat
+        from LiuXin_alpha.surfaces.renderers.calibre_metadata import (
+            calibre_metadata_to_html,
+        )
 
-        ans = [(_("Title"), six_unicode(self.title))]
-        ans += [
-            (
-                _("Author(s)"),
-                (authors_to_string(self.authors) if self.authors else _("Unknown")),
-            )
-        ]
-        ans += [(_("Publisher"), six_unicode(self.publisher))]
-        ans += [(_("Producer"), six_unicode(self.book_producer))]
-        ans += [(_("Comments"), six_unicode(self.comments))]
-        ans += [("ISBN", six_unicode(self.isbn))]
-        ans += [(_("Tags"), ", ".join([six_unicode(t) for t in self.tags]))]
-        if self.series:
-            ans += [
-                (
-                    _("Series"),
-                    six_unicode(self.series) + " #%s" % self.format_series_index(),
-                )
-            ]
-        ans += [(_("Languages"), ", ".join(self.languages))]
-        if self.timestamp is not None:
-            ans += [
-                (
-                    _("Timestamp"),
-                    six_unicode(isoformat(self.timestamp, as_utc=False, sep=" ")),
-                )
-            ]
-        if self.pubdate is not None:
-            ans += [
-                (
-                    _("Published"),
-                    six_unicode(isoformat(self.pubdate, as_utc=False, sep=" ")),
-                )
-            ]
-        if self.rights is not None:
-            ans += [(_("Rights"), six_unicode(self.rights))]
-        for key in self.custom_field_keys():
-            val = self.get(key, None)
-            if val:
-                (name, val) = self.format_field(key)
-                ans += [(name, val)]
-        for i, x in enumerate(ans):
-            ans[i] = "<tr><td><b>%s</b></td><td>%s</td></tr>" % x
-        return "<table>%s</table>" % "\n".join(ans)
+        return calibre_metadata_to_html(self)
 
     def __str__(self):
         return self.__unicode__()

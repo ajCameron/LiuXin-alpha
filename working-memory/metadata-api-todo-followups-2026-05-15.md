@@ -9,10 +9,21 @@ Current branch context:
 - Branch: `metadata-link-terminology-cleanup`
 - Follow-up PR: `#44` `Remove stale WEMI metadata TODOs`
 - Stale WEMI TODOs already removed in `e0b74d5`.
-- Items 1-3 are complete locally and ready to commit.
+- Items 1-3 are committed in `817f3a6`.
 - Validation for items 1-3:
   `python3 -m pytest tests/metadata/api tests/metadata/containers tests/surfaces/test_renderers_metadata.py -q`
   -> `218 passed, 1 warning`.
+  `git diff --check` -> clean.
+- Renderer consolidation follow-up is complete locally:
+  - moved Calibre-shaped metadata HTML rendering into
+    `src/LiuXin_alpha/surfaces/renderers/calibre_metadata.py`
+  - kept `metadata.book.render` and `calibreMetadata.to_html()` as local-import
+    compatibility delegates to avoid import loops
+  - fixed moved legacy imports and Py3 `hexlify` string handling in
+    `search_href()`
+- Renderer follow-up validation:
+  `python3 -m pytest tests/metadata/api/test_calibre_metadata_api.py tests/surfaces/test_renderers_metadata.py tests/surfaces/test_renderers_calibre_metadata.py -q`
+  -> `10 passed`.
   `git diff --check` -> clean.
 - This list deliberately excludes older broad metadata TODOs in standardizers,
   file-source parsers, constants, and Calibre-like metadata containers.
@@ -93,6 +104,6 @@ Current branch context:
 ## Suggested Working Order
 
 Work down the numbered list unless a dependency suggests otherwise. Items 1-3
-are complete; item 4 is next. Items 5 and
-9 are related but should be reviewed separately: item 5 is about identity-row
-contracts, while item 9 is about metadata-bundle relation behavior.
+and the renderer consolidation follow-up are complete; item 4 is next. Items 5
+and 9 are related but should be reviewed separately: item 5 is about
+identity-row contracts, while item 9 is about metadata-bundle relation behavior.
