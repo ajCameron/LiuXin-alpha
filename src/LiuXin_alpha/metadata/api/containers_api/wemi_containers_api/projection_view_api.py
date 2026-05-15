@@ -9,6 +9,31 @@ from typing import Protocol, TypeAlias, runtime_checkable
 ProjectionIdentifierMap: TypeAlias = Mapping[str, tuple[str, ...]]
 
 
+class UnloadedMetadataProjectionError(RuntimeError):
+    """Raised when a projection would otherwise omit unloaded lazy data."""
+
+    def __init__(
+        self,
+        relation_key: str,
+        unloaded_dependencies: tuple[str, ...] = (),
+    ) -> None:
+        self.relation_key = relation_key
+        self.unloaded_dependencies = unloaded_dependencies
+        detail = ""
+        if unloaded_dependencies:
+            detail = " Unloaded dependencies: {}.".format(
+                ", ".join(unloaded_dependencies)
+            )
+        super().__init__(
+            "Metadata projection {!r} has unloaded lazy data. "
+            "Call load({!r}) before reading this projection.{}".format(
+                relation_key,
+                relation_key,
+                detail,
+            )
+        )
+
+
 @runtime_checkable
 class MetadataValuesViewAPI(Protocol):
     """Structured read-only values projected from metadata relation targets."""
@@ -121,4 +146,5 @@ __all__ = [
     "MetadataTextViewAPI",
     "MetadataValuesViewAPI",
     "ProjectionIdentifierMap",
+    "UnloadedMetadataProjectionError",
 ]

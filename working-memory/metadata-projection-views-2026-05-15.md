@@ -47,6 +47,13 @@ md.tags                        # existing relation-target convenience surface
 - `values` should return immutable structured values, usually tuples.
 - `text` should return display/export strings and should not be treated as a
   parsing contract.
+- Eager projections read already-loaded state only.
+- Lazy projections must not silently return partial data. If a projection has
+  unloaded lazy legacy fields or unloaded WEMI relation loaders,
+  `UnloadedMetadataProjectionError` should be raised.
+- `load("tags")` should hydrate the dependencies for one projection group;
+  `load()` should hydrate all pending lazy projection dependencies. The eager
+  implementation can return `self` as a no-op.
 
 ## Naming
 
@@ -64,6 +71,8 @@ search, logs, and export surfaces, but code that needs data should prefer
 - Expose `values` and `text` properties on WEMI metadata bundles first.
 - Optionally expose stack-level `values` and `text` on `LiuXinWEMIMetadata`
   after bundle-level behavior is pinned.
+- Stack-level projection precedence should be legacy/LiuXin fields first, then
+  item, manifestation, expression, and work bundle projections.
 - Start with high-value relation families:
   tags, labels, genres, subjects, titles, identifiers, languages, ratings, and
   common agent names.
@@ -77,4 +86,5 @@ search, logs, and export surfaces, but code that needs data should prefer
 - Tests that projection views dedupe/order deterministically.
 - Tests that `values` and `text` are read-only and do not mutate relation links.
 - Tests that raw relation links remain unchanged after projection access.
-
+- Tests that lazy projection reads raise `UnloadedMetadataProjectionError`
+  before loading, and succeed after `load("field")` or `load()`.

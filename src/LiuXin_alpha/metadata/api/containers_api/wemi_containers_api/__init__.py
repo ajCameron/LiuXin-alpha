@@ -36,6 +36,7 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.projection_vie
     MetadataTextViewAPI,
     MetadataValuesViewAPI,
     ProjectionIdentifierMap,
+    UnloadedMetadataProjectionError,
 )
 from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
     ManyManyRelationLinkAPI,
@@ -127,6 +128,7 @@ __all__ = [
     "MetadataTextViewAPI",
     "MetadataValuesViewAPI",
     "ProjectionIdentifierMap",
+    "UnloadedMetadataProjectionError",
     "WorkIdentityAPI",
     "WorkIdentityPropertiesAPI",
     "WorkMetadataAPI",

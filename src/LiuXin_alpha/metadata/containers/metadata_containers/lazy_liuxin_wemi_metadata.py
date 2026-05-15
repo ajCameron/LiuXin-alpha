@@ -58,6 +58,22 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         "identifier": "identifiers",
         "identifiers": "identifiers",
     }
+    _PROJECTION_RELATION_ALIASES = {
+        "agent": "agents",
+        "author": "agents",
+        "authors": "agents",
+        "creator": "agents",
+        "creators": "agents",
+        "genre": "genres",
+        "identifier": "identifiers",
+        "label": "labels",
+        "language": "languages",
+        "rating": "ratings",
+        "series_entry": "series",
+        "subject": "subjects",
+        "tag": "tags",
+        "title": "titles",
+    }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -106,6 +122,16 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
         relation_key: WemiRelationKey,
     ) -> list[Any]:
         return [link.target for link in self.get_wemi_relation_links(level, relation_key)]
+
+    def load(self, *fields: str) -> "LazyLiuXinWEMIMetadata":
+        if not fields:
+            self.force_hydrate()
+            self._hydrate_all_relation_loaders()
+            return self
+
+        for field in fields:
+            self._hydrate_projection_dependencies(field)
+        return self
 
     def hydrate_field(self, field: str) -> OrderedDict[str, Any] | Any:
         field_key = self._normalize_lazy_legacy_field(field)
@@ -167,6 +193,34 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
             return
         object.__setattr__(self, "_lazy_identifiers_loaded", True)
         self.sync_legacy_identifiers_from_wemi()
+
+    def _hydrate_projection_dependencies(self, field: str) -> None:
+        field_key = self._normalize_lazy_legacy_field(field)
+        data = object.__getattribute__(self, "_data")
+        if field_key == "identifiers" or isinstance(data.get(field_key), LazyValueToID):
+            self.hydrate_field(field_key)
+
+        relation_key = self._normalize_projection_relation_key(field)
+        self._hydrate_relation_loaders_for_relation(relation_key)
+
+    def _hydrate_all_relation_loaders(self) -> None:
+        loaders = object.__getattribute__(self, "_lazy_relation_loaders")
+        for level_key, relation_key in list(loaders):
+            self.get_wemi_relation_links(level_key, relation_key)
+
+    def _hydrate_relation_loaders_for_relation(self, relation_key: str) -> None:
+        for level in self._LEVELS:
+            metadata = self.get_wemi_metadata(level)
+            try:
+                normalized_relation_key = metadata.validate_relation_name(relation_key)
+            except KeyError:
+                continue
+            self.get_wemi_relation_links(level, normalized_relation_key)
+
+    @classmethod
+    def _normalize_projection_relation_key(cls, field: str) -> str:
+        normalized = str(field).strip().lower()
+        return cls._PROJECTION_RELATION_ALIASES.get(normalized, normalized)
 
     def direct_get(self, item: str) -> Any:
         data = object.__getattribute__(self, "_data")

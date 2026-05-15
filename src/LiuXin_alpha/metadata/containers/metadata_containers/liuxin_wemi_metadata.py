@@ -41,6 +41,10 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.manife
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.work_metadata_container import (
     WorkMetadata,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projection_views import (
+    LiuXinWEMITextView,
+    LiuXinWEMIValuesView,
+)
 
 
 WemiLevel: TypeAlias = Literal["work", "expression", "manifestation", "item"]
@@ -211,6 +215,9 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     def __setattr__(self, key: str, value: Any) -> None:
         normalized_key = key.lower().strip()
+        if normalized_key in {"values", "text"}:
+            raise AttributeError(f"{normalized_key!r} is a read-only projection view.")
+
         metadata_storage = self._METADATA_STORAGE_BY_ATTRIBUTE.get(normalized_key)
         if metadata_storage is not None:
             object.__setattr__(
@@ -398,6 +405,17 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
             }
             for level, metadata in self.wemi_stack.items()
         }
+
+    @property
+    def values(self) -> LiuXinWEMIValuesView:
+        return LiuXinWEMIValuesView(self)
+
+    @property
+    def text(self) -> LiuXinWEMITextView:
+        return LiuXinWEMITextView(self.values)
+
+    def load(self, *fields: str) -> "LiuXinWEMIMetadata":
+        return self
 
     @property
     def titles(self) -> tuple[str, ...]:

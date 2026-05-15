@@ -64,6 +64,7 @@ metadata.tags                        # existing raw-target convenience property
 - Projection views are read-only for the first implementation pass.
 - Projection views must not mutate metadata.
 - Projection views must not create, delete, reorder, or mark relation links.
+- Eager metadata projections must only read already-loaded state.
 - Projection views are lossy. They do not preserve link ids, provenance,
   priority, primary flags, source, policy, or other link metadata.
 - Use relation-link APIs for fidelity and write-back.
@@ -108,6 +109,39 @@ That stack-level view should be explicit about precedence and should use the
 primary-link projection helpers where a single preferred WEMI traversal is
 needed.
 
+Stack-level projections on `LiuXinWEMIMetadata` combine legacy/LiuXin fields
+with the W/E/M/I bundle views. The precedence is:
+
+1. already-loaded legacy/LiuXin fields
+2. item bundle projections
+3. manifestation bundle projections
+4. expression bundle projections
+5. work bundle projections
+
+`liuxin_wemi.text.title` follows the existing `display_title` policy.
+`liuxin_wemi.values.titles` follows the existing title convenience sequence and
+then includes WEMI title-relation values.
+
+## Lazy Metadata
+
+Projection views must not silently return partial data. If a
+`LazyLiuXinWEMIMetadata` projection depends on unloaded lazy legacy fields or
+unloaded WEMI relation loaders, reading the projection raises
+`UnloadedMetadataProjectionError`.
+
+Call `load()` before reading projections that may have pending lazy data:
+
+```python
+metadata.load("tags")
+metadata.values.tags
+
+metadata.load()  # load all pending lazy legacy fields and relation loaders
+metadata.text.tags
+```
+
+The eager `LiuXinWEMIMetadata.load()` method is a no-op that returns `self`, so
+callers may use the same load-then-read pattern for eager and lazy metadata.
+
 ## Non-Goals
 
 - No write-back through `values` or `text` in the first implementation.
@@ -130,4 +164,3 @@ Start with the high-use read projections:
 - common agent names
 
 Add tests that projection access leaves relation links unchanged.
-

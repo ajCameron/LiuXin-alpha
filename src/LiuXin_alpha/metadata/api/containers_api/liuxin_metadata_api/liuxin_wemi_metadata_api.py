@@ -36,6 +36,8 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ManifestationRelationLink,
     ManifestationRelationTarget,
     MetadataRecord,
+    MetadataTextViewAPI,
+    MetadataValuesViewAPI,
     RelationLinkID,
     WorkIdentityAPI,
     WorkMetadataAPI,
@@ -254,6 +256,34 @@ class LiuXinWEMIMetadataAPI(LiuXinMetadataAPI, Protocol):
         """
         Persisted relation-link ids grouped by WEMI level and relation key.
 
+        :return:
+        """
+
+    @property
+    def values(self) -> MetadataValuesViewAPI:
+        """
+        Structured, read-only value projections across the WEMI stack.
+
+        :return:
+        """
+
+    @property
+    def text(self) -> MetadataTextViewAPI:
+        """
+        Display/export text projections across the WEMI stack.
+
+        :return:
+        """
+
+    def load(self, *fields: str) -> Self:
+        """
+        Load pending metadata dependencies needed by projection fields.
+
+        Eager implementations may return themselves without doing work. Lazy
+        implementations should hydrate the requested field dependencies, or all
+        pending dependencies when no field names are supplied.
+
+        :param fields:
         :return:
         """
 

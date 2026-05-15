@@ -7,6 +7,8 @@ from LiuXin_alpha.metadata.api import (
     LazyLiuXinWEMIMetadataAPI,
     LiuXinWEMIAPI,
     LiuXinWEMIMetadataAPI,
+    MetadataTextViewAPI,
+    MetadataValuesViewAPI,
     OPFMetadataSource,
     WemiLevel,
     WemiRelationKeyAPI,
@@ -40,6 +42,7 @@ def test_opf_source_alias_covers_bytes_and_paths() -> None:
 
 def test_wemi_metadata_api_exposes_current_operational_methods() -> None:
     expected_methods = (
+        "load",
         "sync_legacy_genres_from_wemi",
         "sync_legacy_subjects_from_wemi",
         "sync_legacy_series_from_wemi",
@@ -51,6 +54,11 @@ def test_wemi_metadata_api_exposes_current_operational_methods() -> None:
     for method_name in expected_methods:
         assert hasattr(LiuXinWEMIMetadataAPI, method_name)
         assert hasattr(LiuXinWEMIMetadata, method_name)
+
+    assert isinstance(getattr(LiuXinWEMIMetadataAPI, "values"), property)
+    assert isinstance(getattr(LiuXinWEMIMetadataAPI, "text"), property)
+    assert isinstance(getattr(LiuXinWEMIMetadata, "values"), property)
+    assert isinstance(getattr(LiuXinWEMIMetadata, "text"), property)
 
 
 def test_wemi_metadata_relation_contract_uses_relation_key_parameter() -> None:
@@ -80,6 +88,9 @@ def test_concrete_wemi_metadata_supports_extended_legacy_sync_contract() -> None
         ["Protocol Author"],
     )
 
+    assert isinstance(metadata.values, MetadataValuesViewAPI)
+    assert isinstance(metadata.text, MetadataTextViewAPI)
+    assert metadata.load("tags") is metadata
     assert metadata.sync_legacy_genres_from_wemi() == ()
     assert metadata.sync_legacy_subjects_from_wemi() == ()
     assert metadata.sync_legacy_series_from_wemi() == ()
@@ -88,6 +99,7 @@ def test_concrete_wemi_metadata_supports_extended_legacy_sync_contract() -> None
 
 def test_lazy_wemi_metadata_api_exposes_lazy_hydration_surface() -> None:
     expected_methods = (
+        "load",
         "install_lazy_value_to_id",
         "install_lazy_relation_loader",
         "hydrate_field",
