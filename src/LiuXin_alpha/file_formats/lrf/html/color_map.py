@@ -97,8 +97,8 @@ NAME_MAP = {
     "yellowgreen": "#9ACD32",
 }
 
-hex_pat = re.compile("#(\d{2})(\d{2})(\d{2})")
-rgb_pat = re.compile("rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)", re.IGNORECASE)
+hex_pat = re.compile(r"#(\d{2})(\d{2})(\d{2})")
+rgb_pat = re.compile(r"rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)", re.IGNORECASE)
 
 
 def lrs_color(html_color):

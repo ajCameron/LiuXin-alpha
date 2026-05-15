@@ -6,6 +6,17 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [coverage-syntax-warning-cleanup-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/coverage-syntax-warning-cleanup-2026-05-15.md)
+  Coverage-runner and SyntaxWarning cleanup note: adds the dedicated coverage
+  wrapper, redirects coverage data out of the repo root, records the 17-file
+  warning cleanup, focused validation, and the remaining full coverage rerun.
+
+- [type-checking-and-coverage-scope-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/type-checking-and-coverage-scope-2026-05-15.md)
+  Adds the static typing toolchain/config/runner scope and records the latest
+  full coverage result: suite green, project-wide coverage dominated by
+  legacy/vendor areas, and `surfaces.renderers.calibre_metadata` as the next
+  targeted test gap.
+
 - [metadata-api-todo-followups-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-api-todo-followups-2026-05-15.md)
   Numbered list of the still-relevant TODOs in the metadata API/container slice
   after the relation-key/link/projection cleanup, so we can work down them in

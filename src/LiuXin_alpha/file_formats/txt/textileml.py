@@ -83,13 +83,13 @@ class TextileMLizer(OEB2HTML):
                 txt = "%s" % t
                 if txt != "%":
                     text = re.sub(
-                        r"([^" + t + "|^\n])" + t + "\]\[" + t + "([^" + t + "])",
+                        r"([^" + t + "|^\n])" + t + r"\]\[" + t + "([^" + t + "])",
                         r"\1\2",
                         text,
                     )
                     text = re.sub(r"([^" + t + "|^\n])" + t + t + "([^" + t + "])", r"\1\2", text)
                 text = re.sub(
-                    r'(\s|[*_\'"])\[(' + t + "[a-zA-Z0-9 '\",.*_]+" + t + ")\](\s|[*_'\"?!,.])",
+                    r'(\s|[*_\'"])\[(' + t + "[a-zA-Z0-9 '\",.*_]+" + t + r"\](\s|[*_'\"?!,.])",
                     r"\1\2\3",
                     text,
                 )
@@ -100,13 +100,13 @@ class TextileMLizer(OEB2HTML):
             for i in self.our_links:
                 if i[0] == "#":
                     if i not in self.our_ids:
-                        text = re.sub(r'"(.+)":' + i + "(\s)", r"\1\2", text)
+                        text = re.sub(r'"(.+)":' + i + r"(\s)", r"\1\2", text)
             for i in self.our_ids:
                 if i not in self.our_links:
-                    text = re.sub(r"%?\(" + i + "\)\xa0?%?", r"", text)
+                    text = re.sub(r"%?\(" + i + r"\)\xa0?%?", r"", text)
 
         # Remove obvious non-needed escaping, add sub/sup-script ones
-        text = check_escaping(text, ["\*", "_", "\*"])
+        text = check_escaping(text, [r"\*", "_", r"\*"])
         # escape the super/sub-scripts if needed
         text = re.sub(r"(\w)([~^]\w+[~^])", r"\1[\2]", text)
         # escape the super/sub-scripts if needed
@@ -129,16 +129,16 @@ class TextileMLizer(OEB2HTML):
 
         # reduce blank lines
         text = re.sub(r"\n{3}", r"\n\np. \n\n", text)
-        text = re.sub("%\n(p[<>=]{1,2}\.|p\.)", r"%\n\n\1", text)
+        text = re.sub(r"%\n(p[<>=]{1,2}\.|p\.)", r"%\n\n\1", text)
         # Check span following blank para
         text = re.sub(r"\n+ +%", r" %", text)
-        text = re.sub("p[<>=]{1,2}\.\n\n?", r"", text)
+        text = re.sub(r"p[<>=]{1,2}\.\n\n?", r"", text)
         # blank paragraph
         text = re.sub(r"\n(p.*\.)\n", r"\n\1 \n\n", text)
         # blank paragraph
         text = re.sub("\n\xa0", r"\np. ", text)
         # blank paragraph
-        text = re.sub("\np[<>=]{1,2}?\. \xa0", r"\np. ", text)
+        text = re.sub(r"\np[<>=]{1,2}?\. \xa0", r"\np. ", text)
         text = re.sub(r"(^|\n)(p.*\. ?\n)(p.*\.)", r"\1\3", text)
         text = re.sub(r"\n(p\. \n)(p.*\.|h.*\.)", r"\n\2", text)
         # sort out spaces in tables
