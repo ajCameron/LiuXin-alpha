@@ -514,7 +514,7 @@ class Tag(PageElement):
         # Convert any HTML, XML, or numeric entities in the attribute values.
         convert = lambda k, val: (
             k,
-            re.sub("&(#\d+|#x[0-9a-fA-F]+|\w+);", self._convertEntities, val),
+            re.sub(r"&(#\d+|#x[0-9a-fA-F]+|\w+);", self._convertEntities, val),
         )
         self.attrs = map(convert, self.attrs)
 
@@ -624,7 +624,7 @@ class Tag(PageElement):
     def __unicode__(self):
         return self.__str__(None)
 
-    BARE_AMPERSAND_OR_BRACKET = re.compile("([<>]|" + "&(?!#\d+;|#x[0-9a-fA-F]+;|\w+;)" + ")")
+    BARE_AMPERSAND_OR_BRACKET = re.compile(r"([<>]|" + r"&(?!#\d+;|#x[0-9a-fA-F]+;|\w+;)" + r")")
 
     def _sub_entity(self, x):
         """Used with a regular expression to substitute the
@@ -1003,7 +1003,7 @@ class BeautifulStoneSoup(Tag, SGMLParser):
 
     MARKUP_MASSAGE = [
         (re.compile("(<[^<>]*)/>"), lambda x: x.group(1) + " />"),
-        (re.compile("<!\s+([^<>]*)>"), lambda x: "<!" + x.group(1) + ">"),
+        (re.compile(r"<!\s+([^<>]*)>"), lambda x: "<!" + x.group(1) + ">"),
     ]
 
     ROOT_TAG_NAME = "[document]"
@@ -1568,7 +1568,7 @@ class BeautifulSoup(BeautifulStoneSoup):
     )
 
     # Used to detect the charset in a META tag; see start_meta
-    CHARSET_RE = re.compile("((^|;)\s*charset=)([^;]*)")
+    CHARSET_RE = re.compile(r"((^|;)\s*charset=)([^;]*)")
 
     def start_meta(self, attrs):
         """Beautiful Soup can detect a charset included in a META tag,
@@ -1924,7 +1924,7 @@ class UnicodeDammit:
             else:
                 sniffed_xml_encoding = "ascii"
                 pass
-            xml_encoding_match = re.compile("^<\?.*encoding=['\"](.*?)['\"].*\?>").match(xml_data)
+            xml_encoding_match = re.compile(r"^<\?.*encoding=['\"](.*?)['\"].*\?>").match(xml_data)
             if xml_encoding_match is None:  # By Kovid to use the content-type header in HTML files
                 xml_encoding_match = re.compile(r'<meta.*?content=[\'"].*?charset=(\S+).*?[\'"]', re.IGNORECASE).search(
                     xml_data

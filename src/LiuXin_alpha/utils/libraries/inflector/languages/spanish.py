@@ -82,7 +82,7 @@ class Spanish(Base):
             if match:
                 groups = match.groups()
                 replacement = rules[rule][1]
-                if re.match("\|", replacement):
+                if re.match(r"\|", replacement):
                     for k in range(1, len(groups)):
                         replacement = replacement.replace(
                             "|" + str(k),

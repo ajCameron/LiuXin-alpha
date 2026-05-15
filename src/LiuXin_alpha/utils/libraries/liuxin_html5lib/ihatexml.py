@@ -198,7 +198,7 @@ nonXmlNameFirstBMPRegexp = re.compile(
 )
 
 # Simpler things
-nonPubidCharRegexp = re.compile("[^\x20\x0D\x0Aa-zA-Z0-9\-'()+,./:=?;!*#@$_%]")
+nonPubidCharRegexp = re.compile(r"[^\x20\x0D\x0Aa-zA-Z0-9\-'()+,./:=?;!*#@$_%]")
 
 
 class InfosetFilter(object):

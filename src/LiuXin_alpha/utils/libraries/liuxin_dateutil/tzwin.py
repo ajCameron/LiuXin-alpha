@@ -92,7 +92,7 @@ class tzwin(tzwinbase):
         self._name = name
 
         handle = _winreg.ConnectRegistry(None, _winreg.HKEY_LOCAL_MACHINE)
-        tzkey = _winreg.OpenKey(handle, "%s\%s" % (TZKEYNAME, name))
+        tzkey = _winreg.OpenKey(handle, r"%s\%s" % (TZKEYNAME, name))
         keydict = valuestodict(tzkey)
         tzkey.Close()
         handle.Close()
@@ -143,7 +143,7 @@ class tzwinlocal(tzwinbase):
         self._dstname = keydict["DaylightName"].encode("iso-8859-1")
 
         try:
-            tzkey = _winreg.OpenKey(handle, "%s\%s" % (TZKEYNAME, self._stdname))
+            tzkey = _winreg.OpenKey(handle, r"%s\%s" % (TZKEYNAME, self._stdname))
             _keydict = valuestodict(tzkey)
             self._display = _keydict["Display"]
             tzkey.Close()

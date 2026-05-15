@@ -108,9 +108,9 @@ class DocAnalysis(object):
         raw = raw.replace("&nbsp;", " ")
         linere = None
         if format == "html":
-            linere = re.compile("(?<=<p)(?![^>]*>\s*</p>).*?(?=</p>)", re.DOTALL)
+            linere = re.compile(r"(?<=<p)(?![^>]*>\s*</p>).*?(?=</p>)", re.DOTALL)
         elif format == "pdf":
-            linere = re.compile("(?<=<br>)(?!\s*<br>).*?(?=<br>)", re.DOTALL)
+            linere = re.compile(r"(?<=<br>)(?!\s*<br>).*?(?=<br>)", re.DOTALL)
         elif format == "spanned_html":
             linere = re.compile("(?<=<span).*?(?=</span>)", re.DOTALL)
         elif format == "txt":
@@ -297,34 +297,34 @@ class Dehyphenator(object):
         self.format = format
         if format == "html":
             intextmatch = re.compile(
-                "(?<=.{%i})(?P<firstpart>[^\W\-]+)(-|‐)\s*(?=<)(?P<wraptags>(</span>)?\s*"
-                "(</[iubp]>\s*){1,2}(?P<up2threeblanks><(p|div)[^>]*>\s*(<p[^>]*>\s*</p>\s*)?"
-                "</(p|div)>\s+){0,3}\s*(<[iubp][^>]*>\s*){1,2}(<span[^>]*>)?)\s*"
-                "(?P<secondpart>[\w\d]+)" % length
+                r"(?<=.{%i})(?P<firstpart>[^\W\-]+)(-|‐)\s*(?=<)(?P<wraptags>(</span>)?\s*"
+                r"(</[iubp]>\s*){1,2}(?P<up2threeblanks><(p|div)[^>]*>\s*(<p[^>]*>\s*</p>\s*)?"
+                r"</(p|div)>\s+){0,3}\s*(<[iubp][^>]*>\s*){1,2}(<span[^>]*>)?)\s*"
+                r"(?P<secondpart>[\w\d]+)" % length
             )  # noqa
         elif format == "pdf":
             intextmatch = re.compile(
-                "(?<=.{%i})(?P<firstpart>[^\W\-]+)(-|‐)\s*(?P<wraptags><p>|"
-                "</[iub]>\s*<p>\s*<[iub]>)\s*(?P<secondpart>[\w\d]+)" % length
+                r"(?<=.{%i})(?P<firstpart>[^\W\-]+)(-|‐)\s*(?P<wraptags><p>|"
+                r"</[iub]>\s*<p>\s*<[iub]>)\s*(?P<secondpart>[\w\d]+)" % length
             )
         elif format == "txt":
             intextmatch = re.compile(
-                "(?<=.{%i})(?P<firstpart>[^\W\-]+)(-|‐)(\u0020|\u0009)*(?P<wraptags>"
-                "(\n(\u0020|\u0009)*)+)(?P<secondpart>[\w\d]+)" % length
+                r"(?<=.{%i})(?P<firstpart>[^\W\-]+)(-|‐)(\u0020|\u0009)*(?P<wraptags>"
+                r"(\n(\u0020|\u0009)*)+)(?P<secondpart>[\w\d]+)" % length
             )  # noqa
         elif format == "individual_words":
             intextmatch = re.compile(
-                "(?!<)(?P<firstpart>[^\W\-]+)(-|‐)\s*(?P<secondpart>\w+)(?![^<]*?>)",
+                r"(?!<)(?P<firstpart>[^\W\-]+)(-|‐)\s*(?P<secondpart>\w+)(?![^<]*?>)",
                 re.UNICODE,
             )
         elif format == "html_cleanup":
             intextmatch = re.compile(
-                "(?P<firstpart>[^\W\-]+)(-|‐)\s*(?=<)(?P<wraptags></span>\s*(</[iubp]>\s*"
-                "<[iubp][^>]*>\s*)?<span[^>]*>|</[iubp]>\s*<[iubp][^>]*>)?\s*"
-                "(?P<secondpart>[\w\d]+)"
+                r"(?P<firstpart>[^\W\-]+)(-|‐)\s*(?=<)(?P<wraptags></span>\s*(</[iubp]>\s*"
+                r"<[iubp][^>]*>\s*)?<span[^>]*>|</[iubp]>\s*<[iubp][^>]*>)?\s*"
+                r"(?P<secondpart>[\w\d]+)"
             )  # noqa
         elif format == "txt_cleanup":
-            intextmatch = re.compile("(?P<firstpart>[^\W\-]+)(-|‐)(?P<wraptags>\s+)(?P<secondpart>[\w\d]+)")
+            intextmatch = re.compile(r"(?P<firstpart>[^\W\-]+)(-|‐)(?P<wraptags>\s+)(?P<secondpart>[\w\d]+)")
         else:
             raise NotImplementedError("format not recognizwed")
 
@@ -409,106 +409,106 @@ class HTMLPreProcessor(object):
     # Fix pdftohtml markup
     PDFTOHTML = [
         # Fix umlauts
-        (re.compile("¨\s*(<br.*?>)*\s*a", re.UNICODE), lambda match: "ä"),
-        (re.compile("¨\s*(<br.*?>)*\s*A", re.UNICODE), lambda match: "Ä"),
-        (re.compile("¨\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "ë"),
-        (re.compile("¨\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "Ë"),
-        (re.compile("¨\s*(<br.*?>)*\s*i", re.UNICODE), lambda match: "ï"),
-        (re.compile("¨\s*(<br.*?>)*\s*I", re.UNICODE), lambda match: "Ï"),
-        (re.compile("¨\s*(<br.*?>)*\s*o", re.UNICODE), lambda match: "ö"),
-        (re.compile("¨\s*(<br.*?>)*\s*O", re.UNICODE), lambda match: "Ö"),
-        (re.compile("¨\s*(<br.*?>)*\s*u", re.UNICODE), lambda match: "ü"),
-        (re.compile("¨\s*(<br.*?>)*\s*U", re.UNICODE), lambda match: "Ü"),
+        (re.compile(r"¨\s*(<br.*?>)*\s*a", re.UNICODE), lambda match: "ä"),
+        (re.compile(r"¨\s*(<br.*?>)*\s*A", re.UNICODE), lambda match: "Ä"),
+        (re.compile(r"¨\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "ë"),
+        (re.compile(r"¨\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "Ë"),
+        (re.compile(r"¨\s*(<br.*?>)*\s*i", re.UNICODE), lambda match: "ï"),
+        (re.compile(r"¨\s*(<br.*?>)*\s*I", re.UNICODE), lambda match: "Ï"),
+        (re.compile(r"¨\s*(<br.*?>)*\s*o", re.UNICODE), lambda match: "ö"),
+        (re.compile(r"¨\s*(<br.*?>)*\s*O", re.UNICODE), lambda match: "Ö"),
+        (re.compile(r"¨\s*(<br.*?>)*\s*u", re.UNICODE), lambda match: "ü"),
+        (re.compile(r"¨\s*(<br.*?>)*\s*U", re.UNICODE), lambda match: "Ü"),
         # Fix accents
         # `
-        (re.compile("`\s*(<br.*?>)*\s*a", re.UNICODE), lambda match: "à"),
-        (re.compile("`\s*(<br.*?>)*\s*A", re.UNICODE), lambda match: "À"),
-        (re.compile("`\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "è"),
-        (re.compile("`\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "È"),
-        (re.compile("`\s*(<br.*?>)*\s*i", re.UNICODE), lambda match: "ì"),
-        (re.compile("`\s*(<br.*?>)*\s*I", re.UNICODE), lambda match: "Ì"),
-        (re.compile("`\s*(<br.*?>)*\s*o", re.UNICODE), lambda match: "ò"),
-        (re.compile("`\s*(<br.*?>)*\s*O", re.UNICODE), lambda match: "Ò"),
-        (re.compile("`\s*(<br.*?>)*\s*u", re.UNICODE), lambda match: "ù"),
-        (re.compile("`\s*(<br.*?>)*\s*U", re.UNICODE), lambda match: "Ù"),
+        (re.compile(r"`\s*(<br.*?>)*\s*a", re.UNICODE), lambda match: "à"),
+        (re.compile(r"`\s*(<br.*?>)*\s*A", re.UNICODE), lambda match: "À"),
+        (re.compile(r"`\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "è"),
+        (re.compile(r"`\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "È"),
+        (re.compile(r"`\s*(<br.*?>)*\s*i", re.UNICODE), lambda match: "ì"),
+        (re.compile(r"`\s*(<br.*?>)*\s*I", re.UNICODE), lambda match: "Ì"),
+        (re.compile(r"`\s*(<br.*?>)*\s*o", re.UNICODE), lambda match: "ò"),
+        (re.compile(r"`\s*(<br.*?>)*\s*O", re.UNICODE), lambda match: "Ò"),
+        (re.compile(r"`\s*(<br.*?>)*\s*u", re.UNICODE), lambda match: "ù"),
+        (re.compile(r"`\s*(<br.*?>)*\s*U", re.UNICODE), lambda match: "Ù"),
         # ` with letter before
-        (re.compile("a\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "à"),
-        (re.compile("A\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "À"),
-        (re.compile("e\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "è"),
-        (re.compile("E\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "È"),
-        (re.compile("i\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "ì"),
-        (re.compile("I\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "Ì"),
-        (re.compile("o\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "ò"),
-        (re.compile("O\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "Ò"),
-        (re.compile("u\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "ù"),
-        (re.compile("U\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "Ù"),
+        (re.compile(r"a\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "à"),
+        (re.compile(r"A\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "À"),
+        (re.compile(r"e\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "è"),
+        (re.compile(r"E\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "È"),
+        (re.compile(r"i\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "ì"),
+        (re.compile(r"I\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "Ì"),
+        (re.compile(r"o\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "ò"),
+        (re.compile(r"O\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "Ò"),
+        (re.compile(r"u\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "ù"),
+        (re.compile(r"U\s*(<br.*?>)*\s*`", re.UNICODE), lambda match: "Ù"),
         # ´
-        (re.compile("´\s*(<br.*?>)*\s*a", re.UNICODE), lambda match: "á"),
-        (re.compile("´\s*(<br.*?>)*\s*A", re.UNICODE), lambda match: "Á"),
-        (re.compile("´\s*(<br.*?>)*\s*c", re.UNICODE), lambda match: "ć"),
-        (re.compile("´\s*(<br.*?>)*\s*C", re.UNICODE), lambda match: "Ć"),
-        (re.compile("´\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "é"),
-        (re.compile("´\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "É"),
-        (re.compile("´\s*(<br.*?>)*\s*i", re.UNICODE), lambda match: "í"),
-        (re.compile("´\s*(<br.*?>)*\s*I", re.UNICODE), lambda match: "Í"),
-        (re.compile("´\s*(<br.*?>)*\s*l", re.UNICODE), lambda match: "ĺ"),
-        (re.compile("´\s*(<br.*?>)*\s*L", re.UNICODE), lambda match: "Ĺ"),
-        (re.compile("´\s*(<br.*?>)*\s*o", re.UNICODE), lambda match: "ó"),
-        (re.compile("´\s*(<br.*?>)*\s*O", re.UNICODE), lambda match: "Ó"),
-        (re.compile("´\s*(<br.*?>)*\s*n", re.UNICODE), lambda match: "ń"),
-        (re.compile("´\s*(<br.*?>)*\s*N", re.UNICODE), lambda match: "Ń"),
-        (re.compile("´\s*(<br.*?>)*\s*r", re.UNICODE), lambda match: "ŕ"),
-        (re.compile("´\s*(<br.*?>)*\s*R", re.UNICODE), lambda match: "Ŕ"),
-        (re.compile("´\s*(<br.*?>)*\s*s", re.UNICODE), lambda match: "ś"),
-        (re.compile("´\s*(<br.*?>)*\s*S", re.UNICODE), lambda match: "Ś"),
-        (re.compile("´\s*(<br.*?>)*\s*u", re.UNICODE), lambda match: "ú"),
-        (re.compile("´\s*(<br.*?>)*\s*U", re.UNICODE), lambda match: "Ú"),
-        (re.compile("´\s*(<br.*?>)*\s*z", re.UNICODE), lambda match: "ź"),
-        (re.compile("´\s*(<br.*?>)*\s*Z", re.UNICODE), lambda match: "Ź"),
+        (re.compile(r"´\s*(<br.*?>)*\s*a", re.UNICODE), lambda match: "á"),
+        (re.compile(r"´\s*(<br.*?>)*\s*A", re.UNICODE), lambda match: "Á"),
+        (re.compile(r"´\s*(<br.*?>)*\s*c", re.UNICODE), lambda match: "ć"),
+        (re.compile(r"´\s*(<br.*?>)*\s*C", re.UNICODE), lambda match: "Ć"),
+        (re.compile(r"´\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "é"),
+        (re.compile(r"´\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "É"),
+        (re.compile(r"´\s*(<br.*?>)*\s*i", re.UNICODE), lambda match: "í"),
+        (re.compile(r"´\s*(<br.*?>)*\s*I", re.UNICODE), lambda match: "Í"),
+        (re.compile(r"´\s*(<br.*?>)*\s*l", re.UNICODE), lambda match: "ĺ"),
+        (re.compile(r"´\s*(<br.*?>)*\s*L", re.UNICODE), lambda match: "Ĺ"),
+        (re.compile(r"´\s*(<br.*?>)*\s*o", re.UNICODE), lambda match: "ó"),
+        (re.compile(r"´\s*(<br.*?>)*\s*O", re.UNICODE), lambda match: "Ó"),
+        (re.compile(r"´\s*(<br.*?>)*\s*n", re.UNICODE), lambda match: "ń"),
+        (re.compile(r"´\s*(<br.*?>)*\s*N", re.UNICODE), lambda match: "Ń"),
+        (re.compile(r"´\s*(<br.*?>)*\s*r", re.UNICODE), lambda match: "ŕ"),
+        (re.compile(r"´\s*(<br.*?>)*\s*R", re.UNICODE), lambda match: "Ŕ"),
+        (re.compile(r"´\s*(<br.*?>)*\s*s", re.UNICODE), lambda match: "ś"),
+        (re.compile(r"´\s*(<br.*?>)*\s*S", re.UNICODE), lambda match: "Ś"),
+        (re.compile(r"´\s*(<br.*?>)*\s*u", re.UNICODE), lambda match: "ú"),
+        (re.compile(r"´\s*(<br.*?>)*\s*U", re.UNICODE), lambda match: "Ú"),
+        (re.compile(r"´\s*(<br.*?>)*\s*z", re.UNICODE), lambda match: "ź"),
+        (re.compile(r"´\s*(<br.*?>)*\s*Z", re.UNICODE), lambda match: "Ź"),
         # ˆ
-        (re.compile("ˆ\s*(<br.*?>)*\s*a", re.UNICODE), lambda match: "â"),
-        (re.compile("ˆ\s*(<br.*?>)*\s*A", re.UNICODE), lambda match: "Â"),
-        (re.compile("ˆ\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "ê"),
-        (re.compile("ˆ\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "Ê"),
-        (re.compile("ˆ\s*(<br.*?>)*\s*i", re.UNICODE), lambda match: "î"),
-        (re.compile("ˆ\s*(<br.*?>)*\s*I", re.UNICODE), lambda match: "Î"),
-        (re.compile("ˆ\s*(<br.*?>)*\s*o", re.UNICODE), lambda match: "ô"),
-        (re.compile("ˆ\s*(<br.*?>)*\s*O", re.UNICODE), lambda match: "Ô"),
-        (re.compile("ˆ\s*(<br.*?>)*\s*u", re.UNICODE), lambda match: "û"),
-        (re.compile("ˆ\s*(<br.*?>)*\s*U", re.UNICODE), lambda match: "Û"),
+        (re.compile(r"ˆ\s*(<br.*?>)*\s*a", re.UNICODE), lambda match: "â"),
+        (re.compile(r"ˆ\s*(<br.*?>)*\s*A", re.UNICODE), lambda match: "Â"),
+        (re.compile(r"ˆ\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "ê"),
+        (re.compile(r"ˆ\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "Ê"),
+        (re.compile(r"ˆ\s*(<br.*?>)*\s*i", re.UNICODE), lambda match: "î"),
+        (re.compile(r"ˆ\s*(<br.*?>)*\s*I", re.UNICODE), lambda match: "Î"),
+        (re.compile(r"ˆ\s*(<br.*?>)*\s*o", re.UNICODE), lambda match: "ô"),
+        (re.compile(r"ˆ\s*(<br.*?>)*\s*O", re.UNICODE), lambda match: "Ô"),
+        (re.compile(r"ˆ\s*(<br.*?>)*\s*u", re.UNICODE), lambda match: "û"),
+        (re.compile(r"ˆ\s*(<br.*?>)*\s*U", re.UNICODE), lambda match: "Û"),
         # ¸
-        (re.compile("¸\s*(<br.*?>)*\s*c", re.UNICODE), lambda match: "ç"),
-        (re.compile("¸\s*(<br.*?>)*\s*C", re.UNICODE), lambda match: "Ç"),
+        (re.compile(r"¸\s*(<br.*?>)*\s*c", re.UNICODE), lambda match: "ç"),
+        (re.compile(r"¸\s*(<br.*?>)*\s*C", re.UNICODE), lambda match: "Ç"),
         # ˛
-        (re.compile("\s*˛\s*(<br.*?>)*\s*a", re.UNICODE), lambda match: "ą"),
-        (re.compile("\s*˛\s*(<br.*?>)*\s*A", re.UNICODE), lambda match: "Ą"),
-        (re.compile("˛\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "ę"),
-        (re.compile("˛\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "Ę"),
+        (re.compile(r"\s*˛\s*(<br.*?>)*\s*a", re.UNICODE), lambda match: "ą"),
+        (re.compile(r"\s*˛\s*(<br.*?>)*\s*A", re.UNICODE), lambda match: "Ą"),
+        (re.compile(r"˛\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "ę"),
+        (re.compile(r"˛\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "Ę"),
         # ˙
-        (re.compile("˙\s*(<br.*?>)*\s*z", re.UNICODE), lambda match: "ż"),
-        (re.compile("˙\s*(<br.*?>)*\s*Z", re.UNICODE), lambda match: "Ż"),
+        (re.compile(r"˙\s*(<br.*?>)*\s*z", re.UNICODE), lambda match: "ż"),
+        (re.compile(r"˙\s*(<br.*?>)*\s*Z", re.UNICODE), lambda match: "Ż"),
         # ˇ
-        (re.compile("ˇ\s*(<br.*?>)*\s*c", re.UNICODE), lambda match: "č"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*C", re.UNICODE), lambda match: "Č"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*d", re.UNICODE), lambda match: "ď"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*D", re.UNICODE), lambda match: "Ď"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "ě"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "Ě"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*l", re.UNICODE), lambda match: "ľ"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*L", re.UNICODE), lambda match: "Ľ"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*n", re.UNICODE), lambda match: "ň"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*N", re.UNICODE), lambda match: "Ň"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*r", re.UNICODE), lambda match: "ř"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*R", re.UNICODE), lambda match: "Ř"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*s", re.UNICODE), lambda match: "š"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*S", re.UNICODE), lambda match: "Š"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*t", re.UNICODE), lambda match: "ť"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*T", re.UNICODE), lambda match: "Ť"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*z", re.UNICODE), lambda match: "ž"),
-        (re.compile("ˇ\s*(<br.*?>)*\s*Z", re.UNICODE), lambda match: "Ž"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*c", re.UNICODE), lambda match: "č"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*C", re.UNICODE), lambda match: "Č"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*d", re.UNICODE), lambda match: "ď"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*D", re.UNICODE), lambda match: "Ď"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*e", re.UNICODE), lambda match: "ě"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*E", re.UNICODE), lambda match: "Ě"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*l", re.UNICODE), lambda match: "ľ"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*L", re.UNICODE), lambda match: "Ľ"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*n", re.UNICODE), lambda match: "ň"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*N", re.UNICODE), lambda match: "Ň"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*r", re.UNICODE), lambda match: "ř"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*R", re.UNICODE), lambda match: "Ř"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*s", re.UNICODE), lambda match: "š"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*S", re.UNICODE), lambda match: "Š"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*t", re.UNICODE), lambda match: "ť"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*T", re.UNICODE), lambda match: "Ť"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*z", re.UNICODE), lambda match: "ž"),
+        (re.compile(r"ˇ\s*(<br.*?>)*\s*Z", re.UNICODE), lambda match: "Ž"),
         # °
-        (re.compile("°\s*(<br.*?>)*\s*u", re.UNICODE), lambda match: "ů"),
-        (re.compile("°\s*(<br.*?>)*\s*U", re.UNICODE), lambda match: "Ů"),
+        (re.compile(r"°\s*(<br.*?>)*\s*u", re.UNICODE), lambda match: "ů"),
+        (re.compile(r"°\s*(<br.*?>)*\s*U", re.UNICODE), lambda match: "Ů"),
         # If pdf printed from a browser then the header/footer has a reliable pattern
         (
             re.compile(
@@ -519,7 +519,7 @@ class HTMLPreProcessor(object):
         ),
         # Center separator lines
         (
-            re.compile("<br>\s*(?P<break>([*#•✦=] *){3,})\s*<br>"),
+            re.compile(r"<br>\s*(?P<break>([*#•✦=] *){3,})\s*<br>"),
             lambda match: '<p>\n<p style="text-align:center">' + match.group("break") + "</p>",
         ),
         # Remove page links
@@ -533,7 +533,7 @@ class HTMLPreProcessor(object):
         (re.compile(r"<body[^>]*>\s*"), lambda match: "<body>\n<p>"),
         (re.compile(r"\s*</body>"), lambda match: "</p>\n</body>"),
         # Clean up spaces
-        (re.compile("(?<=[\.,;\?!”\"'])[\s^ ]*(?=<)"), lambda match: " "),
+        (re.compile(r"(?<=[\.,;\?!”\"'])[\s^ ]*(?=<)"), lambda match: " "),
         # Add space before and after italics
         (re.compile("(?<!“)<i>"), lambda match: " <i>"),
         (re.compile(r"</i>(?=\w)"), lambda match: "</i> "),
@@ -549,7 +549,7 @@ class HTMLPreProcessor(object):
         # Create header tags
         (
             re.compile(
-                "<h2[^><]*?id=BookTitle[^><]*?(align=)*(?(1)(\w+))*[^><]*?>[^><]*?</h2>",
+                r"<h2[^><]*?id=BookTitle[^><]*?(align=)*(?(1)(\w+))*[^><]*?>[^><]*?</h2>",
                 re.IGNORECASE,
             ),
             lambda match: '<h1 id="BookTitle" align="%s">%s</h1>'
@@ -557,7 +557,7 @@ class HTMLPreProcessor(object):
         ),
         (
             re.compile(
-                "<h2[^><]*?id=BookAuthor[^><]*?(align=)*(?(1)(\w+))*[^><]*?>[^><]*?</h2>",
+                r"<h2[^><]*?id=BookAuthor[^><]*?(align=)*(?(1)(\w+))*[^><]*?>[^><]*?</h2>",
                 re.IGNORECASE,
             ),
             lambda match: '<h2 id="BookAuthor" align="%s">%s</h2>'
@@ -660,11 +660,11 @@ class HTMLPreProcessor(object):
         # delete soft hyphens - moved here so it's executed after header/footer removal
         if is_pdftohtml:
             # unwrap/delete soft hyphens
-            end_rules.append((re.compile("[­](</p>\s*<p>\s*)+\s*(?=[[a-z\d])"), lambda match: ""))
+            end_rules.append((re.compile(r"[­](</p>\s*<p>\s*)+\s*(?=[a-z\d])"), lambda match: ""))
             # unwrap/delete soft hyphens with formatting
             end_rules.append(
                 (
-                    re.compile("[­]\s*(</(i|u|b)>)+(</p>\s*<p>\s*)+\s*(<(i|u|b)>)+\s*(?=[[a-z\d])"),
+                    re.compile(r"[­]\s*(</(i|u|b)>)+(</p>\s*<p>\s*)+\s*(<(i|u|b)>)+\s*(?=[a-z\d])"),
                     lambda match: "",
                 )
             )
@@ -678,7 +678,7 @@ class HTMLPreProcessor(object):
                 # unwrap em/en dashes
                 end_rules.append(
                     (
-                        re.compile("(?<=.{%i}[–—])\s*<p>\s*(?=[[a-z\d])" % length),
+                        re.compile(r"(?<=.{%i}[–—])\s*<p>\s*(?=[a-z\d])" % length),
                         lambda match: "",
                     )
                 )
@@ -686,9 +686,9 @@ class HTMLPreProcessor(object):
                     # Un wrap using punctuation
                     (
                         re.compile(
-                            "(?<=.{%i}([a-zäëïöüàèìòùáćéíĺóŕńśúýâêîôûçąężıãõñæøþðßěľščťžňďřů,:)\IA\u00DF]|"
-                            "(?<!\&\w{4});))\s*(?P<ital></(i|b|u)>)?\s*(</p>\s*<p>\s*)+\s*(?=(<(i|b|u)>)?"
-                            "\s*[\w\d$(])" % length,
+                            r"(?<=.{%i}([a-zäëïöüàèìòùáćéíĺóŕńśúýâêîôûçąężıãõñæøþðßěľščťžňďřů,:)IA\u00DF]|"
+                            r"(?<!&\w{4});))\s*(?P<ital></(i|b|u)>)?\s*(</p>\s*<p>\s*)+\s*(?=(<(i|b|u)>)?"
+                            r"\s*[\w\d$(])" % length,
                             re.UNICODE,
                         ),
                         wrap_lines,

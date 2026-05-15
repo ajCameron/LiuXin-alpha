@@ -6,6 +6,11 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [coverage-syntax-warning-cleanup-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/coverage-syntax-warning-cleanup-2026-05-15.md)
+  Coverage-runner and SyntaxWarning cleanup note: adds the dedicated coverage
+  wrapper, redirects coverage data out of the repo root, records the 17-file
+  warning cleanup, focused validation, and the remaining full coverage rerun.
+
 - [metadata-api-todo-followups-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-api-todo-followups-2026-05-15.md)
   Numbered list of the still-relevant TODOs in the metadata API/container slice
   after the relation-key/link/projection cleanup, so we can work down them in

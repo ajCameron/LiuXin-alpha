@@ -144,7 +144,7 @@ class Reader132(FormatReader):
         if self.header_record.footnote_count > 0:
             html += "<br /><h1>%s</h1>" % _("Footnotes")
             footnoteids = re.findall(
-                "\w+(?=\x00)",
+                r"\w+(?=\x00)",
                 self.section_data(self.header_record.footnote_offset).decode(
                     "cp1252" if self.encoding is None else self.encoding
                 ),
@@ -165,7 +165,7 @@ class Reader132(FormatReader):
         if self.header_record.sidebar_count > 0:
             html += "<br /><h1>%s</h1>" % _("Sidebar")
             sidebarids = re.findall(
-                "\w+(?=\x00)",
+                r"\w+(?=\x00)",
                 self.section_data(self.header_record.sidebar_offset).decode(
                     "cp1252" if self.encoding is None else self.encoding
                 ),
