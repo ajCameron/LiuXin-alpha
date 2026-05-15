@@ -25,7 +25,7 @@ RelationAPIT = TypeVar("RelationAPIT", bound="InlineSelfRelationAPI[MetadataTabl
 
 @runtime_checkable
 class InlineSelfRelationAPI(Protocol[RowAPIT]):
-    """Structural API for an inline parent/child edge in one table."""
+    """Structural API for an inline parent/child link in one table."""
 
     ROW_TYPE: ClassVar[type[MetadataTableRowAPI]]
     TABLE_NAME: ClassVar[str]
@@ -74,7 +74,7 @@ class InlineSelfRelationAPI(Protocol[RowAPIT]):
 
     def as_relation_payload(self) -> dict[str, MetadataRowValue]:
         """
-        Serialize this relation as a relation-edge payload.
+        Serialize this relation as a relation-link payload.
 
         :return:
         """
@@ -107,32 +107,32 @@ class SeriesTreeRelationAPI(InlineSelfRelationAPI[SeriesRowAPI], Protocol):
 
 @runtime_checkable
 class SelfRelationsContainerAPI(Protocol[RelationAPIT]):
-    """Structural API for a collection of same-table relation edges."""
+    """Structural API for a collection of same-table relation links."""
 
     def __iter__(self) -> Iterator[RelationAPIT]:
         """
-        Iterate over contained relation edges.
+        Iterate over contained relation links.
 
         :return:
         """
 
     def __len__(self) -> int:
         """
-        Number of contained relation edges.
+        Number of contained relation links.
 
         :return:
         """
 
     def relations(self) -> tuple[RelationAPIT, ...]:
         """
-        Return contained relation edges as an immutable tuple.
+        Return contained relation links as an immutable tuple.
 
         :return:
         """
 
     def add_relation(self, relation: RelationAPIT) -> None:
         """
-        Add one relation edge to this container.
+        Add one relation link to this container.
 
         :param relation:
         :return:
@@ -147,7 +147,7 @@ class SelfRelationsContainerAPI(Protocol[RelationAPIT]):
 
     def children_of(self, parent_id: int) -> tuple[RelationAPIT, ...]:
         """
-        Return relation edges whose parent id matches ``parent_id``.
+        Return relation links whose parent id matches ``parent_id``.
 
         :param parent_id:
         :return:
@@ -155,7 +155,7 @@ class SelfRelationsContainerAPI(Protocol[RelationAPIT]):
 
     def validate(self) -> None:
         """
-        Validate every relation edge in this container.
+        Validate every relation link in this container.
 
         :return:
         """

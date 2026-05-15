@@ -171,7 +171,7 @@ class SeriesTreeRelation(InlineSelfRelation[SeriesRow]):
 
 @dataclass(slots=True, kw_only=True)
 class SelfRelationsContainer(Generic[RelationT]):
-    """Small editable collection for same-table relation edges."""
+    """Small editable collection for same-table relation links."""
 
     _relations: list[RelationT] = field(default_factory=list)
 

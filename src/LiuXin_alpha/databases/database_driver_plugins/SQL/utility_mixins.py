@@ -408,7 +408,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 link_rows_header += "\n      `{0}_origin` TEXT NULL,"
                 decrement_requested_cols.remove("origin")
 
-            # `source` is a standard relation-edge provenance column on every generated link table.
+            # `source` is a standard relation-link provenance column on every generated link table.
             if "source" in decrement_requested_cols:
                 decrement_requested_cols.remove("source")
 
