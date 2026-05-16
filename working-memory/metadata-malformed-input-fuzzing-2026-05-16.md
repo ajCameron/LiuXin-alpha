@@ -44,3 +44,40 @@ python3 -m pytest \
 ```
 
 Result: `18 passed`.
+
+## First Fuzz Lane
+
+Added deterministic malformed/wrong-format payload tests for strict container
+readers:
+
+- EPUB
+- DOCX
+- ZIP
+
+Corpus:
+
+- empty bytes
+- tiny binary bytes
+- PNG header bytes
+- HTML document bytes
+- empty ZIP central-directory bytes
+
+The first checked-in lane asserts that strict container readers raise the
+dispatcher-level `RuntimeError` with an underlying format cause instead of
+returning conservative fallback metadata for arbitrary bytes. The survey pass
+also showed that several legacy/text-like readers still intentionally return
+fallback metadata for junk inputs; keep those as a later policy pass rather than
+flipping every reader at once.
+
+Focused validation:
+
+```bash
+python3 -m pytest \
+  tests/metadata/file_sources/test_malformed_input_fuzzing.py \
+  tests/metadata/file_sources/test_metadata_reader_registry.py \
+  tests/metadata/file_sources/test_dispatcher_modernized.py \
+  tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py::test_dispatcher_plugin_adapter_and_failure_edges \
+  -q
+```
+
+Result: `30 passed`.
