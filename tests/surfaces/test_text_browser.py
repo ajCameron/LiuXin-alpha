@@ -2913,6 +2913,7 @@ def test_text_browser_store_list_filters_and_sort(driver_spec, tmp_path: Path) -
         )
 
         shell = TextDatabaseBrowser(db, output=output)
+        shell.get_terminal_width = lambda: 240  # type: ignore[method-assign]
         assert shell.run_commands(
             [
                 "sync store {} --no-hash --no-refresh".format(managed_id),

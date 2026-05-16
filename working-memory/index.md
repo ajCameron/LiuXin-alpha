@@ -1,10 +1,33 @@
 # Working Memory Index
 
-Updated: 2026-05-15
+Updated: 2026-05-16
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [metadata-writer-coverage-plan-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-writer-coverage-plan-2026-05-16.md)
+  Next high-value lane after extractor coverage: metadata writer tests as
+  corruption-prevention checks, with round-trip readability, container
+  validity, payload preservation, hostile unicode/escaping, and clean failure
+  behavior. Durable doc: `docs/development/metadata-writer-coverage-contract.md`.
+
+- [metadata-ingest-source-coverage-plan-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-ingest-source-coverage-plan-2026-05-16.md)
+  Coverage plan for production-heavy metadata file-source ingest readers, with
+  a unicode/malformed-input testing strategy. The pass now covers the newer
+  ingest readers plus archive/text/ODT, dispatcher/worker, PDB sub-readers, and
+  older adapters; latest private-corpus validation is `457 passed`, `4 skipped`,
+  with `metadata.file_sources` coverage at 91%.
+
+- [data-artifacts-plan-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/data-artifacts-plan-2026-05-16.md)
+  Optional artifacts now use `scripts/build_artifacts.py`, track small fixtures
+  directly, and keep multi-GB ISFDB DB payloads manifest-only with deterministic
+  child build environment settings.
+
+- [metadata-coverage-lift-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-coverage-lift-2026-05-16.md)
+  Focused coverage lift for the recent metadata API/container work, including
+  the new WEMI projection/relation/lazy-value tests and 100% focused coverage
+  across the six metadata hydrator modules.
 
 - [coverage-syntax-warning-cleanup-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/coverage-syntax-warning-cleanup-2026-05-15.md)
   Coverage-runner and SyntaxWarning cleanup note: adds the dedicated coverage

@@ -57,6 +57,41 @@ def _opf_text_from_epub(epub_path: Path) -> str:
         return zf.read(opf_path).decode("utf-8", "replace")
 
 
+def _contains_forbidden_xml_char(text: str) -> bool:
+    for ch in text:
+        cp = ord(ch)
+        if cp == 0x7F:
+            return True
+        if cp in (0x9, 0xA, 0xD):
+            continue
+        if 0x20 <= cp <= 0xD7FF:
+            continue
+        if 0xE000 <= cp <= 0xFFFD:
+            continue
+        if 0x10000 <= cp <= 0x10FFFF:
+            continue
+        return True
+    return False
+
+
+def _opf_with_cover() -> bytes:
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">'
+        '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">'
+        "<dc:title>Original</dc:title>"
+        "<dc:creator>Original Author</dc:creator>"
+        '<meta name="cover" content="cover-image"/>'
+        "</metadata>"
+        "<manifest>"
+        '<item id="cover-image" href="images/cover.jpg" media-type="image/jpeg"/>'
+        '<item id="chapter" href="text/chapter.xhtml" media-type="application/xhtml+xml"/>'
+        "</manifest>"
+        '<spine><itemref idref="chapter"/></spine>'
+        "</package>"
+    ).encode("utf-8")
+
+
 def test_epub_metadata_module_import_smoke() -> None:
     import LiuXin_alpha.metadata.file_sources.epub as epub_md
 
@@ -322,6 +357,56 @@ def test_epub_unicode_torture_roundtrip_title_and_authors(tmp_path: Path, md_tes
     assert "出版社" in opf_text
     assert "Series" in opf_text
     assert "12.75" in opf_text
+
+
+def test_epub_set_metadata_preserves_zip_members_replaces_cover_and_sanitizes_xml(tmp_path: Path) -> None:
+    from LiuXin_alpha.metadata.file_sources.epub import get_metadata, set_metadata
+
+    target = tmp_path / "container_contract.epub"
+    with zipfile.ZipFile(target, "w") as zf:
+        zf.writestr("mimetype", "application/epub+zip")
+        zf.writestr("META-INF/container.xml", _container_xml(opf_path="OEBPS/content.opf"))
+        zf.writestr("OEBPS/content.opf", _opf_with_cover())
+        zf.writestr("OEBPS/text/chapter.xhtml", b"<html><body>chapter bytes</body></html>")
+        zf.writestr("OEBPS/images/cover.jpg", b"old-cover-bytes")
+        zf.writestr("OEBPS/styles/main.css", b"body { color: black; }")
+
+    with zipfile.ZipFile(target, "r") as zf:
+        preserved = {
+            "mimetype": zf.read("mimetype"),
+            "META-INF/container.xml": zf.read("META-INF/container.xml"),
+            "OEBPS/text/chapter.xhtml": zf.read("OEBPS/text/chapter.xhtml"),
+            "OEBPS/styles/main.css": zf.read("OEBPS/styles/main.css"),
+        }
+
+    title = "EPUB\x00Title\ud800 😀"
+    authors = ["Alice\x01 One", "Bob\udfff Two"]
+    updated = calibreMetaInformation(title, authors)
+    updated.tags = ["tag\x02one", "emoji 😀"]
+    updated.comments = "Comment\x03 with <xml> & emoji 😀"
+    updated.publisher = "Pub\x04lisher"
+    updated.cover_data = ("jpeg", b"new-cover-bytes")
+
+    set_metadata(target, updated)
+
+    with zipfile.ZipFile(target, "r") as zf:
+        assert zf.testzip() is None
+        for name, payload in preserved.items():
+            assert zf.read(name) == payload
+        assert zf.read("OEBPS/images/cover.jpg") == b"new-cover-bytes"
+        opf_raw = zf.read("OEBPS/content.opf")
+
+    opf_text = opf_raw.decode("utf-8")
+    assert not _contains_forbidden_xml_char(opf_text)
+    ET.fromstring(opf_raw)
+    assert "EPUBTitle" in opf_text
+    assert "Publisher" in opf_text
+
+    metadata = get_metadata(target, extract_cover=False, calibre_metadata=True)
+    assert metadata.title == "EPUBTitle 😀"
+    assert _values(metadata.authors) == ["Alice One", "Bob Two"]
+    assert updated.title == title
+    assert updated.authors == authors
 
 
 def test_epub_broken_encoding_in_opf_is_tolerated(tmp_path: Path) -> None:

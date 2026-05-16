@@ -5,6 +5,7 @@ Metadata read/write helpers for DOCX files.
 from __future__ import annotations
 
 import os
+from copy import deepcopy
 from io import BytesIO
 from typing import Any
 
@@ -12,6 +13,7 @@ from LiuXin_alpha.file_formats.docx.container import DOCX
 from LiuXin_alpha.file_formats.docx.writer.container import update_doc_props, xml2str
 from LiuXin_alpha.utils.image_tools.imghdr import identify
 from LiuXin_alpha.utils.libraries.calibre_zipfile import safe_replace
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.logging import default_log
 
@@ -22,6 +24,63 @@ __docformat__ = "restructuredtext en"
 
 def _is_path_like(target: Any) -> bool:
     return isinstance(target, (str, bytes, os.PathLike))
+
+
+def _clean_xml_text(value: Any) -> Any:
+    if value is None:
+        return value
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        value = bytes(value).decode("utf-8", "replace")
+    if isinstance(value, str):
+        return clean_xml_chars(value)
+    return value
+
+
+def _clean_xml_list(values: Any) -> list[Any]:
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    try:
+        iterable = list(values)
+    except Exception:
+        iterable = [values]
+
+    cleaned = []
+    for item in iterable:
+        clean_item = _clean_xml_text(item)
+        if isinstance(clean_item, str) and not clean_item.strip():
+            continue
+        if clean_item is not None:
+            cleaned.append(clean_item)
+    return cleaned
+
+
+def _sanitize_metadata_for_xml(mi: Any) -> Any:
+    safe_mi = None
+    for clone_method in ("deepcopy_metadata", "deepcopy"):
+        fn = getattr(mi, clone_method, None)
+        if callable(fn):
+            try:
+                safe_mi = fn()
+                break
+            except Exception:
+                safe_mi = None
+    if safe_mi is None:
+        try:
+            safe_mi = deepcopy(mi)
+        except Exception:
+            safe_mi = mi
+
+    for attr in ("title", "comments", "publisher"):
+        if hasattr(safe_mi, attr):
+            setattr(safe_mi, attr, _clean_xml_text(getattr(safe_mi, attr, None)))
+
+    for attr in ("authors", "tags", "languages"):
+        if hasattr(safe_mi, attr):
+            setattr(safe_mi, attr, _clean_xml_list(getattr(safe_mi, attr, None)))
+
+    return safe_mi
 
 
 def get_cover(docx: DOCX):
@@ -98,6 +157,7 @@ def get_metadata_from_stream(stream, extract_cover: bool = True):
 
 
 def _set_metadata_on_stream(stream, mi) -> None:
+    mi = _sanitize_metadata_for_xml(mi)
     container = DOCX(stream, extract=False)
     try:
         dp_name, ap_name = container.get_document_properties_names()

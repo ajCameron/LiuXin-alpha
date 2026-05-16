@@ -150,6 +150,37 @@ def test_topaz_set_metadata_roundtrip_unicode() -> None:
     assert _values(parsed.authors) == ["Alice", "Боб"]
 
 
+def test_topaz_set_metadata_sanitizes_hostile_text_and_preserves_payload() -> None:
+    from LiuXin_alpha.metadata.file_sources.topaz import get_metadata, set_metadata
+
+    stream = io.BytesIO(
+        _build_topaz_bytes(
+            title="Before",
+            authors="Old One; Old Two",
+            extra_fields={"bookLength": b"12345"},
+            trailing=b"TAIL",
+        )
+    )
+    title = "Topaz\x00Title\ud800 😀"
+    authors = ["Alice\x01 One", "Bob\udfff Two", "李白"]
+    mi = calibreMetaInformation(title, authors)
+
+    set_metadata(stream, mi)
+    out = stream.getvalue()
+
+    assert out.startswith(b"TPZ")
+    assert b"bookLength" in out
+    assert b"12345" in out
+    assert b"TAIL" in out
+
+    parsed = get_metadata(io.BytesIO(out))
+    assert parsed.title == "TopazTitle 😀"
+    assert _values(parsed.authors) == ["Alice One", "Bob Two", "李白"]
+
+    assert mi.title == title
+    assert mi.authors == authors
+
+
 def test_topaz_set_metadata_invalid_payload_raises_clean_error() -> None:
     import pytest
 

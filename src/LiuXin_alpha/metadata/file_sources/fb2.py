@@ -25,6 +25,7 @@ from LiuXin_alpha.metadata.utils import check_isbn
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.mine_types import guess_all_extensions, guess_type
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.libraries.calibre_zipfile import BadZipfile, ZipFile, safe_replace
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
@@ -117,7 +118,7 @@ def _iter_descendants_local(root, local_name: str):
 def _normalize_text(raw: Any) -> str:
     if raw is None:
         return ""
-    text = str(raw)
+    text = clean_xml_chars(str(raw))
     return " ".join(text.split()).strip()
 
 
@@ -401,7 +402,7 @@ class Context:
                         parent.remove(child)
 
     def text2fb2(self, parent, text: str):
-        for line in str(text or "").splitlines():
+        for line in clean_xml_chars(str(text or "")).splitlines():
             clean = line.strip()
             if clean:
                 p = self.create_tag(parent, "p", at_start=False)

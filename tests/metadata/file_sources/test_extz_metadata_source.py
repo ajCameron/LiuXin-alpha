@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import zipfile
+import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -30,6 +31,23 @@ def _cover_tuple(raw):
         if isinstance(first, tuple) and len(first) == 2:
             return first
     return None
+
+
+def _contains_forbidden_xml_char(text: str) -> bool:
+    for ch in text:
+        cp = ord(ch)
+        if cp == 0x7F:
+            return True
+        if cp in (0x9, 0xA, 0xD):
+            continue
+        if 0x20 <= cp <= 0xD7FF:
+            continue
+        if 0xE000 <= cp <= 0xFFFD:
+            continue
+        if 0x10000 <= cp <= 0x10FFFF:
+            continue
+        return True
+    return False
 
 
 def _container_xml(opf_path: str) -> str:
@@ -405,6 +423,56 @@ def test_extz_unicode_torture_roundtrip(tmp_path: Path) -> None:
     assert "出版社" in opf_text
     assert "tag😀" in opf_text
     assert "combining-e" in opf_text
+
+
+def test_extz_set_metadata_preserves_members_replaces_cover_and_sanitizes_xml(tmp_path: Path) -> None:
+    from LiuXin_alpha.metadata.file_sources.extz import get_metadata, set_metadata
+
+    archive = tmp_path / "container_contract.txtz"
+    _build_extz_archive(
+        archive,
+        {
+            "metadata.opf": _opf_template(title="Original", authors=("Original Author",), include_cover=True),
+            "index.txt": b"original body bytes",
+            "notes/readme.txt": b"readme bytes",
+            "cover.jpg": b"old-cover-bytes",
+        },
+    )
+
+    with zipfile.ZipFile(archive, "r") as zf:
+        preserved = {
+            "index.txt": zf.read("index.txt"),
+            "notes/readme.txt": zf.read("notes/readme.txt"),
+        }
+
+    title = "EXTZ\x00Title\ud800 😀"
+    authors = ["Alice\x01 One", "Bob\udfff Two"]
+    updated = calibreMetaInformation(title, authors)
+    updated.tags = ["tag\x02one", "emoji 😀"]
+    updated.comments = "Comment\x03 with <xml> & emoji 😀"
+    updated.publisher = "Pub\x04lisher"
+    updated.cover_data = ("jpeg", b"new-cover-bytes")
+
+    set_metadata(archive, updated)
+
+    with zipfile.ZipFile(archive, "r") as zf:
+        assert zf.testzip() is None
+        for name, payload in preserved.items():
+            assert zf.read(name) == payload
+        assert zf.read("cover.jpg") == b"new-cover-bytes"
+        opf_raw = zf.read("metadata.opf")
+
+    opf_text = opf_raw.decode("utf-8")
+    assert not _contains_forbidden_xml_char(opf_text)
+    ET.fromstring(opf_raw)
+    assert "EXTZTitle" in opf_text
+    assert "Publisher" in opf_text
+
+    metadata = get_metadata(archive, extract_cover=False)
+    assert metadata.title == "EXTZTitle 😀"
+    assert _values(metadata.authors) == ["Alice One", "Bob Two"]
+    assert updated.title == title
+    assert updated.authors == authors
 
 
 def test_extz_broken_encoding_in_opf_is_tolerated(tmp_path: Path) -> None:

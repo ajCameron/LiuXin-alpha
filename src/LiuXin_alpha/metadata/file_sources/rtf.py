@@ -15,6 +15,7 @@ from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.utils.calibre import force_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -150,7 +151,24 @@ def encode(unistr):
     """
     if not isinstance(unistr, str):
         unistr = force_unicode(unistr)
-    return "".join(c if ord(c) < 128 else f"\\u{ord(c)}?" for c in unistr)
+    unistr = clean_xml_chars(unistr)
+    encoded = []
+    for char in unistr:
+        codepoint = ord(char)
+        if char in "\\{}":
+            encoded.append("\\" + char)
+        elif codepoint < 128:
+            encoded.append(char)
+        elif codepoint <= 0xFFFF:
+            signed = codepoint - 0x10000 if codepoint >= 0x8000 else codepoint
+            encoded.append(f"\\u{signed}?")
+        else:
+            utf16 = char.encode("utf-16-be")
+            for idx in range(0, len(utf16), 2):
+                unit = int.from_bytes(utf16[idx : idx + 2], "big")
+                signed = unit - 0x10000 if unit >= 0x8000 else unit
+                encoded.append(f"\\u{signed}?")
+    return "".join(encoded)
 
 
 def decode(raw, codec):
@@ -181,8 +199,10 @@ def decode(raw, codec):
         except Exception:
             return "?"
 
-    text = re.sub(r"\\u(-?\d{1,5}).", uni, text)
-    return _normalize_text(text)
+    text = re.sub(r"\\u(-?\d{1,6}).", uni, text)
+    text = re.sub(r"\\([\\{}])", r"\1", text)
+    text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+    return _normalize_text(clean_xml_chars(text))
 
 
 def _set_authors(mi, raw_author: str) -> None:
@@ -377,7 +397,8 @@ def set_metadata(stream, options):
     def replace_or_create(src: str, name: str, val: str) -> str:
         val = encode(val)
         pat = re.compile(base_pat.replace("name", name), re.DOTALL)
-        src, num = pat.subn(r"{\\" + name.replace("\\", r"\\") + " " + val.replace("\\", r"\\") + "}", src)
+        replacement = "{\\" + name + " " + val + "}"
+        src, num = pat.subn(lambda _match: replacement, src)
         if num == 0:
             src = add_metadata_item(src, name, val)
         return src

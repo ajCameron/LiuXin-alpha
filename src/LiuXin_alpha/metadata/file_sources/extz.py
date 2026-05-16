@@ -10,6 +10,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from LiuXin_alpha.file_formats.opf.opf import _sanitize_metadata_for_xml
 from LiuXin_alpha.file_formats.opf.opf2 import OPF
 from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
 from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata as OPFCalibreMetadata
@@ -264,7 +265,7 @@ def set_metadata(stream_or_path, mi):
             opf_path = get_first_opf_name(zf)
             opf = OPF(BytesIO(zf.read(opf_path)))
 
-        md = _as_opf_calibre_metadata(mi)
+        md = _sanitize_metadata_for_xml(_as_opf_calibre_metadata(mi))
 
         cover_data = None
         try:
