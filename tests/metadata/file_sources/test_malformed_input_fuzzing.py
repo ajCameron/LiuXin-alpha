@@ -54,6 +54,14 @@ STRICT_CONTAINER_CASES = [
     ("zip", "ZipMetadataReader", "png_header"),
     ("zip", "ZipMetadataReader", "html_document"),
     ("zip", "ZipMetadataReader", "empty_zip"),
+    ("htmlz", "HTMLZMetadataReader", "empty"),
+    ("htmlz", "HTMLZMetadataReader", "tiny_binary"),
+    ("htmlz", "HTMLZMetadataReader", "html_document"),
+    ("htmlz", "HTMLZMetadataReader", "empty_zip"),
+    ("txtz", "TXTZMetadataReader", "empty"),
+    ("txtz", "TXTZMetadataReader", "tiny_binary"),
+    ("txtz", "TXTZMetadataReader", "html_document"),
+    ("txtz", "TXTZMetadataReader", "empty_zip"),
 ]
 
 
@@ -123,10 +131,16 @@ def test_registry_lists_strict_container_readers_for_fuzzing() -> None:
 
     reader_names = {
         entry.name
-        for extension in ("epub", "docx", "zip")
+        for extension in ("epub", "docx", "zip", "htmlz", "txtz")
         for entry in registry.iter_metadata_reader_entries_for_extension(extension)
     }
-    assert {"EPUBMetadataReader", "DocXMetadataReader", "ZipMetadataReader"} <= reader_names
+    assert {
+        "EPUBMetadataReader",
+        "DocXMetadataReader",
+        "ZipMetadataReader",
+        "HTMLZMetadataReader",
+        "TXTZMetadataReader",
+    } <= reader_names
 
 
 def test_registry_lists_strict_xml_readers_for_fuzzing() -> None:

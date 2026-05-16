@@ -112,3 +112,33 @@ python3 -m pytest \
 ```
 
 Result: `64 passed`.
+
+## Archive Text Fuzz Lane
+
+Tightened archive-backed text metadata readers without breaking legitimate
+legacy HTMLZ/TXTZ fallback behavior:
+
+- EXTZ/HTMLZ now reject broken ZIP payloads and empty/non-credible archives by
+  default.
+- HTMLZ archives with credible HTML/manifest content but no OPF remain readable
+  as shell metadata.
+- TXTZ preserves its embedded `.txt` fallback when OPF metadata is missing.
+- TXTZ invalid archives now raise by default, with an explicit fallback opt-in
+  for future best-effort routing.
+
+Added dispatcher-level malformed cases for HTMLZ and TXTZ using empty bytes,
+tiny binary bytes, HTML bytes, and an empty ZIP archive.
+
+Focused validation:
+
+```bash
+python3 -m pytest \
+  tests/metadata/file_sources/test_malformed_input_fuzzing.py \
+  tests/metadata/file_sources/test_extz_metadata_source.py \
+  tests/metadata/file_sources/test_txtz_metadata_source.py \
+  tests/metadata/file_sources/test_text_odt_edge_cases.py \
+  tests/metadata/file_sources/test_archive_container_edge_cases.py \
+  -q
+```
+
+Result: `73 passed`.

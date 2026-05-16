@@ -66,3 +66,17 @@ shape after parsing:
 
 Wrong-format but parseable XML, such as HTML passed to OPF/FB2 or OPF passed to
 FB2, should raise a format-level error through the individual reader.
+
+## Archive Text Readers
+
+Archive-backed text readers should distinguish malformed containers from valid
+containers with sparse metadata:
+
+- invalid ZIP bytes and empty/non-credible archives should raise
+- HTMLZ archives with credible HTML/manifest content may return shell metadata
+  when no OPF metadata is present
+- TXTZ archives may fall back to embedded `.txt` content when no OPF metadata
+  is present
+
+This keeps legitimate legacy HTMLZ/TXTZ fixtures readable while still rejecting
+arbitrary bytes and empty ZIP files.
