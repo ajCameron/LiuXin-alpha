@@ -183,7 +183,7 @@ def test_mobi_helpers_for_images_sizes_covers_and_get_metadata_edges(monkeypatch
     assert mobi.get_metadata(restore_broken) is expected
 
 
-def test_mobi_topaz_failure_paths_return_safe_metadata(monkeypatch) -> None:
+def test_mobi_topaz_failure_paths_raise_by_default_and_can_opt_into_fallback(monkeypatch) -> None:
     events = []
     monkeypatch.setattr(mobi.default_log, "log_exception", lambda *args, **_kwargs: events.append(args))
 
@@ -195,7 +195,14 @@ def test_mobi_topaz_failure_paths_return_safe_metadata(monkeypatch) -> None:
     fake_topaz.get_metadata = explode_topaz
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.metadata.file_sources.topaz", fake_topaz)
 
-    md = mobi.read_metadata_from_stream(io.BytesIO(b"TPZ malformed"), source_name="topaz-case.tpz")
+    with pytest.raises(MobiError):
+        mobi.read_metadata_from_stream(io.BytesIO(b"TPZ malformed"), source_name="topaz-case.tpz")
+
+    md = mobi.read_metadata_from_stream(
+        io.BytesIO(b"TPZ malformed"),
+        source_name="topaz-case.tpz",
+        fallback_on_parse_error=True,
+    )
     assert md.title == "topaz-case"
     assert _values(md.authors) == ["Unknown"]
     assert any("embedded Topaz" in str(event[0]) for event in events)

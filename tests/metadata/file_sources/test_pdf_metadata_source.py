@@ -204,10 +204,13 @@ def test_pdf_get_metadata_inplace_pathlike(tmp_path: Path) -> None:
     assert _values(md.authors) == ["Path Author"]
 
 
-def test_pdf_invalid_payload_returns_safe_default() -> None:
-    from LiuXin_alpha.metadata.file_sources.pdf import get_metadata
+def test_pdf_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.pdf import PdfParseError, get_metadata
 
-    md = get_metadata(io.BytesIO(b"this is not a pdf"))
+    with pytest.raises(PdfParseError):
+        get_metadata(io.BytesIO(b"this is not a pdf"))
+
+    md = get_metadata(io.BytesIO(b"this is not a pdf"), fallback_on_parse_error=True)
     assert md.title == "Unknown"
     assert _values(md.authors) == ["Unknown Author"]
 

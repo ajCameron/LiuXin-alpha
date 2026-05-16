@@ -41,6 +41,10 @@ MWRITER = {
 }
 
 
+class PdbFormatError(Exception):
+    pass
+
+
 def _is_path_like(stream_or_path) -> bool:
     return isinstance(stream_or_path, (str, bytes, os.PathLike))
 
@@ -90,7 +94,7 @@ def _normalize_title_bytes(title: object) -> bytes:
     return text.encode("ascii", "replace")[:31].ljust(31, b"\x00") + b"\x00"
 
 
-def get_metadata(stream_or_path, extract_cover: bool = True):
+def get_metadata(stream_or_path, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
     Return metadata for a PDB stream/path.
 
@@ -107,6 +111,8 @@ def get_metadata(stream_or_path, extract_cover: bool = True):
                 err,
                 "WARNING",
             )
+            if not fallback_on_parse_error:
+                raise PdbFormatError("Unable to parse PDB header.") from err
             return _fallback_metadata(_source_title_hint(stream_or_path))
 
         reader = MREADER.get(pheader.ident)

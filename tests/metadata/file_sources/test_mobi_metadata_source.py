@@ -37,6 +37,7 @@ def test_mobi_metadata_module_import_smoke() -> None:
 
 def test_mobi_reader_plugin_is_available_and_preserves_stream_position() -> None:
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.file_formats.mobi import MobiError
 
     plugins = get_metadata_reader_plugins()
     mobi_cls = next((p for p in plugins if p.__name__ == "MOBIMetadataReader"), None)
@@ -45,10 +46,9 @@ def test_mobi_reader_plugin_is_available_and_preserves_stream_position() -> None
     stream = io.BytesIO(b"not-a-mobi")
     stream.seek(3)
     reader = mobi_cls(None)
-    md = reader.get_metadata(stream=stream, ftype="mobi")
 
-    assert md.title == "Unknown"
-    assert _values(md.authors) == ["Unknown"]
+    with pytest.raises(MobiError):
+        reader.get_metadata(stream=stream, ftype="mobi")
     assert stream.tell() == 3
 
 
@@ -118,13 +118,17 @@ def test_mobi_get_metadata_dispatches_topaz_when_available(monkeypatch) -> None:
     assert _values(md.authors) == ["Topaz Author"]
 
 
-def test_mobi_get_metadata_invalid_stream_returns_safe_default_and_filename(tmp_path: Path) -> None:
+def test_mobi_get_metadata_invalid_stream_raises_by_default_and_can_opt_into_fallback(tmp_path: Path) -> None:
+    from LiuXin_alpha.file_formats.mobi import MobiError
     from LiuXin_alpha.metadata.file_sources.mobi import get_metadata
 
     path = tmp_path / "broken_case.mobi"
     path.write_bytes(b"this is not a mobi file")
 
-    md = get_metadata(path)
+    with pytest.raises(MobiError):
+        get_metadata(path)
+
+    md = get_metadata(path, fallback_on_parse_error=True)
     assert md.title == "broken_case"
     assert _values(md.authors) == ["Unknown"]
 
@@ -135,7 +139,7 @@ def test_mobi_get_metadata_inplace_pathlike_reads_without_cover(tmp_path: Path) 
     path = tmp_path / "broken_case_2.mobi"
     path.write_bytes(b"still not a mobi file")
 
-    md = get_metadata_inplace(path)
+    md = get_metadata_inplace(path, fallback_on_parse_error=True)
     assert md.title == "broken_case_2"
     assert _values(md.authors) == ["Unknown"]
 
@@ -146,7 +150,7 @@ def test_mobi_get_metadata_unicode_filename_fallback_title(tmp_path: Path) -> No
     path = tmp_path / "主題🙂_δοκιμή_اختبار.mobi"
     path.write_bytes(b"invalid mobi payload")
 
-    md = get_metadata(path, extract_cover=False)
+    md = get_metadata(path, extract_cover=False, fallback_on_parse_error=True)
     assert md.title == "主題🙂_δοκιμή_اختبار"
     assert _values(md.authors) == ["Unknown"]
 

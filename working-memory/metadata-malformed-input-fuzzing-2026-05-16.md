@@ -142,3 +142,41 @@ python3 -m pytest \
 ```
 
 Result: `73 passed`.
+
+## Binary Metadata Fuzz Lane
+
+Surveyed PDF, MOBI, and PDB dispatcher behavior with deterministic malformed
+payloads. Before tightening, all three returned shell metadata for arbitrary
+wrong-format bytes.
+
+Tightened defaults:
+
+- PDF now requires a `%PDF-` header in the first 1024 bytes and at least one
+  parseable PDF object.
+- MOBI-family readers now raise on unreadable MOBI headers by default.
+- PDB now raises when the wrapper header cannot be parsed.
+- PDB still returns header-only metadata for parseable but unsupported PDB
+  idents; that is a valid-container fallback.
+
+Explicit fallback flags remain available for a future best-effort metadata
+facade.
+
+Added dispatcher-level malformed cases for PDF, MOBI, and PDB using empty
+bytes, tiny binary bytes, PNG bytes, HTML bytes, empty ZIP bytes, header-only
+PDF bytes, and MOBI-marker impostor bytes where relevant.
+
+Focused validation:
+
+```bash
+python3 -m pytest \
+  tests/metadata/file_sources/test_malformed_input_fuzzing.py \
+  tests/metadata/file_sources/test_pdf_metadata_source.py \
+  tests/metadata/file_sources/test_pdf_edge_cases.py \
+  tests/metadata/file_sources/test_mobi_metadata_source.py \
+  tests/metadata/file_sources/test_mobi_edge_cases.py \
+  tests/metadata/file_sources/test_pdb_metadata_source.py \
+  tests/metadata/file_sources/test_pdb_subreader_edge_cases.py \
+  -q
+```
+
+Result: `118 passed`.

@@ -80,3 +80,17 @@ containers with sparse metadata:
 
 This keeps legitimate legacy HTMLZ/TXTZ fixtures readable while still rejecting
 arbitrary bytes and empty ZIP files.
+
+## Binary Metadata Readers
+
+Binary readers should reject arbitrary bytes before manufacturing filename-based
+metadata:
+
+- PDF requires a PDF header and parseable PDF objects by default.
+- MOBI-family readers raise on unreadable MOBI headers by default.
+- PDB raises when the wrapper header itself cannot be parsed by default.
+
+PDB still returns header-only metadata for parseable but unsupported PDB
+variants. That is a valid-container fallback, not a wrong-format fallback.
+Explicit fallback flags are reserved for future best-effort routing APIs that
+choose to keep shell metadata for broken files.

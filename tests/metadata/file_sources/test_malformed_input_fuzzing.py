@@ -21,6 +21,8 @@ MALFORMED_PAYLOADS = {
         b"<html><head><title>Wrong format</title></head><body></body></html>",
     ),
     "empty_zip": MalformedPayload("empty_zip", b"PK\x05\x06" + b"\x00" * 18),
+    "pdf_header_only": MalformedPayload("pdf_header_only", b"%PDF-1.4\n"),
+    "mobi_marker_only": MalformedPayload("mobi_marker_only", b"BOOKMOBI payload"),
     "opf_package": MalformedPayload(
         "opf_package",
         b"""<?xml version="1.0" encoding="utf-8"?>
@@ -81,6 +83,30 @@ STRICT_XML_CASES = [
 ]
 
 
+STRICT_BINARY_CASES = [
+    ("pdf", "PDFMetadataReader", "empty"),
+    ("pdf", "PDFMetadataReader", "tiny_binary"),
+    ("pdf", "PDFMetadataReader", "png_header"),
+    ("pdf", "PDFMetadataReader", "html_document"),
+    ("pdf", "PDFMetadataReader", "empty_zip"),
+    ("pdf", "PDFMetadataReader", "pdf_header_only"),
+    ("mobi", "MOBIMetadataReader", "empty"),
+    ("mobi", "MOBIMetadataReader", "tiny_binary"),
+    ("mobi", "MOBIMetadataReader", "png_header"),
+    ("mobi", "MOBIMetadataReader", "html_document"),
+    ("mobi", "MOBIMetadataReader", "empty_zip"),
+    ("mobi", "MOBIMetadataReader", "pdf_header_only"),
+    ("mobi", "MOBIMetadataReader", "mobi_marker_only"),
+    ("pdb", "PDBMetadataReader", "empty"),
+    ("pdb", "PDBMetadataReader", "tiny_binary"),
+    ("pdb", "PDBMetadataReader", "png_header"),
+    ("pdb", "PDBMetadataReader", "html_document"),
+    ("pdb", "PDBMetadataReader", "empty_zip"),
+    ("pdb", "PDBMetadataReader", "pdf_header_only"),
+    ("pdb", "PDBMetadataReader", "mobi_marker_only"),
+]
+
+
 def _stream_for(extension: str, payload: MalformedPayload) -> io.BytesIO:
     stream = io.BytesIO(payload.data)
     stream.name = f"{payload.name}.{extension}"
@@ -126,6 +152,24 @@ def test_strict_xml_extractors_reject_wrong_format_payloads(
     assert exc_info.value.__cause__ is not None
 
 
+@pytest.mark.parametrize(("extension", "reader_name", "payload_name"), STRICT_BINARY_CASES)
+def test_strict_binary_extractors_reject_wrong_format_payloads(
+    extension: str,
+    reader_name: str,
+    payload_name: str,
+) -> None:
+    """
+    Binary readers should reject arbitrary bytes and header-only impostors.
+    """
+    from LiuXin_alpha.metadata.file_sources import get_metadata
+
+    payload = MALFORMED_PAYLOADS[payload_name]
+    with pytest.raises(RuntimeError, match=f"extension '{extension}'.*{reader_name}") as exc_info:
+        get_metadata(_stream_for(extension, payload), force_type=extension)
+
+    assert exc_info.value.__cause__ is not None
+
+
 def test_registry_lists_strict_container_readers_for_fuzzing() -> None:
     from LiuXin_alpha.metadata.file_sources import registry
 
@@ -152,3 +196,14 @@ def test_registry_lists_strict_xml_readers_for_fuzzing() -> None:
         for entry in registry.iter_metadata_reader_entries_for_extension(extension)
     }
     assert {"OPFMetadataReader", "FB2MetadataReader"} <= reader_names
+
+
+def test_registry_lists_strict_binary_readers_for_fuzzing() -> None:
+    from LiuXin_alpha.metadata.file_sources import registry
+
+    reader_names = {
+        entry.name
+        for extension in ("pdf", "mobi", "pdb")
+        for entry in registry.iter_metadata_reader_entries_for_extension(extension)
+    }
+    assert {"PDFMetadataReader", "MOBIMetadataReader", "PDBMetadataReader"} <= reader_names
