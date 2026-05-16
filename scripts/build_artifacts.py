@@ -39,6 +39,21 @@ DETERMINISM_NOTES = (
 )
 
 
+def _log(message: str) -> None:
+    print(f"[artifacts] {message}", file=sys.stderr, flush=True)
+
+
+def _format_bytes(size: int) -> str:
+    value = float(size)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if value < 1024.0 or unit == "TiB":
+            if unit == "B":
+                return f"{int(value)} {unit}"
+            return f"{value:.1f} {unit}"
+        value /= 1024.0
+    return f"{size} B"
+
+
 @dataclass(frozen=True)
 class ArtifactSpec:
     name: str
@@ -87,9 +102,11 @@ ARTIFACTS: dict[str, ArtifactSpec] = {
 def _resolve_data_root(explicit: Optional[str]) -> Path:
     candidates: list[Path] = []
     if explicit:
+        _log(f"data root requested explicitly: {explicit}")
         candidates.append(Path(explicit).expanduser())
     env = os.environ.get("LIUXIN_ALPHA_DATA_DIR")
     if env:
+        _log(f"data root candidate from LIUXIN_ALPHA_DATA_DIR: {env}")
         candidates.append(Path(env).expanduser())
     candidates.extend(
         [
@@ -101,12 +118,17 @@ def _resolve_data_root(explicit: Optional[str]) -> Path:
 
     for candidate in candidates:
         path = candidate if candidate.is_absolute() else (REPO_ROOT / candidate)
+        _log(f"checking data root candidate: {path}")
         if path.exists():
-            return path.resolve()
+            resolved = path.resolve()
+            _log(f"using data root: {resolved}")
+            return resolved
 
     fallback = REPO_ROOT / "LiuXin_alpha_data"
     fallback.mkdir(parents=True, exist_ok=True)
-    return fallback.resolve()
+    resolved = fallback.resolve()
+    _log(f"created fallback data root: {resolved}")
+    return resolved
 
 
 def _resolve_manifest_path(data_root: Path, explicit: Optional[str]) -> Path:
@@ -114,8 +136,11 @@ def _resolve_manifest_path(data_root: Path, explicit: Optional[str]) -> Path:
         path = Path(explicit).expanduser()
         if not path.is_absolute():
             path = (REPO_ROOT / path).resolve()
+        _log(f"using explicit manifest path: {path}")
         return path
-    return data_root / DEFAULT_MANIFEST_NAME
+    path = data_root / DEFAULT_MANIFEST_NAME
+    _log(f"using default manifest path: {path}")
+    return path
 
 
 def _dump_zip_candidates(explicit: Optional[str]) -> list[Path]:
@@ -142,7 +167,9 @@ def _dump_zip_candidates(explicit: Optional[str]) -> list[Path]:
 def _resolve_dump_zip(explicit: Optional[str], *, required: bool) -> Optional[Path]:
     candidates = _dump_zip_candidates(explicit)
     for candidate in candidates:
+        _log(f"checking ISFDB dump zip candidate: {candidate}")
         if candidate.is_file():
+            _log(f"using ISFDB dump zip: {candidate}")
             return candidate
     if required:
         tried = "\n".join(f"  - {candidate}" for candidate in candidates)
@@ -150,6 +177,7 @@ def _resolve_dump_zip(explicit: Optional[str], *, required: bool) -> Optional[Pa
             "Could not locate ISFDB dump zip. Pass --dump-zip or set LIUXIN_ISFDB_DUMP_ZIP.\n"
             f"Tried:\n{tried}"
         )
+    _log("no ISFDB dump zip found; continuing because it is optional for this command")
     return None
 
 
@@ -159,7 +187,17 @@ def _selected_specs(artifact: str, *, build_only: bool = False) -> list[Artifact
     else:
         values = [ARTIFACTS[artifact]]
     if build_only:
-        return [spec for spec in values if spec.buildable]
+        requested = values
+        values = [spec for spec in values if spec.buildable]
+        if not values and artifact != "all":
+            spec = requested[0]
+            reason = spec.legacy_manifest_only_reason or "artifact is manifest-only"
+            raise SystemExit(f"{spec.name} is not buildable: {reason}")
+    _log(
+        "selected artifacts: "
+        + ", ".join(spec.name for spec in values)
+        + (" (buildable only)" if build_only else "")
+    )
     return values
 
 
@@ -172,7 +210,9 @@ def _child_env(data_root: Path) -> dict[str, str]:
 
 
 def _run(command: Sequence[str], *, data_root: Path) -> None:
-    print("$ " + " ".join(command), file=sys.stderr, flush=True)
+    _log(f"deterministic child env: {DETERMINISTIC_CHILD_ENV}")
+    _log(f"child data root: {data_root}")
+    _log("$ " + " ".join(command))
     subprocess.run(
         list(command),
         cwd=str(REPO_ROOT),
@@ -192,6 +232,10 @@ def build_artifact(
     if not spec.buildable:
         raise SystemExit(f"{spec.name} is manifest-only: {spec.legacy_manifest_only_reason}")
 
+    output_path = data_root / spec.relative_path
+    _log(f"building artifact {spec.name}: {spec.description}")
+    _log(f"expected output path: {output_path}")
+
     if spec.name == "benchmark-smoke":
         command = [
             sys.executable,
@@ -204,6 +248,7 @@ def build_artifact(
         if regenerate:
             command.append("--regenerate")
         _run(command, data_root=data_root)
+        _log(f"finished build for {spec.name}")
         return
 
     if spec.name == "isfdb-current":
@@ -222,6 +267,7 @@ def build_artifact(
         if force:
             command.append("--force")
         _run(command, data_root=data_root)
+        _log(f"finished build for {spec.name}")
         return
 
     raise AssertionError(f"Unhandled buildable artifact: {spec.name}")
@@ -232,6 +278,7 @@ def _sha256_file(path: Path) -> str:
     size = path.stat().st_size
     processed = 0
     next_report = 1024 * 1024 * 1024
+    _log(f"hashing {path} ({_format_bytes(size)})")
     with path.open("rb") as handle:
         while True:
             chunk = handle.read(1024 * 1024)
@@ -240,16 +287,15 @@ def _sha256_file(path: Path) -> str:
             digest.update(chunk)
             processed += len(chunk)
             if size >= next_report and processed >= next_report:
-                print(
-                    f"hashed {processed / (1024 ** 3):.1f} GiB / {size / (1024 ** 3):.1f} GiB: {path}",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                _log(f"hashed {processed / (1024 ** 3):.1f} GiB / {size / (1024 ** 3):.1f} GiB: {path}")
                 next_report += 1024 * 1024 * 1024
-    return digest.hexdigest()
+    hexdigest = digest.hexdigest()
+    _log(f"hash complete {path}: {hexdigest}")
+    return hexdigest
 
 
 def _file_payload(path: Path) -> dict[str, object]:
+    _log(f"collecting file payload: {path}")
     return {
         "size_bytes": path.stat().st_size,
         "sha256": _sha256_file(path),
@@ -257,6 +303,7 @@ def _file_payload(path: Path) -> dict[str, object]:
 
 
 def _sqlite_counts(path: Path, tables: Iterable[str]) -> dict[str, int]:
+    _log(f"collecting SQLite counts from {path}")
     counts: dict[str, int] = {}
     conn = sqlite3.connect(str(path))
     try:
@@ -272,6 +319,7 @@ def _sqlite_counts(path: Path, tables: Iterable[str]) -> dict[str, int]:
             row = conn.execute(f"SELECT COUNT(*) FROM `{table}`;").fetchone()
             if row is not None:
                 counts[table] = int(row[0])
+                _log(f"count {path.name}:{table}={counts[table]}")
     finally:
         conn.close()
     return counts
@@ -284,7 +332,9 @@ def _read_json(path: Path) -> dict[str, object]:
 def _summary_payload(spec: ArtifactSpec, data_root: Path) -> dict[str, object]:
     summary_path = data_root / spec.relative_path.parent / "build_summary.json"
     if not summary_path.is_file():
+        _log(f"no build summary found for {spec.name}: {summary_path}")
         return {}
+    _log(f"reading build summary for {spec.name}: {summary_path}")
     raw = _read_json(summary_path)
     keys = ("options", "stage_counts", "selection_counts", "target_counts")
     payload = {key: raw[key] for key in keys if key in raw}
@@ -295,7 +345,9 @@ def _summary_payload(spec: ArtifactSpec, data_root: Path) -> dict[str, object]:
 
 def _source_zip_payload(dump_zip: Optional[Path]) -> Optional[dict[str, object]]:
     if dump_zip is None or not dump_zip.is_file():
+        _log("source zip payload skipped; no source zip available")
         return None
+    _log(f"recording source zip payload: {dump_zip}")
     payload = _file_payload(dump_zip)
     payload["filename"] = dump_zip.name
     return payload
@@ -319,6 +371,7 @@ def _manifest_entry(
     dump_zip: Optional[Path],
 ) -> dict[str, object]:
     artifact_path = data_root / spec.relative_path
+    _log(f"building manifest entry for {spec.name}")
     entry: dict[str, object] = {
         "name": spec.name,
         "description": spec.description,
@@ -347,10 +400,12 @@ def _manifest_entry(
             }
 
     if artifact_path.is_file():
+        _log(f"artifact payload exists for {spec.name}: {artifact_path}")
         entry["file"] = _file_payload(artifact_path)
         if spec.count_tables:
             entry["sqlite_counts"] = _sqlite_counts(artifact_path, spec.count_tables)
     else:
+        _log(f"artifact payload missing for {spec.name}: {artifact_path}")
         entry["file"] = {"status": "missing"}
 
     summary = _summary_payload(spec, data_root)
@@ -367,15 +422,18 @@ def write_manifest(
     specs: Sequence[ArtifactSpec],
     dump_zip: Optional[Path],
 ) -> None:
+    _log(f"writing manifest: {manifest_path}")
     selected_names = {spec.name for spec in specs}
     existing_entries: dict[str, dict[str, object]] = {}
     if manifest_path.is_file():
+        _log(f"preserving unselected entries from existing manifest: {manifest_path}")
         existing_payload = _read_json(manifest_path)
         for entry in existing_payload.get("artifacts", []):
             if isinstance(entry, dict) and entry.get("name"):
                 existing_entries[str(entry["name"])] = entry
 
     for spec in specs:
+        _log(f"refreshing manifest entry: {spec.name}")
         existing_entries[spec.name] = _manifest_entry(spec, data_root=data_root, dump_zip=dump_zip)
 
     if selected_names == set(ARTIFACTS):
@@ -398,7 +456,7 @@ def write_manifest(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    print(f"wrote {manifest_path}")
+    _log(f"wrote manifest with {len(entries)} artifact entries: {manifest_path}")
 
 
 def verify_manifest(
@@ -410,6 +468,7 @@ def verify_manifest(
     dump_zip: Optional[Path],
     require_source: bool,
 ) -> int:
+    _log(f"verifying manifest: {manifest_path}")
     payload = _read_json(manifest_path)
     requested = {spec.name for spec in specs}
     entries = [
@@ -419,6 +478,7 @@ def verify_manifest(
     ]
     failures: list[str] = []
     hash_cache: dict[Path, str] = {}
+    _log(f"manifest entries selected for verification: {len(entries)}")
 
     def cached_hash(path: Path) -> str:
         key = path.resolve()
@@ -430,6 +490,7 @@ def verify_manifest(
         name = str(entry["name"])
         relative_path = Path(str(entry["relative_path"]))
         path = data_root / relative_path
+        _log(f"verifying artifact {name}: {path}")
         expected_file = entry.get("file") if isinstance(entry.get("file"), dict) else {}
         expected_hash = str(expected_file.get("sha256") or "")
         expected_size = expected_file.get("size_bytes")
@@ -437,12 +498,13 @@ def verify_manifest(
         if not path.is_file():
             message = f"{name}: missing {relative_path.as_posix()}"
             if allow_missing:
-                print(f"warning: {message}", file=sys.stderr)
+                _log(f"warning: {message}")
             else:
                 failures.append(message)
             continue
 
         actual_size = path.stat().st_size
+        _log(f"{name}: size {_format_bytes(actual_size)}")
         if expected_size is not None and actual_size != int(expected_size):
             failures.append(f"{name}: size mismatch expected={expected_size} actual={actual_size}")
             continue
@@ -451,11 +513,12 @@ def verify_manifest(
         if expected_hash and actual_hash != expected_hash:
             failures.append(f"{name}: sha256 mismatch expected={expected_hash} actual={actual_hash}")
         else:
-            print(f"ok: {name} {actual_hash}")
+            _log(f"ok: {name} {actual_hash}")
 
         source = entry.get("source_zip") if isinstance(entry.get("source_zip"), dict) else None
         source_hash = str((source or {}).get("sha256") or "")
         if source_hash:
+            _log(f"{name}: verifying source zip hash")
             source_path = dump_zip or _resolve_dump_zip(None, required=False)
             if source_path is None or not source_path.is_file():
                 if require_source:
@@ -469,8 +532,9 @@ def verify_manifest(
 
     if failures:
         for failure in failures:
-            print(f"error: {failure}", file=sys.stderr)
+            _log(f"error: {failure}")
         return 1
+    _log("manifest verification passed")
     return 0
 
 
@@ -515,10 +579,13 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
+    _log(f"command: {args.command}")
+    _log(f"repo root: {REPO_ROOT}")
     data_root = _resolve_data_root(args.data_root)
     manifest_path = _resolve_manifest_path(data_root, args.manifest)
 
     if args.command == "list":
+        _log("listing known artifacts")
         for spec in ARTIFACTS.values():
             mode = "buildable" if spec.buildable else "manifest-only"
             tracking = "tracked" if spec.tracked_in_git else "manifest"

@@ -6,8 +6,9 @@ Private data artifacts now use a split policy:
   normal development, starting with `benchmarks/databases/benchmark_db_smoke.test_db`.
 - Keep multi-GB ISFDB `.test_db` payloads out of Git. Track their README,
   `build_summary.json`, and manifest hashes instead.
-- Use `scripts/build_artifacts.py` in the main repo as the single builder and
-  verifier entry point.
+- Use `scripts/build_artifacts.sh` in the main repo as the normal builder and
+  verifier entry point; it prepares `.venv` before calling
+  `scripts/build_artifacts.py`.
 
 Determinism requirements:
 
@@ -36,6 +37,12 @@ Implementation status:
   `artifacts_manifest.json`, the small benchmark smoke DB, and README/summary
   metadata for both ISFDB bundles.
 - The large ISFDB `.test_db` payloads are ignored locally and remain out of Git.
+- `scripts/build_artifacts.sh` wraps `scripts/create_venv.sh` and then runs the
+  Python artifact entry point from the repo `.venv`; use `--skip-install` for a
+  quick reuse path and `--new-venv` when a clean environment is needed.
+- `scripts/build_artifacts.py` now logs selected artifacts, resolved paths,
+  child build environment, hash progress, manifest refreshes, and verification
+  steps to stderr.
 - `benchmark-smoke` was rebuilt twice through `scripts/build_artifacts.py` and
   verified stable at SHA-256
   `8a1db5b45b4f3f50cc88f9b04974a5f1fb5a2a0d3f51a65d6f7623e54c50e3b0`.
