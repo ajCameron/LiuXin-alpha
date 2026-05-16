@@ -139,7 +139,8 @@ def set_metadata(stream, mi) -> None:
         sections.extend([b"", b"MeTaInFo\x00"])
         last_data = len(sections) - 1
 
-        for i in range(0, 132, 2):
+        offset_fields = (12, 32, 36, 38, 40, 42, 48, 50)
+        for i in offset_fields:
             (val,) = struct.unpack(">H", mutable_header[i : i + 2])
             if val >= hr.last_data_offset:
                 mutable_header[i : i + 2] = struct.pack(">H", last_data)
