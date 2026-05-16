@@ -32,6 +32,7 @@ from LiuXin_alpha.metadata.constants import (
 )
 from LiuXin_alpha.metadata.metadata import MetaData
 from LiuXin_alpha.metadata.utils import check_doi, check_isbn, string_to_authors
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import check_against_regex_set, regex_dict_str_rekey
@@ -52,7 +53,7 @@ class PdfParseError(Exception):
 def _normalize_text(raw: str | None) -> str:
     if not raw:
         return ""
-    return re.sub(r"\s+", " ", raw).strip()
+    return re.sub(r"\s+", " ", clean_xml_chars(str(raw))).strip()
 
 
 def _safe_decode(data: bytes | str | None) -> str:

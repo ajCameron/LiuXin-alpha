@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import sys
+import types
 import zlib
 from pathlib import Path
 from types import SimpleNamespace
@@ -88,6 +90,23 @@ class _FakeMetadata:
     def finalize(self):
         self.finalized = True
         raise RuntimeError("finalize unavailable")
+
+
+def _contains_forbidden_text_char(text: str) -> bool:
+    for ch in text:
+        cp = ord(ch)
+        if cp == 0x7F:
+            return True
+        if cp in (0x9, 0xA, 0xD):
+            continue
+        if 0x20 <= cp <= 0xD7FF:
+            continue
+        if 0xE000 <= cp <= 0xFFFD:
+            continue
+        if 0x10000 <= cp <= 0x10FFFF:
+            continue
+        return True
+    return False
 
 
 def test_pdf_low_level_token_parser_unicode_and_malformed_edges() -> None:
@@ -356,3 +375,99 @@ def test_pdf_writer_dict_tool_read_info_and_page_image_edges(tmp_path: Path, mon
     monkeypatch.setattr(pdf.subprocess, "check_call", lambda args: calls.append(args))
     pdf.page_images("in.pdf", str(tmp_path), first=2, last=3)
     assert calls and calls[0][0] == "/bin/pdftoppm"
+
+
+def test_pdf_metadata_dict_sanitizes_hostile_text_without_mutating_input() -> None:
+    title = "PDF\x00Title\ud800 😀"
+    authors = ["Alice\x01 One", "Bob\udfff Two"]
+    comments = "Comment\x02 with (paren) and \\ slash"
+    tags = ["tag\x03one", "emoji 😀"]
+
+    mi = SimpleNamespace(
+        title=title,
+        authors=authors,
+        comments=comments,
+        tags=tags,
+        producers="Producer\x04Name",
+        creator_sort="Creator\x05Name",
+        publisher="Pub\x06lisher",
+        series="Series\x07Name",
+        series_index="2\x08",
+    )
+
+    out = pdf._metadata_to_pdf_dict(mi)
+
+    assert out["/Title"] == "PDFTitle 😀"
+    assert out["/Author"] == "Alice One, Bob Two"
+    assert out["/Subject"] == "Comment with (paren) and \\ slash"
+    assert out["/Keywords"] == "tagone, emoji 😀"
+    assert out["/Producer"] == "ProducerName"
+    assert out["/Creator"] == "CreatorName"
+    assert out["/Publisher"] == "Publisher"
+    assert out["/Series"] == "SeriesName"
+    assert out["/SeriesIndex"] == "2"
+    assert not any(_contains_forbidden_text_char(value) for value in out.values())
+
+    assert mi.title == title
+    assert mi.authors == authors
+    assert mi.comments == comments
+    assert mi.tags == tags
+
+
+def test_pdf_set_metadata_fake_backend_sanitizes_and_rewrites_stream(monkeypatch) -> None:
+    captured = {}
+
+    class _FakeReader:
+        def __init__(self, stream):
+            captured["reader_payload"] = stream.read()
+            self.pages = ["page-one", "page-two"]
+            self.metadata = {"/Producer": "Existing Producer"}
+
+    class _FakeWriter:
+        def __init__(self):
+            captured["writer"] = self
+            self.pages = []
+            self.metadata = None
+
+        def add_page(self, page):
+            self.pages.append(page)
+
+        def add_metadata(self, metadata):
+            self.metadata = metadata
+
+        def write(self, stream):
+            stream.write(b"%PDF-1.4\nrewritten")
+
+    fake_pypdf = types.ModuleType("pypdf")
+    fake_pypdf.PdfReader = _FakeReader
+    fake_pypdf.PdfWriter = _FakeWriter
+
+    monkeypatch.setattr(pdf.importlib.util, "find_spec", lambda name: object() if name == "pypdf" else None)
+    monkeypatch.setitem(sys.modules, "pypdf", fake_pypdf)
+
+    title = "PDF\x00Title\ud800 😀"
+    authors = ["Alice\x01 One", "Bob\udfff Two"]
+    mi = MetaData()
+    mi.title = title
+    mi.authors = authors
+    mi.comments = "Comment\x02"
+    mi.tags = ["tag\x03one"]
+
+    stream = io.BytesIO(b"%PDF-1.4\noriginal payload")
+    stream.seek(5)
+    pdf.set_metadata(stream, mi)
+
+    writer = captured["writer"]
+    assert captured["reader_payload"].startswith(b"%PDF-1.4")
+    assert writer.pages == ["page-one", "page-two"]
+    assert writer.metadata["/Producer"] == "Existing Producer"
+    assert writer.metadata["/Title"] == "PDFTitle 😀"
+    assert writer.metadata["/Author"] == "Alice One, Bob Two"
+    assert writer.metadata["/Subject"] == "Comment"
+    assert writer.metadata["/Keywords"] == "tagone"
+    assert not any(_contains_forbidden_text_char(value) for value in writer.metadata.values())
+
+    assert stream.getvalue() == b"%PDF-1.4\nrewritten"
+    assert stream.tell() == 5
+    assert mi.title == title
+    assert _values(mi.authors) == authors

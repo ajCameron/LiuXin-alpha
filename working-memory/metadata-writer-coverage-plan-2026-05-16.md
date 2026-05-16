@@ -42,12 +42,14 @@ stdlib parsers, archive checks, and optional PDF tooling when present.
    - Use `BytesIO` and synthetic builders where possible.
    - Assert read-after-write and byte preservation around metadata regions.
 
-3. EPUB, EXTZ, DOCX, and ZIP-like containers.
+3. EPUB, EXTZ, DOCX, and ZIP-like containers. - In progress/completed for
+   archive integrity and hostile XML text on 2026-05-16.
    - Validate `zipfile` integrity after writes.
    - Assert non-metadata members survive unchanged.
    - Exercise embedded OPF replacement and cover behavior.
 
-4. MOBI and PDF.
+4. MOBI and PDF. - In progress/completed for hostile binary metadata text on
+   2026-05-16.
    - Treat as the hard binary lane.
    - Prefer compact synthetic builders; use copied fixtures only when local
      builders become more complex than the writer behavior under test.
@@ -75,6 +77,9 @@ Use a shared hostile metadata set across writer tests:
 - Make unsupported writer behavior explicit in tests.
 - Keep generated coverage artifacts out of commits; working-memory notes and
   source/test/doc changes are the durable record.
+- Completed on 2026-05-16 through item 4. The next metadata-writer work should
+  come from fresh coverage gaps or production bugs rather than this initial
+  hardening plan.
 
 ## 2026-05-16 Item 1 Pass
 
@@ -111,3 +116,33 @@ Use a shared hostile metadata set across writer tests:
 - Focused validation:
   `python3 -m pytest tests/metadata/file_sources/test_rtf_metadata_source.py tests/metadata/file_sources/test_pdb_metadata_source.py tests/metadata/file_sources/test_pdb_subreader_edge_cases.py tests/metadata/file_sources/test_topaz_metadata_source.py -q`
   passed with `30 passed`.
+
+## 2026-05-16 Item 3 Pass
+
+- EXTZ metadata writing now reuses the OPF XML sanitizer before `OPF.smart_update`,
+  so embedded NUL/control characters and unpaired surrogates cannot reach OPF
+  XML serialization.
+- DOCX metadata writing now sanitizes a clone of the metadata object before
+  updating `docProps/core.xml` and `docProps/app.xml`, preserving caller data
+  while keeping XML-invalid characters out of document property XML.
+- Added container-contract tests for EPUB, EXTZ, and DOCX writers that verify
+  `zipfile` integrity, unchanged non-metadata members, hostile XML text
+  sanitization, read-after-write behavior, caller metadata immutability, and
+  cover replacement for EPUB/EXTZ.
+- Focused validation:
+  `python3 -m pytest tests/metadata/file_sources/test_epub_metadata_source.py tests/metadata/file_sources/test_epub_edge_cases.py tests/metadata/file_sources/test_extz_metadata_source.py tests/metadata/file_sources/test_txtz_metadata_source.py tests/metadata/file_sources/test_docx_metadata_source.py tests/metadata/file_sources/test_archive_container_edge_cases.py tests/metadata/file_sources/test_archive_metadata_source.py tests/metadata/file_sources/test_zip_metadata_source.py -q`
+  passed with `87 passed`.
+
+## 2026-05-16 Item 4 Pass
+
+- MOBI metadata writing now sanitizes EXTH/title text fields before binary
+  encoding, avoids mutating the caller metadata object, and guards optional
+  cover payload access.
+- PDF metadata normalization now strips invalid scalar/control characters at
+  the shared text boundary before backend metadata generation and reader-side
+  parsing.
+- Added compact fake-updater and fake-pypdf tests to exercise hard binary
+  corruption-prevention behavior without requiring external desktop tools.
+- Focused validation:
+  `python3 -m pytest tests/metadata/file_sources/test_mobi_metadata_source.py tests/metadata/file_sources/test_mobi_edge_cases.py tests/metadata/file_sources/test_pdf_metadata_source.py tests/metadata/file_sources/test_pdf_edge_cases.py tests/file_formats/pdf/test_pdf_headless_fallback.py -q`
+  passed with `55 passed`.

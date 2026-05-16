@@ -121,6 +121,10 @@ def _exth_records(exth_blob: bytes) -> dict[int, list[bytes]]:
     return out
 
 
+def _has_forbidden_payload_byte(payload: bytes) -> bool:
+    return any(byte < 0x20 and byte not in {0x09, 0x0A, 0x0D} for byte in payload)
+
+
 def test_mobi_stream_slicer_get_set_update_and_error_edges() -> None:
     stream = io.BytesIO(bytearray(b"0123456789abcdef"))
     slicer = mobi.StreamSlicer(stream, start=2, stop=12)
@@ -224,6 +228,51 @@ def test_mobi_metadata_updater_update_writes_broad_exth_records(monkeypatch) -> 
     assert records[999] == [b"keep"]
     assert any(call[0] == "fetchEXTHFields" for call in updater.calls)
     assert updater.record0[92:96] != b"\0\0\0\0"
+
+
+def test_mobi_metadata_updater_sanitizes_hostile_text_without_mutating_input() -> None:
+    updater = _fake_updater()
+    title = "MOBI\x00Title\ud800 😀"
+    authors = ["Alice\x01 One", "Bob\udfff Two"]
+    comments = "Visible\x02 comments <div class=\"user_annotations\">drop me</div>"
+    tags = ["tag\x03one", "emoji 😀"]
+
+    mi = calibreMetaInformation(title, authors)
+    mi.publisher = "Pub\x04lisher"
+    mi.comments = comments
+    mi.isbn = "978\x050306406157"
+    mi.tags = tags
+    mi.pubdate = None
+    mi.timestamp = "2026-05-16T10:20:30\x06"
+    mi.language = "en"
+    mi.uuid = "aaaaaaaa-bbbb\x07"
+    mi.book_producer = "Producer\x08Name"
+    mi.cover_data = (None, None)
+    mi.cover = None
+
+    updater.update(mi)
+
+    create_call = next(call for call in updater.calls if call[0] == "create_exth")
+    _name, exth_blob, new_title = create_call
+    records = _exth_records(exth_blob)
+
+    assert new_title == "MOBITitle 😀"
+    assert records[100] == [b"Alice One", b"Bob Two"]
+    assert records[101] == [b"Publisher"]
+    assert records[103] == [b"Visible comments "]
+    assert records[104] == [b"9780306406157"]
+    assert records[105] == ["tagone; emoji 😀".encode()]
+    assert records[106] == [b"2026-05-16T10:20:30"]
+    assert records[108] == [b"ProducerName"]
+    assert records[112] == [b"calibre:aaaaaaaa-bbbb"]
+
+    for code in (100, 101, 103, 104, 105, 106, 108, 112):
+        assert not any(_has_forbidden_payload_byte(payload) for payload in records[code])
+
+    assert mi.title == title
+    assert mi.authors == authors
+    assert mi.comments == comments
+    assert mi.tags == tags
 
 
 def test_mobi_metadata_updater_update_author_sort_pdoc_timestamp_and_cover_paths(monkeypatch) -> None:
