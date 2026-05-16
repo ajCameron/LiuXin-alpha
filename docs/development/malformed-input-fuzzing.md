@@ -52,3 +52,17 @@ internals, or runaway decode work.
 Use `LiuXin_alpha.metadata.file_sources.registry` to enumerate metadata readers
 for corpus-driven tests. Keep individual format readers strict; place
 wrong-extension sniffing and fallback routing in a separate best-effort facade.
+
+## Structured XML Readers
+
+XML parse success is not enough to prove that a file belongs to a structured
+metadata format. OPF and FB2 readers should validate their expected document
+shape after parsing:
+
+- OPF accepts OPF package/metadata-shaped XML by default.
+- FB2 accepts FictionBook-rooted XML by default.
+- Generic XML extraction and shell metadata fallback are explicit opt-in paths
+  for internal callers or a future best-effort facade.
+
+Wrong-format but parseable XML, such as HTML passed to OPF/FB2 or OPF passed to
+FB2, should raise a format-level error through the individual reader.

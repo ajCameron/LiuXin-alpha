@@ -309,4 +309,4 @@ def test_fb2_stream_type_and_seek_failures_are_soft() -> None:
     assert md.title == "Καλημέρα 世界 — مرحبا"
 
     md = get_metadata(_SeekBrokenStream(_fb2_payload(), "seek-broken.fb2"))
-    assert md.title == "seek-broken"
+    assert md.title == "Καλημέρα 世界 — مرحبا"

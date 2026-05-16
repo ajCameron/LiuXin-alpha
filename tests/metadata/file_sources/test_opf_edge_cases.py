@@ -466,7 +466,7 @@ def test_opf_get_metadata_fallbacks_log_and_return_safe_metadata(monkeypatch) ->
     md_calibre = opf.get_metadata(_NamedBytes(_package_with_unicode_edges()), calibre=True)
     assert md_calibre.title == "Καφές — 世界 — café 😀"
 
-    bad = opf.get_metadata(object())
+    bad = opf.get_metadata(object(), fallback_on_parse_error=True)
     assert bad.title == "Unknown"
     assert _values(bad.authors) == ["Unknown"]
     assert any(level == "ERROR" for level, _message in events)

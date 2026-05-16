@@ -81,3 +81,34 @@ python3 -m pytest \
 ```
 
 Result: `30 passed`.
+
+## Structured XML Fuzz Lane
+
+Tightened XML-ish metadata readers so parseable wrong-format XML no longer
+turns into shell metadata by default:
+
+- OPF now validates OPF package/metadata-shaped XML after parsing.
+- FB2 now validates that the root document is FictionBook.
+- both readers keep explicit fallback knobs for a later best-effort metadata
+  facade, but dispatcher/plugin reads use the strict defaults.
+
+Added deterministic dispatcher-level malformed/wrong-format cases for:
+
+- OPF receiving empty bytes, tiny binary, PNG header, HTML, empty ZIP, and FB2
+  XML
+- FB2 receiving empty bytes, tiny binary, PNG header, HTML, empty ZIP, and OPF
+  XML
+
+Focused validation:
+
+```bash
+python3 -m pytest \
+  tests/metadata/file_sources/test_malformed_input_fuzzing.py \
+  tests/metadata/file_sources/test_opf_metadata_source.py \
+  tests/metadata/file_sources/test_opf_edge_cases.py \
+  tests/metadata/file_sources/test_fb2_metadata_source.py \
+  tests/metadata/file_sources/test_fb2_edge_cases.py \
+  -q
+```
+
+Result: `64 passed`.

@@ -4,6 +4,8 @@ import io
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 
@@ -140,7 +142,7 @@ def test_opf_file_is_raw_root_can_parse_non_package_metadata_root() -> None:
     </office:meta>
     """
     root = etree.fromstring(raw)
-    md = get_metadata(root, file_is_raw_root=True, seek_md_node=False, walk=True)
+    md = get_metadata(root, file_is_raw_root=True, seek_md_node=False, walk=True, strict_format=False)
 
     assert md.title == "Fallback Meta Title"
     assert _values(md.authors) == ["Alice", "Bob"]
@@ -149,17 +151,23 @@ def test_opf_file_is_raw_root_can_parse_non_package_metadata_root() -> None:
     assert float(_first_mapping_value(md.series_index, 0.0)) == 2.5
 
 
-def test_opf_invalid_payload_returns_safe_default() -> None:
-    from LiuXin_alpha.metadata.file_sources.opf import get_metadata
+def test_opf_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.opf import OpfParseError, get_metadata
 
-    md = get_metadata(io.BytesIO(b"<not-xml"))
+    with pytest.raises(OpfParseError):
+        get_metadata(io.BytesIO(b"<not-xml"))
+
+    md = get_metadata(io.BytesIO(b"<not-xml"), fallback_on_parse_error=True)
     assert md.title == "Unknown"
     assert _values(md.authors) == ["Unknown"]
 
 
-def test_opf_invalid_text_mode_payload_returns_safe_default() -> None:
-    from LiuXin_alpha.metadata.file_sources.opf import get_metadata
+def test_opf_invalid_text_mode_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.opf import OpfParseError, get_metadata
 
-    md = get_metadata("<not-xml", text=True)
+    with pytest.raises(OpfParseError):
+        get_metadata("<not-xml", text=True)
+
+    md = get_metadata("<not-xml", text=True, fallback_on_parse_error=True)
     assert md.title == "Unknown"
     assert _values(md.authors) == ["Unknown"]
