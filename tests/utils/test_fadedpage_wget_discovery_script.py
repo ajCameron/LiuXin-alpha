@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -208,11 +209,16 @@ def test_wget_discovery_echoes_raw_wget_lines_by_default(tmp_path: Path, capsys:
     assert "[candidate] extension=html" in captured.out
 
 
-def test_wget_discovery_renders_live_progress_footer_on_tty(tmp_path: Path) -> None:
+def test_wget_discovery_renders_live_progress_footer_on_tty(monkeypatch, tmp_path: Path) -> None:
     script = _load_script()
     state_db = tmp_path / "progress.sqlite3"
     output_path = tmp_path / "progress.json"
     progress_stream = _FakeTty()
+    monkeypatch.setattr(
+        script.shutil,
+        "get_terminal_size",
+        lambda fallback=None: os.terminal_size((240, 20)),
+    )
 
     summary = script.crawl_with_wget(
         root_url="https://www.fadedpage.com/",
