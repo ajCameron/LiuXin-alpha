@@ -48,3 +48,7 @@ The expected outcome is a conservative metadata result only when that is
 intentional. Otherwise the extractor should raise a sane, predictable error
 without leaking arbitrary `IndexError`, `KeyError`, `struct.error`, parser
 internals, or runaway decode work.
+
+Use `LiuXin_alpha.metadata.file_sources.registry` to enumerate metadata readers
+for corpus-driven tests. Keep individual format readers strict; place
+wrong-extension sniffing and fallback routing in a separate best-effort facade.
