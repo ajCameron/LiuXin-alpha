@@ -92,3 +92,45 @@ Coverage:
 
 - Project lines: `96223 / 195385` (`49.25%`)
 - Project branches: `20937 / 68300` (`30.65%`)
+
+## Post-Merge Coverage Rerun
+
+After merging the metadata coverage/writer branch, the rerun artifacts were:
+
+- Pytest JSON: `working-memory/test-results/full-suite-2026-05-16-194315.json`
+- Coverage XML: `working-memory/test-results/coverage-2026-05-16-194134.xml`
+
+Outcome:
+
+- `3598 passed`
+- `1 failed`
+- `45 skipped`
+- `22 xfailed`
+- `5 xpassed`
+
+The failure was
+`tests/utils/plugins/fallbacks/test_bzzdec.py::test_decompress_small_random_fuzz_does_not_hang`.
+The test claimed to use a fixed seed but generated payloads with `os.urandom`,
+and the logged 12-byte payload decoded an implausible multi-megabyte block
+before eventually raising EOF. The fallback now rejects tiny streams with
+implausible block expansion before entering the expensive decode loop, and the
+test corpus is deterministic.
+
+Durable docs:
+
+- `docs/development/malformed-input-fuzzing.md`
+
+Follow-up direction:
+
+- Add deterministic wrong-format tests for metadata extractors. Individual
+  extractors should error deliberately when handed non-credible inputs; a later
+  central "best effort metadata from this file" API can own fallback routing.
+
+Focused validation after the fix:
+
+- `.venv/bin/python -m pytest tests/utils/plugins/fallbacks/test_bzzdec.py -q`
+  passed with `19 passed`.
+- `.venv/bin/python -m pytest tests/utils/plugins/fallbacks -q` passed with
+  `90 passed`.
+- `.venv/bin/python -m pytest tests/utils/plugins/fallbacks/test_bzzdec.py --cov=LiuXin_alpha.utils.plugins.fallbacks.bzzdec --cov-report=term-missing:skip-covered -q`
+  passed with `19 passed`.

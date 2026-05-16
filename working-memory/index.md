@@ -26,8 +26,10 @@ Start here for active handoff notes. This index should stay short.
 
 - [metadata-coverage-lift-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-coverage-lift-2026-05-16.md)
   Focused coverage lift for the recent metadata API/container work, including
-  the new WEMI projection/relation/lazy-value tests and 100% focused coverage
-  across the six metadata hydrator modules.
+  the new WEMI projection/relation/lazy-value tests, 100% focused coverage
+  across the six metadata hydrator modules, and the post-merge bzzdec malformed
+  payload fix. Durable malformed-input testing docs:
+  `docs/development/malformed-input-fuzzing.md`.
 
 - [coverage-syntax-warning-cleanup-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/coverage-syntax-warning-cleanup-2026-05-15.md)
   Coverage-runner and SyntaxWarning cleanup note: adds the dedicated coverage
