@@ -16,8 +16,8 @@ Start here for active handoff notes. This index should stay short.
   Coverage plan for production-heavy metadata file-source ingest readers, with
   a unicode/malformed-input testing strategy. The pass now covers the newer
   ingest readers plus archive/text/ODT, dispatcher/worker, PDB sub-readers, and
-  older adapters; latest focused validation is `347 passed`, `114 skipped`,
-  with `metadata.file_sources` coverage at 90%.
+  older adapters; latest private-corpus validation is `457 passed`, `4 skipped`,
+  with `metadata.file_sources` coverage at 91%.
 
 - [metadata-coverage-lift-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-coverage-lift-2026-05-16.md)
   Focused coverage lift for the recent metadata API/container work, including

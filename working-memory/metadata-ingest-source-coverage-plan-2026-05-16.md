@@ -204,3 +204,53 @@ Remaining meaningful gaps:
 - `extz.py`, `odt.py`, and `odt_beta.py` are now covered by helper/fallback
   tests, but still have writer/container branches that need deeper synthetic
   fixtures for 90%+.
+
+## Corpus-Enabled Validation - 2026-05-16
+
+The optional private `LiuXin_data` fixture repo was cloned into
+`LiuXin_alpha_data`, which is the path the pytest fixtures auto-detect.
+
+Data repo state:
+
+- current data commit: `f1006a8`
+- `md_test_books/` is present with `46` tracked metadata fixture artifacts
+- main repo submodule pointer was updated from the stale/unavailable
+  `00d1d2a` object to `f1006a8`
+- local `LiuXin_data` DB artifacts were copied into the private data checkout as
+  untracked additions; the 7.5G MySQL fixture DB is hard-linked because the
+  drive did not have enough free space for a duplicate copy
+
+The old pinned submodule commit is not present locally and is not fetchable from
+the private remote. Four text/html fixture files in current `f1006a8` therefore
+replace the older hash baseline:
+
+- `html_md_test_file_1.html`
+- `htm_md_test_file_1.htm`
+- `txt_md_test_file_1.txt`
+- `txt_md_test_file_2.txt`
+
+Validation:
+
+```bash
+.venv/bin/python scripts/manage_md_fixture_hashes.py --revalidate
+.venv/bin/python -m pytest \
+  tests/metadata/file_sources/test_md_fixture_access_helper.py \
+  tests/metadata/file_sources/test_md_fixtures_integrity.py -q
+.venv/bin/python -m pytest tests/metadata/file_sources \
+  --cov=LiuXin_alpha.metadata.file_sources \
+  --cov-report=term-missing -q
+```
+
+Results:
+
+- fixture hashes: `OK: validated 46 tracked fixture hashes`
+- fixture access/integrity tests: `50 passed`
+- full file-source metadata coverage pass: `457 passed`, `4 skipped`,
+  `19 warnings`
+- focused `metadata.file_sources` coverage is now `91%`
+
+The remaining skips are environmental or optional-fixture gaps:
+
+- no `.lrx` fixture in the current private corpus
+- optional `pypdf` missing
+- no `unrar` executable on PATH
