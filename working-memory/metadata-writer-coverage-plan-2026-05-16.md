@@ -32,7 +32,8 @@ stdlib parsers, archive checks, and optional PDF tooling when present.
 
 ## Initial Work Order
 
-1. OPF and XML-backed writers.
+1. OPF and XML-backed writers. - In progress/completed for OPF and FB2
+   hostile XML text on 2026-05-16.
    - Round-trip through XML parsing and the local OPF reader.
    - Include hostile unicode and XML-invalid character handling.
 
@@ -73,3 +74,19 @@ Use a shared hostile metadata set across writer tests:
 - Make unsupported writer behavior explicit in tests.
 - Keep generated coverage artifacts out of commits; working-memory notes and
   source/test/doc changes are the durable record.
+
+## 2026-05-16 Item 1 Pass
+
+- Fresh OPF creation now sanitizes the same XML-invalid metadata values as OPF
+  updates before handing metadata to the OPF serializer.
+- FB2 writing now strips XML-invalid characters before assigning text or
+  annotation paragraphs into lxml nodes, preventing partial write failures from
+  NUL/control characters and unpaired surrogates.
+- Added OPF helper tests for fresh OPF serialization and `update_opf_file`
+  output-path writes, including XML reparsing, local reader round-trip,
+  source-file preservation, and input metadata immutability.
+- Added FB2 hostile XML metadata coverage for copied fixtures, including XML
+  reparsing, local reader round-trip, and input metadata immutability.
+- Focused validation:
+  `python3 -m pytest tests/metadata/test_opf_tools.py tests/file_formats/opf/test_opf_facade_write_unicode_torture.py tests/metadata/file_sources/test_fb2_metadata_source.py tests/metadata/file_sources/test_fb2_edge_cases.py -q`
+  passed with `34 passed, 5 warnings`.

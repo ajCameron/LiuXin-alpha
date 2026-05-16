@@ -7,7 +7,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
-from LiuXin_alpha.file_formats.opf.opf import set_metadata as _set_opf_metadata
+from LiuXin_alpha.file_formats.opf.opf import (
+    _sanitize_metadata_for_xml,
+    set_metadata as _set_opf_metadata,
+)
 from LiuXin_alpha.file_formats.opf.opf2 import metadata_to_opf as _metadata_to_opf
 from LiuXin_alpha.metadata.book.base import calibreMetadata as CoreCalibreMetadata
 from LiuXin_alpha.metadata.file_sources.opf import get_metadata as _get_opf_metadata
@@ -23,7 +26,7 @@ OPFMetadataKind = Literal["calibre", "liuxin", "wemi"]
 def metadata_to_opf_bytes(metadata: Any, *, default_lang: str | None = None) -> bytes:
     """Serialize a LiuXin, WEMI, or Calibre-shaped metadata object to OPF bytes."""
     raw = _metadata_to_opf(
-        _as_calibre_metadata(metadata),
+        _sanitize_metadata_for_xml(_as_calibre_metadata(metadata)),
         as_string=True,
         default_lang=default_lang,
     )

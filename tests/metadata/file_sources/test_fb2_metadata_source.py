@@ -39,6 +39,23 @@ def _cover_pair(raw):
     return None, b""
 
 
+def _contains_forbidden_xml_char(text: str) -> bool:
+    for ch in text:
+        cp = ord(ch)
+        if cp == 0x7F:
+            return True
+        if cp in (0x9, 0xA, 0xD):
+            continue
+        if 0x20 <= cp <= 0xD7FF:
+            continue
+        if 0xE000 <= cp <= 0xFFFD:
+            continue
+        if 0x10000 <= cp <= 0x10FFFF:
+            continue
+        return True
+    return False
+
+
 def _build_fb2_xml(*, title: str, first_name: str, last_name: str, encoding: str = "UTF-8") -> str:
     return (
         f'<?xml version="1.0" encoding="{encoding}"?>'
@@ -227,6 +244,48 @@ def test_fb2_unicode_torture_roundtrip(tmp_path: Path, md_test_fixture) -> None:
     comments = _first_value(metadata.comments)
     for expected in ("Αλφα", "бета", "三", "😀"):
         assert expected in comments
+
+
+def test_fb2_set_metadata_sanitizes_hostile_xml_without_mutating_input(
+    tmp_path: Path,
+    md_test_fixture,
+) -> None:
+    from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
+    from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+
+    source = md_test_fixture(file_ext="fb2", file_num=1, verify_hash=True)
+    target = tmp_path / "fb2_hostile_xml.fb2"
+    shutil.copy2(source, target)
+
+    title = "Bad\x00Title\ud800 😀"
+    authors = ["Author\x01 One", "Second\udfff Author"]
+    tags = ["Tag\x02One", "Emoji 😀"]
+
+    updated = calibreMetaInformation(title, authors)
+    updated.tags = tags
+    updated.comments = "First\x03 paragraph\nSecond\ud800 paragraph 😀"
+    updated.publisher = "Pub\x04lisher"
+    updated.series = "Series\x05Name"
+
+    set_metadata(target, updated)
+
+    payload = target.read_text(encoding="utf-8")
+    assert not _contains_forbidden_xml_char(payload)
+    etree.fromstring(payload.encode("utf-8"))
+
+    metadata = get_metadata(target)
+    assert "BadTitle" in metadata.title
+    assert "😀" in metadata.title
+    assert _values(metadata.authors) == ["Author One", "Second Author"]
+    assert set(_values(metadata.tags)) == {"TagOne", "Emoji 😀"}
+    assert "First paragraph" in _first_value(metadata.comments)
+    assert "Second paragraph 😀" in _first_value(metadata.comments)
+    assert _first_value(metadata.publisher) == "Publisher"
+    assert _first_value(metadata.series) == "SeriesName"
+
+    assert updated.title == title
+    assert updated.authors == authors
+    assert updated.tags == tags
 
 
 def test_fb2_handles_malformed_payload_gracefully(monkeypatch) -> None:
