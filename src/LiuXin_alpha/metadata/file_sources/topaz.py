@@ -12,6 +12,7 @@ from typing import Iterable
 from LiuXin_alpha.metadata.utils import calibreMetaInformation, string_to_authors
 from LiuXin_alpha.utils.calibre import force_unicode
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Greg Riker <griker@hotmail.com>"
@@ -84,7 +85,7 @@ def _decode_tag(raw: bytes) -> str:
 def _decode_text(raw: bytes | None) -> str:
     if raw is None:
         return ""
-    return force_unicode(raw, "utf-8")
+    return clean_xml_chars(force_unicode(raw, "utf-8"))
 
 
 def _default_metadata():
@@ -316,15 +317,20 @@ class MetadataUpdater:
         except Exception:
             prefer_author_sort = False
 
-        title = getattr(mi, "title", None) or "Unknown"
+        title = clean_xml_chars(str(getattr(mi, "title", None) or "Unknown")) or "Unknown"
         self._ensure_key("Title")
-        self.metadata["Title"] = str(title).encode("utf-8", "replace")
+        self.metadata["Title"] = title.encode("utf-8", "replace")
 
         self._ensure_key("Authors")
         if getattr(mi, "author_sort", None) and prefer_author_sort:
-            self.metadata["Authors"] = str(mi.author_sort).encode("utf-8", "replace")
+            author_sort = clean_xml_chars(str(mi.author_sort)).strip() or "Unknown"
+            self.metadata["Authors"] = author_sort.encode("utf-8", "replace")
         else:
-            authors = [str(x).strip() for x in (getattr(mi, "authors", None) or []) if str(x).strip()]
+            authors = [
+                clean_xml_chars(str(x)).strip()
+                for x in (getattr(mi, "authors", None) or [])
+                if clean_xml_chars(str(x)).strip()
+            ]
             self.metadata["Authors"] = ("; ".join(authors or ["Unknown"])).encode("utf-8", "replace")
 
         updated_metadata = self.generate_metadata_stream()

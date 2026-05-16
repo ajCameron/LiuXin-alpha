@@ -138,6 +138,38 @@ def test_rtf_set_metadata_roundtrip_unicode() -> None:
     assert {"one", "two"} <= set(_values(parsed.tags))
 
 
+def test_rtf_set_metadata_escapes_hostile_markup_without_mutating_input() -> None:
+    from LiuXin_alpha.metadata.file_sources.rtf import get_document_info, get_metadata, set_metadata
+
+    stream = io.BytesIO(_rtf_payload(b"{\\info{\\title Old}{\\author Old}}"))
+    title = "Danger {Title}\\path \x00\ud800 😀"
+    authors = ["Alice {One}", "Bob\\Two"]
+    mi = calibreMetaInformation(title, authors)
+    mi.comments = "Comment {one}\\two \x01\udfff"
+    mi.publisher = "Pub {House}\\Desk"
+    mi.tags = ["tag{one}", "tag\\two"]
+
+    set_metadata(stream, mi)
+    out = stream.getvalue()
+
+    assert b"Body" in out
+    assert b"\x00" not in out
+    assert b"\\{Title\\}" in out
+    assert b"\\\\path" in out
+    info_block, _pos = get_document_info(io.BytesIO(out))
+    assert info_block is not None
+
+    parsed = get_metadata(io.BytesIO(out))
+    assert parsed.title == "Danger {Title}\\path 😀"
+    assert _values(parsed.authors) == ["Alice {One}", "Bob\\Two"]
+    assert _first(parsed.comments) == "Comment {one}\\two"
+    assert _first(parsed.publisher) == "Pub {House}\\Desk"
+    assert set(_values(parsed.tags)) == {"tag{one}", "tag\\two"}
+
+    assert mi.title == title
+    assert mi.authors == authors
+
+
 def test_rtf_set_metadata_salvages_malformed_info_block() -> None:
     from LiuXin_alpha.metadata.file_sources.rtf import get_metadata, set_metadata
 

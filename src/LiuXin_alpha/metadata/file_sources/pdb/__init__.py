@@ -17,6 +17,7 @@ from LiuXin_alpha.metadata.file_sources.pdb.plucker import get_metadata as get_p
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -85,7 +86,7 @@ def _source_title_hint(stream_or_path) -> str | None:
 
 
 def _normalize_title_bytes(title: object) -> bytes:
-    text = _TITLE_SANITIZE_RE.sub("_", str(title or _("Unknown")))
+    text = _TITLE_SANITIZE_RE.sub("_", clean_xml_chars(str(title or _("Unknown"))))
     return text.encode("ascii", "replace")[:31].ljust(31, b"\x00") + b"\x00"
 
 

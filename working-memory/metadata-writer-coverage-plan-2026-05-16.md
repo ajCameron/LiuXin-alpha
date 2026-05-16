@@ -37,7 +37,8 @@ stdlib parsers, archive checks, and optional PDF tooling when present.
    - Round-trip through XML parsing and the local OPF reader.
    - Include hostile unicode and XML-invalid character handling.
 
-2. RTF, PDB/eReader, and Topaz.
+2. RTF, PDB/eReader, and Topaz. - In progress/completed for hostile text
+   writer safety on 2026-05-16.
    - Use `BytesIO` and synthetic builders where possible.
    - Assert read-after-write and byte preservation around metadata regions.
 
@@ -90,3 +91,23 @@ Use a shared hostile metadata set across writer tests:
 - Focused validation:
   `python3 -m pytest tests/metadata/test_opf_tools.py tests/file_formats/opf/test_opf_facade_write_unicode_torture.py tests/metadata/file_sources/test_fb2_metadata_source.py tests/metadata/file_sources/test_fb2_edge_cases.py -q`
   passed with `34 passed, 5 warnings`.
+
+## 2026-05-16 Item 2 Pass
+
+- RTF metadata writing now removes invalid Unicode scalar/control characters,
+  escapes literal RTF braces and backslashes, and emits astral-plane characters
+  as UTF-16 `\u` escapes. RTF metadata reading now unescapes literal RTF text
+  escapes and repairs surrogate pairs before returning text.
+- PDB wrapper title writing now strips invalid scalar/control characters before
+  ASCII header normalization. eReader payload writing now cleans the joined
+  author field as well as title, publisher, and ISBN so embedded NUL/control
+  characters cannot shift metadata record fields.
+- Topaz metadata reads/writes now clean invalid scalar/control characters at
+  the text boundary while preserving valid UTF-8, extra metadata fields, and
+  trailing payload bytes.
+- Added focused writer tests for RTF hostile markup escaping and body
+  preservation, PDB/eReader hostile text field-boundary safety, and Topaz
+  hostile text with extra-field/trailing-payload preservation.
+- Focused validation:
+  `python3 -m pytest tests/metadata/file_sources/test_rtf_metadata_source.py tests/metadata/file_sources/test_pdb_metadata_source.py tests/metadata/file_sources/test_pdb_subreader_edge_cases.py tests/metadata/file_sources/test_topaz_metadata_source.py -q`
+  passed with `30 passed`.

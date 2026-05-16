@@ -13,6 +13,7 @@ from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
@@ -22,7 +23,7 @@ __docformat__ = "restructuredtext en"
 def _clean_text(value: str | None) -> str:
     if not value:
         return ""
-    return value.replace("\x00", "").strip()
+    return clean_xml_chars(str(value)).replace("\x00", "").strip()
 
 
 def _decode_field(raw: bytes) -> str:
@@ -108,7 +109,7 @@ def get_metadata(stream, extract_cover: bool = True):
 def _metadata_record_bytes(mi) -> bytes:
     title = _clean_text(getattr(mi, "title", "")) or _("Unknown")
     authors = _normalize_authors(getattr(mi, "authors", None))
-    author = authors_to_string(authors)
+    author = _clean_text(authors_to_string(authors))
     publisher = _clean_text(getattr(mi, "publisher", ""))
     isbn = _clean_text(getattr(mi, "isbn", ""))
 
