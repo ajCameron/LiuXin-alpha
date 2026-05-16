@@ -494,8 +494,8 @@ def test_extz_broken_encoding_in_opf_is_tolerated(tmp_path: Path) -> None:
     assert _values(metadata.authors)
 
 
-def test_extz_get_metadata_invalid_zip_logs_and_fallback(monkeypatch) -> None:
-    from LiuXin_alpha.metadata.file_sources.extz import get_metadata
+def test_extz_get_metadata_invalid_zip_raises_by_default_and_can_opt_into_fallback(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.file_sources.extz import ExtzFormatError, get_metadata
 
     events: list[tuple[str, str]] = []
 
@@ -505,30 +505,25 @@ def test_extz_get_metadata_invalid_zip_logs_and_fallback(monkeypatch) -> None:
 
     monkeypatch.setattr("LiuXin_alpha.metadata.file_sources.extz.default_log.log_exception", _log_exception)
 
-    metadata = get_metadata(io.BytesIO(b"not a zip stream"))
+    with pytest.raises(ExtzFormatError):
+        get_metadata(io.BytesIO(b"not a zip stream"))
+
+    metadata = get_metadata(io.BytesIO(b"not a zip stream"), fallback_on_parse_error=True)
     assert metadata.title == "Unknown"
     assert events
     assert any("Problem extracting metadata from an EXTZ archive." in base for base, _ in events)
 
 
-def test_extz_get_metadata_missing_opf_logs_and_fallback(tmp_path: Path, monkeypatch) -> None:
+def test_extz_get_metadata_missing_opf_with_credible_htmlz_content_returns_fallback(
+    tmp_path: Path,
+) -> None:
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata
 
     archive = tmp_path / "no_opf.htmlz"
     _build_extz_archive(archive, {"index.html": b"<html/>"})
 
-    events: list[tuple[str, str]] = []
-
-    def _log_exception(base, exc, level, *pairs, **kwargs):
-        events.append((str(base), str(exc)))
-        return str(base)
-
-    monkeypatch.setattr("LiuXin_alpha.metadata.file_sources.extz.default_log.log_exception", _log_exception)
-
     metadata = get_metadata(archive)
     assert metadata.title == "Unknown"
-    assert events
-    assert any("No OPF found in EXTZ archive" in exc for _, exc in events)
 
 
 def test_extz_set_metadata_invalid_zip_logs_and_raises(monkeypatch) -> None:

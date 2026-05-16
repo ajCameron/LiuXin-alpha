@@ -78,7 +78,10 @@ def test_pdb_package_path_type_and_header_error_edges(tmp_path) -> None:
 
     broken_path = tmp_path / "broken_title.pdb"
     broken_path.write_bytes(b"bad")
-    md = pdb_md.get_metadata(broken_path)
+    with pytest.raises(pdb_md.PdbFormatError):
+        pdb_md.get_metadata(broken_path)
+
+    md = pdb_md.get_metadata(broken_path, fallback_on_parse_error=True)
     assert md.title == "broken_title"
     assert _values(md.authors) == ["Unknown"]
 

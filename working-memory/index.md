@@ -6,6 +6,12 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [metadata-malformed-input-fuzzing-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-malformed-input-fuzzing-2026-05-16.md)
+  Active branch note for deterministic malformed-input and wrong-format
+  metadata extractor coverage. The first slice adds
+  `metadata.file_sources.registry` so tests and future plugin loading can
+  enumerate/register readers without putting registry state on the base class.
+
 - [metadata-writer-coverage-plan-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-writer-coverage-plan-2026-05-16.md)
   Next high-value lane after extractor coverage: metadata writer tests as
   corruption-prevention checks, with round-trip readability, container

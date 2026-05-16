@@ -288,7 +288,7 @@ def test_fb2_set_metadata_sanitizes_hostile_xml_without_mutating_input(
     assert updated.tags == tags
 
 
-def test_fb2_handles_malformed_payload_gracefully(monkeypatch) -> None:
+def test_fb2_malformed_payload_raises_by_default_and_can_opt_into_fallback(monkeypatch) -> None:
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
 
     calls: list[tuple[str, str]] = []
@@ -300,7 +300,11 @@ def test_fb2_handles_malformed_payload_gracefully(monkeypatch) -> None:
 
     stream = io.BytesIO(b"this is not xml")
     stream.name = "broken_file.fb2"
-    metadata = fb2.get_metadata(stream)
+
+    with pytest.raises(fb2.FB2ParseError):
+        fb2.get_metadata(stream)
+
+    metadata = fb2.get_metadata(stream, fallback_on_parse_error=True)
 
     assert metadata.title == "broken_file"
     assert _first_value(metadata.authors).lower() == "unknown"

@@ -60,6 +60,10 @@ NAMESPACES = {
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
 
+class FB2ParseError(Exception):
+    pass
+
+
 def _is_path_like(target: Any) -> bool:
     return isinstance(target, (str, bytes, os.PathLike))
 
@@ -329,6 +333,9 @@ def _extract_fb2_payload(raw_container_bytes: bytes) -> tuple[bytes, str | None]
 
 
 def _parse_fb2_root(raw_payload: bytes):
+    if not raw_payload:
+        raise FB2ParseError("Empty FB2 XML payload.")
+
     text, _enc = xml_to_unicode(raw_payload, strip_encoding_pats=True)
     if not isinstance(text, str):
         text = _ensure_bytes(text).decode("utf-8", "replace")
@@ -342,14 +349,23 @@ def _parse_fb2_root(raw_payload: bytes):
 
     if parser is not None:
         try:
-            return etree.fromstring(text.encode("utf-8", "replace"), parser=parser)
+            root = etree.fromstring(text.encode("utf-8", "replace"), parser=parser)
+            _validate_fb2_root(root)
+            return root
         except Exception:
             pass
 
     try:
-        return etree.fromstring(text.encode("utf-8", "replace"))
+        root = etree.fromstring(text.encode("utf-8", "replace"))
     except Exception as err:
-        raise ValueError("Failed to parse FB2 XML payload") from err
+        raise FB2ParseError("Failed to parse FB2 XML payload.") from err
+    _validate_fb2_root(root)
+    return root
+
+
+def _validate_fb2_root(root) -> None:
+    if root is None or _localname(getattr(root, "tag", "")).lower() != "fictionbook":
+        raise FB2ParseError("FB2 XML payload does not look like a FictionBook document.")
 
 
 def _serialize_root(root) -> bytes:
@@ -768,13 +784,17 @@ def _build_metadata_shell(target: Any) -> MetaInformation:
     return MetaInformation(_source_title(target), [_("Unknown")])
 
 
-def get_metadata(stream_or_path):
+def get_metadata(stream_or_path, *, fallback_on_parse_error: bool = False):
     """
     Return FB2 metadata from a path or readable binary stream.
+
+    The reader rejects non-credible FB2 payloads by default. Set
+    `fallback_on_parse_error=True` only from a best-effort routing layer that
+    deliberately wants shell metadata for broken inputs.
     """
     if _is_path_like(stream_or_path):
         with open(stream_or_path, "rb") as stream:
-            return get_metadata(stream)
+            return get_metadata(stream, fallback_on_parse_error=fallback_on_parse_error)
 
     stream = stream_or_path
     if not hasattr(stream, "read"):
@@ -791,7 +811,10 @@ def get_metadata(stream_or_path):
     mi = _build_metadata_shell(stream)
     try:
         if hasattr(stream, "seek"):
-            stream.seek(0)
+            try:
+                stream.seek(0)
+            except Exception:
+                pass
 
         container_bytes = _ensure_bytes(stream.read())
         payload, _zip_member = _extract_fb2_payload(container_bytes)
@@ -831,6 +854,10 @@ def get_metadata(stream_or_path):
             "DEBUG",
             ("source", source),
         )
+        if not fallback_on_parse_error:
+            if isinstance(err, FB2ParseError):
+                raise
+            raise FB2ParseError("Failed to extract metadata from FB2 source.") from err
         return mi
     finally:
         if pos is not None and hasattr(stream, "seek"):
@@ -921,6 +948,7 @@ __all__ = [
     "VALID_FOR",
     "PRIORITY_FOR",
     "RUN_COST",
+    "FB2ParseError",
     "get_metadata",
     "get_metadata_inplace",
     "set_metadata",

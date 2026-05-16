@@ -14,7 +14,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+from LiuXin_alpha.metadata.file_sources.registry import (
+    get_metadata_reader_plugins,
+    get_metadata_reader_registry_revision,
+    known_metadata_file_types,
+    normalize_file_type,
+    register_metadata_reader_plugin,
+    unregister_metadata_reader_plugin,
+)
 from LiuXin_alpha.utils.logging import default_log
 
 __folder__ = os.path.realpath(os.path.dirname(__file__))
@@ -22,6 +29,7 @@ __folder__ = os.path.realpath(os.path.dirname(__file__))
 # Backwards-compatible globals kept for callers that inspect this module.
 valid_plugins: list["MetaDataReaderPlugin"] = []
 valid_file_formats: set[str] = set()
+_loaded_registry_revision = -1
 
 
 class InvalidMetadataExtractor(Exception):
@@ -64,14 +72,7 @@ class MetaDataReaderPlugin:
 
 
 def _normalize_ext(raw_ext: str | None) -> str:
-    ext = (raw_ext or "").lower().lstrip(".")
-    if ext in {"html", "htm", "xhtml", "xhtm", "xml"}:
-        return "html"
-    if ext in {"mobi", "prc", "azw"}:
-        return "mobi"
-    if ext in {"odt", "ods", "odp", "odg", "odf"}:
-        return "odt"
-    return ext
+    return normalize_file_type(raw_ext)
 
 
 def _target_path_hint(target_object) -> str | None:
@@ -142,15 +143,17 @@ def load_plugins():
     """
     Populate compatibility plugin adapters from builtin metadata-reader plugins.
     """
+    global _loaded_registry_revision
     valid_plugins[:] = [MetaDataReaderPlugin(cls) for cls in get_metadata_reader_plugins()]
     valid_file_formats.clear()
     for plugin in valid_plugins:
         valid_file_formats.update(plugin.VALID_FOR)
+    _loaded_registry_revision = get_metadata_reader_registry_revision()
 
 
 def get_plugins_for_extension(ext: str):
     ext = _normalize_ext(ext).upper()
-    if not valid_plugins:
+    if not valid_plugins or _loaded_registry_revision != get_metadata_reader_registry_revision():
         load_plugins()
     plugins = [plugin for plugin in valid_plugins if ext in plugin.VALID_FOR]
     return sort_plugins_by_run_cost(plugins)
@@ -207,6 +210,9 @@ __all__ = [
     "filter_plugin_sources",
     "get_metadata",
     "get_plugins_for_extension",
+    "known_metadata_file_types",
     "load_plugins",
+    "register_metadata_reader_plugin",
     "sort_plugins_by_run_cost",
+    "unregister_metadata_reader_plugin",
 ]

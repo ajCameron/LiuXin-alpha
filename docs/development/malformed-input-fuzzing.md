@@ -48,3 +48,49 @@ The expected outcome is a conservative metadata result only when that is
 intentional. Otherwise the extractor should raise a sane, predictable error
 without leaking arbitrary `IndexError`, `KeyError`, `struct.error`, parser
 internals, or runaway decode work.
+
+Use `LiuXin_alpha.metadata.file_sources.registry` to enumerate metadata readers
+for corpus-driven tests. Keep individual format readers strict; place
+wrong-extension sniffing and fallback routing in a separate best-effort facade.
+
+## Structured XML Readers
+
+XML parse success is not enough to prove that a file belongs to a structured
+metadata format. OPF and FB2 readers should validate their expected document
+shape after parsing:
+
+- OPF accepts OPF package/metadata-shaped XML by default.
+- FB2 accepts FictionBook-rooted XML by default.
+- Generic XML extraction and shell metadata fallback are explicit opt-in paths
+  for internal callers or a future best-effort facade.
+
+Wrong-format but parseable XML, such as HTML passed to OPF/FB2 or OPF passed to
+FB2, should raise a format-level error through the individual reader.
+
+## Archive Text Readers
+
+Archive-backed text readers should distinguish malformed containers from valid
+containers with sparse metadata:
+
+- invalid ZIP bytes and empty/non-credible archives should raise
+- HTMLZ archives with credible HTML/manifest content may return shell metadata
+  when no OPF metadata is present
+- TXTZ archives may fall back to embedded `.txt` content when no OPF metadata
+  is present
+
+This keeps legitimate legacy HTMLZ/TXTZ fixtures readable while still rejecting
+arbitrary bytes and empty ZIP files.
+
+## Binary Metadata Readers
+
+Binary readers should reject arbitrary bytes before manufacturing filename-based
+metadata:
+
+- PDF requires a PDF header and parseable PDF objects by default.
+- MOBI-family readers raise on unreadable MOBI headers by default.
+- PDB raises when the wrapper header itself cannot be parsed by default.
+
+PDB still returns header-only metadata for parseable but unsupported PDB
+variants. That is a valid-container fallback, not a wrong-format fallback.
+Explicit fallback flags are reserved for future best-effort routing APIs that
+choose to keep shell metadata for broken files.

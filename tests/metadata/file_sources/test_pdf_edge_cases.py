@@ -291,7 +291,10 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
     events = []
     monkeypatch.setattr(pdf.default_log, "log_exception", lambda *args, **_kwargs: events.append(args))
 
-    empty = pdf.get_metadata(b"")
+    with pytest.raises(pdf.PdfParseError):
+        pdf.get_metadata(b"")
+
+    empty = pdf.get_metadata(b"", fallback_on_parse_error=True)
     assert empty.title == "Unknown"
     assert _values(empty.authors) == ["Unknown Author"]
 

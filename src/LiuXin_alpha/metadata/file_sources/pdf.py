@@ -457,6 +457,10 @@ def _default_metadata(source_name: str = "") -> MetaData:
     return md
 
 
+def _payload_looks_like_pdf(payload: bytes) -> bool:
+    return b"%PDF-" in payload[:1024]
+
+
 def _field_values(raw: Any) -> list[str]:
     if raw is None:
         return []
@@ -706,13 +710,17 @@ def xmp_to_dict(xmp):
     return XmpParser(xmp).meta
 
 
-def get_metadata(stream):
+def get_metadata(stream, *, fallback_on_parse_error: bool = False):
     source_name = _source_name(stream)
     try:
         pdf_bytes, source_name = _read_source_bytes(stream)
         if not pdf_bytes:
             raise PdfParseError("Empty PDF payload")
+        if not _payload_looks_like_pdf(pdf_bytes):
+            raise PdfParseError("PDF payload does not contain a PDF header.")
         objects = _extract_objects(pdf_bytes)
+        if not objects:
+            raise PdfParseError("PDF payload does not contain parseable PDF objects.")
     except Exception as err:
         default_log.log_exception(
             "Failed to read PDF metadata source.",
@@ -720,6 +728,10 @@ def get_metadata(stream):
             "ERROR",
             ("source", source_name or "<stream>"),
         )
+        if not fallback_on_parse_error:
+            if isinstance(err, PdfParseError):
+                raise
+            raise PdfParseError("Failed to read PDF metadata source.") from err
         md = _default_metadata(source_name)
         try:
             md.finalize()
@@ -796,9 +808,9 @@ def get_metadata(stream):
     return md
 
 
-def get_metadata_inplace(target_file):
+def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False):
     with open(target_file, "rb") as target_pdf_stream:
-        return get_metadata(target_pdf_stream)
+        return get_metadata(target_pdf_stream, fallback_on_parse_error=fallback_on_parse_error)
 
 
 def _first_value(raw: Any) -> str | None:

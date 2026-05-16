@@ -558,7 +558,13 @@ def _read_cover_from_header(mh):
         return b""
 
 
-def read_metadata_from_stream(stream, source_name: str = "", extract_cover: bool = True):
+def read_metadata_from_stream(
+    stream,
+    source_name: str = "",
+    extract_cover: bool = True,
+    *,
+    fallback_on_parse_error: bool = False,
+):
     from LiuXin_alpha.file_formats.mobi.reader.headers import MetadataHeader
     from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
     from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
@@ -584,6 +590,8 @@ def read_metadata_from_stream(stream, source_name: str = "", extract_cover: bool
                 "WARNING",
                 ("source", source_name or "<stream>"),
             )
+            if not fallback_on_parse_error:
+                raise MobiError("Topaz metadata reader is unavailable.") from err
             return mi
         try:
             return topaz_get_metadata(stream)
@@ -594,6 +602,8 @@ def read_metadata_from_stream(stream, source_name: str = "", extract_cover: bool
                 "ERROR",
                 ("source", source_name or "<stream>"),
             )
+            if not fallback_on_parse_error:
+                raise MobiError("Failed to read metadata from embedded Topaz stream.") from err
             return mi
 
     try:
@@ -627,10 +637,14 @@ def read_metadata_from_stream(stream, source_name: str = "", extract_cover: bool
             "ERROR",
             ("source", source_name or "<stream>"),
         )
+        if not fallback_on_parse_error:
+            if isinstance(err, MobiError):
+                raise
+            raise MobiError("Failed to read MOBI metadata.") from err
     return mi
 
 
-def get_metadata(target_file, extract_cover: bool = True):
+def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
     Read metadata from a MOBI path/pathlike or readable binary stream.
     """
@@ -655,7 +669,12 @@ def get_metadata(target_file, extract_cover: bool = True):
             pos = None
 
     try:
-        return read_metadata_from_stream(stream, source_name=source_name, extract_cover=extract_cover)
+        return read_metadata_from_stream(
+            stream,
+            source_name=source_name,
+            extract_cover=extract_cover,
+            fallback_on_parse_error=fallback_on_parse_error,
+        )
     finally:
         if stream_needs_close:
             stream.close()
@@ -666,11 +685,11 @@ def get_metadata(target_file, extract_cover: bool = True):
                 pass
 
 
-def get_metadata_inplace(target_file):
+def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False):
     """
     Path-oriented metadata read optimized for in-place plugin calls.
     """
-    return get_metadata(target_file, extract_cover=False)
+    return get_metadata(target_file, extract_cover=False, fallback_on_parse_error=fallback_on_parse_error)
 
 
 __all__ = [
