@@ -1,10 +1,15 @@
 # Working Memory Index
 
-Updated: 2026-05-15
+Updated: 2026-05-16
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [metadata-coverage-lift-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-coverage-lift-2026-05-16.md)
+  Focused coverage lift for the recent metadata API/container work, including
+  the new WEMI projection/relation/lazy-value tests and 100% focused coverage
+  across the six metadata hydrator modules.
 
 - [coverage-syntax-warning-cleanup-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/coverage-syntax-warning-cleanup-2026-05-15.md)
   Coverage-runner and SyntaxWarning cleanup note: adds the dedicated coverage
