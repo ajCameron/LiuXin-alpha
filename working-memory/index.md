@@ -19,6 +19,11 @@ Start here for active handoff notes. This index should stay short.
   older adapters; latest private-corpus validation is `457 passed`, `4 skipped`,
   with `metadata.file_sources` coverage at 91%.
 
+- [data-artifacts-plan-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/data-artifacts-plan-2026-05-16.md)
+  Optional artifacts now use `scripts/build_artifacts.py`, track small fixtures
+  directly, and keep multi-GB ISFDB DB payloads manifest-only with deterministic
+  child build environment settings.
+
 - [metadata-coverage-lift-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-coverage-lift-2026-05-16.md)
   Focused coverage lift for the recent metadata API/container work, including
   the new WEMI projection/relation/lazy-value tests and 100% focused coverage
