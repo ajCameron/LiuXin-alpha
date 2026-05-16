@@ -193,7 +193,7 @@ def test_rtf_helper_detection_decode_and_replace_edges() -> None:
     assert rtf_md.detect_codepage(io.BytesIO(b"{\\rtf1\\ansi\\ansicpg0 body}")) == "cp1252"
     assert rtf_md.detect_codepage(io.BytesIO(b"{\\rtf1\\ansi\\ansicpg999999 body}")) is None
     assert "\\u233?" in rtf_md.encode("é")
-    assert rtf_md.decode(r"bad \'ff \u-1?", "not-a-codec") == "bad ? \uffff"
+    assert rtf_md.decode(r"bad \'ff \u-1?", "not-a-codec") == "bad ?"
     with pytest.raises(TypeError, match="RTF metadata reader"):
         rtf_md.get_metadata(object())
 

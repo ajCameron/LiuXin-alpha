@@ -146,3 +146,10 @@ Use a shared hostile metadata set across writer tests:
 - Focused validation:
   `python3 -m pytest tests/metadata/file_sources/test_mobi_metadata_source.py tests/metadata/file_sources/test_mobi_edge_cases.py tests/metadata/file_sources/test_pdf_metadata_source.py tests/metadata/file_sources/test_pdf_edge_cases.py tests/file_formats/pdf/test_pdf_headless_fallback.py -q`
   passed with `55 passed`.
+
+## 2026-05-16 PR Prep
+
+- CI exposed one stale RTF helper expectation from the earlier writer hardening
+  work: decoded `\u-1?` output is now sanitized instead of preserving `\uffff`.
+  Updated the edge-case test to match the current invalid-Unicode stripping
+  contract before pushing the PR branch.
