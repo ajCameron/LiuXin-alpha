@@ -276,11 +276,11 @@ else:
 
 
 try:
-    from LiuXin_alpha.file_formats.lrf.meta import get_metadata as lrf_get_metadata
+    from LiuXin_alpha.metadata.file_sources.lrf import get_metadata as lrf_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize LRFMetadataReader - necessary functions couldn't be imported from "
-        "LiuXfile_formats.lrf.metatml"
+        "LiuXin_alpha.metadata.file_sources.lrf"
     )
     default_log.log_exception(debug_str, e, "DEBUG")
 else:
@@ -292,13 +292,11 @@ else:
         file_types = frozenset(["lrf"])
         description = _("Read metadata from %s files") % "LRF"
 
-        def get_metadata(self, stream, ftype):
-            # Check this actually works
-            return lrf_get_metadata(stream, calibre_md=False)
+        def get_metadata(self, stream, ftype, **kwargs):
+            return lrf_get_metadata(stream, calibre_md=False, **kwargs)
 
         def get_metadata_inplace(self, file_path, ftype):
-            with open(file_path, "rb") as lrf_file_stream:
-                return lrf_get_metadata(lrf_file_stream, calibre_md=False)
+            return lrf_get_metadata(file_path, calibre_md=False)
 
     file_type_plugins += [LRFMetadataReader]
 

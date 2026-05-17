@@ -64,6 +64,14 @@ STRICT_CONTAINER_CASES = [
     ("txtz", "TXTZMetadataReader", "tiny_binary"),
     ("txtz", "TXTZMetadataReader", "html_document"),
     ("txtz", "TXTZMetadataReader", "empty_zip"),
+    ("odt", "ODTMetadataReader", "empty"),
+    ("odt", "ODTMetadataReader", "tiny_binary"),
+    ("odt", "ODTMetadataReader", "html_document"),
+    ("odt", "ODTMetadataReader", "empty_zip"),
+    ("rar", "RARMetadataReader", "empty"),
+    ("rar", "RARMetadataReader", "tiny_binary"),
+    ("rar", "RARMetadataReader", "html_document"),
+    ("rar", "RARMetadataReader", "empty_zip"),
 ]
 
 
@@ -104,6 +112,12 @@ STRICT_BINARY_CASES = [
     ("pdb", "PDBMetadataReader", "empty_zip"),
     ("pdb", "PDBMetadataReader", "pdf_header_only"),
     ("pdb", "PDBMetadataReader", "mobi_marker_only"),
+    ("lrf", "LRFMetadataReader", "empty"),
+    ("lrf", "LRFMetadataReader", "tiny_binary"),
+    ("lrf", "LRFMetadataReader", "png_header"),
+    ("lrf", "LRFMetadataReader", "html_document"),
+    ("lrf", "LRFMetadataReader", "empty_zip"),
+    ("lrf", "LRFMetadataReader", "pdf_header_only"),
 ]
 
 
@@ -237,7 +251,7 @@ def test_registry_lists_strict_container_readers_for_fuzzing() -> None:
 
     reader_names = {
         entry.name
-        for extension in ("epub", "docx", "zip", "htmlz", "txtz")
+        for extension in ("epub", "docx", "zip", "htmlz", "txtz", "odt", "rar")
         for entry in registry.iter_metadata_reader_entries_for_extension(extension)
     }
     assert {
@@ -246,6 +260,8 @@ def test_registry_lists_strict_container_readers_for_fuzzing() -> None:
         "ZipMetadataReader",
         "HTMLZMetadataReader",
         "TXTZMetadataReader",
+        "ODTMetadataReader",
+        "RARMetadataReader",
     } <= reader_names
 
 
@@ -265,10 +281,10 @@ def test_registry_lists_strict_binary_readers_for_fuzzing() -> None:
 
     reader_names = {
         entry.name
-        for extension in ("pdf", "mobi", "pdb")
+        for extension in ("pdf", "mobi", "pdb", "lrf")
         for entry in registry.iter_metadata_reader_entries_for_extension(extension)
     }
-    assert {"PDFMetadataReader", "MOBIMetadataReader", "PDBMetadataReader"} <= reader_names
+    assert {"PDFMetadataReader", "MOBIMetadataReader", "PDBMetadataReader", "LRFMetadataReader"} <= reader_names
 
 
 def test_registry_lists_strict_legacy_readers_for_fuzzing() -> None:

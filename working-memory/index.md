@@ -6,6 +6,11 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [metadata-container-reader-fuzzing-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-container-reader-fuzzing-2026-05-17.md)
+  Follow-up on PR #48 for the next metadata reader pass: ODT/ODT-beta named
+  strict failures, a new LRF file-source wrapper, and shared malformed-input
+  coverage for ODT/RAR/LRF.
+
 - [metadata-legacy-format-fuzzing-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-legacy-format-fuzzing-2026-05-17.md)
   Active branch note for the next malformed-input lane after PR #47:
   legacy/specialty metadata readers, starting with RTF/SNB/LRX strict wrapper

@@ -81,6 +81,22 @@ containers with sparse metadata:
 This keeps legitimate legacy HTMLZ/TXTZ fixtures readable while still rejecting
 arbitrary bytes and empty ZIP files.
 
+## Document And Archive Containers
+
+Document/archive containers should fail at the wrapper boundary before
+returning shell metadata:
+
+- ODT and the ODT beta reader require a readable ZIP container with `meta.xml`
+  by default. Mildly malformed XML may still be recovered, but missing or
+  unreadable metadata raises `OdtFormatError`.
+- RAR requires a readable RAR archive and a supported ebook or comic member.
+  Runtime/tooling failures surface as extraction failures rather than fallback
+  metadata.
+
+Both ODT readers keep an explicit `fallback_on_parse_error` path for future
+best-effort routing. Direct reader calls and dispatcher calls should stay
+strict by default.
+
 ## Binary Metadata Readers
 
 Binary readers should reject arbitrary bytes before manufacturing filename-based
@@ -89,6 +105,9 @@ metadata:
 - PDF requires a PDF header and parseable PDF objects by default.
 - MOBI-family readers raise on unreadable MOBI headers by default.
 - PDB raises when the wrapper header itself cannot be parsed by default.
+- LRF raises `LrfFormatError` for lower-level header or metadata parse failures
+  by default; filename-derived shell metadata is available only through an
+  explicit fallback flag.
 
 PDB still returns header-only metadata for parseable but unsupported PDB
 variants. That is a valid-container fallback, not a wrong-format fallback.

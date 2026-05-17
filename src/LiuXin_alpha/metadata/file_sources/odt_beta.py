@@ -33,6 +33,7 @@ __all__ = [
     "VALID_FOR",
     "PRIORITY_FOR",
     "RUN_COST",
+    "OdtFormatError",
     "get_metadata",
     "get_metadata_inplace",
     "read_cover",
@@ -45,6 +46,10 @@ RUN_COST = ["LOW"]
 
 _WHITESPACE = re.compile(r"\s+")
 _SPLIT_TAGS = re.compile(r"[;,]")
+
+
+class OdtFormatError(ValueError):
+    pass
 
 
 def _normalize(raw: str | None) -> str:
@@ -119,8 +124,29 @@ def _parse_xml(raw_xml: bytes):
     try:
         return etree.fromstring(raw_xml)
     except Exception:
-        parser = etree.XMLParser(recover=True)
-        return etree.fromstring(raw_xml, parser=parser)
+        try:
+            parser = etree.XMLParser(recover=True)
+            return etree.fromstring(raw_xml, parser=parser)
+        except Exception as err:
+            raise OdtFormatError("Failed to parse ODT XML metadata") from err
+
+
+def _default_metadata(source_title: str = ""):
+    title = source_title or _("Unknown")
+    mi = calibreMetaInformation(title, [_("Unknown")])
+    try:
+        mi.finalize()
+    except Exception:
+        pass
+    return mi
+
+
+def _read_meta_xml(raw_odt: bytes) -> bytes:
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw_odt), "r") as zin:
+            return zin.read("meta.xml")
+    except Exception as err:
+        raise OdtFormatError("Not a valid ODT file (missing readable meta.xml)") from err
 
 
 def _read_user_defined(root) -> dict[str, str]:
@@ -320,13 +346,26 @@ def read_cover(stream, zin, mi, opfmeta, extract_cover):
         mi.cover_data = cover_data
 
 
-def get_metadata(stream, extract_cover=True):
+def get_metadata(stream, extract_cover=True, *, fallback_on_parse_error: bool = False):
     raw_odt = _read_source_bytes(stream)
 
-    with zipfile.ZipFile(io.BytesIO(raw_odt), "r") as zin:
-        meta_xml = zin.read("meta.xml")
-
+    try:
+        meta_xml = _read_meta_xml(raw_odt)
         root = _parse_xml(meta_xml)
+    except Exception as err:
+        if fallback_on_parse_error:
+            default_log.log_exception(
+                "Failed to read ODT beta metadata; returning fallback metadata.",
+                err,
+                "DEBUG",
+                ("source", getattr(stream, "name", "<stream>")),
+            )
+            return _default_metadata(_source_title(stream))
+        if isinstance(err, OdtFormatError):
+            raise
+        raise OdtFormatError("Failed to read ODT beta metadata") from err
+
+    with zipfile.ZipFile(io.BytesIO(raw_odt), "r") as zin:
         user_defined = _read_user_defined(root)
 
         title = (
@@ -435,6 +474,6 @@ def get_metadata(stream, extract_cover=True):
         return mi
 
 
-def get_metadata_inplace(path, extract_cover=True):
+def get_metadata_inplace(path, extract_cover=True, *, fallback_on_parse_error: bool = False):
     with open(path, "rb") as stream:
-        return get_metadata(stream, extract_cover=extract_cover)
+        return get_metadata(stream, extract_cover=extract_cover, fallback_on_parse_error=fallback_on_parse_error)
