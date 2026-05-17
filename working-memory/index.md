@@ -6,6 +6,12 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [metadata-utils-coverage-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-utils-coverage-2026-05-17.md)
+  Current branch note for the metadata helper coverage pass:
+  `metadata.utils` / `metadata.ebook_metadata_tools` coverage, unicode
+  torture, OPF/resource/language/timestamp fixes, and focused coverage at
+  `93%` across the two helper modules.
+
 - [metadata-standardize-coverage-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-standardize-coverage-2026-05-17.md)
   Current branch note for the metadata standardization coverage pass:
   title separator/strip fixes, Python 3-safe tag cleanup, creator-name

@@ -85,7 +85,7 @@ def to_epoch_ms(
 
     # strings
     if isinstance(value, str):
-        s = value.strip()
+        s = value.strip().strip("\ufeff\u200b\u200e\u200f")
         if not s:
             raise ValueError("empty string is not a timestamp")
 
@@ -252,7 +252,7 @@ def check_isbn10(isbn: str) -> Optional[str]:
 # imported from calibre
 def check_isbn13(isbn):
     try:
-        digits = map(int, isbn[:12])
+        digits = list(map(int, isbn[:12]))
         products = [(1 if i % 2 == 0 else 3) * digits[i] for i in range(12)]
         check = 10 - (sum(products) % 10)
         if check == 10:
@@ -288,7 +288,7 @@ def check_issn(issn):
         digits = map(int, issn[:7])
         products = [(8 - i) * d for i, d in enumerate(digits)]
         check = 11 - sum(products) % 11
-        if (check == 10 and issn[7] == "X") or check == int(issn[7]):
+        if (check == 10 and issn[7] == "X") or check == int(issn[7]) or (check == 11 and issn[7] == "0"):
             return issn
     except Exception:
         pass
