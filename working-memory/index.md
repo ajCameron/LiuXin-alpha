@@ -6,6 +6,11 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [metadata-coverage-fallback-alignment-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-coverage-fallback-alignment-2026-05-17.md)
+  Current branch note for the post-coverage stale-test alignment: strict
+  reader defaults stay strict, explicit `fallback_on_parse_error=True` owns
+  conservative shell metadata, and the latest external coverage run is green.
+
 - [metadata-text-reader-fuzzing-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-text-reader-fuzzing-2026-05-17.md)
   Current branch note for the permissive text-reader malformed-input pass:
   TXT/HTML/plain-PML safe fallbacks, direct HTML byte payload handling,

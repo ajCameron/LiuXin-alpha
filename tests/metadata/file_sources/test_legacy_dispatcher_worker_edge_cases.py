@@ -162,7 +162,14 @@ def test_lit_reader_fallbacks_type_error_and_stream_position(monkeypatch) -> Non
 
     monkeypatch.setattr(lit_md, "default_log", _NoLogException())
     monkeypatch.setattr(lit_md, "_load_lit_container_class", lambda: _BrokenContainer)
-    md = lit_md.read_metadata_from_stream(io.BytesIO(b"bad"), source_name="broken.lit")
+    with pytest.raises(lit_md.LitFormatError):
+        lit_md.read_metadata_from_stream(io.BytesIO(b"bad"), source_name="broken.lit")
+
+    md = lit_md.read_metadata_from_stream(
+        io.BytesIO(b"bad"),
+        source_name="broken.lit",
+        fallback_on_parse_error=True,
+    )
     assert md.title == "broken"
 
 
@@ -245,7 +252,14 @@ def test_pml_zip_cover_payload_and_parse_error_edges(monkeypatch) -> None:
     payload_no_cover = _zip_bytes({"book.pml": b"payload", "images/cover.png": b"ignored"})
     _, cover = pml_md._extract_pmlz_payload(payload_no_cover, source_name="", extract_cover=False)
     assert cover is None
-    assert pml_md._extract_pmlz_payload(b"not-a-zip", source_name="", extract_cover=True) == (b"", None)
+    with pytest.raises(pml_md.PmlFormatError):
+        pml_md._extract_pmlz_payload(b"not-a-zip", source_name="", extract_cover=True)
+    assert pml_md._extract_pmlz_payload(
+        b"not-a-zip",
+        source_name="",
+        extract_cover=True,
+        fallback_on_parse_error=True,
+    ) == (b"", None)
 
     class _FakeZip:
         def __init__(self) -> None:
@@ -280,7 +294,9 @@ def test_pml_zip_cover_payload_and_parse_error_edges(monkeypatch) -> None:
     monkeypatch.setattr(pml_md, "get_cover", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("cover fail")))
     md = pml_md.get_metadata(io.BytesIO(_pml_comment(TITLE="No Cover Error")), extract_cover=True)
     assert md.title == "No Cover Error"
-    assert pml_md.get_metadata(object()).title == "Unknown"
+    with pytest.raises(TypeError):
+        pml_md.get_metadata(object())
+    assert pml_md.get_metadata(object(), fallback_on_parse_error=True).title == "Unknown"
     assert pml_md.get_metadata_inplace(io.BytesIO(_pml_comment(TITLE="Inplace")), extract_cover=False).title == "Inplace"
 
 
