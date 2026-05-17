@@ -123,6 +123,10 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
     ) -> list[Any]:
         return [link.target for link in self.get_wemi_relation_links(level, relation_key)]
 
+    def to_calibre(self) -> Any:
+        self.load()
+        return super().to_calibre()
+
     def load(self, *fields: str) -> "LazyLiuXinWEMIMetadata":
         if not fields:
             self.force_hydrate()
@@ -447,6 +451,16 @@ class LazyLiuXinWEMIMetadata(LiuXinWEMIMetadata):
             clone,
             "_data",
             deepcopy(object.__getattribute__(self, "_data"), memo),
+        )
+        object.__setattr__(
+            clone,
+            "_lazy_relation_loaders",
+            deepcopy(object.__getattribute__(self, "_lazy_relation_loaders"), memo),
+        )
+        object.__setattr__(
+            clone,
+            "_lazy_identifiers_loaded",
+            object.__getattribute__(self, "_lazy_identifiers_loaded"),
         )
         return clone
 
