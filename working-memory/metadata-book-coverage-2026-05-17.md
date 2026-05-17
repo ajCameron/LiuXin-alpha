@@ -26,8 +26,9 @@ Added focused tests under `tests/metadata/book` for:
 - dict serialization/deserialization, cover loading, wrapper conversion, and
   base64 cover output
 - legacy renderer wrappers and `SafeFormat` field lookup behavior
-- unicode torture / foreign-language metadata round-trips using CJK, Arabic,
-  Hebrew, Cyrillic, Devanagari, accents, combining marks, and emoji
+- unicode torture / foreign-language metadata round-trips using CJK, Mandarin,
+  Simplified Chinese, Japanese, Arabic, Hebrew, Cyrillic, Devanagari, accents,
+  combining marks, and emoji
 
 Narrow implementation fixes surfaced by coverage:
 

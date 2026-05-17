@@ -95,11 +95,28 @@ def test_metadata_as_dict_and_from_dict_roundtrip_serializable_fields() -> None:
 
 
 def test_metadata_dict_roundtrip_preserves_unicode_torture_values() -> None:
-    metadata = calibreMetadata("ספר / كتاب / 本 / Книга / पुस्तक 🚀", ["李 白", "أحمد", "Renée"])
-    metadata.tags = ["café", "東京", "العربية", "עברית", "Звёзды", "हिन्दी", "e\u0301"]
-    metadata.languages = ["heb", "ara", "jpn", "rus", "hin"]
-    metadata.publisher = "出版社 / دار النشر / Издательство"
-    metadata.comments = "Mixed RTL العربية עברית, accents naïve, combining e\u0301, emoji 🚀"
+    metadata = calibreMetadata(
+        "ספר / كتاب / 本 / 普通话 / 简体中文 / 日本語 / Книга / पुस्तक 🚀",
+        ["李 白", "王小明", "山田太郎", "أحمد", "Renée"],
+    )
+    metadata.tags = [
+        "café",
+        "東京",
+        "普通话",
+        "简体中文",
+        "日本語",
+        "العربية",
+        "עברית",
+        "Звёзды",
+        "हिन्दी",
+        "e\u0301",
+    ]
+    metadata.languages = ["heb", "ara", "jpn", "zho", "cmn", "rus", "hin"]
+    metadata.publisher = "出版社 / 简体中文出版社 / 日本の出版社 / دار النشر / Издательство"
+    metadata.comments = (
+        "Mixed RTL العربية עברית, Mandarin 普通话, Simplified Chinese 简体中文, "
+        "Japanese 日本語, accents naïve, combining e\u0301, emoji 🚀"
+    )
     metadata.set_identifier("doi", "10.1234/كتاب-東京")
     metadata.set_user_metadata(
         "#custom",
@@ -119,8 +136,12 @@ def test_metadata_dict_roundtrip_preserves_unicode_torture_values() -> None:
     as_dict = metadata_as_dict(metadata)
     restored = metadata_from_dict(as_dict)
 
-    assert as_dict["title"] == "ספר / كتاب / 本 / Книга / पुस्तक 🚀"
-    assert as_dict["comments"] == "Mixed RTL العربية עברית, accents naïve, combining e\u0301, emoji 🚀"
+    assert as_dict["title"] == "ספר / كتاب / 本 / 普通话 / 简体中文 / 日本語 / Книга / पुस्तक 🚀"
+    assert (
+        as_dict["comments"]
+        == "Mixed RTL العربية עברית, Mandarin 普通话, Simplified Chinese 简体中文, Japanese 日本語, "
+        "accents naïve, combining e\u0301, emoji 🚀"
+    )
     assert restored.title == metadata.title
     assert restored.authors == metadata.authors
     assert restored.tags == metadata.tags

@@ -146,12 +146,27 @@ def test_json_codec_encodes_and_decodes_book_metadata() -> None:
 
 
 def test_json_codec_preserves_unicode_torture_without_ascii_escaping() -> None:
-    metadata = calibreMetadata("Bibliothèque 東京 العربية Звёзды हिन्दी 🚀", ["李 白", "Renée"])
-    metadata.tags = ["café", "東京", "العربية", "Звёзды", "हिन्दी", "e\u0301", "🚀"]
-    metadata.comments = "RTL العربية next to LTR English and combining e\u0301"
-    metadata.publisher = "出版社 / دار النشر"
-    metadata.languages = ["jpn", "ara", "rus", "hin"]
-    metadata.lpath = "日本語/مرحبا/звезды.epub".encode("utf-8")
+    metadata = calibreMetadata(
+        "Bibliothèque 東京 普通话 简体中文 日本語 こんにちは العربية Звёзды हिन्दी 🚀",
+        ["李 白", "王小明", "山田太郎", "Renée"],
+    )
+    metadata.tags = [
+        "café",
+        "東京",
+        "普通话",
+        "简体中文",
+        "日本語",
+        "こんにちは",
+        "العربية",
+        "Звёзды",
+        "हिन्दी",
+        "e\u0301",
+        "🚀",
+    ]
+    metadata.comments = "RTL العربية next to Mandarin 普通话, Simplified Chinese 简体中文, Japanese 日本語 and combining e\u0301"
+    metadata.publisher = "出版社 / 简体中文出版社 / 日本の出版社 / دار النشر"
+    metadata.languages = ["jpn", "zho", "cmn", "ara", "rus", "hin"]
+    metadata.lpath = "日本語/普通话/简体中文/مرحبا/звезды.epub".encode("utf-8")
     metadata.set_all_user_metadata(
         {
             "#labels": {
@@ -173,17 +188,30 @@ def test_json_codec_preserves_unicode_torture_without_ascii_escaping() -> None:
     codec.encode_to_file(stream, [metadata])
     payload = stream.getvalue()
 
-    assert "Bibliothèque 東京 العربية Звёзды हिन्दी 🚀" in payload
+    assert "Bibliothèque 東京 普通话 简体中文 日本語 こんにちは العربية Звёзды हिन्दी 🚀" in payload
     assert "\\u6771" not in payload
+    assert "\\u7b80" not in payload
     assert "\\ud83d" not in payload
 
     decoded_books: list[_DecodedBook] = []
     codec.decode_from_file(io.StringIO(payload), decoded_books, _DecodedBook, "root")
 
     decoded = decoded_books[0]
-    assert decoded.title == "Bibliothèque 東京 العربية Звёзды हिन्दी 🚀"
-    assert decoded.lpath == "日本語/مرحبا/звезды.epub"
-    assert decoded.tags == ["café", "東京", "العربية", "Звёзды", "हिन्दी", "e\u0301", "🚀"]
+    assert decoded.title == "Bibliothèque 東京 普通话 简体中文 日本語 こんにちは العربية Звёзды हिन्दी 🚀"
+    assert decoded.lpath == "日本語/普通话/简体中文/مرحبا/звезды.epub"
+    assert decoded.tags == [
+        "café",
+        "東京",
+        "普通话",
+        "简体中文",
+        "日本語",
+        "こんにちは",
+        "العربية",
+        "Звёзды",
+        "हिन्दी",
+        "e\u0301",
+        "🚀",
+    ]
     assert decoded.user_metadata["#labels"]["#value#"] == ["niño", "漢字", "العربية", "हिन्दी"]
 
 

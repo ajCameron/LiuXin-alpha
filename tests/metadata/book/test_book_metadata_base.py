@@ -174,19 +174,37 @@ def test_unicode_torture_metadata_fields_formatting_and_copies(
 ) -> None:
     monkeypatch.setattr(book_base, "sort_key", lambda value: str(value).casefold())
 
-    title = "Résumé 東京 العربية עברית Звёзды 한국어 हिन्दी e\u0301 🚀"
+    title = "Résumé 東京 普通话 简体中文 日本語 こんにちは العربية עברית Звёзды 한국어 हिन्दी e\u0301 🚀"
     authors = [
         "李 白",
+        "王小明",
+        "山田太郎",
         "أحمد بن خالد",
         "Мария Иванова",
         "Renée O'Connor",
         "अनामिका",
     ]
     metadata = calibreMetadata("  " + title + "  ", authors)
-    metadata.publisher = "出版社 / دار النشر / Издательство"
-    metadata.comments = "<p>naïve café 東京 العربية עברית Звёзды हिन्दी e\u0301 🚀</p>"
-    metadata.tags = ["café", "東京", "العربية", "עברית", "Звёзды", "हिन्दी", "e\u0301", "🚀"]
-    metadata.languages = ["jpn", "ara", "heb", "rus", "hin", "kor"]
+    metadata.publisher = "出版社 / 简体中文出版社 / 日本の出版社 / دار النشر / Издательство"
+    metadata.comments = (
+        "<p>naïve café 東京 普通话 简体中文 日本語 こんにちは العربية עברית "
+        "Звёзды हिन्दी e\u0301 🚀</p>"
+    )
+    metadata.tags = [
+        "café",
+        "東京",
+        "普通话",
+        "简体中文",
+        "日本語",
+        "こんにちは",
+        "العربية",
+        "עברית",
+        "Звёзды",
+        "हिन्दी",
+        "e\u0301",
+        "🚀",
+    ]
+    metadata.languages = ["jpn", "zho", "cmn", "ara", "heb", "rus", "hin", "kor"]
     metadata.set_identifier("DOI", "10.1234/東京-مرحبا")
     metadata.set_user_metadata("#labels", _text_multiple_meta("Etiquetas / 标签 / وسوم"))
     metadata.set("#labels", ["niño", "漢字", "العربية", "हिन्दी", "e\u0301"])
@@ -198,7 +216,10 @@ def test_unicode_torture_metadata_fields_formatting_and_copies(
         "Etiquetas / 标签 / وسوم",
         "niño, 漢字, العربية, हिन्दी, e\u0301",
     )
-    assert metadata.format_tags() == "café, e\u0301, Звёзды, עברית, العربية, हिन्दी, 東京, 🚀"
+    assert (
+        metadata.format_tags()
+        == "café, e\u0301, Звёзды, עברית, العربية, हिन्दी, こんにちは, 日本語, 普通话, 東京, 简体中文, 🚀"
+    )
     assert metadata.get_identifiers() == {"doi": "10.1234/東京-مرحبا"}
 
     data = metadata.get_data()
@@ -206,7 +227,7 @@ def test_unicode_torture_metadata_fields_formatting_and_copies(
     assert "mutated" not in metadata.tags
 
     rendered = str(metadata)
-    for expected in ["東京", "العربية", "עברית", "Звёзды", "हिन्दी", "🚀"]:
+    for expected in ["東京", "普通话", "简体中文", "日本語", "こんにちは", "العربية", "עברית", "Звёзды", "हिन्दी", "🚀"]:
         assert expected in rendered
 
 
@@ -250,6 +271,6 @@ def test_field_from_string_rejects_unknown_bool_values() -> None:
 def test_field_from_string_preserves_foreign_language_iso_codes() -> None:
     assert field_from_string(
         "languages",
-        "jpn, ara, heb, rus, hin, kor, zho",
+        "jpn, zho, cmn, ara, heb, rus, hin, kor",
         {"datatype": "text", "is_multiple": {"ui_to_list": ","}},
-    ) == ["jpn", "ara", "heb", "rus", "hin", "kor", "zho"]
+    ) == ["jpn", "zho", "cmn", "ara", "heb", "rus", "hin", "kor"]
