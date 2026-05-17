@@ -5,6 +5,8 @@ import zipfile
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 
 def _values(raw):
     if raw is None:
@@ -139,6 +141,19 @@ def test_pmlz_metadata_works_for_nameless_stream_via_zip_detection() -> None:
     md = get_metadata(stream, extract_cover=False)
 
     assert md.title == "No Name Stream"
+
+
+def test_pmlz_invalid_archive_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.pml import PmlFormatError, get_metadata
+
+    stream = io.BytesIO(b"not-a-zip")
+    stream.name = "broken.pmlz"
+    with pytest.raises(PmlFormatError):
+        get_metadata(stream)
+
+    md = get_metadata(stream, fallback_on_parse_error=True)
+    assert _first(md.title) == "Unknown"
+    assert _values(md.authors) == ["Unknown"]
 
 
 def test_pml_pathlike_cover_lookup_uses_name_img_folder(tmp_path: Path) -> None:

@@ -23,6 +23,10 @@ PRIORITY_FOR = ["LRX"]
 RUN_COST = ["LOW"]
 
 
+class LrxFormatError(Exception):
+    pass
+
+
 def _default_metadata(source_name: str = ""):
     title = _("Unknown")
     if source_name:
@@ -123,12 +127,14 @@ def _parse_lrx_xml(payload: bytes, mi) -> None:
         mi.authors = [_("Unknown")]
 
 
-def read_metadata_from_stream(stream, source_name: str = ""):
+def read_metadata_from_stream(stream, source_name: str = "", *, fallback_on_parse_error: bool = False):
     mi = _default_metadata(source_name)
     stream.seek(0)
     header = stream.read(12)
     if len(header) < 12:
         _warn("LRX metadata read failed: file header is too short")
+        if not fallback_on_parse_error:
+            raise LrxFormatError("LRX file header is too short.")
         return mi
 
     try:
@@ -165,18 +171,24 @@ def read_metadata_from_stream(stream, source_name: str = ""):
             _parse_lrx_xml(info, mi)
             return mi
 
-        if header[4:8] == b"LRX":
+        if header[4:7] == b"LRX":
             _warn("Librie LRX format metadata parsing is not supported")
             return mi
 
         _warn("Not a valid LRX file")
+        if not fallback_on_parse_error:
+            raise LrxFormatError("Payload is not a valid LRX file.")
         return mi
     except Exception as err:
         _log_exception("Failed to read metadata from LRX file.", err, source_name)
+        if not fallback_on_parse_error:
+            if isinstance(err, LrxFormatError):
+                raise
+            raise LrxFormatError("Failed to read metadata from LRX file.") from err
         return mi
 
 
-def get_metadata(target_file):
+def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
     Read metadata from a LRX filesystem path or readable binary stream.
     """
@@ -205,7 +217,7 @@ def get_metadata(target_file):
             pos = None
 
     try:
-        return read_metadata_from_stream(stream, source_name=source_name)
+        return read_metadata_from_stream(stream, source_name=source_name, fallback_on_parse_error=fallback_on_parse_error)
     finally:
         if stream_needs_close:
             stream.close()
@@ -220,6 +232,7 @@ __all__ = [
     "VALID_FOR",
     "PRIORITY_FOR",
     "RUN_COST",
+    "LrxFormatError",
     "get_metadata",
     "read_metadata_from_stream",
 ]

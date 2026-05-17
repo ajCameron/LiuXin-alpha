@@ -23,6 +23,10 @@ PRIORITY_FOR = ["LIT"]
 RUN_COST = ["LOW"]
 
 
+class LitFormatError(Exception):
+    pass
+
+
 class _LitLogProxy:
     """
     Adapter exposing the tiny logger surface LIT reader code expects.
@@ -172,7 +176,7 @@ def _extract_cover_from_guide(opf: OPF, lit_file) -> tuple[str, bytes] | None:
     return selected[2], selected[0]
 
 
-def read_metadata_from_stream(stream, source_name: str = ""):
+def read_metadata_from_stream(stream, source_name: str = "", *, fallback_on_parse_error: bool = False):
     mi = _default_metadata(source_name)
 
     if hasattr(stream, "seek"):
@@ -210,11 +214,13 @@ def read_metadata_from_stream(stream, source_name: str = ""):
                 mi.cover_data = cover_data
     except Exception as err:
         _log_exception("Failed to read metadata from LIT file.", err, source_name)
+        if not fallback_on_parse_error:
+            raise LitFormatError("Failed to read metadata from LIT file.") from err
         return mi
     return mi
 
 
-def get_metadata(target_file):
+def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
     Read metadata from a LIT filesystem path or a readable binary stream.
     """
@@ -243,7 +249,7 @@ def get_metadata(target_file):
             pos = None
 
     try:
-        return read_metadata_from_stream(stream, source_name=source_name)
+        return read_metadata_from_stream(stream, source_name=source_name, fallback_on_parse_error=fallback_on_parse_error)
     finally:
         if stream_needs_close:
             stream.close()
@@ -258,6 +264,7 @@ __all__ = [
     "VALID_FOR",
     "PRIORITY_FOR",
     "RUN_COST",
+    "LitFormatError",
     "get_metadata",
     "read_metadata_from_stream",
 ]

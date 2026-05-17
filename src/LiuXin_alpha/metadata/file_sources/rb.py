@@ -21,6 +21,10 @@ PRIORITY_FOR = ["RB"]
 RUN_COST = ["LOW"]
 
 
+class RbFormatError(Exception):
+    pass
+
+
 def _default_metadata(source_name: str = ""):
     title = "Unknown"
     if source_name:
@@ -28,7 +32,7 @@ def _default_metadata(source_name: str = ""):
     return calibreMetaInformation(title, ["Unknown"])
 
 
-def get_metadata(target_file):
+def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
     Return metadata as a calibre-compatible metadata object.
     """
@@ -57,7 +61,7 @@ def get_metadata(target_file):
             pos = None
 
     try:
-        return read_metadata_from_stream(stream, source_name=source_name)
+        return read_metadata_from_stream(stream, source_name=source_name, fallback_on_parse_error=fallback_on_parse_error)
     finally:
         if stream_needs_close:
             stream.close()
@@ -81,12 +85,14 @@ def _decode_info_line(raw_line: bytes) -> str:
         return raw_line.decode("cp1252", "replace")
 
 
-def read_metadata_from_stream(stream, source_name: str = ""):
+def read_metadata_from_stream(stream, source_name: str = "", *, fallback_on_parse_error: bool = False):
     mi = _default_metadata(source_name)
     stream.seek(0)
     try:
         if stream.read(14) != MAGIC:
             _log_warning("Couldn't read RB header from file")
+            if not fallback_on_parse_error:
+                raise RbFormatError("RB payload does not start with an RB header.")
             return mi
         stream.read(10)
 
@@ -130,6 +136,10 @@ def read_metadata_from_stream(stream, source_name: str = ""):
             default_log.log_exception(msg, err, "ERROR")
         else:
             _log_warning(msg)
+        if not fallback_on_parse_error:
+            if isinstance(err, RbFormatError):
+                raise
+            raise RbFormatError("Failed to read metadata from RB file.") from err
         return _default_metadata(source_name)
     return mi
 
@@ -139,6 +149,7 @@ __all__ = [
     "VALID_FOR",
     "PRIORITY_FOR",
     "RUN_COST",
+    "RbFormatError",
     "get_metadata",
     "read_metadata_from_stream",
 ]

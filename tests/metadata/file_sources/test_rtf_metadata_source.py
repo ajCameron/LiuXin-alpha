@@ -4,6 +4,8 @@ import io
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
@@ -108,10 +110,13 @@ def test_rtf_get_metadata_pathlike_input(tmp_path: Path) -> None:
     assert _values(md.authors) == ["Path Author"]
 
 
-def test_rtf_invalid_payload_returns_safe_default() -> None:
-    from LiuXin_alpha.metadata.file_sources.rtf import get_metadata
+def test_rtf_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.rtf import RtfFormatError, get_metadata
 
-    md = get_metadata(io.BytesIO(b"not-an-rtf"))
+    with pytest.raises(RtfFormatError):
+        get_metadata(io.BytesIO(b"not-an-rtf"))
+
+    md = get_metadata(io.BytesIO(b"not-an-rtf"), fallback_on_parse_error=True)
     assert _first(md.title) == "Unknown"
     assert _values(md.authors) == ["Unknown"]
 

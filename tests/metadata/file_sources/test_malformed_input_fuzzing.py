@@ -64,6 +64,14 @@ STRICT_CONTAINER_CASES = [
     ("txtz", "TXTZMetadataReader", "tiny_binary"),
     ("txtz", "TXTZMetadataReader", "html_document"),
     ("txtz", "TXTZMetadataReader", "empty_zip"),
+    ("odt", "ODTMetadataReader", "empty"),
+    ("odt", "ODTMetadataReader", "tiny_binary"),
+    ("odt", "ODTMetadataReader", "html_document"),
+    ("odt", "ODTMetadataReader", "empty_zip"),
+    ("rar", "RARMetadataReader", "empty"),
+    ("rar", "RARMetadataReader", "tiny_binary"),
+    ("rar", "RARMetadataReader", "html_document"),
+    ("rar", "RARMetadataReader", "empty_zip"),
 ]
 
 
@@ -104,6 +112,56 @@ STRICT_BINARY_CASES = [
     ("pdb", "PDBMetadataReader", "empty_zip"),
     ("pdb", "PDBMetadataReader", "pdf_header_only"),
     ("pdb", "PDBMetadataReader", "mobi_marker_only"),
+    ("lrf", "LRFMetadataReader", "empty"),
+    ("lrf", "LRFMetadataReader", "tiny_binary"),
+    ("lrf", "LRFMetadataReader", "png_header"),
+    ("lrf", "LRFMetadataReader", "html_document"),
+    ("lrf", "LRFMetadataReader", "empty_zip"),
+    ("lrf", "LRFMetadataReader", "pdf_header_only"),
+]
+
+
+STRICT_LEGACY_CASES = [
+    ("rtf", "RTFMetadataReader", "empty"),
+    ("rtf", "RTFMetadataReader", "tiny_binary"),
+    ("rtf", "RTFMetadataReader", "png_header"),
+    ("rtf", "RTFMetadataReader", "html_document"),
+    ("rtf", "RTFMetadataReader", "empty_zip"),
+    ("snb", "SNBMetadataReader", "empty"),
+    ("snb", "SNBMetadataReader", "tiny_binary"),
+    ("snb", "SNBMetadataReader", "png_header"),
+    ("snb", "SNBMetadataReader", "html_document"),
+    ("snb", "SNBMetadataReader", "empty_zip"),
+    ("lrx", "LRXMetadataReader", "empty"),
+    ("lrx", "LRXMetadataReader", "tiny_binary"),
+    ("lrx", "LRXMetadataReader", "png_header"),
+    ("lrx", "LRXMetadataReader", "html_document"),
+    ("lrx", "LRXMetadataReader", "empty_zip"),
+    ("rb", "RBMetadataReader", "empty"),
+    ("rb", "RBMetadataReader", "tiny_binary"),
+    ("rb", "RBMetadataReader", "png_header"),
+    ("rb", "RBMetadataReader", "html_document"),
+    ("rb", "RBMetadataReader", "empty_zip"),
+    ("imp", "IMPMetadataReader", "empty"),
+    ("imp", "IMPMetadataReader", "tiny_binary"),
+    ("imp", "IMPMetadataReader", "png_header"),
+    ("imp", "IMPMetadataReader", "html_document"),
+    ("imp", "IMPMetadataReader", "empty_zip"),
+    ("lit", "LITMetadataReader", "empty"),
+    ("lit", "LITMetadataReader", "tiny_binary"),
+    ("lit", "LITMetadataReader", "png_header"),
+    ("lit", "LITMetadataReader", "html_document"),
+    ("lit", "LITMetadataReader", "empty_zip"),
+    ("pmlz", "PMLMetadataReader", "empty"),
+    ("pmlz", "PMLMetadataReader", "tiny_binary"),
+    ("pmlz", "PMLMetadataReader", "png_header"),
+    ("pmlz", "PMLMetadataReader", "html_document"),
+    ("pmlz", "PMLMetadataReader", "empty_zip"),
+    ("tpz", "TOPAZMetadataReader", "empty"),
+    ("tpz", "TOPAZMetadataReader", "tiny_binary"),
+    ("tpz", "TOPAZMetadataReader", "png_header"),
+    ("tpz", "TOPAZMetadataReader", "html_document"),
+    ("tpz", "TOPAZMetadataReader", "empty_zip"),
 ]
 
 
@@ -170,12 +228,30 @@ def test_strict_binary_extractors_reject_wrong_format_payloads(
     assert exc_info.value.__cause__ is not None
 
 
+@pytest.mark.parametrize(("extension", "reader_name", "payload_name"), STRICT_LEGACY_CASES)
+def test_strict_legacy_extractors_reject_wrong_format_payloads(
+    extension: str,
+    reader_name: str,
+    payload_name: str,
+) -> None:
+    """
+    Legacy/specialty readers should reject non-credible wrapper payloads.
+    """
+    from LiuXin_alpha.metadata.file_sources import get_metadata
+
+    payload = MALFORMED_PAYLOADS[payload_name]
+    with pytest.raises(RuntimeError, match=f"extension '{extension}'.*{reader_name}") as exc_info:
+        get_metadata(_stream_for(extension, payload), force_type=extension)
+
+    assert exc_info.value.__cause__ is not None
+
+
 def test_registry_lists_strict_container_readers_for_fuzzing() -> None:
     from LiuXin_alpha.metadata.file_sources import registry
 
     reader_names = {
         entry.name
-        for extension in ("epub", "docx", "zip", "htmlz", "txtz")
+        for extension in ("epub", "docx", "zip", "htmlz", "txtz", "odt", "rar")
         for entry in registry.iter_metadata_reader_entries_for_extension(extension)
     }
     assert {
@@ -184,6 +260,8 @@ def test_registry_lists_strict_container_readers_for_fuzzing() -> None:
         "ZipMetadataReader",
         "HTMLZMetadataReader",
         "TXTZMetadataReader",
+        "ODTMetadataReader",
+        "RARMetadataReader",
     } <= reader_names
 
 
@@ -203,7 +281,27 @@ def test_registry_lists_strict_binary_readers_for_fuzzing() -> None:
 
     reader_names = {
         entry.name
-        for extension in ("pdf", "mobi", "pdb")
+        for extension in ("pdf", "mobi", "pdb", "lrf")
         for entry in registry.iter_metadata_reader_entries_for_extension(extension)
     }
-    assert {"PDFMetadataReader", "MOBIMetadataReader", "PDBMetadataReader"} <= reader_names
+    assert {"PDFMetadataReader", "MOBIMetadataReader", "PDBMetadataReader", "LRFMetadataReader"} <= reader_names
+
+
+def test_registry_lists_strict_legacy_readers_for_fuzzing() -> None:
+    from LiuXin_alpha.metadata.file_sources import registry
+
+    reader_names = {
+        entry.name
+        for extension in ("rtf", "snb", "lrx", "rb", "imp", "lit", "pmlz", "tpz")
+        for entry in registry.iter_metadata_reader_entries_for_extension(extension)
+    }
+    assert {
+        "RTFMetadataReader",
+        "SNBMetadataReader",
+        "LRXMetadataReader",
+        "RBMetadataReader",
+        "IMPMetadataReader",
+        "LITMetadataReader",
+        "PMLMetadataReader",
+        "TOPAZMetadataReader",
+    } <= reader_names

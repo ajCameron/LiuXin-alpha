@@ -23,6 +23,10 @@ PRIORITY_FOR = ["IMP"]
 RUN_COST = ["LOW"]
 
 
+class ImpFormatError(Exception):
+    pass
+
+
 def _default_metadata(_source_name: str = ""):
     return Metadata(_("Unknown"), [])
 
@@ -83,12 +87,14 @@ def _read_cstring(stream: BinaryIO, *, skip: int = 0, max_bytes: int = 128 * 102
         result.extend(data)
 
 
-def read_metadata_from_stream(stream: BinaryIO, source_name: str = ""):
+def read_metadata_from_stream(stream: BinaryIO, source_name: str = "", *, fallback_on_parse_error: bool = False):
     mi = _default_metadata(source_name)
     stream.seek(0)
     try:
         if stream.read(10) not in MAGIC:
             _warn("Couldn't read IMP header from file")
+            if not fallback_on_parse_error:
+                raise ImpFormatError("IMP payload does not start with an IMP header.")
             _ensure_default_authors(mi)
             return mi
 
@@ -112,11 +118,15 @@ def read_metadata_from_stream(stream: BinaryIO, source_name: str = ""):
             default_log.log_exception(msg, err, "ERROR")
         else:
             _warn(msg)
+        if not fallback_on_parse_error:
+            if isinstance(err, ImpFormatError):
+                raise
+            raise ImpFormatError("Failed to read metadata from IMP file.") from err
     _ensure_default_authors(mi)
     return mi
 
 
-def get_metadata(target_file):
+def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
     Return metadata as a calibre-compatible metadata object.
     """
@@ -145,7 +155,7 @@ def get_metadata(target_file):
             pos = None
 
     try:
-        return read_metadata_from_stream(stream, source_name=source_name)
+        return read_metadata_from_stream(stream, source_name=source_name, fallback_on_parse_error=fallback_on_parse_error)
     finally:
         if stream_needs_close:
             stream.close()
@@ -161,6 +171,7 @@ __all__ = [
     "VALID_FOR",
     "PRIORITY_FOR",
     "RUN_COST",
+    "ImpFormatError",
     "get_metadata",
     "read_metadata_from_stream",
 ]

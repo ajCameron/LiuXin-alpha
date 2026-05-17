@@ -23,6 +23,10 @@ PRIORITY_FOR = ["TPZ", "AZW1"]
 RUN_COST = ["LOW"]
 
 
+class TopazFormatError(Exception):
+    pass
+
+
 class StreamSlicer:
     """
     Byte-addressable view over a binary stream.
@@ -351,7 +355,7 @@ class MetadataUpdater:
         self.stream.write(chunk2)
 
 
-def get_metadata(target_file):
+def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
     Read Topaz metadata from a path, bytes payload, or binary stream.
     """
@@ -383,12 +387,18 @@ def get_metadata(target_file):
 
         return MetadataUpdater(stream).get_metadata()
     except Exception as err:
+        if isinstance(err, TypeError) and "Topaz metadata reader expects" in str(err):
+            raise
         default_log.log_exception(
             "Failed to read Topaz metadata; using defaults.",
             err,
             "DEBUG",
             ("source", source_name or "<stream>"),
         )
+        if not fallback_on_parse_error:
+            if isinstance(err, TopazFormatError):
+                raise
+            raise TopazFormatError("Failed to read Topaz metadata.") from err
         return _default_metadata()
     finally:
         if stream_needs_close and stream is not None:
@@ -435,6 +445,7 @@ __all__ = [
     "VALID_FOR",
     "PRIORITY_FOR",
     "RUN_COST",
+    "TopazFormatError",
     "StreamSlicer",
     "MetadataUpdater",
     "get_metadata",

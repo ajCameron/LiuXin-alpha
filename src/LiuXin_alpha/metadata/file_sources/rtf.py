@@ -35,6 +35,10 @@ tags_pat_2 = re.compile(br"\{\\info.*?\{\\keywords(.*?)(?<!\\)\}", re.DOTALL)
 comment_pat_2 = re.compile(br"\{\\info.*?\{\\comment(.*?)(?<!\\)\}", re.DOTALL)
 
 
+class RtfFormatError(Exception):
+    pass
+
+
 def _default_metadata() -> MetaInformation:
     return MetaInformation(_("Unknown"), [_("Unknown")])
 
@@ -226,7 +230,7 @@ def _set_tags(mi, tags_text: str) -> None:
         mi.tags = tags
 
 
-def get_metadata(target_file):
+def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
     Read metadata from an RTF path or stream.
     """
@@ -252,7 +256,7 @@ def get_metadata(target_file):
             pos = None
 
     try:
-        return rtf_get_metadata_from_stream(stream)
+        return rtf_get_metadata_from_stream(stream, fallback_on_parse_error=fallback_on_parse_error)
     finally:
         if stream_needs_close:
             stream.close()
@@ -260,13 +264,15 @@ def get_metadata(target_file):
             _safe_seek(stream, pos)
 
 
-def rtf_get_metadata_from_stream(stream):
+def rtf_get_metadata_from_stream(stream, *, fallback_on_parse_error: bool = False):
     """
     Read metadata from an RTF stream.
     """
     mi = _default_metadata()
     stream.seek(0)
     if _to_bytes(stream.read(5)) != br"{\rtf":
+        if not fallback_on_parse_error:
+            raise RtfFormatError("RTF payload does not start with an RTF header.")
         return mi
 
     block, _ = get_document_info(stream)
@@ -453,6 +459,7 @@ __all__ = [
     "VALID_FOR",
     "PRIORITY_FOR",
     "RUN_COST",
+    "RtfFormatError",
     "get_document_info",
     "detect_codepage",
     "encode",

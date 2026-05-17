@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import io
 import importlib
 import struct
 import zlib
 import binascii
 import zipfile
 from pathlib import Path
+
+import pytest
 
 from LiuXin_alpha.file_formats.odf.dc import Creator, Date, Description, Language, Subject, Title
 from LiuXin_alpha.file_formats.odf.draw import Frame, Image
@@ -181,6 +184,33 @@ def test_odt_metadata_source_accepts_pathlike_and_inplace(tmp_path: Path) -> Non
 
     assert from_path.title == "Main Title"
     assert from_inplace.title == "Main Title"
+
+
+def test_odt_metadata_rejects_malformed_container_and_preserves_cursor() -> None:
+    from LiuXin_alpha.metadata.file_sources.odt import OdtFormatError, get_metadata
+
+    stream = io.BytesIO(b"not an odt")
+    stream.name = "bad.odt"
+    stream.seek(3)
+
+    with pytest.raises(OdtFormatError, match="Not a valid ODT file"):
+        get_metadata(stream, extract_cover=False)
+
+    assert stream.tell() == 3
+
+
+def test_odt_metadata_fallback_is_explicit_opt_in() -> None:
+    from LiuXin_alpha.metadata.file_sources.odt import get_metadata
+
+    stream = io.BytesIO(b"not an odt")
+    stream.name = "Fallback Title.odt"
+    stream.seek(4)
+
+    mi = get_metadata(stream, extract_cover=False, fallback_on_parse_error=True)
+
+    assert mi.title == "Fallback Title"
+    assert mi.authors == ["Unknown"]
+    assert stream.tell() == 4
 
 
 def test_odt_metadata_extracts_cover_from_opf_cover_frame(tmp_path: Path) -> None:

@@ -5,6 +5,8 @@ import struct
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 
 def _values(raw):
     if raw is None:
@@ -132,24 +134,30 @@ def test_rb_get_metadata_pathlike_input(tmp_path: Path) -> None:
     assert _values(md.authors) == ["Path Author"]
 
 
-def test_rb_invalid_header_returns_safe_default_title() -> None:
-    from LiuXin_alpha.metadata.file_sources.rb import get_metadata
+def test_rb_invalid_header_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.rb import RbFormatError, get_metadata
 
     stream = io.BytesIO(b"not-a-valid-rb")
     stream.name = "fallback_name.rb"
-    md = get_metadata(stream)
+    with pytest.raises(RbFormatError):
+        get_metadata(stream)
+
+    md = get_metadata(stream, fallback_on_parse_error=True)
 
     assert md.title == "fallback_name"
     assert _values(md.authors) == ["Unknown"]
 
 
-def test_rb_truncated_payload_fails_gracefully_without_raise() -> None:
-    from LiuXin_alpha.metadata.file_sources.rb import get_metadata
+def test_rb_truncated_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.rb import RbFormatError, get_metadata
 
     truncated = b"\xb0\x0c\xb0\x0c\x02\x00NUVO\x00\x00\x00\x00" + b"\x00" * 12
     stream = io.BytesIO(truncated)
     stream.name = "truncated.rb"
-    md = get_metadata(stream)
+    with pytest.raises(RbFormatError):
+        get_metadata(stream)
+
+    md = get_metadata(stream, fallback_on_parse_error=True)
 
     assert md.title == "truncated"
     assert _values(md.authors) == ["Unknown"]
