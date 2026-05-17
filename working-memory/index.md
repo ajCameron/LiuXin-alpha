@@ -6,6 +6,13 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [metadata-wemi-container-hardening-plan-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-wemi-container-hardening-plan-2026-05-17.md)
+  Current branch note for the planned WEMI container/conversion hardening pass:
+  conversion contracts, identity-spine versus full-graph invariants,
+  lazy/eager projection parity, writer safety, and relation-container torture
+  coverage. Durable doc:
+  `docs/development/metadata-wemi-container-hardening.md`.
+
 - [metadata-utils-coverage-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-utils-coverage-2026-05-17.md)
   Current branch note for the metadata helper coverage pass:
   `metadata.utils` / `metadata.ebook_metadata_tools` coverage, unicode
