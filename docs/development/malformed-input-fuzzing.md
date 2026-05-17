@@ -92,10 +92,13 @@ returning shell metadata:
 - RAR requires a readable RAR archive and a supported ebook or comic member.
   Runtime/tooling failures surface as extraction failures rather than fallback
   metadata.
+- CBR/CBZ require a readable RAR/ZIP comic archive with at least one readable,
+  non-empty image member. A valid comic archive without ComicBookInfo comment
+  metadata may still return shell metadata with cover data.
 
-Both ODT readers keep an explicit `fallback_on_parse_error` path for future
-best-effort routing. Direct reader calls and dispatcher calls should stay
-strict by default.
+ODT and comic readers keep explicit `fallback_on_parse_error` paths for future
+best-effort routing. Direct reader calls and dispatcher calls should stay strict
+by default.
 
 ## Binary Metadata Readers
 

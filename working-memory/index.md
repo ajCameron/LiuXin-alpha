@@ -6,6 +6,11 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [metadata-comic-reader-fuzzing-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-comic-reader-fuzzing-2026-05-17.md)
+  Current branch note for the post-PR #48 CBR/CBZ malformed-input pass:
+  dedicated comic reader wrapper, strict unreadable/non-comic archive failures,
+  and preserved shell metadata for valid image archives without comments.
+
 - [metadata-container-reader-fuzzing-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-container-reader-fuzzing-2026-05-17.md)
   Follow-up on PR #48 for the next metadata reader pass: ODT/ODT-beta named
   strict failures, a new LRF file-source wrapper, and shared malformed-input
