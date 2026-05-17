@@ -6,6 +6,11 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [metadata-book-coverage-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-book-coverage-2026-05-17.md)
+  Current branch note for the metadata.book coverage pass: core
+  `calibreMetadata`, JSON/dict serialization, unicode torture, renderer
+  wrappers, and narrow Python 3 compatibility fixes now have focused coverage.
+
 - [metadata-coverage-fallback-alignment-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-coverage-fallback-alignment-2026-05-17.md)
   Current branch note for the post-coverage stale-test alignment: strict
   reader defaults stay strict, explicit `fallback_on_parse_error=True` owns
