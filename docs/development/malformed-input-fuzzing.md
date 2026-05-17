@@ -94,3 +94,25 @@ PDB still returns header-only metadata for parseable but unsupported PDB
 variants. That is a valid-container fallback, not a wrong-format fallback.
 Explicit fallback flags are reserved for future best-effort routing APIs that
 choose to keep shell metadata for broken files.
+
+## Legacy And Specialty Readers
+
+Older single-format readers should still reject non-credible wrappers even when
+they preserve safe defaults for valid sparse files:
+
+- RTF requires an RTF header; valid RTF without an `\info` block may return
+  shell metadata.
+- SNB requires a valid SNB archive; valid SNB archives without `book.snbf` may
+  return shell metadata.
+- LRX rejects arbitrary short or wrong headers; unsupported but identifiable
+  Librie LRX remains a valid-container fallback.
+- RB and IMP require their format magic headers; valid sparse wrappers may
+  still return shell metadata.
+- LIT raises on reader/container failures by default; explicit fallback is
+  available for best-effort routing.
+- PML remains text-like and can be sparse, but PMLZ requires a readable archive
+  with at least one `.pml` member.
+- Topaz requires a readable Topaz container by default.
+
+Treat these as format-boundary checks. The future best-effort facade can decide
+whether to retry another reader or keep filename-derived metadata.

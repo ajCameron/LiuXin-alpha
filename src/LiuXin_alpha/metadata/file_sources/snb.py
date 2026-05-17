@@ -23,6 +23,10 @@ PRIORITY_FOR = ["SNB"]
 RUN_COST = ["LOW"]
 
 
+class SnbFormatError(Exception):
+    pass
+
+
 def _default_metadata():
     return calibreMetaInformation(_("Unknown"), [_("Unknown")])
 
@@ -152,7 +156,7 @@ def _parse_book_snbf(meta_blob: bytes, *, mi, snb_file: SNBFile, extract_cover: 
                 mi.cover_data = cover_data
 
 
-def get_metadata(target_file, extract_cover: bool = True):
+def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
     Return metadata for an SNB source (path, bytes payload, or binary stream).
     """
@@ -187,18 +191,26 @@ def get_metadata(target_file, extract_cover: bool = True):
         snb_file = SNBFile()
         snb_file.Parse(stream, metaOnly=False)
         if not snb_file.IsValid():
+            if not fallback_on_parse_error:
+                raise SnbFormatError("SNB payload is not a valid SNB archive.")
             return mi
 
         meta_blob = snb_file.GetFileStream("snbf/book.snbf")
         if meta_blob:
             _parse_book_snbf(meta_blob, mi=mi, snb_file=snb_file, extract_cover=extract_cover)
     except Exception as err:
+        if isinstance(err, TypeError) and "SNB metadata reader expects" in str(err):
+            raise
         default_log.log_exception(
             "Failed to read SNB metadata; using defaults.",
             err,
             "DEBUG",
             ("source", source_name or "<stream>"),
         )
+        if not fallback_on_parse_error:
+            if isinstance(err, SnbFormatError):
+                raise
+            raise SnbFormatError("Failed to read SNB metadata.") from err
     finally:
         if stream_needs_close and stream is not None:
             stream.close()
@@ -212,5 +224,6 @@ __all__ = [
     "VALID_FOR",
     "PRIORITY_FOR",
     "RUN_COST",
+    "SnbFormatError",
     "get_metadata",
 ]

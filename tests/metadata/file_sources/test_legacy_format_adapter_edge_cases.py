@@ -110,7 +110,9 @@ def test_imp_helper_decode_cstring_and_type_edges(monkeypatch) -> None:
     with pytest.raises(TypeError, match="target_file"):
         imp_md.get_metadata(object())
 
-    md = imp_md.read_metadata_from_stream(io.BytesIO(b"not-an-imp"))
+    with pytest.raises(imp_md.ImpFormatError):
+        imp_md.read_metadata_from_stream(io.BytesIO(b"not-an-imp"))
+    md = imp_md.read_metadata_from_stream(io.BytesIO(b"not-an-imp"), fallback_on_parse_error=True)
     assert md.title == "Unknown"
 
 
@@ -155,7 +157,16 @@ def test_lrx_private_xml_and_invalid_stream_edges(monkeypatch) -> None:
     lrx_md._log_exception("base", RuntimeError("boom"), "source.lrx")
     assert any("base" in message for message in _LoggerNoLogException.messages)
 
-    assert lrx_md.read_metadata_from_stream(io.BytesIO(b"short"), source_name="short.lrx").title == "short"
+    with pytest.raises(lrx_md.LrxFormatError):
+        lrx_md.read_metadata_from_stream(io.BytesIO(b"short"), source_name="short.lrx")
+    assert (
+        lrx_md.read_metadata_from_stream(
+            io.BytesIO(b"short"),
+            source_name="short.lrx",
+            fallback_on_parse_error=True,
+        ).title
+        == "short"
+    )
     assert lrx_md.read_metadata_from_stream(io.BytesIO(b"\x00\x00\x00\x00LRX-----"), source_name="librie.lrx").title == "librie"
     with pytest.raises(TypeError, match="target_file"):
         lrx_md.get_metadata(object())
@@ -177,7 +188,13 @@ def test_rb_helper_no_info_and_error_edges() -> None:
     assert md.title == "noinfo"
     assert _values(md.authors) == ["Unknown"]
 
-    broken = rb_md.read_metadata_from_stream(io.BytesIO(rb_md.MAGIC + b"\x00"), source_name="broken.rb")
+    with pytest.raises(rb_md.RbFormatError):
+        rb_md.read_metadata_from_stream(io.BytesIO(rb_md.MAGIC + b"\x00"), source_name="broken.rb")
+    broken = rb_md.read_metadata_from_stream(
+        io.BytesIO(rb_md.MAGIC + b"\x00"),
+        source_name="broken.rb",
+        fallback_on_parse_error=True,
+    )
     assert broken.title == "broken"
 
 
@@ -243,8 +260,11 @@ def test_snb_helper_cover_parse_and_error_edges(monkeypatch) -> None:
             raise RuntimeError("parse fail")
 
     monkeypatch.setattr(snb_md, "SNBFile", _SNBFileRaises)
-    assert snb_md.get_metadata(object()).title == "Unknown"
-    assert snb_md.get_metadata(b"not-snb").title == "Unknown"
+    with pytest.raises(TypeError):
+        snb_md.get_metadata(object())
+    with pytest.raises(snb_md.SnbFormatError):
+        snb_md.get_metadata(b"not-snb")
+    assert snb_md.get_metadata(b"not-snb", fallback_on_parse_error=True).title == "Unknown"
 
 
 def test_topaz_stream_slicer_metadata_updater_and_type_edges(tmp_path: Path) -> None:
@@ -278,10 +298,13 @@ def test_topaz_stream_slicer_metadata_updater_and_type_edges(tmp_path: Path) -> 
     with pytest.raises(ValueError, match="metadata header has no blocks"):
         topaz_md.MetadataUpdater(io.BytesIO(_minimal_topaz_with_empty_metadata_header()))
 
-    assert topaz_md.get_metadata(object()).title == "Unknown"
+    with pytest.raises(TypeError, match="Topaz metadata reader"):
+        topaz_md.get_metadata(object())
     with pytest.raises(TypeError, match="Topaz metadata writer"):
         topaz_md.set_metadata(object(), calibreMetaInformation("Title", ["Author"]))
 
     path = tmp_path / "invalid.tpz"
     path.write_bytes(b"not-topaz")
-    assert topaz_md.get_metadata(path).title == "Unknown"
+    with pytest.raises(topaz_md.TopazFormatError):
+        topaz_md.get_metadata(path)
+    assert topaz_md.get_metadata(path, fallback_on_parse_error=True).title == "Unknown"
