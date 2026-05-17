@@ -72,6 +72,14 @@ STRICT_CONTAINER_CASES = [
     ("rar", "RARMetadataReader", "tiny_binary"),
     ("rar", "RARMetadataReader", "html_document"),
     ("rar", "RARMetadataReader", "empty_zip"),
+    ("cbz", "ComicMetadataReader", "empty"),
+    ("cbz", "ComicMetadataReader", "tiny_binary"),
+    ("cbz", "ComicMetadataReader", "html_document"),
+    ("cbz", "ComicMetadataReader", "empty_zip"),
+    ("cbr", "ComicMetadataReader", "empty"),
+    ("cbr", "ComicMetadataReader", "tiny_binary"),
+    ("cbr", "ComicMetadataReader", "html_document"),
+    ("cbr", "ComicMetadataReader", "empty_zip"),
 ]
 
 
@@ -251,10 +259,11 @@ def test_registry_lists_strict_container_readers_for_fuzzing() -> None:
 
     reader_names = {
         entry.name
-        for extension in ("epub", "docx", "zip", "htmlz", "txtz", "odt", "rar")
+        for extension in ("epub", "docx", "zip", "htmlz", "txtz", "odt", "rar", "cbr", "cbz")
         for entry in registry.iter_metadata_reader_entries_for_extension(extension)
     }
     assert {
+        "ComicMetadataReader",
         "EPUBMetadataReader",
         "DocXMetadataReader",
         "ZipMetadataReader",
