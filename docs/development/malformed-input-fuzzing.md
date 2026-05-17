@@ -81,6 +81,24 @@ containers with sparse metadata:
 This keeps legitimate legacy HTMLZ/TXTZ fixtures readable while still rejecting
 arbitrary bytes and empty ZIP files.
 
+## Text-Like Readers
+
+Plain text-like readers have a different contract from strict containers. TXT,
+HTML, and plain PML can validly be sparse or malformed, so they should return
+safe metadata instead of rejecting arbitrary text by default.
+
+The safety expectations are:
+
+- obvious binary signatures should not become title strings
+- invalid encodings should decode with replacement or fall back safely
+- parser internals should not leak from malformed HTML
+- hostile control characters should be stripped from extracted fields
+- plain PML malformed comment fields should be ignored without overriding valid
+  earlier metadata
+
+PMLZ is not part of this permissive bucket because it is an archive container;
+it remains strict about readable ZIP structure and `.pml` members.
+
 ## Document And Archive Containers
 
 Document/archive containers should fail at the wrapper boundary before
