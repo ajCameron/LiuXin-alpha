@@ -173,6 +173,25 @@ STRICT_LEGACY_CASES = [
 ]
 
 
+TEXTLIKE_CASES = [
+    ("txt", "TXTMetadataReader", "empty"),
+    ("txt", "TXTMetadataReader", "tiny_binary"),
+    ("txt", "TXTMetadataReader", "png_header"),
+    ("txt", "TXTMetadataReader", "html_document"),
+    ("txt", "TXTMetadataReader", "empty_zip"),
+    ("html", "HTMLMetadataReader", "empty"),
+    ("html", "HTMLMetadataReader", "tiny_binary"),
+    ("html", "HTMLMetadataReader", "png_header"),
+    ("html", "HTMLMetadataReader", "html_document"),
+    ("html", "HTMLMetadataReader", "empty_zip"),
+    ("pml", "PMLMetadataReader", "empty"),
+    ("pml", "PMLMetadataReader", "tiny_binary"),
+    ("pml", "PMLMetadataReader", "png_header"),
+    ("pml", "PMLMetadataReader", "html_document"),
+    ("pml", "PMLMetadataReader", "empty_zip"),
+]
+
+
 def _stream_for(extension: str, payload: MalformedPayload) -> io.BytesIO:
     stream = io.BytesIO(payload.data)
     stream.name = f"{payload.name}.{extension}"
@@ -254,6 +273,29 @@ def test_strict_legacy_extractors_reject_wrong_format_payloads(
     assert exc_info.value.__cause__ is not None
 
 
+@pytest.mark.parametrize(("extension", "reader_name", "payload_name"), TEXTLIKE_CASES)
+def test_textlike_extractors_keep_malformed_payloads_safe(
+    extension: str,
+    reader_name: str,
+    payload_name: str,
+) -> None:
+    """
+    Text-like readers should not reject arbitrary bytes, but they must not leak
+    parser errors or promote obvious binary bytes into raw titles.
+    """
+    from LiuXin_alpha.metadata.file_sources import get_metadata
+
+    payload = MALFORMED_PAYLOADS[payload_name]
+    md = get_metadata(_stream_for(extension, payload), force_type=extension)
+
+    assert md is not None, reader_name
+    title = str(getattr(md, "title", "") or "")
+    assert "\x00" not in title
+    assert "\x01" not in title
+    if payload_name in {"tiny_binary", "png_header", "empty_zip"}:
+        assert not title.startswith(("‰PNG", "PK", "\x00"))
+
+
 def test_registry_lists_strict_container_readers_for_fuzzing() -> None:
     from LiuXin_alpha.metadata.file_sources import registry
 
@@ -314,3 +356,14 @@ def test_registry_lists_strict_legacy_readers_for_fuzzing() -> None:
         "PMLMetadataReader",
         "TOPAZMetadataReader",
     } <= reader_names
+
+
+def test_registry_lists_textlike_readers_for_safety_fuzzing() -> None:
+    from LiuXin_alpha.metadata.file_sources import registry
+
+    reader_names = {
+        entry.name
+        for extension in ("txt", "html", "pml")
+        for entry in registry.iter_metadata_reader_entries_for_extension(extension)
+    }
+    assert {"TXTMetadataReader", "HTMLMetadataReader", "PMLMetadataReader"} <= reader_names

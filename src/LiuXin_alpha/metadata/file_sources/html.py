@@ -17,7 +17,7 @@ from typing import Any
 from LiuXin_alpha.file_formats.chardet import detect, xml_to_unicode
 from LiuXin_alpha.metadata.metadata import MetaData as Metadata
 from LiuXin_alpha.metadata.utils import check_isbn, string_to_authors
-from LiuXin_alpha.utils.calibre import isbytestring, replace_entities
+from LiuXin_alpha.utils.calibre import replace_entities
 from LiuXin_alpha.utils.date import is_date_undefined, parse_date, parse_only_date
 from LiuXin_alpha.utils.localization import trans as _
 
@@ -78,6 +78,16 @@ _COMMENT_PAIR_RE = re.compile(rf"(?P<name>\S+)\s*=\s*{attr_pat}")
 _IDENTIFIER_NAME_RE = re.compile(r"(?:dc|dcterms)[.:]identifier(?:\.|$)", flags=re.IGNORECASE)
 _IDENTIFIER_EXACT_RE = re.compile(r"(?:dc|dcterms)[.:]identifier$", flags=re.IGNORECASE)
 _SERIES_INDEX_IN_SERIES_RE = re.compile(r"\[([.0-9]+)\]$")
+_BINARY_SIGNATURES = (
+    b"\x89PNG\r\n\x1a\n",
+    b"\xff\xd8\xff",
+    b"GIF87a",
+    b"GIF89a",
+    b"%PDF-",
+    b"PK\x03\x04",
+    b"PK\x05\x06",
+    b"Rar!",
+)
 
 _RMAP_COMMENT = {v: k for k, v in COMMENT_NAMES.items()}
 _RMAP_META = {n: field for field, names in META_NAMES.items() for n in names}
@@ -144,6 +154,22 @@ def _coerce_text(raw: Any, encoding: str | None = None) -> str:
                 pass
         return xml_to_unicode(data)[0]
     return str(raw)
+
+
+def _looks_binaryish(raw: bytes) -> bool:
+    if not raw:
+        return False
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff", b"\xef\xbb\xbf")):
+        return False
+    if raw.startswith(_BINARY_SIGNATURES):
+        return True
+    sample = raw[:1024]
+    control_count = sum(1 for byte in sample if byte < 32 and byte not in (9, 10, 13))
+    return bool(sample) and (control_count / len(sample)) > 0.20
+
+
+def _default_metadata() -> Metadata:
+    return Metadata(_("Unknown"), [_("Unknown")])
 
 
 def _dedupe_stable(values: list[str]) -> list[str]:
@@ -311,8 +337,11 @@ class _HTMLMetadataParser(HTMLParser):
 
 def parse_metadata(src: str) -> tuple[dict[str, list[str]], dict[str, list[str]], dict[str, list[str]], str]:
     parser = _HTMLMetadataParser()
-    parser.feed(src)
-    parser.close()
+    try:
+        parser.feed(src)
+        parser.close()
+    except Exception:
+        return ({}, {}, {}, "")
 
     return (
         {k: _clean_values(v) for k, v in parser.comment_tags.items()},
@@ -346,7 +375,10 @@ def get_metadata(target_file):
     """
     Read metadata from a filesystem path or readable stream.
     """
-    if isinstance(target_file, (str, bytes, os.PathLike)):
+    if isinstance(target_file, (bytes, bytearray, memoryview)):
+        return get_metadata_(bytes(target_file))
+
+    if isinstance(target_file, (str, os.PathLike)):
         with open(target_file, "rb") as html_stream:
             src = html_stream.read()
         return get_metadata_(src)
@@ -379,8 +411,11 @@ def get_metadata_(src, encoding=None):
     """
     Parse metadata from HTML content as `bytes` or `str`.
     """
-    if isbytestring(src):
-        src = _coerce_text(src, encoding=encoding)
+    if isinstance(src, (bytes, bytearray, memoryview)):
+        raw = bytes(src)
+        if _looks_binaryish(raw):
+            return _default_metadata()
+        src = _coerce_text(raw, encoding=encoding)
 
     src = _coerce_text(src)
     src = src[:250000]
