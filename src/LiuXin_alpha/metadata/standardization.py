@@ -95,12 +95,14 @@ def standardize_creator_name(input_string):
         match = isolated_capital_pat.match(working_string)
         working_string = match.group(1) + match.group(2).upper() + ". " + match.group(3)
 
-    # 4) The first letter of the string should always be a capital.
-    first_letter_regex = r"([a-zA-Z])([a-zA-Z0-9.\s]*)"
-    first_letter_pat = re.compile(first_letter_regex)
-    working_string_match = first_letter_pat.match(working_string)
-    if working_string_match is not None:
-        working_string = working_string_match.group(1).upper() + working_string_match.group(2)
+    # 4) The first ASCII letter of the string should always become a capital,
+    # while preserving punctuation such as hyphens and apostrophes in names.
+    working_string = re.sub(
+        r"([a-zA-Z])",
+        lambda match: match.group(1).upper(),
+        working_string,
+        count=1,
+    )
 
     # 5) Unless in the case of Mc/Mac a capital should always be preceded by a space, unless it's Mc/Mac
     # Crude - puts a space in front of every capital
@@ -169,12 +171,8 @@ def standardize_title(target_string):
     target_string = drop_bracketed_text(target_string)
 
     # 0.5) Ensure white space around every separator
-    sep_re = r"\{}"
-    sep_re_space = r" \{} "
     for sep in SEPARATORS:
-        current_sep_re = sep_re.format(sep)
-        current_sep_re_space = sep_re_space.format(sep)
-        target_string = re.sub(current_sep_re, current_sep_re_space, target_string)
+        target_string = re.sub(re.escape(sep), f" {sep} ", target_string)
 
     # 1) Makes the first separator : and any subsequent ones -. Inserts white space around them.
     first_sep = True
@@ -191,8 +189,7 @@ def standardize_title(target_string):
     target_string = new_target_string
 
     # 2) Normalize whitespace and bring into title case
-    target_string = re.sub(r"\s+", " ", target_string)
-    target_string.strip()
+    target_string = re.sub(r"\s+", " ", target_string).strip()
     return titlecase(target_string)
 
 
@@ -472,8 +469,18 @@ def cleanup_tags(tags):
     :param tags:
     :return:
     """
-    tags = [x.strip().replace(",", ";") for x in tags if x.strip()]
-    tags = [x.decode(preferred_encoding, "replace") if isbytestring(x) else x for x in tags]
+    normalized_tags = []
+    for tag in tags:
+        if tag is None:
+            continue
+        if isinstance(tag, (bytes, bytearray)):
+            tag = bytes(tag).decode(preferred_encoding, "replace")
+        elif not isbytestring(tag):
+            tag = six_unicode(tag)
+        tag = tag.strip()
+        if tag:
+            normalized_tags.append(tag.replace(",", ";"))
+    tags = normalized_tags
     tags = [" ".join(x.split()) for x in tags]
     ans, seen = [], set([])
     for tag in tags:

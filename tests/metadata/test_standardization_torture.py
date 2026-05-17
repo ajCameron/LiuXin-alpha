@@ -192,9 +192,6 @@ def test_standardize_isbn_10_normalization() -> None:
     assert standardize_isbn("not an isbn") is False
 
 
-@pytest.mark.xfail(
-    reason="cleanup_tags currently uses isbytestring() that treats str as bytes, causing decode() on str"
-)
 def test_cleanup_tags_dedupes_normalizes_and_replaces_commas() -> None:
     from LiuXin_alpha.metadata.standardization import cleanup_tags
 
@@ -216,7 +213,6 @@ def test_cleanup_tags_dedupes_normalizes_and_replaces_commas() -> None:
 # ------------------------------
 
 
-@pytest.mark.xfail(reason="Hyphenated and apostrophe names are currently mangled/truncated")
 def test_standardize_creator_name_handles_hyphens_and_apostrophes() -> None:
     from LiuXin_alpha.metadata.standardization import standardize_creator_name
 
@@ -224,7 +220,6 @@ def test_standardize_creator_name_handles_hyphens_and_apostrophes() -> None:
     assert standardize_creator_name("O'Neill") == "O'Neill"
 
 
-@pytest.mark.xfail(reason="standardize_title currently inserts literal backslashes around separators")
 def test_standardize_title_should_not_insert_backslashes() -> None:
     from LiuXin_alpha.metadata.standardization import standardize_title
 
@@ -232,7 +227,6 @@ def test_standardize_title_should_not_insert_backslashes() -> None:
     assert "\\" not in out
 
 
-@pytest.mark.xfail(reason="cleanup_tags currently applies str replace() before decoding bytes")
 def test_cleanup_tags_accepts_bytes_tags() -> None:
     from LiuXin_alpha.metadata.standardization import cleanup_tags
 
