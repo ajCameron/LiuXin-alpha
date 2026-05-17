@@ -6,6 +6,12 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [metadata-standardize-coverage-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-standardize-coverage-2026-05-17.md)
+  Current branch note for the metadata standardization coverage pass:
+  title separator/strip fixes, Python 3-safe tag cleanup, creator-name
+  punctuation preservation, shared-module parity checks, and focused coverage
+  at `97%` across `metadata.standardize` / `metadata.standardization`.
+
 - [metadata-book-coverage-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-book-coverage-2026-05-17.md)
   Current branch note for the metadata.book coverage pass: core
   `calibreMetadata`, JSON/dict serialization, unicode torture, renderer
