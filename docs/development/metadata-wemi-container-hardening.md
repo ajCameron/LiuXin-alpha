@@ -41,6 +41,13 @@ They deliberately flatten relation targets into read-only `values` and `text`
 views. Lazy projections must not half-render partial state: eager projections
 only read loaded data, and unloaded lazy dependencies raise
 `UnloadedMetadataProjectionError`.
+Hydrated lazy projections follow the same rule. Reading `md.values.*` or
+`md.text.*` before the relevant lazy legacy fields and relation loaders are
+materialized raises without invoking the loaders. Calling `md.load("tags")`
+hydrates the projection dependencies for that relation only; calling `md.load()`
+hydrates every pending lazy field and relation loader. `force_hydrate(...)`
+remains a legacy-field materialization API and is suitable for selected
+legacy-backed projections such as tags, labels, and identifiers.
 
 Write-back lives in
 `metadata/containers/metadata_containers/liuxin_wemi_metadata_writer.py`. It
@@ -135,6 +142,10 @@ seeded or avoided.
 4. Add lazy/eager projection parity tests.
    Exercise unloaded projection errors, `load(...)`, `force_hydrate(...)`,
    conversion materialization, cache read sources, and repeated access.
+   Current hydrated-path tests prove unloaded stack projections raise without
+   materializing loaders, single-field `load(...)` keeps unrelated fields
+   guarded, selected `force_hydrate(...)` unlocks legacy-backed projections,
+   and full lazy `load()` matches eager values on repeated access.
 
 5. Add writer append/replace/idempotence tests.
    Cover target resolution, explicit `target_row`, primary relation-link

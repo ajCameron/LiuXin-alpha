@@ -4,9 +4,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+import pytest
+
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError
-from LiuXin_alpha.metadata.api import WorkRelationLink
+from LiuXin_alpha.metadata.api import UnloadedMetadataProjectionError, WorkRelationLink
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData,
 )
@@ -64,6 +66,26 @@ def _metadata_values(raw: Any) -> list[Any]:
 
 def _identifier_values(metadata: Any, scheme: str) -> list[Any]:
     return _metadata_values(metadata.get_identifiers().get(scheme))
+
+
+def _projection_snapshot(metadata: Any) -> dict[str, Any]:
+    values = metadata.values
+    return {
+        "tags": values.tags,
+        "labels": values.labels,
+        "genres": values.genres,
+        "subjects": values.subjects,
+        "series": values.series,
+        "languages": values.languages,
+        "ratings": values.ratings,
+        "agent_names": values.agent_names,
+        "identifiers": {
+            scheme: tuple(raw_values)
+            for scheme, raw_values in values.identifiers.items()
+        },
+        "titles": values.titles,
+        "primary_title": values.primary_title,
+    }
 
 
 class FakeDriverWrapper:
@@ -1217,6 +1239,83 @@ def test_lazy_liuxin_wemi_metadata_can_force_hydrate_fields() -> None:
     }
     assert list(metadata.direct_get("tags").keys()) == ["Space Opera"]
     assert list(metadata.direct_get("labels").keys()) == ["Science Fiction"]
+
+
+def test_lazy_wemi_projection_errors_do_not_materialize_hydrated_dependencies() -> None:
+    db = _build_fake_database()
+    metadata = LazyLiuXinWEMIMetadataHydrator(db).get_lazy_liuxin_wemi_metadata(item_id=1)
+    interlink_queries = list(db.interlink_queries)
+
+    with pytest.raises(UnloadedMetadataProjectionError) as error_info:
+        metadata.values.tags
+
+    assert error_info.value.relation_key == "tags"
+    assert set(error_info.value.unloaded_dependencies) >= {
+        "legacy:tags",
+        "work:tags",
+    }
+    assert metadata.is_lazy_field_loaded("tags") is False
+    assert "tags" in metadata.lazy_fields()
+    assert db.interlink_queries == interlink_queries
+
+
+def test_lazy_wemi_projection_loads_one_field_and_keeps_other_fields_guarded() -> None:
+    eager_db = _build_fake_database()
+    eager = LiuXinWEMIMetadataHydrator(eager_db).get_liuxin_wemi_metadata(item_id=1)
+    lazy_db = _build_fake_database()
+    lazy = LazyLiuXinWEMIMetadataHydrator(lazy_db).get_lazy_liuxin_wemi_metadata(
+        item_id=1,
+    )
+
+    assert lazy.load("tags") is lazy
+    assert lazy.values.tags == eager.values.tags
+    assert lazy.text.tags == eager.text.tags
+
+    with pytest.raises(UnloadedMetadataProjectionError) as error_info:
+        lazy.values.labels
+
+    assert error_info.value.relation_key == "labels"
+    assert "labels" in lazy.lazy_fields()
+
+
+def test_lazy_wemi_projection_force_hydrate_selected_fields_matches_eager() -> None:
+    eager_db = _build_fake_database()
+    eager = LiuXinWEMIMetadataHydrator(eager_db).get_liuxin_wemi_metadata(item_id=1)
+    lazy_db = _build_fake_database()
+    lazy = LazyLiuXinWEMIMetadataHydrator(lazy_db).get_lazy_liuxin_wemi_metadata(
+        item_id=1,
+    )
+
+    assert lazy.force_hydrate(fields=("tags", "labels", "identifiers")) is lazy
+    assert lazy.values.tags == eager.values.tags
+    assert lazy.values.labels == eager.values.labels
+    assert dict(lazy.values.identifiers) == dict(eager.values.identifiers)
+
+    with pytest.raises(UnloadedMetadataProjectionError) as error_info:
+        lazy.values.genres
+
+    assert error_info.value.relation_key == "genres"
+
+
+def test_lazy_wemi_projection_full_load_matches_eager_and_repeated_access_is_stable() -> None:
+    eager_db = _build_fake_database()
+    eager = LiuXinWEMIMetadataHydrator(eager_db).get_liuxin_wemi_metadata(item_id=1)
+    lazy_db = _build_fake_database()
+    lazy = LazyLiuXinWEMIMetadataHydrator(lazy_db).get_lazy_liuxin_wemi_metadata(
+        item_id=1,
+    )
+
+    assert lazy.load() is lazy
+    assert _projection_snapshot(lazy) == _projection_snapshot(eager)
+
+    interlink_queries = list(lazy_db.interlink_queries)
+    search_queries = list(lazy_db.search_queries)
+
+    assert _projection_snapshot(lazy) == _projection_snapshot(eager)
+    assert lazy.text.tags == eager.text.tags
+    assert lazy.text.agent_names == eager.text.agent_names
+    assert lazy_db.interlink_queries == interlink_queries
+    assert lazy_db.search_queries == search_queries
 
 
 def test_liuxin_wemi_metadata_write_to_database_adds_missing_relation_terms() -> None:

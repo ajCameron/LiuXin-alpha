@@ -57,8 +57,11 @@ I audited:
    Direct foreign-key/source-row hints are fallback identity data only when no
    relation target is available. Non-primary graph links remain in relation
    links, and item-manifestation link ids survive sidecar mapping.
-4. Add lazy/eager projection parity tests, including unloaded projection errors
-   and explicit load/force-hydrate behaviour.
+4. Lazy/eager projection parity tests are in progress. Hydrated lazy stack
+   projections now have tests proving unloaded reads raise without materializing
+   loaders, `load("tags")` unlocks only the requested projection, selected
+   `force_hydrate(...)` unlocks legacy-backed projections, and full `load()`
+   matches eager values across repeated access.
 5. Add writer append/replace/idempotence tests with unicode and failure-report
    coverage.
 6. Build a relation-container torture matrix, starting with expression metadata,
@@ -73,15 +76,20 @@ I audited:
   that selected spine while preserving the full item-manifestation graph.
 - Added a no-primary fixture proving relation priority selects manifestation
   `11`, expression `22`, and work `32` ahead of direct fallback ids.
+- Added hydrated lazy/eager projection parity tests and fixed rating projection
+  parity so a lazy legacy Calibre tag-viewer rating does not duplicate the WEMI
+  graph rating when graph rating values are present.
 - Focused validation passed:
   `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py -q`
   (`80 passed`).
+- Projection parity validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_metadata_projection_views.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
+  (`59 passed`).
 
 ## Next Step
 
-Move to the lazy/eager projection parity slice. Cover unloaded projection
-errors, explicit `load(...)` / `force_hydrate(...)`, and repeated access after
-materialization.
+Widen validation for the projection parity slice, then move to writer
+append/replace/idempotence tests if it stays green.
 
 ## Validation
 
@@ -89,4 +97,6 @@ materialization.
 - `.venv/bin/python -m pytest tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/test_opf_tools.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_metadata_real_backend_parity.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_metadata_projection_views.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_metadata_projection_views.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py -q`

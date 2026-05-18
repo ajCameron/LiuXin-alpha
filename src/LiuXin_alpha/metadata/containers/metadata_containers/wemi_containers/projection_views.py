@@ -390,10 +390,12 @@ class LiuXinWEMIValuesView(MetadataValuesViewAPI):
         if not self._stack_supports_relation(relation_key):
             raise KeyError(f"Unknown WEMI stack relation key {relation_key!r}.")
         self._raise_if_projection_unloaded(relation_key)
-        values = [
-            *self._legacy_values(relation_key),
-            *self._wemi_relation_values(relation_key),
-        ]
+        wemi_values = self._wemi_relation_values(relation_key)
+        legacy_values = self._legacy_values(
+            relation_key,
+            suppress_calibre_rating=bool(wemi_values),
+        )
+        values = [*legacy_values, *wemi_values]
         return _dedupe_text(values)
 
     @property
@@ -470,13 +472,23 @@ class LiuXinWEMIValuesView(MetadataValuesViewAPI):
     def agent_names(self) -> tuple[str, ...]:
         return self.agents
 
-    def _legacy_values(self, relation_key: str) -> tuple[str, ...]:
+    def _legacy_values(
+        self,
+        relation_key: str,
+        *,
+        suppress_calibre_rating: bool = False,
+    ) -> tuple[str, ...]:
         fields = self._LEGACY_FIELD_BY_RELATION.get(relation_key, ())
         values: list[str] = []
         for field in fields:
             value = self._legacy_field_value(field)
             if relation_key == "ratings":
-                values.extend(_iter_rating_values(value))
+                values.extend(
+                    _iter_rating_values(
+                        value,
+                        suppress_calibre=suppress_calibre_rating,
+                    )
+                )
             elif relation_key == "languages":
                 values.extend(
                     value
@@ -741,18 +753,27 @@ def _iter_text_values(value: Any) -> tuple[str, ...]:
     return _dedupe_text((value,))
 
 
-def _iter_rating_values(value: Any) -> tuple[str, ...]:
+def _iter_rating_values(
+    value: Any,
+    *,
+    suppress_calibre: bool = False,
+) -> tuple[str, ...]:
     if value in (None, ""):
         return ()
     if isinstance(value, Mapping):
         values = [
             rating
-            for rating in value.values()
+            for key, rating in value.items()
             if rating not in (None, "")
+            and not (suppress_calibre and str(key).casefold() == "calibre")
         ]
         if values:
             return _dedupe_text(values)
-        return _dedupe_text(value.keys())
+        return _dedupe_text(
+            key
+            for key in value.keys()
+            if not (suppress_calibre and str(key).casefold() == "calibre")
+        )
     return _iter_text_values(value)
 
 
