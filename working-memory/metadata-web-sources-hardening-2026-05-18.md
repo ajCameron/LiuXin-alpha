@@ -318,6 +318,48 @@ Validation:
 - `.venv/bin/python -m pytest tests/metadata/web_sources -q`
   - `232 passed, 9 skipped`
 
+## Google Provider Slice
+
+Checked the local Calibre clone at `/home/blackjane/calibre-master`; it includes
+the older Atom-feed Google Books provider. The local port uses the Google Books
+Volumes JSON API and preserves the same key contracts: Google identifiers,
+ISBN/cover caching, comment paragraph cleanup, metadata normalization, and
+dummy-cover rejection.
+
+Added offline coverage for `metadata.web_sources.google`:
+
+- low-level text, first-value, identifier, ISBN, Google URL, comment formatting,
+  API parameter, API URL, JSON request, retry, backoff, and abort-aware wait
+  helpers
+- query construction for ISBN, title-only, author-only, insufficient metadata,
+  invalid-first ISBN fallback, Google API key injection, path quoting, and URL
+  parse failures
+- metadata fallbacks for unknown title/authors, string authors, sparse volume
+  records, mapping/list/non-mapping industry identifiers, invalid ISBNs,
+  custom identifiers, invalid dates, string categories, non-mapping image links,
+  cover priority, missing covers, comments, language, publisher, and subtitle
+  absence
+- postprocessing for `None`, Google-ID-free metadata, comments, source
+  relevance, ISBN-to-Google cache population, and cover cache population
+- identify paths for early abort, direct Google-ID lookup, missing payloads,
+  insufficient query data, JSON-query miss, ISBN miss retry with and without
+  fallback queries, retry payload `None`, parse exceptions, abort between
+  result items, and postprocess returning `None`
+- cover-download paths for cache hits, uncached identify discovery, identify
+  abort, no-cover logging, multi-result cover scanning, pre-download abort,
+  dummy image rejection, empty payloads, download exceptions, existing `zoom=`
+  URLs, and successful fallback zoom downloads
+
+Validation:
+
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_google.py -q`
+  - `25 passed`
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_google.py --cov=LiuXin_alpha.metadata.web_sources.google --cov-branch --cov-report=term-missing:skip-covered -q`
+  - `25 passed`
+  - `google.py`: 99%
+- `.venv/bin/python -m pytest tests/metadata/web_sources -q`
+  - `244 passed, 9 skipped`
+
 ## Next
 
 Continue with provider modules using offline fake browser responses and compact
@@ -327,4 +369,6 @@ HTML/JSON fixtures. Highest old-coverage payoff is probably `amazon.py`,
 them. After the Amazon, Ozon, OverDrive, Douban, Edelweiss, and ISBNDB slices,
 the remaining Calibre-backed baselines were `openlibrary.py` 76%,
 `big_book_search.py` 78%, and `google.py` 79%. After OpenLibrary and Big Book
-Search, continue with `google.py`.
+Search, Google is now covered. Next choose from the smaller remaining web-source
+modules or revisit shared `identify.py` branch gaps if provider tests do not
+naturally hit them.
