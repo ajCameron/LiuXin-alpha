@@ -25,6 +25,16 @@ bundle exposes identities plus relation links. The important invariant is that
 the identity spine is the selected context for the item, not the whole graph.
 Additional graph edges must remain in relation links.
 
+Eager and lazy hydration both prefer explicit primary structural links when
+selecting that identity spine. Direct foreign-key/source-row hints remain useful
+fallbacks, but a primary item-to-manifestation, manifestation-to-expression, or
+expression-to-work link is the authoritative selected traversal. When relation
+links exist without an explicit primary flag, the shared relation selector uses
+lower priority, then lower index, then original order. Direct foreign-key and
+source-row hints are fallback identity data only when there is no relation
+target to select. Non-primary parents stay available through relation links and
+retain their link ids.
+
 Projection views live in
 `metadata/containers/metadata_containers/wemi_containers/projection_views.py`.
 They deliberately flatten relation targets into read-only `values` and `text`
@@ -117,10 +127,10 @@ seeded or avoided.
    relation link ids, provenance, priority, and structural graph shape do not
    round-trip through them.
 
-3. Add multi-parent graph tests.
-   Assert that selected identities follow primary links, all non-primary links
-   remain present, relation link ids survive mapping/deepcopy, and no conversion
-   or projection path pretends the graph has only one parent.
+3. Multi-parent graph tests now cover eager and lazy central hydrators. Selected
+   identities follow primary structural links, then relation priority fallback,
+   even when direct foreign-key hints point elsewhere. Non-primary relation
+   links remain present and link ids survive sidecar mapping.
 
 4. Add lazy/eager projection parity tests.
    Exercise unloaded projection errors, `load(...)`, `force_hydrate(...)`,

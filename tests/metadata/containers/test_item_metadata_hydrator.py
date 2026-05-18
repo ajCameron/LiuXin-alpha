@@ -792,6 +792,142 @@ def _build_fake_database() -> FakeDatabase:
     return db
 
 
+def _add_alternate_primary_spine(db: FakeDatabase) -> None:
+    db.add_row(
+        "expressions",
+        {
+            "expression_id": 21,
+            "expression_title_override": "Alternate expression",
+        },
+    )
+    db.add_row(
+        "works",
+        {
+            "work_id": 31,
+            "work_title": "Alternate Work",
+            "work_canonical_title": "Alternate Work",
+            "work_sort_title": "Alternate Work",
+        },
+    )
+    db.interlinks[("items", 1, "manifestations")] = [
+        {
+            "item_manifestation_link_id": "im-10",
+            "item_manifestation_link_manifestation_id": 10,
+            "item_manifestation_link_priority": 2,
+            "item_manifestation_link_primary": 0,
+            "item_manifestation_link_type": "stored_as",
+        },
+        {
+            "item_manifestation_link_id": "im-11",
+            "item_manifestation_link_manifestation_id": 11,
+            "item_manifestation_link_priority": 1,
+            "item_manifestation_link_primary": 1,
+            "item_manifestation_link_type": "preferred_variant",
+        },
+    ]
+    db.interlinks[("manifestations", 11, "expressions")] = [
+        {
+            "expression_manifestation_link_id": "em-21",
+            "expression_manifestation_link_expression_id": 21,
+            "expression_manifestation_link_priority": 1,
+            "expression_manifestation_link_primary": 1,
+            "expression_manifestation_link_type": "preferred_expression",
+        }
+    ]
+    db.interlinks[("expressions", 21, "works")] = [
+        {
+            "expression_work_link_id": "ew-31",
+            "expression_work_link_work_id": 31,
+            "expression_work_link_priority": 1,
+            "expression_work_link_primary": 1,
+            "expression_work_link_type": "preferred_work",
+        }
+    ]
+
+
+def _add_no_primary_priority_spine(db: FakeDatabase) -> None:
+    db.add_row(
+        "expressions",
+        {
+            "expression_id": 21,
+            "expression_title_override": "Fallback expression",
+        },
+    )
+    db.add_row(
+        "expressions",
+        {
+            "expression_id": 22,
+            "expression_title_override": "Preferred by priority",
+        },
+    )
+    db.add_row(
+        "works",
+        {
+            "work_id": 31,
+            "work_title": "Fallback Work",
+            "work_canonical_title": "Fallback Work",
+            "work_sort_title": "Fallback Work",
+        },
+    )
+    db.add_row(
+        "works",
+        {
+            "work_id": 32,
+            "work_title": "Priority Work",
+            "work_canonical_title": "Priority Work",
+            "work_sort_title": "Priority Work",
+        },
+    )
+    db.interlinks[("items", 1, "manifestations")] = [
+        {
+            "item_manifestation_link_id": "im-fallback-10",
+            "item_manifestation_link_manifestation_id": 10,
+            "item_manifestation_link_priority": 4,
+            "item_manifestation_link_primary": 0,
+            "item_manifestation_link_type": "stored_as",
+        },
+        {
+            "item_manifestation_link_id": "im-fallback-11",
+            "item_manifestation_link_manifestation_id": 11,
+            "item_manifestation_link_priority": 1,
+            "item_manifestation_link_primary": 0,
+            "item_manifestation_link_type": "preferred_by_priority",
+        },
+    ]
+    db.interlinks[("manifestations", 11, "expressions")] = [
+        {
+            "expression_manifestation_link_id": "em-fallback-21",
+            "expression_manifestation_link_expression_id": 21,
+            "expression_manifestation_link_priority": 3,
+            "expression_manifestation_link_primary": 0,
+            "expression_manifestation_link_type": "fallback_expression",
+        },
+        {
+            "expression_manifestation_link_id": "em-fallback-22",
+            "expression_manifestation_link_expression_id": 22,
+            "expression_manifestation_link_priority": 1,
+            "expression_manifestation_link_primary": 0,
+            "expression_manifestation_link_type": "preferred_by_priority",
+        },
+    ]
+    db.interlinks[("expressions", 22, "works")] = [
+        {
+            "expression_work_link_id": "ew-fallback-31",
+            "expression_work_link_work_id": 31,
+            "expression_work_link_priority": 2,
+            "expression_work_link_primary": 0,
+            "expression_work_link_type": "fallback_work",
+        },
+        {
+            "expression_work_link_id": "ew-fallback-32",
+            "expression_work_link_work_id": 32,
+            "expression_work_link_priority": 1,
+            "expression_work_link_primary": 0,
+            "expression_work_link_type": "preferred_by_priority",
+        },
+    ]
+
+
 def test_item_metadata_hydrator_from_item_id_and_source_row() -> None:
     db = _build_fake_database()
     hydrator = ItemMetadataHydrator(db)
@@ -832,6 +968,111 @@ def test_item_metadata_hydrator_from_item_id_and_source_row() -> None:
     )
     assert via_mapping.item is not None
     assert via_mapping.item.item_id == 1
+
+
+def test_wemi_hydrator_selected_spine_uses_primary_links_without_collapsing_graph() -> None:
+    db = _build_fake_database()
+    _add_alternate_primary_spine(db)
+
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    assert metadata.item is not None
+    assert metadata.item.item_manifestation_id == 10
+    assert metadata.manifestation is not None
+    assert metadata.manifestation.manifestation_id == 11
+    assert metadata.expression is not None
+    assert metadata.expression.expression_id == 21
+    assert metadata.work is not None
+    assert metadata.work.work_id == 31
+
+    assert [
+        row.row_id
+        for row in metadata.get_wemi_related("item", "manifestations")
+        if isinstance(row, Row)
+    ] == [10, 11]
+    assert metadata.get_primary_wemi_related("item", "manifestations").row_id == 11
+    assert metadata.get_wemi_relation_link_ids("item", "manifestations") == (
+        "im-10",
+        "im-11",
+    )
+
+    sidecar = metadata.to_sidecar_mapping()
+    round_tripped = LiuXinWEMIMetadata.from_mapping(sidecar)
+
+    assert round_tripped.get_wemi_relation_link_ids("item", "manifestations") == (
+        "im-10",
+        "im-11",
+    )
+    assert round_tripped.get_primary_wemi_related("item", "manifestations")[
+        "manifestation_id"
+    ] == 11
+
+
+def test_lazy_wemi_hydrator_selected_spine_matches_primary_graph_links() -> None:
+    db = _build_fake_database()
+    _add_alternate_primary_spine(db)
+
+    metadata = LazyLiuXinWEMIMetadataHydrator(db).get_lazy_liuxin_wemi_metadata(item_id=1)
+
+    assert metadata.manifestation is not None
+    assert metadata.manifestation.manifestation_id == 11
+    assert metadata.expression is not None
+    assert metadata.expression.expression_id == 21
+    assert metadata.work is not None
+    assert metadata.work.work_id == 31
+
+    assert [
+        row.row_id
+        for row in metadata.get_wemi_related("item", "manifestations")
+        if isinstance(row, Row)
+    ] == [11, 10]
+    assert metadata.get_primary_wemi_related("item", "manifestations").row_id == 11
+
+
+def test_wemi_hydrator_no_primary_spine_uses_priority_fallback() -> None:
+    db = _build_fake_database()
+    _add_no_primary_priority_spine(db)
+
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    assert metadata.manifestation is not None
+    assert metadata.manifestation.manifestation_id == 11
+    assert metadata.expression is not None
+    assert metadata.expression.expression_id == 22
+    assert metadata.work is not None
+    assert metadata.work.work_id == 32
+
+    assert metadata.get_primary_wemi_related("item", "manifestations").row_id == 11
+    assert (
+        metadata.get_primary_wemi_related("manifestation", "expressions").row_id
+        == 22
+    )
+    assert metadata.get_primary_wemi_related("expression", "works").row_id == 32
+
+
+def test_lazy_wemi_hydrator_no_primary_spine_uses_priority_fallback() -> None:
+    db = _build_fake_database()
+    _add_no_primary_priority_spine(db)
+
+    metadata = LazyLiuXinWEMIMetadataHydrator(db).get_lazy_liuxin_wemi_metadata(item_id=1)
+
+    assert metadata.manifestation is not None
+    assert metadata.manifestation.manifestation_id == 11
+    assert metadata.expression is not None
+    assert metadata.expression.expression_id == 22
+    assert metadata.work is not None
+    assert metadata.work.work_id == 32
+
+    assert [
+        row.row_id
+        for row in metadata.get_wemi_related("manifestation", "expressions")
+        if isinstance(row, Row)
+    ] == [22, 21]
+    assert [
+        row.row_id
+        for row in metadata.get_wemi_related("expression", "works")
+        if isinstance(row, Row)
+    ] == [32, 31]
 
 
 def test_liuxin_wemi_metadata_hydrator_builds_complete_item_slice() -> None:

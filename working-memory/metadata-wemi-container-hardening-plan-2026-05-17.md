@@ -51,8 +51,12 @@ I audited:
    supported flat fields. Direct WEMI edits are visible in conversion without
    mutating the source container, and OPF remains explicitly lossy for relation
    link ids/provenance/priority/graph shape.
-3. Add multi-parent graph tests proving selected identities follow primary links
-   while all relation links and link ids survive.
+3. Multi-parent graph tests now cover eager and lazy central hydrators. The
+   identity spine follows structural relation links using the shared selector:
+   explicit primary flag, lower priority, lower index, then original order.
+   Direct foreign-key/source-row hints are fallback identity data only when no
+   relation target is available. Non-primary graph links remain in relation
+   links, and item-manifestation link ids survive sidecar mapping.
 4. Add lazy/eager projection parity tests, including unloaded projection errors
    and explicit load/force-hydrate behaviour.
 5. Add writer append/replace/idempotence tests with unicode and failure-report
@@ -60,14 +64,29 @@ I audited:
 6. Build a relation-container torture matrix, starting with expression metadata,
    identifiers, agents, and titles.
 
+## Latest Progress
+
+- Branch `metadata-wemi-multiparent-contracts` adds a fixture where the item row
+  still hints at manifestation `10`, but primary graph links select
+  manifestation `11`, expression `21`, and work `31`.
+- `LiuXinWEMIMetadataHydrator` and `LazyLiuXinWEMIMetadataHydrator` now agree on
+  that selected spine while preserving the full item-manifestation graph.
+- Added a no-primary fixture proving relation priority selects manifestation
+  `11`, expression `22`, and work `32` ahead of direct fallback ids.
+- Focused validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py -q`
+  (`80 passed`).
+
 ## Next Step
 
-Move to the multi-parent graph tests. They should prove that selected identities
-follow primary links while non-primary graph links and link ids remain preserved
-in the WEMI container and sidecar mapping.
+Move to the lazy/eager projection parity slice. Cover unloaded projection
+errors, explicit `load(...)` / `force_hydrate(...)`, and repeated access after
+materialization.
 
 ## Validation
 
 - `.venv/bin/python -m pytest tests/metadata/containers/test_wemi_conversion_contracts.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/test_opf_tools.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_metadata_real_backend_parity.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py -q`
