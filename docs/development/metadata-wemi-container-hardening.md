@@ -25,18 +25,40 @@ bundle exposes identities plus relation links. The important invariant is that
 the identity spine is the selected context for the item, not the whole graph.
 Additional graph edges must remain in relation links.
 
+Eager and lazy hydration both prefer explicit primary structural links when
+selecting that identity spine. Direct foreign-key/source-row hints remain useful
+fallbacks, but a primary item-to-manifestation, manifestation-to-expression, or
+expression-to-work link is the authoritative selected traversal. When relation
+links exist without an explicit primary flag, the shared relation selector uses
+lower priority, then lower index, then original order. Direct foreign-key and
+source-row hints are fallback identity data only when there is no relation
+target to select. Non-primary parents stay available through relation links and
+retain their link ids.
+
 Projection views live in
 `metadata/containers/metadata_containers/wemi_containers/projection_views.py`.
 They deliberately flatten relation targets into read-only `values` and `text`
 views. Lazy projections must not half-render partial state: eager projections
 only read loaded data, and unloaded lazy dependencies raise
 `UnloadedMetadataProjectionError`.
+Hydrated lazy projections follow the same rule. Reading `md.values.*` or
+`md.text.*` before the relevant lazy legacy fields and relation loaders are
+materialized raises without invoking the loaders. Calling `md.load("tags")`
+hydrates the projection dependencies for that relation only; calling `md.load()`
+hydrates every pending lazy field and relation loader. `force_hydrate(...)`
+remains a legacy-field materialization API and is suitable for selected
+legacy-backed projections such as tags, labels, and identifiers.
 
 Write-back lives in
 `metadata/containers/metadata_containers/liuxin_wemi_metadata_writer.py`. It
 currently handles selected legacy relation-backed fields and entity identifiers.
 Append mode adds missing terms and links; replace mode treats requested fields
 as authoritative for the target row.
+Writer reports distinguish created rows, added links, updated rows, removed
+links, skipped fields, and errors. Existing relation term rows can be linked
+without being reported as new rows, relation-link metadata is carried into link
+rows where the database supports those columns, and `mark_dirty=False` suppresses
+dirty-record writes even when a link is added.
 
 The latest full coverage XML in `working-memory/test-results` shows the main
 remaining risk areas:
@@ -117,20 +139,28 @@ seeded or avoided.
    relation link ids, provenance, priority, and structural graph shape do not
    round-trip through them.
 
-3. Add multi-parent graph tests.
-   Assert that selected identities follow primary links, all non-primary links
-   remain present, relation link ids survive mapping/deepcopy, and no conversion
-   or projection path pretends the graph has only one parent.
+3. Multi-parent graph tests now cover eager and lazy central hydrators. Selected
+   identities follow primary structural links, then relation priority fallback,
+   even when direct foreign-key hints point elsewhere. Non-primary relation
+   links remain present and link ids survive sidecar mapping.
 
 4. Add lazy/eager projection parity tests.
    Exercise unloaded projection errors, `load(...)`, `force_hydrate(...)`,
    conversion materialization, cache read sources, and repeated access.
+   Current hydrated-path tests prove unloaded stack projections raise without
+   materializing loaders, single-field `load(...)` keeps unrelated fields
+   guarded, selected `force_hydrate(...)` unlocks legacy-backed projections,
+   and full lazy `load()` matches eager values on repeated access.
 
 5. Add writer append/replace/idempotence tests.
    Cover target resolution, explicit `target_row`, primary relation-link
    metadata passed through to link rows, identifier primary marking, stale-link
    removal in replace mode, dirty marking, and clean report entries for skipped
    or failed writes.
+   Current writer tests cover append/idempotence, replace link removal,
+   identifier replacement, existing identifier primary repair, explicit
+   target-row mappings, existing-term link-only appends, relation-link metadata
+   passthrough, and dirty marking suppression.
 
 6. Build a relation-container torture matrix.
    Prioritize expression metadata, identifiers, agents, titles, notes, labels,

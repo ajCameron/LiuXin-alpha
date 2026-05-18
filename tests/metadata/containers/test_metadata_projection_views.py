@@ -412,6 +412,10 @@ def test_projection_helper_edge_cases() -> None:
     assert _iter_rating_values(None) == ()
     assert _iter_rating_values("5") == ("5",)
     assert _iter_rating_values({"unrated": ""}) == ("unrated",)
+    assert _iter_rating_values(
+        {"calibre": 4, "overall": 8},
+        suppress_calibre=True,
+    ) == ("8",)
 
     identifiers: dict[str, list[str]] = {}
     _append_identifier(identifiers, "", "value")
