@@ -152,12 +152,51 @@ Validation:
 - `.venv/bin/python -m pytest tests/metadata/web_sources -q`
   - `198 passed, 9 skipped`
 
+## Douban Provider Slice
+
+Checked the local Calibre clone at `/home/blackjane/calibre-master`; it does
+not include a matching Douban metadata source, so this slice used the local
+Douban implementation directly.
+
+Added offline coverage for `metadata.web_sources.douban`:
+
+- low-level text, first-value, ISBN, date, float, Douban ID, API-key, cache,
+  query, JSON payload, XML payload, XML text, and payload-dispatch helpers
+- JSON metadata fallbacks for alternate URL IDs, string authors, empty
+  publisher/summary, string tags, clamped ratings, mixed ISBN values, missing
+  covers, and cover fallback fields
+- XML metadata fallbacks for atom-author names, missing authors, publisher and
+  pubdate attributes, comma-containing tags, clamped ratings, default-cover
+  rejection, ISBN normalization, and missing XML text
+- identify fallback from subject/isbn lookup to title/author search, early
+  abort, insufficient-query logging, empty parsed items, parse exceptions, and
+  `None` metadata results
+- uncached cover discovery through identify, abort handling, no-cover logging,
+  empty payload handling, download exception handling, and text decode/abort
+  backoff paths
+
+Production fix found:
+
+- `metadata.web_sources.douban.Douban.download_cover()` now catches cover
+  download exceptions and returns without enqueueing a payload, matching the
+  safer behavior of the Amazon/Ozon/OverDrive providers.
+
+Validation:
+
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_douban.py -q`
+  - `14 passed`
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_douban.py --cov=LiuXin_alpha.metadata.web_sources.douban --cov-branch --cov-report=term-missing:skip-covered -q`
+  - `14 passed`
+  - `douban.py`: 95%
+- `.venv/bin/python -m pytest tests/metadata/web_sources -q`
+  - `205 passed, 9 skipped`
+
 ## Next
 
 Continue with provider modules using offline fake browser responses and compact
 HTML/JSON fixtures. Highest old-coverage payoff is probably `amazon.py`,
 `ozon.py`, `overdrive.py`, `douban.py`, `edelweiss.py`, and `isbndb.py`, with
 `identify.py` branch gaps revisited only where provider tests naturally hit
-them. After the Amazon, Ozon, and OverDrive slices, the next provider target
-should be `douban.py`, then `edelweiss.py` using the Calibre clone as a closer
-reference, then `isbndb.py`.
+them. After the Amazon, Ozon, OverDrive, and Douban slices, the next provider
+target should be `edelweiss.py` using the Calibre clone as a closer reference,
+then `isbndb.py`.
