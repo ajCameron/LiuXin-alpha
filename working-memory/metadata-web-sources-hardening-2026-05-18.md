@@ -266,6 +266,31 @@ Validation:
 - `.venv/bin/python -m pytest tests/metadata/web_sources -q`
   - `227 passed, 9 skipped`
 
+## OpenLibrary Provider Slice
+
+Checked the local Calibre clone at `/home/blackjane/calibre-master`; it includes
+a matching cover-only OpenLibrary source. The local port intentionally adds ISBN
+normalization and iterable/mapping identifier support around the same cover API
+contract.
+
+Added offline coverage for `metadata.web_sources.openlibrary`:
+
+- low-level first-value, text coercion, ISBN normalization, and identifier ISBN
+  extraction helper edge cases
+- malformed, empty, byte, mapping, iterable, ISBN-10, ISBN-13, and missing
+  identifier inputs
+- no-ISBN book URL and cached-cover URL behavior
+
+Validation:
+
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_openlibrary.py -q`
+  - `12 passed`
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_openlibrary.py --cov=LiuXin_alpha.metadata.web_sources.openlibrary --cov-branch --cov-report=term-missing:skip-covered -q`
+  - `12 passed`
+  - `openlibrary.py`: 99%
+- `.venv/bin/python -m pytest tests/metadata/web_sources -q`
+  - `228 passed, 9 skipped`
+
 ## Next
 
 Continue with provider modules using offline fake browser responses and compact
@@ -273,7 +298,6 @@ HTML/JSON fixtures. Highest old-coverage payoff is probably `amazon.py`,
 `ozon.py`, `overdrive.py`, `douban.py`, `edelweiss.py`, and `isbndb.py`, with
 `identify.py` branch gaps revisited only where provider tests naturally hit
 them. After the Amazon, Ozon, OverDrive, Douban, Edelweiss, and ISBNDB slices,
-the next provider target should be chosen from the remaining lower-coverage
-modules, likely starting with the Calibre-backed providers (`google.py`,
-`openlibrary.py`, or `big_book_search.py`) after checking current targeted
-coverage.
+the remaining Calibre-backed baselines were `openlibrary.py` 76%,
+`big_book_search.py` 78%, and `google.py` 79%. After OpenLibrary, continue with
+`big_book_search.py`, then `google.py`.
