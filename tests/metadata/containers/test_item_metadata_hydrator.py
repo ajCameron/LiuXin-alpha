@@ -1503,6 +1503,215 @@ def test_calibre_like_metadata_write_to_database_accepts_explicit_target_row_map
     ] == report.links_added[0]["target"]["row_id"]
 
 
+def test_metadata_writer_skips_missing_relation_table_and_identifier_columns() -> None:
+    db = _build_fake_database()
+    del db.tables_and_columns["tags"]
+    metadata = CalibreLikeLiuXinBookMetaData(
+        title="Permutation City",
+        authors=["Greg Egan"],
+    )
+    metadata.tags = "Missing Table Tag"
+
+    report = metadata.write_to_database(db, fields=("tags",), item_id=1)
+
+    assert report.changed is False
+    assert report.fields_checked == ["tags"]
+    assert report.skipped == ["tags: table 'tags' is not present."]
+    assert report.rows_added == []
+    assert report.links_added == []
+
+    db = _build_fake_database()
+    db.tables_and_columns["entity_identifiers"].remove("entity_identifier_value")
+    metadata = CalibreLikeLiuXinBookMetaData(
+        title="Permutation City",
+        authors=["Greg Egan"],
+    )
+    metadata.set_identifier("doi", "10.5555/missing-column")
+
+    report = metadata.write_to_database(db, fields=("identifiers",), item_id=1)
+
+    assert report.changed is False
+    assert report.fields_checked == ["identifiers"]
+    assert report.rows_added == []
+    assert report.skipped == [
+        "identifiers: table 'entity_identifiers' is missing columns "
+        "entity_identifier_value."
+    ]
+
+
+def test_metadata_writer_skips_unsupported_relation_pairs() -> None:
+    db = _build_fake_database()
+    original_link_table_name = db.driver_wrapper.get_link_table_name
+
+    def unsupported_work_tag_link(table1: str, table2: str) -> str:
+        if (str(table1), str(table2)) == ("works", "tags"):
+            return ""
+        return original_link_table_name(table1, table2)
+
+    setattr(db.driver_wrapper, "get_link_table_name", unsupported_work_tag_link)
+    metadata = CalibreLikeLiuXinBookMetaData(
+        title="Permutation City",
+        authors=["Greg Egan"],
+    )
+    metadata.tags = "Unsupported Link Tag"
+
+    report = metadata.write_to_database(
+        db,
+        fields=("tags",),
+        target_level="work",
+        target_row={"work_id": 30},
+    )
+
+    assert report.changed is False
+    assert report.skipped == ["tags: 'works' cannot link to 'tags'."]
+    assert report.rows_added == []
+    assert report.links_added == []
+
+
+def test_metadata_writer_reports_failed_link_and_unlink_operations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    metadata.tags = "Link Failure Tag"
+
+    def fail_interlink_rows(*_args: Any, **_kwargs: Any) -> None:
+        raise RuntimeError("link failed")
+
+    monkeypatch.setattr(db, "interlink_rows", fail_interlink_rows)
+
+    report = metadata.write_to_database(db, fields=("tags",))
+
+    assert report.changed is True
+    assert [row["text"] for row in report.rows_added] == ["Link Failure Tag"]
+    assert report.links_added == []
+    assert report.errors == [
+        "tags: could not link works:30 to tags:92.",
+    ]
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert "Link Failure Tag" not in rehydrated.tags
+
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    metadata.nullify("tags")
+
+    def fail_unlink_interlink(*_args: Any, **_kwargs: Any) -> None:
+        raise RuntimeError("unlink failed")
+
+    monkeypatch.setattr(db, "unlink_interlink", fail_unlink_interlink)
+
+    report = metadata.write_to_database(db, fields=("tags",), replace=True)
+
+    assert report.changed is False
+    assert report.links_removed == []
+    assert report.errors == [
+        "tags: could not remove link from works:30 to tags:91.",
+    ]
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert list(rehydrated.tags.keys()) == ["Space Opera"]
+
+
+def test_metadata_writer_reports_failed_identifier_delete_and_primary_update(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    metadata.set_identifiers({"doi": {"10.5555/delete-failure"}}, update=False)
+
+    def fail_delete(_row: Row) -> None:
+        raise RuntimeError("delete failed")
+
+    monkeypatch.setattr(db, "delete", fail_delete)
+
+    report = metadata.write_to_database(db, fields=("identifiers",), replace=True)
+
+    assert report.changed is True
+    assert report.rows_removed == []
+    assert any("could not remove row entity_identifiers:80" in error for error in report.errors)
+    assert [
+        row.row_dict["entity_identifier_value"]
+        for row in db.rows_by_table["entity_identifiers"]
+        if row.row_dict["entity_identifier_value"] == "OL123W"
+    ] == ["OL123W"]
+
+    db = _build_fake_database()
+    for row in db.rows_by_table["entity_identifiers"]:
+        row.row_dict["entity_identifier_is_primary"] = 0
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    def fail_update_column(
+        _table: str,
+        _row_id: int,
+        _column: str,
+        _new_value: Any,
+    ) -> None:
+        raise RuntimeError("update failed")
+
+    monkeypatch.setattr(db.driver_wrapper, "update_column", fail_update_column)
+
+    report = metadata.write_to_database(db, fields=("identifiers",))
+
+    assert report.rows_updated == []
+    assert any(
+        "could not mark row entity_identifiers:80 as primary" in error
+        for error in report.errors
+    )
+    assert [
+        row.row_dict["entity_identifier_is_primary"]
+        for row in db.rows_by_table["entity_identifiers"]
+        if row.row_dict["entity_identifier_value"] == "OL123W"
+    ] == [0]
+
+
+def test_metadata_writer_accepts_valid_unicode_and_rejects_unsafe_text() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    valid_tag = "unicode-\u4e66\u7c4d-\u30bf\u30b0-\U0001f4da"
+    metadata.tags = [
+        valid_tag,
+        "bad\x00tag",
+        "bad" + chr(0xD800) + "tag",
+    ]
+
+    report = metadata.write_to_database(db, fields=("tags",))
+
+    assert [row["text"] for row in report.rows_added] == [valid_tag]
+    assert len(report.errors) == 2
+    assert all("skipped unsafe text value" in error for error in report.errors)
+    assert [
+        row.row_dict["tag"]
+        for row in db.rows_by_table["tags"]
+        if row.row_dict["tag"] == valid_tag
+    ] == [valid_tag]
+    assert all("\x00" not in row.row_dict["tag"] for row in db.rows_by_table["tags"])
+
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    valid_identifier = "10.5555/unicode-\u4e66\u7c4d"
+    metadata.set_identifiers(
+        {
+            "doi": [
+                valid_identifier,
+                "10.5555/bad\x00identifier",
+            ],
+        },
+        update=False,
+    )
+
+    report = metadata.write_to_database(db, fields=("identifiers",), replace=True)
+
+    assert valid_identifier in {row["value"] for row in report.rows_added}
+    assert all(
+        row["value"] != "10.5555/bad\x00identifier"
+        for row in report.rows_added
+    )
+    assert any("skipped unsafe value" in error for error in report.errors)
+    assert all(
+        "\x00" not in row.row_dict["entity_identifier_value"]
+        for row in db.rows_by_table["entity_identifiers"]
+    )
+
+
 def test_liuxin_wemi_metadata_wemi_relation_edits_round_trip_to_database() -> None:
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)

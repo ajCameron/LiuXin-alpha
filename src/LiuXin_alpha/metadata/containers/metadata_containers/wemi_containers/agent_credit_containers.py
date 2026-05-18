@@ -144,7 +144,7 @@ class ExpressionAgentCredit(AgentCreditBase):
         return self.role
 
     def validate(self) -> None:
-        super().validate()
+        AgentCreditBase.validate(self)
         if self.role == ExpressionAgentRole.TRANSLATOR and self.language_id is None:
             raise ValueError('translator credits should carry a language_id')
 
@@ -214,7 +214,7 @@ class ItemAgentCredit(AgentCreditBase):
         return self.role
 
     def validate(self) -> None:
-        super().validate()
+        AgentCreditBase.validate(self)
         if (
             self.association_start_ep_k is not None
             and self.association_end_ep_k is not None

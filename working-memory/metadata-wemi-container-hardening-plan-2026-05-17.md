@@ -1,6 +1,8 @@
 # Metadata WEMI Container Hardening Plan - 2026-05-17
 
-Branch: `metadata-wemi-container-hardening-plan`
+Branch: `metadata-wemi-multiparent-contracts`
+
+PR: `#56` - https://github.com/ajCameron/LiuXin-alpha/pull/56
 
 Durable doc: `docs/development/metadata-wemi-container-hardening.md`
 
@@ -67,11 +69,27 @@ I audited:
    existing identifier primary repair, explicit target-row mappings,
    existing-term link-only appends, relation-link metadata passthrough, and
    dirty marking suppression.
+   Latest slice also covers missing relation tables, missing identifier
+   columns, unsupported relation pairs, failed link/unlink/delete/update
+   operations, and unsafe relation/identifier text rejection while keeping valid
+   unicode writable.
 6. Build a relation-container torture matrix, starting with expression metadata,
    identifiers, agents, and titles.
+   First slice is implemented in
+   `tests/metadata/containers/test_relation_container_contracts.py` and covers
+   expression metadata mapping/helpers, expression titles, expression
+   identifiers, and expression agent credits.
+   Second slice extends the same file to expression notes, labels, subjects,
+   languages, series, ratings, resources, and dates.
 
 ## Latest Progress
 
+- PR `#56` is open against `main`; the remote branch currently includes:
+  - `5006a07` `Harden WEMI multi-parent spine selection`
+  - `7dc2655` `Cover lazy eager WEMI projection parity`
+  - `be4f59f` `Cover WEMI metadata writer edge contracts`
+  The local branch continues with writer failure-contract and relation-container
+  coverage slices.
 - Branch `metadata-wemi-multiparent-contracts` adds a fixture where the item row
   still hints at manifestation `10`, but primary graph links select
   manifestation `11`, expression `21`, and work `31`.
@@ -96,12 +114,98 @@ I audited:
 - Writer slice validation passed:
   `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
   (`93 passed`).
+- Writer failure-contract slice added:
+  - missing relation-table and identifier-column skip reports;
+  - unsupported relation-pair skip reports;
+  - failed link, unlink, delete, and identifier-primary update errors;
+  - valid unicode relation/identifier writes;
+  - rejection of unsafe C0 control characters and surrogate code points before
+    relation text or identifier values are persisted.
+- Writer failure-contract validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py -q`
+  (`32 passed`).
+- Widened metadata validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
+  (`98 passed`).
+- Relation-container first slice added:
+  - expression metadata relation aliases, primary helper selection, link-id
+    lookup/removal, and grouped related-target access;
+  - expression/manifestation `to_mapping()` serialization of live `Row`
+    relation targets as plain mappings rather than leaking row objects into
+    sidecar payloads;
+  - expression title container ordering, primary selection, write payloads,
+    unicode text, and invalid shape/value checks;
+  - expression identifier container scheme validation, primary selection,
+    normalized values, write payloads, unicode values, and invalid
+    shape/value checks;
+  - expression agent-credit container role grouping, dynamic role text helpers,
+    unicode credited names, write payloads, and invalid role/target/confidence
+    checks.
+- Fixed two bugs exposed by the relation-container tests:
+  expression/manifestation metadata sidecar mapping no longer emits raw `Row`
+  targets, and slotted dataclass agent-credit validation no longer fails on
+  zero-argument `super()`.
+- Relation-container validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py -q`
+  (`5 passed`).
+- Widened container validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py tests/metadata/containers/test_work_metadata_container.py tests/metadata/containers/test_item_metadata_container.py tests/metadata/containers/test_agent_profiles.py tests/metadata/containers/test_metadata_container_string_representations.py tests/metadata/containers/test_expression_metadata_hydrator.py tests/metadata/containers/test_manifestation_metadata_hydrator.py tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py -q`
+  (`91 passed`).
+- Full metadata-container validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers -q`
+  (`223 passed, 1 warning`).
+- Relation-container second slice added:
+  - expression note ordering, primary selection, write payloads, dynamic
+    description text helpers, unicode bodies/titles, blank-body rejection, and
+    bad association range rejection;
+  - expression label and subject ordering, primary selection, write payloads,
+    dynamic text helpers, unicode values, wrong-target-kind rejection, and
+    blank-text rejection;
+  - expression language ordering, write payloads, dynamic text helpers,
+    unicode language names, missing-language-value rejection, and duplicate
+    primary rejection;
+  - expression series, rating, resource, and date value contracts, including
+    unicode display text, write payloads, dynamic text helpers, wrong target
+    kinds, bad authority pairs, out-of-range ratings, blank URIs, empty dates,
+    inverted date ranges, and duplicate-primary rejection.
+- Relation-container validation passed after the second slice:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py -q`
+  (`9 passed`).
+- Widened container validation passed after the second slice:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py tests/metadata/containers/test_metadata_container_string_representations.py tests/metadata/containers/test_expression_metadata_hydrator.py tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py -q`
+  (`88 passed`).
+- Full metadata-container validation passed after the second slice:
+  `.venv/bin/python -m pytest tests/metadata/containers -q`
+  (`227 passed, 1 warning`).
+- Relation-container branch sweep added:
+  - empty/missing helper fallbacks for titles, identifiers, agent credits,
+    notes, labels, subjects, languages, series, ratings, resources, and dates;
+  - mutation helpers for relation value containers, including replacement,
+    removal, ordering, primary-setting, and clear paths;
+  - item WEMI title-slice dedupe, no-dedupe, fallback, and string contracts;
+  - work/manifestation/item target-specific `as_write_payload()` contracts for
+    titles, identifiers, agent credits, notes, labels, subjects, languages,
+    series, ratings, resources, and dates.
+- Relation-container validation passed after the branch sweep:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py -q`
+  (`45 passed`).
+- Targeted relation-container branch coverage passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py --cov=[targeted relation container modules] --cov-branch --cov-report=term-missing:skip-covered -q`
+  (`45 passed`, targeted total `89%`).
+- Widened container validation passed after the branch sweep:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py tests/metadata/containers/test_metadata_container_string_representations.py tests/metadata/containers/test_expression_metadata_hydrator.py tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py -q`
+  (`124 passed`).
+- Full metadata-container validation passed after the branch sweep:
+  `.venv/bin/python -m pytest tests/metadata/containers -q`
+  (`263 passed, 1 warning`).
 
 ## Next Step
 
-Widen validation for the writer slice. If it stays green, the next useful
-writer tests are skipped/error report paths for missing tables or columns and
-hostile unicode values in relation text/identifier input.
+PR `#56` is open and this branch now includes the writer failure-contract slice
+plus the relation-container torture and branch-sweep slices. The next useful
+coverage work is the remaining metadata black spots outside these WEMI relation
+containers, or a very targeted pass over any relation-container branches that
+external coverage still marks as contract-relevant.
 
 ## Validation
 
@@ -113,3 +217,9 @@ hostile unicode values in relation text/identifier input.
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_metadata_projection_views.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py tests/metadata/containers/test_work_metadata_container.py tests/metadata/containers/test_item_metadata_container.py tests/metadata/containers/test_agent_profiles.py tests/metadata/containers/test_metadata_container_string_representations.py tests/metadata/containers/test_expression_metadata_hydrator.py tests/metadata/containers/test_manifestation_metadata_hydrator.py tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py tests/metadata/containers/test_metadata_container_string_representations.py tests/metadata/containers/test_expression_metadata_hydrator.py tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py --cov=[targeted relation container modules] --cov-branch --cov-report=term-missing:skip-covered -q`

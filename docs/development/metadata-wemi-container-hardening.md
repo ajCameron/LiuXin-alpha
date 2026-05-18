@@ -2,6 +2,11 @@
 
 Date: 2026-05-17
 
+Current PR: `#56` (`metadata-wemi-multiparent-contracts`) against `main`.
+This PR packages the first hardening batch after the conversion-contract PR:
+multi-parent identity-spine selection, hydrated lazy/eager projection parity,
+and WEMI metadata writer edge contracts.
+
 This plan covers the next focused pass over the WEMI metadata containers and
 conversion paths. The goal is not line coverage for its own sake. The goal is to
 make graph fidelity, projection behaviour, conversion loss, and write-back
@@ -59,6 +64,11 @@ links, skipped fields, and errors. Existing relation term rows can be linked
 without being reported as new rows, relation-link metadata is carried into link
 rows where the database supports those columns, and `mark_dirty=False` suppresses
 dirty-record writes even when a link is added.
+The writer now also reports missing relation tables, missing identifier columns,
+unsupported relation pairs, failed link/unlink/delete/update operations, and
+unsafe text inputs. Valid unicode remains writable, but C0 control characters
+other than tab/newline/carriage-return and surrogate code points are rejected
+before they can be persisted into relation text or entity identifier rows.
 
 The latest full coverage XML in `working-memory/test-results` shows the main
 remaining risk areas:
@@ -160,13 +170,25 @@ seeded or avoided.
    Current writer tests cover append/idempotence, replace link removal,
    identifier replacement, existing identifier primary repair, explicit
    target-row mappings, existing-term link-only appends, relation-link metadata
-   passthrough, and dirty marking suppression.
+   passthrough, dirty marking suppression, missing schema skips, unsupported
+   relation-pair skips, failed operation errors, and hostile text filtering.
 
 6. Build a relation-container torture matrix.
    Prioritize expression metadata, identifiers, agents, titles, notes, labels,
    subjects, languages, series, ratings, resources, and dates. Cover
    `from_mapping`, `to_mapping`, relation-key validation, primary helpers,
    duplicate handling, invalid values, repr/string output, and unicode.
+   The first relation-container slice covers expression metadata sidecar
+   mappings, expression relation aliases and primary helpers, expression title
+   containers, expression identifier containers, and expression agent credits.
+   It also locks down unicode handling for these families and validates bad
+   target ids, bad target kinds, disallowed schemes, duplicate primaries, and
+   invalid credit fields.
+   The second relation-container slice covers expression notes, labels,
+   subjects, languages, series, ratings, resources, and dates. It locks down
+   unicode display/write payloads, convenience text helpers, ordering,
+   duplicate-primary rejection, wrong target-kind rejection, bad target ids, and
+   family-specific value validation.
 
 7. Re-run focused coverage after each slice.
    Use coverage to find missed branches, but do not add tests that only assert
@@ -184,6 +206,45 @@ seeded or avoided.
   accidental.
 - The identity-spine versus full-graph distinction is visible in both test names
   and docs.
+
+## Current Landing State
+
+The current hardening branch includes these slices:
+
+- Multi-parent WEMI spine selection. Eager and lazy hydrators select the identity
+  spine from primary/priority structural relation links while preserving the full
+  graph in relation links.
+- Lazy/eager projection parity. Hydrated lazy projections raise before loading,
+  single-field `load(...)` materializes only the requested projection
+  dependencies, full `load()` matches eager projections, and rating projection
+  parity avoids duplicate legacy Calibre tag-viewer ratings when graph ratings
+  are present.
+- Writer edge contracts. Tests cover explicit target rows, link-only appends to
+  existing relation term rows, relation-link metadata passthrough, dirty marking
+  suppression, identifier replacement, existing identifier primary repair,
+  missing relation tables and identifier columns, unsupported relation pairs,
+  link/unlink/delete/update failures, valid unicode writes, and unsafe
+  relation/identifier text rejection.
+- Relation-container contracts, first slice. Tests cover expression metadata
+  relation aliases, primary helpers, link-id lookup/removal, sidecar mapping of
+  live `Row` relation targets into plain mappings, expression titles,
+  expression identifiers, and expression agent credits. This exposed and fixed
+  raw `Row` leakage from expression/manifestation `to_mapping()` output and a
+  slotted dataclass `super()` failure in expression/item agent-credit
+  validation.
+- Relation-container contracts, second slice. Tests cover expression notes,
+  labels, subjects, languages, series, ratings, resources, and dates with
+  unicode values, write payload assertions, dynamic convenience text helpers,
+  ordering, primary flags, and invalid value/shape checks.
+- Relation-container branch sweep. Tests now also cover empty/missing helper
+  fallbacks, mutation methods, item WEMI title-slice dedupe/fallback behaviour,
+  and work/manifestation/item target-specific write payload contracts across
+  titles, identifiers, agent credits, notes, labels, subjects, languages,
+  series, ratings, resources, and dates.
+
+The next useful coverage pass is the remaining metadata black spots outside
+these WEMI relation containers, or a narrower pass over any relation-container
+branches that external coverage still marks as contract-relevant.
 
 ## Non-Goals
 
