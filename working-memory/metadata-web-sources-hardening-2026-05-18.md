@@ -86,11 +86,42 @@ Validation:
 - `.venv/bin/python -m pytest tests/metadata/web_sources -q`
   - `184 passed, 9 skipped`
 
+## Ozon Provider Slice
+
+Added offline coverage for `metadata.web_sources.ozon`:
+
+- low-level text, first-value, identifier, JSON-LD, meta-content, date, series,
+  and cover URL helper edge cases
+- Ozon URL parsing, invalid identifier handling, empty query handling, duplicate
+  search-result ID filtering, and search result limiting
+- JSON-LD fallback contracts for string publishers, meta title/description,
+  image mappings, comma-string keywords, mapping/list authors, string series,
+  localized language names, aggregate ratings, and ISBN normalization
+- sparse detail pages with unknown title/author defaults, rating regex fallback,
+  fallback ISBN extraction, already-HTML comments, tag comma escaping, and
+  optional field rejection
+- ISBN-search miss followed by title/author retry, duplicate search IDs, empty
+  detail pages, detail request exceptions, requested-ISBN filtering, early abort,
+  and empty-query returns
+- uncached cover discovery through identify, abort handling, no-cover logging,
+  empty payload handling, download exception handling, and text decode/abort
+  backoff paths
+
+Validation:
+
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_ozon.py -q`
+  - `17 passed`
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_ozon.py --cov=LiuXin_alpha.metadata.web_sources.ozon --cov-branch --cov-report=term-missing:skip-covered -q`
+  - `17 passed`
+  - `ozon.py`: 93%
+- `.venv/bin/python -m pytest tests/metadata/web_sources -q`
+  - `191 passed, 9 skipped`
+
 ## Next
 
 Continue with provider modules using offline fake browser responses and compact
 HTML/JSON fixtures. Highest old-coverage payoff is probably `amazon.py`,
 `ozon.py`, `overdrive.py`, `douban.py`, `edelweiss.py`, and `isbndb.py`, with
 `identify.py` branch gaps revisited only where provider tests naturally hit
-them. After the Amazon slice, the next provider target should be `ozon.py` or
-`overdrive.py`.
+them. After the Amazon and Ozon slices, the next provider target should be
+`overdrive.py`, followed by `douban.py`, `edelweiss.py`, and `isbndb.py`.
