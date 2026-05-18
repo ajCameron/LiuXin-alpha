@@ -1,6 +1,8 @@
 # Metadata WEMI Container Hardening Plan - 2026-05-17
 
-Branch: `metadata-wemi-container-hardening-plan`
+Branch: `metadata-wemi-multiparent-contracts`
+
+PR: `#56` - https://github.com/ajCameron/LiuXin-alpha/pull/56
 
 Durable doc: `docs/development/metadata-wemi-container-hardening.md`
 
@@ -67,11 +69,19 @@ I audited:
    existing identifier primary repair, explicit target-row mappings,
    existing-term link-only appends, relation-link metadata passthrough, and
    dirty marking suppression.
+   Latest slice also covers missing relation tables, missing identifier
+   columns, unsupported relation pairs, failed link/unlink/delete/update
+   operations, and unsafe relation/identifier text rejection while keeping valid
+   unicode writable.
 6. Build a relation-container torture matrix, starting with expression metadata,
    identifiers, agents, and titles.
 
 ## Latest Progress
 
+- PR `#56` is open against `main` and includes three commits:
+  - `5006a07` `Harden WEMI multi-parent spine selection`
+  - `7dc2655` `Cover lazy eager WEMI projection parity`
+  - `be4f59f` `Cover WEMI metadata writer edge contracts`
 - Branch `metadata-wemi-multiparent-contracts` adds a fixture where the item row
   still hints at manifestation `10`, but primary graph links select
   manifestation `11`, expression `21`, and work `31`.
@@ -96,12 +106,25 @@ I audited:
 - Writer slice validation passed:
   `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
   (`93 passed`).
+- Writer failure-contract slice added:
+  - missing relation-table and identifier-column skip reports;
+  - unsupported relation-pair skip reports;
+  - failed link, unlink, delete, and identifier-primary update errors;
+  - valid unicode relation/identifier writes;
+  - rejection of unsafe C0 control characters and surrogate code points before
+    relation text or identifier values are persisted.
+- Writer failure-contract validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py -q`
+  (`32 passed`).
+- Widened metadata validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
+  (`98 passed`).
 
 ## Next Step
 
-Widen validation for the writer slice. If it stays green, the next useful
-writer tests are skipped/error report paths for missing tables or columns and
-hostile unicode values in relation text/identifier input.
+PR `#56` is open and this branch now includes the writer failure-contract slice.
+The next useful coverage work is the relation-container torture matrix, starting
+with expression metadata, identifiers, agents, and titles.
 
 ## Validation
 
@@ -113,3 +136,4 @@ hostile unicode values in relation text/identifier input.
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_metadata_projection_views.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py -q`

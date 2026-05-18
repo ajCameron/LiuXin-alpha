@@ -2,6 +2,11 @@
 
 Date: 2026-05-17
 
+Current PR: `#56` (`metadata-wemi-multiparent-contracts`) against `main`.
+This PR packages the first hardening batch after the conversion-contract PR:
+multi-parent identity-spine selection, hydrated lazy/eager projection parity,
+and WEMI metadata writer edge contracts.
+
 This plan covers the next focused pass over the WEMI metadata containers and
 conversion paths. The goal is not line coverage for its own sake. The goal is to
 make graph fidelity, projection behaviour, conversion loss, and write-back
@@ -59,6 +64,11 @@ links, skipped fields, and errors. Existing relation term rows can be linked
 without being reported as new rows, relation-link metadata is carried into link
 rows where the database supports those columns, and `mark_dirty=False` suppresses
 dirty-record writes even when a link is added.
+The writer now also reports missing relation tables, missing identifier columns,
+unsupported relation pairs, failed link/unlink/delete/update operations, and
+unsafe text inputs. Valid unicode remains writable, but C0 control characters
+other than tab/newline/carriage-return and surrogate code points are rejected
+before they can be persisted into relation text or entity identifier rows.
 
 The latest full coverage XML in `working-memory/test-results` shows the main
 remaining risk areas:
@@ -160,7 +170,8 @@ seeded or avoided.
    Current writer tests cover append/idempotence, replace link removal,
    identifier replacement, existing identifier primary repair, explicit
    target-row mappings, existing-term link-only appends, relation-link metadata
-   passthrough, and dirty marking suppression.
+   passthrough, dirty marking suppression, missing schema skips, unsupported
+   relation-pair skips, failed operation errors, and hostile text filtering.
 
 6. Build a relation-container torture matrix.
    Prioritize expression metadata, identifiers, agents, titles, notes, labels,
@@ -184,6 +195,29 @@ seeded or avoided.
   accidental.
 - The identity-spine versus full-graph distinction is visible in both test names
   and docs.
+
+## Current Landing State
+
+PR `#56` includes three committed slices:
+
+- Multi-parent WEMI spine selection. Eager and lazy hydrators select the identity
+  spine from primary/priority structural relation links while preserving the full
+  graph in relation links.
+- Lazy/eager projection parity. Hydrated lazy projections raise before loading,
+  single-field `load(...)` materializes only the requested projection
+  dependencies, full `load()` matches eager projections, and rating projection
+  parity avoids duplicate legacy Calibre tag-viewer ratings when graph ratings
+  are present.
+- Writer edge contracts. Tests cover explicit target rows, link-only appends to
+  existing relation term rows, relation-link metadata passthrough, dirty marking
+  suppression, identifier replacement, existing identifier primary repair,
+  missing relation tables and identifier columns, unsupported relation pairs,
+  link/unlink/delete/update failures, valid unicode writes, and unsafe
+  relation/identifier text rejection.
+
+The next useful pass is the relation-container torture matrix: expression
+metadata, identifiers, agents, titles, notes, labels, subjects, languages,
+series, ratings, resources, and dates.
 
 ## Non-Goals
 
