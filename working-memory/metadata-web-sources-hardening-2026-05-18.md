@@ -291,6 +291,33 @@ Validation:
 - `.venv/bin/python -m pytest tests/metadata/web_sources -q`
   - `228 passed, 9 skipped`
 
+## Big Book Search Provider Slice
+
+Checked the local Calibre clone at `/home/blackjane/calibre-master`; it includes
+a matching Big Book Search cover source. The local port intentionally adds a
+fallback search path, retry/backoff plumbing, dependency-light image extraction,
+and URL normalization.
+
+Added offline coverage for `metadata.web_sources.big_book_search`:
+
+- low-level text, image URL normalization, image extraction, query building, and
+  search URL helper edge cases
+- byte HTML payloads, empty HTML, relative/non-root image rejection, duplicate
+  image filtering, empty-query returns, empty response fallback, and no-image
+  fallback across both search paths
+- retry policy, backoff, abort-aware wait helpers, token logging, browser
+  timeout propagation, no-token image lookups, and no-title download noops
+
+Validation:
+
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_big_book_search.py -q`
+  - `10 passed`
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_big_book_search.py --cov=LiuXin_alpha.metadata.web_sources.big_book_search --cov-branch --cov-report=term-missing:skip-covered -q`
+  - `10 passed`
+  - `big_book_search.py`: 100%
+- `.venv/bin/python -m pytest tests/metadata/web_sources -q`
+  - `232 passed, 9 skipped`
+
 ## Next
 
 Continue with provider modules using offline fake browser responses and compact
@@ -299,5 +326,5 @@ HTML/JSON fixtures. Highest old-coverage payoff is probably `amazon.py`,
 `identify.py` branch gaps revisited only where provider tests naturally hit
 them. After the Amazon, Ozon, OverDrive, Douban, Edelweiss, and ISBNDB slices,
 the remaining Calibre-backed baselines were `openlibrary.py` 76%,
-`big_book_search.py` 78%, and `google.py` 79%. After OpenLibrary, continue with
-`big_book_search.py`, then `google.py`.
+`big_book_search.py` 78%, and `google.py` 79%. After OpenLibrary and Big Book
+Search, continue with `google.py`.
