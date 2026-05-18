@@ -1403,6 +1403,106 @@ def test_liuxin_wemi_metadata_write_to_database_can_replace_identifier_rows() ->
     assert _identifier_values(rehydrated, "isbn") == ["9780000000001"]
 
 
+def test_liuxin_wemi_metadata_write_marks_existing_identifier_primary() -> None:
+    db = _build_fake_database()
+    for row in db.rows_by_table["entity_identifiers"]:
+        row.row_dict["entity_identifier_is_primary"] = 0
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    report = metadata.write_to_database(db, fields=("identifiers",))
+
+    assert report.changed is True
+    assert {
+        (
+            row["scheme"],
+            row["value"],
+            row["column"],
+            row["new_value"],
+        )
+        for row in report.rows_updated
+    } == {("openlibrary", "OL123W", "entity_identifier_is_primary", 1)}
+    assert [
+        row.row_dict["entity_identifier_is_primary"]
+        for row in db.rows_by_table["entity_identifiers"]
+        if row.row_dict["entity_identifier_value"] == "OL123W"
+    ] == [1]
+
+
+def test_liuxin_wemi_metadata_write_adds_existing_term_link_with_relation_metadata() -> None:
+    db = _build_fake_database()
+    db.add_row(
+        "tags",
+        {
+            "tag_id": 99,
+            "tag": "Metadata Writer Existing",
+            "tag_phash": "metadatawriterexisting",
+        },
+    )
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    metadata.add_wemi_relation_link(
+        "work",
+        "tags",
+        WorkRelationLink(
+            target={
+                "tag_id": 99,
+                "tag": "Metadata Writer Existing",
+            },
+            priority=7,
+            primary=True,
+            type="curated",
+            origin="unit-origin",
+            source="unit-source",
+            policy="unit-policy",
+            data="unit-data",
+            index=3,
+            extra={"source_entity_type": "work"},
+        ),
+    )
+
+    report = metadata.write_to_database(db, fields=("tags",), mark_dirty=False)
+
+    assert report.changed is True
+    assert report.rows_added == []
+    assert len(report.links_added) == 1
+    assert db.dirtied == []
+    link = db.interlinks[("works", 30, "tags")][-1]
+    assert link["tag_work_link_tag_id"] == 99
+    assert link["tag_work_link_type"] == "curated"
+    assert link["tag_work_link_primary"] == 1
+    assert link["tag_work_link_origin"] == "unit-origin"
+    assert link["tag_work_link_source"] == "unit-source"
+    assert link["tag_work_link_policy"] == "unit-policy"
+    assert link["tag_work_link_data"] == "unit-data"
+    assert link["tag_work_link_index"] == 3
+
+
+def test_calibre_like_metadata_write_to_database_accepts_explicit_target_row_mapping() -> None:
+    db = _build_fake_database()
+    metadata = CalibreLikeLiuXinBookMetaData(
+        title="Permutation City",
+        authors=["Greg Egan"],
+    )
+    metadata.tags = "Expression Target Row Tag"
+
+    report = metadata.write_to_database(
+        db,
+        fields=("tags",),
+        target_level="expression",
+        target_row={"expression_id": 20},
+    )
+
+    assert report.changed is True
+    assert report.target_level == "expression"
+    assert report.target_table == "expressions"
+    assert report.target_id == 20
+    assert [row["text"] for row in report.rows_added] == [
+        "Expression Target Row Tag",
+    ]
+    assert db.interlinks[("expressions", 20, "tags")][-1][
+        "expression_tag_link_tag_id"
+    ] == report.links_added[0]["target"]["row_id"]
+
+
 def test_liuxin_wemi_metadata_wemi_relation_edits_round_trip_to_database() -> None:
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)

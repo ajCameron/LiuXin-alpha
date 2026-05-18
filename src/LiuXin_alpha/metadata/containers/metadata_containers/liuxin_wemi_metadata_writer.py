@@ -976,7 +976,7 @@ class LiuXinWEMIMetadataWriter:
                         {
                             **self._identifier_report_row(row),
                             "column": "entity_identifier_is_primary",
-                            "value": 1,
+                            "new_value": 1,
                         }
                     )
                     primary_schemes.add(key[0])

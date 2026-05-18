@@ -62,8 +62,11 @@ I audited:
    loaders, `load("tags")` unlocks only the requested projection, selected
    `force_hydrate(...)` unlocks legacy-backed projections, and full `load()`
    matches eager values across repeated access.
-5. Add writer append/replace/idempotence tests with unicode and failure-report
-   coverage.
+5. Writer append/replace/idempotence tests are in progress. Current coverage
+   includes append/idempotence, replace link removal, identifier replacement,
+   existing identifier primary repair, explicit target-row mappings,
+   existing-term link-only appends, relation-link metadata passthrough, and
+   dirty marking suppression.
 6. Build a relation-container torture matrix, starting with expression metadata,
    identifiers, agents, and titles.
 
@@ -79,17 +82,26 @@ I audited:
 - Added hydrated lazy/eager projection parity tests and fixed rating projection
   parity so a lazy legacy Calibre tag-viewer rating does not duplicate the WEMI
   graph rating when graph rating values are present.
+- Added writer contract tests for existing identifier primary repair,
+  link-only appends to existing relation term rows, relation-link metadata
+  passthrough, dirty suppression, and explicit target-row mappings. Fixed the
+  identifier primary repair report so the identifier value remains available
+  and the changed column value is reported as `new_value`.
 - Focused validation passed:
   `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py -q`
   (`80 passed`).
 - Projection parity validation passed:
   `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_metadata_projection_views.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
   (`59 passed`).
+- Writer slice validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
+  (`93 passed`).
 
 ## Next Step
 
-Widen validation for the projection parity slice, then move to writer
-append/replace/idempotence tests if it stays green.
+Widen validation for the writer slice. If it stays green, the next useful
+writer tests are skipped/error report paths for missing tables or columns and
+hostile unicode values in relation text/identifier input.
 
 ## Validation
 
@@ -99,4 +111,5 @@ append/replace/idempotence tests if it stays green.
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_metadata_projection_views.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_metadata_projection_views.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py -q`

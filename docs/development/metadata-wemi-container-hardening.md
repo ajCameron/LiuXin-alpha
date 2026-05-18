@@ -54,6 +54,11 @@ Write-back lives in
 currently handles selected legacy relation-backed fields and entity identifiers.
 Append mode adds missing terms and links; replace mode treats requested fields
 as authoritative for the target row.
+Writer reports distinguish created rows, added links, updated rows, removed
+links, skipped fields, and errors. Existing relation term rows can be linked
+without being reported as new rows, relation-link metadata is carried into link
+rows where the database supports those columns, and `mark_dirty=False` suppresses
+dirty-record writes even when a link is added.
 
 The latest full coverage XML in `working-memory/test-results` shows the main
 remaining risk areas:
@@ -152,6 +157,10 @@ seeded or avoided.
    metadata passed through to link rows, identifier primary marking, stale-link
    removal in replace mode, dirty marking, and clean report entries for skipped
    or failed writes.
+   Current writer tests cover append/idempotence, replace link removal,
+   identifier replacement, existing identifier primary repair, explicit
+   target-row mappings, existing-term link-only appends, relation-link metadata
+   passthrough, and dirty marking suppression.
 
 6. Build a relation-container torture matrix.
    Prioritize expression metadata, identifiers, agents, titles, notes, labels,
