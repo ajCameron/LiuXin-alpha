@@ -382,9 +382,14 @@ class ISBNMerge:
 
         for result in results:
             try:
-                ans.set_identifiers(result.get_identifiers(), update=True)
+                identifiers = result.get_identifiers()
             except Exception:
-                pass
+                continue
+            for key, value in (identifiers or {}).items():
+                try:
+                    ans.set_identifier(key, value)
+                except Exception:
+                    continue
 
         ans.has_cached_cover_url = bool([r for r in results if getattr(r, "has_cached_cover_url", False)])
 
