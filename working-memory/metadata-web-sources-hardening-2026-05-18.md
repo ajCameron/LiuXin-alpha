@@ -117,11 +117,47 @@ Validation:
 - `.venv/bin/python -m pytest tests/metadata/web_sources -q`
   - `191 passed, 9 skipped`
 
+## OverDrive Provider Slice
+
+Checked the local Calibre clone at `/home/blackjane/calibre-master`; it has
+current metadata-source references for shared source behavior, Amazon, Google,
+OpenLibrary, and Edelweiss, but no matching OverDrive metadata source. This
+slice therefore used the local OverDrive implementation directly.
+
+Added offline coverage for `metadata.web_sources.overdrive`:
+
+- low-level text, first-value, identifier, tag-stripping, ISBN, date, JSON-LD,
+  meta-content, search-ID extraction, series, and cover URL helper edge cases
+- invalid OverDrive identifiers, URL parsing misses, empty query handling, ISBN
+  query construction, ISBN-to-media cover-cache fallback, duplicate search IDs,
+  and search result limiting
+- JSON-LD fallback contracts for string publishers, meta title/description,
+  image mappings, comma-string keywords, mapping/list authors, string series,
+  language normalization, and ISBN normalization
+- sparse detail pages with unknown title/author defaults, absent media IDs,
+  already-HTML comments, tag comma escaping, and optional field rejection
+- ISBN-search miss followed by title/author retry, duplicate search IDs, empty
+  detail pages, detail request exceptions, early abort, and empty-query returns
+- uncached cover discovery through identify, abort handling, no-cover logging,
+  empty payload handling, download exception handling, and text decode/abort
+  backoff paths
+
+Validation:
+
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_overdrive.py -q`
+  - `16 passed`
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_overdrive.py --cov=LiuXin_alpha.metadata.web_sources.overdrive --cov-branch --cov-report=term-missing:skip-covered -q`
+  - `16 passed`
+  - `overdrive.py`: 93%
+- `.venv/bin/python -m pytest tests/metadata/web_sources -q`
+  - `198 passed, 9 skipped`
+
 ## Next
 
 Continue with provider modules using offline fake browser responses and compact
 HTML/JSON fixtures. Highest old-coverage payoff is probably `amazon.py`,
 `ozon.py`, `overdrive.py`, `douban.py`, `edelweiss.py`, and `isbndb.py`, with
 `identify.py` branch gaps revisited only where provider tests naturally hit
-them. After the Amazon and Ozon slices, the next provider target should be
-`overdrive.py`, followed by `douban.py`, `edelweiss.py`, and `isbndb.py`.
+them. After the Amazon, Ozon, and OverDrive slices, the next provider target
+should be `douban.py`, then `edelweiss.py` using the Calibre clone as a closer
+reference, then `isbndb.py`.
