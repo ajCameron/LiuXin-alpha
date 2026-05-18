@@ -56,10 +56,41 @@ Production fix found:
 - `.venv/bin/python -m pytest tests/metadata/web_sources -q`
   - `177 passed, 9 skipped`
 
+## Amazon Provider Slice
+
+Added offline coverage for `metadata.web_sources.amazon`:
+
+- low-level text/identifier/date/language helper edge cases
+- preferred-domain fallback, save-settings touched-field refresh, Amazon URL
+  parsing across US/UK/JP/BR/DE domains, and query construction for invalid,
+  BR, and JP domains
+- downloaded metadata cleanup for title/authors/tags and ISBN normalization
+- cover-cache fallback from ISBN to cached ASIN
+- JSON-LD author/description parsing, meta-title/meta-author fallbacks,
+  German detail rows, cover URL variants, localized rating formats, and
+  CAPTCHA detection
+- ISBN search miss followed by title/author retry
+- aborted identify, empty detail pages, CAPTCHA logging, detail parse exception
+  logging
+- uncached cover discovery through identify, abort handling, no-cover logging,
+  empty payload handling, download exception handling, and text decode/abort
+  backoff paths
+
+Validation:
+
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_amazon.py -q`
+  - `16 passed`
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_amazon.py --cov=LiuXin_alpha.metadata.web_sources.amazon --cov-branch --cov-report=term-missing:skip-covered -q`
+  - `16 passed`
+  - `amazon.py`: 91%
+- `.venv/bin/python -m pytest tests/metadata/web_sources -q`
+  - `184 passed, 9 skipped`
+
 ## Next
 
 Continue with provider modules using offline fake browser responses and compact
 HTML/JSON fixtures. Highest old-coverage payoff is probably `amazon.py`,
 `ozon.py`, `overdrive.py`, `douban.py`, `edelweiss.py`, and `isbndb.py`, with
 `identify.py` branch gaps revisited only where provider tests naturally hit
-them.
+them. After the Amazon slice, the next provider target should be `ozon.py` or
+`overdrive.py`.

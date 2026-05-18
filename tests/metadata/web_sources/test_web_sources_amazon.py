@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import queue
+from datetime import datetime
 from threading import Event
 
 import pytest
+
+from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 class _Log:
@@ -246,3 +249,279 @@ def test_amazon_open_bytes_with_backoff_non_retryable_raises(monkeypatch) -> Non
             timeout=10,
             context="unit-test",
         )
+
+
+def test_amazon_low_level_helpers_handle_odd_inputs() -> None:
+    import LiuXin_alpha.metadata.web_sources.amazon as amazon
+
+    class BadText:
+        def __str__(self):
+            raise RuntimeError("cannot stringify")
+
+    assert amazon._as_text(b"Caf\xc3\xa9") == "Caf\u00e9"
+    assert amazon._as_text(BadText()) == ""
+    assert amazon._first({"first": "ignored"}) == "first"
+    assert amazon._first(item for item in ["value"]) == "value"
+    assert amazon._first_identifier_value([], "isbn") is None
+    assert amazon._safe_isbn_from_identifiers({"isbn": ["bad", "9780306406157"]}) is None
+    assert amazon._safe_isbn_from_identifiers({"isbn13": b"9780306406157"}) == "9780306406157"
+    assert amazon._canonicalize_language("") is None
+    assert amazon._canonicalize_language("Unknown-Language") == "unknown"
+    assert amazon._parse_pubdate("") is None
+    assert amazon._parse_pubdate("January 2nd, 2021") == datetime(2021, 1, 2)
+    assert amazon._parse_pubdate("Published (2020)") == datetime(2020, 6, 15)
+    assert amazon._parse_pubdate("Published (not a date)") is None
+
+
+def test_amazon_domain_settings_url_parsing_and_query_edges() -> None:
+    from LiuXin_alpha.metadata.web_sources.amazon import Amazon
+
+    plugin = Amazon()
+    plugin.prefs["domain"] = "bogus"
+    assert plugin._preferred_domain() == "com"
+    assert plugin.create_query(title=None, authors=None, identifiers={}) == (None, None)
+
+    plugin.prefs["domain"] = "uk"
+    committed = []
+
+    class Widget:
+        @staticmethod
+        def commit():
+            committed.append(True)
+
+    plugin.save_settings(Widget())
+    assert committed == [True]
+    assert "identifier:amazon_uk" in plugin.touched_fields
+
+    assert plugin.get_domain_and_asin([]) == (None, None)
+    assert plugin.get_domain_and_asin({"amazon_fr": ""}) == (None, None)
+    assert plugin.get_domain_and_asin({"amazon_mars": "B00UNKNOWN"}) == (None, None)
+    assert plugin.get_book_url({}) is None
+    assert plugin.get_book_url_name("amazon", "B00TEST123", "https://example.invalid") == "Amazon.com"
+    assert plugin.get_book_url_name("amazon_de", "B00TEST123", "https://example.invalid") == "Amazon.de"
+    assert plugin.id_from_url(12345) is None
+    assert plugin.id_from_url("https://example.invalid/dp/B00TEST123") is None
+    assert plugin.id_from_url("https://www.amazon.com/no-asin") is None
+    assert plugin.id_from_url("https://www.amazon.co.jp/gp/product/B00JPTEST1") == ("amazon_jp", "B00JPTEST1")
+    assert plugin.id_from_url("https://www.amazon.com.br/dp/B00BRTEST1") == ("amazon_br", "B00BRTEST1")
+    assert plugin.id_from_url("https://www.amazon.de/dp/B00DETEST1") == ("amazon_de", "B00DETEST1")
+
+    query, domain = plugin.create_query(title="Livro Teste", authors=["Ana Maria"], identifiers={}, domain="br")
+    assert domain == "br"
+    assert "search-alias=digital-text" in query
+
+    query, domain = plugin.create_query(title="日本語の本", authors=None, identifiers={}, domain="jp")
+    assert domain == "jp"
+    assert "__mk_ja_JP=" in query
+
+    query, domain = plugin.create_query(title="Fallback", authors=None, identifiers={}, domain="bad")
+    assert domain == "com"
+    assert "field-title=Fallback" in query
+
+
+def test_amazon_clean_downloaded_metadata_and_cover_cache_fallbacks() -> None:
+    from LiuXin_alpha.metadata.web_sources.amazon import Amazon
+
+    plugin = Amazon()
+    mi = calibreMetaInformation("the sample book", ["jane doe"])
+    mi.tags = ["science fiction"]
+    mi.set_identifier("isbn13", "9780306406157")
+
+    plugin.clean_downloaded_metadata(mi)
+
+    assert mi.title == "The Sample Book"
+    assert mi.authors == ["Jane Doe"]
+    assert mi.tags == ["Science Fiction"]
+    assert mi.get_identifiers()["isbn"] == "9780306406157"
+    assert plugin.get_cached_cover_url({}) is None
+
+    plugin.cache_isbn_to_identifier("9780306406157", "B00TEST123")
+    plugin.cache_identifier_to_cover_url("B00TEST123", "https://images.example/from-isbn.jpg")
+    assert plugin.get_cached_cover_url({"isbn": "9780306406157"}) == "https://images.example/from-isbn.jpg"
+    assert plugin.get_cached_cover_url({"amazon": "B00TEST123"}) == "https://images.example/from-isbn.jpg"
+
+
+def test_amazon_detail_parser_uses_json_ld_meta_fallbacks_and_cover_variants() -> None:
+    from LiuXin_alpha.metadata.web_sources.amazon import Amazon, CaptchaError
+
+    plugin = Amazon()
+    json_html = """
+    <html>
+      <head>
+        <meta property="og:title" content="json title: Amazon.de" />
+        <script type="application/ld+json">
+          {"author": [{"name": "Anna Autorin"}, "Ignored Text"], "description": "Line <b>one</b>"}
+        </script>
+      </head>
+      <body>
+        <span id="landingImage" data-old-hires="https://images.example/hires.jpg"></span>
+        <span title="4,2 von 5 Sternen"></span>
+        <ul>
+          <li>Verlag : Verlagshaus (2020-02-03)</li>
+          <li>Sprache : German</li>
+          <li>ISBN-10 : 0306406152</li>
+        </ul>
+      </body>
+    </html>
+    """
+    mi = plugin._parse_metadata_from_details(json_html, domain="de", asin="B00DETEST1", relevance=3)
+
+    assert mi.title == "json title"
+    assert mi.authors == ["Anna Autorin", "Ignored Text"]
+    assert mi.publisher == "Verlagshaus"
+    assert mi.pubdate == datetime(2020, 2, 3)
+    assert mi.language == "deu"
+    assert mi.rating == 8.4
+    assert mi.comments == "<p>Line one</p>"
+    assert mi.get_identifiers()["amazon_de"] == "B00DETEST1"
+    assert mi.get_identifiers()["isbn"] == "0306406152"
+    assert plugin.cached_identifier_to_cover_url("B00DETEST1") == "https://images.example/hires.jpg"
+
+    meta_author_html = """
+    <html>
+      <head>
+        <title>Fallback Title: Amazon.com</title>
+        <meta name="author" content="Meta Author" />
+      </head>
+      <body>
+        <img id="landingImage" src="https://images.example/src.jpg" />
+        <span>4.8 out of 5 stars</span>
+      </body>
+    </html>
+    """
+    mi = plugin._parse_metadata_from_details(meta_author_html, domain="com", asin="B00METAAUT", relevance=0)
+    assert mi.title == "Fallback Title"
+    assert mi.authors == ["Meta Author"]
+    assert mi.rating == 9.6
+    assert plugin.cached_identifier_to_cover_url("B00METAAUT") == "https://images.example/src.jpg"
+
+    assert plugin._parse_cover_url('<img id="imgBlkFront" src="https://images.example/front.jpg" />') == (
+        "https://images.example/front.jpg"
+    )
+    assert plugin._parse_rating("4,6 颗星，最多 5") == 9.2
+    assert plugin._parse_rating("not a rating") is None
+
+    with pytest.raises(CaptchaError):
+        plugin._parse_metadata_from_details("validateCaptcha", domain="com", asin="B00CAPTCHA", relevance=0)
+
+
+def test_amazon_search_identify_retry_and_error_paths() -> None:
+    from LiuXin_alpha.metadata.web_sources.amazon import Amazon
+
+    plugin = Amazon()
+    log = _Log()
+    calls = []
+
+    def fake_open_text(log, abort, url, timeout, context):
+        del log, abort, timeout
+        calls.append((context, url))
+        if context == "Amazon search":
+            if "field-isbn" in url:
+                return ""
+            return '<a href="/dp/B000AAAAAA">Book</a><a href="/dp/B000BBBBBB">Book</a>'
+        if url.endswith("B000AAAAAA"):
+            return ""
+        if url.endswith("B000BBBBBB"):
+            return _sample_detail_html().replace("Example Book", "Retry Book")
+        raise AssertionError(url)
+
+    plugin._open_text_with_backoff = fake_open_text
+    out = queue.Queue()
+    plugin.identify(
+        log=log,
+        result_queue=out,
+        abort=Event(),
+        title="Retry Book",
+        authors=["Jane Doe"],
+        identifiers={"isbn": "9780306406157"},
+    )
+
+    assert any("field-isbn" in url for _context, url in calls)
+    assert any("field-title=Retry+Book" in url for _context, url in calls)
+    assert out.get_nowait().title == "Retry Book"
+    assert any("retrying with title/author query" in " ".join(map(str, parts)) for _level, parts in log.events)
+
+    abort = Event()
+    abort.set()
+    out = queue.Queue()
+    plugin.identify(log=_Log(), result_queue=out, abort=abort, identifiers={"amazon": "B00TEST123"})
+    assert out.empty()
+
+    plugin._open_text_with_backoff = lambda **kwargs: "validateCaptcha"
+    out = queue.Queue()
+    log = _Log()
+    plugin.identify(log=log, result_queue=out, abort=Event(), identifiers={"amazon": "B00CAPTCHA"})
+    assert out.empty()
+    assert any(level == "error" for level, _parts in log.events)
+
+    plugin._open_text_with_backoff = lambda **kwargs: "<html><title>Bad</title></html>"
+    plugin._parse_metadata_from_details = lambda **kwargs: (_ for _ in ()).throw(RuntimeError("parse failed"))
+    out = queue.Queue()
+    log = _Log()
+    plugin.identify(log=log, result_queue=out, abort=Event(), identifiers={"amazon": "B00BROKEN1"})
+    assert out.empty()
+    assert any(level == "exception" for level, _parts in log.events)
+
+
+def test_amazon_download_cover_discovers_from_identify_and_handles_empty_failures() -> None:
+    from LiuXin_alpha.metadata.web_sources.amazon import Amazon
+
+    plugin = Amazon()
+    log = _Log()
+    out = queue.Queue()
+
+    def fake_identify(log, rq, abort, title=None, authors=None, identifiers=None, timeout=30):
+        del log, abort, title, authors, identifiers, timeout
+        mi = calibreMetaInformation("Cover Book", ["Jane Doe"])
+        mi.set_identifier("amazon", "B00COVER1")
+        plugin.cache_identifier_to_cover_url("B00COVER1", "https://images.example/discovered.jpg")
+        rq.put(mi)
+
+    plugin.identify = fake_identify
+    plugin._open_bytes_with_backoff = lambda log, abort, url, timeout, context: b"cover-bytes"
+    plugin.download_cover(log=log, result_queue=out, abort=Event(), identifiers={})
+    assert out.get_nowait() == (plugin, b"cover-bytes")
+    assert any("running identify" in " ".join(map(str, parts)) for _level, parts in log.events)
+
+    abort = Event()
+    abort.set()
+    out = queue.Queue()
+    plugin.download_cover(log=_Log(), result_queue=out, abort=abort, identifiers={})
+    assert out.empty()
+
+    plugin.identify = lambda log, rq, abort, **kwargs: None
+    out = queue.Queue()
+    log = _Log()
+    plugin.download_cover(log=log, result_queue=out, abort=Event(), identifiers={})
+    assert out.empty()
+    assert any("No Amazon cover found" in " ".join(map(str, parts)) for _level, parts in log.events)
+
+    plugin.cache_identifier_to_cover_url("B00EMPTY1", "https://images.example/empty.jpg")
+    plugin._open_bytes_with_backoff = lambda **kwargs: b""
+    out = queue.Queue()
+    plugin.download_cover(log=_Log(), result_queue=out, abort=Event(), identifiers={"amazon": "B00EMPTY1"})
+    assert out.empty()
+
+    def raise_download(**kwargs):
+        raise OSError("download failed")
+
+    plugin._open_bytes_with_backoff = raise_download
+    out = queue.Queue()
+    plugin.download_cover(log=_Log(), result_queue=out, abort=Event(), identifiers={"amazon": "B00EMPTY1"})
+    assert out.empty()
+
+
+def test_amazon_open_text_decodes_and_abort_backoff_returns_empty() -> None:
+    from LiuXin_alpha.metadata.web_sources.amazon import Amazon
+
+    plugin = Amazon()
+    plugin._open_bytes_with_backoff = lambda **kwargs: b"Caf\xc3\xa9"
+    assert plugin._open_text_with_backoff(log=_Log(), abort=Event(), url="https://example.invalid", timeout=1, context="x") == (
+        "Caf\u00e9"
+    )
+    plugin._open_bytes_with_backoff = lambda **kwargs: b""
+    assert plugin._open_text_with_backoff(log=_Log(), abort=Event(), url="https://example.invalid", timeout=1, context="x") == ""
+
+    abort = Event()
+    abort.set()
+    assert plugin._wait_for_backoff(abort, 0.01) is True
