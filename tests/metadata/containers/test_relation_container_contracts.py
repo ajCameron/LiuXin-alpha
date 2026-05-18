@@ -8,6 +8,19 @@ from LiuXin_alpha.metadata.api.containers_api import (
     ExpressionRelationLink,
     ManifestationRelationLink,
 )
+from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import (
+    agent_credit_containers as agent_credit_module,
+    dates_containers as date_module,
+    identifier_containers as identifier_module,
+    labels_containers as label_module,
+    languages_containers as language_module,
+    notes_containers as note_module,
+    ratings_containers as rating_module,
+    resources_containers as resource_module,
+    series_containers as series_module,
+    subjects_containers as subject_module,
+    titles_containers as title_module,
+)
 from LiuXin_alpha.metadata.constants.container_vocabularies import (
     DateKind,
     IdentifierStatus,
@@ -47,8 +60,13 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import
     ExpressionSubjectsContainer,
     ExpressionTitle,
     ExpressionTitlesContainer,
+    ItemTitle,
+    ItemTitlesContainer,
+    ItemWemiTitleSlice,
     ManifestationIdentity,
     ManifestationMetadata,
+    ManifestationTitle,
+    ManifestationTitlesContainer,
     WorkDate,
     WorkLabel,
     WorkLanguage,
@@ -58,8 +76,14 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers import
     WorkSeriesEntry,
     WorkSubject,
     WorkTitle,
+    WorkTitlesContainer,
 )
-from LiuXin_alpha.metadata.metadata_types import ExpressionAgentRole
+from LiuXin_alpha.metadata.metadata_types import (
+    ExpressionAgentRole,
+    ItemAgentRole,
+    ManifestationAgentRole,
+    WorkAgentRole,
+)
 
 
 class _RowDriver:
@@ -832,3 +856,839 @@ def test_expression_resource_and_date_containers_validate_value_contracts() -> N
     secondary_date.is_primary = True
     with pytest.raises(ValueError, match="Only one primary date"):
         dates.validate()
+
+
+def test_title_container_fallbacks_mutators_and_wemi_slice() -> None:
+    work_titles = WorkTitlesContainer(work_id=1)
+    expression_titles = ExpressionTitlesContainer(expression_id=2)
+    manifestation_titles = ManifestationTitlesContainer(manifestation_id=3)
+    item_titles = ItemTitlesContainer(item_id=4)
+
+    assert work_titles.has_kind(TitleKind.MAIN) is False
+    assert work_titles.get_kind(TitleKind.MAIN) is None
+    assert work_titles.kind_text(TitleKind.MAIN) == ""
+    assert work_titles.primary_title_for_kind(TitleKind.MAIN) is None
+    assert work_titles.display_title is None
+    assert work_titles.sort_title is None
+    assert work_titles.all_texts() == tuple()
+
+    alternative = WorkTitle(
+        title_kind=TitleKind.ALTERNATIVE,
+        text="\u4ee3\u66ff\u30bf\u30a4\u30c8\u30eb",
+        work_id=1,
+    )
+    work_titles.add_title(alternative)
+
+    assert work_titles.display_title == "\u4ee3\u66ff\u30bf\u30a4\u30c8\u30eb"
+    assert work_titles.sort_title == "\u4ee3\u66ff\u30bf\u30a4\u30c8\u30eb"
+    assert work_titles.primary_titles()[TitleKind.ALTERNATIVE] is alternative
+
+    sort_title = WorkTitle(
+        title_kind=TitleKind.SORT,
+        text="Sort Override",
+        work_id=1,
+    )
+    work_titles.add_title(sort_title)
+    assert work_titles.sort_title == "Sort Override"
+
+    main_container = work_titles.ensure_kind(TitleKind.MAIN)
+    main = WorkTitle(
+        title_kind=TitleKind.MAIN,
+        text="Shared Title",
+        normalized_text="shared title",
+        sort_text="Shared, Title",
+        work_id=1,
+    )
+    replacement = WorkTitle(
+        title_kind=TitleKind.MAIN,
+        text="\u5171\u6709\u30bf\u30a4\u30c8\u30eb",
+        work_id=1,
+    )
+    main_container.add_title(main)
+    main_container.replace_title(0, replacement)
+    removed = main_container.remove_title_at(0)
+    main_container.add_title(removed)
+
+    assert removed.text == "\u5171\u6709\u30bf\u30a4\u30c8\u30eb"
+    assert work_titles.main_titles_text == "\u5171\u6709\u30bf\u30a4\u30c8\u30eb"
+    assert main_container[0] is removed
+
+    expression_titles.add_title(
+        ExpressionTitle(
+            title_kind=TitleKind.MAIN,
+            text="\u5171\u6709\u30bf\u30a4\u30c8\u30eb",
+            expression_id=2,
+        )
+    )
+    manifestation_titles.add_title(
+        ManifestationTitle(
+            title_kind=TitleKind.COVER,
+            text="Cover \u8868\u7d19",
+            manifestation_id=3,
+        )
+    )
+    item_titles.add_title(
+        ItemTitle(
+            title_kind=TitleKind.SUPPLIED,
+            text="Copy \u6240\u6709\u8005",
+            item_id=4,
+        )
+    )
+
+    title_slice = ItemWemiTitleSlice(
+        work_titles=work_titles,
+        expression_titles=expression_titles,
+        manifestation_titles=manifestation_titles,
+        item_titles=item_titles,
+    )
+
+    assert title_slice.title_parts() == (
+        "\u5171\u6709\u30bf\u30a4\u30c8\u30eb",
+        "Cover \u8868\u7d19",
+        "Copy \u6240\u6709\u8005",
+    )
+    assert title_slice.title_parts(dedupe=False) == (
+        "\u5171\u6709\u30bf\u30a4\u30c8\u30eb",
+        "\u5171\u6709\u30bf\u30a4\u30c8\u30eb",
+        "Cover \u8868\u7d19",
+        "Copy \u6240\u6709\u8005",
+    )
+    assert title_slice.full_title(sep=" | ") == (
+        "\u5171\u6709\u30bf\u30a4\u30c8\u30eb | Cover \u8868\u7d19 | "
+        "Copy \u6240\u6709\u8005"
+    )
+    assert str(title_slice) == (
+        "\u5171\u6709\u30bf\u30a4\u30c8\u30eb \u2014 Cover \u8868\u7d19 "
+        "\u2014 Copy \u6240\u6709\u8005"
+    )
+
+    main_container.clear()
+    assert main_container.titles() == tuple()
+
+
+def test_identifier_and_agent_credit_missing_and_mutation_helpers() -> None:
+    identifiers = ExpressionIdentifiersContainer(expression_id=42)
+
+    assert identifiers.has_scheme(IdentifierScheme.URI) is False
+    assert identifiers.get_scheme(IdentifierScheme.URI) is None
+    assert identifiers.scheme_values(IdentifierScheme.URI) == tuple()
+    assert identifiers.scheme_normalized_values(IdentifierScheme.URI) == tuple()
+    assert identifiers.scheme_text(IdentifierScheme.URI) == ""
+    assert identifiers.primary_identifier_for_scheme(IdentifierScheme.URI) is None
+    assert identifiers.primary_identifiers() == {}
+    assert identifiers.all_values() == tuple()
+
+    scheme = identifiers.ensure_scheme(IdentifierScheme.URI)
+    first = ExpressionIdentifier(
+        scheme=IdentifierScheme.URI,
+        value="urn:first",
+        expression_id=42,
+    )
+    second = ExpressionIdentifier(
+        scheme=IdentifierScheme.URI,
+        value="urn:second",
+        expression_id=42,
+    )
+    replacement = ExpressionIdentifier(
+        scheme=IdentifierScheme.URI,
+        value="\u7f6e\u63db-uri",
+        expression_id=42,
+    )
+
+    scheme.add_identifier(first)
+    scheme.add_identifier(second)
+    scheme.replace_identifier(1, replacement)
+    scheme.move_identifier(1, 0)
+    removed_identifier = scheme.remove_identifier_at(1)
+
+    assert removed_identifier is first
+    assert scheme.values() == ("\u7f6e\u63db-uri",)
+    assert scheme.to_text() == "\u7f6e\u63db-uri"
+    assert identifiers.all_values() == ("\u7f6e\u63db-uri",)
+
+    scheme.clear()
+    assert scheme.identifiers() == tuple()
+
+    credits = ExpressionAgentCreditsContainer(expression_id=42)
+
+    assert credits.get_role(ExpressionAgentRole.EDITOR) is None
+    assert credits.role_ids(ExpressionAgentRole.EDITOR) == tuple()
+    assert credits.role_text(ExpressionAgentRole.EDITOR) == ""
+    assert credits.all_agent_ids() == set()
+
+    editors = credits.ensure_role(ExpressionAgentRole.EDITOR)
+    first_credit = ExpressionAgentCredit(
+        agent_id=1,
+        credited_as="First",
+        expression_id=42,
+        role=ExpressionAgentRole.EDITOR,
+    )
+    second_credit = ExpressionAgentCredit(
+        agent_id=2,
+        credited_as="Second",
+        expression_id=42,
+        role=ExpressionAgentRole.EDITOR,
+    )
+    replacement_credit = ExpressionAgentCredit(
+        agent_id=3,
+        credited_as="\u7de8\u96c6\u8005",
+        expression_id=42,
+        role=ExpressionAgentRole.EDITOR,
+    )
+
+    editors.add_credit(first_credit)
+    editors.add_credit(second_credit)
+    editors.replace_credit(1, replacement_credit)
+    editors.move_credit(1, 0)
+
+    assert editors.display_names() == ("\u7de8\u96c6\u8005", "First")
+    assert editors.ids() == (3, 1)
+    assert editors.to_text() == "\u7de8\u96c6\u8005 & First"
+    assert editors.remove_agent(99) == 0
+    assert editors.remove_agent(1) == 1
+    assert editors.remove_credit_at(0) is replacement_credit
+
+    editors.add_credit(second_credit)
+    editors.set_primary(0)
+    credits.validate()
+    assert credits.as_write_payload()[0]["credited_as"] == "Second"
+
+    editors.clear()
+    assert editors.credits() == tuple()
+
+
+def test_relation_value_missing_kind_and_mutation_helpers() -> None:
+    notes = ExpressionNotesContainer(expression_id=42)
+    assert notes.kind_text(NoteKind.REVIEW) == ""
+    assert notes.all_titles() == tuple()
+    review = notes.ensure_kind(NoteKind.REVIEW)
+    first_note = ExpressionNote(
+        note_kind=NoteKind.REVIEW,
+        title="first",
+        body="First",
+        expression_id=42,
+    )
+    second_note = ExpressionNote(
+        note_kind=NoteKind.REVIEW,
+        title="second",
+        body="Second",
+        expression_id=42,
+    )
+    replacement_note = ExpressionNote(
+        note_kind=NoteKind.REVIEW,
+        title="\u7f6e\u63db",
+        body="\u7f6e\u63db body",
+        expression_id=42,
+    )
+    review.add_note(first_note)
+    review.add_note(second_note)
+    review.replace_note(1, replacement_note)
+    review.move_note(1, 0)
+    assert review.titles() == ("\u7f6e\u63db", "first")
+    assert review.remove_note_at(1) is first_note
+    review.clear()
+    assert review.notes() == tuple()
+
+    labels = ExpressionLabelsContainer(expression_id=42)
+    assert labels.has_kind(LabelKind.AWARD) is False
+    assert labels.kind_text(LabelKind.AWARD) == ""
+    awards = labels.ensure_kind(LabelKind.AWARD)
+    award = ExpressionLabel(
+        label_kind=LabelKind.AWARD,
+        text="First",
+        expression_id=42,
+    )
+    replacement_label = ExpressionLabel(
+        label_kind=LabelKind.AWARD,
+        text="\u661f\u96f2\u8cde",
+        expression_id=42,
+    )
+    awards.add_label(award)
+    awards.replace_label(0, replacement_label)
+    assert labels.all_texts() == ("\u661f\u96f2\u8cde",)
+    assert awards.remove_label_at(0) is replacement_label
+    awards.clear()
+    assert awards.labels() == tuple()
+
+    subjects = ExpressionSubjectsContainer(expression_id=42)
+    assert subjects.has_kind(SubjectKind.PLACE) is False
+    assert subjects.kind_text(SubjectKind.PLACE) == ""
+    places = subjects.ensure_kind(SubjectKind.PLACE)
+    place = ExpressionSubject(
+        subject_kind=SubjectKind.PLACE,
+        text="Mars",
+        expression_id=42,
+    )
+    replacement_subject = ExpressionSubject(
+        subject_kind=SubjectKind.PLACE,
+        text="\u706b\u661f",
+        expression_id=42,
+    )
+    places.add_subject(place)
+    places.replace_subject(0, replacement_subject)
+    assert subjects.all_texts() == ("\u706b\u661f",)
+    assert places.remove_subject_at(0) is replacement_subject
+    places.clear()
+    assert places.subjects() == tuple()
+
+    languages = ExpressionLanguagesContainer(expression_id=42)
+    assert languages.kind_text(LanguageKind.SOURCE) == ""
+    source_languages = languages.ensure_kind(LanguageKind.SOURCE)
+    language = ExpressionLanguage(
+        language_kind=LanguageKind.SOURCE,
+        language_code="fr",
+        expression_id=42,
+    )
+    replacement_language = ExpressionLanguage(
+        language_kind=LanguageKind.SOURCE,
+        language_name="\u65e5\u672c\u8a9e",
+        expression_id=42,
+    )
+    source_languages.add_language(language)
+    source_languages.replace_language(0, replacement_language)
+    assert source_languages.to_text() == "\u65e5\u672c\u8a9e"
+    assert source_languages.remove_language_at(0) is replacement_language
+    source_languages.clear()
+    assert source_languages.languages() == tuple()
+
+    series = ExpressionSeriesEntriesContainer(expression_id=42)
+    assert series.get_kind(SeriesKind.ARC) is None
+    assert series.kind_text(SeriesKind.ARC) == ""
+    arc = series.ensure_kind(SeriesKind.ARC)
+    entry = ExpressionSeriesEntry(
+        series_kind=SeriesKind.ARC,
+        name="Arc",
+        expression_id=42,
+    )
+    replacement_entry = ExpressionSeriesEntry(
+        series_kind=SeriesKind.ARC,
+        name="\u7b2c\u4e00\u90e8",
+        expression_id=42,
+    )
+    arc.add_entry(entry)
+    arc.replace_entry(0, replacement_entry)
+    assert arc.to_text() == "\u7b2c\u4e00\u90e8"
+    assert arc.remove_entry_at(0) is replacement_entry
+    arc.clear()
+    assert arc.entries() == tuple()
+
+    ratings = ExpressionRatingsContainer(expression_id=42)
+    assert ratings.get_kind(RatingKind.USER) is None
+    assert ratings.kind_text(RatingKind.USER) == ""
+    user_ratings = ratings.ensure_kind(RatingKind.USER)
+    rating = ExpressionRating(
+        rating_kind=RatingKind.USER,
+        value=3,
+        expression_id=42,
+    )
+    replacement_rating = ExpressionRating(
+        rating_kind=RatingKind.USER,
+        value=4,
+        expression_id=42,
+    )
+    user_ratings.add_rating(rating)
+    user_ratings.replace_rating(0, replacement_rating)
+    assert user_ratings.to_text() == "4/5"
+    assert user_ratings.remove_rating_at(0) is replacement_rating
+    user_ratings.clear()
+    assert user_ratings.ratings() == tuple()
+
+    resources = ExpressionResourcesContainer(expression_id=42)
+    assert resources.get_kind(ResourceKind.PREVIEW) is None
+    assert resources.kind_text(ResourceKind.PREVIEW) == ""
+    previews = resources.ensure_kind(ResourceKind.PREVIEW)
+    resource = ExpressionResource(
+        resource_kind=ResourceKind.PREVIEW,
+        uri="https://example.invalid/preview",
+        expression_id=42,
+    )
+    replacement_resource = ExpressionResource(
+        resource_kind=ResourceKind.PREVIEW,
+        uri="https://example.invalid/preview-ja",
+        label="\u8a66\u8aad",
+        expression_id=42,
+    )
+    previews.add_resource(resource)
+    previews.replace_resource(0, replacement_resource)
+    assert previews.to_text() == "\u8a66\u8aad"
+    assert previews.remove_resource_at(0) is replacement_resource
+    previews.clear()
+    assert previews.resources() == tuple()
+
+    dates = ExpressionDatesContainer(expression_id=42)
+    assert dates.get_kind(DateKind.RELEASED) is None
+    assert dates.kind_text(DateKind.RELEASED) == ""
+    released = dates.ensure_kind(DateKind.RELEASED)
+    date = ExpressionDate(
+        date_kind=DateKind.RELEASED,
+        start_ep_k=20200101,
+        expression_id=42,
+    )
+    replacement_date = ExpressionDate(
+        date_kind=DateKind.RELEASED,
+        end_ep_k=20201231,
+        expression_id=42,
+    )
+    released.add_date(date)
+    released.replace_date(0, replacement_date)
+    assert released.to_text() == "20201231"
+    assert released.remove_date_at(0) is replacement_date
+    released.clear()
+    assert released.dates() == tuple()
+
+
+@pytest.mark.parametrize(
+    ("factory", "target_kind", "target_id", "expected_payload"),
+    [
+        pytest.param(
+            lambda: title_module.WorkTitle(
+                title_kind=TitleKind.MAIN,
+                text="Work title",
+                work_id=1,
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {"work_id": 1, "canonical_for_work": True},
+            id="work-title",
+        ),
+        pytest.param(
+            lambda: title_module.ManifestationTitle(
+                title_kind=TitleKind.COVER,
+                text="Manifestation title",
+                manifestation_id=3,
+                edition_specific=False,
+                transcribed_from_title_page=True,
+            ),
+            "manifestation",
+            3,
+            {
+                "manifestation_id": 3,
+                "edition_specific": False,
+                "transcribed_from_title_page": True,
+            },
+            id="manifestation-title",
+        ),
+        pytest.param(
+            lambda: title_module.ItemTitle(
+                title_kind=TitleKind.SUPPLIED,
+                text="Item title",
+                item_id=4,
+                copy_specific=False,
+                supplied_by_cataloguer=True,
+            ),
+            "item",
+            4,
+            {
+                "item_id": 4,
+                "copy_specific": False,
+                "supplied_by_cataloguer": True,
+            },
+            id="item-title",
+        ),
+        pytest.param(
+            lambda: identifier_module.WorkIdentifier(
+                scheme=IdentifierScheme.DOI,
+                value="10.5555/work",
+                work_id=1,
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {"work_id": 1, "canonical_for_work": True},
+            id="work-identifier",
+        ),
+        pytest.param(
+            lambda: identifier_module.ManifestationIdentifier(
+                scheme=IdentifierScheme.ISBN_13,
+                value="9780000000002",
+                manifestation_id=3,
+                edition_note="signed edition",
+            ),
+            "manifestation",
+            3,
+            {"manifestation_id": 3, "edition_note": "signed edition"},
+            id="manifestation-identifier",
+        ),
+        pytest.param(
+            lambda: identifier_module.ItemIdentifier(
+                scheme=IdentifierScheme.ASSET_ID,
+                value="asset-4",
+                item_id=4,
+                copy_specific=False,
+                physical_marking="stamp",
+            ),
+            "item",
+            4,
+            {"item_id": 4, "copy_specific": False, "physical_marking": "stamp"},
+            id="item-identifier",
+        ),
+        pytest.param(
+            lambda: agent_credit_module.WorkAgentCredit(
+                agent_id=10,
+                credited_as="Work Agent",
+                work_id=1,
+                role=WorkAgentRole.AUTHOR,
+                contribution_summary="concept",
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {
+                "work_id": 1,
+                "role": WorkAgentRole.AUTHOR,
+                "contribution_summary": "concept",
+                "canonical_for_work": True,
+            },
+            id="work-agent-credit",
+        ),
+        pytest.param(
+            lambda: agent_credit_module.ManifestationAgentCredit(
+                agent_id=30,
+                credited_as="Manifestation Agent",
+                manifestation_id=3,
+                role=ManifestationAgentRole.PUBLISHER,
+                imprint_name="Imprint",
+                publication_statement="Published by Imprint",
+                appears_in_imprint=False,
+            ),
+            "manifestation",
+            3,
+            {
+                "manifestation_id": 3,
+                "role": ManifestationAgentRole.PUBLISHER,
+                "imprint_name": "Imprint",
+                "publication_statement": "Published by Imprint",
+                "appears_in_imprint": False,
+            },
+            id="manifestation-agent-credit",
+        ),
+        pytest.param(
+            lambda: agent_credit_module.ItemAgentCredit(
+                agent_id=40,
+                credited_as="Item Agent",
+                item_id=4,
+                role=ItemAgentRole.OWNER,
+                provenance_note="gift",
+                association_start_ep_k=10,
+                association_end_ep_k=20,
+                copy_specific=False,
+            ),
+            "item",
+            4,
+            {
+                "item_id": 4,
+                "role": ItemAgentRole.OWNER,
+                "provenance_note": "gift",
+                "association_start_ep_k": 10,
+                "association_end_ep_k": 20,
+                "copy_specific": False,
+            },
+            id="item-agent-credit",
+        ),
+        pytest.param(
+            lambda: note_module.WorkNote(
+                note_kind=NoteKind.INTERNAL,
+                body="work note",
+                work_id=1,
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {"work_id": 1, "canonical_for_work": True},
+            id="work-note",
+        ),
+        pytest.param(
+            lambda: note_module.ManifestationNote(
+                note_kind=NoteKind.PROVENANCE,
+                body="manifestation note",
+                manifestation_id=3,
+                edition_specific=False,
+            ),
+            "manifestation",
+            3,
+            {"manifestation_id": 3, "edition_specific": False},
+            id="manifestation-note",
+        ),
+        pytest.param(
+            lambda: note_module.ItemNote(
+                note_kind=NoteKind.CONDITION,
+                body="item note",
+                item_id=4,
+                copy_specific=False,
+                physical_observation=True,
+            ),
+            "item",
+            4,
+            {"item_id": 4, "copy_specific": False, "physical_observation": True},
+            id="item-note",
+        ),
+        pytest.param(
+            lambda: label_module.WorkLabel(
+                label_kind=LabelKind.INTERNAL,
+                text="work label",
+                work_id=1,
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {"work_id": 1, "canonical_for_work": True},
+            id="work-label",
+        ),
+        pytest.param(
+            lambda: label_module.ManifestationLabel(
+                label_kind=LabelKind.COLLECTION,
+                text="manifestation label",
+                manifestation_id=3,
+                edition_specific=False,
+            ),
+            "manifestation",
+            3,
+            {"manifestation_id": 3, "edition_specific": False},
+            id="manifestation-label",
+        ),
+        pytest.param(
+            lambda: label_module.ItemLabel(
+                label_kind=LabelKind.AUDIENCE,
+                text="item label",
+                item_id=4,
+                copy_specific=False,
+            ),
+            "item",
+            4,
+            {"item_id": 4, "copy_specific": False},
+            id="item-label",
+        ),
+        pytest.param(
+            lambda: subject_module.WorkSubject(
+                subject_kind=SubjectKind.TOPIC,
+                text="work subject",
+                work_id=1,
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {"work_id": 1, "canonical_for_work": True},
+            id="work-subject",
+        ),
+        pytest.param(
+            lambda: subject_module.ManifestationSubject(
+                subject_kind=SubjectKind.PLACE,
+                text="manifestation subject",
+                manifestation_id=3,
+                edition_specific=False,
+            ),
+            "manifestation",
+            3,
+            {"manifestation_id": 3, "edition_specific": False},
+            id="manifestation-subject",
+        ),
+        pytest.param(
+            lambda: subject_module.ItemSubject(
+                subject_kind=SubjectKind.PERIOD,
+                text="item subject",
+                item_id=4,
+                copy_specific=False,
+            ),
+            "item",
+            4,
+            {"item_id": 4, "copy_specific": False},
+            id="item-subject",
+        ),
+        pytest.param(
+            lambda: language_module.WorkLanguage(
+                language_kind=LanguageKind.ORIGINAL,
+                language_code="en",
+                work_id=1,
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {"work_id": 1, "canonical_for_work": True},
+            id="work-language",
+        ),
+        pytest.param(
+            lambda: language_module.ManifestationLanguage(
+                language_kind=LanguageKind.INTERFACE,
+                language_code="fr",
+                manifestation_id=3,
+                edition_specific=False,
+            ),
+            "manifestation",
+            3,
+            {"manifestation_id": 3, "edition_specific": False},
+            id="manifestation-language",
+        ),
+        pytest.param(
+            lambda: language_module.ItemLanguage(
+                language_kind=LanguageKind.CONTENT,
+                language_code="ja",
+                item_id=4,
+                copy_specific=False,
+            ),
+            "item",
+            4,
+            {"item_id": 4, "copy_specific": False},
+            id="item-language",
+        ),
+        pytest.param(
+            lambda: series_module.WorkSeriesEntry(
+                series_kind=SeriesKind.SERIES,
+                name="work series",
+                work_id=1,
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {"work_id": 1, "canonical_for_work": True},
+            id="work-series-entry",
+        ),
+        pytest.param(
+            lambda: series_module.ManifestationSeriesEntry(
+                series_kind=SeriesKind.COLLECTION,
+                name="manifestation series",
+                manifestation_id=3,
+                edition_specific=False,
+            ),
+            "manifestation",
+            3,
+            {"manifestation_id": 3, "edition_specific": False},
+            id="manifestation-series-entry",
+        ),
+        pytest.param(
+            lambda: series_module.ItemSeriesEntry(
+                series_kind=SeriesKind.ARC,
+                name="item series",
+                item_id=4,
+                copy_specific=False,
+            ),
+            "item",
+            4,
+            {"item_id": 4, "copy_specific": False},
+            id="item-series-entry",
+        ),
+        pytest.param(
+            lambda: rating_module.WorkRating(
+                rating_kind=RatingKind.INTERNAL,
+                value=4,
+                work_id=1,
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {"work_id": 1, "canonical_for_work": True},
+            id="work-rating",
+        ),
+        pytest.param(
+            lambda: rating_module.ManifestationRating(
+                rating_kind=RatingKind.CRITIC,
+                value=3,
+                manifestation_id=3,
+                edition_specific=False,
+            ),
+            "manifestation",
+            3,
+            {"manifestation_id": 3, "edition_specific": False},
+            id="manifestation-rating",
+        ),
+        pytest.param(
+            lambda: rating_module.ItemRating(
+                rating_kind=RatingKind.USER,
+                value=5,
+                item_id=4,
+                copy_specific=False,
+            ),
+            "item",
+            4,
+            {"item_id": 4, "copy_specific": False},
+            id="item-rating",
+        ),
+        pytest.param(
+            lambda: resource_module.WorkResource(
+                resource_kind=ResourceKind.AUTHORITY,
+                uri="https://example.invalid/work",
+                work_id=1,
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {"work_id": 1, "canonical_for_work": True},
+            id="work-resource",
+        ),
+        pytest.param(
+            lambda: resource_module.ManifestationResource(
+                resource_kind=ResourceKind.CATALOGUE,
+                uri="https://example.invalid/manifestation",
+                manifestation_id=3,
+                edition_specific=False,
+            ),
+            "manifestation",
+            3,
+            {"manifestation_id": 3, "edition_specific": False},
+            id="manifestation-resource",
+        ),
+        pytest.param(
+            lambda: resource_module.ItemResource(
+                resource_kind=ResourceKind.DOWNLOAD,
+                uri="https://example.invalid/item",
+                item_id=4,
+                copy_specific=False,
+            ),
+            "item",
+            4,
+            {"item_id": 4, "copy_specific": False},
+            id="item-resource",
+        ),
+        pytest.param(
+            lambda: date_module.WorkDate(
+                date_kind=DateKind.CREATED,
+                display_text="work date",
+                work_id=1,
+                canonical_for_work=True,
+            ),
+            "work",
+            1,
+            {"work_id": 1, "canonical_for_work": True},
+            id="work-date",
+        ),
+        pytest.param(
+            lambda: date_module.ManifestationDate(
+                date_kind=DateKind.ISSUED,
+                display_text="manifestation date",
+                manifestation_id=3,
+                edition_specific=False,
+            ),
+            "manifestation",
+            3,
+            {"manifestation_id": 3, "edition_specific": False},
+            id="manifestation-date",
+        ),
+        pytest.param(
+            lambda: date_module.ItemDate(
+                date_kind=DateKind.ACQUIRED,
+                display_text="item date",
+                item_id=4,
+                copy_specific=False,
+            ),
+            "item",
+            4,
+            {"item_id": 4, "copy_specific": False},
+            id="item-date",
+        ),
+    ],
+)
+def test_target_specific_relation_value_payloads(
+    factory,
+    target_kind: str,
+    target_id: int,
+    expected_payload: dict[str, object],
+) -> None:
+    value = factory()
+    value.validate()
+
+    assert value.target_kind == target_kind
+    assert value.target_id == target_id
+
+    payload = value.as_write_payload()
+    for key, expected_value in expected_payload.items():
+        assert payload[key] == expected_value

@@ -236,10 +236,15 @@ The current hardening branch includes these slices:
   labels, subjects, languages, series, ratings, resources, and dates with
   unicode values, write payload assertions, dynamic convenience text helpers,
   ordering, primary flags, and invalid value/shape checks.
+- Relation-container branch sweep. Tests now also cover empty/missing helper
+  fallbacks, mutation methods, item WEMI title-slice dedupe/fallback behaviour,
+  and work/manifestation/item target-specific write payload contracts across
+  titles, identifiers, agent credits, notes, labels, subjects, languages,
+  series, ratings, resources, and dates.
 
-The next useful coverage pass is either a branch-coverage sweep over the
-relation-container families already covered here, or the remaining metadata
-black spots outside these WEMI relation containers.
+The next useful coverage pass is the remaining metadata black spots outside
+these WEMI relation containers, or a narrower pass over any relation-container
+branches that external coverage still marks as contract-relevant.
 
 ## Non-Goals
 
