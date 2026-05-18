@@ -232,11 +232,48 @@ Validation:
 - `.venv/bin/python -m pytest tests/metadata/web_sources -q`
   - `216 passed, 9 skipped`
 
+## ISBNDB Provider Slice
+
+Checked the local Calibre clone at `/home/blackjane/calibre-master`; it does
+not include a matching ISBNDB metadata source, so this slice used the local
+ISBNDB implementation directly.
+
+Added offline coverage for `metadata.web_sources.isbndb`:
+
+- low-level text, first-value, ISBN, date, author-list, legacy XML, API-key,
+  retry, header, and text decode helpers
+- empty-key/query handling, invalid ISBN handling, ISBN and title/author query
+  construction, JSON API headers, direct browser byte reads, and environment
+  key precedence
+- JSON payload fallbacks for list, `book`, `books`, and `data` shapes, malformed
+  JSON, scalar payloads, mixed record lists, and unknown payload modes
+- metadata fallbacks for unknown title/authors, comma-string authors,
+  synopsis/summary/overview comments, `published_date`, language codes,
+  alternate ISBN keys, `isbns` lists, sparse records, and audio-publisher
+  rejection
+- identify paths for early abort, missing configuration, insufficient metadata,
+  query exceptions, legacy fallback, ISBN miss retry through title/author,
+  abort between query attempts, duplicate metadata suppression, and clean result
+  enqueueing
+
+Validation:
+
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_isbndb.py -q`
+  - `20 passed`
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_isbndb.py --cov=LiuXin_alpha.metadata.web_sources.isbndb --cov-branch --cov-report=term-missing:skip-covered -q`
+  - `20 passed`
+  - `isbndb.py`: 95%
+- `.venv/bin/python -m pytest tests/metadata/web_sources -q`
+  - `227 passed, 9 skipped`
+
 ## Next
 
 Continue with provider modules using offline fake browser responses and compact
 HTML/JSON fixtures. Highest old-coverage payoff is probably `amazon.py`,
 `ozon.py`, `overdrive.py`, `douban.py`, `edelweiss.py`, and `isbndb.py`, with
 `identify.py` branch gaps revisited only where provider tests naturally hit
-them. After the Amazon, Ozon, OverDrive, Douban, and Edelweiss slices, the next
-provider target should be `isbndb.py`.
+them. After the Amazon, Ozon, OverDrive, Douban, Edelweiss, and ISBNDB slices,
+the next provider target should be chosen from the remaining lower-coverage
+modules, likely starting with the Calibre-backed providers (`google.py`,
+`openlibrary.py`, or `big_book_search.py`) after checking current targeted
+coverage.
