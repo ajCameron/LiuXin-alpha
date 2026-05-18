@@ -75,6 +75,10 @@ I audited:
    unicode writable.
 6. Build a relation-container torture matrix, starting with expression metadata,
    identifiers, agents, and titles.
+   First slice is implemented in
+   `tests/metadata/containers/test_relation_container_contracts.py` and covers
+   expression metadata mapping/helpers, expression titles, expression
+   identifiers, and expression agent credits.
 
 ## Latest Progress
 
@@ -119,12 +123,40 @@ I audited:
 - Widened metadata validation passed:
   `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
   (`98 passed`).
+- Relation-container first slice added:
+  - expression metadata relation aliases, primary helper selection, link-id
+    lookup/removal, and grouped related-target access;
+  - expression/manifestation `to_mapping()` serialization of live `Row`
+    relation targets as plain mappings rather than leaking row objects into
+    sidecar payloads;
+  - expression title container ordering, primary selection, write payloads,
+    unicode text, and invalid shape/value checks;
+  - expression identifier container scheme validation, primary selection,
+    normalized values, write payloads, unicode values, and invalid
+    shape/value checks;
+  - expression agent-credit container role grouping, dynamic role text helpers,
+    unicode credited names, write payloads, and invalid role/target/confidence
+    checks.
+- Fixed two bugs exposed by the relation-container tests:
+  expression/manifestation metadata sidecar mapping no longer emits raw `Row`
+  targets, and slotted dataclass agent-credit validation no longer fails on
+  zero-argument `super()`.
+- Relation-container validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py -q`
+  (`5 passed`).
+- Widened container validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py tests/metadata/containers/test_work_metadata_container.py tests/metadata/containers/test_item_metadata_container.py tests/metadata/containers/test_agent_profiles.py tests/metadata/containers/test_metadata_container_string_representations.py tests/metadata/containers/test_expression_metadata_hydrator.py tests/metadata/containers/test_manifestation_metadata_hydrator.py tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py -q`
+  (`91 passed`).
+- Full metadata-container validation passed:
+  `.venv/bin/python -m pytest tests/metadata/containers -q`
+  (`223 passed, 1 warning`).
 
 ## Next Step
 
-PR `#56` is open and this branch now includes the writer failure-contract slice.
-The next useful coverage work is the relation-container torture matrix, starting
-with expression metadata, identifiers, agents, and titles.
+PR `#56` is open and this branch now includes the writer failure-contract slice
+plus the first relation-container torture slice. The next useful coverage work
+is the remaining relation-container families: notes, labels, subjects,
+languages, series, ratings, resources, and dates.
 
 ## Validation
 
@@ -137,3 +169,6 @@ with expression metadata, identifiers, agents, and titles.
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py tests/metadata/test_metadata_top_level_facade.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py tests/metadata/containers/test_liuxin_wemi_metadata.py tests/metadata/containers/test_wemi_conversion_contracts.py tests/metadata/containers/test_metadata_real_backend_parity.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_item_metadata_hydrator.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py tests/metadata/containers/test_work_metadata_container.py tests/metadata/containers/test_item_metadata_container.py tests/metadata/containers/test_agent_profiles.py tests/metadata/containers/test_metadata_container_string_representations.py tests/metadata/containers/test_expression_metadata_hydrator.py tests/metadata/containers/test_manifestation_metadata_hydrator.py tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py -q`
+- `.venv/bin/python -m pytest tests/metadata/containers -q`

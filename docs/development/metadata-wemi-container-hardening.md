@@ -178,6 +178,12 @@ seeded or avoided.
    subjects, languages, series, ratings, resources, and dates. Cover
    `from_mapping`, `to_mapping`, relation-key validation, primary helpers,
    duplicate handling, invalid values, repr/string output, and unicode.
+   The first relation-container slice covers expression metadata sidecar
+   mappings, expression relation aliases and primary helpers, expression title
+   containers, expression identifier containers, and expression agent credits.
+   It also locks down unicode handling for these families and validates bad
+   target ids, bad target kinds, disallowed schemes, duplicate primaries, and
+   invalid credit fields.
 
 7. Re-run focused coverage after each slice.
    Use coverage to find missed branches, but do not add tests that only assert
@@ -198,7 +204,7 @@ seeded or avoided.
 
 ## Current Landing State
 
-PR `#56` includes three committed slices:
+The current hardening branch includes these slices:
 
 - Multi-parent WEMI spine selection. Eager and lazy hydrators select the identity
   spine from primary/priority structural relation links while preserving the full
@@ -214,9 +220,15 @@ PR `#56` includes three committed slices:
   missing relation tables and identifier columns, unsupported relation pairs,
   link/unlink/delete/update failures, valid unicode writes, and unsafe
   relation/identifier text rejection.
+- Relation-container contracts, first slice. Tests cover expression metadata
+  relation aliases, primary helpers, link-id lookup/removal, sidecar mapping of
+  live `Row` relation targets into plain mappings, expression titles,
+  expression identifiers, and expression agent credits. This exposed and fixed
+  raw `Row` leakage from expression/manifestation `to_mapping()` output and a
+  slotted dataclass `super()` failure in expression/item agent-credit
+  validation.
 
-The next useful pass is the relation-container torture matrix: expression
-metadata, identifiers, agents, titles, notes, labels, subjects, languages,
+The next useful relation-container pass is notes, labels, subjects, languages,
 series, ratings, resources, and dates.
 
 ## Non-Goals
