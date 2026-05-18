@@ -79,6 +79,8 @@ I audited:
    `tests/metadata/containers/test_relation_container_contracts.py` and covers
    expression metadata mapping/helpers, expression titles, expression
    identifiers, and expression agent credits.
+   Second slice extends the same file to expression notes, labels, subjects,
+   languages, series, ratings, resources, and dates.
 
 ## Latest Progress
 
@@ -150,13 +152,36 @@ I audited:
 - Full metadata-container validation passed:
   `.venv/bin/python -m pytest tests/metadata/containers -q`
   (`223 passed, 1 warning`).
+- Relation-container second slice added:
+  - expression note ordering, primary selection, write payloads, dynamic
+    description text helpers, unicode bodies/titles, blank-body rejection, and
+    bad association range rejection;
+  - expression label and subject ordering, primary selection, write payloads,
+    dynamic text helpers, unicode values, wrong-target-kind rejection, and
+    blank-text rejection;
+  - expression language ordering, write payloads, dynamic text helpers,
+    unicode language names, missing-language-value rejection, and duplicate
+    primary rejection;
+  - expression series, rating, resource, and date value contracts, including
+    unicode display text, write payloads, dynamic text helpers, wrong target
+    kinds, bad authority pairs, out-of-range ratings, blank URIs, empty dates,
+    inverted date ranges, and duplicate-primary rejection.
+- Relation-container validation passed after the second slice:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py -q`
+  (`9 passed`).
+- Widened container validation passed after the second slice:
+  `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py tests/metadata/containers/test_metadata_container_string_representations.py tests/metadata/containers/test_expression_metadata_hydrator.py tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py -q`
+  (`88 passed`).
+- Full metadata-container validation passed after the second slice:
+  `.venv/bin/python -m pytest tests/metadata/containers -q`
+  (`227 passed, 1 warning`).
 
 ## Next Step
 
 PR `#56` is open and this branch now includes the writer failure-contract slice
-plus the first relation-container torture slice. The next useful coverage work
-is the remaining relation-container families: notes, labels, subjects,
-languages, series, ratings, resources, and dates.
+plus the first two relation-container torture slices. The next useful coverage
+work is either a branch-coverage sweep over these relation families or the
+remaining metadata black spots outside the WEMI relation containers.
 
 ## Validation
 
@@ -172,3 +197,4 @@ languages, series, ratings, resources, and dates.
 - `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py tests/metadata/containers/test_work_metadata_container.py tests/metadata/containers/test_item_metadata_container.py tests/metadata/containers/test_agent_profiles.py tests/metadata/containers/test_metadata_container_string_representations.py tests/metadata/containers/test_expression_metadata_hydrator.py tests/metadata/containers/test_manifestation_metadata_hydrator.py tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py -q`
 - `.venv/bin/python -m pytest tests/metadata/containers -q`
+- `.venv/bin/python -m pytest tests/metadata/containers/test_relation_container_contracts.py tests/metadata/containers/test_metadata_container_string_representations.py tests/metadata/containers/test_expression_metadata_hydrator.py tests/metadata/containers/test_item_metadata_hydrator.py tests/metadata/containers/test_hydrator_edge_cases.py -q`

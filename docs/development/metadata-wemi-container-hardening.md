@@ -184,6 +184,11 @@ seeded or avoided.
    It also locks down unicode handling for these families and validates bad
    target ids, bad target kinds, disallowed schemes, duplicate primaries, and
    invalid credit fields.
+   The second relation-container slice covers expression notes, labels,
+   subjects, languages, series, ratings, resources, and dates. It locks down
+   unicode display/write payloads, convenience text helpers, ordering,
+   duplicate-primary rejection, wrong target-kind rejection, bad target ids, and
+   family-specific value validation.
 
 7. Re-run focused coverage after each slice.
    Use coverage to find missed branches, but do not add tests that only assert
@@ -227,9 +232,14 @@ The current hardening branch includes these slices:
   raw `Row` leakage from expression/manifestation `to_mapping()` output and a
   slotted dataclass `super()` failure in expression/item agent-credit
   validation.
+- Relation-container contracts, second slice. Tests cover expression notes,
+  labels, subjects, languages, series, ratings, resources, and dates with
+  unicode values, write payload assertions, dynamic convenience text helpers,
+  ordering, primary flags, and invalid value/shape checks.
 
-The next useful relation-container pass is notes, labels, subjects, languages,
-series, ratings, resources, and dates.
+The next useful coverage pass is either a branch-coverage sweep over the
+relation-container families already covered here, or the remaining metadata
+black spots outside these WEMI relation containers.
 
 ## Non-Goals
 
