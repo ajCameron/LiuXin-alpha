@@ -191,12 +191,52 @@ Validation:
 - `.venv/bin/python -m pytest tests/metadata/web_sources -q`
   - `205 passed, 9 skipped`
 
+## Edelweiss Provider Slice
+
+Checked the local Calibre clone at `/home/blackjane/calibre-master` for the
+Edelweiss reference implementation. The local port is more dependency-light and
+keeps query search enabled, but the reference still guided the comments, cover,
+tag, identifier, and rating contracts.
+
+Added offline coverage for `metadata.web_sources.edelweiss`:
+
+- low-level text, first-value, identifier, tag stripping, cover URL, CSV-ish
+  splitting, comment sanitization, retry, and text decode helpers
+- empty identifier/query handling, deterministic query timestamping, direct
+  browser byte reads, malformed search payload fallback parsing, priority/title
+  DOM SKU extraction, and duplicate SKU preservation order
+- parser fallbacks for title, authors, tags, publisher, pubdate, rating,
+  comments, Open Graph covers, sparse detail pages, invalid fields, clamped
+  ratings, and cover misses
+- ISBN-search miss followed by title/author retry, no-query and empty-search
+  returns, early abort, duplicate/blank SKU filtering, five-result limiting,
+  empty detail pages, detail parse exceptions, and abort between detail pages
+- uncached cover discovery through identify, abort handling, no-cover logging,
+  empty payload handling, and download exception handling
+
+Test stabilization found:
+
+- `test_source_tokens_field_checks_and_cleaning()` no longer relies on
+  two-element `frozenset` iteration order when checking `Source.test_fields()`.
+  Identifier and publisher branches are now exercised separately.
+
+Validation:
+
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_edelweiss.py -q`
+  - `20 passed`
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_edelweiss.py --cov=LiuXin_alpha.metadata.web_sources.edelweiss --cov-branch --cov-report=term-missing:skip-covered -q`
+  - `20 passed`
+  - `edelweiss.py`: 96%
+- `.venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_base.py::test_source_tokens_field_checks_and_cleaning -q`
+  - `1 passed`
+- `.venv/bin/python -m pytest tests/metadata/web_sources -q`
+  - `216 passed, 9 skipped`
+
 ## Next
 
 Continue with provider modules using offline fake browser responses and compact
 HTML/JSON fixtures. Highest old-coverage payoff is probably `amazon.py`,
 `ozon.py`, `overdrive.py`, `douban.py`, `edelweiss.py`, and `isbndb.py`, with
 `identify.py` branch gaps revisited only where provider tests naturally hit
-them. After the Amazon, Ozon, OverDrive, and Douban slices, the next provider
-target should be `edelweiss.py` using the Calibre clone as a closer reference,
-then `isbndb.py`.
+them. After the Amazon, Ozon, OverDrive, Douban, and Edelweiss slices, the next
+provider target should be `isbndb.py`.

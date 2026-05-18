@@ -202,9 +202,10 @@ def test_source_tokens_field_checks_and_cleaning() -> None:
     assert list(source.get_title_tokens("A Tale & The City", strip_joiners=False)) == ["A", "Tale", "The", "City"]
 
     mi = calibreMetaInformation("Title", ["Author"])
-    source.touched_fields = frozenset({"identifier:isbn", "publisher"})
+    source.touched_fields = frozenset({"identifier:isbn"})
     assert source.test_fields(mi) == "identifier: isbn"
     mi.set_identifier("isbn", "9780306406157")
+    source.touched_fields = frozenset({"publisher"})
     assert source.test_fields(mi) == "publisher"
     mi.publisher = "Publisher"
     assert source.test_fields(mi) is None
