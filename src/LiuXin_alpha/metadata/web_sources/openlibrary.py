@@ -11,6 +11,7 @@ import re
 from collections.abc import Iterable, Mapping
 
 from LiuXin_alpha.metadata.web_sources.base import Source
+from LiuXin_alpha.metadata.web_sources.http_client import error_status_code, log_message
 from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
@@ -115,15 +116,26 @@ class OpenLibrary(Source):
         if not isbn:
             return
 
+        url = self.OPENLIBRARY % isbn
         try:
-            payload = self.browser().open_novisit(self.OPENLIBRARY % isbn, timeout=timeout).read()
+            payload = self.browser().open_novisit(url, timeout=timeout).read()
             if payload:
                 result_queue.put((self, payload))
-        except Exception as err:
-            if callable(getattr(err, "getcode", None)) and err.getcode() == 404:
-                log.error("No cover for ISBN: %r found" % isbn)
             else:
-                log.exception("Failed to download cover for ISBN:", isbn)
+                log_message(log, "warning", "Open Library cover response was empty", {"isbn": isbn, "url": url})
+        except Exception as err:
+            status = error_status_code(err)
+            meta = {
+                "isbn": isbn,
+                "url": url,
+                "status_code": status,
+                "error_type": type(err).__name__,
+                "error": str(err),
+            }
+            if status == 404:
+                log_message(log, "error", "No cover for ISBN found", meta)
+            else:
+                log_message(log, "exception", "Failed to download Open Library cover", meta)
 
 
 __all__ = ["OpenLibrary"]
