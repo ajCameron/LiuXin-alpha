@@ -273,6 +273,10 @@ def test_openlibrary_download_cover_non_404_logs_exception(monkeypatch) -> None:
 
     assert out.empty()
     assert events and events[0][0] == "exception"
+    meta = events[0][1][-1]
+    assert meta["url"] == "https://covers.openlibrary.org/b/isbn/9780306406157-L.jpg?default=false"
+    assert meta["error_type"] == "RuntimeError"
+    assert meta["error"] == "boom"
 
 
 def test_openlibrary_download_cover_empty_payload_not_queued(monkeypatch) -> None:

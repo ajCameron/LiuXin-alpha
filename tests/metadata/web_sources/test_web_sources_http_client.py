@@ -87,13 +87,19 @@ def test_call_with_backoff_retries_then_succeeds() -> None:
 def test_call_with_backoff_raises_non_retryable_error() -> None:
     from LiuXin_alpha.metadata.web_sources.http_client import call_with_backoff
 
+    log = _Log()
     with pytest.raises(ValueError):
         call_with_backoff(
             lambda: (_ for _ in ()).throw(ValueError("bad")),
-            log=_Log(),
+            log=log,
             abort=Event(),
             context="unit-test",
         )
+    level, parts = log.events[0]
+    meta = parts[-1]
+    assert level == "exception"
+    assert meta["error_type"] == "ValueError"
+    assert meta["error"] == "bad"
 
 
 def test_decode_http_body_handles_utf8_latin1_and_non_bytes() -> None:

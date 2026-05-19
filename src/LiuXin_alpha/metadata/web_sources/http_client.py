@@ -134,6 +134,8 @@ def call_with_backoff(
                 "retryable": retryable,
                 "timeout_seconds": timeout_seconds,
                 "url": url,
+                "error_type": type(err).__name__,
+                "error": str(err),
             }
             if retryable and attempt < attempts:
                 delay = (
