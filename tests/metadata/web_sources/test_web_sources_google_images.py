@@ -34,18 +34,26 @@ def test_parse_google_markup_extracts_and_deduplicates_urls() -> None:
     from LiuXin_alpha.metadata.web_sources.google_images import parse_google_markup
 
     html = """
+    <div data-docid="doc-1"></div>
+    <script>
+      var z = "doc-1",["meta"],["https://img.example/thumb.jpg",1,2],["https://img.example/full.jpg",3,4]];
+    </script>
     <div data-iurl="https://img.example/cover-a.jpg"></div>
     <script>
       var x = {"imgurl":"https:\\/\\/img.example\\/cover-b.jpg"};
       var y = {"ou":"https://img.example/cover-a.jpg"};
+      var loose = ["https:\\/\\/img.example\\/loose.webp"];
     </script>
     <a href="https://www.google.com/imgres?imgurl=https%3A%2F%2Fimg.example%2Fcover-c.jpg&imgrefurl=x"></a>
     """
     urls = parse_google_markup(html)
     assert urls == [
+        "https://img.example/full.jpg",
         "https://img.example/cover-b.jpg",
         "https://img.example/cover-a.jpg",
         "https://img.example/cover-c.jpg",
+        "https://img.example/thumb.jpg",
+        "https://img.example/loose.webp",
     ]
 
 
@@ -88,8 +96,89 @@ def test_google_images_get_image_urls_retries_transient_errors(monkeypatch) -> N
     urls = plugin.get_image_urls("The Book", "Some Author", log, Event(), timeout=10)
     assert urls == ["https://img.example/cover-a.jpg"]
     assert browser.calls == 3
+    assert [cookie[0] for cookie in browser.cookies] == ["CONSENT", "SOCS"]
     assert delays
     assert any(level == "warning" and "retrying with backoff" in " ".join(map(str, parts)) for level, parts in log.events)
+
+
+def test_google_images_get_image_urls_logs_response_markers_when_empty(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
+
+    class _Resp:
+        @staticmethod
+        def read():
+            return b"<html><title>Before you continue</title><body>Enable JavaScript</body></html>"
+
+    class _Browser:
+        @staticmethod
+        def set_simple_cookie(name, value, domain, path="/"):
+            del name, value, domain, path
+
+        @staticmethod
+        def open_novisit(url, timeout=30):
+            del url, timeout
+            return _Resp()
+
+    plugin = GoogleImages()
+    log = _Log()
+
+    monkeypatch.setattr(plugin, "browser", lambda: _Browser())
+    urls = plugin.get_image_urls("The Book", "Some Author", log, Event(), timeout=10)
+
+    assert urls == []
+    assert any(
+        level == "info"
+        and parts[0] == "Google Images response markers"
+        and parts[1]["title"] == "Before you continue"
+        and parts[1]["enable_javascript"] is True
+        for level, parts in log.events
+    )
+
+
+def test_google_images_get_image_urls_tries_fallback_search_shapes(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
+
+    class _Resp:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def read(self):
+            return self.payload
+
+    class _Browser:
+        def __init__(self):
+            self.requests = []
+            self.payloads = [
+                b"<html><title>Google Search</title></html>",
+                b'<script>{"imgurl":"https://img.example/fallback.jpg"}</script>',
+            ]
+
+        @staticmethod
+        def set_simple_cookie(name, value, domain, path="/"):
+            del name, value, domain, path
+
+        def open_novisit(self, url, timeout=30):
+            del timeout
+            self.requests.append(url)
+            return _Resp(self.payloads.pop(0))
+
+    browser = _Browser()
+    plugin = GoogleImages()
+    log = _Log()
+
+    monkeypatch.setattr(plugin, "browser", lambda: browser)
+    urls = plugin.get_image_urls("The Book", "Some Author", log, Event(), timeout=10)
+
+    assert urls == ["https://img.example/fallback.jpg"]
+    assert len(browser.requests) == 2
+    assert "as_q=The+Book+Some+Author" in browser.requests[0]
+    assert "udm=2" in browser.requests[1]
+    assert any(
+        level == "info"
+        and parts[0] == "Google Images parsed candidate URLs"
+        and parts[1]["variant"] == 2
+        for level, parts in log.events
+    )
 
 
 def test_google_images_download_image_puts_result(monkeypatch) -> None:

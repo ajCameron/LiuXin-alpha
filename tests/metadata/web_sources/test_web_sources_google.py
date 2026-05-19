@@ -75,6 +75,28 @@ def _sample_item(google_id: str = "gid-1") -> dict:
     }
 
 
+def _sample_feed_payload(google_id: str = "gid-feed") -> str:
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms">
+  <entry>
+    <id>https://books.google.com/books/feeds/volumes/{google_id}</id>
+    <title>Atom Title</title>
+    <dc:title>Feed Title</dc:title>
+    <dc:title>Feed Subtitle</dc:title>
+    <dc:creator>Alice Feed</dc:creator>
+    <dc:description>Feed description.One more</dc:description>
+    <dc:language>en</dc:language>
+    <dc:publisher>Feed House</dc:publisher>
+    <dc:date>2021-04-05</dc:date>
+    <dc:identifier>ISBN: 9780306406157</dc:identifier>
+    <dc:identifier>OCLC: 12345</dc:identifier>
+    <dc:subject>Fiction / Science, Fiction</dc:subject>
+    <link rel="self" href="https://www.google.com/books/feeds/volumes/{google_id}" />
+    <link rel="http://schemas.google.com/books/2008/thumbnail" href="https://covers.example/feed.jpg" />
+  </entry>
+</feed>"""
+
+
 def test_web_sources_google_import_smoke() -> None:
     import LiuXin_alpha.metadata.web_sources.google as google
 
@@ -233,6 +255,28 @@ def test_google_item_to_metadata_fallbacks_and_sparse_values(monkeypatch) -> Non
     assert mi.has_google_cover is None
 
 
+def test_google_legacy_feed_helpers_parse_metadata(monkeypatch) -> None:
+    import LiuXin_alpha.metadata.web_sources.google as google
+
+    plugin = google.GoogleBooks()
+    monkeypatch.setattr(google, "parse_only_date", lambda raw: datetime(2021, 4, 5))
+
+    entries = plugin._feed_entries_from_payload(_sample_feed_payload("gid-feed"))
+    assert len(entries) == 1
+
+    mi = plugin._metadata_from_feed_entry(entries[0])
+    assert mi.title == "Feed Title: Feed Subtitle"
+    assert mi.authors == ["Alice Feed"]
+    assert mi.publisher == "Feed House"
+    assert mi.language == "en"
+    assert mi.pubdate == datetime(2021, 4, 5)
+    assert mi.tags == ["Fiction", "Science; Fiction"]
+    assert mi.get_identifiers()["google"] == "gid-feed"
+    assert mi.get_identifiers()["isbn"] == "9780306406157"
+    assert mi.get_identifiers()["oclc"] == "12345"
+    assert mi.has_google_cover == "https://covers.example/feed.jpg"
+
+
 def test_google_cover_url_priority_and_missing_links() -> None:
     from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 
@@ -327,12 +371,14 @@ def test_google_identify_guard_and_empty_payload_paths(monkeypatch) -> None:
 
     plugin = GoogleBooks()
     monkeypatch.setattr(plugin, "_request_json_with_backoff", lambda **kwargs: None)
+    monkeypatch.setattr(plugin, "_request_feed_entries_or_empty", lambda **kwargs: [])
     out = queue.Queue()
     plugin.identify(log=_Log(), result_queue=out, abort=Event(), title="Title")
     assert out.empty()
 
     plugin = GoogleBooks()
     monkeypatch.setattr(plugin, "_request_json_with_backoff", lambda **kwargs: {})
+    monkeypatch.setattr(plugin, "_request_feed_entries_or_empty", lambda **kwargs: [])
     out = queue.Queue()
     plugin.identify(log=_Log(), result_queue=out, abort=Event(), identifiers={"google": "missing"})
     assert out.empty()
@@ -344,6 +390,7 @@ def test_google_identify_retry_query_none_and_parse_failures(monkeypatch) -> Non
     plugin = GoogleBooks()
     responses = iter([{"items": []}, None])
     monkeypatch.setattr(plugin, "_request_json_with_backoff", lambda **kwargs: next(responses))
+    monkeypatch.setattr(plugin, "_request_feed_entries_or_empty", lambda **kwargs: [])
     out = queue.Queue()
     plugin.identify(
         log=_Log(),
@@ -364,6 +411,7 @@ def test_google_identify_retry_query_none_and_parse_failures(monkeypatch) -> Non
 
     monkeypatch.setattr(plugin, "create_query", _create_query)
     monkeypatch.setattr(plugin, "_request_json_with_backoff", lambda **kwargs: {"items": []})
+    monkeypatch.setattr(plugin, "_request_feed_entries_or_empty", lambda **kwargs: [])
     out = queue.Queue()
     plugin.identify(
         log=_Log(),
@@ -384,6 +432,34 @@ def test_google_identify_retry_query_none_and_parse_failures(monkeypatch) -> Non
     plugin.identify(log=log, result_queue=out, abort=Event(), title="Title")
     assert out.empty()
     assert any(level == "exception" for level, parts in log.events)
+
+
+def test_google_identify_uses_legacy_feed_after_json_miss(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
+
+    plugin = GoogleBooks()
+    calls = []
+    monkeypatch.setattr(plugin, "_request_json_with_backoff", lambda **kwargs: {"items": []})
+
+    def _feed(**kwargs):
+        calls.append(kwargs)
+        return plugin._feed_entries_from_payload(_sample_feed_payload("gid-feed"))
+
+    monkeypatch.setattr(plugin, "_request_feed_entries_or_empty", _feed)
+
+    out = queue.Queue()
+    plugin.identify(
+        log=_Log(),
+        result_queue=out,
+        abort=Event(),
+        identifiers={"isbn": "9780306406157"},
+    )
+
+    mi = out.get_nowait()
+    assert mi.get_identifiers()["google"] == "gid-feed"
+    assert mi.title == "Feed Title: Feed Subtitle"
+    assert calls[0]["context"] == "GoogleBooks legacy identify query"
+    assert "q=isbn%3A9780306406157" in calls[0]["url"]
 
 
 def test_google_identify_abort_between_items_and_postprocess_none(monkeypatch) -> None:
@@ -444,6 +520,38 @@ def test_google_identify_retries_text_query_after_empty_isbn_query(monkeypatch) 
     assert len(queries) == 2
     assert queries[0].startswith("isbn:")
     assert "intitle:Fallback" in queries[1]
+
+
+def test_google_identify_retries_text_query_after_request_failure(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
+
+    plugin = GoogleBooks()
+    contexts = []
+
+    def _fake_request(**kwargs):
+        contexts.append(kwargs["context"])
+        if kwargs["context"] == "GoogleBooks identify query":
+            raise RuntimeError("rate limited")
+        return {"items": [_sample_item("gid-fallback-after-error")]}
+
+    monkeypatch.setattr(plugin, "_request_json_with_backoff", _fake_request)
+    out = queue.Queue()
+    log = _Log()
+    plugin.identify(
+        log=log,
+        result_queue=out,
+        abort=Event(),
+        title="Fallback Title",
+        authors=["Fallback Author"],
+        identifiers={"isbn": "9780306406157"},
+    )
+
+    assert out.get_nowait().get_identifiers()["google"] == "gid-fallback-after-error"
+    assert contexts == ["GoogleBooks identify query", "GoogleBooks identify retry query"]
+    assert any(
+        level == "warning" and "continuing with fallback paths" in " ".join(map(str, parts))
+        for level, parts in log.events
+    )
 
 
 def test_google_get_cached_cover_url_uses_isbn_cache_with_iterables() -> None:

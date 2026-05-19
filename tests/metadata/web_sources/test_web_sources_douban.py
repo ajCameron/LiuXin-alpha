@@ -126,6 +126,38 @@ def test_douban_identify_handles_json_payload() -> None:
     assert plugin.cached_identifier_to_cover_url("998877") == "https://img.example/large.jpg"
 
 
+def test_douban_identify_continues_after_endpoint_failure() -> None:
+    from LiuXin_alpha.metadata.web_sources.douban import Douban
+
+    plugin = Douban()
+    payload = '{"books": [%s]}' % __import__("json").dumps(_sample_json_book("998877"))
+    calls = []
+
+    def fake_open(log, abort, url, timeout, context):
+        del log, abort, timeout, context
+        calls.append(url)
+        if len(calls) == 1:
+            raise RuntimeError("legacy endpoint refused")
+        return payload
+
+    plugin._open_text_with_backoff = fake_open
+    out = queue.Queue()
+    log = _Log()
+    plugin.identify(
+        log=log,
+        result_queue=out,
+        abort=Event(),
+        identifiers={"isbn": "9787536692930"},
+    )
+
+    assert out.get_nowait().get_identifiers()["douban"] == "998877"
+    assert len(calls) == 2
+    assert any(
+        level == "warning" and "trying next available endpoint" in " ".join(map(str, parts))
+        for level, parts in log.events
+    )
+
+
 def test_douban_identify_handles_xml_atom_payload() -> None:
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 

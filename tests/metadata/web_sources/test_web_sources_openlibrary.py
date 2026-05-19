@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import queue
 from threading import Event
+from urllib.error import URLError
 
 
 def test_web_sources_openlibrary_import_smoke() -> None:
@@ -104,6 +105,54 @@ def test_openlibrary_download_cover_happy_path(monkeypatch) -> None:
     assert log == []
 
 
+def test_openlibrary_download_cover_retries_transient_timeout(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    class _Resp:
+        @staticmethod
+        def read():
+            return b"jpeg-bytes"
+
+    class _Browser:
+        def __init__(self):
+            self.calls = 0
+
+        def open_novisit(self, url, timeout=30):
+            del url, timeout
+            self.calls += 1
+            if self.calls == 1:
+                raise URLError(TimeoutError("handshake operation timed out"))
+            return _Resp()
+
+    browser = _Browser()
+    plugin = OpenLibrary()
+    monkeypatch.setattr(plugin, "browser", lambda: browser)
+    monkeypatch.setattr(plugin, "_wait_for_backoff", lambda abort, delay: False)
+    out = queue.Queue()
+    events = []
+    logger = type(
+        "L",
+        (),
+        {
+            "warning": staticmethod(lambda *a: events.append(("warning", a))),
+            "error": staticmethod(lambda *a: events.append(("error", a))),
+            "exception": staticmethod(lambda *a: events.append(("exception", a))),
+        },
+    )()
+
+    plugin.download_cover(
+        log=logger,
+        result_queue=out,
+        abort=Event(),
+        identifiers={"isbn": "9780306406157"},
+        timeout=17,
+    )
+
+    assert out.get_nowait() == (plugin, b"jpeg-bytes")
+    assert browser.calls == 2
+    assert any("retrying with backoff" in " ".join(map(str, parts)) for _level, parts in events)
+
+
 def test_openlibrary_download_cover_404_logs_error(monkeypatch) -> None:
     from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
 
@@ -138,6 +187,58 @@ def test_openlibrary_download_cover_404_logs_error(monkeypatch) -> None:
     )
 
     assert out.empty()
+    assert events and events[0][0] == "error"
+
+
+def test_openlibrary_download_cover_tries_next_size_after_404(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
+
+    class _E(Exception):
+        @staticmethod
+        def getcode():
+            return 404
+
+    class _Resp:
+        @staticmethod
+        def read():
+            return b"medium-cover"
+
+    class _Browser:
+        def __init__(self):
+            self.urls = []
+
+        def open_novisit(self, url, timeout=30):
+            del timeout
+            self.urls.append(url)
+            if len(self.urls) == 1:
+                raise _E("large missing")
+            return _Resp()
+
+    plugin = OpenLibrary()
+    browser = _Browser()
+    monkeypatch.setattr(plugin, "browser", lambda: browser)
+    out = queue.Queue()
+    events = []
+    logger = type(
+        "L",
+        (),
+        {
+            "error": staticmethod(lambda *a: events.append(("error", a))),
+            "warning": staticmethod(lambda *a: events.append(("warning", a))),
+            "exception": staticmethod(lambda *a: events.append(("exception", a))),
+        },
+    )()
+
+    plugin.download_cover(
+        log=logger,
+        result_queue=out,
+        abort=Event(),
+        identifiers={"isbn": "9780306406157"},
+    )
+
+    assert out.get_nowait() == (plugin, b"medium-cover")
+    assert browser.urls[0].endswith("-L.jpg?default=false")
+    assert browser.urls[1].endswith("-M.jpg?default=false")
     assert events and events[0][0] == "error"
 
 

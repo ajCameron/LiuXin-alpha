@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import queue
 from threading import Event
 
@@ -55,7 +56,7 @@ def test_random_user_agent_can_rotate_with_env(monkeypatch) -> None:
 
     monkeypatch.setenv("LIUXIN_WEB_SOURCES_RANDOM_UA", "1")
     monkeypatch.setattr(base.random, "choice", lambda seq: seq[-1])
-    assert base.random_user_agent() == base.random_user_agent(index=2)
+    assert base.random_user_agent() == base.random_user_agent(index=-1)
 
 
 def test_source_browser_adds_rich_headers_when_enabled(monkeypatch) -> None:
@@ -69,6 +70,17 @@ def test_source_browser_adds_rich_headers_when_enabled(monkeypatch) -> None:
     assert "User-Agent" in headers
     assert headers.get("Accept-Language")
     assert headers.get("DNT") == "1"
+    assert headers.get("Upgrade-Insecure-Requests") == "1"
+
+
+def test_source_browser_adds_rich_headers_by_default(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.base import Source
+
+    monkeypatch.delenv("LIUXIN_WEB_SOURCES_RICH_HEADERS", raising=False)
+    source = Source()
+    headers = {k: v for k, v in source.browser().addheaders}
+
+    assert headers.get("Accept-Language") == "en-US,en;q=0.9"
     assert headers.get("Upgrade-Insecure-Requests") == "1"
 
 
@@ -140,16 +152,43 @@ def test_stdlib_browser_builds_headers_gzip_and_ssl_context(monkeypatch) -> None
 
     br = base.browser(user_agent="UnitTest/1", verify_ssl_certificates=False, rich_headers=True)
     br.set_handle_gzip(True)
+    br.set_simple_cookie("CONSENT", "PENDING+987", ".example.invalid", path="/")
     clone = br.clone_browser()
+    assert clone.current_user_agent() == "UnitTest/1"
+    clone.set_user_agent("Changed/1")
     response = clone.open_novisit("https://example.invalid/book", timeout=7)
+    headers = {k.lower(): v for k, v in calls["headers"].items()}
 
     assert isinstance(response, Response)
     assert calls["url"] == "https://example.invalid/book"
     assert calls["timeout"] == 7
     assert calls["context"] == "insecure-context"
-    assert calls["headers"]["User-agent"] == "UnitTest/1"
-    assert calls["headers"]["Accept-encoding"] == "gzip"
-    assert calls["headers"]["Dnt"] == "1"
+    assert headers["user-agent"] == "Changed/1"
+    assert headers["accept-encoding"] == "gzip"
+    assert headers["dnt"] == "1"
+    assert headers["cookie"] == "CONSENT=PENDING+987"
+
+
+def test_stdlib_browser_decompresses_gzip_payloads(monkeypatch) -> None:
+    import LiuXin_alpha.metadata.web_sources.base as base
+
+    class Response:
+        headers = {"Content-Encoding": "gzip"}
+
+        @staticmethod
+        def read():
+            return gzip.compress(b"<feed>ok</feed>")
+
+    def fake_urlopen(request, timeout, context):
+        del request, timeout, context
+        return Response()
+
+    monkeypatch.setattr(base, "urlopen", fake_urlopen)
+
+    br = base.browser(user_agent="UnitTest/1")
+    br.set_handle_gzip(True)
+
+    assert br.open_novisit("https://example.invalid/feed").read() == b"<feed>ok</feed>"
 
 
 def test_option_source_config_and_default_api_paths() -> None:
