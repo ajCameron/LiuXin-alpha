@@ -269,7 +269,7 @@ def test_live_google_images_search_and_download() -> None:
 
 
 def test_live_big_book_search_query() -> None:
-    _require_hosts("bigbooksearch.com")
+    _require_hosts("www.bigbooksearch.com")
     plugin = BigBookSearch()
     log = _LiveLog()
     try:

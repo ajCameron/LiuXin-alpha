@@ -72,7 +72,8 @@ def test_big_book_search_helper_edges() -> None:
     assert _build_query([" The Hobbit ", "", BadString()]) == "+The+Hobbit+"
     search_urls = _search_urls_for_query("The+Hobbit")
     assert search_urls[0].endswith("/books/The+Hobbit")
-    assert search_urls[1] == "https://bigbooksearch.com/books/The+Hobbit"
+    assert search_urls[1] == "https://www.bigbooksearch.com/books/The+Hobbit"
+    assert search_urls[3] == "https://bigbooksearch.com/books/The+Hobbit"
 
 
 def test_parse_image_urls_extracts_and_normalizes() -> None:
@@ -127,7 +128,7 @@ def test_get_urls_falls_back_between_search_paths() -> None:
     assert urls == ["https://img.example/cover.jpg"]
     assert len(calls) >= 2
     assert "please-dont-scrape" in calls[0]
-    assert calls[1].startswith("https://bigbooksearch.com/books/")
+    assert calls[1].startswith("https://www.bigbooksearch.com/books/")
 
 
 def test_get_urls_non_retryable_errors_return_empty() -> None:
@@ -172,10 +173,11 @@ def test_get_urls_empty_query_empty_payload_and_no_images() -> None:
         retry_policy=RetryPolicy(attempts=1, base_delay=0.01, max_delay=0.02),
     )
     assert urls == []
-    assert len(calls) == 2
+    assert len(calls) == 4
     assert calls[0][1] == 9
     assert "please-dont-scrape" in calls[0][0]
-    assert calls[1][0].startswith("https://bigbooksearch.com/books/")
+    assert calls[1][0].startswith("https://www.bigbooksearch.com/books/")
+    assert calls[3][0].startswith("https://bigbooksearch.com/books/")
 
 
 def test_big_book_search_retry_helpers_and_get_image_urls(monkeypatch) -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import queue
 from datetime import datetime
 from threading import Event
+from urllib.error import HTTPError
 
 import pytest
 
@@ -174,6 +175,42 @@ def test_ozon_identify_search_then_details(monkeypatch) -> None:
     second = out.get_nowait()
     assert first.get_identifiers()["ozon"] == "1009493080"
     assert second.get_identifiers()["ozon"] == "1000000001"
+
+
+def test_ozon_identify_search_failure_can_fall_back_to_title_author(monkeypatch) -> None:
+    from LiuXin_alpha.metadata.web_sources.ozon import Ozon
+
+    plugin = Ozon()
+    calls = []
+
+    def _open(log, abort, url, timeout, context):
+        del log, abort, url, timeout
+        calls.append(context)
+        if context == "Ozon search":
+            raise RuntimeError("redirect loop")
+        if context == "Ozon search fallback":
+            return _sample_search_html()
+        return _sample_detail_html()
+
+    monkeypatch.setattr(plugin, "_open_text_with_backoff", _open)
+
+    out = queue.Queue()
+    log = _Log()
+    plugin.identify(
+        log=log,
+        result_queue=out,
+        abort=Event(),
+        title="На все четыре стороны",
+        authors=["Гилл"],
+        identifiers={"isbn": "9785916572629"},
+    )
+
+    assert out.get_nowait().get_identifiers()["ozon"] == "1009493080"
+    assert "Ozon search fallback" in calls
+    assert any(
+        level == "warning" and "continuing with available fallback paths" in " ".join(map(str, parts))
+        for level, parts in log.events
+    )
 
 
 def test_ozon_download_cover_uses_cache() -> None:
@@ -458,6 +495,37 @@ def test_ozon_identify_retry_filter_skip_and_abort_paths() -> None:
     out = queue.Queue()
     plugin.identify(log=_Log(), result_queue=out, abort=Event(), title=None, authors=None, identifiers={})
     assert out.empty()
+
+
+def test_ozon_identify_stops_search_variants_after_rr_redirect_loop() -> None:
+    from LiuXin_alpha.metadata.web_sources.ozon import Ozon
+
+    plugin = Ozon()
+    calls = []
+
+    def _raise_redirect(log, abort, url, timeout, context):
+        del log, abort, timeout, context
+        calls.append(url)
+        raise HTTPError(
+            url + "&__rr=9",
+            307,
+            "Temporary Redirect",
+            {"Location": url + "&__rr=1", "Content-Type": "text/html"},
+            None,
+        )
+
+    plugin._open_text_with_backoff = _raise_redirect
+
+    out = queue.Queue()
+    log = _Log()
+    plugin.identify(log=log, result_queue=out, abort=Event(), identifiers={"isbn": "9785916572629"})
+
+    assert out.empty()
+    assert len(calls) == 1
+    assert any(
+        level == "warning" and "redirect-loop signature observed" in " ".join(map(str, parts))
+        for level, parts in log.events
+    )
 
 
 def test_ozon_download_cover_discovers_from_identify_and_handles_failures() -> None:

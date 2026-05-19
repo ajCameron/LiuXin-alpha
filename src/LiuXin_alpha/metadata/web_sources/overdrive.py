@@ -21,6 +21,7 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn
 from LiuXin_alpha.metadata.web_sources.base import Option, Source
 from LiuXin_alpha.metadata.web_sources.http_client import RetryPolicy, call_with_backoff, compute_backoff_delay
 from LiuXin_alpha.metadata.web_sources.http_client import decode_http_body
+from LiuXin_alpha.metadata.web_sources.http_client import error_diagnostics
 from LiuXin_alpha.metadata.web_sources.http_client import log_message
 from LiuXin_alpha.metadata.web_sources.http_client import wait_for_backoff
 from LiuXin_alpha.utils.date import parse_only_date
@@ -165,6 +166,29 @@ def _extract_meta_content(raw_html: str, key: str):
     return ""
 
 
+def _html_title(raw_html: str) -> str | None:
+    match = re.search(r"<title[^>]*>(.*?)</title>", raw_html, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    return re.sub(r"\s+", " ", _strip_tags(match.group(1))).strip() or None
+
+
+def _response_markers(raw_html: str) -> dict:
+    html = _as_text(raw_html)
+    lowered = html.lower()
+    return {
+        "chars": len(html),
+        "title": _html_title(html),
+        "media_ids": len(_extract_overdrive_ids_from_search_html(html, limit=50)),
+        "json_ld": "application/ld+json" in lowered,
+        "og_title": "og:title" in lowered,
+        "captcha": "captcha" in lowered,
+        "cloudflare": "cloudflare" in lowered,
+        "forbidden": "forbidden" in lowered,
+        "not_found": "not found" in lowered,
+    }
+
+
 def _parse_series_and_index(raw):
     text = _as_text(raw).strip()
     if not text:
@@ -275,6 +299,18 @@ class OverDrive(Source):
         if not raw:
             return ""
         return decode_http_body(raw)
+
+    def _open_text_or_none(self, log, abort, url: str, timeout: int, context: str):
+        try:
+            return self._open_text_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
+        except Exception as err:
+            log_message(
+                log,
+                "warning",
+                "OverDrive request failed; continuing with available fallback paths",
+                {"context": context, "url": url, **error_diagnostics(err)},
+            )
+            return ""
 
     def get_book_url(self, identifiers):
         media_id = _extract_overdrive_id(_first_identifier_value(identifiers or {}, "overdrive"))
@@ -486,7 +522,7 @@ class OverDrive(Source):
         if mode == "detail":
             detail_ids = [media_id]
         else:
-            search_html = self._open_text_with_backoff(
+            search_html = self._open_text_or_none(
                 log=log,
                 abort=abort,
                 url=url,
@@ -496,6 +532,9 @@ class OverDrive(Source):
             if not search_html:
                 return
             detail_ids = _extract_overdrive_ids_from_search_html(search_html, limit=6)
+            log_message(log, "info", "OverDrive parsed search ids", {"count": len(detail_ids), "url": url})
+            if not detail_ids:
+                log_message(log, "info", "OverDrive response markers", {"url": url, **_response_markers(search_html)})
 
             # If search had no ids and caller provided isbn + title/authors, retry a broader query.
             if not detail_ids and _safe_isbn(identifiers) and (title or authors) and not abort.is_set():
@@ -503,7 +542,7 @@ class OverDrive(Source):
                 if retry:
                     _, retry_url, _ = retry
                     log_message(log, "info", "OverDrive ISBN search yielded no results, retrying with title/author query")
-                    search_html = self._open_text_with_backoff(
+                    search_html = self._open_text_or_none(
                         log=log,
                         abort=abort,
                         url=retry_url,
@@ -511,6 +550,9 @@ class OverDrive(Source):
                         context="OverDrive search fallback",
                     )
                     detail_ids = _extract_overdrive_ids_from_search_html(search_html, limit=6)
+                    log_message(log, "info", "OverDrive parsed search ids", {"count": len(detail_ids), "url": retry_url, "fallback": True})
+                    if not detail_ids and search_html:
+                        log_message(log, "info", "OverDrive response markers", {"url": retry_url, "fallback": True, **_response_markers(search_html)})
 
         seen = set()
         for relevance, did in enumerate(detail_ids):

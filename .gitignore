@@ -229,4 +229,8 @@ LiuXin-alpha-[0-9-]*.zip
 /[0-9]*.gif
 /*_thumbnail.gif
 
+# Headless browser profiles created by Google Images live probes
+/.tmp/google-images-chrome-profile*/
+/.tmp/google-images-rendered-browser/
+
 LiuXin_scratch/*
