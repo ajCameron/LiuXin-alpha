@@ -609,13 +609,16 @@ class Douban(Source):
         if cached_url is None:
             _log(log, "info", "No cover found")
             return
-        payload = self._open_bytes_with_backoff(
-            log=log,
-            abort=abort,
-            url=cached_url,
-            timeout=timeout,
-            context="Douban cover download",
-        )
+        try:
+            payload = self._open_bytes_with_backoff(
+                log=log,
+                abort=abort,
+                url=cached_url,
+                timeout=timeout,
+                context="Douban cover download",
+            )
+        except Exception:
+            return
         if payload:
             result_queue.put((self, payload))
 

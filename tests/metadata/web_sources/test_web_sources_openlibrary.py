@@ -10,10 +10,48 @@ def test_web_sources_openlibrary_import_smoke() -> None:
     assert openlibrary is not None
 
 
+def test_openlibrary_helper_normalization_edges() -> None:
+    from LiuXin_alpha.metadata.web_sources.openlibrary import (
+        _coerce_text,
+        _first_value,
+        _isbn_from_identifiers,
+        _normalize_isbn,
+    )
+
+    class BadString:
+        def __str__(self):
+            raise RuntimeError("broken")
+
+    assert _first_value(None) is None
+    assert _first_value("isbn") == "isbn"
+    assert _first_value({"first": "ignored"}) == "first"
+    assert _first_value({}) is None
+    assert _first_value(item for item in ["one"]) == "one"
+    assert _first_value(7) == 7
+
+    assert _coerce_text(None) is None
+    assert _coerce_text(b"9780306406157") == "9780306406157"
+    assert _coerce_text("9780306406157") == "9780306406157"
+    assert _coerce_text(BadString()) is None
+
+    assert _normalize_isbn(None) is None
+    assert _normalize_isbn("   ") is None
+    assert _normalize_isbn("---") is None
+    assert _normalize_isbn(" 978-0-306-40615-7 ") == "9780306406157"
+    assert _normalize_isbn("0-306-40615-X") == "030640615X"
+
+    assert _isbn_from_identifiers([]) is None
+    assert _isbn_from_identifiers({"isbn": "---", "isbn13": "9780306406157"}) == "9780306406157"
+    assert _isbn_from_identifiers({"isbn": None, "isbn10": {"030640615X"}}) == "030640615X"
+    assert _isbn_from_identifiers({"asin": "B000000"}) is None
+
+
 def test_openlibrary_get_book_url_and_cached_cover_url() -> None:
     from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
 
     plugin = OpenLibrary()
+    assert plugin.get_book_url({}) is None
+    assert plugin.get_cached_cover_url({}) is None
     assert plugin.get_book_url({"isbn": "9780306406157"}) == (
         "isbn",
         "9780306406157",
