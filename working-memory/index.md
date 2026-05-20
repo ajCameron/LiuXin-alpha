@@ -6,6 +6,12 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [file-formats-odt-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-odt-container-2026-05-21.md)
+  Current branch note for the ODT archive/XML container pass: reusable ODT
+  fixtures, required-member validation, hostile picture-path hardening,
+  multilingual Extract/ODTInput coverage, and generated OPF/XHTML/CSS/assets.
+  Durable doc: `docs/development/file-format-unicode-conversion.md`.
+
 - [file-formats-markup-hostile-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-markup-hostile-2026-05-21.md)
   Current branch note for the optional lightweight-markup hostile-input pass:
   shared malformed Markdown/Textile fixtures, TXTInput extension-path coverage,

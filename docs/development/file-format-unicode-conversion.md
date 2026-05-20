@@ -37,6 +37,26 @@ some of those paths may be better than forcing every conversion through OEB.
 Those adapters should be tested as pipeline edges with the same unicode,
 malformed-input, and loss-reporting corpus used by the in-tree converters.
 
+## Container Direction
+
+Archive/XML formats need a stricter contract than plain text and lightweight
+markup:
+
+- required archive members should be validated before conversion produces
+  partial output
+- malformed XML and invalid declared encodings should fail clearly unless a
+  format has an intentional recovery path
+- embedded assets should be copied without allowing archive member names to
+  escape the conversion work directory
+- nested and non-ASCII asset paths should be supported when they are valid
+- generated `metadata.opf`, XHTML, CSS, and copied assets should be checked as
+  a single conversion product
+
+The ODT pass is the first container/XML slice using this contract. It validates
+required `META-INF/manifest.xml`, `meta.xml`, and `content.xml` members,
+preserves multilingual metadata/body text, copies valid `Pictures/...` assets,
+and rejects hostile picture paths that would escape the `Pictures` output tree.
+
 ## PML Status
 
 The PML pass currently captures two boundaries:

@@ -6,6 +6,7 @@ Convert an ODT file into a Open Ebook
 
 import logging
 import os
+import posixpath
 
 from lxml import etree
 try:
@@ -37,14 +38,43 @@ __docformat__ = "restructuredtext en"
 
 
 class Extract(ODF2XHTML):
+    def validate_container_members(self, stream):
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
+
+        stream.seek(0)
+        zf = ZipFile(stream, "r")
+        try:
+            names = set(zf.namelist())
+            required = ("META-INF/manifest.xml", "meta.xml", "content.xml")
+            missing = [name for name in required if name not in names]
+            if missing:
+                raise ValueError("ODT file is missing required member(s): %s" % ", ".join(missing))
+        finally:
+            zf.close()
+            stream.seek(0)
+
     def extract_pictures(self, zf):
         if not os.path.exists("Pictures"):
             os.makedirs("Pictures")
+        pictures_root = os.path.abspath("Pictures")
         for name in zf.namelist():
-            if name.startswith("Pictures") and name not in {"Pictures", "Pictures/"}:
-                data = zf.read(name)
-                with open(name, "wb") as f:
-                    f.write(data)
+            normalized = posixpath.normpath(name.replace("\\", "/"))
+            if normalized == "Pictures" or not normalized.startswith("Pictures/"):
+                continue
+            relative_name = normalized[len("Pictures/") :]
+            target = os.path.abspath(os.path.join(pictures_root, *relative_name.split("/")))
+            try:
+                common = os.path.commonpath([pictures_root, target])
+            except ValueError:
+                continue
+            if common != pictures_root:
+                continue
+            parent = os.path.dirname(target)
+            if parent and not os.path.exists(parent):
+                os.makedirs(parent)
+            data = zf.read(name)
+            with open(target, "wb") as f:
+                f.write(data)
 
     def fix_markup(self, html, log):
         root = etree.fromstring(html)
@@ -295,6 +325,7 @@ class Extract(ODF2XHTML):
         with CurrentDir(odir):
             log("Extracting ODT file...")
             stream.seek(0)
+            self.validate_container_members(stream)
             mi = odt_get_metadata(stream)
             if not mi.title:
                 mi.title = _("Unknown")
