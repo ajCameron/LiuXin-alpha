@@ -26,6 +26,7 @@ KNOWN_WEB_SOURCE_MODULES: tuple[str, ...] = (
     "identify",
     "isbndb",
     "kdl",
+    "library_of_congress",
     "library_thing",
     "openlibrary",
     "overdrive",
