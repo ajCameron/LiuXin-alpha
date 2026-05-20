@@ -542,10 +542,11 @@ Validation:
 
 Branch: `web-source-isfdb`
 
-Added a new `metadata.web_sources.isfdb` provider and registered it in
-`KNOWN_WEB_SOURCE_MODULES`. The source is also imported by the builtin metadata
-downloader list, but only participates in identify runs when a local ISFDB
-database can be resolved.
+Added a new `metadata.local_sources.isfdb` provider. It initially landed under
+`metadata.web_sources`, then moved to `metadata.local_sources` because it reads
+a configured local ISFDB import database rather than scraping the live site. The
+source is still imported by the builtin metadata downloader list, but only
+participates in identify runs when a local ISFDB database can be resolved.
 
 Implemented behavior:
 
@@ -569,15 +570,15 @@ Implemented behavior:
 
 Validation so far:
 
-- `python3 -m py_compile src/LiuXin_alpha/metadata/web_sources/isfdb.py tests/metadata/web_sources/test_web_sources_isfdb.py`
+- `python3 -m py_compile src/LiuXin_alpha/metadata/local_sources/isfdb.py tests/metadata/local_sources/test_local_sources_isfdb.py`
   - clean
-- `python3 -m pytest tests/metadata/web_sources/test_web_sources_isfdb.py -q`
+- `python3 -m pytest tests/metadata/local_sources/test_local_sources_isfdb.py -q`
   - `8 passed`
-- `python3 -m pytest tests/metadata/web_sources/test_web_sources_isfdb.py tests/metadata/web_sources/test_web_sources_identify.py -q`
+- `python3 -m pytest tests/metadata/local_sources/test_local_sources_isfdb.py tests/metadata/web_sources/test_web_sources_identify.py -q`
   - `24 passed`
-- `python3 -m pytest tests/metadata/web_sources/test_web_sources_init.py tests/metadata/web_sources/test_web_sources_isfdb.py -q`
+- `python3 -m pytest tests/metadata/local_sources/test_local_sources_isfdb.py tests/metadata/web_sources/test_web_sources_init.py -q`
   - `19 passed`
-- `python3 -m pytest tests/metadata/web_sources -q`
+- `python3 -m pytest tests/metadata/web_sources tests/metadata/local_sources -q`
   - `315 passed, 12 skipped`
 - `git diff --check`
   - clean
@@ -586,6 +587,8 @@ Validation so far:
   for `'Salem's Lot'` / `Stephen King`
   - returned one result with `isfdb:title:1272`, `isfdb_pub:20`, and ISBN
     `0451092317`
+  - after the move, confirmed through
+    `LiuXin_alpha.metadata.local_sources.isfdb`
 
 ## Next
 

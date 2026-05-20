@@ -262,14 +262,14 @@ def _create_isfdb_fixture(path: Path) -> Path:
     return path
 
 
-def test_web_sources_isfdb_import_smoke() -> None:
-    import LiuXin_alpha.metadata.web_sources.isfdb as isfdb
+def test_local_sources_isfdb_import_smoke() -> None:
+    import LiuXin_alpha.metadata.local_sources.isfdb as isfdb
 
     assert isfdb is not None
 
 
 def test_isfdb_helper_edges(tmp_path: Path, monkeypatch) -> None:
-    import LiuXin_alpha.metadata.web_sources.isfdb as isfdb
+    import LiuXin_alpha.metadata.local_sources.isfdb as isfdb
 
     db_path = _create_isfdb_fixture(tmp_path / "isfdb.test_db")
     monkeypatch.setenv("LIUXIN_ISFDB_TEST_DB", str(db_path))
@@ -290,7 +290,7 @@ def test_isfdb_helper_edges(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_isfdb_url_and_query_builders(tmp_path: Path) -> None:
-    from LiuXin_alpha.metadata.web_sources.isfdb import ISFDB
+    from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 
     plugin = ISFDB(database_path=str(_create_isfdb_fixture(tmp_path / "isfdb.test_db")))
     assert plugin.is_configured()
@@ -317,7 +317,7 @@ def test_isfdb_url_and_query_builders(tmp_path: Path) -> None:
 
 
 def test_isfdb_identify_direct_title_maps_metadata(tmp_path: Path) -> None:
-    from LiuXin_alpha.metadata.web_sources.isfdb import ISFDB
+    from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 
     plugin = ISFDB(database_path=str(_create_isfdb_fixture(tmp_path / "isfdb.test_db")))
     out = queue.Queue()
@@ -349,7 +349,7 @@ def test_isfdb_identify_direct_title_maps_metadata(tmp_path: Path) -> None:
 
 
 def test_isfdb_identify_by_isbn_prefers_publication_title_work(tmp_path: Path) -> None:
-    from LiuXin_alpha.metadata.web_sources.isfdb import ISFDB
+    from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 
     db_path = _create_isfdb_fixture(tmp_path / "isfdb.test_db")
     with sqlite3.connect(db_path) as conn:
@@ -365,7 +365,7 @@ def test_isfdb_identify_by_isbn_prefers_publication_title_work(tmp_path: Path) -
 
 
 def test_isfdb_identify_by_text_author_and_abort(tmp_path: Path) -> None:
-    from LiuXin_alpha.metadata.web_sources.isfdb import ISFDB
+    from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 
     plugin = ISFDB(database_path=str(_create_isfdb_fixture(tmp_path / "isfdb.test_db")))
     out = queue.Queue()
@@ -385,7 +385,7 @@ def test_isfdb_identify_by_text_author_and_abort(tmp_path: Path) -> None:
 
 
 def test_isfdb_identify_configuration_schema_and_parse_failures(tmp_path: Path, monkeypatch) -> None:
-    from LiuXin_alpha.metadata.web_sources.isfdb import ISFDB
+    from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 
     plugin = ISFDB(database_path=str(tmp_path / "missing.test_db"))
     out = queue.Queue()
@@ -408,9 +408,9 @@ def test_isfdb_identify_configuration_schema_and_parse_failures(tmp_path: Path, 
     assert any(level == "exception" and "Failed to parse" in parts[0] for level, parts in log.events)
 
 
-def test_isfdb_import_web_source_module() -> None:
-    from LiuXin_alpha.metadata.web_sources import import_web_source_module, iter_known_web_source_modules
+def test_isfdb_import_local_source_module() -> None:
+    from LiuXin_alpha.metadata.local_sources import import_local_source_module, iter_known_local_source_modules
 
-    assert "isfdb" in iter_known_web_source_modules()
-    mod = import_web_source_module("isfdb")
+    assert "isfdb" in iter_known_local_source_modules()
+    mod = import_local_source_module("isfdb")
     assert hasattr(mod, "ISFDB")

@@ -25,7 +25,6 @@ KNOWN_WEB_SOURCE_MODULES: tuple[str, ...] = (
     "google_images",
     "identify",
     "internet_archive",
-    "isfdb",
     "isbndb",
     "kdl",
     "library_of_congress",

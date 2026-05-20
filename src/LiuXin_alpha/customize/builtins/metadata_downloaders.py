@@ -1,5 +1,6 @@
 """
-Metadata downloaders try and complete sets of metadata for books from the internet.
+Metadata downloaders try and complete sets of metadata for books from online or
+configured local sources.
 
 For example, you could feed one of them an ISBN, and it'd get the title.
 Or you could feed one of them the title, and it'd get the cover.
@@ -76,12 +77,12 @@ else:
     web_md_plugins += [ISBNDB]
 
 try:
-    from LiuXin_alpha.metadata.web_sources.isfdb import ISFDB
+    from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 except Exception as e:
-    debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.isfdb", "ISFDB")
+    debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.local_sources.isfdb", "ISFDB")
     default_log.log_exception(debug_str, e, "DEBUG")
 else:
-    default_log.info("{1} from {0} was successfully imported".format("LiuXin.metadata.web_sources.isfdb", "ISFDB"))
+    default_log.info("{1} from {0} was successfully imported".format("LiuXin.metadata.local_sources.isfdb", "ISFDB"))
     web_md_plugins += [ISFDB]
 
 try:
