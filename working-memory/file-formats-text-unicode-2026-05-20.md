@@ -48,6 +48,22 @@ Added `tests/file_formats/txt/test_txt_unicode_framework.py` covering:
 - `TXTOutput.convert` determinism and unicode preservation across the shared
   encoding/newline output matrix
 
+## Additional Consumers
+
+Added framework-backed Markdown/Textile coverage without removing the older
+bespoke torture tests:
+
+- `tests/file_formats/markdown/test_markdown_unicode_framework.py`
+  - shared corpus preservation through `markdown.markdown`
+  - bytes, bytearray, and memoryview payloads through `Markdown.convert`
+  - UTF-8, UTF-8 BOM, UTF-16 LE BOM, and UTF-16 BE BOM file conversion through
+    `markdownFromFile`
+- `tests/file_formats/textile/test_textile_unicode_framework.py`
+  - shared corpus preservation through `textile`
+  - restricted-mode escaping/nofollow behavior while preserving unicode text
+  - heading offset with non-ASCII heading content
+  - deterministic unicode fuzz stability
+
 ## Validation
 
 - `python3 -m py_compile tests/support/file_format_unicode.py tests/file_formats/test_unicode_framework.py tests/file_formats/txt/test_txt_unicode_framework.py`
@@ -58,12 +74,16 @@ Added `tests/file_formats/txt/test_txt_unicode_framework.py` covering:
   - clean
 - `python3 -m pytest tests/file_formats/test_conversion_framework.py tests/file_formats/test_unicode_framework.py tests/file_formats/txt/test_txt_unicode_framework.py -q`
   - `26 passed`
+- `python3 -m py_compile tests/file_formats/markdown/test_markdown_unicode_framework.py tests/file_formats/textile/test_textile_unicode_framework.py`
+  - clean
+- `python3 -m pytest tests/file_formats/markdown/test_markdown_unicode_framework.py tests/file_formats/textile/test_textile_unicode_framework.py -q`
+  - `12 passed`
 - `python3 -m pytest tests/file_formats/txt tests/file_formats/textile tests/file_formats/markdown -q`
-  - `58 passed`
+  - `70 passed`
 - `git diff --check`
   - clean
 - `python3 -m pytest tests/file_formats -q`
-  - `555 passed, 1 skipped, 124 warnings`
+  - `567 passed, 1 skipped, 124 warnings`
 
 ## Next
 
