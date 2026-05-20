@@ -6,6 +6,11 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [file-formats-pml-unicode-2026-05-20.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-pml-unicode-2026-05-20.md)
+  Current branch note for the PML pass after PR #69: shared OEB fixture
+  coverage for `PMLMLizer`/`PMLOutput`, deterministic `.pmlz` output, and the
+  explicit supported-versus-lossy PML unicode boundary.
+
 - [file-formats-text-unicode-2026-05-20.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-text-unicode-2026-05-20.md)
   Current branch note for the text/unicode file-format pass: reusable
   multiscript corpus, encoded payload cases, deterministic fuzz helpers,
