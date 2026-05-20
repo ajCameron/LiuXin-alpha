@@ -32,6 +32,11 @@ and later conversion matrix work.
   - strict decode/newline-style assertions for output conversion bytes
 - Added `tests/file_formats/test_conversion_framework.py` as a contract test
   for the reusable conversion matrix support.
+- Added `tests/support/file_format_oeb.py`.
+- Shared OEB fixtures include:
+  - a minimal XHTML spine/manifest/TOC model for output serializers
+  - a neutral stylizer that avoids requiring the full CSS/stylizer stack
+  - reusable text-output options and logging helpers
 
 ## First Consumer
 
@@ -64,6 +69,25 @@ bespoke torture tests:
   - heading offset with non-ASCII heading content
   - deterministic unicode fuzz stability
 
+## Output Serializers
+
+Added `tests/file_formats/txt/test_txt_output_serializers_unicode_framework.py`
+to exercise the real TXT output serializers against the shared OEB fixture:
+
+- `TXTMLizer` extracts the shared unicode corpus from an OEB spine with inline
+  TOC enabled.
+- `MarkdownMLizer` preserves unicode through headings, styled text, links,
+  images, lists, tables, and preformatted text.
+- `TextileMLizer` covers the same OEB fixture, including link/image retention.
+- `TXTOutput.convert` now uses the real plain/Markdown/Textile serializers
+  against the shared unicode OEB fixture.
+
+This uncovered and fixed a Python 3 regex construction bug in
+`src/LiuXin_alpha/file_formats/txt/textileml.py`: the Textile cleanup regex for
+styled bracket spans opened a capture group without closing it before the
+literal closing bracket. Full Textile output conversion now reaches cleanup
+without a `re.error`.
+
 ## Validation
 
 - `python3 -m py_compile tests/support/file_format_unicode.py tests/file_formats/test_unicode_framework.py tests/file_formats/txt/test_txt_unicode_framework.py`
@@ -78,12 +102,18 @@ bespoke torture tests:
   - clean
 - `python3 -m pytest tests/file_formats/markdown/test_markdown_unicode_framework.py tests/file_formats/textile/test_textile_unicode_framework.py -q`
   - `12 passed`
+- `python3 -m py_compile src/LiuXin_alpha/file_formats/txt/textileml.py tests/support/file_format_oeb.py tests/file_formats/txt/test_txt_output_serializers_unicode_framework.py`
+  - clean
+- `python3 -m pytest tests/file_formats/txt/test_txt_output_serializers_unicode_framework.py -q`
+  - `6 passed`
+- `python3 -m pytest tests/file_formats/txt -q`
+  - `33 passed`
 - `python3 -m pytest tests/file_formats/txt tests/file_formats/textile tests/file_formats/markdown -q`
-  - `70 passed`
+  - `76 passed`
 - `git diff --check`
   - clean
 - `python3 -m pytest tests/file_formats -q`
-  - `567 passed, 1 skipped, 124 warnings`
+  - `573 passed, 1 skipped, 124 warnings`
 
 ## Next
 
