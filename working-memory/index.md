@@ -6,6 +6,12 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [file-formats-markup-hostile-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-markup-hostile-2026-05-21.md)
+  Current branch note for the optional lightweight-markup hostile-input pass:
+  shared malformed Markdown/Textile fixtures, TXTInput extension-path coverage,
+  delimiter stress, and the direct/external converter pipeline follow-up.
+  Durable doc: `docs/development/file-format-unicode-conversion.md`.
+
 - [file-formats-pml-unicode-2026-05-20.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-pml-unicode-2026-05-20.md)
   Current branch note for the PML pass after PR #69: shared OEB fixture
   coverage for `PMLMLizer`/`PMLOutput`, deterministic `.pmlz` output, and the
