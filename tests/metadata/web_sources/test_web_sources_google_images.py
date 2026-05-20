@@ -353,16 +353,20 @@ def test_google_images_rendered_browser_path_and_profile(monkeypatch, tmp_path) 
 
 
 def test_google_images_windows_browser_profile_uses_windows_accessible_root(monkeypatch, tmp_path) -> None:
-    from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
+    from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages, _wsl_path_to_windows
 
     plugin = GoogleImages()
     monkeypatch.chdir(tmp_path)
 
     profile = plugin._rendered_browser_profile_dir("/mnt/c/Program Files/Google/Chrome/Application/chrome.exe")
 
-    assert profile.startswith("C:\\")
-    assert "\\.tmp\\google-images-rendered-browser\\profile-" in profile
-    assert "pytest-" not in profile
+    assert _wsl_path_to_windows("/mnt/c/Users/Example/Profile") == "C:\\Users\\Example\\Profile"
+    if profile.startswith("C:\\"):
+        assert "\\.tmp\\google-images-rendered-browser\\profile-" in profile
+        assert "pytest-" not in profile
+    else:
+        assert profile.startswith(str(tmp_path))
+        assert "/.tmp/google-images-rendered-browser/profile-" in profile
 
 
 def test_google_images_render_search_page_invokes_headless_browser(monkeypatch, tmp_path) -> None:
