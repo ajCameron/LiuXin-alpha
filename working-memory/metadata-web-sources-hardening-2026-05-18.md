@@ -360,15 +360,99 @@ Validation:
 - `.venv/bin/python -m pytest tests/metadata/web_sources -q`
   - `244 passed, 9 skipped`
 
+## Google Images Rendered Fallback Slice
+
+After live probes showed static Google Images responses were returning guarded
+or empty pages, added an optional rendered-browser fallback to
+`metadata.web_sources.google_images`.
+
+Implemented behavior:
+
+- static scrape variants still run first
+- guarded/no-result static responses fall back to rendered Google search pages
+- Chrome/Edge browser detection supports Linux browser names and Windows
+  Chrome/Edge under WSL
+- `LIUXIN_GOOGLE_IMAGES_BROWSER` can override the browser path
+- browser profiles are created under `.tmp` and ignored by git
+- WSL Windows browser launches use Windows-accessible profile paths
+- rendered DOM parsing accepts Google thumbnail URLs such as
+  `encrypted-tbn*.gstatic.com/images?...`
+- static `asearch=ichunk` was removed after repeated `404` responses
+- diagnostics now mark Google guard/challenge signatures, including
+  `enablejs`, `SG_REL`, `SG_SS`, and thumbnail URL counts
+
+Validation:
+
+- `python3 -m pytest tests/metadata/web_sources/test_web_sources_google_images.py -q`
+  - `17 passed`
+- `python3 -m pytest tests/metadata/web_sources -q`
+  - `269 passed, 9 skipped`
+- `LIUXIN_RUN_LIVE_WEB_TESTS=1 .venv/bin/python -m pytest tests/metadata/web_sources/test_web_sources_live_backends.py::test_live_google_images_search_and_download -q -s`
+  - `1 passed`
+- direct smoke for `The Hobbit` / `J. R. R. Tolkien`
+  - rendered fallback returned `235` candidate image URLs
+
+Operational note:
+
+- The functional live path currently depends on a locally available Chrome/Edge
+  binary. Static Google scraping remains guarded in this environment.
+
+## Library Of Congress Source Slice
+
+Branch: `web-source-library-of-congress`
+
+Added a new `metadata.web_sources.library_of_congress` provider and registered
+it in `KNOWN_WEB_SOURCE_MODULES`.
+
+Implemented behavior:
+
+- `LibraryOfCongress` supports `identify` and `cover`
+- search endpoint: `https://www.loc.gov/books/?fo=json`
+- item endpoint: `https://www.loc.gov/item/<id>/?fo=json`
+- identifiers: `loc`, `lccn`, `isbn`, and `oclc`
+- fields: title, authors, comments, publisher, pubdate, language, tags, and
+  cover URLs
+- cover URLs are extracted from top-level `image_url` and nested `resources`
+- successful metadata postprocessing populates ISBN-to-LoC and LoC-to-cover
+  caches
+- guarded/blocked responses are logged and treated as source misses instead of
+  failing the full identify run
+- live probe is gated behind `LIUXIN_RUN_LIVE_WEB_TESTS=1`
+
+Validation:
+
+- `python3 -m pytest tests/metadata/web_sources/test_web_sources_library_of_congress.py -q`
+  - `12 passed`
+- `python3 -m pytest tests/metadata/web_sources -q`
+  - `281 passed, 10 skipped`
+- `LIUXIN_RUN_LIVE_WEB_TESTS=1 python3 -m pytest tests/metadata/web_sources/test_web_sources_live_backends.py::test_live_library_of_congress_identify -q -s`
+  - `1 skipped`
+  - current environment receives `HTTP 403` from Cloudflare for the LoC JSON
+    endpoint
+- rendered Chrome check against the LoC JSON URL also returned the Cloudflare
+  challenge page, so this first slice intentionally stops at static API parser
+  and clean guarded-backend handling
+- `git diff --check`
+  - clean
+
+Durable doc:
+
+- `docs/development/metadata-web-sources.md`
+
 ## Next
 
-Continue with provider modules using offline fake browser responses and compact
-HTML/JSON fixtures. Highest old-coverage payoff is probably `amazon.py`,
-`ozon.py`, `overdrive.py`, `douban.py`, `edelweiss.py`, and `isbndb.py`, with
-`identify.py` branch gaps revisited only where provider tests naturally hit
-them. After the Amazon, Ozon, OverDrive, Douban, Edelweiss, and ISBNDB slices,
-the remaining Calibre-backed baselines were `openlibrary.py` 76%,
-`big_book_search.py` 78%, and `google.py` 79%. After OpenLibrary and Big Book
-Search, Google is now covered. Next choose from the smaller remaining web-source
-modules or revisit shared `identify.py` branch gaps if provider tests do not
-naturally hit them.
+The web-source unit suite is now broad enough that new provider work should be
+chosen for user value rather than old coverage numbers alone.
+
+Good next options:
+
+- Internet Archive as an enrichment/cover fallback for older and digitized
+  editions.
+- Wikidata as conservative work/author/identifier enrichment, not an edition
+  source of truth.
+- A local/imported ISFDB-backed source for speculative-fiction quality, likely
+  more robust than scraping the live site.
+- Review the `5 XPASS` tests from the latest full coverage run and either remove
+  stale xfails or record why they remain expected.
+- Reduce warning noise clustered in `SQL/databasedriver/search_mixin.py`,
+  `utils/date.py`, and multiprocessing fork warnings.

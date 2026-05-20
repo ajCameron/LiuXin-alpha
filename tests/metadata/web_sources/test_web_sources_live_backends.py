@@ -13,6 +13,7 @@ from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 from LiuXin_alpha.metadata.web_sources.http_client import error_status_code
+from LiuXin_alpha.metadata.web_sources.library_of_congress import LibraryOfCongress
 from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
 from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 from LiuXin_alpha.metadata.web_sources.ozon import Ozon
@@ -266,6 +267,32 @@ def test_live_google_images_search_and_download() -> None:
     assert source is plugin
     assert isinstance(payload, (bytes, bytearray))
     assert len(payload) > 100
+
+
+def test_live_library_of_congress_identify() -> None:
+    _require_hosts("www.loc.gov")
+    plugin = LibraryOfCongress()
+    log = _LiveLog()
+    q = Queue()
+    try:
+        plugin.identify(
+            log=log,
+            result_queue=q,
+            abort=Event(),
+            title="The Hobbit",
+            authors=["J. R. R. Tolkien"],
+            timeout=45,
+        )
+    except Exception as err:
+        _skip_known_live_exception("Library of Congress", err, log, statuses=_COMMON_LIVE_REFUSAL_STATUS | {403})
+        raise
+    results = _drain_queue(q)
+    if not results:
+        pytest.skip(f"Library of Congress returned no parseable results in this live run.\n{log.dump()}")
+    first = results[0]
+    assert first.title
+    assert first.authors
+    assert first.get_identifiers().get("loc") or first.get_identifiers().get("lccn")
 
 
 def test_live_big_book_search_query() -> None:

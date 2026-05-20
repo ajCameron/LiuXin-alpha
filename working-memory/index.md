@@ -1,10 +1,16 @@
 # Working Memory Index
 
-Updated: 2026-05-17
+Updated: 2026-05-20
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [metadata-web-sources-hardening-2026-05-18.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-web-sources-hardening-2026-05-18.md)
+  Current web-source hardening and expansion note: provider parser/backoff
+  coverage, Google Images rendered-browser fallback, the new Library of
+  Congress source slice, live-probe behavior, and next source candidates.
+  Durable doc: `docs/development/metadata-web-sources.md`.
 
 - [metadata-wemi-container-hardening-plan-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-wemi-container-hardening-plan-2026-05-17.md)
   Current branch note for the planned WEMI container/conversion hardening pass:
