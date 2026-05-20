@@ -466,6 +466,14 @@ Validation:
   - `15 passed`
 - `python3 -m pytest tests/metadata/web_sources -q`
   - `296 passed, 11 skipped`
+- `scripts/run_live_web_sources.sh`
+  - log: `working-memory/test-results/live-web-sources-2026-05-20-020101.log`
+  - `6 passed, 5 skipped, 1 xfailed`
+  - Internet Archive identify + cover passed live; it was the slowest backend
+    in this run at `93.73s`
+  - skips were expected backend/environment outcomes: LoC `403`, Big Book
+    Search DNS failure, Douban `400`/`403`, OverDrive captcha/zero results,
+    and Ozon redirect-loop signature
 - `git diff --check`
   - clean
 
@@ -480,6 +488,8 @@ chosen for user value rather than old coverage numbers alone.
 
 Good next options:
 
+- Split the Internet Archive live probe timing into identify and cover phases so
+  future slow runs show which request path is dragging.
 - Wikidata as conservative work/author/identifier enrichment, not an edition
   source of truth.
 - A local/imported ISFDB-backed source for speculative-fiction quality, likely
