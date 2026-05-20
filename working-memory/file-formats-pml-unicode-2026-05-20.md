@@ -7,6 +7,8 @@ framework work and uses the shared file-format fixtures from
 `tests/support/file_format_unicode.py`, `file_format_conversion.py`, and
 `file_format_oeb.py`.
 
+Durable doc: `docs/development/file-format-unicode-conversion.md`.
+
 ## Scope
 
 First PML pass focuses on output conversion behavior:
@@ -36,6 +38,14 @@ First PML pass focuses on output conversion behavior:
 - Hardened `PMLInput.process_pml` to decode input bytes with replacement so
   bad byte sequences do not abort conversion before the parser can recover.
 
+## Decisions
+
+- Unsupported-character replacement in PML output should be visible and
+  reportable. Keeping `?` as the actual fallback output is acceptable, but
+  silent data loss is not.
+- Future reporting should include the conversion format/phase, count, and a
+  small sample of replaced or unrepresentable characters where possible.
+
 ## Validation
 
 - `python3 -m py_compile tests/file_formats/pml/test_pml_unicode_framework.py`
@@ -57,8 +67,8 @@ First PML pass focuses on output conversion behavior:
 
 ## Next
 
-- Decide whether unsupported-character replacement should remain `?` or gain a
-  visible/reportable conversion warning before broader conversion work.
+- Implement visible/reportable diagnostics for lossy PML output replacement
+  before broader conversion-matrix work depends on the PML fallback behavior.
 - Add more PML image-output tests if conversion fidelity becomes image-heavy.
 - Move to the next complexity step, likely ODT/OPF/container conversion, once
   this PML slice is merged.
