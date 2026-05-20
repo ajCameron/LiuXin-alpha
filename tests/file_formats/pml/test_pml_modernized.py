@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import builtins
 import io
 import types
 
@@ -69,9 +70,17 @@ def test_pml_input_process_pml_handles_binary_stream_encoding_default(tmp_path) 
     assert len(toc) >= 1
 
 
-def test_pml_output_image_export_without_pillow_is_non_fatal(tmp_path) -> None:
+def test_pml_output_image_export_without_pillow_is_non_fatal(monkeypatch, tmp_path) -> None:
     from LiuXin_alpha.file_formats.conversion.plugins.pml_output import PMLOutput
 
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "PIL" or name.startswith("PIL."):
+            raise ImportError("Pillow intentionally hidden for test")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
     plugin = PMLOutput(None)
     plugin.log = _DummyLog()
     opts = types.SimpleNamespace(full_image_depth=False)

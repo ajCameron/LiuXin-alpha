@@ -6,6 +6,12 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [file-formats-cover-utils-2026-05-20.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-cover-utils-2026-05-20.md)
+  Current branch note for the lateral file-format pass: deterministic
+  cover-extraction utility coverage, Python 3 byte-HTML parsing fixes,
+  top-level/package utility alignment, and the environment-stable PML Pillow
+  fallback test.
+
 - [metadata-web-sources-hardening-2026-05-18.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-web-sources-hardening-2026-05-18.md)
   Current web-source hardening and expansion note: provider parser/backoff
   coverage, Google Images rendered-browser fallback, the new Library of
