@@ -26,6 +26,15 @@ First PML pass focuses on output conversion behavior:
   - unsupported characters are replaced deterministically with `?`
   - supported foreign-language fragments round-trip back through
     `PML_HTMLizer`
+- Added `tests/file_formats/pml/test_pml_malformed_hostile.py`.
+- Covered malformed/hostile PML input with multilingual text around:
+  - unclosed headings, footnotes, sidebars, links, and huge indent controls
+  - bad `\U....` and odd `\a...` escapes
+  - escaped braces/backslashes and path-like image references
+  - invalid raw bytes in otherwise UTF-8 PML streams
+  - `.pmlz` archives with multiple multilingual pages and copied image assets
+- Hardened `PMLInput.process_pml` to decode input bytes with replacement so
+  bad byte sequences do not abort conversion before the parser can recover.
 
 ## Validation
 
@@ -35,15 +44,21 @@ First PML pass focuses on output conversion behavior:
   - `3 passed`
 - `python3 -m pytest tests/file_formats/pml -q`
   - `40 passed`
+- `python3 -m py_compile src/LiuXin_alpha/file_formats/conversion/plugins/pml_input.py tests/file_formats/pml/test_pml_malformed_hostile.py`
+  - clean
+- `python3 -m pytest tests/file_formats/pml/test_pml_malformed_hostile.py -q`
+  - `5 passed`
+- `python3 -m pytest tests/file_formats/pml -q`
+  - `45 passed`
 - `git diff --check`
   - clean
 - `python3 -m pytest tests/file_formats -q`
-  - `587 passed, 1 skipped, 124 warnings`
+  - `592 passed, 1 skipped, 124 warnings`
 
 ## Next
 
-- Add malformed/hostile PML input tests that combine foreign-language content
-  with broken/unclosed control sequences.
-- Exercise `PMLInput.convert` for encoded byte streams and `.pmlz` archives.
 - Decide whether unsupported-character replacement should remain `?` or gain a
   visible/reportable conversion warning before broader conversion work.
+- Add more PML image-output tests if conversion fidelity becomes image-heavy.
+- Move to the next complexity step, likely ODT/OPF/container conversion, once
+  this PML slice is merged.
