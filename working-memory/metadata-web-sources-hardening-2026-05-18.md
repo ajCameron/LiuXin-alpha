@@ -590,6 +590,39 @@ Validation so far:
   - after the move, confirmed through
     `LiuXin_alpha.metadata.local_sources.isfdb`
 
+## Live Diagnostics And XPASS Cleanup
+
+Branch: `web-source-live-diagnostics`
+
+Follow-up cleanup after the web/local source line:
+
+- split the Internet Archive live probe into separate identify and
+  cover-by-identifier tests
+- added per-phase timing log messages for live probes so slow Internet Archive
+  runs show whether identify or cover download is responsible
+- removed stale `xfail` markers that the latest full-suite JSON reported as
+  XPASS:
+  - `TestSQLiteDriverKnownIssues::test_direct_get_max_works_on_py3`
+  - `TestSQLiteDriverKnownIssues::test_direct_get_min_works_on_py3`
+  - `test_singular_plural_mapper_basic`
+  - `test_plural_singular_mapper_basic`
+  - `test_pluralizers_do_not_mutate_input`
+- removed a duplicate `xfail` decorator on the remaining
+  `direct_update_columns` known issue
+
+Validation so far:
+
+- `python3 -m py_compile tests/metadata/web_sources/test_web_sources_live_backends.py tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py tests/utils/language_tools/test_pluralizers.py`
+  - clean
+- `python3 -m pytest tests/metadata/web_sources/test_web_sources_live_backends.py tests/utils/language_tools/test_pluralizers.py -q`
+  - `6 passed, 13 skipped`
+- `python3 -m pytest tests/metadata/web_sources -q`
+  - `308 passed, 13 skipped`
+- `python3 -m pytest tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_database_driver_comprehensive.py tests/utils/language_tools/test_pluralizers.py -q`
+  - `38 passed, 1 skipped, 1 xfailed`
+- `git diff --check`
+  - clean
+
 ## Next
 
 The web-source unit suite is now broad enough that new provider work should be
@@ -597,11 +630,7 @@ chosen for user value rather than old coverage numbers alone.
 
 Good next options:
 
-- Split the Internet Archive live probe timing into identify and cover phases so
-  future slow runs show which request path is dragging.
 - Inspect ISFDB image/imported-cover semantics and decide whether cover support
   should be enabled for the local ISFDB source.
-- Review the `5 XPASS` tests from the latest full coverage run and either remove
-  stale xfails or record why they remain expected.
 - Reduce warning noise clustered in `SQL/databasedriver/search_mixin.py`,
   `utils/date.py`, and multiprocessing fork warnings.
