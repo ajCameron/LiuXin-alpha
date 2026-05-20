@@ -88,6 +88,27 @@ styled bracket spans opened a capture group without closing it before the
 literal closing bracket. Full Textile output conversion now reaches cleanup
 without a `re.error`.
 
+## RTF Slice
+
+Added `tests/file_formats/rtf/test_rtf_unicode_framework.py` as the first step
+up from plain text serializers:
+
+- `txt2rtf` now uses the shared unicode corpus and checks deterministic,
+  ASCII-safe RTF escape output.
+- `RTFMLizer` serializes the shared minimal OEB fixture, including unicode
+  metadata, styled text, links, image placeholders, and embedded raster output.
+- `RTFOutput.convert` runs through the real serializer and validates
+  deterministic ASCII bytes.
+- `tests/support/file_format_oeb.py` now includes minimal `guide` and
+  `metadata` surfaces for richer output serializers, plus tag-aware fake styles
+  for bold/italic elements.
+
+This uncovered a metadata-loss risk in
+`src/LiuXin_alpha/file_formats/rtf/rtfml.py`: the RTF header inserted title and
+author values raw, then `RTFOutput` encoded the whole document as ASCII with
+replacement. Header metadata now goes through `txt2rtf`, matching body text
+escaping and preserving non-ASCII title/creator values.
+
 ## Validation
 
 - `python3 -m py_compile tests/support/file_format_unicode.py tests/file_formats/test_unicode_framework.py tests/file_formats/txt/test_txt_unicode_framework.py`
@@ -108,12 +129,18 @@ without a `re.error`.
   - `6 passed`
 - `python3 -m pytest tests/file_formats/txt -q`
   - `33 passed`
+- `python3 -m py_compile src/LiuXin_alpha/file_formats/rtf/rtfml.py tests/support/file_format_oeb.py tests/file_formats/rtf/test_rtf_unicode_framework.py`
+  - clean
+- `python3 -m pytest tests/file_formats/rtf/test_rtf_unicode_framework.py -q`
+  - `3 passed`
+- `python3 -m pytest tests/file_formats/rtf -q`
+  - `32 passed`
 - `python3 -m pytest tests/file_formats/txt tests/file_formats/textile tests/file_formats/markdown -q`
   - `76 passed`
 - `git diff --check`
   - clean
 - `python3 -m pytest tests/file_formats -q`
-  - `573 passed, 1 skipped, 124 warnings`
+  - `576 passed, 1 skipped, 124 warnings`
 
 ## Next
 

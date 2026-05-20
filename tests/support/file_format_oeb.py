@@ -38,6 +38,13 @@ class MinimalOEBBook:
     spine: list[MinimalOEBItem]
     manifest: list[MinimalOEBItem]
     toc: list[MinimalTOCNode]
+    guide: dict[str, object] = field(default_factory=dict)
+    metadata: object = field(
+        default_factory=lambda: SimpleNamespace(
+            title=[SimpleNamespace(value="Unicode Καλημέρα 世界 👩🏽‍💻")],
+            creator=[SimpleNamespace(value="José Иван")],
+        )
+    )
 
 
 class NullStyle:
@@ -45,6 +52,9 @@ class NullStyle:
     marginBottom = 0
     fontSize = 12
     width = 600
+
+    def __init__(self, overrides: dict[str, str] | None = None) -> None:
+        self._overrides = overrides or {}
 
     _defaults = {
         "display": "inline",
@@ -59,6 +69,8 @@ class NullStyle:
     }
 
     def __getitem__(self, key: str) -> str:
+        if key in self._overrides:
+            return self._overrides[key]
         return self._defaults.get(key, "auto")
 
     def cssdict(self) -> dict[str, str]:
@@ -70,6 +82,11 @@ class NullStylizer:
         self.profile = output_profile or getattr(opts, "output_profile", SimpleNamespace(dpi=96, fbase=12))
 
     def style(self, elem) -> NullStyle:
+        tag = etree.QName(elem).localname if isinstance(elem.tag, str) else ""
+        if tag in {"b", "strong"}:
+            return NullStyle({"font-weight": "bold"})
+        if tag in {"i", "em", "cite"}:
+            return NullStyle({"font-style": "italic"})
         return NullStyle()
 
 

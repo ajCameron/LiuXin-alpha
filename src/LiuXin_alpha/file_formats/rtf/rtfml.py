@@ -229,6 +229,8 @@ class RTFMLizer(object):
         title = _meta_value(title_items[0]) if title_items else "Unknown"
         creators = [_meta_value(x) for x in creator_items]
         author = authors_to_string(creators) if creators else "Unknown"
+        title = txt2rtf(title)
+        author = txt2rtf(author)
         header = "{\\rtf1{\\info{\\title %s}{\\author %s}}\\ansi\\ansicpg1252\\deff0\\deflang1033\n" % (
             title,
             author,
