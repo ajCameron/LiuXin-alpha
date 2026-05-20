@@ -33,6 +33,16 @@ reader/writer churn:
   - text-bearing pages that should not be treated as covers
   - static-cover precedence in `render_html_svg_workaround`
   - Qt renderer fallback dispatch without requiring PyQt
+- Added `tests/file_formats/test_utils_parity.py` to keep top-level
+  `file_formats` helpers and `file_formats.utils` helpers behaviorally aligned
+  for format sniffing, CSS unit parsing/conversion, XPath escaping, and
+  normalization.
+- Extended `tests/file_formats/test_toc_corner_cases.py` with deterministic TOC
+  tree and OPF-path coverage:
+  - `count`, `purge`, `remove`, `depth`, `flat`, `top_level_items`, and
+    `abspath`
+  - guide-based HTML TOC discovery
+  - NCX manifest item discovery
 - Fixed a stale PML test assumption by explicitly hiding `PIL` during the
   "Pillow unavailable" test.
 
@@ -46,8 +56,10 @@ reader/writer churn:
   - `29 passed`
 - `python3 -m pytest tests/file_formats/pml/test_pml_modernized.py tests/file_formats/test_cover_extraction_utils.py -q`
   - `19 passed`
+- `python3 -m pytest tests/file_formats/test_utils_parity.py tests/file_formats/test_toc_corner_cases.py tests/file_formats/test_cover_extraction_utils.py -q`
+  - `56 passed`
 - `python3 -m pytest tests/file_formats -q`
-  - `495 passed, 1 skipped`
+  - `529 passed, 1 skipped`
 
 ## Next
 
