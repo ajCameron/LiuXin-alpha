@@ -435,6 +435,48 @@ Validation:
 - `git diff --check`
   - clean
 
+## Internet Archive Source Slice
+
+Branch: `web-source-internet-archive`
+
+Added a new `metadata.web_sources.internet_archive` provider and registered it
+in `KNOWN_WEB_SOURCE_MODULES`.
+
+Implemented behavior:
+
+- `InternetArchive` supports `identify` and `cover`
+- discovery endpoint: `https://archive.org/advancedsearch.php?output=json`
+- direct metadata endpoint: `https://archive.org/metadata/<identifier>`
+- identifiers: `internet_archive`, `isbn`, `lccn`, `oclc`, and `openlibrary`
+- aliases accepted for incoming archive IDs: `internet_archive`, `ia`,
+  `archive`, `archive_org`, and `ocaid`
+- fields: title, authors, comments, publisher, pubdate, language, tags, and
+  cover URLs
+- cover URLs prefer metadata thumbnail files such as `__ia_thumb.jpg`, falling
+  back to `https://archive.org/services/img/<identifier>`
+- successful metadata postprocessing populates ISBN-to-Internet-Archive and
+  Internet-Archive-to-cover caches
+- request failures are logged and treated as source misses instead of failing
+  the full identify run
+- live probe is gated behind `LIUXIN_RUN_LIVE_WEB_TESTS=1`
+
+Validation:
+
+- `python3 -m pytest tests/metadata/web_sources/test_web_sources_internet_archive.py -q`
+  - `15 passed`
+- `python3 -m pytest tests/metadata/web_sources -q`
+  - `296 passed, 11 skipped`
+- `scripts/run_live_web_sources.sh`
+  - log: `working-memory/test-results/live-web-sources-2026-05-20-020101.log`
+  - `6 passed, 5 skipped, 1 xfailed`
+  - Internet Archive identify + cover passed live; it was the slowest backend
+    in this run at `93.73s`
+  - skips were expected backend/environment outcomes: LoC `403`, Big Book
+    Search DNS failure, Douban `400`/`403`, OverDrive captcha/zero results,
+    and Ozon redirect-loop signature
+- `git diff --check`
+  - clean
+
 Durable doc:
 
 - `docs/development/metadata-web-sources.md`
@@ -446,8 +488,8 @@ chosen for user value rather than old coverage numbers alone.
 
 Good next options:
 
-- Internet Archive as an enrichment/cover fallback for older and digitized
-  editions.
+- Split the Internet Archive live probe timing into identify and cover phases so
+  future slow runs show which request path is dragging.
 - Wikidata as conservative work/author/identifier enrichment, not an edition
   source of truth.
 - A local/imported ISFDB-backed source for speculative-fiction quality, likely

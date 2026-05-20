@@ -26,6 +26,7 @@ The current source set includes:
 - Edelweiss
 - Google Books
 - Google Images
+- Internet Archive
 - ISBNDB
 - KDL
 - Library of Congress
@@ -77,6 +78,24 @@ misses, logs diagnostics, and lets the broader identify run continue.
 The current live probe confirms this behavior: under the present environment,
 LoC returns `HTTP 403`/Cloudflare and the test skips cleanly rather than
 failing.
+
+## Internet Archive
+
+`InternetArchive` uses the official advanced search endpoint,
+`https://archive.org/advancedsearch.php?output=json`, for discovery and
+`https://archive.org/metadata/<identifier>` for direct item metadata lookup.
+It currently supports:
+
+- `identify` and `cover`
+- `internet_archive`, `isbn`, `lccn`, `oclc`, and `openlibrary` identifiers
+- title, authors, comments, publisher, publication date, language, and tags
+- cover URL extraction from metadata thumbnail files, with
+  `https://archive.org/services/img/<identifier>` as the fallback thumbnail URL
+- identifier-to-cover and ISBN-to-Internet-Archive cache population
+
+This source should be treated as an enrichment and cover fallback for digitized
+or archived text items. It complements Open Library but does not replace
+edition-level catalog sources.
 
 ## Google Images
 
