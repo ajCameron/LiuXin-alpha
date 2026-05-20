@@ -122,6 +122,14 @@ RTF inputs before moving away from the format:
 - corrupt/odd/non-hex `\pict` payloads with `ignore_wmf=True`
 - corrupt OEB image payloads dropped by `RTFMLizer` without leaking internal
   placeholders into output
+- mixed hostile/multilingual inputs:
+  - signed unicode controls adjacent to Arabic/Hebrew/Hangul text
+  - invalid parser diagnostics containing Greek/Arabic/Hebrew text
+  - noisy but mostly valid RTF with escaped braces/backslashes, bad raw bytes,
+    unknown destinations, and Greek/Arabic/Hebrew/Devanagari/CJK/Thai/Hangul
+    text
+  - corrupt image payload handling while preserving the shared unicode OEB
+    corpus around the bad image
 
 Fixes from that pass:
 
@@ -161,15 +169,15 @@ Fixes from that pass:
 - `python3 -m py_compile src/LiuXin_alpha/file_formats/rtf/preprocess.py src/LiuXin_alpha/file_formats/conversion/plugins/rtf_input.py tests/file_formats/rtf/test_rtf_malformed_hostile.py`
   - clean
 - `python3 -m pytest tests/file_formats/rtf/test_rtf_malformed_hostile.py -q`
-  - `7 passed`
+  - `8 passed`
 - `python3 -m pytest tests/file_formats/rtf -q`
-  - `39 passed`
+  - `40 passed`
 - `python3 -m pytest tests/file_formats/txt tests/file_formats/textile tests/file_formats/markdown -q`
   - `76 passed`
 - `git diff --check`
   - clean
 - `python3 -m pytest tests/file_formats -q`
-  - `583 passed, 1 skipped, 124 warnings`
+  - `584 passed, 1 skipped, 124 warnings`
 
 ## Next
 
