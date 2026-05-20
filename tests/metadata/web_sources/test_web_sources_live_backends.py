@@ -13,6 +13,7 @@ from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 from LiuXin_alpha.metadata.web_sources.google import GoogleBooks
 from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 from LiuXin_alpha.metadata.web_sources.http_client import error_status_code
+from LiuXin_alpha.metadata.web_sources.internet_archive import InternetArchive
 from LiuXin_alpha.metadata.web_sources.library_of_congress import LibraryOfCongress
 from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
 from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
@@ -293,6 +294,54 @@ def test_live_library_of_congress_identify() -> None:
     assert first.title
     assert first.authors
     assert first.get_identifiers().get("loc") or first.get_identifiers().get("lccn")
+
+
+def test_live_internet_archive_identify_and_cover() -> None:
+    _require_hosts("archive.org")
+    plugin = InternetArchive()
+    log = _LiveLog()
+
+    rq = Queue()
+    try:
+        plugin.identify(
+            log=log,
+            result_queue=rq,
+            abort=Event(),
+            title="The Hobbit",
+            authors=["J. R. R. Tolkien"],
+            timeout=45,
+        )
+    except Exception as err:
+        _skip_known_live_exception("Internet Archive", err, log)
+        raise
+    results = _drain_queue(rq)
+    if not results:
+        pytest.skip(f"Internet Archive returned no parseable results in this live run.\n{log.dump()}")
+    first = results[0]
+    idents = first.get_identifiers()
+    assert first.title
+    assert first.authors
+    assert idents.get("internet_archive")
+
+    cq = Queue()
+    try:
+        plugin.download_cover(
+            log=log,
+            result_queue=cq,
+            abort=Event(),
+            identifiers=idents,
+            timeout=45,
+        )
+    except Exception as err:
+        _skip_known_live_exception("Internet Archive cover", err, log)
+        raise
+    covers = _drain_queue(cq)
+    if not covers:
+        pytest.skip(f"Internet Archive returned no cover payload.\n{log.dump()}")
+    source, payload = covers[0]
+    assert source is plugin
+    assert isinstance(payload, (bytes, bytearray))
+    assert len(payload) > 100
 
 
 def test_live_big_book_search_query() -> None:
