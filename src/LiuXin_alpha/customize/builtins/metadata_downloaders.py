@@ -76,6 +76,15 @@ else:
     web_md_plugins += [ISBNDB]
 
 try:
+    from LiuXin_alpha.metadata.web_sources.isfdb import ISFDB
+except Exception as e:
+    debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.isfdb", "ISFDB")
+    default_log.log_exception(debug_str, e, "DEBUG")
+else:
+    default_log.info("{1} from {0} was successfully imported".format("LiuXin.metadata.web_sources.isfdb", "ISFDB"))
+    web_md_plugins += [ISFDB]
+
+try:
     from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 except Exception as e:
     debug_str = "Unable to import {0} from {1}".format("LiuXin.metadata.web_sources.overdrive", "OverDrive")

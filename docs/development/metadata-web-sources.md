@@ -27,6 +27,7 @@ The current source set includes:
 - Google Books
 - Google Images
 - Internet Archive
+- ISFDB
 - ISBNDB
 - KDL
 - Library of Congress
@@ -117,6 +118,27 @@ It currently supports:
 This source is intentionally conservative enrichment. It does not expose
 `cover`: Wikidata image statements are often representative images rather than
 edition covers.
+
+## ISFDB
+
+`ISFDB` reads a local LiuXin ISFDB import database instead of scraping the live
+site. Configure it with `LIUXIN_ISFDB_TEST_DB`, `LIUXIN_ISFDB_DB`, or the
+source preferences `database_path`, `data_root`, and `bundle_name`.
+
+It currently supports:
+
+- `identify`
+- `isfdb`, `isfdb_title`, `isfdb_pub`, `isbn`, and `asin` identifiers
+- direct ISFDB title/publication URLs such as
+  `https://www.isfdb.org/cgi-bin/title.cgi?1272`
+- title, authors, comments, publisher, publication date, language, tags,
+  series, rating, and source identifiers
+- ISBN-to-ISFDB cache population
+
+This source is intentionally identify-only. The imported ISFDB metadata is
+valuable for speculative-fiction bibliographic enrichment, while cover support
+needs a separate pass over the imported image tables before it should be trusted
+as edition cover data.
 
 ## Google Images
 
