@@ -538,6 +538,58 @@ Validation:
 - `git diff --check`
   - clean
 
+## ISFDB Source Slice
+
+Branch: `web-source-isfdb`
+
+Added a new `metadata.local_sources.isfdb` provider. It initially landed under
+`metadata.web_sources`, then moved to `metadata.local_sources` because it reads
+a configured local ISFDB import database rather than scraping the live site. The
+source is still imported by the builtin metadata downloader list, but only
+participates in identify runs when a local ISFDB database can be resolved.
+
+Implemented behavior:
+
+- `ISFDB` supports `identify`
+- local database resolution via `LIUXIN_ISFDB_TEST_DB`, `LIUXIN_ISFDB_DB`,
+  `LIUXIN_ISFDB_DATA_ROOT`, `LIUXIN_ALPHA_DATA_DIR`, `LIUXIN_DATA_DIR`, or
+  source preferences for `database_path`, `data_root`, and `bundle_name`
+- identifiers: `isfdb`, `isfdb_title`, `isfdb_pub`, `isbn`, and `asin`
+- direct ISFDB title/publication URLs such as
+  `https://www.isfdb.org/cgi-bin/title.cgi?1272` and
+  `https://www.isfdb.org/cgi-bin/pl.cgi?14`
+- fields: title, authors, comments, publisher, publication date, language,
+  tags, series, rating, and source identifiers
+- ISBN/ASIN publication lookups prefer the publication-title work before
+  anthology/content works linked to the same manifestation
+- ISBN lookup checks both ISBN-10 and ISBN-13 forms so a 13-digit query can
+  still match imports that only carry the older 10-digit value
+- successful metadata postprocessing populates ISBN-to-ISFDB caches
+- no `cover` capability yet; imported image/cover semantics need a separate
+  inspection pass before treating them as edition covers
+
+Validation so far:
+
+- `python3 -m py_compile src/LiuXin_alpha/metadata/local_sources/isfdb.py tests/metadata/local_sources/test_local_sources_isfdb.py`
+  - clean
+- `python3 -m pytest tests/metadata/local_sources/test_local_sources_isfdb.py -q`
+  - `8 passed`
+- `python3 -m pytest tests/metadata/local_sources/test_local_sources_isfdb.py tests/metadata/web_sources/test_web_sources_identify.py -q`
+  - `24 passed`
+- `python3 -m pytest tests/metadata/local_sources/test_local_sources_isfdb.py tests/metadata/web_sources/test_web_sources_init.py -q`
+  - `19 passed`
+- `python3 -m pytest tests/metadata/web_sources tests/metadata/local_sources -q`
+  - `315 passed, 12 skipped`
+- `git diff --check`
+  - clean
+- manual local smoke against
+  `LiuXin_data/test_databases/isfdb_smoke_fixture_fields/isfdb_smoke_fixture_fields.test_db`
+  for `'Salem's Lot'` / `Stephen King`
+  - returned one result with `isfdb:title:1272`, `isfdb_pub:20`, and ISBN
+    `0451092317`
+  - after the move, confirmed through
+    `LiuXin_alpha.metadata.local_sources.isfdb`
+
 ## Next
 
 The web-source unit suite is now broad enough that new provider work should be
@@ -547,8 +599,8 @@ Good next options:
 
 - Split the Internet Archive live probe timing into identify and cover phases so
   future slow runs show which request path is dragging.
-- A local/imported ISFDB-backed source for speculative-fiction quality, likely
-  more robust than scraping the live site.
+- Inspect ISFDB image/imported-cover semantics and decide whether cover support
+  should be enabled for the local ISFDB source.
 - Review the `5 XPASS` tests from the latest full coverage run and either remove
   stale xfails or record why they remain expected.
 - Reduce warning noise clustered in `SQL/databasedriver/search_mixin.py`,

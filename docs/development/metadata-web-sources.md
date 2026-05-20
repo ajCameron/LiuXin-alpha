@@ -39,7 +39,8 @@ The current source set includes:
 
 Calibre-derived first-party sources are covered by Amazon, Google Books, Google
 Images, Open Library, Big Book Search, and Edelweiss. LiuXin also carries
-additional local/provider-specific sources.
+additional provider-specific sources. Local dataset-backed sources are covered
+in `docs/development/metadata-local-sources.md`.
 
 ## Provider Contract
 
