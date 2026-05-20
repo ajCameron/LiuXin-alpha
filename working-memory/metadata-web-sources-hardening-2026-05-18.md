@@ -397,6 +397,30 @@ Operational note:
 - The functional live path currently depends on a locally available Chrome/Edge
   binary. Static Google scraping remains guarded in this environment.
 
+CI hardening follow-up:
+
+- PR: `#63` (`Harden Google Images browser profile path test`)
+- merge commit: `118bf0c6c0ce60ecd9890ef028d939d8098725ae`
+- fixed a non-WSL Linux CI assertion in
+  `test_google_images_windows_browser_profile_uses_windows_accessible_root`
+- the test still covers `/mnt/c/...` to `C:\...` conversion directly, but only
+  expects the full Windows profile path when the generated profile path is
+  actually Windows-shaped
+- GitHub Actions failure signature before the fix:
+  `/tmp/pytest-of-runner/.../.tmp/google-images-rendered-browser/...`
+  did not start with `C:\`
+
+Validation:
+
+- `python3 -m pytest tests/metadata/web_sources/test_web_sources_google_images.py::test_google_images_windows_browser_profile_uses_windows_accessible_root -q`
+  - `1 passed`
+- `python3 -m pytest tests/metadata/web_sources/test_web_sources_google_images.py -q`
+  - `17 passed`
+- `python3 -m pytest tests/metadata/web_sources -q`
+  - `296 passed, 11 skipped`
+- `git diff --check`
+  - clean
+
 ## Library Of Congress Source Slice
 
 Branch: `web-source-library-of-congress`
