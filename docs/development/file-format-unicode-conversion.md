@@ -10,10 +10,32 @@ and helpers so the same corpus can later drive conversion-matrix coverage.
 - Exercise real conversion code where possible, not only parser leaf helpers.
 - Cover foreign-language text, combining marks, control-like content, invalid
   bytes, malformed markup, and deterministic output bytes.
+- Include stress inputs for delimiter-heavy lightweight markup so regex and
+  parser behavior stays deterministic around hostile Markdown/Textile/TXT.
 - Make known lossy boundaries explicit in tests instead of hiding them behind
   broad "contains text" assertions.
 - Prefer small, format-specific tests that reuse common corpora over large
   one-off payloads.
+
+## Pipeline Direction
+
+The current conversion tests mostly exercise the legacy `input -> OEB -> output`
+shape. That remains important because OEB is the common normalization layer, but
+it should not be the only pipeline model.
+
+Future conversion planning should treat conversion as a graph of capabilities:
+
+- normalized edges that pass through OEB
+- direct `A -> B` edges when a tool can preserve more structure or metadata
+- external-tool adapters with explicit discovery, version reporting, timeout
+  behavior, and deterministic diagnostics
+- fallback ordering that records which path was used and what loss was reported
+
+This is especially relevant for lightweight markup formats. Existing tools can
+convert between Markdown, Textile, HTML, and other markup dialects directly, and
+some of those paths may be better than forcing every conversion through OEB.
+Those adapters should be tested as pipeline edges with the same unicode,
+malformed-input, and loss-reporting corpus used by the in-tree converters.
 
 ## PML Status
 
