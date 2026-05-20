@@ -109,6 +109,29 @@ author values raw, then `RTFOutput` encoded the whole document as ASCII with
 replacement. Header metadata now goes through `txt2rtf`, matching body text
 escaping and preserving non-ASCII title/creator values.
 
+## RTF Malformed/Hostile Slice
+
+Added `tests/file_formats/rtf/test_rtf_malformed_hostile.py` for bounded hostile
+RTF inputs before moving away from the format:
+
+- signed unicode control words such as `\u-945`
+- malformed signed control words, excessive numeric arguments, and trailing
+  control characters
+- parser invalid-RTF exceptions wrapped as user-facing `ValueError`s by
+  `RTFInput.convert`
+- corrupt/odd/non-hex `\pict` payloads with `ignore_wmf=True`
+- corrupt OEB image payloads dropped by `RTFMLizer` without leaking internal
+  placeholders into output
+
+Fixes from that pass:
+
+- `src/LiuXin_alpha/file_formats/rtf/preprocess.py` now parses optional signs
+  in control-word numeric arguments and raises deterministic errors for missing
+  digits/end delimiters.
+- `src/LiuXin_alpha/file_formats/conversion/plugins/rtf_input.py` now catches
+  both parser invalid-RTF and invalid-code exceptions, while remaining tolerant
+  of older/fake parser modules that only expose `RtfInvalidCodeException`.
+
 ## Validation
 
 - `python3 -m py_compile tests/support/file_format_unicode.py tests/file_formats/test_unicode_framework.py tests/file_formats/txt/test_txt_unicode_framework.py`
@@ -135,12 +158,18 @@ escaping and preserving non-ASCII title/creator values.
   - `3 passed`
 - `python3 -m pytest tests/file_formats/rtf -q`
   - `32 passed`
+- `python3 -m py_compile src/LiuXin_alpha/file_formats/rtf/preprocess.py src/LiuXin_alpha/file_formats/conversion/plugins/rtf_input.py tests/file_formats/rtf/test_rtf_malformed_hostile.py`
+  - clean
+- `python3 -m pytest tests/file_formats/rtf/test_rtf_malformed_hostile.py -q`
+  - `7 passed`
+- `python3 -m pytest tests/file_formats/rtf -q`
+  - `39 passed`
 - `python3 -m pytest tests/file_formats/txt tests/file_formats/textile tests/file_formats/markdown -q`
   - `76 passed`
 - `git diff --check`
   - clean
 - `python3 -m pytest tests/file_formats -q`
-  - `576 passed, 1 skipped, 124 warnings`
+  - `583 passed, 1 skipped, 124 warnings`
 
 ## Next
 
