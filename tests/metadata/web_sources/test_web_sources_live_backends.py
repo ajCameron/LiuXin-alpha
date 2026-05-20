@@ -18,6 +18,7 @@ from LiuXin_alpha.metadata.web_sources.library_of_congress import LibraryOfCongr
 from LiuXin_alpha.metadata.web_sources.openlibrary import OpenLibrary
 from LiuXin_alpha.metadata.web_sources.overdrive import OverDrive
 from LiuXin_alpha.metadata.web_sources.ozon import Ozon
+from LiuXin_alpha.metadata.web_sources.wikidata import Wikidata
 from LiuXin_alpha.metadata.web_sources.xisbn import xISBN
 
 
@@ -342,6 +343,33 @@ def test_live_internet_archive_identify_and_cover() -> None:
     assert source is plugin
     assert isinstance(payload, (bytes, bytearray))
     assert len(payload) > 100
+
+
+def test_live_wikidata_identify_direct_qid() -> None:
+    _require_hosts("www.wikidata.org")
+    plugin = Wikidata()
+    log = _LiveLog()
+
+    rq = Queue()
+    try:
+        plugin.identify(
+            log=log,
+            result_queue=rq,
+            abort=Event(),
+            identifiers={"wikidata": "Q15228"},
+            timeout=35,
+        )
+    except Exception as err:
+        _skip_known_live_exception("Wikidata", err, log)
+        raise
+    results = _drain_queue(rq)
+    if not results:
+        pytest.skip(f"Wikidata returned no parseable results in this live run.\n{log.dump()}")
+    first = results[0]
+    idents = first.get_identifiers()
+    assert first.title
+    assert first.authors
+    assert idents.get("wikidata") == "Q15228"
 
 
 def test_live_big_book_search_query() -> None:

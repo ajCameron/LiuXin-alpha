@@ -34,6 +34,7 @@ The current source set includes:
 - Open Library
 - OverDrive
 - Ozon
+- Wikidata
 - xISBN
 
 Calibre-derived first-party sources are covered by Amazon, Google Books, Google
@@ -96,6 +97,26 @@ It currently supports:
 This source should be treated as an enrichment and cover fallback for digitized
 or archived text items. It complements Open Library but does not replace
 edition-level catalog sources.
+
+## Wikidata
+
+`Wikidata` uses the public Wikidata Action API,
+`https://www.wikidata.org/w/api.php`, for entity search and direct entity
+lookup. It uses the Wikidata Query Service endpoint,
+`https://query.wikidata.org/sparql`, only for narrow ISBN lookups by exact
+`P212`/`P957` values.
+
+It currently supports:
+
+- `identify`
+- `wikidata`, `qid`, `wd`, `isbn`, `lccn`, and `oclc` identifiers
+- title, authors, comments, publisher, publication date, language, and tags
+- ISBN-to-Wikidata cache population
+- direct Wikidata item URLs such as `https://www.wikidata.org/wiki/Q15228`
+
+This source is intentionally conservative enrichment. It does not expose
+`cover`: Wikidata image statements are often representative images rather than
+edition covers.
 
 ## Google Images
 

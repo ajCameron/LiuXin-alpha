@@ -34,6 +34,7 @@ KNOWN_WEB_SOURCE_MODULES: tuple[str, ...] = (
     "ozon",
     "prefs",
     "worker",
+    "wikidata",
     "xisbn",
 )
 

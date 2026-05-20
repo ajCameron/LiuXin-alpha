@@ -481,6 +481,39 @@ Durable doc:
 
 - `docs/development/metadata-web-sources.md`
 
+## Wikidata Source Slice
+
+Branch: `web-source-wikidata`
+
+Added a new `metadata.web_sources.wikidata` provider and registered it in
+`KNOWN_WEB_SOURCE_MODULES`.
+
+Implemented behavior:
+
+- `Wikidata` supports `identify`
+- Action API endpoint: `https://www.wikidata.org/w/api.php`
+- narrow ISBN lookup endpoint: `https://query.wikidata.org/sparql`
+- identifiers: `wikidata`, `qid`, `wd`, `isbn`, `lccn`, and `oclc`
+- direct Wikidata item URLs such as `https://www.wikidata.org/wiki/Q15228`
+- fields: title, authors, comments, publisher, pubdate, language, tags, and
+  source identifiers
+- exact ISBN lookup uses `P212`/`P957` via WDQS, while text discovery uses
+  `wbsearchentities` and direct ID lookup uses `wbgetentities`
+- search results are filtered to bookish entities before metadata emission
+- successful metadata postprocessing populates ISBN-to-Wikidata caches
+- no `cover` capability: Wikidata image statements are treated as unsafe for
+  edition-cover use
+- live probe is gated behind `LIUXIN_RUN_LIVE_WEB_TESTS=1`
+
+Validation:
+
+- `python3 -m pytest tests/metadata/web_sources/test_web_sources_wikidata.py -q`
+  - `11 passed`
+- `python3 -m pytest tests/metadata/web_sources -q`
+  - `307 passed, 12 skipped`
+- `git diff --check`
+  - clean
+
 ## Next
 
 The web-source unit suite is now broad enough that new provider work should be
@@ -490,8 +523,6 @@ Good next options:
 
 - Split the Internet Archive live probe timing into identify and cover phases so
   future slow runs show which request path is dragging.
-- Wikidata as conservative work/author/identifier enrichment, not an edition
-  source of truth.
 - A local/imported ISFDB-backed source for speculative-fiction quality, likely
   more robust than scraping the live site.
 - Review the `5 XPASS` tests from the latest full coverage run and either remove
