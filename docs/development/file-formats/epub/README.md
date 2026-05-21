@@ -2,7 +2,7 @@
 
 ## Status
 
-EPUB is the next archive/XML container hardening target after ODT. The main
+EPUB has an archive/XML container hardening pass after ODT. The main
 conversion entry point is `EPUBInput` in
 `src/LiuXin_alpha/file_formats/conversion/plugins/epub_input.py`; output uses
 `EPUBOutput` in the sibling plugin module.
@@ -20,7 +20,8 @@ asset path.
 `EPUBInput` now preflights the core OCF/OPF structure before extracting the
 archive into the conversion workdir. Missing or malformed `mimetype`,
 `META-INF/container.xml`, OPF package root, OPF manifest, or OPF spine inputs
-fail before partial output appears.
+fail before partial output appears. Preflight failures are also logged through
+the conversion log as `EPUB preflight rejected <path>: <reason>`.
 
 Archive preflight also rejects member names that could escape or confuse the
 conversion workdir, plus bomb-shaped archives using bounded checks for member
@@ -41,7 +42,8 @@ normalized `content.opf`.
 4. Hostile archive members and zip-bomb-shaped limits, using the ODT policy as
    the model.
 5. Asset path and unicode filename coverage.
-6. Loss/reporting TODOs for malformed-but-salvageable books.
+6. Preflight rejection diagnostics and salvage/reporting policy for
+   malformed-but-salvageable books.
 
 ## Container Contract Direction
 
@@ -67,6 +69,32 @@ Current archive budgets match the ODT defaults:
 As with ODT, future trusted-input overrides should raise bounded archive budgets
 only. They should not bypass path safety, unreadable archive structure, missing
 core container files, or failures that leave the conversion product undefined.
+
+## Salvage And Reporting Direction
+
+There is currently no EPUB salvage mode. Default conversion should keep failing
+fast on invalid container structure rather than silently producing partial
+output.
+
+If a future recovery mode is added for real-world malformed-but-readable books,
+it should be explicit and reportable:
+
+- recovery must be opt-in or limited to a clearly named trusted-input profile
+- path traversal, absolute paths, unreadable ZIP structure, and undefined
+  conversion products must remain hard failures
+- archive-budget overrides may only raise bounded member-count, expanded-size,
+  total-size, or compression-ratio limits
+- diagnostics should record which check was relaxed, the observed value, and
+  the active limit or profile
+- structural recovery should record the selected `container.xml` rootfile, OPF
+  package path, spine itemrefs kept or dropped, skipped manifest assets, and any
+  malformed metadata that was ignored
+- unicode or markup recovery should record replacement characters, dropped
+  fragments, and source locations when cheaply available
+
+Tests for any future salvage path should assert both outcomes: the recovered
+conversion product is usable, and the losses or relaxed checks are visible in a
+user-facing log or a machine-readable conversion report.
 
 ## Fixture Requirements
 

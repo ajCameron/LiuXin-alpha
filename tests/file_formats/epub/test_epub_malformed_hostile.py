@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -22,13 +23,26 @@ def _assert_epub_input_rejects_without_partial_output(
     monkeypatch.chdir(workdir)
 
     plugin_cls = input_cls or EPUBInput
+    log = NullLog()
     with archive.open("rb") as stream:
         with pytest.raises(ValueError, match=match):
-            plugin_cls(None).convert(stream, SimpleNamespace(), "epub", NullLog(), {})
+            plugin_cls(None).convert(stream, SimpleNamespace(), "epub", log, {})
 
     assert not (workdir / "content.opf").exists()
     assert not (workdir / "OPS").exists()
     assert not (workdir / "META-INF").exists()
+
+    preflight_messages = [message for message in log.messages if "EPUB preflight rejected" in message]
+    assert preflight_messages
+    assert re.search(match, preflight_messages[-1])
+
+
+class WarnOnlyLog:
+    def __init__(self) -> None:
+        self.messages: list[str] = []
+
+    def warn(self, message: str = "", *args) -> None:
+        self.messages.append(message % args if args else message)
 
 
 def _container_xml(opf_path: str = "OPS/content.opf", media_type: str = "application/oebps-package+xml") -> bytes:
@@ -172,6 +186,25 @@ def test_epub_input_rejects_non_zip_payload_before_extraction(tmp_path: Path, mo
         tmp_path / "not_zip_work",
         "invalid ZIP",
     )
+
+
+def test_epub_input_preflight_rejection_uses_warn_fallback(tmp_path: Path, monkeypatch) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
+
+    hostile = tmp_path / "not_an_epub.epub"
+    hostile.write_bytes(b"not an EPUB zip")
+    workdir = tmp_path / "warn_only_work"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    log = WarnOnlyLog()
+
+    with hostile.open("rb") as stream:
+        with pytest.raises(ValueError, match="invalid ZIP"):
+            EPUBInput(None).convert(stream, SimpleNamespace(), "epub", log, {})
+
+    assert len(log.messages) == 1
+    assert "EPUB preflight rejected" in log.messages[0]
+    assert "invalid ZIP" in log.messages[0]
 
 
 @pytest.mark.parametrize(
