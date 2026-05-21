@@ -59,6 +59,16 @@ The third slice hardens `EPUBInput` before archive extraction:
 - asserts malformed-container cases do not leave `content.opf`, `OPS/`, or
   `META-INF/` partial output in the workdir
 
+The fourth slice adds hostile archive member and zip-bomb-shaped preflight:
+
+- rejects archive member paths with parent traversal, absolute-looking paths,
+  Windows drive-looking paths, or backslashes before extraction
+- applies ODT-aligned archive budgets for member count, per-member expanded
+  size, total expanded size, suspicious compression ratios, and invalid
+  non-empty zero-compressed-size entries
+- covers those failures with strict test subclasses that keep the test payloads
+  small while exercising the production checks
+
 ## Validation
 
 - `python3 -m py_compile src/LiuXin_alpha/file_formats/conversion/plugins/epub_input.py tests/file_formats/epub/test_epub_malformed_hostile.py tests/file_formats/epub/test_epub_container_framework.py tests/metadata/file_sources/test_epub_metadata_source.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py tests/support/file_format_epub.py`
@@ -66,17 +76,17 @@ The third slice hardens `EPUBInput` before archive extraction:
 - `python3 -m pytest tests/file_formats/epub/test_epub_container_framework.py tests/metadata/file_sources/test_epub_metadata_source.py::test_epub_metadata_reads_generated_multilingual_fixture_path_stream_and_plugin -q`
   - `4 passed`
 - `python3 -m pytest tests/file_formats/epub/test_epub_malformed_hostile.py -q`
-  - `13 passed`
+  - `22 passed`
 - `python3 -m pytest tests/file_formats/epub -q`
-  - `24 passed`
+  - `33 passed`
 - `python3 -m pytest tests/metadata/file_sources/test_epub_metadata_source.py tests/metadata/file_sources/test_epub_edge_cases.py -q`
   - `28 passed`
 - `python3 -m pytest tests/file_formats/conversion/plugins tests/file_formats/conversion/test_conversion_top_level_smoke.py -q`
   - `10 passed`
 - `python3 -m pytest tests/file_formats -q`
-  - `633 passed, 1 skipped, 127 warnings`
+  - `642 passed, 1 skipped, 127 warnings`
 
 ## Next
 
-- Add hostile archive member and zip-bomb-shaped limits, using the ODT preflight
-  policy as the model.
+- Add explicit valid nested asset path coverage beyond the current image/CSS/NCX
+  fixture assertions, then consider whether this EPUB branch is ready for PR.

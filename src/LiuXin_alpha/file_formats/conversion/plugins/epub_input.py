@@ -53,11 +53,31 @@ class EPUBInput(InputFormatPlugin):
     required_members = ("mimetype", "META-INF/container.xml")
     mimetype = b"application/epub+zip"
     opf_media_type = "application/oebps-package+xml"
+    max_archive_members = 4096
+    max_member_uncompressed_size = 256 * 1024 * 1024
+    max_total_uncompressed_size = 512 * 1024 * 1024
+    max_compression_ratio = 1000
+    min_compression_ratio_check_size = 1024 * 1024
 
     def xml_attr(self, node, name):
         for key, value in node.attrib.items():
             if _local_name(key) == name:
                 return value
+
+    def normalized_archive_member_name(self, name):
+        normalized = name.replace("\\", "/")
+        parts = normalized.split("/")
+        if (
+            "\\" in name
+            or normalized.startswith("/")
+            or (len(normalized) > 1 and normalized[1] == ":")
+            or ".." in parts
+        ):
+            raise ValueError("EPUB archive member has unsafe path: %s" % name)
+        normalized = posixpath.normpath(normalized)
+        if normalized in {"", ".", ".."} or normalized.startswith("../"):
+            raise ValueError("EPUB archive member has unsafe path: %s" % name)
+        return normalized
 
     def validate_container_members(self, stream):
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
@@ -71,19 +91,54 @@ class EPUBInput(InputFormatPlugin):
             raise ValueError("EPUB appears to be invalid ZIP file") from err
 
         try:
-            names = set(zf.namelist())
+            infos = zf.infolist()
+            if len(infos) > self.max_archive_members:
+                raise ValueError(
+                    "EPUB file has too many archive members: %d > %d"
+                    % (len(infos), self.max_archive_members)
+                )
+
+            names = {}
+            total_uncompressed = 0
+            for info in infos:
+                normalized_name = self.normalized_archive_member_name(info.filename)
+                names[normalized_name] = info.filename
+
+                file_size = max(int(getattr(info, "file_size", 0) or 0), 0)
+                compress_size = max(int(getattr(info, "compress_size", 0) or 0), 0)
+                total_uncompressed += file_size
+                if file_size > self.max_member_uncompressed_size:
+                    raise ValueError(
+                        "EPUB archive member is too large: %s (%d bytes)"
+                        % (info.filename, file_size)
+                    )
+                if total_uncompressed > self.max_total_uncompressed_size:
+                    raise ValueError(
+                        "EPUB archive expands to too much data: %d > %d bytes"
+                        % (total_uncompressed, self.max_total_uncompressed_size)
+                    )
+                if file_size > 0 and compress_size == 0:
+                    raise ValueError("EPUB archive member has invalid compressed size: %s" % info.filename)
+                if file_size >= self.min_compression_ratio_check_size and compress_size > 0:
+                    ratio = file_size / float(compress_size)
+                    if ratio > self.max_compression_ratio:
+                        raise ValueError(
+                            "EPUB archive member has suspicious compression ratio: %s (%.1f)"
+                            % (info.filename, ratio)
+                        )
+
             missing = [name for name in self.required_members if name not in names]
             if missing:
                 raise ValueError("EPUB file is missing required member(s): %s" % ", ".join(missing))
 
-            mimetype = zf.read("mimetype").strip()
+            mimetype = zf.read(names["mimetype"]).strip()
             if isinstance(mimetype, str):
                 mimetype = mimetype.encode("utf-8", "replace")
             if mimetype != self.mimetype:
                 raise ValueError("EPUB file has invalid mimetype: %r" % mimetype[:80])
 
             try:
-                root = etree.fromstring(zf.read("META-INF/container.xml"))
+                root = etree.fromstring(zf.read(names["META-INF/container.xml"]))
             except Exception as err:
                 raise ValueError("EPUB file has malformed META-INF/container.xml") from err
 
@@ -99,19 +154,16 @@ class EPUBInput(InputFormatPlugin):
             if not opf_path:
                 raise ValueError("EPUB container.xml does not reference an OPF package")
 
-            normalized_opf = posixpath.normpath(opf_path)
-            if (
-                opf_path.startswith("/")
-                or normalized_opf in {"", ".", ".."}
-                or normalized_opf.startswith("../")
-            ):
+            try:
+                normalized_opf = self.normalized_archive_member_name(opf_path)
+            except ValueError as err:
                 raise ValueError("EPUB container.xml references unsafe OPF package path: %s" % opf_path)
 
             if normalized_opf not in names:
                 raise ValueError("EPUB file is missing OPF package: %s" % opf_path)
 
             try:
-                opf_root = etree.fromstring(zf.read(normalized_opf))
+                opf_root = etree.fromstring(zf.read(names[normalized_opf]))
             except Exception as err:
                 raise ValueError("EPUB file has malformed OPF package: %s" % normalized_opf) from err
 

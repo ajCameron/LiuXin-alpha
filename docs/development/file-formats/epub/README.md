@@ -22,6 +22,11 @@ archive into the conversion workdir. Missing or malformed `mimetype`,
 `META-INF/container.xml`, OPF package root, OPF manifest, or OPF spine inputs
 fail before partial output appears.
 
+Archive preflight also rejects member names that could escape or confuse the
+conversion workdir, plus bomb-shaped archives using bounded checks for member
+count, per-member expanded size, total expanded size, and suspicious
+compression ratios.
+
 ## Planned Sequence
 
 1. EPUB container fixture framework.
@@ -35,8 +40,7 @@ fail before partial output appears.
 
 ## Container Contract Direction
 
-Default EPUB conversion should eventually be strict before extraction or partial
-output:
+Default EPUB conversion is strict before extraction or partial output:
 
 - require a readable ZIP archive
 - require the EPUB `mimetype` member and OCF `META-INF/container.xml`
@@ -46,6 +50,14 @@ output:
 - support valid nested and non-ASCII resource paths
 - reject bomb-shaped archives with bounded member count, per-member expanded
   size, total expanded size, and suspicious compression-ratio checks
+
+Current archive budgets match the ODT defaults:
+
+- no more than `4096` archive members
+- no member expanding beyond `256 MiB`
+- no archive expanding beyond `512 MiB` total
+- no member at or above `1 MiB` with a compression ratio above `1000`
+- no non-empty member reporting a zero compressed size
 
 As with ODT, future trusted-input overrides should raise bounded archive budgets
 only. They should not bypass path safety, unreadable archive structure, missing
