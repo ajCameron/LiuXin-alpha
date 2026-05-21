@@ -151,6 +151,9 @@ def test_epub_input_convert_smoke(tmp_path: Path, monkeypatch) -> None:
 
     epub_path = tmp_path / "book.epub"
     with zipfile.ZipFile(epub_path, "w") as zf:
+        mimetype = zipfile.ZipInfo("mimetype")
+        mimetype.compress_type = zipfile.ZIP_STORED
+        zf.writestr(mimetype, b"application/epub+zip")
         zf.writestr(
             "META-INF/container.xml",
             """<?xml version="1.0" encoding="UTF-8"?>

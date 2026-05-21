@@ -48,17 +48,35 @@ The second slice uses that fixture through real read/conversion paths:
   present in the archive but are not surfaced by `get_metadata`; treat broader
   OPF field parity as a later metadata reader/writer refinement.
 
+The third slice hardens `EPUBInput` before archive extraction:
+
+- validates readable ZIP structure before conversion workdir extraction
+- requires `mimetype` and `META-INF/container.xml`
+- requires `mimetype` bytes to match `application/epub+zip`
+- parses `container.xml` and requires an OPF package rootfile
+- rejects missing, unsafe, malformed, or non-package OPF package documents
+- requires OPF manifest items and spine itemrefs
+- asserts malformed-container cases do not leave `content.opf`, `OPS/`, or
+  `META-INF/` partial output in the workdir
+
 ## Validation
 
-- `python3 -m py_compile tests/file_formats/epub/test_epub_container_framework.py tests/metadata/file_sources/test_epub_metadata_source.py tests/support/file_format_epub.py`
+- `python3 -m py_compile src/LiuXin_alpha/file_formats/conversion/plugins/epub_input.py tests/file_formats/epub/test_epub_malformed_hostile.py tests/file_formats/epub/test_epub_container_framework.py tests/metadata/file_sources/test_epub_metadata_source.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py tests/support/file_format_epub.py`
   - clean
 - `python3 -m pytest tests/file_formats/epub/test_epub_container_framework.py tests/metadata/file_sources/test_epub_metadata_source.py::test_epub_metadata_reads_generated_multilingual_fixture_path_stream_and_plugin -q`
   - `4 passed`
+- `python3 -m pytest tests/file_formats/epub/test_epub_malformed_hostile.py -q`
+  - `13 passed`
 - `python3 -m pytest tests/file_formats/epub -q`
-  - `11 passed`
+  - `24 passed`
 - `python3 -m pytest tests/metadata/file_sources/test_epub_metadata_source.py tests/metadata/file_sources/test_epub_edge_cases.py -q`
   - `28 passed`
+- `python3 -m pytest tests/file_formats/conversion/plugins tests/file_formats/conversion/test_conversion_top_level_smoke.py -q`
+  - `10 passed`
+- `python3 -m pytest tests/file_formats -q`
+  - `633 passed, 1 skipped, 127 warnings`
 
 ## Next
 
-- Add strict missing/malformed container cases before changing source behavior.
+- Add hostile archive member and zip-bomb-shaped limits, using the ODT preflight
+  policy as the model.

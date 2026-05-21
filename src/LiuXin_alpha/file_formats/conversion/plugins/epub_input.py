@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import posixpath
 import re
 from itertools import cycle
 
@@ -35,6 +36,10 @@ def decrypt_font(key, path, algorithm):
         f.seek(0), f.truncate(), f.write(data)
 
 
+def _local_name(tag):
+    return str(tag).rsplit("}", 1)[-1]
+
+
 class EPUBInput(InputFormatPlugin):
 
     name = "EPUB Input"
@@ -44,6 +49,95 @@ class EPUBInput(InputFormatPlugin):
     output_encoding = None
 
     recommendations = {("page_breaks_before", "/", OptionRecommendation.MED)}
+
+    required_members = ("mimetype", "META-INF/container.xml")
+    mimetype = b"application/epub+zip"
+    opf_media_type = "application/oebps-package+xml"
+
+    def xml_attr(self, node, name):
+        for key, value in node.attrib.items():
+            if _local_name(key) == name:
+                return value
+
+    def validate_container_members(self, stream):
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
+        from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+
+        stream.seek(0)
+        try:
+            zf = ZipFile(stream, "r")
+        except Exception as err:
+            stream.seek(0)
+            raise ValueError("EPUB appears to be invalid ZIP file") from err
+
+        try:
+            names = set(zf.namelist())
+            missing = [name for name in self.required_members if name not in names]
+            if missing:
+                raise ValueError("EPUB file is missing required member(s): %s" % ", ".join(missing))
+
+            mimetype = zf.read("mimetype").strip()
+            if isinstance(mimetype, str):
+                mimetype = mimetype.encode("utf-8", "replace")
+            if mimetype != self.mimetype:
+                raise ValueError("EPUB file has invalid mimetype: %r" % mimetype[:80])
+
+            try:
+                root = etree.fromstring(zf.read("META-INF/container.xml"))
+            except Exception as err:
+                raise ValueError("EPUB file has malformed META-INF/container.xml") from err
+
+            opf_path = None
+            for rootfile in root.xpath('//*[local-name()="rootfile"]'):
+                if self.xml_attr(rootfile, "media-type") != self.opf_media_type:
+                    continue
+                full_path = self.xml_attr(rootfile, "full-path")
+                if full_path:
+                    opf_path = full_path.replace("\\", "/")
+                    break
+
+            if not opf_path:
+                raise ValueError("EPUB container.xml does not reference an OPF package")
+
+            normalized_opf = posixpath.normpath(opf_path)
+            if (
+                opf_path.startswith("/")
+                or normalized_opf in {"", ".", ".."}
+                or normalized_opf.startswith("../")
+            ):
+                raise ValueError("EPUB container.xml references unsafe OPF package path: %s" % opf_path)
+
+            if normalized_opf not in names:
+                raise ValueError("EPUB file is missing OPF package: %s" % opf_path)
+
+            try:
+                opf_root = etree.fromstring(zf.read(normalized_opf))
+            except Exception as err:
+                raise ValueError("EPUB file has malformed OPF package: %s" % normalized_opf) from err
+
+            if _local_name(opf_root.tag) != "package":
+                raise ValueError("EPUB OPF package root is not <package>: %s" % normalized_opf)
+
+            manifest_nodes = opf_root.xpath('//*[local-name()="manifest"]')
+            if not manifest_nodes:
+                raise ValueError("EPUB OPF package is missing manifest: %s" % normalized_opf)
+            manifest_items = []
+            for manifest in manifest_nodes:
+                manifest_items.extend(manifest.xpath('./*[local-name()="item"]'))
+            if not manifest_items:
+                raise ValueError("EPUB OPF package is missing manifest items: %s" % normalized_opf)
+
+            spine_nodes = opf_root.xpath('//*[local-name()="spine"]')
+            if not spine_nodes:
+                raise ValueError("EPUB OPF package is missing spine: %s" % normalized_opf)
+            spine_items = []
+            for spine in spine_nodes:
+                spine_items.extend(spine.xpath('./*[local-name()="itemref"]'))
+            if not spine_items:
+                raise ValueError("EPUB OPF package is missing spine itemrefs: %s" % normalized_opf)
+        finally:
+            zf.close()
+            stream.seek(0)
 
     def process_encryption(self, encfile, opf, log):
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
@@ -218,6 +312,7 @@ class EPUBInput(InputFormatPlugin):
         from LiuXin_alpha.file_formats import DRMError
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
+        self.validate_container_members(stream)
         work_root = choose_conversion_workdir("_epub_input")
         with CurrentDir(work_root):
             try:

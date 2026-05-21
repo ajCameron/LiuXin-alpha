@@ -17,6 +17,11 @@ metadata reader path, including path, stream, quick metadata, inplace metadata,
 reader-plugin dispatch, and raster cover extraction for a nested non-ASCII
 asset path.
 
+`EPUBInput` now preflights the core OCF/OPF structure before extracting the
+archive into the conversion workdir. Missing or malformed `mimetype`,
+`META-INF/container.xml`, OPF package root, OPF manifest, or OPF spine inputs
+fail before partial output appears.
+
 ## Planned Sequence
 
 1. EPUB container fixture framework.
