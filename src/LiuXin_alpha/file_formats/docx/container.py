@@ -4,6 +4,7 @@
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import os
+import posixpath
 import re
 import shutil
 import sys
@@ -41,6 +42,24 @@ def walk(path):
 
 def fromstring(raw, parser=RECOVER_PARSER):
     return etree.fromstring(raw, parser=parser)
+
+
+def _local_name(tag):
+    return str(tag).rsplit("}", 1)[-1]
+
+
+def _malformed_part(name, part_name):
+    raise InvalidDOCX("The file %s docx file has malformed %s" % (name, part_name))
+
+
+def _parse_required_xml_part(raw, name, part_name, root_name):
+    try:
+        root = fromstring(raw)
+    except Exception as err:
+        raise InvalidDOCX("The file %s docx file has malformed %s" % (name, part_name)) from err
+    if root is None or _local_name(root.tag) != root_name:
+        _malformed_part(name, part_name)
+    return root
 
 
 # Read metadata {{{
@@ -124,6 +143,13 @@ class DOCX(object):
     Class representing a DocX file.
     """
 
+    required_members = ("[Content_Types].xml", "_rels/.rels")
+    max_archive_members = 4096
+    max_member_uncompressed_size = 256 * 1024 * 1024
+    max_total_uncompressed_size = 512 * 1024 * 1024
+    max_compression_ratio = 1000
+    min_compression_ratio_check_size = 1024 * 1024
+
     def __init__(self, path_or_stream, log=None, extract=True):
         self.docx_is_transitional = True
         stream = path_or_stream if hasattr(path_or_stream, "read") else open(path_or_stream, "rb")
@@ -138,10 +164,82 @@ class DOCX(object):
         self.namespace = DOCXNamespace(self.docx_is_transitional)
 
     def init_zipfile(self, stream):
+        self.validate_container_members(stream)
         self.zipf = ZipFile(stream)
         self.names = frozenset(self.zipf.namelist())
 
+    def normalized_archive_member_name(self, name):
+        normalized = name.replace("\\", "/")
+        parts = normalized.split("/")
+        if (
+            "\\" in name
+            or normalized.startswith("/")
+            or (len(normalized) > 1 and normalized[1] == ":")
+            or ".." in parts
+        ):
+            raise InvalidDOCX("DOCX archive member has unsafe path: %s" % name)
+        normalized = posixpath.normpath(normalized)
+        if normalized in {"", ".", ".."} or normalized.startswith("../"):
+            raise InvalidDOCX("DOCX archive member has unsafe path: %s" % name)
+        return normalized
+
+    def validate_container_members(self, stream):
+        stream.seek(0)
+        try:
+            zf = ZipFile(stream, "r")
+        except Exception as err:
+            stream.seek(0)
+            raise InvalidDOCX("DOCX appears to be invalid ZIP file") from err
+
+        try:
+            infos = zf.infolist()
+            if len(infos) > self.max_archive_members:
+                raise InvalidDOCX(
+                    "DOCX file has too many archive members: %d > %d"
+                    % (len(infos), self.max_archive_members)
+                )
+
+            names = set()
+            total_uncompressed = 0
+            for info in infos:
+                names.add(self.normalized_archive_member_name(info.filename))
+
+                file_size = max(int(getattr(info, "file_size", 0) or 0), 0)
+                compress_size = max(int(getattr(info, "compress_size", 0) or 0), 0)
+                total_uncompressed += file_size
+                if file_size > self.max_member_uncompressed_size:
+                    raise InvalidDOCX(
+                        "DOCX archive member is too large: %s (%d bytes)"
+                        % (info.filename, file_size)
+                    )
+                if total_uncompressed > self.max_total_uncompressed_size:
+                    raise InvalidDOCX(
+                        "DOCX archive expands to too much data: %d > %d bytes"
+                        % (total_uncompressed, self.max_total_uncompressed_size)
+                    )
+                if file_size > 0 and compress_size == 0:
+                    raise InvalidDOCX("DOCX archive member has invalid compressed size: %s" % info.filename)
+                if file_size >= self.min_compression_ratio_check_size and compress_size > 0:
+                    ratio = file_size / float(compress_size)
+                    if ratio > self.max_compression_ratio:
+                        raise InvalidDOCX(
+                            "DOCX archive member has suspicious compression ratio: %s (%.1f)"
+                            % (info.filename, ratio)
+                        )
+
+            missing = [name for name in self.required_members if name not in names]
+            if missing:
+                if missing == ["[Content_Types].xml"]:
+                    raise InvalidDOCX("The file %s docx file has no [Content_Types].xml" % self.name)
+                if missing == ["_rels/.rels"]:
+                    raise InvalidDOCX("The file %s docx file has no _rels/.rels" % self.name)
+                raise InvalidDOCX("DOCX file is missing required member(s): %s" % ", ".join(missing))
+        finally:
+            zf.close()
+            stream.seek(0)
+
     def extract(self, stream):
+        self.validate_container_members(stream)
         self.tdir = PersistentTemporaryDirectory("docx_container")
         try:
             zf = ZipFile(stream)
@@ -173,7 +271,7 @@ class DOCX(object):
             raw = self.read("[Content_Types].xml")
         except KeyError:
             raise InvalidDOCX("The file %s docx file has no [Content_Types].xml" % self.name)
-        root = fromstring(raw)
+        root = _parse_required_xml_part(raw, self.name, "[Content_Types].xml", "Types")
         self.content_types = {}
         self.default_content_types = {}
         for item in root.xpath('//*[local-name()="Types"]/*[local-name()="Default" and @Extension and @ContentType]'):
@@ -195,7 +293,7 @@ class DOCX(object):
             raw = self.read("_rels/.rels")
         except KeyError:
             raise InvalidDOCX("The file %s docx file has no _rels/.rels" % self.name)
-        root = fromstring(raw)
+        root = _parse_required_xml_part(raw, self.name, "_rels/.rels", "Relationships")
         self.relationships = {}
         self.relationships_rmap = {}
         for item in root.xpath(
@@ -218,11 +316,14 @@ class DOCX(object):
             if not names:
                 raise InvalidDOCX("The file %s docx file has no main document" % self.name)
             name = names[0]
+        if name not in self.names:
+            raise InvalidDOCX("The file %s docx file has no main document" % self.name)
         return name
 
     @property
     def document(self):
-        return fromstring(self.read(self.document_name))
+        name = self.document_name
+        return _parse_required_xml_part(self.read(name), self.name, name, "document")
 
     @property
     def document_relationships(self):
@@ -238,7 +339,7 @@ class DOCX(object):
         except KeyError:
             pass
         else:
-            root = fromstring(raw)
+            root = _parse_required_xml_part(raw, self.name, name, "Relationships")
             for item in root.xpath(
                 '//*[local-name()="Relationships"]/*[local-name()="Relationship" ' "and @Type and @Target]"
             ):
@@ -283,7 +384,10 @@ class DOCX(object):
             except KeyError:
                 pass
             else:
-                read_doc_props(raw, mi, self.namespace.XPath)
+                try:
+                    read_doc_props(raw, mi, self.namespace.XPath)
+                except Exception as err:
+                    raise InvalidDOCX("The file %s docx file has malformed %s" % (self.name, dp_name)) from err
 
         if mi.is_null("language"):
             try:
@@ -291,7 +395,10 @@ class DOCX(object):
             except KeyError:
                 pass
             else:
-                read_default_style_language(raw, mi, self.namespace.XPath)
+                try:
+                    read_default_style_language(raw, mi, self.namespace.XPath)
+                except Exception as err:
+                    raise InvalidDOCX("The file %s docx file has malformed word/styles.xml" % self.name) from err
 
         ap_name = self.relationships.get(self.namespace.names["APPPROPS"], None)
         if ap_name:
@@ -300,7 +407,10 @@ class DOCX(object):
             except KeyError:
                 pass
             else:
-                read_app_props(raw, mi)
+                try:
+                    read_app_props(raw, mi)
+                except Exception as err:
+                    raise InvalidDOCX("The file %s docx file has malformed %s" % (self.name, ap_name)) from err
 
         return mi
 

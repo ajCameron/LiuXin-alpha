@@ -6,8 +6,8 @@ and helpers so the same corpus can later drive conversion-matrix coverage.
 
 Format-specific durable notes now live under `docs/development/file-formats/`.
 Use one folder per format once the format has enough behavior, edge cases, or
-security policy to need a local contract. ODT and EPUB now have dedicated
-format dossiers.
+security policy to need a local contract. ODT, EPUB, and DOCX now have
+dedicated format dossiers.
 
 ## Current Test Contract
 
@@ -75,6 +75,15 @@ discovery, manifest/spine checks, nested non-ASCII assets, hostile archive
 paths, and zip-bomb-shaped limits. EPUB preflight failures remain strict before
 extraction and are logged with the rejection reason. Any future EPUB salvage
 mode should be opt-in and report every relaxed check or dropped resource.
+
+The DOCX pass applies the container contract to OOXML packages: reusable
+fixtures, valid multilingual conversion through `Convert` and `DOCXInput`,
+content types and package relationship checks, main-document and metadata
+malformed cases, nested non-ASCII media extraction, hostile archive paths, and
+zip-bomb-shaped limits. DOCX failures now use named `InvalidDOCX` errors for
+malformed package parts. Any future DOCX salvage mode should be opt-in and
+report relaxed archive checks, selected relationships, skipped media, and
+metadata or markup loss.
 
 ## PML Status
 
