@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from tests.support.file_format_epub import EPUB_AUTHORS, EPUB_TITLE, build_unicode_epub
+from tests.support.file_format_unicode import assert_no_replacement_chars
 
 
 def _values(raw):
@@ -195,6 +197,44 @@ def test_epub_metadata_reader_plugin_is_available(md_test_fixture) -> None:
     assert metadata.title == "Twenty Thousand Leagues Under the Seas: An Underwater Tour of the World"
     assert _values(metadata.authors) == ["Jules Verne"]
     assert inplace_metadata.title == "Twenty Thousand Leagues Under the Seas: An Underwater Tour of the World"
+
+
+def test_epub_metadata_reads_generated_multilingual_fixture_path_stream_and_plugin(tmp_path: Path) -> None:
+    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.epub import get_metadata, get_metadata_inplace, get_quick_metadata
+
+    fixture = build_unicode_epub(tmp_path / "metadata_Καλημέρα_世界.epub", include_image=True)
+
+    metadata = get_metadata(fixture.path, extract_cover=True, calibre_metadata=True)
+    assert metadata.title == EPUB_TITLE
+    assert _values(metadata.authors) == list(EPUB_AUTHORS)
+    assert_no_replacement_chars(metadata.title, context="EPUB metadata title")
+    assert_no_replacement_chars(" ".join(_values(metadata.authors)), context="EPUB metadata authors")
+    assert metadata.cover_data is not None
+    cover_format, cover_payload = metadata.cover_data
+    assert cover_format == "png"
+    assert cover_payload.startswith(b"\x89PNG")
+
+    with fixture.path.open("rb") as stream:
+        stream_metadata = get_metadata(stream, extract_cover=False, calibre_metadata=True)
+        quick_metadata = get_quick_metadata(stream)
+        assert stream.tell() == 0
+
+    assert stream_metadata.title == EPUB_TITLE
+    assert _values(stream_metadata.authors) == list(EPUB_AUTHORS)
+    assert quick_metadata.title == EPUB_TITLE
+    assert _values(quick_metadata.authors) == list(EPUB_AUTHORS)
+
+    liuxin_metadata = get_metadata_inplace(fixture.path)
+    assert liuxin_metadata.title == EPUB_TITLE
+    assert _values(liuxin_metadata.authors) == list(EPUB_AUTHORS)
+
+    epub_cls = next(p for p in get_metadata_reader_plugins() if p.__name__ == "EPUBMetadataReader")
+    reader = epub_cls(None)
+    with fixture.path.open("rb") as stream:
+        plugin_metadata = reader.get_metadata(stream=stream, ftype="epub")
+    assert plugin_metadata.title == EPUB_TITLE
+    assert _values(plugin_metadata.authors) == list(EPUB_AUTHORS)
 
 
 def test_epub_cover_extracts_raster_cover_when_present(md_test_fixture) -> None:
