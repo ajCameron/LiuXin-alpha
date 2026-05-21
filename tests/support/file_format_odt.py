@@ -113,6 +113,7 @@ def rewrite_odt_zip(
     remove: Sequence[str] = (),
     replace: Mapping[str, bytes] | None = None,
     add: Mapping[str, bytes] | None = None,
+    add_compression: int = zipfile.ZIP_STORED,
 ) -> None:
     replacements = dict(replace or {})
     additions = dict(add or {})
@@ -124,4 +125,6 @@ def rewrite_odt_zip(
             data = replacements.pop(info.filename, zin.read(info.filename))
             zout.writestr(info, data)
         for name, data in {**replacements, **additions}.items():
-            zout.writestr(name, data)
+            info = zipfile.ZipInfo(name)
+            info.compress_type = add_compression
+            zout.writestr(info, data)

@@ -44,6 +44,9 @@ markup:
 
 - required archive members should be validated before conversion produces
   partial output
+- archive preflight should reject bomb-shaped inputs using bounded checks for
+  member count, per-member expanded size, total expanded size, and suspicious
+  compression ratios
 - malformed XML and invalid declared encodings should fail clearly unless a
   format has an intentional recovery path
 - embedded assets should be copied without allowing archive member names to
@@ -54,8 +57,9 @@ markup:
 
 The ODT pass is the first container/XML slice using this contract. It validates
 required `META-INF/manifest.xml`, `meta.xml`, and `content.xml` members,
-preserves multilingual metadata/body text, copies valid `Pictures/...` assets,
-and rejects hostile picture paths that would escape the `Pictures` output tree.
+preflights suspicious archive expansion, preserves multilingual metadata/body
+text, copies valid `Pictures/...` assets, and rejects hostile picture paths
+that would escape the `Pictures` output tree.
 
 ## PML Status
 

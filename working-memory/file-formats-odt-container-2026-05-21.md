@@ -18,6 +18,7 @@ behavior:
 - generated `metadata.opf`, `index.xhtml`, `odfpy.css`, and copied picture
   assets
 - required-member validation and hostile asset paths
+- bounded zip-bomb-shaped archive preflight checks
 
 ## Changes
 
@@ -27,6 +28,8 @@ behavior:
 - Hardened `Extract.validate_container_members` so conversion rejects ODT
   archives missing `META-INF/manifest.xml`, `meta.xml`, or `content.xml`
   before generating partial output.
+- Added bounded archive preflight checks for member count, per-member expanded
+  size, total expanded size, and suspicious compression ratios.
 - Hardened `Extract.extract_pictures` so:
   - nested `Pictures/...` members are copied with directories created
   - non-ASCII nested asset paths are preserved
@@ -38,11 +41,11 @@ behavior:
 - `python3 -m py_compile src/LiuXin_alpha/file_formats/odt/input.py tests/support/file_format_odt.py tests/file_formats/odt/test_odt_container_framework.py tests/file_formats/odt/test_odt_malformed_hostile.py`
   - clean
 - `python3 -m pytest tests/file_formats/odt/test_odt_container_framework.py tests/file_formats/odt/test_odt_malformed_hostile.py -q`
-  - `9 passed`
+  - `13 passed`
 - `python3 -m pytest tests/file_formats/odt tests/file_formats/odf -q`
-  - `19 passed`
+  - `23 passed`
 - `python3 -m pytest tests/file_formats -q`
-  - `613 passed, 1 skipped, 127 warnings`
+  - `617 passed, 1 skipped, 127 warnings`
 
 ## Next
 
