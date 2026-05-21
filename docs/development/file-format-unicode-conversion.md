@@ -7,7 +7,8 @@ and helpers so the same corpus can later drive conversion-matrix coverage.
 Format-specific durable notes now live under `docs/development/file-formats/`.
 Use one folder per format once the format has enough behavior, edge cases, or
 security policy to need a local contract. ODT, EPUB, DOCX, and HTMLZ now have
-dedicated format dossiers.
+dedicated format dossiers. Comic CBZ/CBC now has a dedicated format dossier as
+well.
 
 ## Current Test Contract
 
@@ -92,6 +93,12 @@ now has reusable multilingual fixtures, valid plugin-path coverage, optional
 OPF/cover warning coverage, hostile archive path checks, and zip-bomb-shaped
 limits. Optional OPF/cover failures should remain visible through warnings
 without aborting an otherwise usable HTML conversion.
+
+The comic pass applies archive-safety to ZIP-backed CBZ and CBC input:
+reusable CBZ/CBC fixtures, valid multilingual plugin-path coverage, CBC
+`comics.txt` decoding and missing-member warning behavior, nested CBZ
+preflight, hostile archive path checks, and zip-bomb-shaped limits. CBR/RAR is
+a separate future hardening target because it is not ZIP-backed.
 
 ## PML Status
 
