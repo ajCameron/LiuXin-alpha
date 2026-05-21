@@ -6,7 +6,7 @@ and helpers so the same corpus can later drive conversion-matrix coverage.
 
 Format-specific durable notes now live under `docs/development/file-formats/`.
 Use one folder per format once the format has enough behavior, edge cases, or
-security policy to need a local contract. ODT, EPUB, and DOCX now have
+security policy to need a local contract. ODT, EPUB, DOCX, and HTMLZ now have
 dedicated format dossiers.
 
 ## Current Test Contract
@@ -84,6 +84,14 @@ zip-bomb-shaped limits. DOCX failures now use named `InvalidDOCX` errors for
 malformed package parts. Any future DOCX salvage mode should be opt-in and
 report relaxed archive checks, selected relationships, skipped media, and
 metadata or markup loss.
+
+The HTMLZ pass applies the archive-safety half of the container contract while
+preserving HTMLZ's looser structure: a top-level HTML/XHTML member is required,
+but top-level OPF metadata and cover references are optional enrichment. HTMLZ
+now has reusable multilingual fixtures, valid plugin-path coverage, optional
+OPF/cover warning coverage, hostile archive path checks, and zip-bomb-shaped
+limits. Optional OPF/cover failures should remain visible through warnings
+without aborting an otherwise usable HTML conversion.
 
 ## PML Status
 

@@ -3,6 +3,7 @@
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import os
+import posixpath
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
@@ -24,6 +25,120 @@ class HTMLZInput(InputFormatPlugin):
     author = "John Schember"
     description = "Convert HTML files to HTML"
     file_types = {"htmlz"}
+    max_archive_members = 4096
+    max_member_uncompressed_size = 256 * 1024 * 1024
+    max_total_uncompressed_size = 512 * 1024 * 1024
+    max_compression_ratio = 1000
+    min_compression_ratio_check_size = 1024 * 1024
+
+    def _warn(self, log, message):
+        warn = getattr(log, "warning", None) or getattr(log, "warn", None)
+        if warn is not None:
+            warn(message)
+
+    def _safe_cover_path(self, basedir, cover_path):
+        if not cover_path:
+            return None
+        cover_path = str(cover_path).replace("\\", "/")
+        first_part = cover_path.split("/", 1)[0]
+        if cover_path.startswith("/") or (
+            len(first_part) == 2 and first_part[1] == ":"
+        ):
+            return None
+
+        base = os.path.abspath(basedir)
+        candidate = os.path.abspath(os.path.join(base, cover_path))
+        try:
+            if os.path.commonpath([base, candidate]) != base:
+                return None
+        except ValueError:
+            return None
+        return candidate
+
+    def normalized_archive_member_name(self, name):
+        normalized = name.replace("\\", "/")
+        parts = normalized.split("/")
+        if (
+            "\\" in name
+            or normalized.startswith("/")
+            or (len(normalized) > 1 and normalized[1] == ":")
+            or ".." in parts
+        ):
+            raise ValueError("HTMLZ archive member has unsafe path: %s" % name)
+        normalized = posixpath.normpath(normalized)
+        if normalized in {"", ".", ".."} or normalized.startswith("../"):
+            raise ValueError("HTMLZ archive member has unsafe path: %s" % name)
+        return normalized
+
+    def validate_container_members(self, stream):
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
+
+        stream.seek(0)
+        try:
+            zf = ZipFile(stream, "r")
+        except Exception as err:
+            stream.seek(0)
+            raise ValueError("HTMLZ appears to be invalid ZIP file") from err
+
+        try:
+            infos = zf.infolist()
+            if len(infos) > self.max_archive_members:
+                raise ValueError(
+                    "HTMLZ file has too many archive members: %d > %d"
+                    % (len(infos), self.max_archive_members)
+                )
+
+            total_uncompressed = 0
+            has_top_level_html = False
+            for info in infos:
+                normalized_name = self.normalized_archive_member_name(info.filename)
+                is_dir = info.filename.endswith("/")
+                if (
+                    not is_dir
+                    and "/" not in normalized_name
+                    and os.path.splitext(normalized_name)[1].lower()
+                    in (".html", ".xhtml", ".htm")
+                ):
+                    has_top_level_html = True
+
+                file_size = max(int(getattr(info, "file_size", 0) or 0), 0)
+                compress_size = max(int(getattr(info, "compress_size", 0) or 0), 0)
+                total_uncompressed += file_size
+                if file_size > self.max_member_uncompressed_size:
+                    raise ValueError(
+                        "HTMLZ archive member is too large: %s (%d bytes)"
+                        % (info.filename, file_size)
+                    )
+                if total_uncompressed > self.max_total_uncompressed_size:
+                    raise ValueError(
+                        "HTMLZ archive expands to too much data: %d > %d bytes"
+                        % (total_uncompressed, self.max_total_uncompressed_size)
+                    )
+                if file_size > 0 and compress_size == 0:
+                    raise ValueError(
+                        "HTMLZ archive member has invalid compressed size: %s"
+                        % info.filename
+                    )
+                if (
+                    file_size >= self.min_compression_ratio_check_size
+                    and compress_size > 0
+                ):
+                    ratio = file_size / float(compress_size)
+                    if ratio > self.max_compression_ratio:
+                        raise ValueError(
+                            "HTMLZ archive member has suspicious compression ratio: %s (%.1f)"
+                            % (info.filename, ratio)
+                        )
+
+            if not has_top_level_html:
+                raise ValueError(_("No top level HTML file found."))
+        finally:
+            zf.close()
+            stream.seek(0)
+
+    def warn_preflight_rejection(self, stream, log, error):
+        path = getattr(stream, "name", "stream")
+        self._warn(log, "HTMLZ preflight rejected %s: %s" % (path, error))
 
     def convert(self, stream, options, file_ext, log, accelerators):
         """
@@ -40,6 +155,12 @@ class HTMLZInput(InputFormatPlugin):
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log
+        try:
+            self.validate_container_members(stream)
+        except ValueError as err:
+            self.warn_preflight_rejection(stream, log, err)
+            raise
+
         work_root = choose_conversion_workdir("_htmlz_input")
         with CurrentDir(work_root):
             top_levels = []
@@ -140,16 +261,33 @@ class HTMLZInput(InputFormatPlugin):
                     opf = x
                     break
             if opf:
-                opf = OPF(opf, basedir=os.getcwd())
-                cover_path = opf.raster_cover or opf.cover
+                try:
+                    opf_obj = OPF(opf, basedir=os.getcwd())
+                    cover_path = opf_obj.raster_cover or opf_obj.cover
+                except Exception as err:
+                    self._warn(
+                        log,
+                        _("Could not read HTMLZ metadata file %s: %s") % (opf, err),
+                    )
             # Set the cover.
             if cover_path:
-                cdata = None
-                with open(os.path.join(os.getcwd(), cover_path), "rb") as cf:
-                    cdata = cf.read()
-                cover_name = os.path.basename(cover_path)
-                id, href = oeb.manifest.generate("cover", cover_name)
-                oeb.manifest.add(id, href, guess_type(cover_name)[0], data=cdata)
-                oeb.guide.add("cover", "Cover", href)
+                cover_file = self._safe_cover_path(os.getcwd(), cover_path)
+                if cover_file is None:
+                    self._warn(
+                        log,
+                        _("Ignoring unsafe HTMLZ cover path: %s") % cover_path,
+                    )
+                elif not os.path.isfile(cover_file):
+                    self._warn(
+                        log,
+                        _("HTMLZ cover file %s was not found") % cover_path,
+                    )
+                else:
+                    with open(cover_file, "rb") as cf:
+                        cdata = cf.read()
+                    cover_name = os.path.basename(cover_path)
+                    item_id, href = oeb.manifest.generate("cover", cover_name)
+                    oeb.manifest.add(item_id, href, guess_type(cover_name)[0], data=cdata)
+                    oeb.guide.add("cover", "Cover", href)
 
             return oeb
