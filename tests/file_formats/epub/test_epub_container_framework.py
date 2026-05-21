@@ -109,3 +109,55 @@ def test_epub_input_plugin_accepts_fixture_and_preserves_unicode_workdir(tmp_pat
     chapter_text = chapter_path.read_text("utf-8", "replace")
     assert_fragments_present(chapter_text, fixture.text_fragments, context="EPUBInput extracted XHTML")
     assert_no_replacement_chars(chapter_text, context="EPUBInput extracted XHTML")
+
+
+def test_epub_input_accepts_deep_nested_non_ascii_opf_and_asset_paths(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
+
+    extra_assets = {
+        "OPS/深/metadata/assets/fonts/Font cafe\u0301 世界.otf": (
+            "font/otf",
+            b"font-data-cafe",
+        ),
+        "OPS/深/metadata/assets/media/audio مرحبا.bin": (
+            "application/octet-stream",
+            b"audio-data",
+        ),
+        "OPS/深/metadata/styles/嵌套/print.css": (
+            "text/css",
+            b"body { color: #123456; }",
+        ),
+    }
+    fixture = build_unicode_epub(
+        tmp_path / "deep_assets_世界.epub",
+        opf_path="OPS/深/metadata/content.opf",
+        extra_assets=extra_assets,
+    )
+    workdir = tmp_path / "deep_work"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+
+    with fixture.path.open("rb") as stream:
+        opf_path = Path(EPUBInput(None).convert(stream, SimpleNamespace(), "epub", NullLog(), {}))
+
+    assert opf_path == workdir / "content.opf"
+    opf_text = opf_path.read_text("utf-8", "replace")
+    assert_no_replacement_chars(opf_text, context="deep EPUBInput generated OPF")
+
+    expected_members = (
+        "OPS/深/metadata/text/chapter_Καλημέρα.xhtml",
+        "OPS/深/metadata/images/深/cover_世界.png",
+        *extra_assets.keys(),
+    )
+    for member_name in expected_members:
+        assert (workdir / member_name).exists(), member_name
+        assert member_name in opf_text
+
+    for member_name, (_media_type, payload) in extra_assets.items():
+        assert (workdir / member_name).read_bytes() == payload
+
+    chapter_text = (workdir / "OPS/深/metadata/text/chapter_Καλημέρα.xhtml").read_text("utf-8", "replace")
+    assert_fragments_present(chapter_text, fixture.text_fragments, context="deep EPUBInput XHTML")

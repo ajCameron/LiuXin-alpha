@@ -69,24 +69,36 @@ The fourth slice adds hostile archive member and zip-bomb-shaped preflight:
 - covers those failures with strict test subclasses that keep the test payloads
   small while exercising the production checks
 
+The fifth slice adds positive valid-resource coverage:
+
+- extends the EPUB fixture builder with optional extra manifest assets
+- covers a deep non-ASCII OPF rootfile path
+- verifies extra nested assets with spaces, combining marks, Arabic text, CJK
+  path segments, and mixed media types are extracted and preserved in generated
+  `content.opf`
+- confirms stricter path/bomb preflight does not reject those valid resource
+  paths
+
 ## Validation
 
 - `python3 -m py_compile src/LiuXin_alpha/file_formats/conversion/plugins/epub_input.py tests/file_formats/epub/test_epub_malformed_hostile.py tests/file_formats/epub/test_epub_container_framework.py tests/metadata/file_sources/test_epub_metadata_source.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py tests/support/file_format_epub.py`
   - clean
 - `python3 -m pytest tests/file_formats/epub/test_epub_container_framework.py tests/metadata/file_sources/test_epub_metadata_source.py::test_epub_metadata_reads_generated_multilingual_fixture_path_stream_and_plugin -q`
   - `4 passed`
+- `python3 -m pytest tests/file_formats/epub/test_epub_container_framework.py -q`
+  - `4 passed`
 - `python3 -m pytest tests/file_formats/epub/test_epub_malformed_hostile.py -q`
   - `22 passed`
 - `python3 -m pytest tests/file_formats/epub -q`
-  - `33 passed`
+  - `34 passed`
 - `python3 -m pytest tests/metadata/file_sources/test_epub_metadata_source.py tests/metadata/file_sources/test_epub_edge_cases.py -q`
   - `28 passed`
 - `python3 -m pytest tests/file_formats/conversion/plugins tests/file_formats/conversion/test_conversion_top_level_smoke.py -q`
   - `10 passed`
 - `python3 -m pytest tests/file_formats -q`
-  - `642 passed, 1 skipped, 127 warnings`
+  - `643 passed, 1 skipped, 127 warnings`
 
 ## Next
 
-- Add explicit valid nested asset path coverage beyond the current image/CSS/NCX
-  fixture assertions, then consider whether this EPUB branch is ready for PR.
+- Consider whether this EPUB branch is ready for PR before moving into
+  salvage/loss-reporting follow-ups.

@@ -27,6 +27,11 @@ conversion workdir, plus bomb-shaped archives using bounded checks for member
 count, per-member expanded size, total expanded size, and suspicious
 compression ratios.
 
+Positive-path asset coverage now includes a deeply nested non-ASCII OPF path
+and extra manifest assets with spaces, combining marks, Arabic text, CJK path
+segments, and mixed media types. Those paths are extracted and preserved in the
+normalized `content.opf`.
+
 ## Planned Sequence
 
 1. EPUB container fixture framework.
@@ -73,6 +78,7 @@ The reusable EPUB fixtures should preserve:
 - XHTML spine content containing the shared multilingual corpus
 - NCX, CSS, and optional image assets
 - nested unicode asset paths
+- optional extra manifest assets for deeper resource-path coverage
 - rewrite helpers for removing, replacing, and adding archive members in
   malformed-container tests
 

@@ -89,8 +89,10 @@ def build_unicode_epub(
     lines: Sequence[str] | None = None,
     opf_path: str = "OPS/content.opf",
     include_image: bool = True,
+    extra_assets: Mapping[str, tuple[str, bytes]] | None = None,
 ) -> EPUBFixture:
     body_lines = tuple(lines or MULTISCRIPT_TEXT.splitlines())
+    extra_assets = dict(extra_assets or {})
     opf_base = posixpath.dirname(opf_path)
     chapter_member = posixpath.join(opf_base, "text/chapter_Καλημέρα.xhtml") if opf_base else "text/chapter_Καλημέρα.xhtml"
     css_member = posixpath.join(opf_base, "styles/main.css") if opf_base else "styles/main.css"
@@ -140,6 +142,13 @@ def build_unicode_epub(
     creators = "".join(
         f'<dc:creator opf:role="aut">{_xml_text(author)}</dc:creator>' for author in EPUB_AUTHORS
     )
+    extra_manifest_items = "\n".join(
+        (
+            '<item id="extra-%d" href="%s" media-type="%s"/>'
+            % (idx, _xml_text(_opf_href(opf_path, member_name)), _xml_text(media_type))
+        )
+        for idx, (member_name, (media_type, _data)) in enumerate(extra_assets.items(), start=1)
+    )
     opf = f"""<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -157,6 +166,7 @@ def build_unicode_epub(
     <item id="style" href="{_xml_text(css_href)}" media-type="text/css"/>
     <item id="chapter" href="{_xml_text(chapter_href)}" media-type="application/xhtml+xml"/>
     {manifest_image}
+    {extra_manifest_items}
   </manifest>
   <spine toc="ncx">
     <itemref idref="chapter"/>
@@ -212,7 +222,16 @@ def build_unicode_epub(
             info.compress_type = zipfile.ZIP_DEFLATED
             zf.writestr(info, png_bytes())
 
-    asset_members = (css_member, ncx_member) + ((image_member,) if include_image else ())
+        for member_name, (_media_type, data) in extra_assets.items():
+            info = zipfile.ZipInfo(member_name)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, data)
+
+    asset_members = (
+        (css_member, ncx_member)
+        + ((image_member,) if include_image else ())
+        + tuple(extra_assets)
+    )
     return EPUBFixture(
         path=path,
         opf_path=opf_path,
