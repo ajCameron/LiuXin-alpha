@@ -6,6 +6,14 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [file-formats-htmlz-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-htmlz-container-2026-05-21.md)
+  Current branch note for the HTMLZ archive/container pass: reusable HTMLZ
+  fixtures, valid multilingual plugin-path coverage, malformed optional
+  OPF/cover warning behavior, required top-level HTML failures, hostile archive
+  limits, and the HTMLZ-specific salvage/reporting boundary. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/htmlz/README.md`.
+
 - [file-formats-docx-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-docx-container-2026-05-21.md)
   Current branch note for the DOCX archive/XML container pass: reusable DOCX
   fixtures first, then valid conversion coverage, malformed package cases,
