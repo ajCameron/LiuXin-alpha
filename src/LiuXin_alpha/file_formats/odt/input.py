@@ -6,6 +6,7 @@ Convert an ODT file into a Open Ebook
 
 import logging
 import os
+import posixpath
 
 from lxml import etree
 try:
@@ -37,14 +38,81 @@ __docformat__ = "restructuredtext en"
 
 
 class Extract(ODF2XHTML):
+    required_members = ("META-INF/manifest.xml", "meta.xml", "content.xml")
+    max_archive_members = 4096
+    max_member_uncompressed_size = 256 * 1024 * 1024
+    max_total_uncompressed_size = 512 * 1024 * 1024
+    max_compression_ratio = 1000
+    min_compression_ratio_check_size = 1024 * 1024
+
+    def validate_container_members(self, stream):
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
+
+        stream.seek(0)
+        zf = ZipFile(stream, "r")
+        try:
+            infos = zf.infolist()
+            if len(infos) > self.max_archive_members:
+                raise ValueError(
+                    "ODT file has too many archive members: %d > %d"
+                    % (len(infos), self.max_archive_members)
+                )
+
+            total_uncompressed = 0
+            for info in infos:
+                file_size = max(int(getattr(info, "file_size", 0) or 0), 0)
+                compress_size = max(int(getattr(info, "compress_size", 0) or 0), 0)
+                total_uncompressed += file_size
+                if file_size > self.max_member_uncompressed_size:
+                    raise ValueError(
+                        "ODT archive member is too large: %s (%d bytes)"
+                        % (info.filename, file_size)
+                    )
+                if total_uncompressed > self.max_total_uncompressed_size:
+                    raise ValueError(
+                        "ODT archive expands to too much data: %d > %d bytes"
+                        % (total_uncompressed, self.max_total_uncompressed_size)
+                    )
+                if file_size > 0 and compress_size == 0:
+                    raise ValueError("ODT archive member has invalid compressed size: %s" % info.filename)
+                if file_size >= self.min_compression_ratio_check_size and compress_size > 0:
+                    ratio = file_size / float(compress_size)
+                    if ratio > self.max_compression_ratio:
+                        raise ValueError(
+                            "ODT archive member has suspicious compression ratio: %s (%.1f)"
+                            % (info.filename, ratio)
+                        )
+
+            names = set(zf.namelist())
+            missing = [name for name in self.required_members if name not in names]
+            if missing:
+                raise ValueError("ODT file is missing required member(s): %s" % ", ".join(missing))
+        finally:
+            zf.close()
+            stream.seek(0)
+
     def extract_pictures(self, zf):
         if not os.path.exists("Pictures"):
             os.makedirs("Pictures")
+        pictures_root = os.path.abspath("Pictures")
         for name in zf.namelist():
-            if name.startswith("Pictures") and name not in {"Pictures", "Pictures/"}:
-                data = zf.read(name)
-                with open(name, "wb") as f:
-                    f.write(data)
+            normalized = posixpath.normpath(name.replace("\\", "/"))
+            if normalized == "Pictures" or not normalized.startswith("Pictures/"):
+                continue
+            relative_name = normalized[len("Pictures/") :]
+            target = os.path.abspath(os.path.join(pictures_root, *relative_name.split("/")))
+            try:
+                common = os.path.commonpath([pictures_root, target])
+            except ValueError:
+                continue
+            if common != pictures_root:
+                continue
+            parent = os.path.dirname(target)
+            if parent and not os.path.exists(parent):
+                os.makedirs(parent)
+            data = zf.read(name)
+            with open(target, "wb") as f:
+                f.write(data)
 
     def fix_markup(self, html, log):
         root = etree.fromstring(html)
@@ -295,6 +363,7 @@ class Extract(ODF2XHTML):
         with CurrentDir(odir):
             log("Extracting ODT file...")
             stream.seek(0)
+            self.validate_container_members(stream)
             mi = odt_get_metadata(stream)
             if not mi.title:
                 mi.title = _("Unknown")
