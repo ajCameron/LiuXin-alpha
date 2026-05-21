@@ -94,11 +94,18 @@ def test_epub_input_plugin_accepts_fixture_and_preserves_unicode_workdir(tmp_pat
     assert opf_path.is_absolute()
     assert opf_path.name == "content.opf"
     assert opf_path.parent == workdir
-    assert (workdir / "OPS" / "text" / "chapter_Καλημέρα.xhtml").exists()
+    chapter_path = workdir / "OPS" / "text" / "chapter_Καλημέρα.xhtml"
+    assert chapter_path.exists()
     assert (workdir / "OPS" / "images" / "深" / "cover_世界.png").exists()
 
     opf_text = opf_path.read_text("utf-8", "replace")
     assert EPUB_TITLE in opf_text
     assert EPUB_AUTHORS[0] in opf_text
     assert EPUB_AUTHORS[1] in opf_text
+    assert "OPS/text/chapter_Καλημέρα.xhtml" in opf_text
+    assert "OPS/images/深/cover_世界.png" in opf_text
     assert_no_replacement_chars(opf_text, context="EPUBInput generated OPF")
+
+    chapter_text = chapter_path.read_text("utf-8", "replace")
+    assert_fragments_present(chapter_text, fixture.text_fragments, context="EPUBInput extracted XHTML")
+    assert_no_replacement_chars(chapter_text, context="EPUBInput extracted XHTML")

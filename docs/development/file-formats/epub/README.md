@@ -12,6 +12,11 @@ The first slice establishes reusable EPUB fixture builders under
 unicode conversion, malformed archive, OPF, spine, manifest, and asset-path
 tests rather than creating one-off ZIP payloads in each test.
 
+Current focused coverage uses those fixtures through `EPUBInput` and the EPUB
+metadata reader path, including path, stream, quick metadata, inplace metadata,
+reader-plugin dispatch, and raster cover extraction for a nested non-ASCII
+asset path.
+
 ## Planned Sequence
 
 1. EPUB container fixture framework.
@@ -53,3 +58,11 @@ The reusable EPUB fixtures should preserve:
 - nested unicode asset paths
 - rewrite helpers for removing, replacing, and adding archive members in
   malformed-container tests
+
+## Current Gaps
+
+The generated fixture includes OPF description, publisher, and subject metadata,
+but the current EPUB metadata reader path only surfaces title, authors, and
+cover data from that fixture. Broader OPF field parity should be handled as a
+separate metadata reader/writer refinement rather than hidden inside container
+hardening.
