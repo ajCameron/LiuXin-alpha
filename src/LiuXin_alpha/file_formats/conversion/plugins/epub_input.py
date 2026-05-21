@@ -191,6 +191,17 @@ class EPUBInput(InputFormatPlugin):
             zf.close()
             stream.seek(0)
 
+    def warn_preflight_rejection(self, stream, log, error):
+        warn = getattr(log, "warning", None) or getattr(log, "warn", None)
+        if warn is None:
+            return
+
+        path = getattr(stream, "name", "stream")
+        try:
+            warn("EPUB preflight rejected %s: %s" % (path, error))
+        except Exception:
+            default_log.warning("EPUB preflight rejected %s: %s", path, error)
+
     def process_encryption(self, encfile, opf, log):
         from LiuXin_alpha.utils.libraries.liuxin_etree import etree
         import uuid
@@ -364,7 +375,11 @@ class EPUBInput(InputFormatPlugin):
         from LiuXin_alpha.file_formats import DRMError
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
 
-        self.validate_container_members(stream)
+        try:
+            self.validate_container_members(stream)
+        except ValueError as err:
+            self.warn_preflight_rejection(stream, log, err)
+            raise
         work_root = choose_conversion_workdir("_epub_input")
         with CurrentDir(work_root):
             try:

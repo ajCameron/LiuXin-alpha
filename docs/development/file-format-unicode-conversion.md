@@ -6,8 +6,8 @@ and helpers so the same corpus can later drive conversion-matrix coverage.
 
 Format-specific durable notes now live under `docs/development/file-formats/`.
 Use one folder per format once the format has enough behavior, edge cases, or
-security policy to need a local contract. ODT starts that structure in
-`docs/development/file-formats/odt/`.
+security policy to need a local contract. ODT and EPUB now have dedicated
+format dossiers.
 
 ## Current Test Contract
 
@@ -63,16 +63,18 @@ markup:
 - generated `metadata.opf`, XHTML, CSS, and copied assets should be checked as
   a single conversion product
 
-The ODT pass is the first container/XML slice using this contract. It validates
+The ODT pass was the first container/XML slice using this contract. It validates
 required `META-INF/manifest.xml`, `meta.xml`, and `content.xml` members,
 preflights suspicious archive expansion, preserves multilingual metadata/body
 text, copies valid `Pictures/...` assets, and rejects hostile picture paths
 that would escape the `Pictures` output tree.
 
-EPUB is the next container target. Treat OPF as part of that EPUB slice first:
-build the reusable EPUB fixture framework, then cover OCF `container.xml`, OPF
-package discovery, manifest/spine correctness, XHTML/XML content, nested assets,
-unicode paths, and hostile archive behavior.
+The EPUB pass applies the same shape to OCF/OPF containers: reusable fixtures,
+valid multilingual conversion/read coverage, `container.xml` and OPF package
+discovery, manifest/spine checks, nested non-ASCII assets, hostile archive
+paths, and zip-bomb-shaped limits. EPUB preflight failures remain strict before
+extraction and are logged with the rejection reason. Any future EPUB salvage
+mode should be opt-in and report every relaxed check or dropped resource.
 
 ## PML Status
 

@@ -1,11 +1,13 @@
 # File Formats EPUB Container Hardening Slice
 
-Branch: `file-formats-epub-container-hardening`
+Original branch: `file-formats-epub-container-hardening`
 
-Started after PR #73 merged. EPUB is the next archive/XML container target
-after ODT because it exercises ZIP/OCF preflight, OPF package discovery,
-manifest/spine correctness, XHTML/XML parsing, CSS/images/fonts, unicode paths,
-and hostile archive behavior.
+Follow-up branch: `file-formats-epub-salvage-reporting`
+
+Started after PR #73 merged. EPUB was selected as the next archive/XML
+container target after ODT because it exercises ZIP/OCF preflight, OPF package
+discovery, manifest/spine correctness, XHTML/XML parsing, CSS/images/fonts,
+unicode paths, and hostile archive behavior.
 
 Durable docs:
 
@@ -21,7 +23,8 @@ Durable docs:
 4. Hostile archive members and zip-bomb-shaped limits, using the ODT policy as
    the model.
 5. Asset path and unicode filename coverage.
-6. Loss/reporting TODOs for malformed-but-salvageable books.
+6. Preflight rejection diagnostics and salvage/reporting policy for
+   malformed-but-salvageable books.
 
 ## Progress
 
@@ -79,6 +82,18 @@ The fifth slice adds positive valid-resource coverage:
 - confirms stricter path/bomb preflight does not reject those valid resource
   paths
 
+The sixth slice makes the strict failure mode more diagnosable and records the
+future salvage boundary:
+
+- `EPUBInput.convert` logs `EPUB preflight rejected <path>: <reason>` before
+  re-raising pre-extraction container failures
+- warning emission supports both modern `warning` and legacy `warn` loggers
+- malformed/hostile EPUB tests now assert that rejected preflight cases produce
+  a visible diagnostic and still leave no partial workdir output
+- durable EPUB docs state that there is no silent salvage mode yet; any future
+  recovery must be explicit, bounded, and report relaxed checks, selected
+  rootfile/package/spine paths, skipped resources, and unicode/markup loss
+
 ## Validation
 
 - `python3 -m py_compile src/LiuXin_alpha/file_formats/conversion/plugins/epub_input.py tests/file_formats/epub/test_epub_malformed_hostile.py tests/file_formats/epub/test_epub_container_framework.py tests/metadata/file_sources/test_epub_metadata_source.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py tests/support/file_format_epub.py`
@@ -88,17 +103,18 @@ The fifth slice adds positive valid-resource coverage:
 - `python3 -m pytest tests/file_formats/epub/test_epub_container_framework.py -q`
   - `4 passed`
 - `python3 -m pytest tests/file_formats/epub/test_epub_malformed_hostile.py -q`
-  - `22 passed`
+  - `23 passed`
 - `python3 -m pytest tests/file_formats/epub -q`
-  - `34 passed`
+  - `35 passed`
 - `python3 -m pytest tests/metadata/file_sources/test_epub_metadata_source.py tests/metadata/file_sources/test_epub_edge_cases.py -q`
   - `28 passed`
 - `python3 -m pytest tests/file_formats/conversion/plugins tests/file_formats/conversion/test_conversion_top_level_smoke.py -q`
   - `10 passed`
 - `python3 -m pytest tests/file_formats -q`
-  - `643 passed, 1 skipped, 127 warnings`
+  - `644 passed, 1 skipped, 127 warnings`
 
 ## Next
 
-- Consider whether this EPUB branch is ready for PR before moving into
-  salvage/loss-reporting follow-ups.
+- Validate and PR the `file-formats-epub-salvage-reporting` follow-up.
+- After merge, the next format-sized target is likely one of the complex
+  document containers with archive/XML shape and real-world malformed samples.

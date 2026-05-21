@@ -7,10 +7,11 @@ Start here for active handoff notes. This index should stay short.
 ## Current Notes
 
 - [file-formats-epub-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-epub-container-2026-05-21.md)
-  Current branch note for the EPUB archive/XML container pass: reusable EPUB
-  fixtures first, then multilingual conversion/read coverage, OCF/OPF
-  malformed-container cases, hostile archive limits, nested asset paths, and
-  salvage/loss-reporting follow-ups. Durable docs:
+  Current note for the EPUB archive/XML container pass and salvage/reporting
+  follow-up: reusable EPUB fixtures, multilingual conversion/read coverage,
+  OCF/OPF malformed-container cases, hostile archive limits, nested asset paths,
+  preflight rejection diagnostics, and the explicit future salvage boundary.
+  Durable docs:
   `docs/development/file-format-unicode-conversion.md` and
   `docs/development/file-formats/epub/README.md`.
 
