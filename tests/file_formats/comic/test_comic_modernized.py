@@ -107,7 +107,8 @@ def test_comic_convert_glue_with_fakes(tmp_path: Path, monkeypatch: pytest.Monke
 
     options = types.SimpleNamespace(dont_add_comic_pages_to_toc=False)
     in_file = tmp_path / "comic.cbz"
-    in_file.write_bytes(b"fake")
+    with zipfile.ZipFile(in_file, "w") as zf:
+        zf.writestr("placeholder.txt", b"fake")
 
     with in_file.open("rb") as stream:
         out = plugin.convert(stream, options, "cbz", log=types.SimpleNamespace(warning=lambda *a: None), accelerators={})

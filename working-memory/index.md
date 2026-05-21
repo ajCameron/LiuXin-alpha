@@ -6,6 +6,14 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [file-formats-comic-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-comic-container-2026-05-21.md)
+  Current branch note for the comic CBZ/CBC archive/container pass: reusable
+  comic fixtures, valid multilingual plugin-path coverage, CBC `comics.txt`
+  decoding and missing-member warning behavior, nested CBZ preflight, hostile
+  archive limits, and the explicit CBR/RAR follow-up boundary. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/comic/README.md`.
+
 - [file-formats-htmlz-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-htmlz-container-2026-05-21.md)
   Current branch note for the HTMLZ archive/container pass: reusable HTMLZ
   fixtures, valid multilingual plugin-path coverage, malformed optional

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import codecs
 import os
+import posixpath
 import shutil
 import textwrap
 
@@ -28,6 +29,11 @@ class ComicInput(InputFormatPlugin):
     file_types = frozenset(["cbz", "cbr", "cbc"])
     is_image_collection = True
     core_usage = -1
+    max_archive_members = 4096
+    max_member_uncompressed_size = 256 * 1024 * 1024
+    max_total_uncompressed_size = 512 * 1024 * 1024
+    max_compression_ratio = 1000
+    min_compression_ratio_check_size = 1024 * 1024
 
     options = {
         OptionRecommendation(
@@ -149,6 +155,114 @@ class ComicInput(InputFormatPlugin):
         ("linearize_tables", False, OptionRecommendation.HIGH),
     }
 
+    def _warn(self, message):
+        log = getattr(self, "log", None)
+        warn = getattr(log, "warning", None) or getattr(log, "warn", None)
+        if warn is not None:
+            warn(message)
+
+    def normalized_archive_member_name(self, name):
+        normalized = name.replace("\\", "/")
+        parts = normalized.split("/")
+        if (
+            "\\" in name
+            or normalized.startswith("/")
+            or (len(normalized) > 1 and normalized[1] == ":")
+            or ".." in parts
+        ):
+            raise ValueError("comic archive member has unsafe path: %s" % name)
+        normalized = posixpath.normpath(normalized)
+        if normalized in {"", ".", ".."} or normalized.startswith("../"):
+            raise ValueError("comic archive member has unsafe path: %s" % name)
+        return normalized
+
+    def should_preflight_zip_archive(self, source, ext_hint=None):
+        if ext_hint and ext_hint.lower() in {"cbz", "cbc", "zip"}:
+            return True
+
+        path = os.fspath(source) if isinstance(source, os.PathLike) else source
+        if isinstance(path, str):
+            ext = os.path.splitext(path)[1][1:].lower()
+            if ext in {"cbz", "cbc", "zip"}:
+                return True
+            try:
+                with open(path, "rb") as stream:
+                    return stream.read(2) == b"PK"
+            except Exception:
+                return False
+        return False
+
+    def validate_zip_archive_members(self, source, label="comic archive"):
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
+
+        if hasattr(source, "seek"):
+            try:
+                source.seek(0)
+            except Exception:
+                pass
+
+        try:
+            zf = ZipFile(source, "r")
+        except Exception as err:
+            if hasattr(source, "seek"):
+                try:
+                    source.seek(0)
+                except Exception:
+                    pass
+            raise ValueError("%s appears to be invalid ZIP file" % label) from err
+
+        try:
+            infos = zf.infolist()
+            if len(infos) > self.max_archive_members:
+                raise ValueError(
+                    "%s has too many archive members: %d > %d"
+                    % (label, len(infos), self.max_archive_members)
+                )
+
+            total_uncompressed = 0
+            for info in infos:
+                self.normalized_archive_member_name(info.filename)
+
+                file_size = max(int(getattr(info, "file_size", 0) or 0), 0)
+                compress_size = max(int(getattr(info, "compress_size", 0) or 0), 0)
+                total_uncompressed += file_size
+                if file_size > self.max_member_uncompressed_size:
+                    raise ValueError(
+                        "%s member is too large: %s (%d bytes)"
+                        % (label, info.filename, file_size)
+                    )
+                if total_uncompressed > self.max_total_uncompressed_size:
+                    raise ValueError(
+                        "%s expands to too much data: %d > %d bytes"
+                        % (label, total_uncompressed, self.max_total_uncompressed_size)
+                    )
+                if file_size > 0 and compress_size == 0:
+                    raise ValueError(
+                        "%s member has invalid compressed size: %s"
+                        % (label, info.filename)
+                    )
+                if (
+                    file_size >= self.min_compression_ratio_check_size
+                    and compress_size > 0
+                ):
+                    ratio = file_size / float(compress_size)
+                    if ratio > self.max_compression_ratio:
+                        raise ValueError(
+                            "%s member has suspicious compression ratio: %s (%.1f)"
+                            % (label, info.filename, ratio)
+                        )
+        finally:
+            zf.close()
+            if hasattr(source, "seek"):
+                try:
+                    source.seek(0)
+                except Exception:
+                    pass
+
+    def warn_preflight_rejection(self, source, error):
+        path = getattr(source, "name", source)
+        self._warn("Comic preflight rejected %s: %s" % (path, error))
+
     def get_comics_from_collection(self, stream):
         """
         Extract comics from a collection (which seems to be a zipped together collection of comics with a comix.txt file
@@ -158,6 +272,12 @@ class ComicInput(InputFormatPlugin):
         """
         from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
 
+        try:
+            self.validate_zip_archive_members(stream, "CBC")
+        except ValueError as err:
+            self.warn_preflight_rejection(stream, err)
+            raise
+
         tdir = PersistentTemporaryDirectory("_comic_collection")
         zipextract(stream, tdir)
         comics = []
@@ -166,14 +286,19 @@ class ComicInput(InputFormatPlugin):
             if not os.path.exists("comics.txt"):
                 raise ValueError("%s is not a valid comic collection no comics.txt was found in the file" % stream.name)
             raw = open("comics.txt", "rb").read()
-            if raw.startswith(codecs.BOM_UTF16_BE):
-                raw = raw.decode("utf-16-be")[1:]
-            elif raw.startswith(codecs.BOM_UTF16_LE):
-                raw = raw.decode("utf-16-le")[1:]
-            elif raw.startswith(codecs.BOM_UTF8):
-                raw = raw.decode("utf-8")[1:]
-            else:
-                raw = raw.decode("utf-8")
+            try:
+                if raw.startswith(codecs.BOM_UTF16_BE):
+                    raw = raw.decode("utf-16-be")[1:]
+                elif raw.startswith(codecs.BOM_UTF16_LE):
+                    raw = raw.decode("utf-16-le")[1:]
+                elif raw.startswith(codecs.BOM_UTF8):
+                    raw = raw.decode("utf-8")[1:]
+                else:
+                    raw = raw.decode("utf-8")
+            except UnicodeDecodeError as err:
+                raise ValueError(
+                    "%s has a comics.txt file that is not valid UTF-8 or UTF-16" % stream.name
+                ) from err
 
             for line in raw.splitlines():
                 line = line.strip()
@@ -181,11 +306,14 @@ class ComicInput(InputFormatPlugin):
                     continue
                 fname, title = line.partition(":")[0], line.partition(":")[-1]
                 fname = fname.replace("#", "_")
+                listed_name = fname
                 fname = os.path.join(tdir, *fname.split("/"))
                 if not title:
                     title = os.path.basename(fname).rpartition(".")[0]
                 if os.access(fname, os.R_OK):
                     comics.append([title, fname])
+                else:
+                    self._warn(_("CBC listed comic file was not found: %s") % listed_name)
 
         if not comics:
             raise ValueError("%s has no comics" % stream.name)
@@ -199,6 +327,13 @@ class ComicInput(InputFormatPlugin):
             process_pages,
             find_pages,
         )
+
+        if self.should_preflight_zip_archive(comic):
+            try:
+                self.validate_zip_archive_members(comic, "CBZ")
+            except ValueError as err:
+                self.warn_preflight_rejection(comic, err)
+                raise
 
         tdir = extract_comic(comic)
         new_pages = find_pages(tdir, sort_on_mtime=self.opts.no_sort, verbose=self.opts.verbose)
@@ -267,6 +402,12 @@ class ComicInput(InputFormatPlugin):
             if file_ext == "cbc":
                 comics_ = self.get_comics_from_collection(stream)
             else:
+                if file_ext == "cbz":
+                    try:
+                        self.validate_zip_archive_members(stream, "CBZ")
+                    except ValueError as err:
+                        self.warn_preflight_rejection(stream, err)
+                        raise
                 tdir = PersistentTemporaryDirectory("_comic_input")
                 stream_path = self._stream_to_path(stream, tdir, file_ext)
                 comics_ = [["Comic", stream_path]]
