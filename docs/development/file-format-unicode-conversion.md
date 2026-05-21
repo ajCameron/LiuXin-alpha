@@ -69,6 +69,11 @@ preflights suspicious archive expansion, preserves multilingual metadata/body
 text, copies valid `Pictures/...` assets, and rejects hostile picture paths
 that would escape the `Pictures` output tree.
 
+EPUB is the next container target. Treat OPF as part of that EPUB slice first:
+build the reusable EPUB fixture framework, then cover OCF `container.xml`, OPF
+package discovery, manifest/spine correctness, XHTML/XML content, nested assets,
+unicode paths, and hostile archive behavior.
+
 ## PML Status
 
 The PML pass currently captures two boundaries:
