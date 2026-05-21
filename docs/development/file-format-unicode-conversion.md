@@ -4,6 +4,11 @@ This note records the current direction for the file-format unicode and
 malformed-input hardening work. The tests should keep using reusable fixtures
 and helpers so the same corpus can later drive conversion-matrix coverage.
 
+Format-specific durable notes now live under `docs/development/file-formats/`.
+Use one folder per format once the format has enough behavior, edge cases, or
+security policy to need a local contract. ODT starts that structure in
+`docs/development/file-formats/odt/`.
+
 ## Current Test Contract
 
 - Keep shared unicode and conversion helpers under `tests/support/`.
@@ -47,6 +52,9 @@ markup:
 - archive preflight should reject bomb-shaped inputs using bounded checks for
   member count, per-member expanded size, total expanded size, and suspicious
   compression ratios
+- future override support should raise bounded archive budgets only for
+  explicitly trusted input; it must not disable path safety, archive
+  readability, or conversion-product invariants
 - malformed XML and invalid declared encodings should fail clearly unless a
   format has an intentional recovery path
 - embedded assets should be copied without allowing archive member names to

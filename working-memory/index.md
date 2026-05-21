@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-05-20
+Updated: 2026-05-21
 
 Start here for active handoff notes. This index should stay short.
 
@@ -9,8 +9,10 @@ Start here for active handoff notes. This index should stay short.
 - [file-formats-odt-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-odt-container-2026-05-21.md)
   Current branch note for the ODT archive/XML container pass: reusable ODT
   fixtures, required-member validation, hostile picture-path hardening,
-  multilingual Extract/ODTInput coverage, and generated OPF/XHTML/CSS/assets.
-  Durable doc: `docs/development/file-format-unicode-conversion.md`.
+  multilingual Extract/ODTInput coverage, generated OPF/XHTML/CSS/assets,
+  bounded archive preflight checks, and the guarded-override docs direction.
+  Durable docs: `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/odt/README.md`.
 
 - [file-formats-markup-hostile-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-markup-hostile-2026-05-21.md)
   Current branch note for the optional lightweight-markup hostile-input pass:

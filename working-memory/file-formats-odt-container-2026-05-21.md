@@ -5,7 +5,10 @@ Branch: `file-formats-odt-container-hardening`
 Started after PR #72 merged. This is the first archive/XML container pass after
 the text, markup, RTF, and PML unicode/malformed-input work.
 
-Durable doc: `docs/development/file-format-unicode-conversion.md`.
+Durable docs:
+
+- `docs/development/file-format-unicode-conversion.md`
+- `docs/development/file-formats/odt/README.md`
 
 ## Scope
 
@@ -19,6 +22,7 @@ behavior:
   assets
 - required-member validation and hostile asset paths
 - bounded zip-bomb-shaped archive preflight checks
+- ODT-specific durable docs for container policy and future guarded overrides
 
 ## Changes
 
@@ -30,6 +34,12 @@ behavior:
   before generating partial output.
 - Added bounded archive preflight checks for member count, per-member expanded
   size, total expanded size, and suspicious compression ratios.
+- Added `docs/development/file-formats/odt/README.md` and
+  `docs/development/file-formats/README.md` so future file-format work can keep
+  one durable folder per format.
+- Documented the future guarded override direction: trusted modes may raise
+  bounded archive budgets, but must not bypass path traversal, unreadable ZIP,
+  or undefined-product failures.
 - Hardened `Extract.extract_pictures` so:
   - nested `Pictures/...` members are copied with directories created
   - non-ASCII nested asset paths are preserved
@@ -52,3 +62,5 @@ behavior:
 - Consider OPF or EPUB next. OPF is narrower and metadata-heavy; EPUB is the
   natural next archive/container step if we want spine/manifest/resource
   behavior immediately.
+- When a guarded override is implemented, make it a named trusted-input budget
+  profile with explicit diagnostics rather than a broad safety bypass.
