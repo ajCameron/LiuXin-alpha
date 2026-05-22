@@ -6,6 +6,14 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [file-formats-fb2-unicode-hostile-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-fb2-unicode-hostile-2026-05-21.md)
+  Current branch note for the FB2 XML/input-output pass: reusable FB2 fixtures,
+  UTF-8/UTF-16 valid conversion coverage, recoverable malformed XML cases,
+  unsafe embedded-binary ID sanitization, corrupted base64 warnings, output
+  unicode serialization coverage, and the zipped-FB2/reporting follow-ups.
+  Durable docs: `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/fb2/README.md`.
+
 - [file-formats-comic-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-comic-container-2026-05-21.md)
   Current branch note for the comic CBZ/CBC archive/container pass: reusable
   comic fixtures, valid multilingual plugin-path coverage, CBC `comics.txt`

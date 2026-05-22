@@ -8,7 +8,7 @@ Format-specific durable notes now live under `docs/development/file-formats/`.
 Use one folder per format once the format has enough behavior, edge cases, or
 security policy to need a local contract. ODT, EPUB, DOCX, and HTMLZ now have
 dedicated format dossiers. Comic CBZ/CBC now has a dedicated format dossier as
-well.
+well. FB2 now has a dedicated XML/input-output dossier.
 
 ## Current Test Contract
 
@@ -99,6 +99,13 @@ reusable CBZ/CBC fixtures, valid multilingual plugin-path coverage, CBC
 `comics.txt` decoding and missing-member warning behavior, nested CBZ
 preflight, hostile archive path checks, and zip-bomb-shaped limits. CBR/RAR is
 a separate future hardening target because it is not ZIP-backed.
+
+The FB2 pass applies the same fixture-driven hardening shape to an XML-backed
+format rather than an archive-backed one: reusable multilingual FB2 fixtures,
+valid plugin-path coverage for UTF-8 and UTF-16 input, recoverable malformed
+XML coverage, unsafe embedded-binary ID sanitization, corrupted base64 warning
+behavior, and output-side `FB2MLizer`/`FB2Output` unicode serialization
+coverage. Zipped FB2 payloads remain a separate future container-like target.
 
 ## PML Status
 

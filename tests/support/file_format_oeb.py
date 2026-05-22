@@ -7,6 +7,7 @@ from urllib.parse import urldefrag
 from lxml import etree
 
 from LiuXin_alpha.file_formats.oeb.base import XHTML
+from tests.support.file_format_unicode import MULTISCRIPT_TEXT
 
 
 @dataclass
@@ -21,6 +22,7 @@ class MinimalOEBItem:
     href: str
     data: object | None = None
     media_type: str = "application/xhtml+xml"
+    id: str | None = None
 
     def abshref(self, url: str) -> str:
         if "://" in url:
@@ -31,6 +33,69 @@ class MinimalOEBItem:
         if fragment:
             return f"{href}#{fragment}"
         return href
+
+
+class MinimalManifest(list):
+    def __init__(self, items=()):
+        super().__init__(items)
+        self.ids = {}
+        self.hrefs = {}
+        for index, item in enumerate(self):
+            item_id = item.id or "item%d" % index
+            self.ids[item_id] = item
+            self.hrefs[item.href] = item
+
+
+@dataclass
+class MinimalMetadataValue:
+    value: str
+
+    def __str__(self) -> str:
+        return self.value
+
+    def get(self, key, default=None):
+        return default
+
+
+class MinimalIdentifier(MinimalMetadataValue):
+    def __init__(self, value: str, scheme: str | None = None) -> None:
+        super().__init__(value)
+        self.scheme = scheme
+
+    def get(self, key, default=None):
+        if self.scheme and str(key).lower().endswith("scheme"):
+            return self.scheme
+        return default
+
+
+class MinimalMetadata:
+    def __init__(
+        self,
+        *,
+        title: str,
+        creators: tuple[str, ...],
+        language: str = "en",
+        subjects: tuple[str, ...] = (),
+        publisher: str | None = None,
+        date: str | None = None,
+        identifiers: tuple[MinimalIdentifier, ...] = (),
+        cover: str | None = None,
+        series: str | None = None,
+        series_index: str | None = None,
+    ) -> None:
+        self.title = [MinimalMetadataValue(title)]
+        self.creator = [MinimalMetadataValue(creator) for creator in creators]
+        self.language = [MinimalMetadataValue(language)] if language else []
+        self.subject = [MinimalMetadataValue(subject) for subject in subjects]
+        self.publisher = [MinimalMetadataValue(publisher)] if publisher else []
+        self.date = [MinimalMetadataValue(date)] if date else []
+        self.identifier = list(identifiers)
+        self.cover = [cover] if cover else []
+        self.series = [MinimalMetadataValue(series)] if series else []
+        self.series_index = [series_index] if series_index else []
+
+    def __getitem__(self, key: str):
+        return getattr(self, key, [])
 
 
 @dataclass
@@ -158,6 +223,59 @@ cöoperate</pre>
     image = MinimalOEBItem("cover.png", data=b"png", media_type="image/png")
     toc = [MinimalTOCNode("Shared Καλημέρα 世界 👩🏽‍💻", "chapter.xhtml#intro")]
     return MinimalOEBBook(spine=[chapter], manifest=[chapter, image], toc=toc)
+
+
+def build_rich_oeb_output_book(
+    *,
+    title: str = "OEB Output Καλημέρα 世界",
+    creators: tuple[str, ...] = ("José Niño", "Иван Петров"),
+    publisher: str = "Éditions Δ",
+    subjects: tuple[str, ...] = ("Κατηγορία", "タグ", "cafe\u0301"),
+    body_lines: tuple[str, ...] | None = None,
+    include_image: bool = True,
+) -> MinimalOEBBook:
+    lines = body_lines or tuple(MULTISCRIPT_TEXT.splitlines())
+    paragraphs = "\n".join("<p>%s</p>" % line for line in lines)
+    image_markup = '<p><img src="images/cover_世界.png" alt="封面 世界" /></p>' if include_image else ""
+    body = """
+    <h1 id="intro">%s</h1>
+    %s
+    <p>Styled <strong>bold Ω</strong> and <em>italic שלום</em>.</p>
+    %s
+    """ % (
+        title,
+        paragraphs,
+        image_markup,
+    )
+    chapter = MinimalOEBItem("chapter.xhtml", build_xhtml_document(body), id="chapter")
+    image = MinimalOEBItem(
+        "images/cover_世界.png",
+        data=b"\x89PNG\r\n\x1a\nfb2-output-cover",
+        media_type="image/png",
+        id="cover-image",
+    )
+    manifest_items = [chapter] + ([image] if include_image else [])
+    toc = [MinimalTOCNode(title, "chapter.xhtml#intro")]
+    metadata = MinimalMetadata(
+        title=title,
+        creators=creators,
+        publisher=publisher,
+        subjects=subjects,
+        date="2026-05-21",
+        identifiers=(
+            MinimalIdentifier("urn:uuid:33333333-4444-5555-6666-777777777777", "uuid"),
+            MinimalIdentifier("9781402894626", "isbn"),
+        ),
+        cover="cover-image" if include_image else None,
+        series="Series Καλημέρα",
+        series_index="2",
+    )
+    return MinimalOEBBook(
+        spine=[chapter],
+        manifest=MinimalManifest(manifest_items),
+        toc=toc,
+        metadata=metadata,
+    )
 
 
 def install_minimal_stylizers(monkeypatch) -> None:
