@@ -95,11 +95,13 @@ OPF/cover warning coverage, hostile archive path checks, and zip-bomb-shaped
 limits. Optional OPF/cover failures should remain visible through warnings
 without aborting an otherwise usable HTML conversion.
 
-The comic pass applies archive-safety to ZIP-backed CBZ and CBC input:
-reusable CBZ/CBC fixtures, valid multilingual plugin-path coverage, CBC
-`comics.txt` decoding and missing-member warning behavior, nested CBZ
-preflight, hostile archive path checks, and zip-bomb-shaped limits. CBR/RAR is
-a separate future hardening target because it is not ZIP-backed.
+The comic pass applies archive-safety to ZIP-backed CBZ/CBC input and CBR/RAR
+preflight: reusable CBZ/CBC fixtures, valid multilingual plugin-path coverage,
+CBC `comics.txt` decoding and missing-member warning behavior, nested CBZ
+preflight, CBR listing preflight, hostile archive path checks, password-entry
+rejection, and zip-bomb-shaped limits where the archive backend exposes sizes.
+RAR variants that only expose member names still enforce readability, path
+safety, member count, and the required comic-page output invariant.
 
 The FB2 pass applies the same fixture-driven hardening shape to an XML-backed
 format rather than an archive-backed one: reusable multilingual FB2 fixtures,

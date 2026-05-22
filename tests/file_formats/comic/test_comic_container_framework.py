@@ -10,11 +10,18 @@ from tests.support.file_format_comic import (
     COMIC_PAGE_FRAGMENTS,
     COMIC_PAGE_MEMBERS,
     COMIC_TITLE,
+    FakeRarInfo,
     NullLog,
     build_unicode_cbc,
     build_unicode_cbz,
+    patch_rarfile_failure,
+    patch_rarfile_infolist,
+    patch_unrar_names,
+    png_bytes,
     read_comic_member,
     rewrite_comic_zip,
+    vendored_rar_fixture,
+    write_stub_cbr,
 )
 from tests.support.file_format_unicode import assert_no_replacement_chars
 
@@ -204,6 +211,90 @@ def test_comic_input_accepts_unicode_cbc_collection_through_plugin_path(
     ]
     assert image_names == expected_names
     assert len(list(out_path.parent.glob("comic_*/page_*.xhtml"))) == len(expected_names)
+
+
+def test_comic_input_accepts_preflighted_unicode_cbr_through_plugin_path(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
+    import LiuXin_alpha.file_formats.comic.input as comic_input_impl
+
+    archive = write_stub_cbr(tmp_path / "comic_Καλημέρα_世界.cbr")
+    page_name = "01_Καλημέρα_世界.png"
+    patch_rarfile_infolist(
+        monkeypatch,
+        (FakeRarInfo(f"pages/{page_name}", file_size=2048, compress_size=1024),),
+    )
+
+    extracted = tmp_path / "extracted_cbr"
+
+    def _extract_comic(_path):
+        page_dir = extracted / "pages"
+        page_dir.mkdir(parents=True, exist_ok=True)
+        (page_dir / page_name).write_bytes(png_bytes())
+        return str(extracted)
+
+    monkeypatch.setattr(comic_input_impl, "extract_comic", _extract_comic)
+
+    work = tmp_path / "cbr_work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    plugin = ComicInput(None)
+
+    with archive.open("rb") as stream:
+        out = plugin.convert(stream, _comic_options(), "cbr", NullLog(), {})
+
+    out_path = Path(out)
+    opf_text = _read_valid_opf(out_path)
+    assert "comic_Καλημέρα_世界" in opf_text
+    assert page_name in opf_text
+    assert (out_path.parent / page_name).read_bytes().startswith(b"\x89PNG")
+    assert [Path(path).name for path in plugin.get_images()] == [page_name]
+
+
+def test_comic_cbr_preflight_accepts_real_vendored_unicode_rar_listing() -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
+
+    archive = vendored_rar_fixture("unicode.rar")
+    plugin = ComicInput(None)
+
+    assert plugin.should_preflight_rar_archive(archive, ext_hint="cbr")
+    infos = plugin._rar_archive_infos(str(archive))
+    names = {str(info.filename).replace("\\", "/") for info in infos}
+
+    assert {"уииоотивл.txt", "𝐀𝐁𝐁𝐂.txt"}.issubset(names)
+    plugin.validate_rar_archive_members(archive, "CBR")
+
+
+def test_comic_cbr_preflight_accepts_names_only_external_rar_listing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
+
+    archive = write_stub_cbr(tmp_path / "fallback_Καλημέρα_世界.cbr")
+    patch_rarfile_failure(monkeypatch)
+    patch_unrar_names(
+        monkeypatch,
+        (
+            "pages/01_Καλημέρα.png",
+            "pages/深/02_世界.png",
+            "pages/03_café.png",
+        ),
+    )
+    plugin = ComicInput(None)
+
+    infos = plugin._rar_archive_infos(str(archive))
+    names = [info.filename for info in infos]
+
+    assert names == [
+        "pages/01_Καλημέρα.png",
+        "pages/深/02_世界.png",
+        "pages/03_café.png",
+    ]
+    assert all(info.file_size is None for info in infos)
+    plugin.validate_rar_archive_members(archive, "CBR")
 
 
 def test_comic_fixture_rewrite_helper_removes_replaces_and_adds_members(tmp_path: Path) -> None:
