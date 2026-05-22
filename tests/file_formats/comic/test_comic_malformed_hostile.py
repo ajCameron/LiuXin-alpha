@@ -8,11 +8,16 @@ from types import SimpleNamespace
 import pytest
 
 from tests.support.file_format_comic import (
+    FakeRarInfo,
     NullLog,
     cbz_bytes,
     build_unicode_cbc,
     build_unicode_cbz,
+    patch_rarfile_failure,
+    patch_rarfile_infolist,
+    patch_unrar_names,
     rewrite_comic_zip,
+    write_stub_cbr,
 )
 
 
@@ -237,6 +242,55 @@ def test_comic_input_rejects_non_zip_cbz_before_extraction(
     )
 
 
+def test_comic_input_rejects_non_rar_cbr_before_extraction(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    archive = tmp_path / "not_a_rar.cbr"
+    archive.write_bytes("not a comic archive: Καλημέρα".encode("utf-8"))
+
+    _assert_comic_preflight_rejects_without_local_output(
+        archive,
+        "cbr",
+        tmp_path / "not_rar_preflight_work",
+        monkeypatch,
+        "invalid RAR",
+    )
+
+
+def test_comic_input_rejects_empty_or_truncated_rar_listing_before_extraction(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    archive = tmp_path / "truncated.cbr"
+    archive.write_bytes(b"Rar!\x1a\x07\x00truncated")
+
+    _assert_comic_preflight_rejects_without_local_output(
+        archive,
+        "cbr",
+        tmp_path / "truncated_cbr_work",
+        monkeypatch,
+        "no archive members",
+    )
+
+
+def test_comic_input_rejects_unsafe_names_only_external_rar_listing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    archive = write_stub_cbr(tmp_path / "fallback_unsafe.cbr")
+    patch_rarfile_failure(monkeypatch)
+    patch_unrar_names(monkeypatch, ("pages/01.png", "../escape.png"))
+
+    _assert_comic_preflight_rejects_without_local_output(
+        archive,
+        "cbr",
+        tmp_path / "fallback_unsafe_work",
+        monkeypatch,
+        "unsafe path",
+    )
+
+
 @pytest.mark.parametrize(
     ("case_id", "member_name"),
     (
@@ -295,6 +349,35 @@ def test_comic_input_rejects_unsafe_cbc_member_paths_before_extraction(
     )
 
 
+@pytest.mark.parametrize(
+    ("case_id", "member_name"),
+    (
+        ("parent_escape", "../escape.png"),
+        ("nested_parent_escape", "pages/../../escape.png"),
+        ("internal_parent_component", "pages/../escape.png"),
+        ("absolute_path", "/absolute.png"),
+        ("drive_path", "C:/absolute.png"),
+        ("windows_drive_path", "C:\\absolute.png"),
+    ),
+)
+def test_comic_input_rejects_unsafe_cbr_member_paths_before_extraction(
+    tmp_path: Path,
+    monkeypatch,
+    case_id: str,
+    member_name: str,
+) -> None:
+    archive = write_stub_cbr(tmp_path / f"{case_id}.cbr")
+    patch_rarfile_infolist(monkeypatch, (FakeRarInfo(member_name),))
+
+    _assert_comic_preflight_rejects_without_local_output(
+        archive,
+        "cbr",
+        tmp_path / f"{case_id}_cbr_work",
+        monkeypatch,
+        "unsafe path",
+    )
+
+
 def test_comic_input_rejects_nested_cbc_cbz_unsafe_member_before_page_extraction(
     tmp_path: Path,
     monkeypatch,
@@ -314,6 +397,71 @@ def test_comic_input_rejects_nested_cbc_cbz_unsafe_member_before_page_extraction
         tmp_path / "nested_unsafe_work",
         monkeypatch,
         "unsafe path",
+    )
+
+
+@pytest.mark.parametrize(
+    ("case_id", "infos", "attrs", "match"),
+    (
+        (
+            "too_many",
+            tuple(FakeRarInfo(f"pages/{i}.png") for i in range(8)),
+            {"max_archive_members": 4},
+            "too many archive members",
+        ),
+        (
+            "oversized_member",
+            (FakeRarInfo("pages/big.png", file_size=20 * 1024, compress_size=20),),
+            {"max_member_uncompressed_size": 10 * 1024},
+            "member is too large",
+        ),
+        (
+            "large_total",
+            tuple(FakeRarInfo(f"pages/chunk-{i}.png", file_size=8 * 1024, compress_size=64) for i in range(6)),
+            {"max_member_uncompressed_size": 100 * 1024, "max_total_uncompressed_size": 30 * 1024},
+            "expands to too much data",
+        ),
+        (
+            "zero_compressed_size",
+            (FakeRarInfo("pages/zero.png", file_size=128, compress_size=0),),
+            {},
+            "invalid compressed size",
+        ),
+        (
+            "ratio_bomb_shape",
+            (FakeRarInfo("pages/repeated.png", file_size=128 * 1024, compress_size=128),),
+            {"max_compression_ratio": 20, "min_compression_ratio_check_size": 32 * 1024},
+            "suspicious compression ratio",
+        ),
+        (
+            "password",
+            (FakeRarInfo("pages/locked.png", password=True),),
+            {},
+            "requires a password",
+        ),
+    ),
+)
+def test_comic_input_rejects_cbr_archive_budget_and_password_shapes(
+    tmp_path: Path,
+    monkeypatch,
+    case_id: str,
+    infos: tuple[FakeRarInfo, ...],
+    attrs: dict[str, int],
+    match: str,
+) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
+
+    archive = write_stub_cbr(tmp_path / f"{case_id}.cbr")
+    patch_rarfile_infolist(monkeypatch, infos)
+    strict_cls = type("StrictComicInput", (ComicInput,), attrs)
+
+    _assert_comic_preflight_rejects_without_local_output(
+        archive,
+        "cbr",
+        tmp_path / f"{case_id}_work",
+        monkeypatch,
+        match,
+        input_cls=strict_cls,
     )
 
 

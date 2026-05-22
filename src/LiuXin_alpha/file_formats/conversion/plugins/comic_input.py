@@ -5,6 +5,7 @@ import os
 import posixpath
 import shutil
 import textwrap
+from types import SimpleNamespace
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 
@@ -192,6 +193,44 @@ class ComicInput(InputFormatPlugin):
                 return False
         return False
 
+    def should_preflight_rar_archive(self, source, ext_hint=None):
+        if ext_hint and ext_hint.lower() in {"cbr", "rar"}:
+            return True
+
+        path = os.fspath(source) if isinstance(source, os.PathLike) else source
+        if isinstance(path, str):
+            ext = os.path.splitext(path)[1][1:].lower()
+            if ext in {"cbr", "rar"}:
+                return True
+            try:
+                with open(path, "rb") as stream:
+                    return stream.read(3) == b"Rar"
+            except Exception:
+                return False
+
+        if hasattr(source, "read"):
+            pos = None
+            try:
+                pos = source.tell()
+            except Exception:
+                pos = None
+            try:
+                try:
+                    source.seek(0)
+                except Exception:
+                    pass
+                return source.read(3) == b"Rar"
+            except Exception:
+                return False
+            finally:
+                if pos is not None:
+                    try:
+                        source.seek(pos)
+                    except Exception:
+                        pass
+
+        return False
+
     def validate_zip_archive_members(self, source, label="comic archive"):
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
@@ -258,6 +297,113 @@ class ComicInput(InputFormatPlugin):
                     source.seek(0)
                 except Exception:
                     pass
+
+    def _rar_source_path(self, source):
+        path = os.fspath(source) if isinstance(source, os.PathLike) else source
+        if isinstance(path, str) and os.path.exists(path):
+            return os.path.abspath(path)
+
+        stream_name = getattr(source, "name", None)
+        if stream_name and os.path.exists(stream_name):
+            return os.path.abspath(stream_name)
+
+        if hasattr(source, "read"):
+            tdir = PersistentTemporaryDirectory("_comic_rar_preflight")
+            return self._stream_to_path(source, tdir, "rar")
+
+        raise ValueError("RAR archive source is not readable")
+
+    def _rar_infos_from_external_listing(self, path):
+        from LiuXin_alpha.utils.decompression import unrar
+
+        with open(path, "rb") as stream:
+            names = list(unrar.names(stream))
+
+        return [
+            SimpleNamespace(
+                filename=name,
+                file_size=None,
+                compress_size=None,
+                isdir=lambda name=name: str(name).endswith("/"),
+                needs_password=lambda: False,
+            )
+            for name in names
+        ]
+
+    def _rar_archive_infos(self, path):
+        try:
+            from LiuXin_alpha.utils.decompression.rarfile import rarfile
+
+            with rarfile.RarFile(path) as archive:
+                return list(archive.infolist())
+        except Exception as parser_error:
+            try:
+                return self._rar_infos_from_external_listing(path)
+            except Exception as listing_error:
+                raise listing_error from parser_error
+
+    def validate_rar_archive_members(self, source, label="comic archive"):
+        path = self._rar_source_path(source)
+        try:
+            infos = self._rar_archive_infos(path)
+        except Exception as err:
+            raise ValueError("%s appears to be invalid RAR file" % label) from err
+
+        if not infos:
+            raise ValueError("%s has no archive members" % label)
+
+        if len(infos) > self.max_archive_members:
+            raise ValueError(
+                "%s has too many archive members: %d > %d"
+                % (label, len(infos), self.max_archive_members)
+            )
+
+        total_uncompressed = 0
+        for info in infos:
+            filename = str(getattr(info, "filename", "")).replace("\\", "/")
+            self.normalized_archive_member_name(filename)
+
+            needs_password = getattr(info, "needs_password", None)
+            if callable(needs_password) and needs_password():
+                raise ValueError("%s member requires a password: %s" % (label, filename))
+
+            is_dir = getattr(info, "isdir", None)
+            if callable(is_dir) and is_dir():
+                continue
+
+            file_size = getattr(info, "file_size", None)
+            compress_size = getattr(info, "compress_size", None)
+            if file_size is None:
+                continue
+
+            file_size = max(int(file_size or 0), 0)
+            compress_size = max(int(compress_size or 0), 0)
+            total_uncompressed += file_size
+            if file_size > self.max_member_uncompressed_size:
+                raise ValueError(
+                    "%s member is too large: %s (%d bytes)"
+                    % (label, filename, file_size)
+                )
+            if total_uncompressed > self.max_total_uncompressed_size:
+                raise ValueError(
+                    "%s expands to too much data: %d > %d bytes"
+                    % (label, total_uncompressed, self.max_total_uncompressed_size)
+                )
+            if file_size > 0 and compress_size == 0:
+                raise ValueError(
+                    "%s member has invalid compressed size: %s"
+                    % (label, filename)
+                )
+            if (
+                file_size >= self.min_compression_ratio_check_size
+                and compress_size > 0
+            ):
+                ratio = file_size / float(compress_size)
+                if ratio > self.max_compression_ratio:
+                    raise ValueError(
+                        "%s member has suspicious compression ratio: %s (%.1f)"
+                        % (label, filename, ratio)
+                    )
 
     def warn_preflight_rejection(self, source, error):
         path = getattr(source, "name", source)
@@ -331,6 +477,12 @@ class ComicInput(InputFormatPlugin):
         if self.should_preflight_zip_archive(comic):
             try:
                 self.validate_zip_archive_members(comic, "CBZ")
+            except ValueError as err:
+                self.warn_preflight_rejection(comic, err)
+                raise
+        elif self.should_preflight_rar_archive(comic):
+            try:
+                self.validate_rar_archive_members(comic, "CBR")
             except ValueError as err:
                 self.warn_preflight_rejection(comic, err)
                 raise

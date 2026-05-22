@@ -6,6 +6,15 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [file-formats-cbr-rar-hardening-2026-05-22.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-cbr-rar-hardening-2026-05-22.md)
+  Current branch note for the CBR/RAR continuation of the comic hardening pass:
+  RAR listing preflight, hostile CBR path/budget/password coverage, deterministic
+  fake-RAR fixtures, lower-level `unrar` safe extraction-boundary coverage, and
+  the tiny `databases.row` import-cycle unblocker needed after the database
+  review merge. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/comic/README.md`.
+
 - [file-formats-lit-hostile-hardening-2026-05-22.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-lit-hostile-hardening-2026-05-22.md)
   Current branch note for the LIT legacy binary-container parser pass:
   reusable LIT parser fixtures, malformed whole-file/header/manifest/namelist

@@ -25,6 +25,16 @@ COMIC_PAGE_FRAGMENTS = (
 )
 COMIC_CBC_MEMBER_ONE = "comics/volume_Καλημέρα.cbz"
 COMIC_CBC_MEMBER_TWO = "comics/深/volume_世界.cbz"
+VENDORED_RAR_FIXTURE_DIR = (
+    Path(__file__).resolve().parents[2]
+    / "src"
+    / "LiuXin_alpha"
+    / "utils"
+    / "decompression"
+    / "rarfile"
+    / "test"
+    / "files"
+)
 
 
 @dataclass(frozen=True)
@@ -56,6 +66,21 @@ class CBCFixture:
     @property
     def titles(self) -> tuple[str, ...]:
         return tuple(spec.title for spec in self.comic_specs)
+
+
+@dataclass(frozen=True)
+class FakeRarInfo:
+    filename: str
+    file_size: int | None = 128
+    compress_size: int | None = 64
+    directory: bool = False
+    password: bool = False
+
+    def isdir(self) -> bool:
+        return self.directory
+
+    def needs_password(self) -> bool:
+        return self.password
 
 
 class NullLog:
@@ -95,6 +120,60 @@ def png_bytes(width: int = 16, height: int = 16, rgb: tuple[int, int, int] = (18
     row = bytes([0]) + bytes(rgb) * width
     raw = row * height
     return signature + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
+
+
+def cbr_stub_bytes() -> bytes:
+    return b"Rar!\x1a\x07\x00stub cbr fixture"
+
+
+def write_stub_cbr(path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(cbr_stub_bytes())
+    return path
+
+
+def vendored_rar_fixture(name: str = "unicode.rar") -> Path:
+    path = VENDORED_RAR_FIXTURE_DIR / name
+    if not path.exists():
+        raise FileNotFoundError(path)
+    return path
+
+
+def patch_rarfile_infolist(monkeypatch, infos: Sequence[FakeRarInfo]) -> None:
+    from LiuXin_alpha.utils.decompression.rarfile import rarfile
+
+    class _FakeRarFile:
+        def __init__(self, path):
+            self.path = path
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def infolist(self):
+            return list(infos)
+
+    monkeypatch.setattr(rarfile, "RarFile", _FakeRarFile)
+
+
+def patch_rarfile_failure(monkeypatch, exc: Exception | None = None) -> None:
+    from LiuXin_alpha.utils.decompression.rarfile import rarfile
+
+    failure = exc or RuntimeError("RAR parser unsupported in test")
+
+    class _FailingRarFile:
+        def __init__(self, path):
+            raise failure
+
+    monkeypatch.setattr(rarfile, "RarFile", _FailingRarFile)
+
+
+def patch_unrar_names(monkeypatch, names: Sequence[str]) -> None:
+    from LiuXin_alpha.utils.decompression import unrar
+
+    monkeypatch.setattr(unrar, "names", lambda stream: iter(tuple(names)))
 
 
 def _write_cbz(
