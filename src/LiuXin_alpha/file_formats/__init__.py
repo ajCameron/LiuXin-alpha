@@ -68,6 +68,7 @@ BOOK_EXTENSIONS = [
     "doc",
     "epub",
     "fb2",
+    "fbz",
     "djv",
     "djvu",
     "lrx",

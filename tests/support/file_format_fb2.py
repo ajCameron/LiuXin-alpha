@@ -4,6 +4,7 @@ import base64
 import binascii
 import struct
 import textwrap
+import zipfile
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +13,13 @@ from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
 
 from tests.support.file_format_unicode import COMMON_TEXT_FRAGMENTS, MULTISCRIPT_TEXT
+from tests.support.file_format_zip import (
+    read_zip_member,
+    rewrite_zip_archive,
+    write_zip_archive,
+    zip_archive_bytes,
+    zip_member_names,
+)
 
 
 FB2_NS = "http://www.gribuser.ru/xml/fictionbook/2.0"
@@ -27,6 +35,7 @@ FB2_KEYWORDS = "fictionbook, unicode, Κατηγορία, タグ"
 FB2_PUBLISHER = "Éditions Δ"
 FB2_COVER_ID = "cover_世界"
 FB2_EXTRA_BINARY_ID = "illustration_cafe\u0301"
+FB2_ZIP_MEMBER = "fictionbook/Καλημέρα_世界/book.fb2"
 
 
 @dataclass(frozen=True)
@@ -35,6 +44,17 @@ class FB2Fixture:
     encoding: str
     binary_ids: tuple[str, ...]
     cover_id: str | None
+    text_fragments: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class FB2ZipFixture:
+    path: Path
+    fb2_member: str
+    encoding: str
+    binary_ids: tuple[str, ...]
+    cover_id: str | None
+    extra_members: tuple[str, ...]
     text_fragments: tuple[str, ...]
 
 
@@ -199,6 +219,36 @@ def fb2_bytes(
     return xml.encode(encoding)
 
 
+def fb2_zip_bytes(
+    *,
+    member_name: str = FB2_ZIP_MEMBER,
+    lines: Sequence[str] | None = None,
+    encoding: str = "utf-8",
+    title: str = FB2_TITLE,
+    authors: Sequence[tuple[str, str, str]] = FB2_AUTHORS,
+    include_cover: bool = True,
+    cover_id: str = FB2_COVER_ID,
+    cover_data: bytes | None = None,
+    extra_binaries: Mapping[str, tuple[str, bytes]] | None = None,
+    extra_members: Mapping[str, bytes] | None = None,
+    compression: int = zipfile.ZIP_DEFLATED,
+) -> bytes:
+    members = {
+        member_name: fb2_bytes(
+            lines=lines,
+            encoding=encoding,
+            title=title,
+            authors=authors,
+            include_cover=include_cover,
+            cover_id=cover_id,
+            cover_data=cover_data,
+            extra_binaries=extra_binaries,
+        ),
+    }
+    members.update(dict(extra_members or {}))
+    return zip_archive_bytes(members, default_compression=compression)
+
+
 def build_unicode_fb2(
     path: Path,
     *,
@@ -231,8 +281,82 @@ def build_unicode_fb2(
     )
 
 
+def build_zipped_fb2(
+    path: Path,
+    *,
+    member_name: str = FB2_ZIP_MEMBER,
+    lines: Sequence[str] | None = None,
+    encoding: str = "utf-8",
+    include_cover: bool = True,
+    cover_id: str = FB2_COVER_ID,
+    cover_data: bytes | None = None,
+    extra_binaries: Mapping[str, tuple[str, bytes]] | None = None,
+    extra_members: Mapping[str, bytes] | None = None,
+    compression: int = zipfile.ZIP_DEFLATED,
+) -> FB2ZipFixture:
+    extra_binaries = dict(extra_binaries or {})
+    extra_members = dict(extra_members or {})
+    members = {
+        member_name: fb2_bytes(
+            lines=lines,
+            encoding=encoding,
+            include_cover=include_cover,
+            cover_id=cover_id,
+            cover_data=cover_data,
+            extra_binaries=extra_binaries,
+        ),
+    }
+    members.update(extra_members)
+    write_zip_archive(path, members, default_compression=compression)
+    binary_ids = ((cover_id,) if include_cover else ()) + tuple(extra_binaries)
+    return FB2ZipFixture(
+        path=path,
+        fb2_member=member_name,
+        encoding=encoding,
+        binary_ids=binary_ids,
+        cover_id=cover_id if include_cover else None,
+        extra_members=tuple(extra_members),
+        text_fragments=tuple(COMMON_TEXT_FRAGMENTS),
+    )
+
+
+def zipped_fb2_members(path: Path) -> tuple[str, ...]:
+    return zip_member_names(path)
+
+
+def read_zipped_fb2_member(path: Path, member: str) -> bytes:
+    return read_zip_member(path, member)
+
+
+def rewrite_zipped_fb2(
+    src: Path,
+    dst: Path,
+    *,
+    remove: Sequence[str] = (),
+    replace: Mapping[str, bytes] | None = None,
+    add: Mapping[str, bytes] | None = None,
+    add_compression: int = zipfile.ZIP_STORED,
+) -> None:
+    rewrite_zip_archive(
+        src,
+        dst,
+        remove=remove,
+        replace=replace,
+        add=add,
+        add_compression=add_compression,
+    )
+
+
+def parse_fb2_bytes(payload: bytes) -> ET.Element:
+    return ET.fromstring(payload)
+
+
+def parse_zipped_fb2(path: Path, member: str = FB2_ZIP_MEMBER) -> ET.Element:
+    return parse_fb2_bytes(read_zipped_fb2_member(path, member))
+
+
 def parse_fb2(path: Path) -> ET.Element:
-    return ET.fromstring(path.read_bytes())
+    return parse_fb2_bytes(path.read_bytes())
 
 
 def fb2_body_text(path: Path) -> str:

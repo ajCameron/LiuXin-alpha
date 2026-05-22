@@ -103,12 +103,16 @@ rejection, and zip-bomb-shaped limits where the archive backend exposes sizes.
 RAR variants that only expose member names still enforce readability, path
 safety, member count, and the required comic-page output invariant.
 
-The FB2 pass applies the same fixture-driven hardening shape to an XML-backed
-format rather than an archive-backed one: reusable multilingual FB2 fixtures,
-valid plugin-path coverage for UTF-8 and UTF-16 input, recoverable malformed
-XML coverage, unsafe embedded-binary ID sanitization, corrupted base64 warning
-behavior, and output-side `FB2MLizer`/`FB2Output` unicode serialization
-coverage. Zipped FB2 payloads remain a separate future container-like target.
+The FB2 pass applies the same fixture-driven hardening shape to both the
+XML-backed `.fb2` path and the zipped `.fbz` container path: reusable
+multilingual FB2 fixtures, reusable zip fixture helpers, valid plugin-path
+coverage for UTF-8 and UTF-16 input, recoverable malformed XML coverage,
+unsafe embedded-binary ID sanitization, corrupted base64 warning behavior,
+strict single-FB2-member `.fbz` selection, hostile archive path checks,
+zip-bomb-shaped `.fbz` limits, metadata reader/writer `.fbz` registration, and
+output-side `FB2MLizer`/`FB2Output` unicode serialization coverage. `.fbz`
+preflight failures remain strict before conversion output is created; non-FB2
+extra zip members are ignored rather than extracted.
 
 The LIT pass applies the same safety direction to a legacy binary container:
 small parser-facing fixtures for manifest, namelist, sized UTF-8 strings, and

@@ -6,6 +6,14 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [file-formats-fbz-hardening-2026-05-22.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-fbz-hardening-2026-05-22.md)
+  Current branch note for the zipped-FB2 hardening pass: reusable zip fixture
+  helpers, first-class `.fbz` conversion/metadata registration, strict
+  single-FB2-member archive selection, hostile path/budget coverage, and
+  unicode conversion-product checks for UTF-8/UTF-16 zipped FB2. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/fb2/README.md`.
+
 - [file-formats-cbr-rar-hardening-2026-05-22.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-cbr-rar-hardening-2026-05-22.md)
   Current branch note for the CBR/RAR continuation of the comic hardening pass:
   RAR listing preflight, hostile CBR path/budget/password coverage, deterministic

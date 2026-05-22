@@ -5,6 +5,8 @@ import io
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from LiuXin_alpha.metadata.metadata import MetaData
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
@@ -213,38 +215,35 @@ def test_fb2_helper_edges_for_payloads_covers_and_text(tmp_path: Path, monkeypat
     assert fb2._cover_format_from_payload("jpg", b"payload") == "jpeg"
 
 
-def test_fb2_zip_payload_selection_and_bad_zip_fallback(monkeypatch) -> None:
+def test_fb2_zip_payload_selection_is_strict() -> None:
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
 
     assert fb2._extract_fb2_payload(b"") == (b"", None)
 
     raw_bad_zip = b"PKnot-really-a-zip"
-    assert fb2._extract_fb2_payload(raw_bad_zip) == (raw_bad_zip, None)
+    with pytest.raises(fb2.FB2ParseError, match="invalid ZIP"):
+        fb2._extract_fb2_payload(raw_bad_zip)
 
     archive = io.BytesIO()
     with zipfile.ZipFile(archive, "w") as zf:
         zf.writestr("z-last.txt", b"last")
-        zf.writestr("a-first.dat", b"first")
+        zf.writestr("book/book.fb2", b"<FictionBook/>")
     payload, member = fb2._extract_fb2_payload(archive.getvalue())
-    assert payload == b"first"
-    assert member == "a-first.dat"
+    assert payload == b"<FictionBook/>"
+    assert member == "book/book.fb2"
 
-    events: list[str] = []
+    no_fb2 = io.BytesIO()
+    with zipfile.ZipFile(no_fb2, "w") as zf:
+        zf.writestr("a-first.dat", b"first")
+    with pytest.raises(fb2.FB2ParseError, match="no FB2 member"):
+        fb2._extract_fb2_payload(no_fb2.getvalue())
 
-    class _ExplodingZip:
-        def __init__(self, *_args, **_kwargs) -> None:
-            pass
-
-        def __enter__(self):
-            raise RuntimeError("zip boom")
-
-        def __exit__(self, *_args) -> None:
-            return None
-
-    monkeypatch.setattr(fb2, "ZipFile", _ExplodingZip)
-    monkeypatch.setattr(fb2.default_log, "log_exception", lambda message, *_args: events.append(str(message)))
-    assert fb2._extract_fb2_payload(raw_bad_zip) == (raw_bad_zip, None)
-    assert events == ["Failed to inspect potential FB2 zip payload; using raw bytes."]
+    multi = io.BytesIO()
+    with zipfile.ZipFile(multi, "w") as zf:
+        zf.writestr("a.fb2", b"<FictionBook/>")
+        zf.writestr("b.fb2", b"<FictionBook/>")
+    with pytest.raises(fb2.FB2ParseError, match="multiple FB2 members"):
+        fb2._extract_fb2_payload(multi.getvalue())
 
 
 def test_fb2_apply_null_write_clears_existing_fields() -> None:
