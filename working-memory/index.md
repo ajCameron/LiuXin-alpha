@@ -1,10 +1,20 @@
 # Working Memory Index
 
-Updated: 2026-05-21
+Updated: 2026-05-22
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [file-formats-lit-hostile-hardening-2026-05-22.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-lit-hostile-hardening-2026-05-22.md)
+  Current branch note for the LIT legacy binary-container parser pass:
+  reusable LIT parser fixtures, malformed whole-file/header/manifest/namelist
+  coverage, `UnBinary` hostile control coverage, reader hardening to raise
+  `LitError` instead of raw parser failures or hangs, plus conversion-facing
+  unicode checks for input products, `postprocess_book`, `ReBinary`, and writer
+  manifest serialization. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/lit/README.md`.
 
 - [file-formats-fb2-unicode-hostile-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-fb2-unicode-hostile-2026-05-21.md)
   Current branch note for the FB2 XML/input-output pass: reusable FB2 fixtures,
