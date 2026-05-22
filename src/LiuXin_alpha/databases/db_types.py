@@ -120,6 +120,7 @@ class MetadataDict(TypedDict):
 DataTypes = Literal["json", "text"]
 
 
+# Todo: How do we properly do type hints - a protocol?
 class DataTypesEnum(Enum):
     """
     Valid enums for the database.
@@ -158,6 +159,7 @@ IdentifiersStr = str
 IdentifierEntityTypeStr = Literal["work", "expression", "manifestation", "item", "agent"]
 
 
+# Todo: We need to type this.
 class IdentifierEntityType(StrEnum):
     """Supported curated-identifier attachment targets in the FRBR graph."""
 
@@ -295,6 +297,7 @@ ENTITY_IDENTIFIER_SCHEMES_BY_TYPE: Final[dict[IdentifierEntityType, frozenset[Id
 ValidLinkAttributes = Literal["index", "datestamp", "sequence_number", "is_required"]
 
 
+# Ratings are normalized to one of these values
 RatingInt = Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 

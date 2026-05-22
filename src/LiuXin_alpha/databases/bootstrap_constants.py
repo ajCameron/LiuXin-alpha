@@ -10,7 +10,7 @@ from __future__ import annotations
 
 
 # In FRBR-first/WEMI, "publishers" became agents (agent_type='organisation').
-# Historically LiuXin used id=0 sentinel rows in some tables; for agents we
+# Historically LiuXin used id = 0 sentinel rows in some tables; for agents we
 # cannot store a SQL NULL because agents.agent_canonical_name is NOT NULL.
 #
 # This value is intentionally *obvious* in UI/debugging and unlikely to collide

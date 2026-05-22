@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Utilities to aid with database work.
+"""
+
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import os
@@ -24,8 +28,6 @@ from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
-
-
 
 
 def force_to_bool(val: Any) -> Optional[bool]:
@@ -88,7 +90,7 @@ def fuzzy_title_patterns():
     return _fuzzy_title_patterns
 
 
-def fuzzy_title(title: str) -> re.Pattern[str]:
+def fuzzy_title(title: str) -> Union[str, re.Pattern[str]]:
     """
     Produces a pattern to match to titles.
 

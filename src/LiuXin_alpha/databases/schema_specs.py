@@ -1,22 +1,35 @@
 
 """
 Specifications for elements of the schema.
+
+We need to be able to describe the
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field, make_dataclass
 from enum import Enum
-from types import NoneType
 from typing import Any, Iterable, Mapping, Optional
 
 
+# Todo: This isn't a super descriptive name at the moment - TableKind might be better?
 class RelationKind(str, Enum):
     TABLE = "table"
     VIEW = "view"
 
 
+# Todo: Think more about if we need to spec a link is to unique entities?
+#       Probably the answer is no - we should never assume it, and the fact they are can be a hint for an inter-relation
+#       E.g. if two items on two different books have the same isbn
+#       (Though many items, being derived, may effectively have the same isbn)
 class LinkCardinality(str, Enum):
+    """
+    What type of link are we dealing with?
+
+    Options are
+     - one-to-one - one item is linked to one other item
+     - one-to-many - one item is linked to many other items (may or may not be unique)
+    """
     ONE_TO_ONE = "one_to_one"
     ONE_TO_MANY = "one_to_many"
     MANY_TO_ONE = "many_to_one"
@@ -24,8 +37,12 @@ class LinkCardinality(str, Enum):
     UNKNOWN = "unknown"
 
 
+# Todo: Check this doc string is accurate
 @dataclass(frozen=True, slots=True)
 class StorageColumnSpec:
+    """
+    Represents a column in a table on the schema.
+    """
     name: str
     ordinal: int
     declared_type: Optional[str] = None
@@ -41,6 +58,9 @@ class StorageColumnSpec:
 
 @dataclass(frozen=True, slots=True)
 class StorageTableSpec:
+    """
+    Represents a table in the schema.
+    """
     name: str
     relation_kind: RelationKind
     columns: tuple[StorageColumnSpec, ...]
@@ -59,6 +79,11 @@ class StorageTableSpec:
 
 @dataclass(frozen=True, slots=True)
 class StorageLinkSpec:
+    """
+    Represents a link in the schema.
+
+    These are the properties of a link between two tables.
+    """
     primary_table: str
     secondary_table: str
     link_table: str
@@ -82,6 +107,7 @@ class StorageLinkSpec:
     extra_link_columns: tuple[StorageColumnSpec, ...] = ()
 
 
+# Todo: Not very sure what this does?
 @dataclass(frozen=True, slots=True)
 class StorageSchemaSpec:
     tables: Mapping[str, StorageTableSpec]

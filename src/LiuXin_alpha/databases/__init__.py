@@ -13,6 +13,24 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES, VALID_DATA_TYPES
+from LiuXin_alpha.databases.utils import (
+    _get_next_series_num_for_list,
+    _get_series_values,
+    cleanup_tags,
+    get_data_as_dict)
+
+
+if TYPE_CHECKING:  # pragma: no cover
+    from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseDriverAPI, DatabaseDriverWrapperAPI, RowAPI
+    from LiuXin_alpha.databases.database import Database
+    from LiuXin_alpha.databases.database_driver_plugins import (
+        get_registered_database_driver_names,
+        loadDatabaseDriver,
+        register_database_driver,
+    )
+    from LiuXin_alpha.databases.maintenance import Maintainer
+    from LiuXin_alpha.databases.row import Row
+
 
 __all__ = [
     "CUSTOM_DATA_TYPES",
@@ -35,6 +53,12 @@ __all__ = [
 
 
 def __getattr__(name: str):
+    """
+
+
+    :param name:
+    :return:
+    """
     if name == "Database":
         from LiuXin_alpha.databases.database import Database
 
@@ -70,14 +94,3 @@ def __getattr__(name: str):
         return getattr(_utils, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-
-if TYPE_CHECKING:  # pragma: no cover
-    from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseDriverAPI, DatabaseDriverWrapperAPI, RowAPI
-    from LiuXin_alpha.databases.database import Database
-    from LiuXin_alpha.databases.database_driver_plugins import (
-        get_registered_database_driver_names,
-        loadDatabaseDriver,
-        register_database_driver,
-    )
-    from LiuXin_alpha.databases.maintenance import Maintainer
-    from LiuXin_alpha.databases.row import Row
