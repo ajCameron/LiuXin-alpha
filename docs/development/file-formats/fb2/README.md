@@ -6,28 +6,31 @@ FB2 conversion enters through `FB2Input` and `FB2Output` in
 `src/LiuXin_alpha/file_formats/conversion/plugins/`. The output serializer is
 `FB2MLizer` in `src/LiuXin_alpha/file_formats/fb2/fb2ml.py`.
 
-FB2 is XML-backed rather than archive-backed. The current hardening pass
-therefore focuses on XML encoding, parser recovery, embedded base64 binaries,
-safe extraction into the conversion work directory, and unicode-preserving
-input/output conversion.
+FB2 is XML-backed by default. `.fbz` is the archive-backed FB2 variant and is
+handled as a strict single-FB2-member zip container. The current hardening pass
+therefore covers XML encoding, parser recovery, embedded base64 binaries, safe
+extraction into the conversion work directory, archive preflight, and
+unicode-preserving input/output conversion.
 
 The focused test fixtures live in:
 
 - `tests/support/file_format_fb2.py`
+- `tests/support/file_format_zip.py`
 - `tests/file_formats/fb2/test_fb2_unicode_framework.py`
 - `tests/file_formats/fb2/test_fb2_malformed_hostile.py`
+- `tests/file_formats/fb2/test_fb2_zip_framework.py`
 - `tests/file_formats/fb2/test_fb2_output_unicode_framework.py`
 
 The reusable fixture builds multilingual FB2 documents with title/author,
 description, keywords, publisher metadata, body text, optional cover images,
-extra embedded binaries, UTF-8 or UTF-16 XML encodings, and text rewrite helpers
-for malformed-input cases.
+extra embedded binaries, UTF-8 or UTF-16 XML encodings, zipped `.fbz`
+containers, and text/archive rewrite helpers for malformed-input cases.
 
 ## Input Contract
 
-Default FB2 input conversion should produce `metadata.opf`, `index.xhtml`,
-`inline-styles.css`, and any extracted embedded binaries in the conversion
-work directory.
+Default FB2/FBZ input conversion should produce `metadata.opf`, `index.xhtml`,
+`inline-styles.css`, and any extracted embedded binaries in the conversion work
+directory.
 
 Current input behavior:
 
@@ -46,16 +49,35 @@ Current input behavior:
 - invalid embedded base64 payloads are skipped with a warning instead of
   aborting otherwise usable text conversion
 
-FB2 currently has no archive-bomb budget because the default format is a single
-XML payload. Zipped FB2 reader/writer paths should be covered separately if
-they become part of conversion hardening.
+## FBZ Archive Contract
+
+`.fbz` input and metadata paths use the same archive-safety shape as the other
+container formats:
+
+- non-zip `.fbz` payloads and corrupt zip payloads fail before conversion
+  output is created
+- exactly one non-directory `.fb2` member is required
+- archives with no `.fb2` member or multiple `.fb2` members fail clearly
+- archive member names are rejected if they contain backslashes, parent
+  traversal, absolute paths, or Windows drive-looking paths
+- preflight rejects excessive member counts, oversized members, excessive
+  total expansion, invalid compressed sizes, and suspicious compression ratios
+- non-FB2 extra members are not extracted into the conversion work directory
+- metadata read/write preserves unrelated safe zip members while replacing the
+  selected FB2 member
+
+The archive checks live in
+`src/LiuXin_alpha/file_formats/fb2/archive.py` so conversion and metadata share
+the same member selection and budget policy.
 
 ## Unicode And Locale Coverage
 
 The current fixtures exercise multilingual title, author names, publisher,
 description, keywords, body text, embedded binary IDs, output XHTML, OPF, CSS,
 and output FB2 serialization. UTF-16 input is included as a regression case for
-the input plugin.
+the input plugin. `.fbz` conversion coverage repeats the generated-product
+assertions for UTF-8 and UTF-16 zipped payloads, including OPF/XHTML/CSS output
+and extracted embedded binaries.
 
 Output-side tests use a richer reusable OEB fixture in
 `tests/support/file_format_oeb.py` to drive `FB2MLizer` and `FB2Output` with
@@ -75,12 +97,17 @@ The checked-in hostile corpus currently covers:
   drive-looking, slash-containing, and backslash-containing embedded binary IDs
 - unsafe cover IDs reaching both XHTML and OPF generation
 - odd but valid unicode binary IDs
+- corrupt/non-zip `.fbz` payloads
+- `.fbz` archives with no FB2 member or multiple FB2 members
+- unsafe `.fbz` member paths
+- zip-bomb-shaped `.fbz` member count, size, total expansion, and compression
+  ratio limits
 - output serialization with an unserializable surrogate metadata boundary
 
 Future regressions should be added here when real-world FB2 files expose new
-edge cases, especially around zipped `.fb2.zip` payloads, unusual declared
-encodings, deeply nested sections, notes/citations, binary MIME mismatches, and
-metadata reader/writer parity.
+edge cases, especially around unusual declared encodings, deeply nested
+sections, notes/citations, binary MIME mismatches, and metadata reader/writer
+parity.
 
 ## Loss And Reporting Direction
 

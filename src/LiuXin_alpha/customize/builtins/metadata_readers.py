@@ -142,7 +142,7 @@ else:
     class FB2MetadataReader(MetadataReaderPlugin):
 
         name = "Read FB2 metadata"
-        file_types = frozenset(["fb2"])
+        file_types = frozenset(["fb2", "fbz"])
         description = _("Read metadata from %s files") % "FB2"
 
         def get_metadata(self, stream, ftype):

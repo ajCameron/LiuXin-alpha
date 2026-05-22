@@ -74,7 +74,7 @@ else:
     class FB2MetadataWriter(MetadataWriterPlugin):
 
         name = "Set FB2 metadata"
-        file_types = frozenset(["fb2"])
+        file_types = frozenset(["fb2", "fbz"])
         description = _("Set metadata in %s files") % "FB2"
 
         def set_metadata(self, stream, mi, type):

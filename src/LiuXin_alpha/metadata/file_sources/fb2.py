@@ -19,6 +19,15 @@ from string import ascii_letters, digits
 from typing import Any
 
 from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.fb2.archive import (
+    DEFAULT_MAX_ARCHIVE_MEMBERS,
+    DEFAULT_MAX_COMPRESSION_RATIO,
+    DEFAULT_MAX_MEMBER_UNCOMPRESSED_SIZE,
+    DEFAULT_MAX_TOTAL_UNCOMPRESSED_SIZE,
+    DEFAULT_MIN_COMPRESSION_RATIO_CHECK_SIZE,
+    FB2ZipError,
+    extract_fb2_payload_from_bytes,
+)
 from LiuXin_alpha.file_formats.fb2 import base64_decode
 from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
 from LiuXin_alpha.metadata.utils import check_isbn
@@ -26,7 +35,7 @@ from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.mine_types import guess_all_extensions, guess_type
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
-from LiuXin_alpha.utils.libraries.calibre_zipfile import BadZipfile, ZipFile, safe_replace
+from LiuXin_alpha.utils.libraries.calibre_zipfile import safe_replace
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 try:
@@ -62,6 +71,13 @@ _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
 class FB2ParseError(Exception):
     pass
+
+
+FB2_ZIP_MAX_ARCHIVE_MEMBERS = DEFAULT_MAX_ARCHIVE_MEMBERS
+FB2_ZIP_MAX_MEMBER_UNCOMPRESSED_SIZE = DEFAULT_MAX_MEMBER_UNCOMPRESSED_SIZE
+FB2_ZIP_MAX_TOTAL_UNCOMPRESSED_SIZE = DEFAULT_MAX_TOTAL_UNCOMPRESSED_SIZE
+FB2_ZIP_MAX_COMPRESSION_RATIO = DEFAULT_MAX_COMPRESSION_RATIO
+FB2_ZIP_MIN_COMPRESSION_RATIO_CHECK_SIZE = DEFAULT_MIN_COMPRESSION_RATIO_CHECK_SIZE
 
 
 def _is_path_like(target: Any) -> bool:
@@ -302,34 +318,20 @@ def _cover_format_from_payload(default_fmt: str, payload: bytes) -> str:
     return fmt or "jpeg"
 
 
-def _extract_fb2_payload(raw_container_bytes: bytes) -> tuple[bytes, str | None]:
-    if not raw_container_bytes:
-        return b"", None
-
-    zip_member = None
-    payload = raw_container_bytes
-
-    if raw_container_bytes.startswith(b"PK"):
-        try:
-            with ZipFile(BytesIO(raw_container_bytes), "r") as zf:
-                names = [name for name in zf.namelist() if not str(name).endswith("/")]
-                if names:
-                    fb2_names = sorted(name for name in names if str(name).lower().endswith(".fb2"))
-                    zip_member = fb2_names[0] if fb2_names else sorted(names)[0]
-                    payload = zf.read(zip_member)
-        except BadZipfile:
-            zip_member = None
-            payload = raw_container_bytes
-        except Exception as err:
-            default_log.log_exception(
-                "Failed to inspect potential FB2 zip payload; using raw bytes.",
-                err,
-                "DEBUG",
-            )
-            zip_member = None
-            payload = raw_container_bytes
-
-    return _ensure_bytes(payload), zip_member
+def _extract_fb2_payload(raw_container_bytes: bytes, *, source_name: str = "<stream>") -> tuple[bytes, str | None]:
+    try:
+        return extract_fb2_payload_from_bytes(
+            raw_container_bytes,
+            label="FB2 archive",
+            force_zip=str(source_name).lower().endswith(".fbz"),
+            max_archive_members=FB2_ZIP_MAX_ARCHIVE_MEMBERS,
+            max_member_uncompressed_size=FB2_ZIP_MAX_MEMBER_UNCOMPRESSED_SIZE,
+            max_total_uncompressed_size=FB2_ZIP_MAX_TOTAL_UNCOMPRESSED_SIZE,
+            max_compression_ratio=FB2_ZIP_MAX_COMPRESSION_RATIO,
+            min_compression_ratio_check_size=FB2_ZIP_MIN_COMPRESSION_RATIO_CHECK_SIZE,
+        )
+    except FB2ZipError as err:
+        raise FB2ParseError(str(err)) from err
 
 
 def _parse_fb2_root(raw_payload: bytes):
@@ -817,7 +819,7 @@ def get_metadata(stream_or_path, *, fallback_on_parse_error: bool = False):
                 pass
 
         container_bytes = _ensure_bytes(stream.read())
-        payload, _zip_member = _extract_fb2_payload(container_bytes)
+        payload, _zip_member = _extract_fb2_payload(container_bytes, source_name=source)
         root = _parse_fb2_root(payload)
 
         title = _parse_book_title(root)
@@ -900,7 +902,7 @@ def set_metadata(stream_or_path, mi, apply_null: bool = False, update_timestamp:
             stream.seek(0)
 
         raw_container = _ensure_bytes(stream.read())
-        payload, zip_member = _extract_fb2_payload(raw_container)
+        payload, zip_member = _extract_fb2_payload(raw_container, source_name=source)
         root = _parse_fb2_root(payload)
 
         ctx = Context(root)

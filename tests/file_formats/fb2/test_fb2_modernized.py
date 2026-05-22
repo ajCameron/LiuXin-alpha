@@ -60,6 +60,7 @@ def _minimal_fb2() -> bytes:
 
 def test_fb2_modules_import_smoke() -> None:
     importlib.import_module("LiuXin_alpha.file_formats.fb2")
+    importlib.import_module("LiuXin_alpha.file_formats.fb2.archive")
     importlib.import_module("LiuXin_alpha.file_formats.fb2.fb2ml")
     importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.fb2_input")
     importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.fb2_output")

@@ -26,6 +26,7 @@ _SUPPORTED_MEMBER_EXTENSIONS = {
     "azw4",
     "epub",
     "fb2",
+    "fbz",
     "imp",
     "lit",
     "lrf",

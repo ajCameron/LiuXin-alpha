@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from tests.support.file_format_zip import write_zip_archive
 
 
 def _values(raw):
@@ -118,6 +119,7 @@ def test_fb2_reader_plugin_is_available(md_test_fixture) -> None:
     plugins = get_metadata_reader_plugins()
     fb2_cls = next((p for p in plugins if p.__name__ == "FB2MetadataReader"), None)
     assert fb2_cls is not None
+    assert {"fb2", "fbz"}.issubset(set(fb2_cls.file_types))
 
     reader = fb2_cls(None)
     with fixture.open("rb") as stream:
@@ -203,6 +205,7 @@ def test_fb2_writer_plugin_is_available(tmp_path: Path, md_test_fixture) -> None
     plugins = get_metadata_set_plugins()
     fb2_cls = next((p for p in plugins if p.__name__ == "FB2MetadataWriter"), None)
     assert fb2_cls is not None
+    assert {"fb2", "fbz"}.issubset(set(fb2_cls.file_types))
 
     writer = fb2_cls(None)
     updated = calibreMetaInformation("Plugin FB2 Title", ["Plugin Author"])
@@ -372,7 +375,7 @@ def test_fb2_reads_and_writes_fb2_inside_zip_container_preserving_other_members(
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="fb2", file_num=1, verify_hash=True)
-    zip_target = tmp_path / "book_bundle.zip"
+    zip_target = tmp_path / "book_bundle.fbz"
 
     with zipfile.ZipFile(zip_target, "w") as zf:
         zf.writestr("book/book.fb2", source.read_bytes())
@@ -393,3 +396,40 @@ def test_fb2_reads_and_writes_fb2_inside_zip_container_preserving_other_members(
         assert "book/extra.txt" in names
         payload = zf.read("book/book.fb2")
         assert b"Zipped FB2 Title" in payload
+
+
+@pytest.mark.parametrize(
+    ("case_id", "members", "match"),
+    (
+        ("no_fb2_member", {"readme.txt": b"not a book"}, "no FB2 member"),
+        (
+            "multiple_fb2_members",
+            {
+                "a/book.fb2": _build_fb2_xml(title="A", first_name="A", last_name="One").encode("utf-8"),
+                "b/book.fb2": _build_fb2_xml(title="B", first_name="B", last_name="Two").encode("utf-8"),
+            },
+            "multiple FB2 members",
+        ),
+        (
+            "unsafe_member_path",
+            {
+                "book/book.fb2": _build_fb2_xml(title="Safe", first_name="A", last_name="One").encode("utf-8"),
+                "book/../escape.txt": b"unsafe",
+            },
+            "unsafe path",
+        ),
+    ),
+)
+def test_fb2_metadata_rejects_hostile_zip_payloads(
+    tmp_path: Path,
+    case_id: str,
+    members: dict[str, bytes],
+    match: str,
+) -> None:
+    import LiuXin_alpha.metadata.file_sources.fb2 as fb2
+
+    archive = tmp_path / f"{case_id}.fbz"
+    write_zip_archive(archive, members)
+
+    with pytest.raises(fb2.FB2ParseError, match=match):
+        fb2.get_metadata(archive)

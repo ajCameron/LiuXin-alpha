@@ -8,8 +8,18 @@ import base64
 import binascii
 import os
 import re
+from io import BytesIO
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.fb2.archive import (
+    DEFAULT_MAX_ARCHIVE_MEMBERS,
+    DEFAULT_MAX_COMPRESSION_RATIO,
+    DEFAULT_MAX_MEMBER_UNCOMPRESSED_SIZE,
+    DEFAULT_MAX_TOTAL_UNCOMPRESSED_SIZE,
+    DEFAULT_MIN_COMPRESSION_RATIO_CHECK_SIZE,
+    FB2ZipError,
+    extract_fb2_payload_from_bytes,
+)
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
@@ -50,8 +60,13 @@ class FB2Input(InputFormatPlugin):
 
     name = "FB2 Input"
     author = "Anatoly Shipitsin"
-    description = "Convert FB2 files to HTML"
-    file_types = {"fb2"}
+    description = "Convert FB2 and FBZ files to HTML"
+    file_types = {"fb2", "fbz"}
+    max_archive_members = DEFAULT_MAX_ARCHIVE_MEMBERS
+    max_member_uncompressed_size = DEFAULT_MAX_MEMBER_UNCOMPRESSED_SIZE
+    max_total_uncompressed_size = DEFAULT_MAX_TOTAL_UNCOMPRESSED_SIZE
+    max_compression_ratio = DEFAULT_MAX_COMPRESSION_RATIO
+    min_compression_ratio_check_size = DEFAULT_MIN_COMPRESSION_RATIO_CHECK_SIZE
 
     recommendations = {
         ("level1_toc", "//h:h1", OptionRecommendation.MED),
@@ -73,6 +88,25 @@ class FB2Input(InputFormatPlugin):
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is not None:
             warn(message)
+
+    def warn_preflight_rejection(self, stream, log, error):
+        warn = getattr(log, "warning", None) or getattr(log, "warn", None)
+        if warn is None:
+            return
+        source = getattr(stream, "name", "stream")
+        warn("FB2 preflight rejected %s: %s" % (source, error))
+
+    def extract_input_payload(self, raw_container, file_ext):
+        return extract_fb2_payload_from_bytes(
+            raw_container,
+            label="FB2 input",
+            force_zip=str(file_ext or "").lower() == "fbz",
+            max_archive_members=self.max_archive_members,
+            max_member_uncompressed_size=self.max_member_uncompressed_size,
+            max_total_uncompressed_size=self.max_total_uncompressed_size,
+            max_compression_ratio=self.max_compression_ratio,
+            min_compression_ratio_check_size=self.min_compression_ratio_check_size,
+        )
 
     def embedded_binary_filename_is_unsafe(self, name):
         if not name:
@@ -150,11 +184,20 @@ class FB2Input(InputFormatPlugin):
         self.log = log
 
         log.debug("Parsing XML...")
-        raw = stream.read()
-        if isinstance(raw, bytes):
-            raw = xml_to_unicode(raw, strip_encoding_pats=True, assume_utf8=True, resolve_entities=True)[0]
+        raw_container = stream.read()
+        try:
+            raw_payload, zip_member = self.extract_input_payload(raw_container, file_ext)
+        except FB2ZipError as err:
+            self.warn_preflight_rejection(stream, log, err)
+            raise
+
+        if zip_member:
+            log.debug("Using FB2 member from archive: %s", zip_member)
+
+        if isinstance(raw_payload, bytes):
+            raw = xml_to_unicode(raw_payload, strip_encoding_pats=True, assume_utf8=True, resolve_entities=True)[0]
         else:
-            raw = str(raw)
+            raw = str(raw_payload)
         raw = raw.replace("\0", "")
 
         try:
@@ -255,8 +298,9 @@ class FB2Input(InputFormatPlugin):
                 bin_index_html.write(index)
             with open("inline-styles.css", "wb") as bin_css_file:
                 bin_css_file.write(css.encode("utf-8"))
-            stream.seek(0)
-            mi = _get_fb2_metadata(stream, "fb2")
+            metadata_stream = BytesIO(raw_payload)
+            metadata_stream.name = os.path.basename(zip_member or getattr(stream, "name", "stream.fb2"))
+            mi = _get_fb2_metadata(metadata_stream, "fb2")
             if not mi.title:
                 mi.title = _("Unknown")
             if not mi.authors:

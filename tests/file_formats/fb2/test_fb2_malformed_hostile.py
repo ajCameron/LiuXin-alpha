@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import io
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,11 +14,15 @@ from tests.support.file_format_fb2 import (
     FB2_TITLE,
     NullLog,
     build_unicode_fb2,
+    build_zipped_fb2,
     fb2_bytes,
+    fb2_zip_bytes,
     png_bytes,
     rewrite_fb2_text,
+    rewrite_zipped_fb2,
 )
 from tests.support.file_format_unicode import assert_fragments_present, assert_no_replacement_chars
+from tests.support.file_format_zip import write_zip_archive
 
 
 def _convert_payload(payload: bytes, workdir: Path, monkeypatch, log: NullLog | None = None) -> Path:
@@ -55,6 +60,37 @@ def _convert_path(path: Path, workdir: Path, monkeypatch, log: NullLog | None = 
         )
 
 
+def _assert_fb2_archive_rejects_without_partial_output(
+    archive: Path,
+    workdir: Path,
+    monkeypatch,
+    match: str,
+    input_cls=None,
+) -> NullLog:
+    from LiuXin_alpha.file_formats.conversion.plugins.fb2_input import FB2Input
+
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    plugin_cls = input_cls or FB2Input
+    log = NullLog()
+
+    with archive.open("rb") as stream:
+        with pytest.raises(ValueError, match=match):
+            plugin_cls(None).convert(
+                stream,
+                SimpleNamespace(no_inline_fb2_toc=False),
+                "fbz",
+                log,
+                {},
+            )
+
+    assert list(workdir.iterdir()) == []
+    preflight_messages = [message for message in log.messages if "FB2 preflight rejected" in message]
+    assert preflight_messages
+    assert match in preflight_messages[-1]
+    return log
+
+
 def test_fb2_input_rejects_non_xml_payload_without_partial_output(tmp_path: Path, monkeypatch) -> None:
     workdir = tmp_path / "wrong-format-work"
 
@@ -62,6 +98,202 @@ def test_fb2_input_rejects_non_xml_payload_without_partial_output(tmp_path: Path
         _convert_payload(b"\0not an fb2 document", workdir, monkeypatch)
 
     assert list(workdir.iterdir()) == []
+
+
+def test_fb2_input_rejects_non_zip_fbz_payload_without_partial_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    hostile = tmp_path / "not_zip.fbz"
+    hostile.write_bytes("not a zipped FB2: Καλημέρα".encode("utf-8"))
+
+    _assert_fb2_archive_rejects_without_partial_output(
+        hostile,
+        tmp_path / "not_zip_fbz_work",
+        monkeypatch,
+        "invalid ZIP",
+    )
+
+
+def test_fb2_input_rejects_corrupt_zip_payload_without_partial_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    hostile = tmp_path / "corrupt.fbz"
+    hostile.write_bytes(b"PKnot-really-a-zip")
+
+    _assert_fb2_archive_rejects_without_partial_output(
+        hostile,
+        tmp_path / "corrupt_zip_work",
+        monkeypatch,
+        "invalid ZIP",
+    )
+
+
+def test_fb2_input_rejects_zip_without_fb2_member_without_partial_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    hostile = tmp_path / "no_fb2.fbz"
+    write_zip_archive(hostile, {"readme_世界.txt": b"not a book"})
+
+    _assert_fb2_archive_rejects_without_partial_output(
+        hostile,
+        tmp_path / "no_fb2_work",
+        monkeypatch,
+        "no FB2 member",
+    )
+
+
+def test_fb2_input_rejects_ambiguous_multiple_fb2_members_without_partial_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    hostile = tmp_path / "multiple.fbz"
+    write_zip_archive(
+        hostile,
+        {
+            "a/book.fb2": fb2_bytes(title="First"),
+            "b/book.fb2": fb2_bytes(title="Second"),
+        },
+    )
+
+    _assert_fb2_archive_rejects_without_partial_output(
+        hostile,
+        tmp_path / "multiple_fb2_work",
+        monkeypatch,
+        "multiple FB2 members",
+    )
+
+
+@pytest.mark.parametrize(
+    ("case_id", "member_name"),
+    (
+        ("parent_escape", "../book.fb2"),
+        ("nested_parent_escape", "books/../../book.fb2"),
+        ("internal_parent_component", "books/text/../book.fb2"),
+        ("absolute_path", "/book.fb2"),
+        ("drive_path", "C:/book.fb2"),
+    ),
+)
+def test_fb2_input_rejects_unsafe_archive_member_paths_without_partial_output(
+    tmp_path: Path,
+    monkeypatch,
+    case_id: str,
+    member_name: str,
+) -> None:
+    base = build_zipped_fb2(tmp_path / "base.fbz")
+    hostile = tmp_path / f"{case_id}.fbz"
+    rewrite_zipped_fb2(base.path, hostile, add={member_name: fb2_bytes()})
+
+    _assert_fb2_archive_rejects_without_partial_output(
+        hostile,
+        tmp_path / f"{case_id}_work",
+        monkeypatch,
+        "unsafe path",
+    )
+
+
+def test_fb2_input_rejects_too_many_archive_members_without_partial_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.fb2_input import FB2Input
+
+    class StrictFB2Input(FB2Input):
+        max_archive_members = 8
+
+    base = build_zipped_fb2(tmp_path / "base.fbz")
+    hostile = tmp_path / "too_many.fbz"
+    rewrite_zipped_fb2(
+        base.path,
+        hostile,
+        add={f"notes/many-{i}.txt": b"x" for i in range(12)},
+    )
+
+    _assert_fb2_archive_rejects_without_partial_output(
+        hostile,
+        tmp_path / "too_many_work",
+        monkeypatch,
+        "too many archive members",
+        input_cls=StrictFB2Input,
+    )
+
+
+def test_fb2_input_rejects_oversized_archive_member_without_partial_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.fb2_input import FB2Input
+
+    class StrictFB2Input(FB2Input):
+        max_member_uncompressed_size = 10 * 1024
+
+    base = build_zipped_fb2(tmp_path / "base.fbz")
+    hostile = tmp_path / "oversized.fbz"
+    rewrite_zipped_fb2(base.path, hostile, add={"notes/big.bin": b"x" * (20 * 1024)})
+
+    _assert_fb2_archive_rejects_without_partial_output(
+        hostile,
+        tmp_path / "oversized_work",
+        monkeypatch,
+        "member is too large",
+        input_cls=StrictFB2Input,
+    )
+
+
+def test_fb2_input_rejects_excessive_total_expansion_without_partial_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.fb2_input import FB2Input
+
+    class StrictFB2Input(FB2Input):
+        max_member_uncompressed_size = 100 * 1024
+        max_total_uncompressed_size = 30 * 1024
+
+    base = build_zipped_fb2(tmp_path / "base.fbz")
+    hostile = tmp_path / "large_total.fbz"
+    rewrite_zipped_fb2(
+        base.path,
+        hostile,
+        add={f"notes/chunk-{i}.bin": b"x" * (8 * 1024) for i in range(6)},
+    )
+
+    _assert_fb2_archive_rejects_without_partial_output(
+        hostile,
+        tmp_path / "large_total_work",
+        monkeypatch,
+        "expands to too much data",
+        input_cls=StrictFB2Input,
+    )
+
+
+def test_fb2_input_rejects_suspicious_compression_ratio_without_partial_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.fb2_input import FB2Input
+
+    class StrictFB2Input(FB2Input):
+        max_compression_ratio = 20
+        min_compression_ratio_check_size = 32 * 1024
+
+    hostile = tmp_path / "ratio.fbz"
+    hostile.write_bytes(
+        fb2_zip_bytes(
+            extra_members={"notes/repeated.bin": b"0" * (128 * 1024)},
+            compression=zipfile.ZIP_DEFLATED,
+        )
+    )
+
+    _assert_fb2_archive_rejects_without_partial_output(
+        hostile,
+        tmp_path / "ratio_work",
+        monkeypatch,
+        "suspicious compression ratio",
+        input_cls=StrictFB2Input,
+    )
 
 
 def test_fb2_input_rejects_bad_declared_encoding_without_partial_output(tmp_path: Path, monkeypatch) -> None:
