@@ -64,6 +64,16 @@ Stage 4 added names-only external listing fallback coverage:
   path; `ComicInput` rejects it before extraction and logs the preflight
   rejection.
 
+Stage 5 added listing-failure diagnostics:
+
+- `ComicInput.validate_rar_archive_members` still raises a high-level
+  `CBR appears to be invalid RAR file` error, but now includes the underlying
+  detail when both the vendored parser and external listing fallback fail.
+- Added `patch_unrar_names_failure()` to `tests/support/file_format_comic.py`.
+- Added hostile coverage asserting the preflight log includes both backend
+  failure details, so live RAR failures are diagnosable without rerunning under
+  a debugger.
+
 ## Database Import Unblocker
 
 The database review merge introduced an import-time cycle that blocked
@@ -80,9 +90,9 @@ databases/catalog split remains out of scope for this branch.
 ## Validation
 
 - `python3 -m pytest tests/file_formats/comic -q`
-  - `65 passed`
+  - `66 passed`
 - `python3 scripts/run_file_formats_lane.py --lane fast`
-  - `625 passed, 1 skipped`
+  - `626 passed, 1 skipped`
 - `git diff --check`
   - clean
 

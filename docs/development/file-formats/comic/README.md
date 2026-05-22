@@ -124,6 +124,8 @@ Diagnostics for future recovery work should record:
 
 - skipped CBC member and listed title, when applicable
 - rejected nested CBZ member and reason
+- CBR/RAR listing backend failures, including both vendored parser and
+  external listing fallback errors when both fail
 - relaxed archive limit, observed value, and active trusted-input profile
 - dropped image payloads or image-decoding failures, when image validation is
   performed before output

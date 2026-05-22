@@ -16,6 +16,7 @@ from tests.support.file_format_comic import (
     patch_rarfile_failure,
     patch_rarfile_infolist,
     patch_unrar_names,
+    patch_unrar_names_failure,
     rewrite_comic_zip,
     write_stub_cbr,
 )
@@ -289,6 +290,27 @@ def test_comic_input_rejects_unsafe_names_only_external_rar_listing(
         monkeypatch,
         "unsafe path",
     )
+
+
+def test_comic_input_reports_both_rar_listing_backend_failures(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    archive = write_stub_cbr(tmp_path / "both_backends_fail.cbr")
+    patch_rarfile_failure(monkeypatch, RuntimeError("parser unavailable"))
+    patch_unrar_names_failure(monkeypatch, RuntimeError("external listing unavailable"))
+
+    log = _assert_comic_preflight_rejects_without_local_output(
+        archive,
+        "cbr",
+        tmp_path / "both_backends_fail_work",
+        monkeypatch,
+        "invalid RAR",
+    )
+
+    message = "\n".join(log.messages)
+    assert "parser unavailable" in message
+    assert "external listing unavailable" in message
 
 
 @pytest.mark.parametrize(

@@ -176,6 +176,17 @@ def patch_unrar_names(monkeypatch, names: Sequence[str]) -> None:
     monkeypatch.setattr(unrar, "names", lambda stream: iter(tuple(names)))
 
 
+def patch_unrar_names_failure(monkeypatch, exc: Exception | None = None) -> None:
+    from LiuXin_alpha.utils.decompression import unrar
+
+    failure = exc or RuntimeError("external RAR listing unsupported in test")
+
+    def _raise(_stream):
+        raise failure
+
+    monkeypatch.setattr(unrar, "names", _raise)
+
+
 def _write_cbz(
     stream,
     *,

@@ -340,14 +340,19 @@ class ComicInput(InputFormatPlugin):
             try:
                 return self._rar_infos_from_external_listing(path)
             except Exception as listing_error:
-                raise listing_error from parser_error
+                raise ValueError(
+                    "RAR header parser and external listing both failed: "
+                    "parser=%s; external=%s" % (parser_error, listing_error)
+                ) from listing_error
 
     def validate_rar_archive_members(self, source, label="comic archive"):
         path = self._rar_source_path(source)
         try:
             infos = self._rar_archive_infos(path)
         except Exception as err:
-            raise ValueError("%s appears to be invalid RAR file" % label) from err
+            detail = str(err).strip()
+            suffix = ": %s" % detail if detail else ""
+            raise ValueError("%s appears to be invalid RAR file%s" % (label, suffix)) from err
 
         if not infos:
             raise ValueError("%s has no archive members" % label)
