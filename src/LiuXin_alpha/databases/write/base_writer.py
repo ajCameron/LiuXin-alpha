@@ -1,7 +1,25 @@
-from __future__ import division, absolute_import, print_function, unicode_literals
+
+# Todo: Split the database module - the base database stuff deserves to be it's own module
+#       Then the metadata aware bits are their own thing?
+
+"""
+Base class for the writers  -responsible for writing structured data to the database.
+
+Writers are convenience methods to streamline getting data into the database.
+These include functions such as
+ - write author_sort_name
+ - write covers
+ - write identifiers
+
+and so on.
+"""
+
+from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
 import pprint
 from copy import deepcopy
+
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional
 
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
@@ -12,11 +30,22 @@ from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems,
     dict_itervalues as itervalues
 from LiuXin_alpha.utils.logging import default_log
 
+if TYPE_CHECKING:
 
-class BaseWriter(object):
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+
+
+class BaseWriter:
+    """
+    Base clas for a calibre-style database writer.
+
+    This assumes, at present, that we're writing into a table linked to books.
+    """
+
     def __init__(self, field):
         """
-        Operations which should be done for every field.
+        Writer base which should be valid for every writer.
+
         :param field:
         """
         self.adapter = get_adapter(field.name, field.metadata)
@@ -25,20 +54,22 @@ class BaseWriter(object):
         self.dt = field.metadata["datatype"]
         self.accept_vals = lambda x: True
 
-    def set_books_func(self, book_id_val_map, db, field, allow_case_change=False):
+    def set_books_func(self, book_id_val_map, db: "DatabaseAPI", field, allow_case_change: bool = False) -> set[int]:
         """
-        Should be over-ridden by one of the
+        Should be over-ridden by the specified writer.
+
         :param book_id_val_map:
         :param db:
         :param field:
         :param allow_case_change:
         :return:
         """
-        raise NotImplementedError
+        raise NotImplementedError("Needs to be overridden.")
 
-    def no_adapter_set_books(self, book_id_val_map, db, allow_case_change=True):
+    def no_adapter_set_books(self, book_id_val_map, db: "DatabaseAPI", allow_case_change: bool = True) -> set[int]:
         """
         Used when the values in question should not be run through an adapter before being written out to the database.
+
         :param book_id_val_map:
         :param db:
         :param allow_case_change:
@@ -56,9 +87,10 @@ class BaseWriter(object):
 
         return dirtied
 
-    def set_books(self, book_id_val_map, db, allow_case_change=True):
+    def set_books(self, book_id_val_map: dict[int, Any], db: "DatabaseAPI", allow_case_change: bool = True):
         """
         Preform the write for the given metadata into the books in accordance with the book_id_val_mpa.
+
         :param book_id_val_map:
         :param db:
         :param allow_case_change:
@@ -78,31 +110,34 @@ class BaseWriter(object):
 
         return dirtied
 
+    # Todo: We need to be able to type table - also - why can't this just be field like everything else? Or as well?
     @staticmethod
     def get_db_id(
         val,
-        db,
+        db: "DatabaseAPI",
         m,
         table,
-        kmap,
-        rid_map,
-        allow_case_change,
+        kmap: Callable[[str, ], str],
+        rid_map: Mapping[str, int],
+        allow_case_change: bool,
         case_changes,
         val_map,
-        is_authors=False,
-        id_map_update=None,
+        is_authors: bool = False,
+        id_map_update = None,
     ):
         """
-        Get the db id for the value val. If the val does not exist in the db it is inserted into it.
+        Get the db id for the value val - creating if necessary.
+
+        If the val does not exist in the db it is inserted into it.
         :param val: The value to search for
         :param db: The database to do the search in.
         :param m: field.metadata for the field being searched
         :param table:
         :param kmap: Case mapper - usually either icu_lower or the identity function
-        :param rid_map: Keyed with values from the database and valued with the id corresponding to that valur
+        :param rid_map: Keyed with values from the database and valued with the id corresponding to that value
         :param allow_case_change:
         :param case_changes: A dictionary recording the required case changes to get a match
-        :param val_map: A map keyed with the value and valued with it's id
+        :param val_map: A map keyed with the value and valued with its id
         :param is_authors: Is the value from the authors table?
         :param id_map_update:
         :return None: All changes happen internally to the value passed into the function
@@ -129,6 +164,7 @@ class BaseWriter(object):
 
                 # Todo: Use this in the add.creator method, by default
                 aus = author_to_author_sort(val)
+
                 # Todo: Why does this happen? Make sure that it happens everywhere it should. Should add to add.creator
                 val_row = db.add.creator(creator=val.replace(",", "|"), creator_sort=aus).row_dict
 
@@ -174,9 +210,10 @@ class BaseWriter(object):
 
     # Generic one to one methods in other tables
     @staticmethod
-    def delete_one_to_one_in_other(db, field, deleted):
+    def delete_one_to_one_in_other(db: "DatabaseAPI", field, deleted) -> None:
         """
         Remove one to one entries in a table not of books type.
+
         :param db:
         :param field:
         :param deleted:
@@ -190,9 +227,10 @@ class BaseWriter(object):
         db.macros.break_generic_link(field.table.link_table, field.table.link_table_bt_id_column, deleted_ids)
 
     @staticmethod
-    def custom_delete_one_to_one_in_other(db, field, deleted):
+    def custom_delete_one_to_one_in_other(db: "DatabaseAPI", field, deleted):
         """
-        Remove one to one entries in a table not of books type.
+        Remove one to one entries in a custom table attached to books.
+
         :param db:
         :param field:
         :param deleted:
@@ -207,6 +245,7 @@ class BaseWriter(object):
     def change_case(case_changes, dirtied, db, table, m, is_authors=False):
         """
         Write case changes into the database.
+
         :param case_changes: A list of case changes to be applied to the database
         :param dirtied: An object containing the dirtied books
         :param db: A database to write the changes to
@@ -242,20 +281,22 @@ class BaseWriter(object):
 
     def do_generic_one_to_many_db_update(
         self,
-        db,
+        db: "DatabaseAPI",
         table,
         field,
         is_custom_series,
         updated,
         deleted,
-        clean_before_write=False,
-        link_type=None,
+        clean_before_write: bool = False,
+        link_type: Optional[str] = None,
     ):
         """
         Generic handler for applying changes to the db.
+
         Should be fairly general.
         :param db:
         :param table:
+        :param field:
         :param is_custom_series:
         :param updated:
         :param deleted:
@@ -403,18 +444,19 @@ class BaseWriter(object):
 
     def do_generic_many_to_many_db_update(
         self,
-        db,
+        db: "DatabaseAPI",
         table,
         field,
         is_custom_series,
         updated,
         deleted,
-        clean_before_write=False,
-        link_type=None,
+        clean_before_write: bool = False,
+        link_type: Optional[str] = None,
     ):
         """
         Generic handler for applying changes to the db.
-        Should be fairly general.
+
+        Should be fairly general. Even generic.
         :param db:
         :param table:
         :param is_custom_series:
@@ -603,7 +645,29 @@ class BaseWriter(object):
         val_map,
         id_map_update,
     ):
-        def _process_list_set_str_val(val):
+        """
+        Attempt to map values to ids.
+
+        :param book_id_val_map:
+        :param db_id_matcher:
+        :param db:
+        :param m:
+        :param table:
+        :param kmap:
+        :param rid_map:
+        :param allow_case_change:
+        :param case_changes:
+        :param val_map:
+        :param id_map_update:
+        :return:
+        """
+        def _process_list_set_str_val(val) -> None:
+            """
+
+            :param val:
+            :return:
+            """
+
             # We have a list or set of values
             if isinstance(val, (set, list)):
                 # To keep compatibility with other methods
@@ -631,6 +695,7 @@ class BaseWriter(object):
                         )
 
             elif isinstance(val, basestring):
+
                 db_id_matcher(
                     val,
                     db,
@@ -654,9 +719,11 @@ class BaseWriter(object):
             if val is not None:
                 if isinstance(val, (basestring, set, list)):
                     _process_list_set_str_val(val)
+
                 # Presumably match has occurred already. Or something has gone terribly wrong.
                 elif isinstance(val, int):
                     pass
+
                 elif isinstance(val, dict):
                     for nested_vals in itervalues(val):
                         if nested_vals:
@@ -664,9 +731,11 @@ class BaseWriter(object):
                 else:
                     raise NotImplementedError(self._unexpected_val_in_book_id_val_map(book_id_val_map, val))
 
-    def _unexpected_val_in_book_id_val_map(self, book_id_val_map, val):
+    @staticmethod
+    def _unexpected_val_in_book_id_val_map(book_id_val_map, val):
         """
-        Err msg
+        Err msg.
+
         :param book_id_val_map:
         :param val:
         :return:

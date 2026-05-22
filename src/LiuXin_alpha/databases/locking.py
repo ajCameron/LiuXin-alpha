@@ -5,14 +5,17 @@
 Additional lock methods and utility wrappers.
 """
 
+# Todo: Move this over to utils? Not really database specific.
+
 from __future__ import unicode_literals, division, absolute_import, print_function, annotations
 
+import threading
 import traceback
 import sys
 from functools import wraps
 from threading import Lock, Condition, current_thread
 
-from typing import ParamSpec, TypeVar, Callable, Any, Self
+from typing import ParamSpec, TypeVar, Callable, Any, Self, Union
 
 from LiuXin_alpha.preferences import preferences as tweaks
 
@@ -22,19 +25,32 @@ __docformat__ = "restructuredtext en"
 
 
 class LockingError(RuntimeError):
+    """
+    Error thrown when something goes wrong with a lock.
+    """
 
     is_locking_error = True
 
-    def __init__(self, msg, extra=None):
+    def __init__(self, msg, extra=None) -> None:
+        """
+        Startup the locking error.
+
+        :param msg:
+        :param extra:
+        """
         RuntimeError.__init__(self, msg)
         self.locking_debug_msg = extra
 
 
 class DowngradeLockError(LockingError):
+    """
+    An attempt to downgrade a lock as failed.
+    """
     pass
 
 
-def create_locks():
+def create_locks() \
+        -> tuple[Union["DebugRWLockWrapper", "RWLockWrapper"], Union["DebugRWLockWrapper", "RWLockWrapper"]]:
     """
     Return a pair of locks: (read_lock, write_lock)
 
@@ -63,14 +79,18 @@ def create_locks():
 
 class SHLock:  # {{{
     """
-    Shareable lock class. Used to implement the Multiple readers-single writer
-    paradigm. As best as I can tell, neither writer nor reader starvation
-    should be possible.
+    Shareable lock class.
+
+    Used to implement the Multiple readers-single writer paradigm.
+    As best as I can tell, neither writer nor reader starvation should be possible.
 
     Based on code from: https://github.com/rfk/threading2
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Startup the shared lock.
+        """
         self._lock = Lock()
         #  When a shared lock is held, is_shared will give the cumulative
         #  number of locks and _shared_owners maps each owning thread to
@@ -89,7 +109,7 @@ class SHLock:  # {{{
         #  This is for recycling waiter objects.
         self._free_waiters = []
 
-    def acquire(self, blocking=True, shared=False):
+    def acquire(self, blocking: bool = True, shared: bool = False) -> bool:
         """
         Acquire the lock in shared or exclusive mode.
 
@@ -105,18 +125,24 @@ class SHLock:  # {{{
             else:
                 return self._acquire_exclusive(blocking)
 
-    def owns_lock(self):
+    def owns_lock(self) -> bool:
+        """
+        Does this class own the shared locl.
+
+        :return:
+        """
         me = current_thread()
         with self._lock:
             return self._exclusive_owner is me or me in self._shared_owners
 
-    def release(self):
+    def release(self) -> None:
         """
         Release the lock.
+
         Acquire the lock in shared or exclusive mode.
 
-        If blocking is False this method will return False if acquiring the
-        lock failed.
+        If blocking is False this method will return False if acquiring the lock failed.
+
         :return:
         """
         me = current_thread()
@@ -163,7 +189,13 @@ class SHLock:  # {{{
             else:
                 raise LockingError("release() called on unheld lock")
 
-    def _acquire_shared(self, blocking=True):
+    def _acquire_shared(self, blocking: bool = True) -> bool:
+        """
+        Acquire a shared lock.
+
+        :param blocking:
+        :return:
+        """
         me = current_thread()
         #  Each case: acquiring a lock we already hold.
         if self.is_shared and me in self._shared_owners:
@@ -189,7 +221,13 @@ class SHLock:  # {{{
             self._shared_owners[me] = 1
         return True
 
-    def _acquire_exclusive(self, blocking=True):
+    def _acquire_exclusive(self, blocking: bool = True) -> bool:
+        """
+        Attempt to exclusively acquire the lock.
+
+        :param blocking:
+        :return:
+        """
         me = current_thread()
         #  Each case: acquiring a lock we already hold.
         if self._exclusive_owner is me:
@@ -215,13 +253,24 @@ class SHLock:  # {{{
             self.is_exclusive += 1
         return True
 
-    def _take_waiter(self):
+    def _take_waiter(self) -> "threading.Condition":
+        """
+        Take a waiter for the lock.
+
+        :return:
+        """
         try:
             return self._free_waiters.pop()
         except IndexError:
             return Condition(self._lock)
 
-    def _return_waiter(self, waiter):
+    def _return_waiter(self, waiter: "threading.Condition") -> None:
+        """
+        Return a waiter to the pool.
+
+        :param waiter:
+        :return:
+        """
         self._free_waiters.append(waiter)
 
 
@@ -230,9 +279,9 @@ class SHLock:  # {{{
 
 class RWLockWrapper:
     """
-    Wrapper for the lock.
+    Wrapper for a read/write lock.
     """
-    def __init__(self, shlock, is_shared: bool = True) -> None:
+    def __init__(self, shlock: "SHLock", is_shared: bool = True) -> None:
         """
         Startup the wrapper lock.
 
@@ -250,13 +299,13 @@ class RWLockWrapper:
         """
         self._shlock.acquire(shared=self._is_shared)
 
-    def release(self, *args) -> None:
+    def release(self, *args: Any) -> None:
         self._shlock.release()
 
     __enter__ = acquire
     __exit__ = release
 
-    def owns_lock(self):
+    def owns_lock(self) -> bool:
         return self._shlock.owns_lock()
 
 
@@ -265,7 +314,7 @@ class DebugRWLockWrapper(RWLockWrapper):
     Lock object with debug printing.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
         Store the RW lock.
 
@@ -293,7 +342,7 @@ class DebugRWLockWrapper(RWLockWrapper):
         print("acquire done: thread id:", current_thread(), file=sys.stderr)
         print("_" * 120, file=sys.stderr)
 
-    def release(self, *args):
+    def release(self, *args: Any) -> None:
         """
         Release the RW lock with debug printing.
 
@@ -329,7 +378,7 @@ class SafeReadLock:
     """
     Read lock which, when used as a context manager, does not re-raise errors.
     """
-    def __init__(self, read_lock) -> None:
+    def __init__(self, read_lock: Union["DebugRWLockWrapper", "RWLockWrapper"]) -> None:
         """
         Startup the lock.
 
@@ -338,7 +387,7 @@ class SafeReadLock:
         self.read_lock = read_lock
         self.acquired = False
 
-    def acquire(self) -> Self:
+    def acquire(self) -> "Self":
         """
         Acquire the lock.
 
@@ -352,7 +401,7 @@ class SafeReadLock:
             self.acquired = True
         return self
 
-    def release(self, *args):
+    def release(self, *args: Any) -> None:
         if args:
             print(args)
 
@@ -368,6 +417,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+# Todo: Not sure how to type this
 def wrap_simple(lock: Lock, func: Callable[P, R]) -> Callable[P, R]:
     """
     Wrap a function in a lock - so that the function will always be called with the given lock.

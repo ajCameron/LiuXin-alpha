@@ -642,6 +642,7 @@ class Row(RowAPI):
     # ------------------------
 
 
+# Todo: Consider this for all main tables?
 class FixedTableStorageRow(Row):
     """
     Small storage-facing ``Row`` specialisation with a fixed backing table.

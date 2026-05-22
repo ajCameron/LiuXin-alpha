@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Tools to adapt objects from one form to another - mostly to and from strings.
+"""
+
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import datetime
@@ -9,7 +13,7 @@ import re
 from functools import partial
 from datetime import datetime
 
-from typing import Optional, AnyStr, Union, Literal, Callable, Iterable
+from typing import Optional, AnyStr, Union, Literal, Callable, Iterable, Any
 
 from LiuXin_alpha.constants import preferred_encoding
 from LiuXin_alpha.errors import InvalidUpdate
@@ -232,6 +236,7 @@ def adapt_identifiers(to_tuple: Callable[[str, ], dict[str, str]], x: Union[dict
     return ans
 
 
+# Todo: This has to be typed - as a Protocol?
 def get_adapter(name: Union[
     Literal["text"],
     Literal["series"],
@@ -325,7 +330,14 @@ def get_adapter(name: Union[
     return ans
 
 
-def cc_adapt_text(x, d):
+def cc_adapt_text(x, d) -> Optional[Union[str, list[str]]]:
+    """
+    Use the column data, d, to turn the variable x into an (optional) string.
+
+    :param x:
+    :param d:
+    :return:
+    """
     if d["is_multiple"]:
         if x is None:
             return []
@@ -374,9 +386,10 @@ def cc_adapt_datetime(x, d):
 
 
 # Todo: There are several methods to do this in the code base - consolidate
-def cc_adapt_bool(x, d):
+def cc_adapt_bool(x: Any, d) -> Optional[bool]:
     """
     Attempts to coerce a string into a bool.
+
     :param x:
     :param d:
     :return:
@@ -398,12 +411,14 @@ def cc_adapt_bool(x, d):
         raise InvalidUpdate("adapt_bool has failed - x: {} - d: {}".format(x, d))
     elif isinstance(x, datetime.datetime):
         raise InvalidUpdate("adapt_bool has failed - x: {} - d: {}".format(x, d))
+
     return x
 
 
-def cc_adapt_enum(x, d):
+def cc_adapt_enum(x: Any, d) -> Optional[Union[list[str]]]:
     """
-    Adapt a enummeration type field - which is just text, so calls adapt_text instead/
+    Adapt an enumeration type field - which is just a type of text, so calls adapt_text instead.
+
     :param x:
     :param d:
     :return:
@@ -414,7 +429,14 @@ def cc_adapt_enum(x, d):
     return v
 
 
-def cc_adapt_number(x, d):
+def cc_adapt_number(x: Any, d) -> Optional[Union[int, float]]:
+    """
+    Attempt to adapt a value to a number.
+
+    :param x:
+    :param d:
+    :return:
+    """
     if x is None:
         return None
     if x is True or x is False:
@@ -438,7 +460,14 @@ def cc_adapt_number(x, d):
         )
 
 
-def cc_adapt_rating(x, d):
+def cc_adapt_rating(x: Any, d) -> Optional[float]:
+    """
+    Adapt an object into a float - or, more likely, error.
+
+    :param x:
+    :param d:
+    :return:
+    """
     if x is None:
         return None
     if x is True or x is False:

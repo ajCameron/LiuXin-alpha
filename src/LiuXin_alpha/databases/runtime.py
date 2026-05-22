@@ -6,24 +6,38 @@ to spell out inline: storage bootstrap and maintenance/runtime attachment.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from LiuXin_alpha.storage.store_manager import StorageBootstrapReport, StorageManager
 from LiuXin_alpha.databases.maintenance.service import Maintainer
 from LiuXin_alpha.utils.logging import default_log
 
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+
 
 def initialise_database_runtime(
-    db: Any,
+    db: "DatabaseAPI",
     *,
     callback_proxy_cls: type,
+        # Todo: preferences should have an API
     preferences_obj: Any,
 ) -> None:
-    """Attach runtime collaborators to a concrete database instance."""
+    """
+    Attach runtime collaborators to a concrete database instance.
+
+    :param db:
+    :param callback_proxy_cls:
+    :param preferences_obj:
+    :return:
+    """
 
     db.maintenance = Maintainer(db)
     db.maintainer = db.maintenance
+    # Todo: The database API should have write_telemetry declared
     db._maintainer_callback_proxy = callback_proxy_cls(db.maintenance, db.write_telemetry)
+    # Todo: Protected method access
     db.driver.maintainer_callback = db._maintainer_callback_proxy
     db.clean = db.maintenance.clean
 
@@ -35,8 +49,9 @@ def initialise_database_runtime(
     db.macros.db = db
 
 
+# Todo: As it mixes db and storage, should be in library - perhaps with a dummy for when we just want a db up
 def bootstrap_storage_manager(
-    db: Any,
+    db: "DatabaseAPI",
     *,
     startup_on_add: bool = False,
     include_offline: bool = False,

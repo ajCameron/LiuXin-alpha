@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
-
 """
 Write convenience methods for items linked to the titles table.
 
 These are intended to make reasoning about and writing to the database easier by providing methods which abstract away
-much of the complicatons of setting up and preforming writes to the database.
+much of the complications of setting up and preforming writes to the database.
 
 """
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import unicode_literals, division, absolute_import, print_function, annotations
+
+from typing import Union
 
 from LiuXin_alpha.databases.db_types import ONE_MANY, MANY_ONE, MANY_MANY
 from LiuXin_alpha.databases.write.base_writer import BaseWriter
 from LiuXin_alpha.databases.write.generic_writers.many_to_many_writer import ManyToManyWriter
-from LiuXin_alpha.databases.write.generic_writers.many_to_one_writer import ManyToOneWriter
 from LiuXin_alpha.databases.write.generic_writers.many_to_one_writer import ManyToOneWriter
 from LiuXin_alpha.databases.write.generic_writers.one_to_many_writer import OneToManyWriter
 from LiuXin_alpha.databases.write.generic_writers.one_to_one_writer import OneToOneWriter
@@ -48,8 +48,10 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-
-def get_writer(field):
+# Todo: I _think_ the concept of a field is a good idea. Probably. Likewise table.
+#       So we need to actually sodding implement it
+# Todo: Actually might also want to be able to call this by name?
+def get_writer(field) -> Union["BaseWriter", "DummyWriter"]:
     """
     Return a writer object suitable for the table.
 

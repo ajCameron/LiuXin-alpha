@@ -37,6 +37,7 @@ def _row_value(row: Any, key: str, default: Optional[Any] = None) -> Any:
         return default
 
 
+# Todo: In general, these are not relevant anymore - as we're working on WEMI principles.
 def generate_book_fingerprint(db: "DatabaseAPI", book_row: "RowAPI") -> set[str]:
     """
     The union of all the things the book is linked to - with all the things the title is linked to.

@@ -196,7 +196,7 @@ class DBPrefs(dict):
         key = "namespaced:%s:%s" % (namespace, key)
         self[key] = val
 
-    def write_serialized(self, library_path):
+    def write_serialized(self, library_path: Union[pathlib.Path, AnyStr]) -> None:
         """
         Backup these preferences into the databases folder.
 
