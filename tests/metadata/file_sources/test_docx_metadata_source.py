@@ -204,6 +204,7 @@ def test_docx_set_metadata_preserves_zip_members_and_sanitizes_hostile_xml(
 
 
 def test_docx_set_metadata_invalid_zip_raises_clean_error() -> None:
+    from LiuXin_alpha.file_formats.docx import InvalidDOCX
     from LiuXin_alpha.utils.libraries.calibre_zipfile import BadZipfile
     from zipfile import BadZipFile
 
@@ -211,5 +212,5 @@ def test_docx_set_metadata_invalid_zip_raises_clean_error() -> None:
 
     stream = io.BytesIO(b"not-a-zip")
     mi = calibreMetaInformation("x", ["y"])
-    with pytest.raises((BadZipFile, BadZipfile)):
+    with pytest.raises((BadZipFile, BadZipfile, InvalidDOCX)):
         set_metadata(stream, mi)

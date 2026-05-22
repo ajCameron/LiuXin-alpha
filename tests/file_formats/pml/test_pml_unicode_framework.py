@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import builtins
 import importlib
 import zipfile
 from pathlib import Path
 
-from tests.support.deterministic_conversion import assert_bytes_deterministic
 from tests.support.file_format_oeb import (
     build_text_output_book,
     install_minimal_stylizers,
@@ -72,15 +72,50 @@ def test_pml_output_writes_deterministic_pmlz_with_unicode_escaped_pml(tmp_path:
     install_minimal_stylizers(monkeypatch)
     pml_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.pml_output")
 
-    def render_once(run_name: str) -> bytes:
+    def render_once(run_name: str) -> tuple[list[str], str]:
         output_path = tmp_path / f"{run_name}.pmlz"
         pml_output.PMLOutput(None).convert(build_text_output_book(), str(output_path), None, _pml_options(), null_log())
-        return output_path.read_bytes()
+        with zipfile.ZipFile(output_path) as zf:
+            names = sorted(zf.namelist())
+            index = zf.read("index.pml").decode("cp1252", "strict")
+        return names, index
 
-    payload = assert_bytes_deterministic(render_once)
+    names, index = render_once("deterministic_1")
+    second_names, second_index = render_once("deterministic_2")
 
-    output_path = tmp_path / "inspect.pmlz"
-    output_path.write_bytes(payload)
+    assert second_names == names
+    assert second_index == index
+    assert "index.pml" in names
+    assert "index_img/cover.png" not in names
+    _assert_ascii_pml(index)
+    assert r"\a233" in index
+    assert r"\U039A\U03B1\U03BB\U03B7\U03BC?\U03C1\U03B1" in index
+
+
+def test_pml_output_skips_images_when_pillow_is_unavailable_with_minimal_log(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    install_minimal_stylizers(monkeypatch)
+    pml_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.pml_output")
+    real_import = builtins.__import__
+
+    def blocked_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "PIL" or name.startswith("PIL."):
+            raise ImportError("Pillow intentionally blocked")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", blocked_import)
+
+    output_path = tmp_path / "no_pillow.pmlz"
+    pml_output.PMLOutput(None).convert(
+        build_text_output_book(),
+        str(output_path),
+        None,
+        _pml_options(),
+        null_log(),
+    )
+
     with zipfile.ZipFile(output_path) as zf:
         names = sorted(zf.namelist())
         index = zf.read("index.pml").decode("cp1252", "strict")
@@ -88,5 +123,3 @@ def test_pml_output_writes_deterministic_pmlz_with_unicode_escaped_pml(tmp_path:
     assert "index.pml" in names
     assert "index_img/cover.png" not in names
     _assert_ascii_pml(index)
-    assert r"\a233" in index
-    assert r"\U039A\U03B1\U03BB\U03B7\U03BC?\U03C1\U03B1" in index

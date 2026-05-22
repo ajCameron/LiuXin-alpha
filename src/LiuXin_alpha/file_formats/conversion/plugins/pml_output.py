@@ -52,6 +52,7 @@ class PMLOutput(OutputFormatPlugin):
         from LiuXin_alpha.file_formats.pml.pmlml import PMLMLizer
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
+        self.log = log
         with TemporaryDirectory("_pmlz_output") as tdir:
             pmlmlizer = PMLMLizer(log)
             pml = six_unicode(pmlmlizer.extract_content(oeb_book, opts))
@@ -83,7 +84,9 @@ class PMLOutput(OutputFormatPlugin):
 
         from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
         if PILImage is None:
-            self.log.warning("Pillow not available; skipping image export in PML output.")
+            warn = getattr(self.log, "warning", None) or getattr(self.log, "warn", None) or getattr(self.log, "info", None)
+            if warn is not None:
+                warn("Pillow not available; skipping image export in PML output.")
             return
 
         resampling = getattr(PILImage, "Resampling", None)
