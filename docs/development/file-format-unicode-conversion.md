@@ -8,7 +8,8 @@ Format-specific durable notes now live under `docs/development/file-formats/`.
 Use one folder per format once the format has enough behavior, edge cases, or
 security policy to need a local contract. ODT, EPUB, DOCX, and HTMLZ now have
 dedicated format dossiers. Comic CBZ/CBC now has a dedicated format dossier as
-well. FB2 now has a dedicated XML/input-output dossier.
+well. FB2 now has a dedicated XML/input-output dossier. LIT now has a dedicated
+legacy binary-container/parser dossier.
 
 ## Current Test Contract
 
@@ -106,6 +107,17 @@ valid plugin-path coverage for UTF-8 and UTF-16 input, recoverable malformed
 XML coverage, unsafe embedded-binary ID sanitization, corrupted base64 warning
 behavior, and output-side `FB2MLizer`/`FB2Output` unicode serialization
 coverage. Zipped FB2 payloads remain a separate future container-like target.
+
+The LIT pass applies the same safety direction to a legacy binary container:
+small parser-facing fixtures for manifest, namelist, sized UTF-8 strings, and
+binary XHTML markup; malformed whole-file/header/manifest/namelist/control
+coverage; and parser hardening so truncated or hostile inputs raise `LitError`
+instead of raw unpack/index failures or infinite loops. Conversion-facing
+unicode coverage now checks optional real LIT input products,
+`LITInput.postprocess_book`, output-side `ReBinary` XHTML serialization, and
+`LitWriter` manifest serialization. Complete `.lit` archive output remains
+blocked in this environment by the unavailable LZX compressor backend, so the
+writer coverage intentionally pins the conversion surfaces below compression.
 
 ## PML Status
 

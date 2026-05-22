@@ -23,6 +23,9 @@ class MinimalOEBItem:
     data: object | None = None
     media_type: str = "application/xhtml+xml"
     id: str | None = None
+    spine_position: int | None = None
+    linear: bool = True
+    page_breaks: list[object] = field(default_factory=list)
 
     def abshref(self, url: str) -> str:
         if "://" in url:
@@ -44,6 +47,9 @@ class MinimalManifest(list):
             item_id = item.id or "item%d" % index
             self.ids[item_id] = item
             self.hrefs[item.href] = item
+
+    def values(self):
+        return list(self)
 
 
 @dataclass

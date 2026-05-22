@@ -95,34 +95,54 @@ FLAG_HEAD    = (1 << 3)
 FLAG_ATOM    = (1 << 4)
 
 
+def _unpack_bytes(byts, size, label):
+    if len(byts) < size:
+        raise LitError(f'Truncated {label}')
+    return byts[:size]
+
+
+def _unpack(fmt, byts, size, label):
+    byts = _unpack_bytes(byts, size, label)
+    return struct.unpack(fmt, byts)[0]
+
+
 def u32(bytes):
-    return struct.unpack('<L', bytes[:4])[0]
+    return _unpack('<L', bytes, 4, '32-bit integer')
 
 
 def u16(bytes):
-    return struct.unpack('<H', bytes[:2])[0]
+    return _unpack('<H', bytes, 2, '16-bit integer')
 
 
 def int32(bytes):
-    return struct.unpack('<l', bytes[:4])[0]
+    return _unpack('<l', bytes, 4, 'signed 32-bit integer')
 
 
 def encint(byts, remaining):
     pos, val = 0, 0
     ba = bytearray(byts)
+    if remaining < 0:
+        raise LitError('Invalid encoded integer length')
+    last = 0
     while remaining > 0:
+        if pos >= len(ba):
+            raise LitError('Truncated encoded integer')
         b = ba[pos]
+        last = b
         pos += 1
         remaining -= 1
         val <<= 7
         val |= (b & 0x7f)
         if b & 0x80 == 0:
             break
+    else:
+        if pos and last & 0x80:
+            raise LitError('Truncated encoded integer')
     return val, byts[pos:], remaining
 
 
 def msguid(bytes):
-    values = struct.unpack('<LHHBBBBBBBB', bytes[:16])
+    values = struct.unpack('<LHHBBBBBBBB', _unpack_bytes(bytes, 16, 'GUID'))
     return '{{{:08X}-{:04X}-{:04X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}}}'.format(*values)
 
 
@@ -442,6 +462,8 @@ class UnBinary:
                     path = urlnormalize(path)
                     buf.write(encode(f'"{path}"'))
                     state = 'get attr'
+        if state != 'text':
+            raise LitError('Truncated binary markup')
 
 
 class DirectoryEntry:
@@ -601,11 +623,19 @@ class LitFile:
     def read_secondary_header(self):
         offset = self.hdr_len + (self.num_pieces * self.PIECE_SIZE)
         byts = self.read_raw(offset, self.sec_hdr_len)
+        if len(byts) < 8:
+            raise LitError('Invalid secondary header')
         offset = int32(byts[4:])
+        if offset < 0 or offset > len(byts):
+            raise LitError('Invalid secondary header')
         while offset < len(byts):
+            if offset + 8 > len(byts):
+                raise LitError('Invalid secondary header')
             blocktype = byts[offset:offset+4]
             blockver  = u32(byts[offset+4:])
             if blocktype == b'CAOL':
+                if offset + 48 > len(byts):
+                    raise LitError('Invalid secondary header')
                 if blockver != 2:
                     raise LitError(
                         f'Unknown CAOL block format {blockver}')
@@ -616,6 +646,8 @@ class LitFile:
                 self.count_unknown  = u32(byts[offset+32:])
                 offset += 48
             elif blocktype == b'ITSF':
+                if offset + 32 > len(byts):
+                    raise LitError('Invalid secondary header')
                 if blockver != 4:
                     raise LitError(
                         f'Unknown ITSF block format {blockver}')
@@ -625,6 +657,8 @@ class LitFile:
                 self.timestamp      = u32(byts[offset+24:])
                 self.language_id    = u32(byts[offset+28:])
                 offset += 48
+            else:
+                raise LitError(f'Unrecognized secondary header block: {blocktype!r}')
         if not hasattr(self, 'content_offset'):
             raise LitError('Could not figure out the content offset')
 
@@ -706,6 +740,8 @@ class LitFile:
         self.section_names = [''] * num_sections
         self.section_data = [None] * num_sections
         for section in range(num_sections):
+            if pos + 2 > len(raw):
+                raise LitError('Invalid Namelist section')
             size = u16(raw[pos:pos+2])
             pos += 2
             size = size*2 + 2
@@ -719,6 +755,8 @@ class LitFile:
         if '/manifest' not in self.entries:
             raise LitError('Lit file does not have a valid manifest')
         raw = self.get_file('/manifest')
+        if not raw:
+            raise LitError('Truncated manifest')
         self.manifest = {}
         self.paths = {self.opf_path: None}
         while raw:
@@ -732,6 +770,8 @@ class LitFile:
             if not raw:
                 raise LitError('Truncated manifest')
             for state in ['spine', 'not spine', 'css', 'images']:
+                if len(raw) < 4:
+                    raise LitError('Truncated manifest')
                 num_files, raw = int32(raw), raw[4:]
                 if num_files == 0:
                     continue

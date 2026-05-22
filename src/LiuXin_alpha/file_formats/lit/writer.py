@@ -2,6 +2,7 @@ from __future__ import with_statement, print_function
 
 import copy
 import functools
+import io
 import random
 import re
 import time
@@ -47,6 +48,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_urldefrag as urldefrag
 
 izip = zip
 long = int
+unicode = str
 
 
 __license__ = "GPL v3"
@@ -156,6 +158,30 @@ COLLAPSE = re.compile(r"[ \t\r\n\v]+")
 PAGE_BREAKS = {"always", "left", "right"}
 
 
+def _latin_bytes(value):
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, bytearray):
+        return bytes(value)
+    return str(value).encode("latin-1")
+
+
+def _utf8_bytes(value):
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, bytearray):
+        return bytes(value)
+    return str(value).encode("utf-8")
+
+
+class _ByteStringIO(io.BytesIO):
+    def write(self, value):
+        return super().write(_latin_bytes(value))
+
+
+six_cStringIO = _ByteStringIO
+
+
 def decint(value):
     decint_bytes = []
     while True:
@@ -166,11 +192,11 @@ def decint(value):
         decint_bytes.append(chr(b))
         if value == 0:
             break
-    return "".join(reversed(decint_bytes))
+    return "".join(reversed(decint_bytes)).encode("latin-1")
 
 
 def randbytes(n):
-    return "".join(chr(random.randint(0, 255)) for x in memory_range(n))
+    return bytes(random.randint(0, 255) for x in memory_range(n))
 
 
 def warn(x):
@@ -329,7 +355,7 @@ class ReBinary(object):
         data.write(six_unichar(len(self.anchors)).encode("utf-8"))
         for anchor, offset in self.anchors:
             data.write(six_unichar(len(anchor)).encode("utf-8"))
-            data.write(anchor)
+            data.write(_utf8_bytes(anchor))
             data.write(pack("<I", offset))
         return data.getvalue()
 
@@ -355,7 +381,7 @@ class LitWriter(object):
 
     def _litize_oeb(self):
         oeb = self._oeb
-        oeb.metadata.add("calibre-version", LiuXin_alpha.__version__)
+        oeb.metadata.add("calibre-version", getattr(LiuXin_alpha, "__version__", "0"))
         cover = None
         if oeb.metadata.cover:
             id = six_unicode(oeb.metadata.cover[0])
@@ -384,7 +410,7 @@ class LitWriter(object):
 
     def _write(self, *data):
         for datum in data:
-            self._stream.write(datum)
+            self._stream.write(_latin_bytes(datum))
 
     @preserve
     def _writeat(self, pos, *data):
@@ -500,6 +526,7 @@ class LitWriter(object):
         self._writeat(filesz_offset, pack("<Q", self._tell()))
 
     def _add_file(self, name, data, secnum=0):
+        data = _utf8_bytes(data)
         if len(data) > 0:
             section = self._sections[secnum]
             offset = section.tell()
@@ -567,11 +594,11 @@ class LitWriter(object):
             elif item.media_type in LIT_IMAGES:
                 manifest["images"].append(item)
         data = six_cStringIO()
-        data.write(pack("<Bc", 1, "\\"))
+        data.write(pack("<Bc", 1, b"\\"))
         offset = 0
         for state in states:
             items = manifest[state]
-            items.sort()
+            items.sort(key=lambda item: ((item.spine_position is None, item.spine_position), item.href, item.id))
             data.write(pack("<I", len(items)))
             for item in items:
                 item_id, media_type = item.id, item.media_type
@@ -648,8 +675,8 @@ class LitWriter(object):
         self._add_file("/DRMStorage/DRMSource", drmsource)
         tempkey = self._calculate_deskey([self._meta, drmsource])
         msdes.deskey(tempkey, msdes.EN0)
-        self._add_file("/DRMStorage/DRMSealed", msdes.des("\0" * 16))
-        self._bookkey = "\0" * 8
+        self._add_file("/DRMStorage/DRMSealed", msdes.des(b"\0" * 16))
+        self._bookkey = b"\0" * 8
         self._add_file("/DRMStorage/ValidationStream", "MSReader", 3)
 
     def _build_version(self):
@@ -674,21 +701,21 @@ class LitWriter(object):
         for secnum, name, transforms in mapping:
             root = "::DataSpace/Storage/" + name
             data = self._sections[secnum].getvalue()
-            cdata, sdata, tdata, rdata = "", "", "", ""
+            cdata, sdata, tdata, rdata = b"", b"", b"", b""
             for guid in transforms:
                 tdata = packguid(guid) + tdata
                 sdata += pack("<Q", len(data))
                 if guid == DESENCRYPT_GUID:
-                    cdata = MSDES_CONTROL + cdata
+                    cdata = _latin_bytes(MSDES_CONTROL) + cdata
                     if not data:
                         continue
                     msdes.deskey(self._bookkey, msdes.EN0)
                     pad = 8 - (len(data) & 0x7)
                     if pad != 8:
-                        data += "\0" * pad
+                        data += b"\0" * pad
                     data = msdes.des(data)
                 elif guid == LZXCOMPRESS_GUID:
-                    cdata = LZXC_CONTROL + cdata
+                    cdata = _latin_bytes(LZXC_CONTROL) + cdata
                     if not data:
                         continue
                     unlen = len(data)
@@ -733,19 +760,20 @@ class LitWriter(object):
         prepad = 2
         local_hash = mssha1.new()
         for data in hashdata:
+            data = _latin_bytes(data)
             if prepad > 0:
-                data = ("\000" * prepad) + data
+                data = (b"\000" * prepad) + data
                 prepad = 0
             postpad = 64 - (len(data) % 64)
             if postpad < 64:
-                data += "\000" * postpad
+                data += b"\000" * postpad
             local_hash.update(data)
         digest = local_hash.digest()
         key = [0] * 8
         for i in memory_range(0, len(digest)):
             d = digest[i]
             key[i % 8] ^= d if isinstance(d, int) else ord(d)
-        return "".join(chr(x) for x in key)
+        return bytes(key)
 
     def _build_dchunks(self):
         ddata = []
@@ -758,7 +786,7 @@ class LitWriter(object):
         name = directory[0].name
         for entry in directory:
             en = entry.name.encode("utf-8") if entry.name else entry.name
-            local_next = "".join(
+            local_next = b"".join(
                 [
                     decint(len(en)),
                     en,
@@ -812,12 +840,12 @@ class LitWriter(object):
         if ichunk:
             rem = DCHUNK_SIZE - (ichunk.tell() + 16)
             pad = rem - 2
-            ichunk = "".join(
+            ichunk = b"".join(
                 [
-                    "AOLI",
+                    b"AOLI",
                     pack("<IQ", rem, len(dchunks)),
                     ichunk.getvalue(),
-                    ("\0" * pad),
+                    (b"\0" * pad),
                     pack("<H", len(dchunks)),
                 ]
             )

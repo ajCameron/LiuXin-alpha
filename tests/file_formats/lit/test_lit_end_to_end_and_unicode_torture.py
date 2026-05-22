@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -11,39 +10,8 @@ from LiuXin_alpha.file_formats.lit.reader import (
     consume_sized_utf8_string,
     read_utf8_char,
 )
-
-
-class _Log:
-    def __init__(self) -> None:
-        self.messages: list[str] = []
-
-    def _record(self, *parts) -> None:
-        self.messages.append(" ".join(str(x) for x in parts))
-
-    def __call__(self, *parts) -> None:
-        self._record(*parts)
-
-    def debug(self, *parts) -> None:
-        self._record(*parts)
-
-    def info(self, *parts) -> None:
-        self._record(*parts)
-
-    def warn(self, *parts) -> None:
-        self._record(*parts)
-
-    def warning(self, *parts) -> None:
-        self._record(*parts)
-
-    def error(self, *parts) -> None:
-        self._record(*parts)
-
-    def exception(self, *parts) -> None:
-        self._record(*parts)
-
-
-def _opts() -> SimpleNamespace:
-    return SimpleNamespace(pretty_print=False)
+from tests.support.file_format_lit import LitLog, lit_options, lit_sized_utf8
+from tests.support.file_format_unicode import assert_no_replacement_chars
 
 
 def _lit_paths(md_test_files_by_ext: dict[str, list[Path]]) -> list[Path]:
@@ -58,13 +26,22 @@ def test_lit_input_end_to_end_on_real_fixtures(md_test_files_by_ext: dict[str, l
 
     for lit_path in _lit_paths(md_test_files_by_ext):
         plugin = LITInput(None)
-        log = _Log()
+        log = LitLog()
         with lit_path.open("rb") as stream:
-            oeb = plugin.convert(stream, _opts(), "lit", log, {})
+            oeb = plugin.convert(stream, lit_options(), "lit", log, {})
 
         assert len(list(oeb.manifest.values())) >= 1
         assert len(list(oeb.spine)) >= 1
         assert bool(oeb.metadata.title)
+        product_text = []
+        for field in ("title", "creator", "language"):
+            for value in getattr(oeb.metadata, field, []):
+                product_text.append(str(getattr(value, "value", value)))
+        for item in oeb.spine:
+            data = getattr(item, "data", None)
+            if hasattr(data, "itertext"):
+                product_text.append("".join(data.itertext()))
+        assert_no_replacement_chars("\n".join(product_text), context=lit_path.name)
 
 
 def test_lit_input_recovers_when_opf_spine_is_empty_after_prune(
@@ -76,9 +53,9 @@ def test_lit_input_recovers_when_opf_spine_is_empty_after_prune(
     if target is None:
         pytest.skip("Fixture lit_md_test_file_1.lit not available")
 
-    log = _Log()
+    log = LitLog()
     with target.open("rb") as stream:
-        oeb = LITInput(None).convert(stream, _opts(), "lit", log, {})
+        oeb = LITInput(None).convert(stream, lit_options(), "lit", log, {})
 
     assert len(list(oeb.spine)) >= 1
     assert any("rebuilding from manifest documents" in msg.lower() for msg in log.messages)
@@ -92,7 +69,7 @@ def test_lit_reader_best_effort_drm_mode_blocks_encrypted_sections(
     if target is None:
         pytest.skip("Fixture lit_md_test_file_2.lit not available")
 
-    lit = LitFile(str(target), _Log())
+    lit = LitFile(str(target), LitLog())
 
     assert lit.drmlevel >= 0
     if lit.drm_fallback and "/DRMStorage/ValidationStream" in lit.entries:
@@ -109,7 +86,7 @@ def test_lit_input_reports_clear_error_for_broken_manifest_utf8(
     if source is None:
         pytest.skip("Fixture lit_md_test_file_2.lit not available")
 
-    lit = LitFile(str(source), _Log())
+    lit = LitFile(str(source), LitLog())
     entry = lit.entries.get("/manifest")
     if entry is None or entry.section != 0 or entry.size < 2:
         pytest.skip("Could not locate a mutable section-0 /manifest entry in fixture")
@@ -125,7 +102,7 @@ def test_lit_input_reports_clear_error_for_broken_manifest_utf8(
 
     with broken_path.open("rb") as stream:
         with pytest.raises(LitError, match="Manifest contains invalid UTF-8"):
-            LITInput(None).convert(stream, _opts(), "lit", _Log(), {})
+            LITInput(None).convert(stream, lit_options(), "lit", LitLog(), {})
 
 
 @pytest.mark.parametrize(
@@ -167,7 +144,7 @@ def test_lit_utf8_torture_invalid_sequences(payload: bytes) -> None:
 
 def test_lit_consume_sized_utf8_string_unicode_torture() -> None:
     text = "Åß漢🙂e\u0301Ωж🧪"
-    payload = bytes([len(text)]) + text.encode("utf-8") + b"\x00TAIL"
+    payload = lit_sized_utf8(text, zpad=True) + b"TAIL"
     parsed, remainder = consume_sized_utf8_string(payload, zpad=True)
 
     assert parsed == text

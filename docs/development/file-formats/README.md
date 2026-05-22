@@ -18,5 +18,15 @@ Each format folder should record:
 - validation commands and high-value focused tests
 - open follow-ups that should survive branch handoff
 
+Current dossiers:
+
+- `comic/`
+- `docx/`
+- `epub/`
+- `fb2/`
+- `htmlz/`
+- `lit/`
+- `odt/`
+
 Format notes should describe stable behavior and intended policy. Short-lived
 branch state still belongs in `working-memory/`.
