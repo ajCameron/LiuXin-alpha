@@ -125,6 +125,19 @@ unicode coverage now checks optional real LIT input products,
 blocked in this environment by the unavailable LZX compressor backend, so the
 writer coverage intentionally pins the conversion surfaces below compression.
 
+The MOBI pass is now the active legacy binary-container target. MOBI is
+PalmDB-backed rather than ZIP-backed, but it has the same need for explicit
+structure checks before conversion. Current coverage has reusable
+PalmDB/MOBI/EXTH fixture builders, unicode EXTH metadata, optional real-corpus
+input, old-MOBI output round-trips, metadata writer sanitization, and hostile
+parser tests for truncated PalmDB headers, short record tables, invalid record
+offsets, short record 0 payloads, impossible MOBI header lengths, out-of-range
+title offsets, malformed EXTH blocks, invalid section access, malformed
+HUFF/CDIC tables, DH HUFF/CDIC range checks, malformed INDX/TAGX records,
+invalid KF8 FDST/SKEL/DIV/OTH/NCX references, and resource-range/CRES
+failures. Remaining hardening should move next into bounded decompression
+expansion policy and realistic KF8 resource/skeleton/div conversion products.
+
 ## PML Status
 
 The PML pass currently captures two boundaries:
