@@ -1,10 +1,18 @@
 # Working Memory Index
 
-Updated: 2026-05-22
+Updated: 2026-05-23
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [file-formats-mobi-hardening-2026-05-23.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-mobi-hardening-2026-05-23.md)
+  Current branch note for the MOBI/KF8/AZW-style hardening pass: reusable
+  PalmDB/MOBI fixtures, hostile PalmDB/MOBI/EXTH parser coverage, deep
+  HUFF/CDIC and KF8 index/resource hardening, verification, and remaining
+  decompression/resource follow-ups. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/mobi/README.md`.
 
 - [file-formats-fbz-hardening-2026-05-22.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-fbz-hardening-2026-05-22.md)
   Current branch note for the zipped-FB2 hardening pass: reusable zip fixture

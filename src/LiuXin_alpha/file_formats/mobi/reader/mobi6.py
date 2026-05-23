@@ -28,7 +28,7 @@ from LiuXin_alpha.file_formats.chardet import ENCODING_PATS
 from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 from LiuXin_alpha.file_formats.mobi import MobiError
 from LiuXin_alpha.file_formats.mobi.huffcdic import HuffReader
-from LiuXin_alpha.file_formats.mobi.reader.headers import BookHeader
+from LiuXin_alpha.file_formats.mobi.reader.headers import BookHeader, read_palmdb_record_table
 from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator, OPF
 
 from LiuXin_alpha.utils.calibre import xml_entity_to_unicode, entity_to_unicode
@@ -103,20 +103,15 @@ class MobiReader(object):
         if raw.startswith(b"TPZ"):
             raise TopazError(_("This is an Amazon Topaz book. It cannot be processed."))
 
+        self.num_sections, self.section_headers = read_palmdb_record_table(raw)
         self.header = raw[0:72]
         self.name = self.header[:32].replace(b"\x00", b"")
-        (self.num_sections,) = struct.unpack(">H", raw[76:78])
 
         self.ident = self.header[0x3C : 0x3C + 8].upper()
         if self.ident not in (b"BOOKMOBI", b"TEXTREAD"):
             raise MobiError("Unknown book type: %s" % repr(self.ident))
 
         self.sections = []
-        self.section_headers = []
-        for i in range(self.num_sections):
-            offset, a1, a2, a3, a4 = struct.unpack(">LBBBB", raw[78 + i * 8 : 78 + i * 8 + 8])
-            flags, val = a1, a2 << 16 | a3 << 8 | a4
-            self.section_headers.append((offset, flags, val))
 
         def section(section_number):
             if section_number == self.num_sections - 1:
@@ -843,19 +838,18 @@ class MobiReader(object):
         self.mobi_html = b""
 
         if self.book_header.compression_type == b"DH":
+            huff_start = self.book_header.huff_offset
+            huff_end = huff_start + self.book_header.huff_number
+            if self.book_header.huff_number < 1 or huff_start < 0 or huff_end > len(self.sections):
+                raise MobiError("HUFF/CDIC record range is outside MOBI sections")
             huffs = [
                 self.sections[i][0]
                 for i in memory_range(
-                    self.book_header.huff_offset,
-                    self.book_header.huff_offset + self.book_header.huff_number,
+                    huff_start,
+                    huff_end,
                 )
             ]
-            processed_records += list(
-                memory_range(
-                    self.book_header.huff_offset,
-                    self.book_header.huff_offset + self.book_header.huff_number,
-                )
-            )
+            processed_records += list(memory_range(huff_start, huff_end))
             huff = HuffReader(huffs)
             unpack = huff.unpack
 

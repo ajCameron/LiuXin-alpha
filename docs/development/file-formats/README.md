@@ -26,6 +26,7 @@ Current dossiers:
 - `fb2/`
 - `htmlz/`
 - `lit/`
+- `mobi/`
 - `odt/`
 
 Format notes should describe stable behavior and intended policy. Short-lived
