@@ -9,7 +9,8 @@ Use one folder per format once the format has enough behavior, edge cases, or
 security policy to need a local contract. ODT, EPUB, DOCX, and HTMLZ now have
 dedicated format dossiers. Comic CBZ/CBC now has a dedicated format dossier as
 well. FB2 now has a dedicated XML/input-output dossier. LIT now has a dedicated
-legacy binary-container/parser dossier.
+legacy binary-container/parser dossier. MOBI and PDB now have dedicated
+PalmDB-backed binary-container dossiers.
 
 ## Current Test Contract
 
@@ -125,7 +126,7 @@ unicode coverage now checks optional real LIT input products,
 blocked in this environment by the unavailable LZX compressor backend, so the
 writer coverage intentionally pins the conversion surfaces below compression.
 
-The MOBI pass is now the active legacy binary-container target. MOBI is
+The MOBI pass established the current PalmDB-backed hardening pattern. MOBI is
 PalmDB-backed rather than ZIP-backed, but it has the same need for explicit
 structure checks before conversion. Current coverage has reusable
 PalmDB/MOBI/EXTH fixture builders, unicode EXTH metadata, optional real-corpus
@@ -137,6 +138,20 @@ HUFF/CDIC tables, DH HUFF/CDIC range checks, malformed INDX/TAGX records,
 invalid KF8 FDST/SKEL/DIV/OTH/NCX references, and resource-range/CRES
 failures. Remaining hardening should move next into bounded decompression
 expansion policy and realistic KF8 resource/skeleton/div conversion products.
+
+The PDB pass is the next PalmDB-backed target. PDB reuses the wrapper shape
+that MOBI just hardened, but dispatches into PalmDOC, zTXT, eReader, Plucker,
+Haodoo, and embedded-PDF style subreaders. Current coverage has reusable
+PDB/PalmDB fixtures, header builder/reader round-trips, strict wrapper
+record-table validation, legacy metadata fixtures, eReader metadata writes,
+Plucker and Haodoo metadata edges, PalmDOC/zTXT short-record and decompression
+failures, eReader range/decompression/image-name failures, and strict
+corrupt-wrapper behavior for metadata paths. Plucker now also has conversion
+reader hardening for short headers, record-local length overruns, malformed
+metadata records, truncated PHTML operands, missing image references, and PHTML
+decompression failures. Remaining hardening should continue through Haodoo
+subreader record 0, range, decompression, image-name, and unicode conversion
+products.
 
 ## PML Status
 
