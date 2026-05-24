@@ -8,6 +8,7 @@ import zlib
 from collections import OrderedDict
 
 from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
+from LiuXin_alpha.file_formats.pdb.plucker import PluckerError
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
 from LiuXin_alpha.utils.calibre import CurrentDir
@@ -97,6 +98,46 @@ DATATYPE_EXT_ANCHOR_INDEX = 20
 DATATYPE_EXT_ANCHOR = 21
 DATATYPE_EXT_ANCHOR_COMPRESSED = 22
 
+HEADER_RECORD_SIZE = 6
+SECTION_HEADER_SIZE = 8
+COMPOSITE_IMAGE_HEADER_SIZE = 4
+
+
+def _as_bytes(raw):
+    if isinstance(raw, bytes):
+        return raw
+    if isinstance(raw, bytearray):
+        return bytes(raw)
+    if isinstance(raw, str):
+        return raw.encode("latin-1", "replace")
+    return bytes(raw)
+
+
+def _require_bytes(raw, size, context):
+    if len(raw) < size:
+        raise PluckerError("Truncated Plucker %s" % context)
+
+
+def _require_slice(raw, offset, size, context):
+    if offset < 0 or size < 0 or offset + size > len(raw):
+        raise PluckerError("Truncated Plucker %s" % context)
+
+
+def _u16(raw, offset, context):
+    _require_slice(raw, offset, 2, context)
+    return struct.unpack(">H", raw[offset : offset + 2])[0]
+
+
+def _u32(raw, offset, context):
+    _require_slice(raw, offset, 4, context)
+    return struct.unpack(">I", raw[offset : offset + 4])[0]
+
+
+def _byte(raw, offset, context):
+    _require_slice(raw, offset, 1, context)
+    value = raw[offset]
+    return value if isinstance(value, int) else ord(value)
+
 # IETF IANA MIBenum value for the character set.
 # See the http://www.iana.org/assignments/character-sets for valid values.
 # Not all character sets are handled by Python. This is a small subset that
@@ -172,12 +213,16 @@ class HeaderRecord(object):
     """
 
     def __init__(self, raw):
-        (self.uid,) = struct.unpack(">H", raw[0:2])
+        raw = _as_bytes(raw)
+        _require_bytes(raw, HEADER_RECORD_SIZE, "record 0")
+
+        self.uid = _u16(raw, 0, "record 0 uid")
         # This is labled version in the spec.
         # 2 is ZLIB compressed,
         # 1 is DOC compressed
-        (self.compression,) = struct.unpack(">H", raw[2:4])
-        (self.records,) = struct.unpack(">H", raw[4:6])
+        self.compression = _u16(raw, 2, "record 0 compression")
+        self.records = _u16(raw, 4, "record 0 record count")
+        _require_bytes(raw, HEADER_RECORD_SIZE + (4 * self.records), "record 0 reserved table")
 
         # uid of the first html file. This should link to other files which in turn may link to others.
         self.home_html = None
@@ -185,8 +230,8 @@ class HeaderRecord(object):
         self.reserved = {}
         for i in memory_range(self.records):
             adv = 4 * i
-            (name,) = struct.unpack(">H", raw[6 + adv : 8 + adv])
-            (local_id,) = struct.unpack(">H", raw[8 + adv : 10 + adv])
+            name = _u16(raw, 6 + adv, "record 0 reserved entry name")
+            local_id = _u16(raw, 8 + adv, "record 0 reserved entry id")
             self.reserved[local_id] = name
             if name == 0:
                 self.home_html = local_id
@@ -199,11 +244,13 @@ class SectionHeader(object):
     """
 
     def __init__(self, raw):
-        (self.uid,) = struct.unpack(">H", raw[0:2])
-        (self.paragraphs,) = struct.unpack(">H", raw[2:4])
-        (self.size,) = struct.unpack(">H", raw[4:6])
-        (self.type,) = struct.unpack(">B", raw[6:7])
-        (self.flags,) = struct.unpack(">B", raw[7:8])
+        raw = _as_bytes(raw)
+        _require_bytes(raw, SECTION_HEADER_SIZE, "section header")
+        self.uid = _u16(raw, 0, "section uid")
+        self.paragraphs = _u16(raw, 2, "section paragraph count")
+        self.size = _u16(raw, 4, "section declared size")
+        self.type = _byte(raw, 6, "section type")
+        self.flags = _byte(raw, 7, "section flags")
 
 
 class SectionHeaderText(object):
@@ -212,6 +259,7 @@ class SectionHeaderText(object):
     """
 
     def __init__(self, section_header, raw):
+        raw = _as_bytes(raw)
         # The uncompressed size of each paragraph.
         self.sizes = []
         # uncompressed offset of each paragraph starting
@@ -220,15 +268,21 @@ class SectionHeaderText(object):
         # Paragraph attributes.
         self.attributes = []
 
+        table_size = section_header.paragraphs * 4
+        _require_bytes(raw, table_size, "text paragraph table")
+
         for i in memory_range(section_header.paragraphs):
             adv = 4 * i
-            self.sizes.append(struct.unpack(">H", raw[adv : 2 + adv])[0])
-            self.attributes.append(struct.unpack(">H", raw[2 + adv : 4 + adv])[0])
+            self.sizes.append(_u16(raw, adv, "text paragraph size"))
+            self.attributes.append(_u16(raw, 2 + adv, "text paragraph attributes"))
 
         running_offset = 0
         for size in self.sizes:
             running_offset += size
             self.paragraph_offsets.append(running_offset)
+
+        if section_header.type == DATATYPE_PHTML and running_offset > len(raw[table_size:]):
+            raise PluckerError("Plucker paragraph table exceeds PHTML payload")
 
 
 class SectionMetadata(object):
@@ -247,44 +301,58 @@ class SectionMetadata(object):
     """
 
     def __init__(self, raw):
+        raw = _as_bytes(raw)
         self.default_encoding = "latin-1"
         self.exceptional_uid_encodings = {}
         self.owner_id = None
 
-        (record_count,) = struct.unpack(">H", raw[0:2])
+        _require_bytes(raw, 2, "metadata record count")
+        record_count = _u16(raw, 0, "metadata record count")
 
         adv = 0
         for i in memory_range(record_count):
-            (type,) = struct.unpack(">H", raw[2 + adv : 4 + adv])
-            (length,) = struct.unpack(">H", raw[4 + adv : 6 + adv])
+            record_start = 2 + adv
+            _require_slice(raw, record_start, 4, "metadata record header")
+            record_type = _u16(raw, record_start, "metadata record type")
+            length = _u16(raw, record_start + 2, "metadata record length")
+            record_size = 2 * length
+            if record_size < 4:
+                raise PluckerError("Invalid Plucker metadata record length")
+            _require_slice(raw, record_start, record_size, "metadata record")
+            payload_start = record_start + 4
+            payload_length = record_size - 4
 
             # CharSet
-            if type == 1:
-                (val,) = struct.unpack(">H", raw[6 + adv : 8 + adv])
+            if record_type == 1:
+                if payload_length < 2:
+                    raise PluckerError("Truncated Plucker metadata charset record")
+                val = _u16(raw, payload_start, "metadata charset record")
                 self.default_encoding = MIBNUM_TO_NAME.get(val, "latin-1")
             # ExceptionalCharSets
-            elif type == 2:
-                ii_adv = 0
-                for ii in memory_range(length // 2):
-                    (uid,) = struct.unpack(">H", raw[6 + adv + ii_adv : 8 + adv + ii_adv])
-                    (mib,) = struct.unpack(">H", raw[8 + adv + ii_adv : 10 + adv + ii_adv])
+            elif record_type == 2:
+                if payload_length % 4:
+                    raise PluckerError("Invalid Plucker exceptional charset record length")
+                for ii_adv in memory_range(0, payload_length, 4):
+                    uid = _u16(raw, payload_start + ii_adv, "metadata exceptional charset uid")
+                    mib = _u16(raw, payload_start + ii_adv + 2, "metadata exceptional charset mib")
                     self.exceptional_uid_encodings[uid] = MIBNUM_TO_NAME.get(mib, "latin-1")
-                    ii_adv += 4
             # OwnerID
-            elif type == 3:
-                self.owner_id = struct.unpack(">I", raw[6 + adv : 10 + adv])
+            elif record_type == 3:
+                if payload_length < 4:
+                    raise PluckerError("Truncated Plucker owner id metadata record")
+                self.owner_id = _u32(raw, payload_start, "metadata owner id")
             # Author, Title, PubDate
             # Ignored here. The metadata reader plugin
             # will get this info because if it's missing
             # the metadata reader plugin will use fall
             # back data from elsewhere in the file.
-            elif type in (4, 5, 6):
+            elif record_type in (4, 5, 6):
                 pass
             # Linked Documents
-            elif type == 7:
+            elif record_type == 7:
                 pass
 
-            adv += 2 * length
+            adv += record_size
 
 
 class SectionText(object):
@@ -293,6 +361,7 @@ class SectionText(object):
     """
 
     def __init__(self, section_header, raw):
+        raw = _as_bytes(raw)
         self.header = SectionHeaderText(section_header, raw)
         self.data = raw[section_header.paragraphs * 4 :]
 
@@ -303,8 +372,13 @@ class SectionCompositeImage(object):
     """
 
     def __init__(self, raw):
-        (self.columns,) = struct.unpack(">H", raw[0:2])
-        (self.rows,) = struct.unpack(">H", raw[2:4])
+        raw = _as_bytes(raw)
+        _require_bytes(raw, COMPOSITE_IMAGE_HEADER_SIZE, "composite image header")
+        self.columns = _u16(raw, 0, "composite image columns")
+        self.rows = _u16(raw, 2, "composite image rows")
+        if self.columns < 1 or self.rows < 1:
+            raise PluckerError("Invalid Plucker composite image dimensions")
+        _require_bytes(raw, COMPOSITE_IMAGE_HEADER_SIZE + (self.columns * self.rows * 2), "composite image layout")
 
         # [
         #  [uid, uid, uid, ...],
@@ -323,7 +397,7 @@ class SectionCompositeImage(object):
         for i in memory_range(self.rows):
             col = []
             for j in memory_range(self.columns):
-                col.append(struct.unpack(">H", raw[offset : offset + 2])[0])
+                col.append(_u16(raw, offset, "composite image reference"))
                 offset += 2
             self.layout.append(col)
 
@@ -362,6 +436,8 @@ class Reader(FormatReader):
 
         # The Plucker record0 header
         self.header_record = HeaderRecord(header.section_data(0))
+        if self.header_record.compression not in (1, 2):
+            raise PluckerError("Unsupported Plucker compression type %i" % self.header_record.compression)
 
         for i in range(1, header.num_sections):
             section_number = len(self.sections)
@@ -373,29 +449,36 @@ class Reader(FormatReader):
             raw_data = header.section_data(i)
             # Every sections has a section header.
             section_header = SectionHeader(raw_data)
+            section_payload = raw_data[start:]
+            if section_header.size > len(section_payload):
+                raise PluckerError("Plucker section declared size exceeds available record data")
+            if section_header.size:
+                section_payload = section_payload[: section_header.size]
 
             # Store sections we care able.
             if section_header.type in (DATATYPE_PHTML, DATATYPE_PHTML_COMPRESSED):
                 self.uid_text_secion_number[section_header.uid] = section_number
-                section = SectionText(section_header, raw_data[start:])
+                section = SectionText(section_header, section_payload)
             elif section_header.type in (DATATYPE_TBMP, DATATYPE_TBMP_COMPRESSED):
                 self.uid_image_section_number[section_header.uid] = section_number
-                section = raw_data[start:]
+                section = section_payload
             elif section_header.type == DATATYPE_METADATA:
                 self.metadata_section_number = section_number
-                section = SectionMetadata(raw_data[start:])
+                section = SectionMetadata(section_payload)
             elif section_header.type == DATATYPE_COMPOSITE_IMAGE:
                 self.uid_composite_image_section_number[section_header.uid] = section_number
-                section = SectionCompositeImage(raw_data[start:])
+                section = SectionCompositeImage(section_payload)
 
             # Store the section.
-            if section:
+            if section is not None:
                 self.uid_section_number[section_header.uid] = section_number
                 self.sections.append((section_header, section))
 
+        self._validate_composite_image_references()
+
         # Store useful information from the metadata section locally
         # to make access easier.
-        if self.metadata_section_number:
+        if self.metadata_section_number is not None:
             mdata_section = self.sections[self.metadata_section_number][1]
             for k, v in mdata_section.exceptional_uid_encodings.items():
                 self.uid_text_secion_encoding[k] = v
@@ -403,9 +486,19 @@ class Reader(FormatReader):
             self.owner_id = mdata_section.owner_id
 
         # Get the metadata (tile, author, ...) with the metadata reader.
-        from LiuXin_alpha.utils.calibre.ebooks.metadata.pdb import get_metadata
+        from LiuXin_alpha.metadata.file_sources.pdb import get_metadata
 
         self.mi = get_metadata(stream, False)
+
+    def _validate_composite_image_references(self):
+        for composite_uid, num in self.uid_composite_image_section_number.items():
+            _section_header, section_data = self.sections[num]
+            for row in section_data.layout:
+                for image_uid in row:
+                    if image_uid not in self.uid_image_section_number:
+                        raise PluckerError(
+                            "Plucker composite image %s references missing image uid %s" % (composite_uid, image_uid)
+                        )
 
     def extract_content(self, output_dir):
         # Each text record is independent (unless the continuation
@@ -505,7 +598,7 @@ class Reader(FormatReader):
                     self.log.error("Failed to write composite image with uid %s: %s" % (uid, e))
 
         # Run the HTML through the html processing plugin.
-        from LiuXin_alpha.utils.calibre.customize.ui import plugin_for_input_format
+        from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         html_input = plugin_for_input_format("html")
         for opt in html_input.options:
@@ -530,14 +623,25 @@ class Reader(FormatReader):
         return oeb
 
     def decompress_phtml(self, data):
-        if self.header_record.compression == 2:
-            if self.owner_id:
-                raise NotImplementedError
-            return zlib.decompress(data)
-        elif self.header_record.compression == 1:
-            return decompress_doc(data)
+        try:
+            if self.header_record.compression == 2:
+                if self.owner_id:
+                    raise PluckerError("Encrypted Plucker PHTML is not supported")
+                return zlib.decompress(data)
+            elif self.header_record.compression == 1:
+                return decompress_doc(data)
+        except PluckerError:
+            raise
+        except Exception as err:
+            raise PluckerError("Plucker PHTML decompression failed: %s" % err) from err
+        raise PluckerError("Unsupported Plucker compression type %i" % self.header_record.compression)
+
+    def _validate_phtml_image_uid(self, uid):
+        if uid not in self.uid_image_section_number and uid not in self.uid_composite_image_section_number:
+            raise PluckerError("Plucker PHTML references missing image uid %s" % uid)
 
     def process_phtml(self, d, paragraph_offsets=None):
+        d = _as_bytes(d)
 
         if paragraph_offsets is None:
             paragraph_offsets = []
@@ -560,17 +664,17 @@ class Reader(FormatReader):
                     html += "<p>"
                 paragraph_open = True
 
-            c = d[offset] if isinstance(d[offset], int) else ord(d[offset])
+            c = _byte(d, offset, "PHTML byte")
             # PHTML "functions"
             if c == 0x0:
                 offset += 1
-                c = d[offset] if isinstance(d[offset], int) else ord(d[offset])
+                c = _byte(d, offset, "PHTML opcode")
                 # Page link begins
                 # 2 Bytes
                 # record ID
                 if c == 0x0A:
                     offset += 1
-                    local_id = struct.unpack(">H", d[offset : offset + 2])[0]
+                    local_id = _u16(d, offset, "PHTML page link record id")
                     if local_id in self.uid_text_secion_number:
                         html += '<a href="%s.html">' % local_id
                         link_open = True
@@ -579,15 +683,16 @@ class Reader(FormatReader):
                 # 3 Bytes
                 # record ID, target
                 elif c == 0x0B:
+                    _require_slice(d, offset + 1, 3, "PHTML targeted page link")
                     offset += 3
                 # Paragraph link begins
                 # 4 Bytes
                 # record ID, paragraph number
                 elif c == 0x0C:
                     offset += 1
-                    local_id = struct.unpack(">H", d[offset : offset + 2])[0]
+                    local_id = _u16(d, offset, "PHTML paragraph link record id")
                     offset += 2
-                    pid = struct.unpack(">H", d[offset : offset + 2])[0]
+                    pid = _u16(d, offset, "PHTML paragraph link target")
                     if local_id in self.uid_text_secion_number:
                         html += '<a href="%s.html#p%s">' % (local_id, pid)
                         link_open = True
@@ -596,6 +701,7 @@ class Reader(FormatReader):
                 # 5 Bytes
                 # record ID, paragraph number, target
                 elif c == 0x0D:
+                    _require_slice(d, offset + 1, 5, "PHTML targeted paragraph link")
                     offset += 5
                 # Link ends
                 # 0 Bytes
@@ -608,7 +714,7 @@ class Reader(FormatReader):
                 # font specifier
                 elif c == 0x11:
                     offset += 1
-                    specifier = d[offset]
+                    specifier = _byte(d, offset, "PHTML font specifier")
                     html += font_specifier_close
                     # Regular text
                     if specifier == 0:
@@ -662,23 +768,27 @@ class Reader(FormatReader):
                 # image record ID
                 elif c == 0x1A:
                     offset += 1
-                    uid = struct.unpack(">H", d[offset : offset + 2])[0]
+                    uid = _u16(d, offset, "PHTML embedded image id")
+                    self._validate_phtml_image_uid(uid)
                     html += '<img src="images/%s.jpg" />' % uid
                     offset += 1
                 # Set margin
                 # 2 Bytes
                 # left margin, right margin
                 elif c == 0x22:
+                    _require_slice(d, offset + 1, 2, "PHTML margin")
                     offset += 2
                 # Alignment of text
                 # 1 Bytes
                 # alignment
                 elif c == 0x29:
+                    _require_slice(d, offset + 1, 1, "PHTML alignment")
                     offset += 1
                 # Horizontal rule
                 # 3 Bytes
                 # 8-bit height, 8-bit width (pixels), 8-bit width (%, 1-100)
                 elif c == 0x33:
+                    _require_slice(d, offset + 1, 3, "PHTML horizontal rule")
                     offset += 3
                     if paragraph_open:
                         html += "</p>"
@@ -702,13 +812,16 @@ class Reader(FormatReader):
                 # 3 Bytes
                 # 8-bit red, 8-bit green, 8-bit blue
                 elif c == 0x53:
+                    _require_slice(d, offset + 1, 3, "PHTML text color")
                     offset += 3
                 # Multiple embedded image
                 # 4 Bytes
                 # alternate image record ID, image record ID
                 elif c == 0x5C:
+                    _require_slice(d, offset + 1, 4, "PHTML multiple embedded image")
                     offset += 3
-                    uid = struct.unpack(">H", d[offset : offset + 2])[0]
+                    uid = _u16(d, offset, "PHTML multiple embedded image id")
+                    self._validate_phtml_image_uid(uid)
                     html += '<img src="images/%s.jpg" />' % uid
                     offset += 1
                 # Underline text begins
@@ -731,26 +844,31 @@ class Reader(FormatReader):
                 # 3 Bytes
                 # alternate text length, 16-bit unicode character
                 elif c == 0x83:
+                    _require_slice(d, offset + 1, 3, "PHTML 16-bit unicode character")
                     offset += 3
                 # 32-bit Unicode character
                 # 5 Bytes
                 # alternate text length, 32-bit unicode character
                 elif c == 0x85:
+                    _require_slice(d, offset + 1, 5, "PHTML 32-bit unicode character")
                     offset += 5
                 # Begin custom font span
                 # 6 Bytes
                 # font page record ID, X page position, Y page position
                 elif c == 0x8E:
+                    _require_slice(d, offset + 1, 6, "PHTML custom font span")
                     offset += 6
                 # Adjust custom font glyph position
                 # 4 Bytes
                 # X page position, Y page position
                 elif c == 0x8C:
+                    _require_slice(d, offset + 1, 4, "PHTML custom font glyph position")
                     offset += 4
                 # Change font page
                 # 2 Bytes
                 # font record ID
                 elif c == 0x8A:
+                    _require_slice(d, offset + 1, 2, "PHTML font page change")
                     offset += 2
                 # End custom font span
                 # 0 Bytes
@@ -764,11 +882,13 @@ class Reader(FormatReader):
                 # 2 Bytes
                 # table record ID
                 elif c == 0x92:
+                    _require_slice(d, offset + 1, 2, "PHTML table reference")
                     offset += 2
                 # Table cell data
                 # 7 Bytes
                 # 8-bit alignment, 16-bit image record ID, 8-bit columns, 8-bit rows, 16-bit text length
                 elif c == 0x97:
+                    _require_slice(d, offset + 1, 7, "PHTML table cell")
                     offset += 7
                 # Exact link modifier
                 # 2 Bytes
@@ -776,6 +896,7 @@ class Reader(FormatReader):
                 # Link function to specify an exact byte offset within the paragraph.
                 # This function must be followed immediately by the function it modifies).
                 elif c == 0x9A:
+                    _require_slice(d, offset + 1, 2, "PHTML exact link modifier")
                     offset += 2
             elif c == 0xA0:
                 html += "&nbsp;"

@@ -6,6 +6,16 @@ Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [file-formats-pdb-hardening-2026-05-23.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-pdb-hardening-2026-05-23.md)
+  Current branch note for the PDB/PalmDB hardening pass: branch setup,
+  entry-point inventory, durable PDB dossier, reusable PDB/PalmDB fixture
+  layer, strict wrapper validation, PalmDOC/zTXT hostile subreader hardening,
+  eReader and Plucker hostile subreader hardening, and the next Haodoo parser
+  slice.
+  Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/pdb/README.md`.
+
 - [file-formats-mobi-hardening-2026-05-23.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-mobi-hardening-2026-05-23.md)
   Current branch note for the MOBI/KF8/AZW-style hardening pass: reusable
   PalmDB/MOBI fixtures, hostile PalmDB/MOBI/EXTH parser coverage, deep

@@ -45,6 +45,7 @@ htmlcov/
 working-memory/test-results/.coverage-*
 working-memory/test-results/coverage-*.xml
 working-memory/test-results/coverage-html-*/
+working-memory/test-results/full-suite-*.json
 .cache
 nosetests.xml
 coverage.xml
@@ -212,10 +213,12 @@ __marimo__/
 
 # Zipped repos
 LiuXin-alpha-[0-9-]*.zip
+backup-MySQL-*.zip
 
 # External local fixture/data checkout (not part of this repo)
 /LiuXin_alpha_data/
 /LiuXin_data/benchmarks/
+/LiuXin_data/test_databases/isfdb_*/
 
 # Common transient conversion artefacts accidentally created in repo root
 /content.opf
@@ -230,6 +233,8 @@ LiuXin-alpha-[0-9-]*.zip
 /*_thumbnail.gif
 
 # Headless browser profiles created by Google Images live probes
+/.codex
+/.tmp/
 /.tmp/google-images-chrome-profile*/
 /.tmp/google-images-rendered-browser/
 

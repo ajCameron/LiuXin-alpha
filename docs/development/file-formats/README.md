@@ -28,6 +28,7 @@ Current dossiers:
 - `lit/`
 - `mobi/`
 - `odt/`
+- `pdb/`
 
 Format notes should describe stable behavior and intended policy. Short-lived
 branch state still belongs in `working-memory/`.
