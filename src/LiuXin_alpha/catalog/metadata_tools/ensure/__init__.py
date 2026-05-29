@@ -1,13 +1,22 @@
 
 """
 Ensure that there's an entry with certain properties on the database.
+
+The aim here is you pass the specs of an object into this factory and it ensures that the databases has something
+with those properties.
+It doesn't matter if the way this happens is for the row to be created or retreived.
+These details are hidden from the caller.
 """
 
+from __future__ import annotations
 
 import queue as Queue
+
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+
 from copy import deepcopy
 
-from LiuXin_alpha.databases.metadata_tools.add import Add
+from LiuXin_alpha.catalog.metadata_tools.add import Add
 from LiuXin_alpha.databases.row import Row
 
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
@@ -30,24 +39,35 @@ from LiuXin_alpha.utils.logging import default_log
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
+if TYPE_CHECKING:
 
-class Ensure(object):
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.api.row import RowAPI
+
+
+class Ensure:
     """
     Class for the methods which ensure that a resource exists on the database, creating it as needed.
     """
 
-    def __init__(self, database):
+    def __init__(self, database: "DatabaseAPI") -> None:
+        """
+        Constructor.
+
+        :param database:
+        """
         self.db = database
         self.add = Add(self.db)
 
     # Todo: Add author collision checking with user verification
-    def creator(self, creator_name, match_queue):
+    def creator(self, creator_name: str, match_queue: Queue.Queue["RowAPI"]):
         """
         Takes a creator name - returns the row corresponding to that creator - making it if required.
-        Currently puts all matching creators in the match_queue for returning.
+
+        Currently, puts all matching creators in the match_queue for returning.
         :param creator_name: The name of a creator
         :param match_queue: A place to put the matches - the creators it might be
-        :return:
+        :return None: Everything goes on the queue.
         """
         creator_name = deepcopy(creator_name)
         found_creators = set()
@@ -82,11 +102,17 @@ class Ensure(object):
             match_queue.put(creator_row)
 
     # Todo: Should be using the creator function instead of this one
-    def creator_blind(self, creator_name, seminal_work=None, standardize=True):
+    def creator_blind(
+            self,
+            creator_name: str,
+            seminal_work: Optional[str] = None,
+            standardize: bool = True) -> "RowAPI":
         """
-        Ensure a creator row without having to
+        Ensure a creator row without having to deal with the queue.
+
         :param creator_name:
         :param seminal_work: If provided, and the creator has to be created, will set the seminal work to be this
+        :param standardize:
         :return:
         """
         # Working through the various types of creator row, looking for a good match
@@ -105,9 +131,10 @@ class Ensure(object):
 
         return self.add.creator(creator=creator_name, creator_seminal_work=seminal_work)
 
-    def genre(self, genre_string, standardize=True):
+    def genre(self, genre_string: str, standardize: bool = True) -> "RowAPI":
         """
         Ensure that the given genre exists - genres must be unique - so always returns a single row.
+
         :param genre_string: Try and ensure a genre with that name
         :param standardize: If True, then try and standardize the name before searching for it in the genres table.
         :return:
@@ -147,17 +174,19 @@ class Ensure(object):
         elif len(candidate_rows) == 1:
             return candidate_rows[0]
 
-        # If this point is reached, then the genre row has to be created
+        # Lookup has failed. Create.
         genre_row = Row(database=self.db)
         genre_row["genre"] = genre
         genre_row.sync()
         return genre_row
 
-    def identifier(self, identifier, identifier_type, error=True):
+    def identifier(self, identifier: str, identifier_type: str, error: bool = True) -> "RowAPI":
         """
         Create an entry in the identifiers table.
+
         :param identifier:
         :param identifier_type:
+        :param error:
         :return:
         """
         old_id_type = deepcopy(identifier_type)
@@ -256,9 +285,10 @@ class Ensure(object):
         return id_row
 
     # Todo: Re-write and implement - cba right now
-    def language(self, language_string, lang_code=False):
+    def language(self, language_string: str, lang_code: bool = False) -> "RowAPI":
         """
         Ensures that a given language is in the language database.
+
         :param language_string:
         :param lang_code: If True, then assumes that the given language_string is actually a language code string.
                           Language will be created with that code and returned if it doesn't exist.
@@ -420,12 +450,15 @@ class Ensure(object):
             language_row["language"] = stand_language
             language_row["language_code"] = stand_language
         language_row.sync()
+
         return language_row
 
-    def publisher(self, publisher, standardize=True):
+    def publisher(self, publisher: str, standardize: bool = True) -> "RowAPI":
         """
         Ensures that a given publisher is in the publishers table of the database.
+
         :param publisher:
+        :param standardize:
         :return:
         """
         if publisher is None:
@@ -453,10 +486,11 @@ class Ensure(object):
         pub_row = self.add.publisher(publisher=publisher)
         return pub_row
 
-    def rating(self, rating):
+    def rating(self, rating: Union[int, float]) -> "RowAPI":
         """
-        Ensure a rating. Ratings are on a scale of 0-10 (integers). These will be displayed down to 0-5 - which gives
-        an available resolution of half a star.
+        Ensure a rating - ratings are on a scale of 0-10 (integers).
+
+        These will be displayed down to 0-5 - which gives an available resolution of half a star.
         :param rating: On a scale of 0-10 - if the rating is between 0-5 double it and pass the doubled value into this
                        method - it will return the row appropriate to that rating
         :return:
@@ -465,6 +499,7 @@ class Ensure(object):
         rating_id = rating + 1
         return self.db.get_row_from_id("ratings", rating_id)
 
+    # Todo: Gotta work on the qeue situation here
     # Todo: Rethink how series and creators are managed
     # Todo: Upgrade and rethink - there has to be a better way of fuzzily seeking series
     # Weak fuzzy matching of series - generally the author of a series will appear in every book of the series - usually
@@ -473,15 +508,16 @@ class Ensure(object):
     # More problematic is the example of Star Wars - which will probably not have George Lucas on the cover
     def series(
         self,
-        creator_rows,
-        series_name,
-        series_queue=None,
-        confidence=False,
-        stand=True,
-        use_phash=True,
-    ):
+        creator_rows: Union[tuple["RowAPI"], list["RowAPI"]],
+        series_name: str,
+        series_queue: Optional[Queue.Queue["RowAPI"]] = None,
+        confidence: bool = False,
+        stand: bool = True,
+        use_phash: bool = True,
+    ) -> "RowAPI":
         """
         Takes a set of creators and a series name - checks for a matching series linked to any subset of those creators.
+
         If none exists, then it has to be created.
         :param creator_rows:
         :param series_name:
@@ -509,6 +545,7 @@ class Ensure(object):
         candidate_rows = self.db.search(table="series", column="series", search_term=series_name)
         if len(candidate_rows) > 0 and series_queue is None:
             return candidate_rows[0]
+
         for row in candidate_rows:
             series_queue.put(row)
             found_series.append(row)
@@ -538,18 +575,20 @@ class Ensure(object):
         if len(found_series) > 0:
             if series_queue is None:
                 return found_series[0]
-        else:
-            # If this point had been reached, then the series will have to be created -
-            if creator_rows:
-                if not confidence:
-                    series_row = self.add.series(series=series)
-                else:
-                    series_row = self.add.series(series=series, series_creator=creator_rows[0])
-            else:
+
+        # If this point had been reached, then the series will have to be created -
+        if creator_rows:
+            if not confidence:
                 series_row = self.add.series(series=series)
-            if series_queue is None:
-                return series_row
-            series_queue.put(series_row)
+            else:
+                series_row = self.add.series(series=series, series_creator=creator_rows[0])
+        else:
+            series_row = self.add.series(series=series)
+        if series_queue is None:
+            return series_row
+        series_queue.put(series_row)
+
+        return series_row
 
     def series_blind(self, creator_rows, series_name, stand=True, use_phash=True):
         """
@@ -574,10 +613,13 @@ class Ensure(object):
 
         return series_queue.get_nowait()
 
-    def subject(self, subject, standardize=True):
+    # Subjects still exists under WEMI. This is fine.
+    def subject(self, subject: str, standardize: bool = True) -> "RowAPI":
         """
-        Ensures that a subject exists - returns the row for it.
+        Ensures that a subject row exists - returns the row for it.
+
         :param subject:
+        :param standardize:
         :return:
         """
         subject = six_unicode(subject)
@@ -586,9 +628,10 @@ class Ensure(object):
             return subject_rows[0]
         return self.add.subject(subject=subject, subject_parent=None)
 
-    def tag(self, tag_text):
+    def tag(self, tag_text: str) -> "RowAPI":
         """
-        Ensure that the the tag exists in the database - return the corresponding row, creating it if required.
+        Ensure that the tag exists in the database - return the corresponding row, creating it if required.
+
         :param tag_text:
         :return:
         """

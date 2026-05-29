@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Front end for the search functionality.
+
+Allows you to search strings and/or the database.
+"""
+
 from __future__ import unicode_literals, division, absolute_import, print_function, annotations
 
 import re
@@ -8,10 +14,12 @@ import weakref
 from collections import deque
 from functools import partial
 
+from typing import Union, Literal, TYPE_CHECKING, Optional, Any
+
 from LiuXin_alpha.constants import preferred_encoding
-from LiuXin_alpha.databases.search.field_searches.boolean_search import BooleanSearch
-from LiuXin_alpha.databases.search.field_searches.date_search import DateSearch
-from LiuXin_alpha.databases.search.field_searches.numeric_search import NumericSearch
+from LiuXin_alpha.catalog.search.field_searches.boolean_search import BooleanSearch
+from LiuXin_alpha.catalog.search.field_searches.date_search import DateSearch
+from LiuXin_alpha.catalog.search.field_searches.numeric_search import NumericSearch
 
 from LiuXin_alpha.utils.config.config_base import prefs
 from LiuXin_alpha.utils.text.icu import lower as icu_lower, primary_contains, sort_key
@@ -19,6 +27,10 @@ from LiuXin_alpha.utils.localization import _, lang_map, canonicalize_lang
 from LiuXin_alpha.utils.search_query_parser import SearchQueryParser, ParseException
 
 from LiuXin_alpha.utils.libraries.liuxin_six import basestring, iterkeys, six_unicode as unicode
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
 __license__ = "GPL v3"
@@ -32,7 +44,7 @@ REGEXP_MATCH = 2
 # Utils {{{
 
 
-def _matchkind(query):
+def _matchkind(query: str) -> tuple[Union[Literal[0], Literal[1], Literal[2]], str]:
     """
     Determines the type of search to be run from a query.
 
@@ -51,6 +63,8 @@ def _matchkind(query):
             match_kind = REGEXP_MATCH
             query = query[1:]
 
+    assert match_kind in (0, 1, 2)
+
     # leave case in regexps because it can be significant e.g. \S \W \D
     if match_kind != REGEXP_MATCH:
         query = icu_lower(query)
@@ -60,7 +74,11 @@ def _matchkind(query):
 matchkind = _matchkind
 
 
-def _match(query, value, matchkind, use_primary_find_in_search=True):
+def _match(
+        query: str,
+        value: tuple[str],
+        matchkind,
+        use_primary_find_in_search: bool = True) -> bool:
     """
     Generates matches based on the query.
 
@@ -96,37 +114,41 @@ def _match(query, value, matchkind, use_primary_find_in_search=True):
                             return True
                 elif query == t:
                     return True
+
             elif matchkind == REGEXP_MATCH:
                 if re.search(query, t, re.I | re.UNICODE):
                     return True
+
             elif matchkind == CONTAINS_MATCH:
                 if use_primary_find_in_search:
                     if primary_contains(query, t):
                         return True
                 elif query in t:
                     return True
+
         except re.error:
             pass
 
     return False
 
 
-# }}}
-
 match = _match
 
 
-# }}}
+class KeyPairSearch: # {{{
+    """
+    Execute the query on every key
+    """
+    def __call__(self, query: str, field_iter, candidates, use_primary_find: bool) -> set[int]:
+        """
+        Preform a key search for the query.
 
-
-# }}}
-
-
-# }}}
-
-
-class KeyPairSearch(object):  # {{{
-    def __call__(self, query, field_iter, candidates, use_primary_find):
+        :param query:
+        :param field_iter:
+        :param candidates:
+        :param use_primary_find:
+        :return:
+        """
         matches = set()
         if ":" in query:
             q = [q.strip() for q in query.partition(":")[0::2]]
@@ -147,6 +169,7 @@ class KeyPairSearch(object):  # {{{
                 for val, book_ids in field_iter():
                     if val:
                         found |= book_ids
+
             return found if valq == "true" else candidates - found
 
         for m, book_ids in field_iter():
@@ -173,11 +196,21 @@ class KeyPairSearch(object):  # {{{
 # }}}
 
 
-class SavedSearchQueries(object):  # {{{
+# Todo: Probably should not be here - actually a cache thing?
+class SavedSearchQueries:  # {{{
+    """
+    The saved results of running a bunch of search queries.
+    """
     queries = {}
     opt_name = ""
 
-    def __init__(self, db, _opt_name):
+    def __init__(self, db: "DatabaseAPI", _opt_name) -> None:
+        """
+        Startup the saved searched queries cache.
+
+        :param db:
+        :param _opt_name:
+        """
         self.opt_name = _opt_name
         try:
             self._db = weakref.ref(db)
@@ -187,28 +220,59 @@ class SavedSearchQueries(object):  # {{{
         self.load_from_db()
 
     @property
-    def db(self):
+    def db(self) -> Optional["DatabaseAPI"]:
+        """
+        Proxy for the database.
+
+        :return:
+        """
         return self._db()
 
-    def load_from_db(self):
+    def load_from_db(self) -> None:
+        """
+        Preform a load onto the database from the local search cache.
+
+        :return:
+        """
         db = self.db
         if db is not None:
             self.queries = db.pref(self.opt_name, default={})
         else:
             self.queries = {}
 
-    def force_unicode(self, x):
+    # Todo: This is an adaptor, and so should be with the adaptors
+    @staticmethod
+    def force_unicode(x: Any) -> str:
+        """
+        Coerce an object to Unicode and return the result.
+
+        :param x:
+        :return:
+        """
         if not isinstance(x, unicode):
             x = x.decode(preferred_encoding, "replace")
         return x
 
-    def add(self, name, value):
+    def add(self, name: Any, value: Any) -> None:
+        """
+        Add an object to the cache, coercing it to Unicode as we go.
+
+        :param name:
+        :param value:
+        :return:
+        """
         db = self.db
         if db is not None:
             self.queries[self.force_unicode(name)] = self.force_unicode(value).strip()
             db.set_pref(self.opt_name, self.queries)
 
-    def lookup(self, name):
+    def lookup(self, name: str) -> Optional[str]:
+        """
+        Retrieve and return a value from the cache.
+
+        :param name:
+        :return:
+        """
         return self.queries.get(self.force_unicode(name), None)
 
     def delete(self, name):

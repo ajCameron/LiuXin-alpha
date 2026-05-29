@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
 
 
-
 class MacrosAPI(abc.ABC):
     """
     Abstract API for SQL macros implementations.
@@ -23,7 +22,11 @@ class MacrosAPI(abc.ABC):
 
     @abc.abstractmethod
     def __init__(self, db: "DatabaseAPI") -> None:
-        ...
+        """
+        Startup the macros class.
+
+        :param db:
+        """
 
     @staticmethod
     @abc.abstractmethod
@@ -636,7 +639,7 @@ class MacrosAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def update_custom_column_additional_column_many(self, table, column, sequence):
+    def update_custom_column_additional_column_many(self, table, column, sequence) -> set[int]:
         ...
 
     @abc.abstractmethod

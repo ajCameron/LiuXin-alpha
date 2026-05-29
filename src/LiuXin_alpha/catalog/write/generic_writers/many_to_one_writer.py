@@ -4,7 +4,7 @@ import pprint
 from collections import defaultdict
 from copy import deepcopy
 
-from LiuXin_alpha.databases.write.base_writer import BaseWriter
+from LiuXin_alpha.catalog.write.base_writer import BaseWriter
 from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, basestring, dict_iterkeys as iterkeys
 from LiuXin_alpha.utils.logging import default_log

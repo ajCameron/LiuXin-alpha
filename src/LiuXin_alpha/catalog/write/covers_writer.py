@@ -1,9 +1,20 @@
-from __future__ import division, absolute_import, print_function, unicode_literals
 
-from LiuXin_alpha.databases.write.base_writer import BaseWriter
-from LiuXin_alpha.databases.write.library_macros import library_set_cover
+"""
+Methods to write infomation concerning covers to the database.
+"""
+
+from __future__ import division, absolute_import, print_function, unicode_literals, annotations
+
+from typing import TYPE_CHECKING
+
+from LiuXin_alpha.catalog.write.base_writer import BaseWriter
+from LiuXin_alpha.catalog.write.library_macros import library_set_cover
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
 class CoversWrite(BaseWriter):
@@ -12,13 +23,19 @@ class CoversWrite(BaseWriter):
     """
 
     def __init__(self, field):
+        """
+        Constructor.
+
+        :param field:
+        """
         super(CoversWrite, self).__init__(field=field)
         self.set_books_func = self.set_cover_exists
 
     @staticmethod
-    def set_cover_exists(book_id_val_map, db, field, *args):
+    def set_cover_exists(book_id_val_map, db: "DatabaseAPI", field, *args):
         """
         Set a flag to indicate if the works have a cover or not
+
         :param book_id_val_map:
         :param db:
         :param field:

@@ -2,10 +2,10 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 from copy import deepcopy
 
-from LiuXin_alpha.databases.write.base_writer import BaseWriter
-from LiuXin_alpha.databases.write.library_macros import library_set_publisher, library_unset_series, \
+from LiuXin_alpha.catalog.write.base_writer import BaseWriter
+from LiuXin_alpha.catalog.write.library_macros import library_set_publisher, library_unset_series, \
     library_set_series
-from LiuXin_alpha.databases.write.utils import UpdateDict
+from LiuXin_alpha.catalog.write.utils import UpdateDict
 from LiuXin_alpha.errors import InvalidUpdate, NotInCache
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, dict_itervalues as itervalues, \
     basestring

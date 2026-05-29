@@ -1,4 +1,6 @@
-"""Plugin-driven background maintenance engine."""
+"""
+Plugin-driven background maintenance engine.
+"""
 
 from __future__ import annotations
 
@@ -30,18 +32,55 @@ if TYPE_CHECKING:
 
 
 class MaintenanceCallbackSink:
-    """Compatibility adapter exposing the callback methods drivers already call."""
+    """
+    Compatibility adapter exposing the callback methods drivers already call.
+    """
 
     def __init__(self, engine: "MaintenanceEngine") -> None:
+        """
+        Constructor.
+
+        :param engine:
+        """
         self._engine = engine
 
-    def dirty_record(self, table, row_id):  # noqa: ANN001 - callback compatibility
+    def dirty_record(self, table: str, row_id: int) -> None:  # noqa: ANN001 - callback compatibility
+        """
+        Record a record in the given table as dirtied.
+
+        :param table:
+        :param row_id:
+        :return:
+        """
         self._engine.main_table_dirtied_queue.put((str(table or ""), int(row_id)), block=False)
 
-    def new_dirty_record(self, table, row_id):  # noqa: ANN001 - callback compatibility
+    def new_dirty_record(self, table: str, row_id: int) -> None:  # noqa: ANN001 - callback compatibility
+        """
+        Dirty a record in the given table.
+
+        :param table:
+        :param row_id:
+        :return:
+        """
         self._engine._manual_events.put(DirtyRowEvent(str(table or ""), int(row_id), kind="new_dirty_row"))
 
-    def dirty_interlink_record(self, update_type, table1, table2, table1_id, table2_id):  # noqa: ANN001
+    def dirty_interlink_record(
+            self,
+            update_type: str,
+            table1: str,
+            table2: str,
+            table1_id: int,
+            table2_id: int) -> None:  # noqa: ANN001
+        """
+        Record that an interlink row has been dirited.
+
+        :param update_type:
+        :param table1:
+        :param table2:
+        :param table1_id:
+        :param table2_id:
+        :return:
+        """
         self._engine.interlink_dirtied_queue.put(
             (str(update_type or ""), str(table1 or ""), str(table2 or ""), int(table1_id), int(table2_id)),
             block=False,
@@ -49,7 +88,9 @@ class MaintenanceCallbackSink:
 
 
 class MaintenanceEngine(threading.Thread):
-    """Background dispatcher that routes maintenance events to registered plugins."""
+    """
+    Background dispatcher that routes maintenance events to registered plugins.
+    """
 
     def __init__(
         self,
@@ -59,6 +100,14 @@ class MaintenanceEngine(threading.Thread):
         interval: float = 2.0,
         scheduling_interval: float = 0.25,
     ) -> None:
+        """
+        Constructor for the maintenance engine.
+
+        :param db:
+        :param plugins:
+        :param interval:
+        :param scheduling_interval:
+        """
         super().__init__(name="liuxin-maintenance-engine", daemon=True)
         try:
             self._db_ref = weakref.ref(db)
@@ -77,16 +126,32 @@ class MaintenanceEngine(threading.Thread):
 
     @property
     def db(self) -> "DatabaseAPI":
+        """
+        Gets a weak ref to the database.
+
+        :return:
+        """
         db = self._db_ref()
         if db is None:
             raise RuntimeError("Database reference is gone.")
         return db
 
     @property
-    def context(self) -> MaintenancePluginContext:
+    def context(self) -> "MaintenancePluginContext":
+        """
+        Return the context to run the plugin with.
+
+        :return:
+        """
         return MaintenancePluginContext(db=self.db, logger=default_log)
 
-    def register_plugin(self, plugin: "MaintenancePluginAPI") -> None:
+    def register_plugin(self, plugin: "MaintenancePluginAPI") -> None:#
+        """
+        Register the given plugin.
+
+        :param plugin:
+        :return:
+        """
         self._plugins.append(plugin)
         self._plugins.sort(key=lambda item: int(getattr(item, "priority", 0)), reverse=True)
         if self.is_alive():
@@ -95,17 +160,42 @@ class MaintenanceEngine(threading.Thread):
             except Exception as exc:
                 default_log.log_exception("Maintenance plugin startup failed.", exc, "WARNING")
 
-    def iter_plugins(self):
+    def iter_plugins(self) -> Iterable["MaintenancePluginAPI"]:
+        """
+        Iterate over all registered plugins.
+
+        :return:
+        """
         return tuple(self._plugins)
 
-    def enqueue(self, event: MaintenanceEvent) -> None:
+    def enqueue(self, event: "MaintenanceEvent") -> None:
+        """
+        Put a maintenance event into the queue.
+
+        :param event:
+        :return:
+        """
         self._manual_events.put(event)
 
     def stop(self) -> None:
+        """
+        Call stop and shutdown the maintenance thread.
+
+        :return:
+        """
         self._keep_running = False
         self._manual_events.put(ShutdownEvent("explicit-stop"))
 
     def rename_item(self, item_id: int, table: str, value: str, now: bool = True) -> None:
+        """
+        Trigger a rename of an item from the given table.
+
+        :param item_id:
+        :param table:
+        :param value:
+        :param now:
+        :return:
+        """
         event = RenameRequestEvent(item_id=item_id, table=table, value=value)
         if now:
             self._dispatch([event])
@@ -113,6 +203,12 @@ class MaintenanceEngine(threading.Thread):
             self.enqueue(event)
 
     def _drain_pending_events(self, *, max_events: int = 128) -> list[MaintenanceEvent]:
+        """
+        Drain and process the given number of events from the queue.
+
+        :param max_events:
+        :return:
+        """
         batch: list[MaintenanceEvent] = []
 
         while len(batch) < max(1, int(max_events)):
@@ -149,9 +245,21 @@ class MaintenanceEngine(threading.Thread):
         return batch
 
     def run_once(self, *, max_events: int = 128) -> dict[str, MaintenancePluginResult]:
+        """
+        Execute a single, limited run of the maintenance thread.
+
+        :param max_events:
+        :return:
+        """
         return self._dispatch(self._drain_pending_events(max_events=max_events))
 
-    def _dispatch(self, batch: Iterable[MaintenanceEvent]) -> dict[str, MaintenancePluginResult]:
+    def _dispatch(self, batch: Iterable["MaintenanceEvent"]) -> dict[str, "MaintenancePluginResult"]:
+        """
+        Dispatch a batch of maintenance events.
+
+        :param batch:
+        :return:
+        """
         context = self.context
         events = list(batch)
         plugin_results: dict[str, MaintenancePluginResult] = {}
@@ -202,6 +310,11 @@ class MaintenanceEngine(threading.Thread):
         return plugin_results
 
     def run(self) -> None:
+        """
+        Start and run the maintenance thread.
+
+        :return:
+        """
         context = self.context
         for plugin in self._plugins:
             try:

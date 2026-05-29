@@ -2,8 +2,8 @@
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from LiuXin_alpha.databases.adaptors import sqlite_datetime
-from LiuXin_alpha.databases.write.base_writer import BaseWriter
-from LiuXin_alpha.databases.write.library_macros import library_set_last_modified, library_set_comment
+from LiuXin_alpha.catalog.write.base_writer import BaseWriter
+from LiuXin_alpha.catalog.write.library_macros import library_set_last_modified, library_set_comment
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.logging import default_log

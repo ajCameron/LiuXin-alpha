@@ -1,18 +1,31 @@
 
 """
-Simplified from ends for the write system which should be (mostly) used instead of actual writers.
+Simplified front ends for the write system which should be (mostly) used instead of actual writers.
+
+Macros are common functions which can best be expressed in pure SQL.
+(Either in principle, but currently there's a shim, or in practice).
+Catalog macros are aware of metadata, and thus operate at a higher level than database macros.
 """
-from __future__ import division, absolute_import, print_function, unicode_literals
+from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
 from copy import deepcopy
+
+from typing import TYPE_CHECKING, Union, Iterable, Optional
 
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.text import isbytestring
 
+# Todo: Wrap these up in a "catalog_macros" class.
 
-def library_set_title(db, title_id, title):
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+
+
+def library_set_title(db: "DatabaseAPI", title_id: int, title: str) -> None:
     """
     Set the title of the work - updates both the title table and the books table.
+
     If you attempt to set the title to something with evaluates as False the attempted update will be ignored.
     :param db: The database to preform the set in
     :param title_id: The id the title to update the title for
@@ -22,9 +35,10 @@ def library_set_title(db, title_id, title):
     db.macros.update_title(title_id=title_id, title=title)
 
 
-def library_add_feed(db, title, script):
+def library_add_feed(db: "DatabaseAPI", title: Union[bytes, str], script: Union[bytes, str]) -> None:
     """
     Add to the field table - assume that the title and script is encoded in utf-8.
+
     :param db: The database to do the update on
     :param title: The title of the feed
     :param script: The script to fetch the feed
@@ -37,9 +51,10 @@ def library_add_feed(db, title, script):
     db.macros.add_feed(title, script)
 
 
-def library_remove_feeds(db, ids):
+def library_remove_feeds(db: "DatabaseAPI", ids: set[int]) -> None:
     """
     Remove feeds from the feeds table.
+
     :param db: The database to do the update on
     :param ids: The ids of the feeds to remove
     :return:
@@ -47,10 +62,11 @@ def library_remove_feeds(db, ids):
     db.macros.delete_feed(ids)
 
 
-def library_unapply_series_tags(db, series_id, tags):
+def library_unapply_series_tags(db: "DatabaseAPI", series_id: int, tags: Iterable[str]):
     """
-    Remove every tag in the given iterator of tags from the given series with the given series_id. If the tag is
-    not linked to the series no change is made.
+    Remove every tag in the given iterator of tags from the given series with the given series_id.
+
+    If the tag is not linked to the series no change is made.
     :param db: The database to preform the changes to
     :param series_id: The id of the seris to remove the tags from
     :param tags: Text of the tags to remove from the series
@@ -59,9 +75,10 @@ def library_unapply_series_tags(db, series_id, tags):
     db.macros.unapply_series_tags(series_id, tags)
 
 
-def library_update_feed(db, feed_id, script, title):
+def library_update_feed(db: "DatabaseAPI", feed_id: int, script: Union[bytes, str], title: str) -> None:
     """
-    Update the feed table with a new script and title
+    Update the feed table with a new script and title.
+
     :param db: The database to do the update on
     :param feed_id: Ids from the feed table
     :param script: The script to update the table with
@@ -71,9 +88,10 @@ def library_update_feed(db, feed_id, script, title):
     db.macros.update_feed(feed_id, script, title)
 
 
-def library_set_feeds(db, feeds):
+def library_set_feeds(db: "DatabaseAPI", feeds: Iterable[Union[bytes, str]]) -> None:
     """
-    Clears the entire feed table and updates it with the feeds.
+    Clears the entire feed table and updates it with entirely new feeds.
+
     :param db:
     :param feeds: An iterable of tuples - title, script. These will be set as the new feed_title, feed_script fields
                   of the feeds table. The feeds table will be cleared otherwise.
@@ -82,9 +100,10 @@ def library_set_feeds(db, feeds):
     db.macros.set_feeds(feeds)
 
 
-def library_set_author_sort(db, title_id, sort):
+def library_set_author_sort(db: "DatabaseAPI", title_id, sort):
     """
     Sets the author sort field for the given book/title id.
+
     :param db:
     :param title_id:
     :param sort:
@@ -93,9 +112,11 @@ def library_set_author_sort(db, title_id, sort):
     db.macros.set_author_sort(title_id, sort)
 
 
-def library_set_cover(db, book_id, value):
+# Todo: I guess this would be in items now? Does it still exist?
+def library_set_cover(db: "DatabaseAPI", book_id: int, value: bool) -> None:
     """
     Update the flag stored in the books table - in book_has_cover
+
     :param db:
     :param book_id:
     :param value:
@@ -104,18 +125,31 @@ def library_set_cover(db, book_id, value):
     db.macros.set_has_cover(book_id, value)
 
 
-def library_remove_unused_series(db):
+def library_remove_unused_series(db: "DatabaseAPI") -> None:
     """
     Remove series that are not currently in use from the specified database.
+
+    "in use" means series linked to works.
     :param db:
     :return:
     """
     db.macros.remove_unused_series()
 
 
-def library_set_conversion_options(db, book_id, fmt, options):
+# Todo: Prrroobably an expressions level thing?
+# Todo: We need a policy, written down on item boundaries
+#       Things to consider
+#       - Is each format of a book it's own item? (depends what you mean by format)
+#       - Is an auto-generated conversion of a file in an item still in the item (probably yes)
+#       - Is an annotated copy of an file still in the same item (erggh. Technically no.)
+#       -
+# Todo: I've never been clear why this isn a book level thing anyways - or what these options are
+# Todo: Formats can definitely be typed fully
+# Todo: If this means, really, conversion policy, then we should be able to set it at multiple levels
+def library_set_conversion_options(db: "DatabaseAPI", book_id: int, fmt: str, options):
     """
     Sets a conversion option for a book.
+
     :param db: The database to preform the update on
     :param book_id: The id of the book to set the conversion option for (not the id of the entry in the conversion
                     option table)
@@ -126,9 +160,10 @@ def library_set_conversion_options(db, book_id, fmt, options):
     db.macros.set_conversion_options(book_id=book_id, fmt=fmt, options=options)
 
 
-def library_delete_conversion_options(db, book_id, fmt, commit=True):
+def library_delete_conversion_options(db: "DatabaseAPI", book_id: int, fmt: str, commit: bool = True) -> None:
     """
     Remove a conversion option for a given format from a given id
+
     :param db: The database to preform the update on
     :param book_id: The id of the book to remove the conversion option from
     :param fmt: The format to remove the conversion option for
@@ -138,9 +173,11 @@ def library_delete_conversion_options(db, book_id, fmt, commit=True):
     db.macros.delete_conversion_options(book_id, fmt, commit)
 
 
-def library_set_isbn(db, title_id, isbn):
+# Todo: Sensible, but there are, again, multiple levels this could be applied to.
+def library_set_isbn(db: "DatabaseAPI", title_id: int, isbn: str) -> bool:
     """
-    Set a isbn in the identifiers table.
+    Set an isbn in the identifiers table.
+
     :param db: The database to preform the update on
     :param title_id: The id of the book to update.
     :param isbn: The isbn of the book to update.
@@ -149,9 +186,14 @@ def library_set_isbn(db, title_id, isbn):
     return db.macros.set_title_isbn(title_id, isbn)
 
 
-def library_set_publisher(db, title_id, publisher=None, publisher_id=None):
+def library_set_publisher(
+        db: "DatabaseAPI",
+        title_id: int,
+        publisher: Optional[str] = None,
+        publisher_id: Optional[int] = None) -> tuple[Optional[int], Optional[str]]:
     """
     Changes the primary publisher of the title to be the given publisher.
+
     If the publisher row is None, then the book_publisher column will be set None.
     :param db: The database to preform the update on
     :param title_id: The id of the book row to set the publisher for
@@ -231,16 +273,19 @@ def library_set_publisher(db, title_id, publisher=None, publisher_id=None):
         return None, None
 
 
-def library_set_comment(db, title_id, text):
+# Todo: Again, we have a problem re. where this comment should be set by default
+# Todo: Probably the answer is items. By default, I think the answer is items
+def library_set_comment(db: "DatabaseAPI", title_id: int, text: Optional[str]) -> Optional[int]:
     """
     Set the primary comment/note on a title (and thus on a book) to be this text.
+
     Multiple comments can be set for a title - this just sets the primary comment.
     Note - comments are a type of note - so the text will be stored in the notes table and linked to the title with
     the link type "comment"
     :param db: The database to preform the update on
     :param title_id: The id of the title/book to deal with.
     :param text: The text of the comment to set.
-    :return:
+    :return: Optional new comment id
     """
     if text:
         comment_row = db.add.comment(text)
@@ -252,9 +297,11 @@ def library_set_comment(db, title_id, text):
         return None
 
 
-def library_delete_tag(db, tag):
+# Todo: This should probably be a bool - as the tag might not match
+def library_delete_tag(db: "DatabaseAPI", tag: str) -> None:
     """
     Delete a tag from the tag text.
+
     :param db:
     :param tag:
     :return:
@@ -262,10 +309,11 @@ def library_delete_tag(db, tag):
     db.macros.delete_tag_by_value(tag)
 
 
-def library_delete_tags(db, tags):
+def library_delete_tags(db: "DatabaseAPI", tags: Iterable[str]) -> None:
     """
     Delete every tag from an iterable of tags.
-    No uopdate is made to the cache - presumably this is handled at a higher level.
+
+    No update is made to the cache - presumably this is handled at a higher level.
     :param db: The database to preform the delete on
     :param tags: An iterable of tag texts to be deleted.
     :return:
@@ -274,10 +322,11 @@ def library_delete_tags(db, tags):
         library_delete_tag(db, tag)
 
 
-def library_unapply_tags(db, book_id, tags):
+def library_unapply_tags(db: "DatabaseAPI", book_id: int, tags: Iterable[str]) -> set[int]:
     """
-    Remove every tag in the given tags from the given book_id. If the tag is not linked to the book no change is
-    made.
+    Remove every tag in the given tags from the given book_id.
+
+    If the tag is not linked to the book no change is made.
     :param db: The database to apply the changes to
     :param book_id: The id of the book/title to remove the tags from
     :param tags: An iterable of the exact text of each of the tags to remove.
@@ -293,10 +342,11 @@ def library_unapply_tags(db, book_id, tags):
     return tag_ids
 
 
-def library_unapply_creator_tags(db, creator_id, tags):
+def library_unapply_creator_tags(db: "DatabaseAPI", creator_id: int, tags: Iterable[str]) -> None:
     """
-    Remove every tag in the given iterator of tags from the given creator with the given creator_id. If the tag is
-    not linked to the creator no change is made.
+    Remove every tag in the given iterator of tags from the given creator with the given creator_id.
+
+    If the tag is not linked to the creator no change is made.
     :param db: The database to preform the update in
     :param creator_id:
     :param tags:
@@ -311,10 +361,11 @@ def library_unapply_creator_tags(db, creator_id, tags):
     db.driver.conn.commit()
 
 
-def library_unapply_title_tags(db, book_id, tags):
+def library_unapply_title_tags(db: "DatabaseAPI", book_id: int, tags: Iterable[str]) -> set[int]:
     """
-    Remove every tag in the given tags from the given book_id. If the tag is not linked to the book no change is
-    made.
+    Remove every tag in the given tags from the given book_id.
+
+    If the tag is not linked to the book no change is made.
     :param db:
     :param book_id: The id of the book/title to remove the tags from
     :param tags: An iterable of the exact text of each of the tags to remove.
@@ -323,11 +374,14 @@ def library_unapply_title_tags(db, book_id, tags):
     return library_unapply_tags(db, book_id, tags)
 
 
-def library_set_tags(db, title_id, tags, append=False):
+def library_set_tags(db: "DatabaseAPI", title_id: int, tags: Iterable[str], append: bool = False) -> set[int]:
     """
-    Set the given iterable of tag texts for the given book/title id. Use the set_creator_tags to set tags for a
-    creator of the work, and set_series_tags to set tags for the series the title is in.
-    tags are matched on their exact text. Use ensure_tags
+    Append or replace the given iterable of tag texts for the given book/title id.
+
+    Use the set_creator_tags to set tags for a creator of the work, and set_series_tags to set tags for the series
+    the title is in.
+    tags are matched on their exact text.
+    Use ensure_tags to create tags if needed.
     :param db: The database to do the update on
     :param title_id:
     :param tags: list of strings
@@ -361,9 +415,10 @@ def library_set_tags(db, title_id, tags, append=False):
     return tag_ids
 
 
-def library_set_creator_tags(db, creator_id, tags, append=False):
+def library_set_creator_tags(db: "DatabaseAPI", creator_id: int, tags: Iterable[str], append: bool = False) -> None:
     """
     Set the given iterable of tag texts for the creator specified with the given id.
+
     :param db: The database to do the update on
     :param creator_id:
     :param tags:
@@ -390,9 +445,10 @@ def library_set_creator_tags(db, creator_id, tags, append=False):
     db.driver.conn.commit()
 
 
-def library_set_series_tags(db, series_id, tags, append=False):
+def library_set_series_tags(db: "DatabaseAPI", series_id: int, tags: Iterable[str], append: bool = False) -> None:
     """
     Set the given iterable of tag texts for the series specified with the given id.
+
     :param db: The database to do the updates on
     :param series_id: The id of the series to update the tags for
     :param tags: An iterable of tags to apply to the series
@@ -419,9 +475,10 @@ def library_set_series_tags(db, series_id, tags, append=False):
     db.driver.conn.commit()
 
 
-def library_set_title_tags(db, title_id, tags, append=False):
+def library_set_title_tags(db: "DatabaseAPI", title_id: int, tags: Iterable[str], append: bool = False) -> set[int]:
     """
     Sets the tags for a given title row - see the set_tags method.
+
     :param db: The database to do the update on
     :param title_id:
     :param tags:
@@ -431,9 +488,15 @@ def library_set_title_tags(db, title_id, tags, append=False):
     return library_set_tags(db, title_id, tags, append=append)
 
 
-def library_unset_series(db, title_id, series=None, series_id=None):
+# Todo: How do we determine what series an item is in? So we can unset it.
+def library_unset_series(
+        db: "DatabaseAPI",
+        title_id: int,
+        series: Optional[Union[int, str]] = None,
+        series_id: int = None) -> None:
     """
     Used when you want to break a link between a series and a title.
+
     :param db:
     :param title_id:
     :param series:
@@ -446,20 +509,21 @@ def library_unset_series(db, title_id, series=None, series_id=None):
 
 
 def library_set_series(
-    db,
-    title_id,
-    series=None,
-    series_id=None,
+    db: "DatabaseAPI",
+    title_id: int,
+    series: Optional[Union[int, str]] = None,
+    series_id: Optional[int] = None,
     update_cache_series=None,
     update_cache_series_idx=None,
-):
+) -> tuple[None, None]:
     """
     Sets the primary series for a book_title - updates the book_series_id as well.
+
     Searches on the series name - no refinements are used - just the raw name.
     :param db:
     :param title_id: The id of the title to do the update for
     :param series: The name of the series
-    :param series_id: The id of the entry on the series table. If this is provided it takes precidence over the series
+    :param series_id: The id of the entry on the series table. If this is provided it takes precedence over the series
                       which will be ignored.
     :param update_cache_series: Function to update the series field of any cache which is currently being maintained.
     :param update_cache_series_idx:
@@ -575,10 +639,16 @@ def dummy_series_id(*args, **kwargs):
     raise NotImplementedError("{} - {}".format(args, kwargs))
 
 
-def library_set_series_index(db, title_id, idx, series_id=dummy_series_id, update_cache_series_idx=None):
+def library_set_series_index(
+        db: "DatabaseAPI",
+        title_id: int,
+        idx: Optional[Union[float, int]],
+        series_id = dummy_series_id,
+        update_cache_series_idx = None) -> None:
     """
-    Sets the series index for the primary series (the series associated with the book_id, stored in the books table
-    as book_series_id) to the given index.
+    Sets the series index for the primary series.
+
+    (the series associated with the book_id, stored in the books table as book_series_id) to the given index.
     Updates the database and the cache.
     :param db: The database to do the update in
     :param title_id: The id of the title/book to update (specifically book in this case, as it updates the books tables
@@ -605,9 +675,13 @@ def library_set_series_index(db, title_id, idx, series_id=dummy_series_id, updat
         update_cache_series_idx(title_id, idx)
 
 
-def library_set_last_modified(db, book_id, last_modified):
+def library_set_last_modified(
+        db: "DatabaseAPI",
+        book_id: int,
+        last_modified) -> None:
     """
     Set the last modified field in the books table.
+
     :param db:
     :param book_id:
     :param last_modified:
@@ -616,9 +690,14 @@ def library_set_last_modified(db, book_id, last_modified):
     db.macros.update_book_last_modified(book_id=book_id, last_modified=last_modified)
 
 
-def library_set_authors_from_ids(db, title_id, author_ids, append=False):
+def library_set_authors_from_ids(
+        db: "DatabaseAPI",
+        title_id: int,
+        author_ids: Union[list[int], tuple[int]],
+        append: bool = False) -> None:
     """
     Sets the authors for a work from a list of ids.
+
     The authors will be set or appended in a priority order equal to the order of the list here.
     :param db: The database to do the update on
     :param title_id: The id of the title to set from
@@ -673,9 +752,10 @@ def library_set_authors_from_ids(db, title_id, author_ids, append=False):
         ct_link_priority -= 1
 
 
-def library_set_language(db, title_id, lang_string):
+def library_set_language(db: "DatabaseAPI", title_id: int, lang_string: str) -> None:
     """
     Set the primary language of a work - preforms the set from a string value of the language.
+
     :param db: The database to preform the update for
     :param title_id:
     :param lang_string: The language as a string.

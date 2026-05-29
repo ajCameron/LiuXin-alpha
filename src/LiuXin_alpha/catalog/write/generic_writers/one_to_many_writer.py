@@ -2,7 +2,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 from collections import defaultdict
 
-from LiuXin_alpha.databases.write import ManyToOneWriter
+from LiuXin_alpha.catalog.write import ManyToOneWriter
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, six_string_types, basestring, \
     dict_iterkeys as iterkeys
 from LiuXin_alpha.utils.logging import default_log

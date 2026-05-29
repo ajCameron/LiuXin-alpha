@@ -12,21 +12,12 @@ from __future__ import unicode_literals, print_function, annotations
 
 from typing import TYPE_CHECKING
 
-import os
-import sqlite3
-import glob
-import re
-import sys
-import codecs
 from copy import deepcopy
 
-from LiuXin_alpha.constants.paths import LiuXin_data_sources
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 
 from LiuXin_alpha.utils.search_query_parser import SearchQueryParser
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
-
-from LiuXin_alpha.utils.logging import default_log
 
 from LiuXin_alpha.errors import LogicalError, InputIntegrityError, DatabaseIntegrityError
 
@@ -39,6 +30,8 @@ if TYPE_CHECKING:
 class DatabaseSearch:
     """
     Test bench for a class to search the database.
+
+    Generates a location aware SQL string to execute against the database.
     """
 
     db: "DatabaseAPI"
@@ -93,9 +86,11 @@ class DatabaseSearch:
     # Ideally this would be done with an outer join - but that functionality is not available in SQLITE
     # Instead two left joins are used, and the statement is broken down into a load of individual statements for
     # execution.
+
     # The (horrendous) algorithm goes as follows (though only one statement should ever be executed on each table -
     # which should, at least, get the execution cost down a little from the original plan - which was to do an OUTER
     # JOIN over every table and search in each location that way).
+
     # Starting from the innermost token e.g all:"David Weber". This will have form [u'token', u'all', u'"David Weber"']
     # The following statements need to be executed.
     # FROM `titles` SELECT * WHERE titles.title = "David Weber"
@@ -147,7 +142,7 @@ class DatabaseSearch:
             # exec(python_stmt)
             raise NotImplementedError(python_stmt)
 
-        # Todo: Really need to review and removpe most of the exec statements
+        # Todo: Really need to review and remove most of the exec statements
 
         # With the required locations known the search can now be conducted
         # 1) A join table is constructed containing every location needed for the search
@@ -163,6 +158,7 @@ class DatabaseSearch:
     def can_index_be_transformed(target_index):
         """
         Tests to see if an index can be transformed into pure string form.
+
         :param target_index:
         :return:
         """
@@ -173,6 +169,7 @@ class DatabaseSearch:
             err_str = "can_index_be_transformed in locational_search has been passed a poorly formed index.\n"
             err_str += "target_index: " + repr(target_index) + "\n"
             raise InputIntegrityError(err_str)
+
         if hasattr(target_index[1], "__iter__") or hasattr(target_index[2], "__iter__"):
             return False
         else:
@@ -181,6 +178,7 @@ class DatabaseSearch:
     def transform_index(self, target_index):
         """
         Takes an index - transforms it into intermediate form.
+
         :param target_index:
         :return:
         """

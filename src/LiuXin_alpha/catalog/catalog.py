@@ -6,9 +6,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .api.common import DatabaseHandle
-from .matching import CatalogMatching
-from .repositories import (
+from LiuXin_alpha.catalog.api.common import DatabaseHandle
+from LiuXin_alpha.catalog.matching import CatalogMatching
+from LiuXin_alpha.catalog.repositories import (
     AgentRepository,
     ExpressionRepository,
     IdentifierRepository,

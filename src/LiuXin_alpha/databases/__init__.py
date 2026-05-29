@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-"""Public root surface for the :mod:`LiuXin_alpha.databases` package.
+"""
+Public root surface for the :mod:`LiuXin_alpha.databases` package.
 
 Keep this file deliberately small and mostly lazy. Importing the package root should
 be cheap, and callers should not need deep module paths for the common public entry
@@ -54,7 +55,7 @@ __all__ = [
 
 def __getattr__(name: str):
     """
-
+    Decent front end.
 
     :param name:
     :return:

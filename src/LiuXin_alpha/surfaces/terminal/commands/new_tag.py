@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.databases.metadata_tools.add import Add
+from LiuXin_alpha.catalog.metadata_tools import Add
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.surfaces.metadata_facets import (
     build_tag_row_payload,

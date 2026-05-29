@@ -1,6 +1,6 @@
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from LiuXin_alpha.databases.write import OneToOneWriter
+from LiuXin_alpha.catalog.write import OneToOneWriter
 from LiuXin_alpha.metadata.ebook_metadata_tools import title_sort
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 

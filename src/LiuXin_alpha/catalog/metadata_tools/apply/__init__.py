@@ -14,7 +14,7 @@ from LiuXin_alpha.metadata.ebook_metadata_tools import check_issn, check_isbn
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types as string_types
 
-from LiuXin_alpha.databases.metadata_tools.apply.label_apply_mixin import LabelApplyMixin
+from LiuXin_alpha.catalog.metadata_tools.apply.label_apply_mixin import LabelApplyMixin
 
 
 class Apply(LabelApplyMixin):

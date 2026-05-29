@@ -1,7 +1,18 @@
-from __future__ import division, absolute_import, print_function, unicode_literals
 
-from LiuXin_alpha.databases.write import BaseWriter
+"""
+Custom column writers - responsible for writing information out to custom columns.
+"""
+
+from __future__ import division, absolute_import, print_function, unicode_literals, annotations
+
+from typing import TYPE_CHECKING, Sequence, Union
+
+from LiuXin_alpha.catalog.write import BaseWriter
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
 class CustomSeriesIndexWriter(BaseWriter):
@@ -9,14 +20,20 @@ class CustomSeriesIndexWriter(BaseWriter):
     Class for writing data out to custom series index tables.
     """
 
-    def __init__(self, field):
+    def __init__(self, field) -> None:
+        """
+        Startup the custom series index writer.
+
+        :param field:
+        """
         super(CustomSeriesIndexWriter, self).__init__(field)
         self.set_books_func = self.custom_series_index
 
     @staticmethod
-    def custom_series_index(book_id_val_map, db, field, *args):
+    def custom_series_index(book_id_val_map, db: "DatabaseAPI", field, *args) -> set[int]:
         """
         Table of type series have an extra column in their link table - which is the index of that custom series.
+
         This method writes new values for the custom index out to the database.
         :param book_id_val_map: Keyed with the id of the book and valued with the new index value for that book.
         :param db: The database to preform the update in

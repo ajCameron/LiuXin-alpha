@@ -14,19 +14,19 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 from typing import Union
 
 from LiuXin_alpha.databases.db_types import ONE_MANY, MANY_ONE, MANY_MANY
-from LiuXin_alpha.databases.write.base_writer import BaseWriter
-from LiuXin_alpha.databases.write.generic_writers.many_to_many_writer import ManyToManyWriter
-from LiuXin_alpha.databases.write.generic_writers.many_to_one_writer import ManyToOneWriter
-from LiuXin_alpha.databases.write.generic_writers.one_to_many_writer import OneToManyWriter
-from LiuXin_alpha.databases.write.generic_writers.one_to_one_writer import OneToOneWriter
-from LiuXin_alpha.databases.write.author_sort_writer import AuthorSortWriter
-from LiuXin_alpha.databases.write.base_writer import BaseWriter
-from LiuXin_alpha.databases.write.covers_writer import CoversWrite
-from LiuXin_alpha.databases.write.custom_columns_writers import CustomSeriesIndexWriter
-from LiuXin_alpha.databases.write.generic_writers.one_to_one_writer import OneToOneWriter
-from LiuXin_alpha.databases.write.identifiers_writer import IdentifiersWrite
-from LiuXin_alpha.databases.write.languages_writer import LanguagesWriter
-from LiuXin_alpha.databases.write.library_macros import (
+from LiuXin_alpha.catalog.write.base_writer import BaseWriter
+from LiuXin_alpha.catalog.write.generic_writers.many_to_many_writer import ManyToManyWriter
+from LiuXin_alpha.catalog.write.generic_writers.many_to_one_writer import ManyToOneWriter
+from LiuXin_alpha.catalog.write.generic_writers.one_to_many_writer import OneToManyWriter
+from LiuXin_alpha.catalog.write.generic_writers.one_to_one_writer import OneToOneWriter
+from LiuXin_alpha.catalog.write.author_sort_writer import AuthorSortWriter
+from LiuXin_alpha.catalog.write.base_writer import BaseWriter
+from LiuXin_alpha.catalog.write.covers_writer import CoversWrite
+from LiuXin_alpha.catalog.write.custom_columns_writers import CustomSeriesIndexWriter
+from LiuXin_alpha.catalog.write.generic_writers.one_to_one_writer import OneToOneWriter
+from LiuXin_alpha.catalog.write.identifiers_writer import IdentifiersWrite
+from LiuXin_alpha.catalog.write.languages_writer import LanguagesWriter
+from LiuXin_alpha.catalog.write.library_macros import (
     library_set_cover,
     library_set_publisher,
     library_set_comment,
@@ -36,9 +36,9 @@ from LiuXin_alpha.databases.write.library_macros import (
     library_set_last_modified,
     library_set_publisher,
     library_set_series)
-from LiuXin_alpha.databases.write.title_writer import TitleWriter
-from LiuXin_alpha.databases.write.utils import DummyWriter
-from LiuXin_alpha.databases.write.uuid_writer import UUIDWriter
+from LiuXin_alpha.catalog.write.title_writer import TitleWriter
+from LiuXin_alpha.catalog.write.utils import DummyWriter
+from LiuXin_alpha.catalog.write.uuid_writer import UUIDWriter
 
 # Py2/Py3 compatibility layer
 

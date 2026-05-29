@@ -1,8 +1,20 @@
-from __future__ import division, absolute_import, print_function, unicode_literals
 
-from LiuXin_alpha.databases.write import BaseWriter
+"""
+Write language information into the database.
+"""
+
+
+from __future__ import division, absolute_import, print_function, unicode_literals, annotations
+
+from typing import TYPE_CHECKING
+
+from LiuXin_alpha.catalog.write import BaseWriter
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, six_string_types
 from LiuXin_alpha.utils.logging import default_log
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
 class LanguagesWriter(BaseWriter):
@@ -10,16 +22,22 @@ class LanguagesWriter(BaseWriter):
     Class for writing languages information out to the table.
     """
 
-    def __init__(self, field):
+    def __init__(self, field) -> None:
+        """
+        Constructor.
+
+        :param field:
+        """
         super(LanguagesWriter, self).__init__(field=field)
 
         self.set_books = self.no_adapter_set_books
         self.set_books_func = self.set_languages
 
     @staticmethod
-    def set_languages(book_id_val_map, db, field, *args):
+    def set_languages(book_id_val_map, db: "DatabaseAPI", field, *args) -> set[int]:
         """
         Preforms a set into the languages table.
+
         Parses the :param book_id_val_map: and uses the information it provides to update the links between the titles
         table and the languages table.
         :param book_id_val_map: Assume that we receive a directory keyed with the book id and valued with the language CODE.

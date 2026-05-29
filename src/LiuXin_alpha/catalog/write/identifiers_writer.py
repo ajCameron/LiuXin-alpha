@@ -1,7 +1,18 @@
-from __future__ import division, absolute_import, print_function, unicode_literals
 
-from LiuXin_alpha.databases.write import BaseWriter
+"""
+Responsible for writing identifiers out to the database.
+"""
+
+from __future__ import division, absolute_import, print_function, unicode_literals, annotations
+
+from typing import TYPE_CHECKING
+
+from LiuXin_alpha.catalog.write import BaseWriter
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
 class IdentifiersWrite(BaseWriter):
@@ -9,16 +20,23 @@ class IdentifiersWrite(BaseWriter):
     Class for writing identifier information out to the table
     """
 
-    def __init__(self, field):
+    def __init__(self, field) -> None:
+        """
+        Startup the identifiers writer.
+
+        :param field:
+        """
         super(IdentifiersWrite, self).__init__(field=field)
 
         self.set_books_func = self.identifiers
         self.set_books = self.no_adapter_set_books
 
+    # Todo: Tbh, the fact that we need to keep giving these methods the field is stupid.
     @staticmethod
-    def identifiers(book_id_val_map, db, field, *args):  # {{{
+    def identifiers(book_id_val_map, db: "DatabaseAPI", field, *args):  # {{{
         """
         Write identifiers out to the table.
+
         Unless this is called with append this will overwrite all the identifiers currently associated with the book.
         :param book_id_val_map: Keyed with the id of the book and valued with the identifiers to update that book with
         :param db: The database to do the update on

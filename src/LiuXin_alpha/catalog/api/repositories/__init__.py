@@ -1,14 +1,18 @@
-"""Repository API contracts for catalog entities."""
+"""
+Repository API contracts for catalog entities.
+"""
 
-from .agents import AgentRepositoryAPI
-from .base import BaseRepositoryAPI
-from .expressions import ExpressionRepositoryAPI
-from .identifiers import IdentifierRepositoryAPI
-from .items import ItemRepositoryAPI
-from .manifestations import ManifestationRepositoryAPI
-from .notes import NoteRepositoryAPI
-from .titles import TitleRepositoryAPI
-from .works import WorkRepositoryAPI
+from __future__ import annotations
+
+from LiuXin_alpha.catalog.api.repositories.agents import AgentRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.base import BaseRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.expressions import ExpressionRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.identifiers import IdentifierRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.items import ItemRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.manifestations import ManifestationRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.notes import NoteRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.titles import TitleRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.works import WorkRepositoryAPI
 
 
 class CatalogRepositoriesAPI(
@@ -21,7 +25,8 @@ class CatalogRepositoriesAPI(
     TitleRepositoryAPI,
     NoteRepositoryAPI,
 ):
-    """Marker protocol group for repository API imports.
+    """
+    Marker protocol group for repository API imports.
 
     The implementation facade does not need to inherit from this directly; it just
     needs to expose matching attributes.

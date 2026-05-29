@@ -957,7 +957,7 @@ def direct_ensure_creators_sort(db: DatabaseAPI) -> None:
 
 def direct_set_original_one_row_creator_sort(db, creator_row_id):
     """
-    Update the creator sort of a particular creator row to set it to the raw value generator from author_to_author_sort.
+    Update the creator sort of particular creator row to set it to the raw value generator from author_to_author_sort.
 
     :param db:
     :param creator_row_id:

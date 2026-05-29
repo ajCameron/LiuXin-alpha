@@ -14,7 +14,7 @@ def get_SQLite_driver_master_version() -> str:
 
     database_version = lx_database.__object_version__
 
-    import LiuXin_alpha.databases.metadata_tools as lx_md_tools
+    import LiuXin_alpha.catalog.metadata_tools as lx_md_tools
 
     md_tools_version = lx_md_tools.__md_tools_version__
 

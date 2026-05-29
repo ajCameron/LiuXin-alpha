@@ -1,4 +1,6 @@
-"""Compatibility maintainer façade backed by the new maintenance engine."""
+"""
+Compatibility maintainer façade backed by the new maintenance engine.
+"""
 
 from __future__ import annotations
 
@@ -12,10 +14,12 @@ from LiuXin_alpha.databases.maintenance.legacy import clean as legacy_clean
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
+    from LiuXin_alpha.databases.maintenance.engine import MaintenancePluginResult
 
 
 class Maintainer(DatabaseMaintainerAPI):
-    """Compatibility façade between the database and the maintenance engine.
+    """
+    Compatibility façade between the database and the maintenance engine.
 
     The old maintainer combined callback sink, service lifecycle, and merge
     helpers. That public shape still exists for compatibility, but the actual
@@ -32,6 +36,14 @@ class Maintainer(DatabaseMaintainerAPI):
         interval: float = 2.0,
         scheduling_interval: float = 0.25,
     ) -> None:
+        """
+        Constructor.
+
+        :param db:
+        :param plugins:
+        :param interval:
+        :param scheduling_interval:
+        """
         super().__init__(db=db)
 
         if plugins is None:
@@ -48,15 +60,37 @@ class Maintainer(DatabaseMaintainerAPI):
         self.maintainer.start()
 
     def register_plugin(self, plugin) -> None:  # noqa: ANN001 - plugin base is intentionally duck-typed
+        """
+        Register a plugin to do work through the maintenance engine.
+
+        :param plugin:
+        :return:
+        """
         self.maintainer.register_plugin(plugin)
 
-    def iter_plugins(self):
+    def iter_plugins(self) -> None:
+        """
+        Iterate over the available plugins.
+
+        :return:
+        """
         return self.maintainer.iter_plugins()
 
-    def run_once(self, *, max_events: int = 128):
+    def run_once(self, *, max_events: int = 128) -> dict[str, "MaintenancePluginResult"]:
+        """
+        Preform a single run of the maintenance plugin.
+
+        :param max_events:
+        :return:
+        """
         return self.maintainer.run_once(max_events=max_events)
 
     def stop(self) -> None:
+        """
+        Call stop to shut down the maintenance engine.
+
+        :return:
+        """
         self.maintainer.stop()
 
     def rename_item(
@@ -67,6 +101,16 @@ class Maintainer(DatabaseMaintainerAPI):
         now: bool = True,
         db: Optional["DatabaseAPI"] = None,
     ) -> None:
+        """
+        Indicate a rename has occurred in a particular table.
+
+        :param item_id:
+        :param table:
+        :param value:
+        :param now:
+        :param db:
+        :return:
+        """
         target_db = db if db is not None else self.db
         if target_db is not self.db:
             # Compatibility behaviour only. The new engine is bound to one DB.
@@ -79,9 +123,23 @@ class Maintainer(DatabaseMaintainerAPI):
         self.maintainer.rename_item(item_id=item_id, table=table, value=value, now=now)
 
     def dirty_record(self, table: str, row_id: int) -> None:
+        """
+        Note that a record in a table has been dirtied - so metadata can be updated.
+
+        :param table:
+        :param row_id:
+        :return:
+        """
         self.maintainer.callback_sink.dirty_record(table, row_id)
 
     def new_dirty_record(self, table: str, row_id: int) -> None:
+        """
+        Proxy which calls new_dirty_record directly on the maintainer.
+
+        :param table:
+        :param row_id:
+        :return:
+        """
         self.maintainer.callback_sink.new_dirty_record(table, row_id)
 
     def dirty_interlink_record(
@@ -92,12 +150,37 @@ class Maintainer(DatabaseMaintainerAPI):
         table1_id: int,
         table2_id: int,
     ) -> None:
+        """
+        Indicate that an interlink record has been dirtied in a particular table.
+
+        :param update_type:
+        :param table1:
+        :param table2:
+        :param table1_id:
+        :param table2_id:
+        :return:
+        """
         self.maintainer.callback_sink.dirty_interlink_record(update_type, table1, table2, table1_id, table2_id)
 
     def clean(self, table: str, item_ids: Iterable[int]) -> None:
+        """
+        Note that the given item ids should be cleaned from the given table.
+
+        :param table:
+        :param item_ids:
+        :return:
+        """
         legacy_clean(self.db, table, item_ids=item_ids)
 
     def merge(self, table: str, item_1_id: int, item_2_id: int) -> None:
+        """
+        Combined the given two items into one, repointing links as required.
+
+        :param table:
+        :param item_1_id:
+        :param item_2_id:
+        :return:
+        """
         for main_table in self.db.main_tables:
             if main_table == table:
                 continue

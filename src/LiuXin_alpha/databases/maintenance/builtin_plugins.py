@@ -1,8 +1,9 @@
-"""Builtin maintenance plugins.
+"""
+Builtin maintenance plugins.
 
-These are intentionally small and conservative. The aim is to give the new
-maintenance engine one clearly useful builtin plugin without canonising all of
-legacy ``maintenance_bot.py`` into the new contract immediately.
+These are intentionally small and conservative.
+The aim is to give the new maintenance engine one clearly useful builtin plugin without canonising all the legacy
+``maintenance_bot.py`` into the new contract immediately.
 """
 
 from __future__ import annotations
@@ -22,12 +23,20 @@ class CreatorSortMaintenancePlugin(MaintenancePluginBase):
     name = "creator-sort"
     priority = 50
 
+    # Todo: re-write for the WEMI stack
     def wants_event(self, event: MaintenanceEvent) -> bool:
+        """
+        Check all incoming maintenance events.
+
+        :param event:
+        :return:
+        """
         return isinstance(event, DirtyRowEvent) and event.table == "creators"
 
+    # Todo: Type this better
     def coalesce_key(self, event: MaintenanceEvent) -> object | None:
         if isinstance(event, DirtyRowEvent):
-            return (event.kind, event.table, event.row_id)
+            return event.kind, event.table, event.row_id
         return None
 
     def handle_events(

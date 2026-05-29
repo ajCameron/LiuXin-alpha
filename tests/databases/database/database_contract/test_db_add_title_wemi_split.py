@@ -6,7 +6,7 @@ import datetime
 
 import pytest
 
-from LiuXin_alpha.databases.metadata_tools.add import Add
+from LiuXin_alpha.catalog.metadata_tools import Add
 
 
 def _resolve_work_id(row) -> int:
