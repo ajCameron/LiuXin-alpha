@@ -14,6 +14,7 @@ except ModuleNotFoundError:
 
 from LiuXin_alpha.customize.conversion import OptionRecommendation, DummyReporter
 
+from LiuXin_alpha.file_formats.conversion.edges import legacy_oeb_edge
 from LiuXin_alpha.file_formats.conversion.preprocess import HTMLPreProcessor
 
 # Todo: This is probably a function for the decompression utils
@@ -994,6 +995,12 @@ class Plumber(object):
 
         self.input_fmt = input_fmt
         self.output_fmt = output_fmt
+        self.conversion_edge = legacy_oeb_edge(
+            self.input_fmt,
+            self.output_fmt,
+            input_plugin=self.input_plugin,
+            output_plugin=self.output_plugin,
+        )
 
         self.all_format_options = set()
         self.input_options = set()
@@ -1203,6 +1210,8 @@ class Plumber(object):
         ):
             for rec in group:
                 setattr(self.opts, rec.option.name, rec.recommended_value)
+        self.opts.conversion_edge = self.conversion_edge
+        self.opts.conversion_edge_name = self.conversion_edge.name
 
         def set_profile(profiles, which):
             attr = which + "_profile"

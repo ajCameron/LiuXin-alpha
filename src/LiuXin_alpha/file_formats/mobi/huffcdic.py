@@ -82,7 +82,7 @@ class Reader(object):
         offsets = struct.unpack_from(b">%dH" % n, cdic, 16) if n else ()
         self.dictionary += map(getslice, offsets)
 
-    def unpack(self, data):
+    def unpack(self, data, max_output_size=None):
         if not self.dict1 or not self.dictionary:
             raise MobiError("HUFF/CDIC tables are not loaded")
         q = self.q
@@ -94,6 +94,7 @@ class Reader(object):
         n = 32
 
         s = []
+        output_size = 0
         while True:
             if n <= 0:
                 pos += 4
@@ -121,20 +122,27 @@ class Reader(object):
                 raise MobiError("HUFF dictionary reference is out of range")
             if not flag:
                 self.dictionary[r] = None
-                slice_ = self.unpack(slice_)
+                slice_ = self.unpack(slice_, max_output_size=max_output_size)
                 self.dictionary[r] = (slice_, 1)
+            output_size += len(slice_)
+            if max_output_size is not None and output_size > max_output_size:
+                raise MobiError(
+                    "HUFF/CDIC text record expands beyond limit: %d > %d bytes"
+                    % (output_size, max_output_size)
+                )
             s.append(slice_)
         return b"".join(s)
 
 
 class HuffReader(object):
-    def __init__(self, huffs):
+    def __init__(self, huffs, max_output_size=None):
         if not huffs:
             raise MobiError("Missing HUFF record")
+        self.max_output_size = max_output_size
         self.reader = Reader()
         self.reader.load_huff(huffs[0])
         for cdic in huffs[1:]:
             self.reader.load_cdic(cdic)
 
     def unpack(self, section):
-        return self.reader.unpack(section)
+        return self.reader.unpack(section, max_output_size=self.max_output_size)

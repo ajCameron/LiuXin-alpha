@@ -42,10 +42,11 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
-working-memory/test-results/.coverage-*
-working-memory/test-results/coverage-*.xml
-working-memory/test-results/coverage-html-*/
-working-memory/test-results/full-suite-*.json
+# Long-run runner outputs; durable summaries belong in tracked working-memory notes.
+working-memory/test-results/**
+!working-memory/test-results/
+!working-memory/test-results/.gitkeep
+!working-memory/test-results/README.md
 .cache
 nosetests.xml
 coverage.xml

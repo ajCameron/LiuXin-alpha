@@ -26,9 +26,11 @@ The reusable LIT support module intentionally builds small parser-facing
 payloads rather than full valid LIT books. It covers in-memory `LitFile`
 objects, manifest payloads, namelist payloads, sized UTF-8 strings, binary HTML
 fragments for `UnBinary`, and log/options helpers shared by the LIT tests.
-Output-side conversion tests use the shared minimal OEB fixtures and stop at
-`ReBinary`/manifest serialization because this environment does not currently
-provide the LZX compressor backend needed to emit a complete `.lit` archive.
+Output-side conversion tests use the shared minimal OEB fixtures and cover
+`ReBinary`/manifest serialization plus the explicit unavailable-LZX writer
+boundary. This environment does not currently provide the LZX compressor backend
+needed to emit a complete `.lit` archive, so successful full-archive output
+remains blocked on that dependency.
 
 ## Parser Contract
 
@@ -74,6 +76,8 @@ Current parser-level coverage exercises:
 - output-side `ReBinary` serialization of shared OEB XHTML with non-ASCII text,
   anchors, and styles
 - `LitWriter` manifest serialization of non-ASCII item IDs and nested paths
+- `LitWriter` failure before opening output paths when the LZX compressor
+  backend is unavailable
 
 ## Hostile Corpus
 
@@ -130,5 +134,6 @@ High-value focused commands:
 
 The current LIT hardening branch last validated:
 
-- `python3 -m pytest tests/file_formats/lit -q` -> `58 passed`
-- `python3 scripts/run_file_formats_lane.py --lane fast` -> `596 passed, 1 skipped`
+- `python3 -m pytest -q tests/file_formats/lit/test_lit_conversion_unicode_framework.py tests/file_formats/lit/test_lit_modernized.py` -> `11 passed`
+- `python3 -m pytest tests/file_formats/lit -q` -> `59 passed`
+- `python3 scripts/run_file_formats_lane.py --lane fast` -> `792 passed, 1 skipped, 15 warnings`

@@ -5,6 +5,7 @@ import io
 
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
 
+from LiuXin_alpha.file_formats.conversion.report import ensure_conversion_report
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
 
@@ -53,8 +54,19 @@ class PMLOutput(OutputFormatPlugin):
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log
+        edge = getattr(opts, "conversion_edge", None)
+        input_format = getattr(input_plugin, "file_type", None) or "oeb"
+        source_format = getattr(edge, "source_format", None) or input_format
+        target_format = getattr(edge, "target_format", None) or self.file_type
+        edge_name = getattr(edge, "name", None) or "%s-to-%s" % (source_format, target_format)
+        self.conversion_report = ensure_conversion_report(
+            opts,
+            source_format=source_format,
+            target_format=target_format,
+            edge_name=edge_name,
+        )
         with TemporaryDirectory("_pmlz_output") as tdir:
-            pmlmlizer = PMLMLizer(log)
+            pmlmlizer = PMLMLizer(log, conversion_report=self.conversion_report)
             pml = six_unicode(pmlmlizer.extract_content(oeb_book, opts))
             with open(os.path.join(tdir, "index.pml"), "wb") as out:
                 out.write(pml.encode(opts.pml_output_encoding, "replace"))

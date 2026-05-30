@@ -69,13 +69,15 @@ The current preflight contract covers:
 - FDST flow ranges ordered and contained inside the raw markup
 - resource extraction ranges contained inside the available section list
 - CRES resources only accepted while a CONT container is active
+- PalmDOC and HUFF/CDIC text records must stay within per-record and total
+  uncompressed-size budgets
 
-Still-open preflight targets are now mostly policy and budget decisions:
+Still-open preflight targets are now mostly policy and fixture decisions:
 
-- bounded decompression expansion behavior for hostile but syntactically valid
-  PalmDOC and HUFF/CDIC streams
-- stricter image, thumbnail, font, and container-resource validation once real
-  resource fixtures exist
+- stricter thumbnail, font, and non-image container-resource validation once
+  real resource fixtures exist
+- optional trusted-input overrides for bounded budgets, without relaxing record
+  offsets, header readability, or path safety
 
 `MOBIInput` currently retries `MobiReader` with `try_extra_data_fix=True` after
 any first-pass reader failure. That fallback is useful for real corpus drift,
@@ -97,8 +99,10 @@ Current code now pins the first layer of those expectations:
 - malformed index data should fail or warn deterministically instead of
   surfacing raw parser exceptions
 
-Full skeleton/div insertion products are still a next-layer target for
-realistic KF8 conversion fixtures.
+The current resource-product slice covers direct image resources and contained
+CRES image resources written by `Mobi8Reader.extract_resources()`. Full
+skeleton/div insertion products and NCX href creation are still next-layer
+targets for realistic KF8 conversion fixtures.
 
 ## Unicode And Locale Coverage
 
@@ -151,11 +155,15 @@ The checked-in hostile coverage currently includes:
 - invalid skeleton and NCX indices wrapped as MOBI parser errors
 - resource ranges outside the section table
 - CRES resources without an active CONT container
+- PalmDOC text records that expand beyond declared or configured budgets
+- HUFF/CDIC phrase expansion beyond the per-record budget
+- direct and contained CRES image resources written as concrete KF8 extraction
+  products
 
 Missing hostile coverage is now concentrated in syntactically valid but
-pathological conversion products: decompression expansion budgets, real
-image/font/container resource decoding edges, and full KF8 skeleton/div
-position products built from realistic fixtures.
+pathological conversion products: real thumbnail/font/container resource
+decoding edges, full KF8 skeleton/div/NCX products built from realistic
+fixtures, and trusted-input budget override policy.
 
 ## Salvage And Reporting Direction
 
@@ -193,14 +201,13 @@ extraction, unreadable header structure, or silent content loss.
 
 ## Next Hardening Slice
 
-The next useful MOBI slice should move from parser preflight into conversion
-policy:
+The next useful MOBI slice should continue from bounded parser/resource
+preflight into richer conversion products and policy:
 
-- add bounded decompression expansion checks for PalmDOC and HUFF/CDIC payloads
-- add realistic KF8 fixture products that exercise skeleton/div insertion,
-  NCX href creation, and resource mapping through `MOBIInput`
-- add image/font/resource fixtures that make skip, warn, and fail behavior
-  explicit
+- add realistic KF8 fixture products that exercise skeleton/div insertion and
+  NCX href creation through `MOBIInput`
+- add thumbnail, font, and non-image container-resource fixtures that make
+  skip, warn, and fail behavior explicit
 - add optional trusted-input overrides only for bounded limits, not for invalid
   offsets or unreadable headers
 
@@ -213,3 +220,9 @@ High-value focused commands:
 - `python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
   tests/file_formats/conversion/test_conversion_top_level_smoke.py -q`
 - `python3 scripts/run_file_formats_lane.py --lane fast`
+
+The current MOBI hardening branch last validated:
+
+- `python3 -m pytest -q tests/file_formats/mobi/test_mobi_deep_hostile.py` -> `29 passed`
+- `python3 -m pytest tests/file_formats/mobi -q` -> `83 passed`
+- `python3 -m pytest tests/metadata/file_sources/test_mobi_metadata_source.py tests/metadata/file_sources/test_mobi_edge_cases.py tests/metadata/file_sources/test_malformed_input_fuzzing.py -q` -> `153 passed`

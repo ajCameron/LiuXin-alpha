@@ -23,7 +23,7 @@ assumptions.
    complete.
 6. Add eReader hostile subreader coverage and hardening: complete.
 7. Add Plucker hostile subreader coverage and hardening: complete.
-8. Continue Haodoo hostile subreader coverage: next.
+8. Continue Haodoo hostile subreader coverage: complete.
 
 ## Entry Points
 
@@ -333,16 +333,51 @@ Stage 7 verification:
 - `python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
   tests/file_formats/conversion/test_conversion_top_level_smoke.py -q` -> `6 passed`
 
+## Stage 8 Haodoo Hostile Subreader Hardening
+
+Added `tests/file_formats/pdb/test_pdb_haodoo_hostile.py`.
+
+Covered cases:
+
+- valid generated Haodoo CP950 and UTF-16LE fixtures produce conversion output
+  with multilingual title, chapter, and body text
+- `PDBInput` dispatches a generated Haodoo fixture through the plugin path
+- malformed legacy and unicode header separators raise `PDBError`
+- non-integer record counts raise `PDBError`
+- chapter-title count mismatches raise `PDBError`
+- declared chapter records beyond available PalmDB sections raise `PDBError`
+- direct out-of-range Haodoo section access raises `PDBError`
+
+Source hardening:
+
+- `src/LiuXin_alpha/file_formats/pdb/haodoo/reader.py`
+  - Normalizes string/byte Haodoo identities before choosing legacy CP950 or
+    unicode UTF-16LE parsing.
+  - Converts chapter-title iterators to lists and fixes Python 3 string
+    stripping around decoded text.
+  - Validates header field shape, integer record counts, chapter-title counts,
+    declared chapter ranges, and direct section access.
+
+Stage 8 verification:
+
+- `python3 -m py_compile src/LiuXin_alpha/file_formats/pdb/haodoo/reader.py
+  tests/support/file_format_pdb.py
+  tests/file_formats/pdb/test_pdb_binary_framework.py
+  tests/file_formats/pdb/test_pdb_haodoo_hostile.py`
+- `python3 -m pytest -q tests/file_formats/pdb/test_pdb_binary_framework.py
+  tests/file_formats/pdb/test_pdb_haodoo_hostile.py` -> `20 passed`
+- `python3 -m pytest tests/file_formats/pdb -q` -> `75 passed`
+- `python3 -m pytest tests/metadata/file_sources/test_pdb_metadata_source.py
+  tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+  tests/metadata/file_sources/test_pdb_subreader_edge_cases.py -q` -> `25 passed`
+- `python3 -m pytest tests/metadata/file_sources/test_malformed_input_fuzzing.py -q` -> `133 passed`
+- `python3 scripts/run_file_formats_lane.py --lane fast` -> `787 passed, 1 skipped`
+
 ## Next Slice
 
-Continue subreader-specific hostile coverage and source hardening in Haodoo:
-
-- short fixed-width subheaders
-- malformed Haodoo header separators, record counts, and chapter-title
-  mismatches
-
-Expected source behavior should be named PDB/domain failures rather than raw
-`struct.error`, `IndexError`, or `OverflowError`.
+The PDB hostile subreader pass is complete through PalmDOC, zTXT, eReader,
+Plucker, and Haodoo. Next PDB work should be driven by conversion-product
+sign-off or real-corpus defects rather than the known hostile subreader gaps.
 
 High-value focused commands:
 

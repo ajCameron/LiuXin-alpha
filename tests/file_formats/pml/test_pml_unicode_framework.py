@@ -92,6 +92,64 @@ def test_pml_output_writes_deterministic_pmlz_with_unicode_escaped_pml(tmp_path:
     assert r"\U039A\U03B1\U03BB\U03B7\U03BC?\U03C1\U03B1" in index
 
 
+def test_pml_output_reports_unsupported_character_replacement(tmp_path: Path, monkeypatch) -> None:
+    install_minimal_stylizers(monkeypatch)
+    pml_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.pml_output")
+
+    opts = _pml_options()
+    output_path = tmp_path / "lossy.pmlz"
+    pml_output.PMLOutput(None).convert(
+        build_text_output_book(),
+        str(output_path),
+        None,
+        opts,
+        null_log(),
+    )
+
+    with zipfile.ZipFile(output_path) as zf:
+        index = zf.read("index.pml").decode("cp1252", "strict")
+
+    assert "??????" in index
+    report = opts.conversion_report
+    events = [event for event in report.loss_events if event.code == "unsupported-character-replacement"]
+    assert len(events) == 1
+    event = events[0]
+    assert event.phase == "pml-output"
+    assert event.source_format == "oeb"
+    assert event.target_format == "pmlz"
+    assert event.edge_name == "oeb-to-pmlz"
+    assert event.recoverable is True
+    assert event.count >= 6
+    assert event.details["replacement"] == "?"
+    assert event.details["unique_characters"] >= 1
+    assert any("U+4E16" in sample.codepoints for sample in event.samples)
+
+    payload = report.to_mapping()
+    assert payload["loss_event_count"] == 1
+    assert payload["loss_events"][0]["code"] == "unsupported-character-replacement"
+
+
+def test_pml_output_report_uses_explicit_conversion_edge(tmp_path: Path, monkeypatch) -> None:
+    install_minimal_stylizers(monkeypatch)
+    edges = importlib.import_module("LiuXin_alpha.file_formats.conversion.edges")
+    pml_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.pml_output")
+
+    opts = _pml_options(conversion_edge=edges.legacy_oeb_edge("html", "pmlz"))
+    output_path = tmp_path / "lossy_with_edge.pmlz"
+    pml_output.PMLOutput(None).convert(
+        build_text_output_book(),
+        str(output_path),
+        None,
+        opts,
+        null_log(),
+    )
+
+    event = opts.conversion_report.loss_events[0]
+    assert event.source_format == "html"
+    assert event.target_format == "pmlz"
+    assert event.edge_name == "legacy-oeb:html->pmlz"
+
+
 def test_pml_output_skips_images_when_pillow_is_unavailable_with_minimal_log(
     tmp_path: Path,
     monkeypatch,

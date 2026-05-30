@@ -74,10 +74,10 @@ Stage 4 added conversion-facing unicode coverage:
 - `LitWriter` manifest serialization preserves non-ASCII item IDs and nested
   paths
 
-The full `LITOutput` archive path still cannot be exercised in this
+The full successful `LITOutput` archive path still cannot be exercised in this
 environment because the LZX compressor backend is unavailable. The current
-coverage stops at `ReBinary` and manifest serialization, which are the
-conversion-facing surfaces before compression/storage assembly.
+coverage covers `ReBinary`, manifest serialization, and the writer boundary
+that reports the unavailable backend before opening an output path.
 
 Stage 5 added durable docs and recorded the current LIT contract:
 
@@ -85,19 +85,31 @@ Stage 5 added durable docs and recorded the current LIT contract:
 - `docs/development/file-format-unicode-conversion.md`
 - `docs/development/file-formats/README.md`
 
+Stage 5 tail update, 2026-05-27:
+
+- `src/LiuXin_alpha/file_formats/lit/writer.py` now exposes `LitWriterError`
+  and checks for the LZX compressor backend before opening filesystem output.
+- `_build_storage()` uses the same guard, so direct storage assembly fails with
+  the same named writer error instead of a raw `RuntimeError`.
+- `tests/file_formats/lit/test_lit_conversion_unicode_framework.py` now covers
+  the unavailable-backend writer boundary and asserts no partial output path is
+  created.
+
 ## Validation
 
 - `python3 -m pytest tests/file_formats/lit -q`
-  - `58 passed`
+  - `59 passed`
+- `python3 -m pytest -q tests/file_formats/lit/test_lit_conversion_unicode_framework.py tests/file_formats/lit/test_lit_modernized.py`
+  - `11 passed`
 - `python3 scripts/run_file_formats_lane.py --lane fast`
-  - `596 passed, 1 skipped`
+  - `792 passed, 1 skipped, 15 warnings in 66.75s`
 - `git diff --check`
   - clean
 
 ## Open
 
-- Full `.lit` archive output coverage remains blocked until a testable LZX
-  compressor backend or a bounded compressor/storage seam is available.
+- Successful full `.lit` archive output coverage remains blocked until a
+  testable LZX compressor backend is available.
 - Add transform/decompression-focused malformed tests later, especially around
   LZX reset tables and section offsets.
 - Add real-fixture regressions here when more LIT samples expose malformed OPF
