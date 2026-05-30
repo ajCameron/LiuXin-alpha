@@ -171,6 +171,10 @@ Covered cases:
 - invalid skeleton and NCX index data wrapped as `MobiError`
 - resource ranges outside the section table
 - CRES image resources without an active CONT container
+- PalmDOC text records that expand beyond the declared record size or hard cap
+- HUFF/CDIC text records that expand beyond the per-record budget
+- direct KF8 image resource extraction products
+- contained CRES image extraction products
 
 Source hardening:
 
@@ -180,8 +184,13 @@ Source hardening:
     `MobiError` instead of raw `struct.error`/`AttributeError`.
   - HUFF unpacking now rejects unloaded tables and out-of-range dictionary
     references as MOBI parser failures.
+  - HUFF/CDIC unpacking now enforces a bounded output budget, including
+    recursive phrase expansion.
 - `src/LiuXin_alpha/file_formats/mobi/reader/mobi6.py`
   - DH/HUFF record ranges are checked before section slicing.
+  - PalmDOC and HUFF/CDIC text record decompression now enforces per-record and
+    total uncompressed-size budgets and wraps decompressor failures as
+    `MobiError`.
 - `src/LiuXin_alpha/file_formats/mobi/reader/index.py`
   - INDX/TAGX parsers now validate section sizes, offsets, IDXT tables, and
     variable-width integer consumption before unpacking.
@@ -199,25 +208,21 @@ Stage 5 verification:
   src/LiuXin_alpha/file_formats/mobi/reader/mobi8.py
   src/LiuXin_alpha/file_formats/mobi/reader/mobi6.py
   tests/file_formats/mobi/test_mobi_deep_hostile.py`
-- `python3 -m pytest tests/file_formats/mobi/test_mobi_deep_hostile.py -q` -> `25 passed`
-- `python3 -m pytest tests/file_formats/mobi -q` -> `79 passed`
+- `python3 -m pytest -q tests/file_formats/mobi/test_mobi_deep_hostile.py` -> `29 passed`
+- `python3 -m pytest tests/file_formats/mobi -q` -> `83 passed`
 - `python3 -m pytest tests/metadata/file_sources/test_mobi_metadata_source.py
   tests/metadata/file_sources/test_mobi_edge_cases.py
   tests/metadata/file_sources/test_malformed_input_fuzzing.py -q` -> `153 passed`
 - `python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
   tests/file_formats/conversion/test_conversion_top_level_smoke.py -q` -> `6 passed`
-- `python3 -m pytest tests/file_formats/mobi
-  tests/metadata/file_sources/test_mobi_metadata_source.py
-  tests/metadata/file_sources/test_mobi_edge_cases.py
-  tests/metadata/file_sources/test_malformed_input_fuzzing.py -q` -> `232 passed`
 - `git diff --check`
+  - clean
 
 ## Remaining Follow-Ups
 
-- bounded decompression expansion checks for PalmDOC and HUFF/CDIC streams
-- realistic KF8 fixture products for skeleton/div insertion, NCX href
-  creation, and resource mapping through `MOBIInput`
-- image/font/container resource fixtures with explicit skip, warn, and fail
-  behavior
+- realistic KF8 fixture products for skeleton/div insertion and NCX href
+  creation through `MOBIInput`
+- thumbnail/font/non-image container resource fixtures with explicit skip, warn,
+  and fail behavior
 - guarded trusted-input overrides only for bounded limits, not invalid offsets
   or unreadable headers

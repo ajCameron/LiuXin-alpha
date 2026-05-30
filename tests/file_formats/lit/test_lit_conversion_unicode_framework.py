@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib
 import types
 
+import pytest
+
 from lxml import etree
 
 from tests.support.file_format_lit import (
@@ -119,6 +121,17 @@ def test_lit_writer_manifest_preserves_unicode_ids_and_paths(monkeypatch) -> Non
     assert image.mime_type == "image/png"
     assert image.state == "images"
     assert_no_replacement_chars(combined, context="LIT writer manifest")
+
+
+def test_lit_writer_reports_unavailable_lzx_before_opening_output(monkeypatch, tmp_path) -> None:
+    writer = _lit_writer(monkeypatch)
+    monkeypatch.setattr(writer, "Compressor", None)
+    out_path = tmp_path / "blocked.lit"
+
+    with pytest.raises(writer.LitWriterError, match="LZX compressor backend"):
+        writer.LitWriter(text_output_options())(_lit_output_book(), str(out_path))
+
+    assert not out_path.exists()
 
 
 def test_lit_input_postprocess_preserves_multiscript_pre_text() -> None:

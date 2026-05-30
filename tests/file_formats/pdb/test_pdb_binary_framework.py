@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from tests.support.file_format_pdb import (
     PdbLog,
     build_ereader_header_record,
+    build_minimal_haodoo_pdb,
     build_minimal_ereader_pdb,
     build_minimal_palmdoc_pdb,
     build_minimal_ztxt_pdb,
@@ -92,6 +95,70 @@ def test_ereader_fixture_can_drive_metadata_source_read() -> None:
     assert _values(metadata.authors) == ["Alice Ω"]
     assert metadata.publisher == "Publisher Δ"
     assert metadata.isbn == "9781234567890"
+
+
+@pytest.mark.parametrize(
+    ("unicode_variant", "book_title", "chapter_title", "body_text"),
+    (
+        (False, "標題", "第一章", "第一章\n世界 咖啡"),
+        (True, "Unicode 標題", "Unicode 第一章", "Unicode 第一章\n世界 Καλημέρα"),
+    ),
+)
+def test_minimal_haodoo_fixture_drives_reader_output(
+    tmp_path,
+    unicode_variant: bool,
+    book_title: str,
+    chapter_title: str,
+    body_text: str,
+) -> None:
+    from LiuXin_alpha.file_formats.pdb.haodoo.reader import Reader
+    from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
+
+    payload = build_minimal_haodoo_pdb(
+        book_title=book_title,
+        chapter_title=chapter_title,
+        body_text=body_text,
+        unicode_variant=unicode_variant,
+    )
+    stream = pdb_stream(payload)
+    header = PdbHeaderReader(stream)
+    reader = Reader(header, stream, PdbLog(), pdb_input_options())
+    opf_path = reader.extract_content(str(tmp_path))
+
+    html = (tmp_path / "index.html").read_text("utf-8", "replace")
+    assert opf_path == str(tmp_path / "metadata.opf")
+    assert book_title in html
+    assert chapter_title in html
+    assert "世界" in html
+
+
+def test_minimal_haodoo_fixture_converts_through_pdb_input(tmp_path: Path, monkeypatch) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.pdb_input import PDBInput
+
+    workdir = tmp_path / "haodoo_plugin"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    payload = build_minimal_haodoo_pdb(
+        book_title="Plugin 標題",
+        chapter_title="Plugin 第一章",
+        body_text="Plugin 第一章\n世界 咖啡",
+    )
+
+    opf_path = Path(
+        PDBInput(None).convert(
+            pdb_stream(payload),
+            pdb_input_options(),
+            "pdb",
+            PdbLog(),
+            {},
+        )
+    )
+
+    assert opf_path == workdir / "metadata.opf"
+    html = (workdir / "index.html").read_text("utf-8", "replace")
+    assert "Plugin 標題" in html
+    assert "Plugin 第一章" in html
+    assert "世界 咖啡" in html
 
 
 def test_plucker_metadata_section_fixture_can_drive_metadata_reader() -> None:

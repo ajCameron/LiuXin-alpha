@@ -4,7 +4,6 @@
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import os
-import posixpath
 import re
 import shutil
 import sys
@@ -12,6 +11,10 @@ import sys
 from lxml import etree
 
 from LiuXin_alpha.file_formats.docx import InvalidDOCX
+from LiuXin_alpha.file_formats.archive_preflight import (
+    normalized_zip_member_name,
+    validate_zip_member_infos,
+)
 from LiuXin_alpha.file_formats.docx.names import DOCXNamespace
 from LiuXin_alpha.file_formats.oeb.parse_utils import RECOVER_PARSER
 
@@ -169,19 +172,11 @@ class DOCX(object):
         self.names = frozenset(self.zipf.namelist())
 
     def normalized_archive_member_name(self, name):
-        normalized = name.replace("\\", "/")
-        parts = normalized.split("/")
-        if (
-            "\\" in name
-            or normalized.startswith("/")
-            or (len(normalized) > 1 and normalized[1] == ":")
-            or ".." in parts
-        ):
-            raise InvalidDOCX("DOCX archive member has unsafe path: %s" % name)
-        normalized = posixpath.normpath(normalized)
-        if normalized in {"", ".", ".."} or normalized.startswith("../"):
-            raise InvalidDOCX("DOCX archive member has unsafe path: %s" % name)
-        return normalized
+        return normalized_zip_member_name(
+            name,
+            member_label="DOCX archive",
+            error_type=InvalidDOCX,
+        )
 
     def validate_container_members(self, stream):
         stream.seek(0)
@@ -192,40 +187,19 @@ class DOCX(object):
             raise InvalidDOCX("DOCX appears to be invalid ZIP file") from err
 
         try:
-            infos = zf.infolist()
-            if len(infos) > self.max_archive_members:
-                raise InvalidDOCX(
-                    "DOCX file has too many archive members: %d > %d"
-                    % (len(infos), self.max_archive_members)
+            names = set(
+                validate_zip_member_infos(
+                    zf.infolist(),
+                    container_label="DOCX file",
+                    member_label="DOCX archive",
+                    error_type=InvalidDOCX,
+                    max_archive_members=self.max_archive_members,
+                    max_member_uncompressed_size=self.max_member_uncompressed_size,
+                    max_total_uncompressed_size=self.max_total_uncompressed_size,
+                    max_compression_ratio=self.max_compression_ratio,
+                    min_compression_ratio_check_size=self.min_compression_ratio_check_size,
                 )
-
-            names = set()
-            total_uncompressed = 0
-            for info in infos:
-                names.add(self.normalized_archive_member_name(info.filename))
-
-                file_size = max(int(getattr(info, "file_size", 0) or 0), 0)
-                compress_size = max(int(getattr(info, "compress_size", 0) or 0), 0)
-                total_uncompressed += file_size
-                if file_size > self.max_member_uncompressed_size:
-                    raise InvalidDOCX(
-                        "DOCX archive member is too large: %s (%d bytes)"
-                        % (info.filename, file_size)
-                    )
-                if total_uncompressed > self.max_total_uncompressed_size:
-                    raise InvalidDOCX(
-                        "DOCX archive expands to too much data: %d > %d bytes"
-                        % (total_uncompressed, self.max_total_uncompressed_size)
-                    )
-                if file_size > 0 and compress_size == 0:
-                    raise InvalidDOCX("DOCX archive member has invalid compressed size: %s" % info.filename)
-                if file_size >= self.min_compression_ratio_check_size and compress_size > 0:
-                    ratio = file_size / float(compress_size)
-                    if ratio > self.max_compression_ratio:
-                        raise InvalidDOCX(
-                            "DOCX archive member has suspicious compression ratio: %s (%.1f)"
-                            % (info.filename, ratio)
-                        )
+            )
 
             missing = [name for name in self.required_members if name not in names]
             if missing:

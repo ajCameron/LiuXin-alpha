@@ -8,8 +8,10 @@ def test_conversion_top_level_modules_import_smoke() -> None:
         "LiuXin_alpha.file_formats.conversion",
         "LiuXin_alpha.file_formats.conversion.cli",
         "LiuXin_alpha.file_formats.conversion.config",
+        "LiuXin_alpha.file_formats.conversion.edges",
         "LiuXin_alpha.file_formats.conversion.plumber",
         "LiuXin_alpha.file_formats.conversion.preprocess",
+        "LiuXin_alpha.file_formats.conversion.report",
         "LiuXin_alpha.file_formats.conversion.utils",
     )
     for module_name in modules:

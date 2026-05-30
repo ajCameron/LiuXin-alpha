@@ -1,17 +1,58 @@
 # Working Memory Index
 
-Updated: 2026-05-23
+Updated: 2026-05-28
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
 
+- [codex-collaboration-contract-2026-05-25.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/codex-collaboration-contract-2026-05-25.md)
+  Lightweight operating contract for future Codex work: ask or state
+  assumptions when repo path, branch/worktree, goal, scope, done criteria,
+  verification, or long-run artifact conventions are missing. Highest-risk
+  omission is repo path.
+
+- [long-run-artifact-scripts-2026-05-25.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/long-run-artifact-scripts-2026-05-25.md)
+  Script-level implementation note for long-running test artifacts:
+  full-suite, coverage, and live-web shell runners now default logs, JSON or
+  coverage outputs, and done markers into `working-memory/test-results` with
+  explicit `--run-id`, `--log-file`, and `--done-file` overrides.
+
+- [coverage-run-2026-05-25.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/coverage-run-2026-05-25.md)
+  Coverage baseline from run `coverage-2026-05-25-154712`: pytest completed
+  green, line coverage is 54.83%, branch coverage is 38.33%, combined
+  line+branch coverage is 50.54%, and the wrapper `.done` marker is caveated
+  because that run exited after a post-pytest shell syntax error.
+
+- [conversion-format-hardening-tails-2026-05-27.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-format-hardening-tails-2026-05-27.md)
+  Stage 5 format-tail note: PDB Haodoo, MOBI decompression/KF8 image resources,
+  and the LIT unavailable-LZX writer boundary are complete, documented, and
+  covered by the fast file-format lane.
+
+- [conversion-signoff-table-2026-05-28.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-signoff-table-2026-05-28.md)
+  Stage 6 sign-off-table note: durable matrix added at
+  `dev-docs/conversion_pipeline_signoff.md`, with candidate, provisional,
+  blocked, and open rows for current format and pipeline sign-off decisions.
+
+- [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
+  Current conversion implementation slice: add a small report/loss surface and
+  make PML unsupported-character replacement visible while preserving current
+  recoverable output behavior; also records the first explicit
+  `ConversionEdge` model for the legacy OEB-backed path and the shared ZIP
+  archive preflight helper for FBZ/HTMLZ/EPUB/DOCX/ODT/comic containers.
+
+- [conversion-pipeline-architecture-todo-2026-05-24.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pipeline-architecture-todo-2026-05-24.md)
+  Current architecture TODO for moving from format-by-format hardening toward a
+  sign-off-able conversion pipeline: explicit capability edges, reportable
+  lossy conversion, fallback diagnostics, shared archive preflight, and
+  format/edge done criteria. Durable TODO:
+  `dev-docs/conversion_pipeline_todo.md`.
+
 - [file-formats-pdb-hardening-2026-05-23.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-pdb-hardening-2026-05-23.md)
   Current branch note for the PDB/PalmDB hardening pass: branch setup,
   entry-point inventory, durable PDB dossier, reusable PDB/PalmDB fixture
   layer, strict wrapper validation, PalmDOC/zTXT hostile subreader hardening,
-  eReader and Plucker hostile subreader hardening, and the next Haodoo parser
-  slice.
+  eReader, Plucker, and Haodoo hostile subreader hardening.
   Durable docs:
   `docs/development/file-format-unicode-conversion.md` and
   `docs/development/file-formats/pdb/README.md`.

@@ -8,6 +8,7 @@ import re
 
 from lxml import etree
 
+from LiuXin_alpha.file_formats.conversion.report import ConversionLossSample
 from LiuXin_alpha.file_formats.pdb.ereader import image_name
 from LiuXin_alpha.file_formats.pml import unipmlcode
 
@@ -75,8 +76,9 @@ SEPARATE_TAGS = [
 
 
 class PMLMLizer(object):
-    def __init__(self, log):
+    def __init__(self, log, conversion_report=None):
         self.log = log
+        self.conversion_report = conversion_report
         self.image_hrefs = {}
         self.link_hrefs = {}
 
@@ -196,6 +198,39 @@ class PMLMLizer(object):
         text = re.sub(prepare_pat, r"\\c\n\\c", text)
         return text
 
+    def _report_unsupported_pml_characters(self, unsupported_counts):
+        report = self.conversion_report
+        if report is None or not unsupported_counts:
+            return
+
+        replacement_count = sum(unsupported_counts.values())
+        sample_chars = list(unsupported_counts.keys())[:8]
+        message = (
+            "PML output replaced %d unsupported Unicode character%s with '?'."
+            % (replacement_count, "" if replacement_count == 1 else "s")
+        )
+        report.add_loss_event(
+            phase="pml-output",
+            code="unsupported-character-replacement",
+            message=message,
+            count=replacement_count,
+            recoverable=True,
+            samples=[ConversionLossSample.from_text(char) for char in sample_chars],
+            details={
+                "replacement": "?",
+                "unique_characters": len(unsupported_counts),
+            },
+        )
+        warn = getattr(self.log, "warning", None) or getattr(self.log, "warn", None)
+        if warn is not None:
+            warn(message)
+
+    def _pml_code_for_character(self, unsupported_counts, char):
+        code = unipmlcode(char)
+        if code == "?":
+            unsupported_counts[char] = unsupported_counts.get(char, 0) + 1
+        return code
+
     def clean_text(self, text):
         # Remove excessive \p tags
         text = re.sub(r"\\p\s*\\p", "", text)
@@ -222,8 +257,14 @@ class PMLMLizer(object):
         text = text.replace("\xa0", " ")
 
         # Turn all characters that cannot be represented by themself into their
-        # PML code equivelent
-        text = re.sub("[^\x00-\x7f]", lambda x: unipmlcode(x.group()), text)
+        # PML code equivelent.
+        unsupported_counts = {}
+        text = re.sub(
+            "[^\x00-\x7f]",
+            lambda x: self._pml_code_for_character(unsupported_counts, x.group()),
+            text,
+        )
+        self._report_unsupported_pml_characters(unsupported_counts)
 
         # Remove excess spaces at beginning and end of lines
         text = re.sub("(?m)^[ ]+", "", text)

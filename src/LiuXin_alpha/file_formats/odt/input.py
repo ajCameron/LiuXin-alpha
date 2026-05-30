@@ -23,6 +23,7 @@ from LiuXin_alpha.file_formats.odf.draw import Frame as odFrame, Image as odImag
 from LiuXin_alpha.file_formats.odf.namespaces import TEXTNS as odTEXTNS
 from LiuXin_alpha.file_formats.odf.odf2xhtml import ODF2XHTML
 from LiuXin_alpha.file_formats.odf.opendocument import load as odLoad
+from LiuXin_alpha.file_formats.archive_preflight import validate_zip_member_infos
 from LiuXin_alpha.file_formats.oeb.base import _css_logger
 from LiuXin_alpha.metadata.file_sources.odt import get_metadata as odt_get_metadata
 
@@ -51,39 +52,22 @@ class Extract(ODF2XHTML):
         stream.seek(0)
         zf = ZipFile(stream, "r")
         try:
-            infos = zf.infolist()
-            if len(infos) > self.max_archive_members:
-                raise ValueError(
-                    "ODT file has too many archive members: %d > %d"
-                    % (len(infos), self.max_archive_members)
+            names = set(
+                validate_zip_member_infos(
+                    zf.infolist(),
+                    container_label="ODT file",
+                    member_label="ODT archive",
+                    error_type=ValueError,
+                    # ODT picture extraction skips unsafe Pictures entries
+                    # instead of rejecting the whole document.
+                    allow_unsafe_paths=True,
+                    max_archive_members=self.max_archive_members,
+                    max_member_uncompressed_size=self.max_member_uncompressed_size,
+                    max_total_uncompressed_size=self.max_total_uncompressed_size,
+                    max_compression_ratio=self.max_compression_ratio,
+                    min_compression_ratio_check_size=self.min_compression_ratio_check_size,
                 )
-
-            total_uncompressed = 0
-            for info in infos:
-                file_size = max(int(getattr(info, "file_size", 0) or 0), 0)
-                compress_size = max(int(getattr(info, "compress_size", 0) or 0), 0)
-                total_uncompressed += file_size
-                if file_size > self.max_member_uncompressed_size:
-                    raise ValueError(
-                        "ODT archive member is too large: %s (%d bytes)"
-                        % (info.filename, file_size)
-                    )
-                if total_uncompressed > self.max_total_uncompressed_size:
-                    raise ValueError(
-                        "ODT archive expands to too much data: %d > %d bytes"
-                        % (total_uncompressed, self.max_total_uncompressed_size)
-                    )
-                if file_size > 0 and compress_size == 0:
-                    raise ValueError("ODT archive member has invalid compressed size: %s" % info.filename)
-                if file_size >= self.min_compression_ratio_check_size and compress_size > 0:
-                    ratio = file_size / float(compress_size)
-                    if ratio > self.max_compression_ratio:
-                        raise ValueError(
-                            "ODT archive member has suspicious compression ratio: %s (%.1f)"
-                            % (info.filename, ratio)
-                        )
-
-            names = set(zf.namelist())
+            )
             missing = [name for name in self.required_members if name not in names]
             if missing:
                 raise ValueError("ODT file is missing required member(s): %s" % ", ".join(missing))

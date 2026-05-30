@@ -7,13 +7,13 @@ Read content from Haodoo.net pdb file.
 import struct
 import os
 
+from LiuXin_alpha.file_formats.pdb import PDBError
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 from LiuXin_alpha.file_formats.txt.processor import opf_writer, HTML_TEMPLATE
 
 from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
 
 from LiuXin_alpha.utils.calibre import prepare_string_for_xml
-from LiuXin_alpha.utils.libraries.liuxin_six import six_map
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kan-Ru Chen <kanru@kanru.info>"
@@ -58,26 +58,64 @@ def fix_punct(line):
     return line
 
 
+def _decode_text(raw, encoding, errors="replace"):
+    return fix_punct(raw.decode(encoding, errors).rstrip("\x00"))
+
+
+def _parse_record_count(raw):
+    normalized = raw.replace(b"\x00", b"").strip()
+    try:
+        count = int(normalized)
+    except Exception as err:
+        raise PDBError("Haodoo header has invalid record count") from err
+    if count < 0:
+        raise PDBError("Haodoo header has invalid record count")
+    return count
+
+
+def _validate_header_fields(fields):
+    if len(fields) < 3:
+        raise PDBError("Haodoo header is missing required fields")
+
+
+def _validate_chapter_titles(num_records, chapter_titles):
+    if len(chapter_titles) != num_records:
+        raise PDBError(
+            "Haodoo chapter title count does not match record count: %d != %d"
+            % (len(chapter_titles), num_records)
+        )
+
+
 class LegacyHeaderRecord(object):
     def __init__(self, raw):
         fields = raw.lstrip().replace(b"\x1b\x1b\x1b", b"\x1b").split(b"\x1b")
-        self.title = fix_punct(fields[0].decode("cp950", "replace"))
-        self.num_records = int(fields[1])
-        self.chapter_titles = six_map(
-            lambda x: fix_punct(x.decode("cp950", "replace").rstrip(b"\x00")),
-            fields[2:],
-        )
+        _validate_header_fields(fields)
+        self.title = _decode_text(fields[0], "cp950")
+        self.num_records = _parse_record_count(fields[1])
+        self.chapter_titles = [_decode_text(field, "cp950") for field in fields[2:]]
+        _validate_chapter_titles(self.num_records, self.chapter_titles)
 
 
 class UnicodeHeaderRecord(object):
     def __init__(self, raw):
-        fields = raw.lstrip().replace(b"\x1b\x00\x1b\x00\x1b\x00", b"\x1b\x00").split(b"\x1b\x00")
-        self.title = fix_punct(fields[0].decode("utf_16_le", "ignore"))
-        self.num_records = int(fields[1])
-        self.chapter_titles = six_map(
-            lambda x: fix_punct(x.decode("utf_16_le", "replace").rstrip(b"\x00")),
-            fields[2].split(b"\r\x00\n\x00"),
+        fields = (
+            raw.lstrip()
+            .replace(b"\x1b\x00\x1b\x00\x1b\x00", b"\x1b\x00")
+            .split(b"\x1b\x00")
         )
+        _validate_header_fields(fields)
+        self.title = _decode_text(fields[0], "utf_16_le", "ignore")
+        self.num_records = _parse_record_count(fields[1])
+        chapter_blob = b"\x1b\x00".join(fields[2:])
+        chapter_fields = (
+            []
+            if self.num_records == 0 and not chapter_blob
+            else chapter_blob.split(b"\r\x00\n\x00")
+        )
+        self.chapter_titles = [
+            _decode_text(field, "utf_16_le") for field in chapter_fields
+        ]
+        _validate_chapter_titles(self.num_records, self.chapter_titles)
 
 
 class Reader(FormatReader):
@@ -89,12 +127,26 @@ class Reader(FormatReader):
         for i in range(header.num_sections):
             self.sections.append(header.section_data(i))
 
-        if header.ident == BPDB_IDENT:
+        ident = (
+            header.ident.encode("ascii", "ignore")
+            if isinstance(header.ident, str)
+            else header.ident
+        )
+        if ident == BPDB_IDENT:
             self.header_record = LegacyHeaderRecord(self.section_data(0))
             self.encoding = "cp950"
-        else:
+        elif ident == UPDB_IDENT:
             self.header_record = UnicodeHeaderRecord(self.section_data(0))
             self.encoding = "utf_16_le"
+        else:
+            raise PDBError("Unsupported Haodoo identity: %s" % header.ident)
+
+        available_chapter_records = max(len(self.sections) - 1, 0)
+        if self.header_record.num_records > available_chapter_records:
+            raise PDBError(
+                "Haodoo declares %d chapter records but only %d are available"
+                % (self.header_record.num_records, available_chapter_records)
+            )
 
     def author(self):
         self.stream.seek(35)
@@ -113,10 +165,12 @@ class Reader(FormatReader):
         return mi
 
     def section_data(self, number):
+        if not (0 <= number < len(self.sections)):
+            raise PDBError("Haodoo section number out of range: %s" % number)
         return self.sections[number]
 
     def decompress_text(self, number):
-        return self.section_data(number).decode(self.encoding, "replace").rstrip(b"\x00")
+        return self.section_data(number).decode(self.encoding, "replace").rstrip("\x00")
 
     def extract_content(self, output_dir):
         txt = ""

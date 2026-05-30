@@ -357,6 +357,62 @@ def build_minimal_ereader_pdb(
     return build_pdb([header, metadata, b"MeTaInFo\0"], title=title, ident="PNPdPPrs")
 
 
+def build_haodoo_legacy_header_record(
+    *,
+    title: str = "Haodoo Legacy",
+    record_count: int = 1,
+    chapter_titles: Sequence[str] = ("Chapter One",),
+    encoding: str = "cp950",
+) -> bytes:
+    fields = [
+        title.encode(encoding),
+        str(record_count).encode("ascii"),
+        *[chapter.encode(encoding) for chapter in chapter_titles],
+    ]
+    return b"\x1b".join(fields)
+
+
+def build_haodoo_unicode_header_record(
+    *,
+    title: str = "Haodoo Unicode",
+    record_count: int = 1,
+    chapter_titles: Sequence[str] = ("Chapter One",),
+) -> bytes:
+    title_field = title.encode("utf_16_le")
+    count_field = str(record_count).encode("ascii")
+    chapters_field = b"\r\x00\n\x00".join(
+        chapter.encode("utf_16_le") for chapter in chapter_titles
+    )
+    return b"\x1b\x00".join((title_field, count_field, chapters_field))
+
+
+def build_minimal_haodoo_pdb(
+    *,
+    title: str = "Haodoo Wrapper",
+    book_title: str = "Haodoo Fixture",
+    chapter_title: str = "Chapter One",
+    body_text: str = "Chapter One\nHaodoo body.",
+    unicode_variant: bool = False,
+) -> bytes:
+    if unicode_variant:
+        record0 = build_haodoo_unicode_header_record(
+            title=book_title,
+            record_count=1,
+            chapter_titles=(chapter_title,),
+        )
+        body = body_text.encode("utf_16_le")
+        ident = "BOOKMTIU"
+    else:
+        record0 = build_haodoo_legacy_header_record(
+            title=book_title,
+            record_count=1,
+            chapter_titles=(chapter_title,),
+        )
+        body = body_text.encode("cp950")
+        ident = "BOOKMTIT"
+    return build_pdb([record0, body], title=title, ident=ident)
+
+
 def build_plucker_record(record_type: int, payload: bytes, *, length_words: int | None = None) -> bytes:
     if length_words is None:
         if len(payload) % 2:

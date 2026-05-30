@@ -94,12 +94,15 @@ PalmDOC, zTXT, eReader, and Plucker subreader preflight now covers:
 - Plucker section declared sizes, text paragraph tables, metadata records,
   composite-image layouts, PHTML operands, PHTML image references, and PHTML
   decompression failures reported as `PluckerError`
+- Haodoo legacy CP950 and unicode UTF-16LE header fields, record counts,
+  chapter-title counts, declared chapter ranges, and direct section access
+  reported as `PDBError`
 
 Still-open preflight targets are now concentrated inside the remaining richer
 subreaders:
 
-- declared text, image, link, metadata, and chapter ranges contained inside
-  available sections
+- declared text, image, link, and metadata ranges contained inside available
+  sections
 - generated output paths for image/resource extraction kept inside the
   conversion work directory
 
@@ -126,10 +129,12 @@ the section, PHTML control codes that lack enough following bytes, composite
 image layout overruns, and composite/PHTML image references to missing image
 records.
 
-Haodoo has legacy CP950 and UTF-16LE variants. Its first hardening target is
-header record parsing: malformed separators, non-integer record counts,
-chapter-title mismatches, and declared chapter counts beyond the PalmDB section
-table should fail or fall back deterministically.
+Haodoo has legacy CP950 and UTF-16LE variants. Current conversion coverage
+checks generated CP950 and unicode fixtures, plugin-path output, malformed
+header separators, non-integer record counts, chapter-title mismatches, and
+declared chapter counts beyond the PalmDB section table. Conversion failures
+now raise `PDBError`; metadata reads still fall back deterministically to the
+PalmDB wrapper title.
 
 The `.pdfADBE` reader should be treated as an embedded-PDF handoff. The PDB
 wrapper must still be valid before any PDF-specific handling runs.
@@ -143,6 +148,8 @@ Existing PDB coverage already includes:
 - eReader body metadata writes with hostile text cleanup
 - Plucker metadata with UTF-8 title/author fields and timestamp edges
 - Haodoo metadata fallback for malformed synthetic sections
+- Haodoo CP950 and UTF-16LE conversion output with multilingual chapter titles
+  and body text
 - path-like and stream metadata reads
 - writer title updates that preserve unsupported-body fallback behavior
 
@@ -151,7 +158,6 @@ The next conversion-side unicode tests should add small generated fixtures for:
 - PalmDOC/zTXT text containing multilingual payloads
 - eReader PML text with non-ASCII content and hostile control characters
 - Plucker PHTML with UTF-8 metadata and escaped markup-sensitive content
-- Haodoo CP950 and UTF-16LE chapter titles/body text
 
 ## Hostile Corpus
 
@@ -178,10 +184,9 @@ The checked-in hostile metadata coverage currently includes:
   truncated PHTML operands, missing PHTML/composite image references, and bad
   PHTML compression payloads
 - Plucker metadata record iteration on short and overlong records
-
-Missing hostile coverage is now concentrated in conversion readers:
-
-- Haodoo malformed header fields and chapter count mismatches
+- Haodoo malformed header fields, non-integer record counts, chapter-title
+  count mismatches, declared chapter ranges beyond available sections, and
+  direct out-of-range section access
 
 ## Salvage And Reporting Direction
 
@@ -206,11 +211,10 @@ headers, or silent content loss.
 
 ## Next Hardening Slice
 
-The next useful PDB slice should continue subreader record 0 and range checks in
-the remaining richer format:
-
-- add Haodoo tests for malformed header separators, non-integer record counts,
-  and chapter count mismatches
+The PDB hostile subreader pass is now covered through PalmDOC, zTXT, eReader,
+Plucker, and Haodoo. The next useful PDB slice should come from either
+conversion-product sign-off work or a specific defect found while exercising a
+real-world corpus.
 
 High-value focused commands:
 

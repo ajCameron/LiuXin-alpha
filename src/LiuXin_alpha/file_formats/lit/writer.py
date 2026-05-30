@@ -60,7 +60,18 @@ msdes, msdeserror = plugins["msdes"]
 Basic support for writing LIT files.
 """
 
-__all__ = ["LitWriter"]
+__all__ = ["LitWriter", "LitWriterError"]
+
+
+class LitWriterError(RuntimeError):
+    pass
+
+
+def _require_lzx_compressor():
+    if Compressor is None:
+        raise LitWriterError("LIT output requires the LZX compressor backend, which is unavailable")
+    return Compressor
+
 
 LIT_IMAGES = {"image/png", "image/jpeg", "image/gif"}
 LIT_MIMES = OEB_DOCS | OEB_STYLES | LIT_IMAGES
@@ -393,6 +404,7 @@ class LitWriter(object):
             self._logger.warn("No suitable cover image found.")
 
     def __call__(self, oeb, path):
+        _require_lzx_compressor()
         if hasattr(path, "write"):
             return self._dump_stream(oeb, path)
         with open(path, "w+b") as stream:
@@ -719,9 +731,7 @@ class LitWriter(object):
                     if not data:
                         continue
                     unlen = len(data)
-                    if Compressor is None:
-                        raise RuntimeError("LZX compressor backend is unavailable")
-                    lzx = Compressor(17)
+                    lzx = _require_lzx_compressor()(17)
                     data, rtable = lzx.compress(data, flush=True)
                     rdata = six_cStringIO()
                     rdata.write(

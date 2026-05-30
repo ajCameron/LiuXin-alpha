@@ -45,6 +45,12 @@ some of those paths may be better than forcing every conversion through OEB.
 Those adapters should be tested as pipeline edges with the same unicode,
 malformed-input, and loss-reporting corpus used by the in-tree converters.
 
+The durable project TODO and sign-off checklist for this work lives in
+`dev-docs/conversion_pipeline_todo.md`, with the current status matrix in
+`dev-docs/conversion_pipeline_signoff.md`. Keep this development note focused
+on file-format hardening policy, and use the `dev-docs` checklist and matrix to
+decide when a format or pipeline edge is done enough to sign off.
+
 ## Container Direction
 
 Archive/XML formats need a stricter contract than plain text and lightweight
@@ -65,6 +71,14 @@ markup:
 - nested and non-ASCII asset paths should be supported when they are valid
 - generated `metadata.opf`, XHTML, CSS, and copied assets should be checked as
   a single conversion product
+
+Shared ZIP archive member checks now live in
+`LiuXin_alpha.file_formats.archive_preflight`. The helper owns member-count,
+per-member expansion, total expansion, invalid compressed-size,
+compression-ratio, and default unsafe-path policy for FBZ, HTMLZ, EPUB, DOCX,
+ODT, and comic ZIP preflight. Format modules still own their structural checks
+and recovery decisions; ODT keeps its existing skip-unsafe-picture-entry
+extraction behavior while sharing the same archive budget checks.
 
 The ODT pass was the first container/XML slice using this contract. It validates
 required `META-INF/manifest.xml`, `meta.xml`, and `content.xml` members,
@@ -121,10 +135,11 @@ binary XHTML markup; malformed whole-file/header/manifest/namelist/control
 coverage; and parser hardening so truncated or hostile inputs raise `LitError`
 instead of raw unpack/index failures or infinite loops. Conversion-facing
 unicode coverage now checks optional real LIT input products,
-`LITInput.postprocess_book`, output-side `ReBinary` XHTML serialization, and
-`LitWriter` manifest serialization. Complete `.lit` archive output remains
-blocked in this environment by the unavailable LZX compressor backend, so the
-writer coverage intentionally pins the conversion surfaces below compression.
+`LITInput.postprocess_book`, output-side `ReBinary` XHTML serialization,
+`LitWriter` manifest serialization, and the explicit unavailable-LZX writer
+boundary. Complete successful `.lit` archive output remains blocked in this
+environment by the unavailable LZX compressor backend, but missing compression
+now fails with a named writer error before a filesystem output path is opened.
 
 The MOBI pass established the current PalmDB-backed hardening pattern. MOBI is
 PalmDB-backed rather than ZIP-backed, but it has the same need for explicit
@@ -135,9 +150,11 @@ parser tests for truncated PalmDB headers, short record tables, invalid record
 offsets, short record 0 payloads, impossible MOBI header lengths, out-of-range
 title offsets, malformed EXTH blocks, invalid section access, malformed
 HUFF/CDIC tables, DH HUFF/CDIC range checks, malformed INDX/TAGX records,
-invalid KF8 FDST/SKEL/DIV/OTH/NCX references, and resource-range/CRES
-failures. Remaining hardening should move next into bounded decompression
-expansion policy and realistic KF8 resource/skeleton/div conversion products.
+invalid KF8 FDST/SKEL/DIV/OTH/NCX references, resource-range/CRES failures,
+bounded PalmDOC/HUFF decompression expansion, and concrete direct/CRES KF8 image
+resource extraction products. Remaining hardening should move next into richer
+KF8 skeleton/div/NCX conversion products, non-image resource fixtures, and
+trusted-input budget policy.
 
 The PDB pass is the next PalmDB-backed target. PDB reuses the wrapper shape
 that MOBI just hardened, but dispatches into PalmDOC, zTXT, eReader, Plucker,
@@ -149,9 +166,11 @@ failures, eReader range/decompression/image-name failures, and strict
 corrupt-wrapper behavior for metadata paths. Plucker now also has conversion
 reader hardening for short headers, record-local length overruns, malformed
 metadata records, truncated PHTML operands, missing image references, and PHTML
-decompression failures. Remaining hardening should continue through Haodoo
-subreader record 0, range, decompression, image-name, and unicode conversion
-products.
+decompression failures. Haodoo now has conversion-reader coverage for
+CP950/UTF-16LE chapter output, malformed header fields, record count parsing,
+chapter-title mismatches, declared chapter ranges, and direct section bounds.
+Remaining PDB hardening should now be driven by real corpus defects or
+conversion-product sign-off, not known subreader-hostile gaps.
 
 ## PML Status
 
@@ -165,6 +184,17 @@ The PML pass currently captures two boundaries:
 The replacement behavior is acceptable as an output fallback, but it should not
 be silent. Lossy conversion must become visible and reportable before the
 broader conversion work depends on it.
+
+Current next implementation slice: add the first structured conversion/loss
+report around PML unsupported-character replacement while preserving the
+existing recoverable output bytes. The first implementation now records an
+aggregate `unsupported-character-replacement` loss event through
+`ConversionReport` when PML output replaces unsupported characters with `?`.
+The initial edge-model slice now also exposes the current legacy OEB-backed
+path as `ConversionEdge`, leaving execution behavior unchanged while giving
+reports and future fallback planning a deterministic edge name. The shared
+archive-preflight slice now reduces repeated ZIP policy in the container
+formats without changing their format-specific validation contracts.
 
 ## Loss Reporting Direction
 
