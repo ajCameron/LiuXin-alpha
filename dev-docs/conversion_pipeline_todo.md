@@ -127,6 +127,9 @@ A format or pipeline edge can be treated as signed off when it has:
      `dev-docs/conversion_pipeline_signoff.md`. It separates candidate,
      provisional, blocked, and open rows so format sign-off decisions can be
      reviewed deliberately instead of inferred from the fast lane alone.
+   - First signed-off row, 2026-05-31: FB2/FBZ input/output/metadata for the
+     current format scope, with focused file-format, metadata, and archive
+     preflight validation recorded in the sign-off matrix.
 
 ## Open Decisions
 

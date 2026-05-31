@@ -31,14 +31,20 @@ The matrix tracks:
 - remaining blockers
 - current sign-off state
 
-## Initial Candidate Rows
+## Signed-Off Rows
+
+Rows already reviewed and signed off:
+
+- FB2/FBZ input/output/metadata conversion, signed off 2026-05-31 for the
+  current format scope.
+
+## Remaining Candidate Rows
 
 Rows that are ready for a deliberate sign-off review:
 
 - ODT input/container conversion
 - EPUB input/container conversion
 - DOCX input/container conversion
-- FB2/FBZ input/output/metadata conversion
 - PDB input/metadata hardening scope
 - PML output lossy-boundary behavior
 
@@ -71,9 +77,20 @@ git diff --check
 clean
 ```
 
+## FB2/FBZ Review
+
+FB2/FBZ was reviewed and signed off on 2026-05-31. Focused validation passed:
+
+```text
+python3 -m pytest tests/file_formats/fb2 tests/metadata/file_sources/test_fb2_metadata_source.py tests/metadata/file_sources/test_fb2_edge_cases.py -q
+76 passed in 14.17s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/fb2/test_fb2_malformed_hostile.py tests/file_formats/fb2/test_fb2_zip_framework.py -q
+48 passed in 12.08s
+```
+
 ## Next Useful Step
 
-Pick one candidate row and perform an explicit sign-off review. The cleanest
-first candidate is probably FB2/FBZ because it has reader, writer, metadata,
-archive, unicode, hostile-input, and output-product coverage in one bounded
-format family.
+Pick the next candidate row and perform the same explicit sign-off review. ODT,
+EPUB, or DOCX are the most direct next candidates because each is a bounded
+archive/container input scope with similar product assertions.
