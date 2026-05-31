@@ -15,6 +15,9 @@ format output.
 
 ## Status Legend
 
+- `Signed off`: the row has been explicitly reviewed, has no blocker inside
+  its stated scope, and future real-corpus defects should be tracked as
+  regressions or new follow-up rows.
 - `Candidate`: the current format-specific contract is strong enough for a
   sign-off review. Future real-corpus defects may still add regressions.
 - `Provisional`: core behavior is covered, but a known fixture, product, writer,
@@ -47,7 +50,7 @@ record why the heavy lane is intentionally skipped.
 | DOCX | Done: OOXML package, content types, relationships, main document | N/A in current scope | Done: core properties and conversion metadata | Done: malformed package parts, hostile archive, nested media paths | Done: multilingual document conversion and media extraction | Done for named `InvalidDOCX` failures; no structured report yet | Heavy-lane/release validation before final promotion | Candidate |
 | HTMLZ | Done: top-level HTML/XHTML requirement, optional OPF/cover enrichment | N/A in current scope | Provisional: optional OPF/cover warnings covered | Done: missing HTML, hostile archive, bomb-shaped inputs | Done: multilingual plugin-path HTML product | Done through warnings for optional OPF/cover problems | Decide if optional enrichment loss should emit `ConversionReport` events | Provisional |
 | Comic CBZ/CBC/CBR | Done: CBZ/CBC ZIP and CBR/RAR listing/extraction boundaries | N/A in current scope | N/A | Done: path safety, password entries, member budgets where backend exposes sizes | Done: multilingual CBC and comic-page output invariant | Done through warnings/strict failures; RAR name-only backends have limited size data | Real RAR backend variance and optional structured diagnostics | Provisional |
-| FB2/FBZ | Done: FB2 XML and single-FB2-member FBZ selection | Done: `FB2MLizer` and `FB2Output` unicode serialization | Done: FBZ metadata registration and reader/writer paths | Done: malformed XML, hostile archive, embedded-binary ID safety, corrupt base64 warnings | Done: UTF-8/UTF-16 input and zipped/unzipped products | Done for current warnings/strict failures; no structured report yet | Heavy-lane/release validation before final promotion | Candidate |
+| FB2/FBZ | Done: FB2 XML and single-FB2-member FBZ selection | Done: `FB2MLizer` and `FB2Output` unicode serialization | Done: FBZ metadata registration and reader/writer paths | Done: malformed XML, hostile archive, embedded-binary ID safety, corrupt base64 warnings | Done: UTF-8/UTF-16 input and zipped/unzipped products | Signed off for row scope: warnings and strict failures cover skipped binaries, unsafe IDs, parser recovery, metadata archive rejection, and archive preflight | None for current FB2/FBZ format scope; future real-corpus defects become regressions | Signed off |
 
 ## Legacy Binary And PalmDB Formats
 
@@ -74,15 +77,38 @@ record why the heavy lane is intentionally skipped.
 | Conversion edge model | N/A | N/A | N/A | N/A | Done for deterministic edge registry and legacy OEB-backed edge tests | Provisional: edge name reaches PML report | Add planner/fallback execution semantics and external-tool discovery | Provisional |
 | Legacy OEB-backed path | Done as current default path | Done as current default path | Format-dependent | Format-dependent | Done where each format row has product assertions | Provisional: fallback and loss reporting are not globally consistent | Promote from implicit default to inspectable planner behavior | Provisional |
 
+## Signed-Off Reviews
+
+### FB2/FBZ - 2026-05-31
+
+Decision: signed off for the current FB2/FBZ format scope. The signed-off scope
+includes XML-backed FB2 input, strict single-member FBZ archive input,
+metadata read/write for plain and zipped FB2, `FB2MLizer`/`FB2Output` unicode
+serialization, hostile XML/archive/binary-ID boundaries, and generated
+conversion-product assertions for UTF-8, UTF-16, zipped, and unzipped products.
+
+Validation:
+
+```text
+python3 -m pytest tests/file_formats/fb2 tests/metadata/file_sources/test_fb2_metadata_source.py tests/metadata/file_sources/test_fb2_edge_cases.py -q
+76 passed in 14.17s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/fb2/test_fb2_malformed_hostile.py tests/file_formats/fb2/test_fb2_zip_framework.py -q
+48 passed in 12.08s
+```
+
+The broader goal of structured `ConversionReport` events for every recoverable
+warning remains a pipeline-wide reporting workstream, not an FB2/FBZ blocker.
+Future real-corpus defects should be added as regressions or new follow-up rows.
+
 ## First Review Queue
 
-The first rows worth reviewing for actual sign-off are the candidate rows with
-no known product blocker beyond broader release validation:
+The next rows worth reviewing for actual sign-off are the remaining candidate
+rows with no known product blocker beyond broader release validation:
 
 - ODT input/container conversion
 - EPUB input/container conversion
 - DOCX input/container conversion
-- FB2/FBZ input/output/metadata conversion
 - PDB input/metadata hardening scope
 - PML output lossy-boundary behavior
 

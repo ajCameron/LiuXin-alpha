@@ -125,3 +125,31 @@ reporting should eventually record:
 - XML parser recovery path used and whether unrecoverable fragments were
   dropped
 - number and sample of characters replaced during output serialization
+
+## Sign-Off Status
+
+FB2/FBZ is signed off for the current format scope as of 2026-05-31.
+
+The signed-off scope includes:
+
+- XML-backed `.fb2` input conversion for UTF-8 and UTF-16 fixtures
+- strict single-FB2-member `.fbz` archive selection and preflight
+- metadata read/write for plain and zipped FB2 payloads
+- `FB2MLizer`/`FB2Output` unicode serialization
+- hostile XML, archive, embedded-binary ID, and corrupt-base64 boundaries
+- generated OPF, XHTML, CSS, extracted-binary, and output-FB2 product
+  assertions
+
+Focused sign-off validation:
+
+```text
+python3 -m pytest tests/file_formats/fb2 tests/metadata/file_sources/test_fb2_metadata_source.py tests/metadata/file_sources/test_fb2_edge_cases.py -q
+76 passed in 14.17s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/fb2/test_fb2_malformed_hostile.py tests/file_formats/fb2/test_fb2_zip_framework.py -q
+48 passed in 12.08s
+```
+
+The broader pipeline goal of structured `ConversionReport` events for every
+recoverable warning remains outside this format sign-off row. Future real-corpus
+FB2/FBZ defects should be added as regressions against this contract.

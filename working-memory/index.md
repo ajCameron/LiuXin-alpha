@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-05-28
+Updated: 2026-05-31
 
 Start here for active handoff notes. This index should stay short.
 
@@ -33,6 +33,11 @@ Start here for active handoff notes. This index should stay short.
   Stage 6 sign-off-table note: durable matrix added at
   `dev-docs/conversion_pipeline_signoff.md`, with candidate, provisional,
   blocked, and open rows for current format and pipeline sign-off decisions.
+
+- [conversion-fb2-fbz-signoff-2026-05-31.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-fb2-fbz-signoff-2026-05-31.md)
+  First signed-off conversion matrix row: FB2/FBZ input/output/metadata is
+  signed off for the current format scope with focused file-format, metadata,
+  hostile archive, and shared preflight validation.
 
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and
