@@ -37,12 +37,13 @@ Rows already reviewed and signed off:
 
 - FB2/FBZ input/output/metadata conversion, signed off 2026-05-31 for the
   current format scope.
+- ODT input/container conversion, signed off 2026-06-01 for the current format
+  scope.
 
 ## Remaining Candidate Rows
 
 Rows that are ready for a deliberate sign-off review:
 
-- ODT input/container conversion
 - EPUB input/container conversion
 - DOCX input/container conversion
 - PDB input/metadata hardening scope
@@ -89,8 +90,20 @@ python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_format
 48 passed in 12.08s
 ```
 
+## ODT Review
+
+ODT was reviewed and signed off on 2026-06-01. Focused validation passed:
+
+```text
+python3 -m pytest tests/file_formats/odt tests/file_formats/odf tests/metadata/file_sources/test_odt_metadata_source.py tests/metadata/file_sources/test_odt_beta_metadata_source.py tests/metadata/file_sources/test_text_odt_edge_cases.py -q
+48 passed, 12 warnings in 13.79s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/odt/test_odt_container_framework.py tests/file_formats/odt/test_odt_malformed_hostile.py -q
+28 passed in 8.79s
+```
+
 ## Next Useful Step
 
-Pick the next candidate row and perform the same explicit sign-off review. ODT,
-EPUB, or DOCX are the most direct next candidates because each is a bounded
+Pick the next candidate row and perform the same explicit sign-off review. EPUB
+or DOCX are the most direct next candidates because each is a bounded
 archive/container input scope with similar product assertions.
