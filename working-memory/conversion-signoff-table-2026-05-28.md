@@ -41,12 +41,13 @@ Rows already reviewed and signed off:
   scope.
 - EPUB input/container conversion, signed off 2026-06-02 for the current format
   scope.
+- DOCX input/container conversion, signed off 2026-06-02 for the current format
+  scope.
 
 ## Remaining Candidate Rows
 
 Rows that are ready for a deliberate sign-off review:
 
-- DOCX input/container conversion
 - PDB input/metadata hardening scope
 - PML output lossy-boundary behavior
 
@@ -115,8 +116,20 @@ python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_format
 42 passed in 15.61s
 ```
 
+## DOCX Review
+
+DOCX was reviewed and signed off on 2026-06-02. Focused validation passed:
+
+```text
+python3 -m pytest tests/file_formats/docx tests/metadata/file_sources/test_docx_metadata_source.py -q
+39 passed in 25.49s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/docx/test_docx_container_framework.py tests/file_formats/docx/test_docx_malformed_hostile.py -q
+39 passed in 16.98s
+```
+
 ## Next Useful Step
 
-Pick the next candidate row and perform the same explicit sign-off review. DOCX
-is the most direct next candidate because it is the remaining bounded
-archive/container input scope with similar product assertions.
+Pick the next candidate row and perform the same explicit sign-off review. The
+remaining candidates are PDB input/metadata hardening scope and PML output
+lossy-boundary behavior.

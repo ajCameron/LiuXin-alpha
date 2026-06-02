@@ -47,7 +47,7 @@ record why the heavy lane is intentionally skipped.
 | Shared ZIP preflight | N/A | N/A | N/A | Done: member count, per-member size, total size, ratio, compressed-size, and path checks | N/A | Provisional: callers wrap reasons in format errors or warnings | Decide whether metadata readers share the helper and whether trusted budgets are exposed | Provisional |
 | ODT | Done: required members, manifest/meta/content, archive budgets, safe picture extraction | N/A in current scope | Done: multilingual metadata/body extraction and ODT metadata file-source checks | Done: required-member, malformed XML, hostile archive, picture path, bomb-shaped inputs | Done: OPF, XHTML, CSS, and copied assets | Signed off for row scope: strict failures and warnings cover required-member, malformed XML, unsafe pictures, and archive preflight behavior | None for current ODT input/container scope; future real-corpus defects become regressions | Signed off |
 | EPUB | Done: OCF container, OPF package discovery, manifest/spine, nested and non-ASCII assets | N/A in current scope | Done through EPUB/OPF metadata file-source checks | Done: malformed container/package and hostile archive boundaries | Done: multilingual read/conversion product and assets | Signed off for row scope: strict failures and visible preflight logging cover missing structure, unsafe paths, archive budgets, manifest/spine failures, and extraction boundaries | None for current EPUB input/container scope; broader OPF field parity and future salvage/reporting remain separate rows | Signed off |
-| DOCX | Done: OOXML package, content types, relationships, main document | N/A in current scope | Done: core properties and conversion metadata | Done: malformed package parts, hostile archive, nested media paths | Done: multilingual document conversion and media extraction | Done for named `InvalidDOCX` failures; no structured report yet | Heavy-lane/release validation before final promotion | Candidate |
+| DOCX | Done: OOXML package, content types, relationships, main document, styles, and nested media | N/A in current scope | Done: core/app properties and conversion metadata | Done: malformed package parts, hostile archive, nested media paths, and package XML failures | Done: multilingual document conversion, metadata OPF, HTML/CSS, and extracted media | Signed off for row scope: named `InvalidDOCX` failures and strict preflight cover missing structure, unsafe paths, archive budgets, malformed XML, and extraction boundaries | None for current DOCX input/container scope; future salvage/reporting and trusted budget overrides remain separate rows | Signed off |
 | HTMLZ | Done: top-level HTML/XHTML requirement, optional OPF/cover enrichment | N/A in current scope | Provisional: optional OPF/cover warnings covered | Done: missing HTML, hostile archive, bomb-shaped inputs | Done: multilingual plugin-path HTML product | Done through warnings for optional OPF/cover problems | Decide if optional enrichment loss should emit `ConversionReport` events | Provisional |
 | Comic CBZ/CBC/CBR | Done: CBZ/CBC ZIP and CBR/RAR listing/extraction boundaries | N/A in current scope | N/A | Done: path safety, password entries, member budgets where backend exposes sizes | Done: multilingual CBC and comic-page output invariant | Done through warnings/strict failures; RAR name-only backends have limited size data | Real RAR backend variance and optional structured diagnostics | Provisional |
 | FB2/FBZ | Done: FB2 XML and single-FB2-member FBZ selection | Done: `FB2MLizer` and `FB2Output` unicode serialization | Done: FBZ metadata registration and reader/writer paths | Done: malformed XML, hostile archive, embedded-binary ID safety, corrupt base64 warnings | Done: UTF-8/UTF-16 input and zipped/unzipped products | Signed off for row scope: warnings and strict failures cover skipped binaries, unsafe IDs, parser recovery, metadata archive rejection, and archive preflight | None for current FB2/FBZ format scope; future real-corpus defects become regressions | Signed off |
@@ -78,6 +78,31 @@ record why the heavy lane is intentionally skipped.
 | Legacy OEB-backed path | Done as current default path | Done as current default path | Format-dependent | Format-dependent | Done where each format row has product assertions | Provisional: fallback and loss reporting are not globally consistent | Promote from implicit default to inspectable planner behavior | Provisional |
 
 ## Signed-Off Reviews
+
+### DOCX - 2026-06-02
+
+Decision: signed off for the current DOCX input/container conversion scope. The
+signed-off scope includes OOXML package validation, content-types and
+relationship checks, main document discovery, core/app properties, default
+styles, nested and non-ASCII media extraction, multilingual conversion
+products, DOCX metadata file-source checks, hostile archive member rejection,
+shared archive preflight budgets, malformed package XML failures, and named
+`InvalidDOCX` errors before partial output.
+
+Validation:
+
+```text
+python3 -m pytest tests/file_formats/docx tests/metadata/file_sources/test_docx_metadata_source.py -q
+39 passed in 25.49s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/docx/test_docx_container_framework.py tests/file_formats/docx/test_docx_malformed_hostile.py -q
+39 passed in 16.98s
+```
+
+Future DOCX salvage/reporting behavior and trusted archive-budget overrides
+remain separate pipeline/container policy work, not blockers for this
+input/container row. Future real-corpus DOCX defects should be added as
+regressions or new follow-up rows.
 
 ### EPUB - 2026-06-02
 
@@ -153,7 +178,6 @@ Future real-corpus defects should be added as regressions or new follow-up rows.
 The next rows worth reviewing for actual sign-off are the remaining candidate
 rows with no known product blocker beyond broader release validation:
 
-- DOCX input/container conversion
 - PDB input/metadata hardening scope
 - PML output lossy-boundary behavior
 

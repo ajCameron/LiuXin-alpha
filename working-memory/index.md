@@ -49,6 +49,11 @@ Start here for active handoff notes. This index should stay short.
   signed off for the current format scope with focused EPUB/OPF, metadata,
   hostile-container, and shared preflight validation.
 
+- [conversion-docx-signoff-2026-06-02.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-docx-signoff-2026-06-02.md)
+  Fourth signed-off conversion matrix row: DOCX input/container conversion is
+  signed off for the current format scope with focused DOCX, metadata,
+  hostile-container, and shared preflight validation.
+
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and
   make PML unsupported-character replacement visible while preserving current
