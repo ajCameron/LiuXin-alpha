@@ -133,6 +133,9 @@ A format or pipeline edge can be treated as signed off when it has:
    - Second signed-off row, 2026-06-01: ODT input/container conversion for the
      current format scope, with focused ODT/ODF, metadata, hostile-container,
      and shared archive preflight validation recorded in the sign-off matrix.
+   - Third signed-off row, 2026-06-02: EPUB input/container conversion for the
+     current format scope, with focused EPUB/OPF, metadata, hostile-container,
+     and shared archive preflight validation recorded in the sign-off matrix.
 
 ## Open Decisions
 

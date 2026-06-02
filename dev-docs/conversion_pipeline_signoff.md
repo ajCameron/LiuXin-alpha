@@ -46,7 +46,7 @@ record why the heavy lane is intentionally skipped.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Shared ZIP preflight | N/A | N/A | N/A | Done: member count, per-member size, total size, ratio, compressed-size, and path checks | N/A | Provisional: callers wrap reasons in format errors or warnings | Decide whether metadata readers share the helper and whether trusted budgets are exposed | Provisional |
 | ODT | Done: required members, manifest/meta/content, archive budgets, safe picture extraction | N/A in current scope | Done: multilingual metadata/body extraction and ODT metadata file-source checks | Done: required-member, malformed XML, hostile archive, picture path, bomb-shaped inputs | Done: OPF, XHTML, CSS, and copied assets | Signed off for row scope: strict failures and warnings cover required-member, malformed XML, unsafe pictures, and archive preflight behavior | None for current ODT input/container scope; future real-corpus defects become regressions | Signed off |
-| EPUB | Done: OCF container, OPF package discovery, manifest/spine, nested assets | N/A in current scope | Done through OPF package coverage | Done: malformed container/package and hostile archive boundaries | Done: multilingual read/conversion product and assets | Done for strict rejection logging; no structured report yet | Heavy-lane/release validation before final promotion | Candidate |
+| EPUB | Done: OCF container, OPF package discovery, manifest/spine, nested and non-ASCII assets | N/A in current scope | Done through EPUB/OPF metadata file-source checks | Done: malformed container/package and hostile archive boundaries | Done: multilingual read/conversion product and assets | Signed off for row scope: strict failures and visible preflight logging cover missing structure, unsafe paths, archive budgets, manifest/spine failures, and extraction boundaries | None for current EPUB input/container scope; broader OPF field parity and future salvage/reporting remain separate rows | Signed off |
 | DOCX | Done: OOXML package, content types, relationships, main document | N/A in current scope | Done: core properties and conversion metadata | Done: malformed package parts, hostile archive, nested media paths | Done: multilingual document conversion and media extraction | Done for named `InvalidDOCX` failures; no structured report yet | Heavy-lane/release validation before final promotion | Candidate |
 | HTMLZ | Done: top-level HTML/XHTML requirement, optional OPF/cover enrichment | N/A in current scope | Provisional: optional OPF/cover warnings covered | Done: missing HTML, hostile archive, bomb-shaped inputs | Done: multilingual plugin-path HTML product | Done through warnings for optional OPF/cover problems | Decide if optional enrichment loss should emit `ConversionReport` events | Provisional |
 | Comic CBZ/CBC/CBR | Done: CBZ/CBC ZIP and CBR/RAR listing/extraction boundaries | N/A in current scope | N/A | Done: path safety, password entries, member budgets where backend exposes sizes | Done: multilingual CBC and comic-page output invariant | Done through warnings/strict failures; RAR name-only backends have limited size data | Real RAR backend variance and optional structured diagnostics | Provisional |
@@ -78,6 +78,30 @@ record why the heavy lane is intentionally skipped.
 | Legacy OEB-backed path | Done as current default path | Done as current default path | Format-dependent | Format-dependent | Done where each format row has product assertions | Provisional: fallback and loss reporting are not globally consistent | Promote from implicit default to inspectable planner behavior | Provisional |
 
 ## Signed-Off Reviews
+
+### EPUB - 2026-06-02
+
+Decision: signed off for the current EPUB input/container conversion scope. The
+signed-off scope includes OCF container validation, OPF package discovery, OPF
+manifest/spine checks, nested and non-ASCII resource extraction, multilingual
+EPUB conversion products, EPUB/OPF metadata file-source checks, hostile archive
+member rejection, shared archive preflight budgets, and visible preflight
+rejection diagnostics before extraction.
+
+Validation:
+
+```text
+python3 -m pytest tests/file_formats/epub tests/metadata/file_sources/test_epub_metadata_source.py tests/metadata/file_sources/test_epub_edge_cases.py tests/metadata/file_sources/test_opf_metadata_source.py tests/metadata/file_sources/test_opf_edge_cases.py -q
+79 passed, 7 warnings in 29.75s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/epub/test_epub_container_framework.py tests/file_formats/epub/test_epub_malformed_hostile.py -q
+42 passed in 15.61s
+```
+
+Broader OPF metadata field parity and any future EPUB salvage/reporting mode
+remain separate follow-up work, not blockers for this input/container row.
+Future real-corpus EPUB defects should be added as regressions or new follow-up
+rows.
 
 ### ODT - 2026-06-01
 
@@ -129,7 +153,6 @@ Future real-corpus defects should be added as regressions or new follow-up rows.
 The next rows worth reviewing for actual sign-off are the remaining candidate
 rows with no known product blocker beyond broader release validation:
 
-- EPUB input/container conversion
 - DOCX input/container conversion
 - PDB input/metadata hardening scope
 - PML output lossy-boundary behavior
