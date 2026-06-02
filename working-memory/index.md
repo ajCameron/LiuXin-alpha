@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-05-31
+Updated: 2026-06-01
 
 Start here for active handoff notes. This index should stay short.
 
@@ -38,6 +38,11 @@ Start here for active handoff notes. This index should stay short.
   First signed-off conversion matrix row: FB2/FBZ input/output/metadata is
   signed off for the current format scope with focused file-format, metadata,
   hostile archive, and shared preflight validation.
+
+- [conversion-odt-signoff-2026-06-01.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-odt-signoff-2026-06-01.md)
+  Second signed-off conversion matrix row: ODT input/container conversion is
+  signed off for the current format scope with focused ODT/ODF, metadata,
+  hostile-container, and shared preflight validation.
 
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and

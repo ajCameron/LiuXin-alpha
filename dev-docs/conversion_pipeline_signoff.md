@@ -45,7 +45,7 @@ record why the heavy lane is intentionally skipped.
 | Area | Reader/Input | Writer/Output | Metadata | Hostile Boundary | Product Assertions | Loss/Diagnostics | Remaining Blocker | State |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Shared ZIP preflight | N/A | N/A | N/A | Done: member count, per-member size, total size, ratio, compressed-size, and path checks | N/A | Provisional: callers wrap reasons in format errors or warnings | Decide whether metadata readers share the helper and whether trusted budgets are exposed | Provisional |
-| ODT | Done: required members, manifest/meta/content, archive budgets, safe picture extraction | N/A in current scope | Done: multilingual metadata/body extraction | Done: required-member, malformed XML, hostile archive, picture path, bomb-shaped inputs | Done: OPF, XHTML, CSS, and copied assets | Done for current warnings/strict failures; no structured report yet | Heavy-lane/release validation before final promotion | Candidate |
+| ODT | Done: required members, manifest/meta/content, archive budgets, safe picture extraction | N/A in current scope | Done: multilingual metadata/body extraction and ODT metadata file-source checks | Done: required-member, malformed XML, hostile archive, picture path, bomb-shaped inputs | Done: OPF, XHTML, CSS, and copied assets | Signed off for row scope: strict failures and warnings cover required-member, malformed XML, unsafe pictures, and archive preflight behavior | None for current ODT input/container scope; future real-corpus defects become regressions | Signed off |
 | EPUB | Done: OCF container, OPF package discovery, manifest/spine, nested assets | N/A in current scope | Done through OPF package coverage | Done: malformed container/package and hostile archive boundaries | Done: multilingual read/conversion product and assets | Done for strict rejection logging; no structured report yet | Heavy-lane/release validation before final promotion | Candidate |
 | DOCX | Done: OOXML package, content types, relationships, main document | N/A in current scope | Done: core properties and conversion metadata | Done: malformed package parts, hostile archive, nested media paths | Done: multilingual document conversion and media extraction | Done for named `InvalidDOCX` failures; no structured report yet | Heavy-lane/release validation before final promotion | Candidate |
 | HTMLZ | Done: top-level HTML/XHTML requirement, optional OPF/cover enrichment | N/A in current scope | Provisional: optional OPF/cover warnings covered | Done: missing HTML, hostile archive, bomb-shaped inputs | Done: multilingual plugin-path HTML product | Done through warnings for optional OPF/cover problems | Decide if optional enrichment loss should emit `ConversionReport` events | Provisional |
@@ -79,6 +79,29 @@ record why the heavy lane is intentionally skipped.
 
 ## Signed-Off Reviews
 
+### ODT - 2026-06-01
+
+Decision: signed off for the current ODT input/container conversion scope. The
+signed-off scope includes required archive members, shared archive preflight
+budgets, valid nested and non-ASCII `Pictures/...` extraction, unsafe picture
+path rejection, multilingual metadata/body extraction, generated OPF/XHTML/CSS
+products, copied picture assets, ODT/ODF compatibility smoke coverage, and ODT
+metadata file-source checks.
+
+Validation:
+
+```text
+python3 -m pytest tests/file_formats/odt tests/file_formats/odf tests/metadata/file_sources/test_odt_metadata_source.py tests/metadata/file_sources/test_odt_beta_metadata_source.py tests/metadata/file_sources/test_text_odt_edge_cases.py -q
+48 passed, 12 warnings in 13.79s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/odt/test_odt_container_framework.py tests/file_formats/odt/test_odt_malformed_hostile.py -q
+28 passed in 8.79s
+```
+
+The broader trusted-input archive-budget override idea remains a future
+pipeline/container policy feature, not an ODT sign-off blocker. Future
+real-corpus ODT defects should be added as regressions or new follow-up rows.
+
 ### FB2/FBZ - 2026-05-31
 
 Decision: signed off for the current FB2/FBZ format scope. The signed-off scope
@@ -106,7 +129,6 @@ Future real-corpus defects should be added as regressions or new follow-up rows.
 The next rows worth reviewing for actual sign-off are the remaining candidate
 rows with no known product blocker beyond broader release validation:
 
-- ODT input/container conversion
 - EPUB input/container conversion
 - DOCX input/container conversion
 - PDB input/metadata hardening scope
