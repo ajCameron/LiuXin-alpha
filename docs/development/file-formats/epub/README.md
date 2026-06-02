@@ -117,3 +117,36 @@ but the current EPUB metadata reader path only surfaces title, authors, and
 cover data from that fixture. Broader OPF field parity should be handled as a
 separate metadata reader/writer refinement rather than hidden inside container
 hardening.
+
+## Sign-Off Status
+
+EPUB is signed off for the current input/container conversion scope as of
+2026-06-02.
+
+The signed-off scope includes:
+
+- readable ZIP, `mimetype`, and OCF `META-INF/container.xml` validation
+- OPF package discovery through `container.xml`
+- OPF package, manifest, and spine validation before extraction
+- shared archive preflight budgets for member count, member expansion, total
+  expansion, invalid compressed sizes, and suspicious compression ratios
+- hostile archive member path rejection before extraction
+- valid nested and non-ASCII OPF rootfile, XHTML, CSS, image, and extra asset
+  paths
+- multilingual EPUB conversion products and normalized `content.opf`
+- EPUB/OPF metadata file-source checks
+- visible `EPUB preflight rejected ...` diagnostics for strict failures
+
+Focused sign-off validation:
+
+```text
+python3 -m pytest tests/file_formats/epub tests/metadata/file_sources/test_epub_metadata_source.py tests/metadata/file_sources/test_epub_edge_cases.py tests/metadata/file_sources/test_opf_metadata_source.py tests/metadata/file_sources/test_opf_edge_cases.py -q
+79 passed, 7 warnings in 29.75s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/epub/test_epub_container_framework.py tests/file_formats/epub/test_epub_malformed_hostile.py -q
+42 passed in 15.61s
+```
+
+Broader OPF metadata field parity and any future EPUB salvage/reporting mode
+remain outside this format sign-off row. Future real-corpus EPUB defects should
+be added as regressions against this contract.

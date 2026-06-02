@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-06-01
+Updated: 2026-06-02
 
 Start here for active handoff notes. This index should stay short.
 
@@ -42,6 +42,11 @@ Start here for active handoff notes. This index should stay short.
 - [conversion-odt-signoff-2026-06-01.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-odt-signoff-2026-06-01.md)
   Second signed-off conversion matrix row: ODT input/container conversion is
   signed off for the current format scope with focused ODT/ODF, metadata,
+  hostile-container, and shared preflight validation.
+
+- [conversion-epub-signoff-2026-06-02.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-epub-signoff-2026-06-02.md)
+  Third signed-off conversion matrix row: EPUB input/container conversion is
+  signed off for the current format scope with focused EPUB/OPF, metadata,
   hostile-container, and shared preflight validation.
 
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)

@@ -39,12 +39,13 @@ Rows already reviewed and signed off:
   current format scope.
 - ODT input/container conversion, signed off 2026-06-01 for the current format
   scope.
+- EPUB input/container conversion, signed off 2026-06-02 for the current format
+  scope.
 
 ## Remaining Candidate Rows
 
 Rows that are ready for a deliberate sign-off review:
 
-- EPUB input/container conversion
 - DOCX input/container conversion
 - PDB input/metadata hardening scope
 - PML output lossy-boundary behavior
@@ -102,8 +103,20 @@ python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_format
 28 passed in 8.79s
 ```
 
+## EPUB Review
+
+EPUB was reviewed and signed off on 2026-06-02. Focused validation passed:
+
+```text
+python3 -m pytest tests/file_formats/epub tests/metadata/file_sources/test_epub_metadata_source.py tests/metadata/file_sources/test_epub_edge_cases.py tests/metadata/file_sources/test_opf_metadata_source.py tests/metadata/file_sources/test_opf_edge_cases.py -q
+79 passed, 7 warnings in 29.75s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/epub/test_epub_container_framework.py tests/file_formats/epub/test_epub_malformed_hostile.py -q
+42 passed in 15.61s
+```
+
 ## Next Useful Step
 
-Pick the next candidate row and perform the same explicit sign-off review. EPUB
-or DOCX are the most direct next candidates because each is a bounded
+Pick the next candidate row and perform the same explicit sign-off review. DOCX
+is the most direct next candidate because it is the remaining bounded
 archive/container input scope with similar product assertions.
