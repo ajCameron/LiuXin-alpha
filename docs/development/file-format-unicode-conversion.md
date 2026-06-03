@@ -202,6 +202,40 @@ This signs off the PML output boundary only. Broader loss-report plumbing across
 other lossy formats, fallback execution, and pipeline-wide planner semantics
 remain provisional conversion-pipeline work.
 
+## TXT Loss-Report Status
+
+The TXT loss-report slice promoted the TXT row to candidate on 2026-06-03.
+The current scope keeps existing recoverable behavior but reports deterministic
+encoding loss:
+
+- malformed input bytes decoded with replacement emit an
+  `input-decoding-byte-replacement` event in the `txt-input` phase.
+- final TXT output characters that cannot be represented by the selected output
+  encoding emit an `output-encoding-character-replacement` event in the
+  `txt-output` phase.
+- output reports use the current conversion edge context when available, matching
+  the PML report pattern.
+
+Focused validation passed:
+
+```text
+python3 -m pytest tests/file_formats/txt/test_txt_unicode_torture.py tests/file_formats/txt/test_txt_output_serializers_unicode_framework.py -q
+13 passed in 6.26s
+
+python3 -m pytest tests/file_formats/txt -q
+39 passed, 1 warning in 5.31s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 6.88s
+
+python3 -m pytest tests/file_formats/test_conversion_framework.py tests/file_formats/test_unicode_framework.py -q
+10 passed in 0.53s
+```
+
+Malformed Markdown/Textile parser failures remain hard failures rather than
+recoverable loss events in the current TXT row. Direct/external markup edge
+selection and broader markup loss diagnostics remain separate pipeline work.
+
 ## Loss Reporting Direction
 
 Future conversion reporting should expose:

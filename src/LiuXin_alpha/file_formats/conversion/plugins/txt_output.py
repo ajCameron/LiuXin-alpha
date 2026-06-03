@@ -4,6 +4,10 @@ import os
 import shutil
 
 from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.report import (
+    ConversionLossSample,
+    ensure_conversion_report,
+)
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory, TemporaryFile
@@ -13,6 +17,52 @@ __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
 
 NEWLINE_TYPES = ["system", "unix", "old_mac", "windows"]
+
+
+def _report_context(output_plugin, input_plugin, opts):
+    edge = getattr(opts, "conversion_edge", None)
+    input_format = getattr(input_plugin, "file_type", None) or "oeb"
+    source_format = getattr(edge, "source_format", None) or input_format
+    target_format = getattr(edge, "target_format", None) or output_plugin.file_type
+    edge_name = getattr(edge, "name", None) or "%s-to-%s" % (source_format, target_format)
+    return ensure_conversion_report(
+        opts,
+        source_format=source_format,
+        target_format=target_format,
+        edge_name=edge_name,
+    )
+
+
+def _unencodable_character_counts(text, encoding):
+    counts = {}
+    for char in text:
+        try:
+            char.encode(encoding, "strict")
+        except UnicodeEncodeError:
+            counts[char] = counts.get(char, 0) + 1
+    return counts
+
+
+def _report_output_encoding_replacements(report, unsupported_counts, output_encoding):
+    if not unsupported_counts:
+        return
+    replacement_count = sum(unsupported_counts.values())
+    sample_chars = list(unsupported_counts.keys())[:8]
+    report.add_loss_event(
+        phase="txt-output",
+        code="output-encoding-character-replacement",
+        message=(
+            "TXT output encoded with %s replaced %d unsupported character%s with '?'."
+            % (output_encoding, replacement_count, "" if replacement_count == 1 else "s")
+        ),
+        count=replacement_count,
+        samples=[ConversionLossSample.from_text(char) for char in sample_chars],
+        details={
+            "encoding": output_encoding,
+            "replacement": "?",
+            "unique_characters": len(unsupported_counts),
+        },
+    )
 
 
 class TXTOutput(OutputFormatPlugin):
@@ -119,6 +169,8 @@ class TXTOutput(OutputFormatPlugin):
         from LiuXin_alpha.file_formats.txt.txtml import TXTMLizer
         from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
 
+        self.conversion_report = _report_context(self, input_plugin, opts)
+
         if opts.txt_output_formatting.lower() == "markdown":
             from LiuXin_alpha.file_formats.txt.markdownml import MarkdownMLizer
 
@@ -151,6 +203,8 @@ class TXTOutput(OutputFormatPlugin):
         if hasattr(out_stream, "truncate"):
             out_stream.truncate()
         output_encoding = getattr(opts, "txt_output_encoding", "utf-8") or "utf-8"
+        unsupported_counts = _unencodable_character_counts(txt, output_encoding)
+        _report_output_encoding_replacements(self.conversion_report, unsupported_counts, output_encoding)
         out_stream.write(txt.encode(output_encoding, "replace"))
 
         if close:

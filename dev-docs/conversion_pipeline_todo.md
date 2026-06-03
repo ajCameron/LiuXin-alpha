@@ -81,6 +81,10 @@ A format or pipeline edge can be treated as signed off when it has:
      character replacement. Initial implementation adds
      `ConversionReport`/`ConversionLossEvent` and wires PML output into an
      aggregate `unsupported-character-replacement` event.
+   - TXT loss-report slice, 2026-06-03: malformed TXT input decode
+     replacement now emits `input-decoding-byte-replacement`, and TXT output
+     encoding replacement now emits `output-encoding-character-replacement`,
+     while preserving recoverable output bytes.
 
 3. Model conversion edges explicitly.
    - Keep OEB-backed edges.
@@ -147,6 +151,10 @@ A format or pipeline edge can be treated as signed off when it has:
      the current row scope, with deterministic PML output, recoverable
      unsupported-character replacement, structured loss-report, edge-context,
      metadata, and plugin-smoke validation recorded in the sign-off matrix.
+   - TXT candidate promotion, 2026-06-03: TXT input/output encoding-loss
+     reporting now covers malformed input decode replacement and output
+     encoding replacement. The TXT row is ready for focused sign-off review
+     after this implementation slice merges.
 
 ## Open Decisions
 
