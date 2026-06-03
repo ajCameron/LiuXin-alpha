@@ -208,3 +208,24 @@ Discovered 118 file_formats test files
 Lane 'fast' has 99 test files
 775 passed, 1 skipped, 15 warnings in 46.85s
 ```
+
+## Sign-Off Status
+
+The PML output lossy-boundary row was signed off on 2026-06-03. The signed-off
+scope is the deterministic PML output boundary, recoverable `?` replacement for
+unsupported characters, and the aggregate `unsupported-character-replacement`
+`ConversionReport` event with edge context. Broader report plumbing across other
+lossy formats and planner/fallback semantics remain provisional pipeline work.
+
+Focused validation:
+
+```text
+python3 -m pytest tests/file_formats/pml tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py -q
+57 passed in 8.97s
+
+python3 -m pytest tests/metadata/file_sources/test_pml_metadata_source.py -q
+12 passed in 9.69s
+
+python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+4 passed in 7.37s
+```

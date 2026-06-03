@@ -143,6 +143,10 @@ A format or pipeline edge can be treated as signed off when it has:
      current format scope, with focused PDB subreader, metadata fallback,
      malformed-input fuzzing, and conversion smoke validation recorded in the
      sign-off matrix.
+   - Sixth signed-off row, 2026-06-03: PML output lossy-boundary behavior for
+     the current row scope, with deterministic PML output, recoverable
+     unsupported-character replacement, structured loss-report, edge-context,
+     metadata, and plugin-smoke validation recorded in the sign-off matrix.
 
 ## Open Decisions
 

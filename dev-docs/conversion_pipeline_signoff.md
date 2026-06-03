@@ -67,7 +67,7 @@ record why the heavy lane is intentionally skipped.
 | TXT | Done: encoded payloads, newline/output serializer matrix, shared unicode corpus | Done: output serializers and encoding/newline behavior | Limited/N/A in current scope | Done: markup-extension hostile inputs and malformed text-like payloads | Done: multilingual TXT input/output products | Provisional: encoding and markup losses are not yet consistently structured | Decide which TXT recovery/loss cases should emit `ConversionReport` events | Provisional |
 | Markdown | Done: malformed delimiter/reference/footnote stress through current input path | N/A in current scope | N/A | Done: hostile markup preserves multilingual text | Done: current OEB-backed conversion products | Open: direct/external edge diagnostics not modeled beyond generic edge support | Decide direct/external Markdown edge candidates and loss reporting | Open |
 | Textile | Done: malformed delimiter stress through current input path | N/A in current scope | N/A | Done: hostile markup preserves multilingual text | Done: current OEB-backed conversion products | Open: direct/external edge diagnostics not modeled beyond generic edge support | Decide direct/external Textile edge candidates and loss reporting | Open |
-| PML | Reader/input not the current focus | Done: `PMLMLizer` and `PMLOutput` deterministic output | N/A in current scope | Done: unsupported-character boundary pinned | Done: recoverable `.pmlz` bytes and supported unicode escapes | Done: aggregate `unsupported-character-replacement` `ConversionReport` event | Extend report plumbing to more lossy formats before pipeline-wide sign-off | Candidate for output boundary; pipeline integration provisional |
+| PML | Reader/input not the current focus | Done: `PMLMLizer` and `PMLOutput` deterministic output | N/A in current scope | Done: unsupported-character boundary pinned | Done: recoverable `.pmlz` bytes and supported unicode escapes | Signed off for row scope: aggregate recoverable `unsupported-character-replacement` `ConversionReport` event records count, samples, replacement, and edge context | None for current PML output lossy-boundary scope; extending report plumbing to more lossy formats remains pipeline-wide work | Signed off |
 
 ## Pipeline Infrastructure
 
@@ -78,6 +78,32 @@ record why the heavy lane is intentionally skipped.
 | Legacy OEB-backed path | Done as current default path | Done as current default path | Format-dependent | Format-dependent | Done where each format row has product assertions | Provisional: fallback and loss reporting are not globally consistent | Promote from implicit default to inspectable planner behavior | Provisional |
 
 ## Signed-Off Reviews
+
+### PML Output Boundary - 2026-06-03
+
+Decision: signed off for the current PML output lossy-boundary scope. The
+signed-off scope includes deterministic `PMLMLizer` output, deterministic
+`.pmlz` bytes from `PMLOutput`, supported unicode escaping, recoverable `?`
+replacement for unsupported characters, and an aggregate
+`unsupported-character-replacement` `ConversionReport` event with count,
+samples, replacement details, recoverability, and conversion-edge context.
+
+Validation:
+
+```text
+python3 -m pytest tests/file_formats/pml tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py -q
+57 passed in 8.97s
+
+python3 -m pytest tests/metadata/file_sources/test_pml_metadata_source.py -q
+12 passed in 9.69s
+
+python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+4 passed in 7.37s
+```
+
+Broader report plumbing across other lossy formats, fallback execution, and
+pipeline-wide planner semantics remain separate provisional work, not blockers
+for this PML output boundary row.
 
 ### PDB Family - 2026-06-03
 
@@ -201,10 +227,9 @@ Future real-corpus defects should be added as regressions or new follow-up rows.
 
 ## First Review Queue
 
-The next row worth reviewing for actual sign-off is the remaining candidate
-row with no known product blocker beyond broader release validation:
-
-- PML output lossy-boundary behavior
+There are no remaining candidate rows with no known product blocker. The next
+conversion work should promote one of the provisional or open rows into a
+candidate before another sign-off review.
 
 Rows that should not be promoted yet:
 
