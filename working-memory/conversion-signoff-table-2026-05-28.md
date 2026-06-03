@@ -45,12 +45,14 @@ Rows already reviewed and signed off:
   scope.
 - PDB input/metadata hardening, signed off 2026-06-03 for the current format
   scope.
+- PML output lossy-boundary behavior, signed off 2026-06-03 for the current
+  row scope.
 
 ## Remaining Candidate Rows
 
-Rows that are ready for a deliberate sign-off review:
-
-- PML output lossy-boundary behavior
+There are no remaining candidate rows ready for a deliberate sign-off review.
+The next conversion work should promote one of the provisional or open rows into
+a candidate first.
 
 ## Rows Not Ready Yet
 
@@ -145,7 +147,26 @@ python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smo
 6 passed in 17.27s
 ```
 
+## PML Review
+
+PML output lossy-boundary behavior was reviewed and signed off on 2026-06-03.
+Focused validation passed:
+
+```text
+python3 -m pytest tests/file_formats/pml tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py -q
+57 passed in 8.97s
+
+python3 -m pytest tests/metadata/file_sources/test_pml_metadata_source.py -q
+12 passed in 9.69s
+
+python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+4 passed in 7.37s
+```
+
 ## Next Useful Step
 
-Pick the next candidate row and perform the same explicit sign-off review. The
-remaining candidate is PML output lossy-boundary behavior.
+There are no remaining candidate rows ready for sign-off. The next useful step
+is to choose a provisional row, close its named blocker, and promote it to a
+candidate. Likely candidates are HTMLZ optional-enrichment diagnostics, comic
+RAR/backend variance, TXT loss-report semantics, or broader conversion-report
+plumbing.

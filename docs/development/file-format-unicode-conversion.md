@@ -174,27 +174,33 @@ conversion-product sign-off, not known subreader-hostile gaps.
 
 ## PML Status
 
-The PML pass currently captures two boundaries:
+The PML output lossy-boundary row was signed off on 2026-06-03 for the current
+row scope. The signed-off scope includes:
 
-- `PMLMLizer` and `PMLOutput` can serialize supported characters with PML
+- `PMLMLizer` and `PMLOutput` serialization of supported characters with PML
   escapes and deterministic `.pmlz` output.
-- PML cannot represent the full unicode corpus. Unsupported characters are
-  currently replaced with `?`.
+- Recoverable replacement of unsupported characters with `?`.
+- An aggregate `unsupported-character-replacement` `ConversionReport` loss event
+  with count, samples, replacement details, recoverability, and edge context.
+- The current legacy OEB-backed path exposed as `ConversionEdge` for report
+  naming, without changing execution behavior.
 
-The replacement behavior is acceptable as an output fallback, but it should not
-be silent. Lossy conversion must become visible and reportable before the
-broader conversion work depends on it.
+Focused validation for sign-off passed:
 
-Current next implementation slice: add the first structured conversion/loss
-report around PML unsupported-character replacement while preserving the
-existing recoverable output bytes. The first implementation now records an
-aggregate `unsupported-character-replacement` loss event through
-`ConversionReport` when PML output replaces unsupported characters with `?`.
-The initial edge-model slice now also exposes the current legacy OEB-backed
-path as `ConversionEdge`, leaving execution behavior unchanged while giving
-reports and future fallback planning a deterministic edge name. The shared
-archive-preflight slice now reduces repeated ZIP policy in the container
-formats without changing their format-specific validation contracts.
+```text
+python3 -m pytest tests/file_formats/pml tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py -q
+57 passed in 8.97s
+
+python3 -m pytest tests/metadata/file_sources/test_pml_metadata_source.py -q
+12 passed in 9.69s
+
+python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+4 passed in 7.37s
+```
+
+This signs off the PML output boundary only. Broader loss-report plumbing across
+other lossy formats, fallback execution, and pipeline-wide planner semantics
+remain provisional conversion-pipeline work.
 
 ## Loss Reporting Direction
 

@@ -59,6 +59,12 @@ Start here for active handoff notes. This index should stay short.
   off for the current format scope with focused PDB subreader, metadata
   fallback, malformed-input fuzzing, and conversion smoke validation.
 
+- [conversion-pml-signoff-2026-06-03.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-signoff-2026-06-03.md)
+  Sixth signed-off conversion matrix row: PML output lossy-boundary behavior is
+  signed off for the current row scope with deterministic output, structured
+  unsupported-character loss reporting, edge context, metadata, and plugin-smoke
+  validation.
+
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and
   make PML unsupported-character replacement visible while preserving current
