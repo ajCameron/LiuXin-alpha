@@ -58,7 +58,7 @@ record why the heavy lane is intentionally skipped.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | LIT | Done: parser fixtures, manifests, namelists, `UnBinary`, DRM boundary | Blocked for successful full archive output; unavailable LZX fails with `LitWriterError` before output open | Limited to OPF/manifest surfaces in current scope | Done: malformed headers, secondary blocks, manifest/namelist, binary markup controls | Partial: input products, `postprocess_book`, `ReBinary`, writer manifest, unavailable-LZX boundary | Done for named parser/writer failures; no structured report yet | Testable LZX compressor backend for successful `.lit` output | Blocked for full output; input/parser is candidate |
 | MOBI/AZW/KF8 | Done: PalmDB/MOBI/EXTH, HUFF/CDIC, INDX/TAGX, KF8 FDST/resources | Partial: old MOBI output round-trip and writer behavior covered; richer KF8 output remains | Done: EXTH read/write, Topaz dispatch, fallback metadata policy | Done: record table, headers, EXTH, decompression budgets, KF8 indices/resources | Partial: old-MOBI output, direct/CRES image resources; skeleton/div/NCX products still open | Provisional: recovery paths visible but not structured across all paths | Realistic KF8 skeleton/div/NCX products, non-image resources, trusted budget policy | Provisional |
-| PDB family | Done: PalmDB wrapper plus PalmDOC, zTXT, eReader, Plucker, Haodoo subreaders | Limited in current scope; metadata writes covered where supported | Done: legacy metadata fixtures, eReader writes, fallback behavior | Done: wrapper validation, subreader range/decompression/image/name/header failures | Done: plugin-path products for major subreaders, including Haodoo CP950/UTF-16LE | Done for named `PDBError`/strict fallback behavior; no structured report yet | Heavy-lane/release validation or real-corpus defects before final promotion | Candidate |
+| PDB family | Done: PalmDB wrapper plus PalmDOC, zTXT, eReader, Plucker, Haodoo subreaders | Limited in current scope; PalmDOC/zTXT/eReader output writers exist and metadata writes are covered where supported | Done: legacy metadata fixtures, eReader writes, fallback behavior, wrapper-title updates | Done: wrapper validation, subreader range/decompression/image/name/header failures, Haodoo CP950/UTF-16LE bounds | Done: plugin-path products for supported subreaders, including Haodoo CP950/UTF-16LE; metadata fallback/product boundaries covered | Signed off for row scope: named parser errors and strict/fallback metadata behavior cover wrapper and subreader boundaries | None for current PDB input/metadata hardening scope; broader output-product expansion and real-corpus defects remain separate rows | Signed off |
 
 ## Text, Markup, And Lossy Output Formats
 
@@ -78,6 +78,32 @@ record why the heavy lane is intentionally skipped.
 | Legacy OEB-backed path | Done as current default path | Done as current default path | Format-dependent | Format-dependent | Done where each format row has product assertions | Provisional: fallback and loss reporting are not globally consistent | Promote from implicit default to inspectable planner behavior | Provisional |
 
 ## Signed-Off Reviews
+
+### PDB Family - 2026-06-03
+
+Decision: signed off for the current PDB input/metadata hardening scope. The
+signed-off scope includes the PalmDB wrapper, PalmDOC, zTXT, eReader, Plucker,
+and Haodoo subreader boundaries, metadata reader fallback behavior, wrapper-title
+updates, supported eReader body metadata writes, generated plugin-path products,
+Haodoo CP950 and UTF-16LE fixtures, and named parser failures before partial or
+unsafe output.
+
+Validation:
+
+```text
+python3 -m pytest tests/file_formats/pdb tests/metadata/file_sources/test_pdb_metadata_source.py tests/metadata/file_sources/test_pdb_metadata_fixtures.py tests/metadata/file_sources/test_pdb_subreader_edge_cases.py -q
+100 passed in 24.10s
+
+python3 -m pytest tests/metadata/file_sources/test_malformed_input_fuzzing.py -q
+133 passed in 26.09s
+
+python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py tests/file_formats/conversion/test_conversion_top_level_smoke.py -q
+6 passed in 17.27s
+```
+
+Broader PDB output-product expansion, structured conversion reports, and future
+real-corpus defects remain separate follow-up rows, not blockers for this
+input/metadata hardening row.
 
 ### DOCX - 2026-06-02
 
@@ -175,10 +201,9 @@ Future real-corpus defects should be added as regressions or new follow-up rows.
 
 ## First Review Queue
 
-The next rows worth reviewing for actual sign-off are the remaining candidate
-rows with no known product blocker beyond broader release validation:
+The next row worth reviewing for actual sign-off is the remaining candidate
+row with no known product blocker beyond broader release validation:
 
-- PDB input/metadata hardening scope
 - PML output lossy-boundary behavior
 
 Rows that should not be promoted yet:
