@@ -98,13 +98,10 @@ PalmDOC, zTXT, eReader, and Plucker subreader preflight now covers:
   chapter-title counts, declared chapter ranges, and direct section access
   reported as `PDBError`
 
-Still-open preflight targets are now concentrated inside the remaining richer
-subreaders:
-
-- declared text, image, link, and metadata ranges contained inside available
-  sections
-- generated output paths for image/resource extraction kept inside the
-  conversion work directory
+The known preflight targets for the current sign-off scope are covered across
+PalmDOC, zTXT, eReader, Plucker, and Haodoo. Remaining PDB work should come from
+broader output-product expansion, structured conversion reports, or specific
+real-corpus defects rather than another generic subreader preflight pass.
 
 ## Subformat Boundaries
 
@@ -223,3 +220,30 @@ High-value focused commands:
   tests/metadata/file_sources/test_pdb_metadata_fixtures.py
   tests/metadata/file_sources/test_pdb_subreader_edge_cases.py -q`
 - `python3 -m pytest tests/metadata/file_sources/test_malformed_input_fuzzing.py -q`
+
+## Sign-Off Status
+
+The PDB input/metadata hardening row was signed off on 2026-06-03 for the
+current format scope. The signed-off scope includes PalmDB wrapper validation,
+PalmDOC/zTXT/eReader/Plucker/Haodoo subreader hostile boundaries, Haodoo CP950
+and UTF-16LE conversion fixtures, metadata strict/fallback behavior,
+wrapper-title updates, supported eReader body metadata writes, plugin-path
+products, and named parser errors before partial or unsafe output.
+
+Focused validation for the sign-off passed:
+
+```text
+python3 -m pytest tests/file_formats/pdb tests/metadata/file_sources/test_pdb_metadata_source.py tests/metadata/file_sources/test_pdb_metadata_fixtures.py tests/metadata/file_sources/test_pdb_subreader_edge_cases.py -q
+100 passed in 24.10s
+
+python3 -m pytest tests/metadata/file_sources/test_malformed_input_fuzzing.py -q
+133 passed in 26.09s
+
+python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py tests/file_formats/conversion/test_conversion_top_level_smoke.py -q
+6 passed in 17.27s
+```
+
+This does not claim exhaustive output-product coverage for every PDB writer or
+every real-world PDB artifact. Broader output conversion products, structured
+loss/recovery reports, and future real-corpus defects should be tracked as
+separate follow-up rows or regressions.

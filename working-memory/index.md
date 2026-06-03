@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-06-02
+Updated: 2026-06-03
 
 Start here for active handoff notes. This index should stay short.
 
@@ -53,6 +53,11 @@ Start here for active handoff notes. This index should stay short.
   Fourth signed-off conversion matrix row: DOCX input/container conversion is
   signed off for the current format scope with focused DOCX, metadata,
   hostile-container, and shared preflight validation.
+
+- [conversion-pdb-signoff-2026-06-03.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pdb-signoff-2026-06-03.md)
+  Fifth signed-off conversion matrix row: PDB input/metadata hardening is signed
+  off for the current format scope with focused PDB subreader, metadata
+  fallback, malformed-input fuzzing, and conversion smoke validation.
 
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and

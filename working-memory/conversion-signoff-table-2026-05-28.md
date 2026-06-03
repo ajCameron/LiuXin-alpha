@@ -43,12 +43,13 @@ Rows already reviewed and signed off:
   scope.
 - DOCX input/container conversion, signed off 2026-06-02 for the current format
   scope.
+- PDB input/metadata hardening, signed off 2026-06-03 for the current format
+  scope.
 
 ## Remaining Candidate Rows
 
 Rows that are ready for a deliberate sign-off review:
 
-- PDB input/metadata hardening scope
 - PML output lossy-boundary behavior
 
 ## Rows Not Ready Yet
@@ -128,8 +129,23 @@ python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_format
 39 passed in 16.98s
 ```
 
+## PDB Review
+
+PDB input/metadata hardening was reviewed and signed off on 2026-06-03. Focused
+validation passed:
+
+```text
+python3 -m pytest tests/file_formats/pdb tests/metadata/file_sources/test_pdb_metadata_source.py tests/metadata/file_sources/test_pdb_metadata_fixtures.py tests/metadata/file_sources/test_pdb_subreader_edge_cases.py -q
+100 passed in 24.10s
+
+python3 -m pytest tests/metadata/file_sources/test_malformed_input_fuzzing.py -q
+133 passed in 26.09s
+
+python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py tests/file_formats/conversion/test_conversion_top_level_smoke.py -q
+6 passed in 17.27s
+```
+
 ## Next Useful Step
 
 Pick the next candidate row and perform the same explicit sign-off review. The
-remaining candidates are PDB input/metadata hardening scope and PML output
-lossy-boundary behavior.
+remaining candidate is PML output lossy-boundary behavior.
