@@ -99,3 +99,52 @@ def test_txt_output_uses_real_serializers_with_shared_unicode_oeb(
         assert fragment in rendered
     assert_fragments_present(rendered, COMMON_TEXT_FRAGMENTS, context=f"TXTOutput {formatting}")
     assert_no_replacement_chars(rendered, context=f"TXTOutput {formatting}")
+    assert options.conversion_report.loss_events == []
+
+
+def test_txt_output_reports_output_encoding_character_replacement(monkeypatch) -> None:
+    install_minimal_stylizers(monkeypatch)
+    txt_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.txt_output")
+    options = text_output_options(txt_output_encoding="ascii")
+    out = io.BytesIO()
+
+    txt_output.TXTOutput(None).convert(build_text_output_book(), out, None, options, null_log())
+    rendered = out.getvalue().decode("ascii", "strict")
+
+    assert "?" in rendered
+    report = options.conversion_report
+    events = [event for event in report.loss_events if event.code == "output-encoding-character-replacement"]
+    assert len(events) == 1
+    event = events[0]
+    assert event.phase == "txt-output"
+    assert event.source_format == "oeb"
+    assert event.target_format == "txt"
+    assert event.edge_name == "oeb-to-txt"
+    assert event.recoverable is True
+    assert event.count > 0
+    assert event.details["encoding"] == "ascii"
+    assert event.details["replacement"] == "?"
+    assert event.details["unique_characters"] >= 1
+    assert any("U+039A" in sample.codepoints for sample in event.samples)
+
+    payload = report.to_mapping()
+    assert payload["loss_event_count"] == 1
+    assert payload["loss_events"][0]["code"] == "output-encoding-character-replacement"
+
+
+def test_txt_output_report_uses_explicit_conversion_edge(monkeypatch) -> None:
+    install_minimal_stylizers(monkeypatch)
+    edges = importlib.import_module("LiuXin_alpha.file_formats.conversion.edges")
+    txt_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.txt_output")
+    options = text_output_options(
+        txt_output_encoding="ascii",
+        conversion_edge=edges.legacy_oeb_edge("html", "txt"),
+    )
+    out = io.BytesIO()
+
+    txt_output.TXTOutput(None).convert(build_text_output_book(), out, None, options, null_log())
+
+    event = options.conversion_report.loss_events[0]
+    assert event.source_format == "html"
+    assert event.target_format == "txt"
+    assert event.edge_name == "legacy-oeb:html->txt"

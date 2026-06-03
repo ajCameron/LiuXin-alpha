@@ -50,9 +50,9 @@ Rows already reviewed and signed off:
 
 ## Remaining Candidate Rows
 
-There are no remaining candidate rows ready for a deliberate sign-off review.
-The next conversion work should promote one of the provisional or open rows into
-a candidate first.
+Rows that are ready for a deliberate sign-off review:
+
+- TXT input/output encoding-loss report behavior
 
 ## Rows Not Ready Yet
 
@@ -61,7 +61,7 @@ Rows that still have named blockers:
 - LIT full output remains blocked by the unavailable LZX compressor backend.
 - MOBI/KF8 remains provisional pending realistic skeleton/div/NCX products,
   non-image resource fixtures, and trusted budget policy.
-- HTMLZ/comic/TXT remain provisional mostly around structured diagnostics and
+- HTMLZ/comic remain provisional mostly around structured diagnostics and
   backend variance.
 - Markdown/Textile direct or external edges remain open design work.
 - Pipeline-wide report/fallback semantics remain provisional beyond the first
@@ -163,10 +163,28 @@ python3 -m pytest tests/file_formats/conversion/plugins/test_plugins_runtime_smo
 4 passed in 7.37s
 ```
 
+## TXT Candidate Promotion
+
+TXT input/output encoding-loss report behavior was promoted to candidate on
+2026-06-03. Focused validation passed:
+
+```text
+python3 -m pytest tests/file_formats/txt/test_txt_unicode_torture.py tests/file_formats/txt/test_txt_output_serializers_unicode_framework.py -q
+13 passed in 6.26s
+
+python3 -m pytest tests/file_formats/txt -q
+39 passed, 1 warning in 5.31s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 6.88s
+
+python3 -m pytest tests/file_formats/test_conversion_framework.py tests/file_formats/test_unicode_framework.py -q
+10 passed in 0.53s
+```
+
 ## Next Useful Step
 
-There are no remaining candidate rows ready for sign-off. The next useful step
-is to choose a provisional row, close its named blocker, and promote it to a
-candidate. Likely candidates are HTMLZ optional-enrichment diagnostics, comic
-RAR/backend variance, TXT loss-report semantics, or broader conversion-report
-plumbing.
+After the TXT loss-report slice merges, perform a focused TXT sign-off review.
+The candidate scope is malformed TXT input decode replacement and TXT output
+encoding replacement reporting. Broader direct/external markup edge diagnostics
+remain separate pipeline work.

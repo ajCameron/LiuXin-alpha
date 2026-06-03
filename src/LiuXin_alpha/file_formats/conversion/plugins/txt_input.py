@@ -6,6 +6,10 @@ from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommend
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
+from LiuXin_alpha.file_formats.conversion.report import (
+    ConversionLossSample,
+    ensure_conversion_report,
+)
 
 from LiuXin_alpha.utils.calibre import CurrentDir, _ent_pat, walk, xml_entity_to_unicode
 from LiuXin_alpha.utils.localization import trans as _
@@ -26,6 +30,34 @@ MD_EXTENSIONS = {
     "toc": _("Generate a table of contents"),
     "wikilinks": _("Wiki style links"),
 }
+
+
+def _decode_text_payload(raw, encoding, options, source_format):
+    decoded = raw.decode(encoding, "replace")
+    try:
+        raw.decode(encoding, "strict")
+    except UnicodeDecodeError:
+        replacement_count = decoded.count("\ufffd")
+        if replacement_count:
+            report = ensure_conversion_report(options)
+            report.add_loss_event(
+                phase="txt-input",
+                code="input-decoding-byte-replacement",
+                message=(
+                    "TXT input decoded with %s replaced %d malformed byte sequence%s with U+FFFD."
+                    % (encoding, replacement_count, "" if replacement_count == 1 else "s")
+                ),
+                count=replacement_count,
+                source_format=source_format,
+                target_format="oeb",
+                edge_name="%s-to-oeb" % source_format,
+                samples=[ConversionLossSample.from_text("\ufffd")],
+                details={
+                    "encoding": encoding,
+                    "replacement": "\ufffd",
+                },
+            )
+    return decoded
 
 
 class TXTInput(InputFormatPlugin):
@@ -192,7 +224,7 @@ class TXTInput(InputFormatPlugin):
                 if txt.startswith(bom):
                     txt = txt[len(bom) :]
                     break
-            txt = txt.decode(ienc, "replace")
+            txt = _decode_text_payload(txt, ienc, options, file_ext or "txt")
 
             # Replace entities
             txt = _ent_pat.sub(xml_entity_to_unicode, txt)

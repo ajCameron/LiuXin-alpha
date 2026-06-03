@@ -65,6 +65,12 @@ Start here for active handoff notes. This index should stay short.
   unsupported-character loss reporting, edge context, metadata, and plugin-smoke
   validation.
 
+- [conversion-txt-loss-report-2026-06-03.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-txt-loss-report-2026-06-03.md)
+  TXT candidate promotion: malformed TXT input decode replacement and TXT output
+  encoding replacement now emit structured conversion loss events, making TXT
+  input/output encoding-loss behavior ready for focused sign-off review after
+  merge.
+
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and
   make PML unsupported-character replacement visible while preserving current

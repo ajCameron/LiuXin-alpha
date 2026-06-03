@@ -64,7 +64,7 @@ record why the heavy lane is intentionally skipped.
 
 | Area | Reader/Input | Writer/Output | Metadata | Hostile Boundary | Product Assertions | Loss/Diagnostics | Remaining Blocker | State |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TXT | Done: encoded payloads, newline/output serializer matrix, shared unicode corpus | Done: output serializers and encoding/newline behavior | Limited/N/A in current scope | Done: markup-extension hostile inputs and malformed text-like payloads | Done: multilingual TXT input/output products | Provisional: encoding and markup losses are not yet consistently structured | Decide which TXT recovery/loss cases should emit `ConversionReport` events | Provisional |
+| TXT | Done: encoded payloads, newline/output serializer matrix, shared unicode corpus | Done: output serializers and encoding/newline behavior | Limited/N/A in current scope | Done: markup-extension hostile inputs and malformed text-like payloads | Done: multilingual TXT input/output products | Candidate: malformed input decode replacement and output encoding replacement now emit structured `ConversionReport` loss events | Focused sign-off review after the TXT loss-report slice merges; broader direct-markup edge diagnostics remain separate rows | Candidate |
 | Markdown | Done: malformed delimiter/reference/footnote stress through current input path | N/A in current scope | N/A | Done: hostile markup preserves multilingual text | Done: current OEB-backed conversion products | Open: direct/external edge diagnostics not modeled beyond generic edge support | Decide direct/external Markdown edge candidates and loss reporting | Open |
 | Textile | Done: malformed delimiter stress through current input path | N/A in current scope | N/A | Done: hostile markup preserves multilingual text | Done: current OEB-backed conversion products | Open: direct/external edge diagnostics not modeled beyond generic edge support | Decide direct/external Textile edge candidates and loss reporting | Open |
 | PML | Reader/input not the current focus | Done: `PMLMLizer` and `PMLOutput` deterministic output | N/A in current scope | Done: unsupported-character boundary pinned | Done: recoverable `.pmlz` bytes and supported unicode escapes | Signed off for row scope: aggregate recoverable `unsupported-character-replacement` `ConversionReport` event records count, samples, replacement, and edge context | None for current PML output lossy-boundary scope; extending report plumbing to more lossy formats remains pipeline-wide work | Signed off |
@@ -227,9 +227,10 @@ Future real-corpus defects should be added as regressions or new follow-up rows.
 
 ## First Review Queue
 
-There are no remaining candidate rows with no known product blocker. The next
-conversion work should promote one of the provisional or open rows into a
-candidate before another sign-off review.
+The next row worth reviewing for actual sign-off is the newly promoted candidate
+row with no known product blocker inside its current scope:
+
+- TXT input/output encoding-loss report behavior
 
 Rows that should not be promoted yet:
 
