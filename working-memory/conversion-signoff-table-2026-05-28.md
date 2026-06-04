@@ -47,12 +47,14 @@ Rows already reviewed and signed off:
   scope.
 - PML output lossy-boundary behavior, signed off 2026-06-03 for the current
   row scope.
+- TXT input/output encoding-loss report behavior, signed off 2026-06-04 for
+  the current row scope.
 
 ## Remaining Candidate Rows
 
-Rows that are ready for a deliberate sign-off review:
-
-- TXT input/output encoding-loss report behavior
+There are no remaining candidate rows ready for a deliberate sign-off review.
+The next conversion work should promote one of the provisional or open rows into
+a candidate first.
 
 ## Rows Not Ready Yet
 
@@ -182,9 +184,32 @@ python3 -m pytest tests/file_formats/test_conversion_framework.py tests/file_for
 10 passed in 0.53s
 ```
 
+## TXT Review
+
+TXT input/output encoding-loss report behavior was reviewed and signed off on
+2026-06-04. Focused validation passed:
+
+```text
+python3 -m pytest tests/file_formats/txt/test_txt_unicode_torture.py tests/file_formats/txt/test_txt_output_serializers_unicode_framework.py -q
+13 passed in 7.88s
+
+python3 -m pytest tests/file_formats/txt -q
+39 passed, 1 warning in 8.54s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 11.08s
+
+python3 -m pytest tests/metadata/file_sources/test_txt_metadata_source.py tests/metadata/file_sources/test_txtz_metadata_source.py -q
+22 passed in 15.43s
+
+python3 -m pytest tests/file_formats/txt tests/file_formats/markdown tests/file_formats/textile -q
+90 passed, 3 warnings in 10.01s
+```
+
 ## Next Useful Step
 
-After the TXT loss-report slice merges, perform a focused TXT sign-off review.
-The candidate scope is malformed TXT input decode replacement and TXT output
-encoding replacement reporting. Broader direct/external markup edge diagnostics
-remain separate pipeline work.
+There are no remaining candidate rows ready for sign-off. The next useful step
+is to choose a provisional row, close its named blocker, and promote it to a
+candidate. Likely candidates are HTMLZ optional-enrichment diagnostics, comic
+RAR/backend variance, shared archive preflight metadata-reader policy, or
+broader conversion-report plumbing.

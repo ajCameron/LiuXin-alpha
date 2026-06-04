@@ -71,6 +71,12 @@ Start here for active handoff notes. This index should stay short.
   input/output encoding-loss behavior ready for focused sign-off review after
   merge.
 
+- [conversion-txt-signoff-2026-06-04.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-txt-signoff-2026-06-04.md)
+  Seventh signed-off conversion matrix row: TXT input/output encoding-loss
+  report behavior is signed off for the current row scope with focused TXT,
+  conversion report/edge/plugin, TXT/TXTZ metadata, and broader text-markup
+  validation.
+
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and
   make PML unsupported-character replacement visible while preserving current
