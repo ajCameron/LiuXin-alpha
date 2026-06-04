@@ -155,6 +155,10 @@ A format or pipeline edge can be treated as signed off when it has:
      reporting now covers malformed input decode replacement and output
      encoding replacement. The TXT row is ready for focused sign-off review
      after this implementation slice merges.
+   - Seventh signed-off row, 2026-06-04: TXT input/output encoding-loss
+     reporting for the current row scope, with focused TXT loss-report, full
+     TXT, conversion report/edge/plugin smoke, TXT/TXTZ metadata, and broader
+     TXT/Markdown/Textile validation recorded in the sign-off matrix.
 
 ## Open Decisions
 

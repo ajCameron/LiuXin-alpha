@@ -45,3 +45,28 @@ selection and broader markup loss diagnostics remain separate pipeline work.
 
 After this branch merges, perform a focused TXT sign-off review for the current
 input/output encoding-loss report scope.
+
+## Sign-Off Status
+
+TXT input/output encoding-loss report behavior was signed off on 2026-06-04 for
+the current row scope. Broader direct/external markup edge diagnostics remain
+separate pipeline work.
+
+Focused sign-off validation:
+
+```text
+python3 -m pytest tests/file_formats/txt/test_txt_unicode_torture.py tests/file_formats/txt/test_txt_output_serializers_unicode_framework.py -q
+13 passed in 7.88s
+
+python3 -m pytest tests/file_formats/txt -q
+39 passed, 1 warning in 8.54s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 11.08s
+
+python3 -m pytest tests/metadata/file_sources/test_txt_metadata_source.py tests/metadata/file_sources/test_txtz_metadata_source.py -q
+22 passed in 15.43s
+
+python3 -m pytest tests/file_formats/txt tests/file_formats/markdown tests/file_formats/textile -q
+90 passed, 3 warnings in 10.01s
+```

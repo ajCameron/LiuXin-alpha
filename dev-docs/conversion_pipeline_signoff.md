@@ -64,7 +64,7 @@ record why the heavy lane is intentionally skipped.
 
 | Area | Reader/Input | Writer/Output | Metadata | Hostile Boundary | Product Assertions | Loss/Diagnostics | Remaining Blocker | State |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TXT | Done: encoded payloads, newline/output serializer matrix, shared unicode corpus | Done: output serializers and encoding/newline behavior | Limited/N/A in current scope | Done: markup-extension hostile inputs and malformed text-like payloads | Done: multilingual TXT input/output products | Candidate: malformed input decode replacement and output encoding replacement now emit structured `ConversionReport` loss events | Focused sign-off review after the TXT loss-report slice merges; broader direct-markup edge diagnostics remain separate rows | Candidate |
+| TXT | Done: encoded payloads, newline/output serializer matrix, shared unicode corpus | Done: output serializers and encoding/newline behavior | Done for TXT/TXTZ file-source metadata in supporting scope | Done: markup-extension hostile inputs and malformed text-like payloads | Done: multilingual TXT input/output products | Signed off for row scope: malformed input decode replacement and output encoding replacement emit structured `ConversionReport` loss events | None for current TXT input/output encoding-loss scope; broader direct-markup edge diagnostics remain separate rows | Signed off |
 | Markdown | Done: malformed delimiter/reference/footnote stress through current input path | N/A in current scope | N/A | Done: hostile markup preserves multilingual text | Done: current OEB-backed conversion products | Open: direct/external edge diagnostics not modeled beyond generic edge support | Decide direct/external Markdown edge candidates and loss reporting | Open |
 | Textile | Done: malformed delimiter stress through current input path | N/A in current scope | N/A | Done: hostile markup preserves multilingual text | Done: current OEB-backed conversion products | Open: direct/external edge diagnostics not modeled beyond generic edge support | Decide direct/external Textile edge candidates and loss reporting | Open |
 | PML | Reader/input not the current focus | Done: `PMLMLizer` and `PMLOutput` deterministic output | N/A in current scope | Done: unsupported-character boundary pinned | Done: recoverable `.pmlz` bytes and supported unicode escapes | Signed off for row scope: aggregate recoverable `unsupported-character-replacement` `ConversionReport` event records count, samples, replacement, and edge context | None for current PML output lossy-boundary scope; extending report plumbing to more lossy formats remains pipeline-wide work | Signed off |
@@ -78,6 +78,40 @@ record why the heavy lane is intentionally skipped.
 | Legacy OEB-backed path | Done as current default path | Done as current default path | Format-dependent | Format-dependent | Done where each format row has product assertions | Provisional: fallback and loss reporting are not globally consistent | Promote from implicit default to inspectable planner behavior | Provisional |
 
 ## Signed-Off Reviews
+
+### TXT Encoding-Loss Reports - 2026-06-04
+
+Decision: signed off for the current TXT input/output encoding-loss report
+scope. The signed-off scope includes encoded input fixtures, newline/output
+serializer behavior, malformed TXT input byte replacement reported as
+`input-decoding-byte-replacement`, TXT output encoding replacement reported as
+`output-encoding-character-replacement`, conversion-edge context for output
+reports, no loss events for UTF-8 output that preserves the corpus, TXT/TXTZ
+metadata file-source coverage as supporting evidence, and current
+Markdown/Textile extension-path behavior remaining stable.
+
+Validation:
+
+```text
+python3 -m pytest tests/file_formats/txt/test_txt_unicode_torture.py tests/file_formats/txt/test_txt_output_serializers_unicode_framework.py -q
+13 passed in 7.88s
+
+python3 -m pytest tests/file_formats/txt -q
+39 passed, 1 warning in 8.54s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 11.08s
+
+python3 -m pytest tests/metadata/file_sources/test_txt_metadata_source.py tests/metadata/file_sources/test_txtz_metadata_source.py -q
+22 passed in 15.43s
+
+python3 -m pytest tests/file_formats/txt tests/file_formats/markdown tests/file_formats/textile -q
+90 passed, 3 warnings in 10.01s
+```
+
+Malformed Markdown/Textile parser failures remain hard failures rather than
+recoverable loss events in the current TXT row. Direct/external markup edge
+selection and broader markup loss diagnostics remain separate pipeline work.
 
 ### PML Output Boundary - 2026-06-03
 
@@ -227,10 +261,9 @@ Future real-corpus defects should be added as regressions or new follow-up rows.
 
 ## First Review Queue
 
-The next row worth reviewing for actual sign-off is the newly promoted candidate
-row with no known product blocker inside its current scope:
-
-- TXT input/output encoding-loss report behavior
+There are no remaining candidate rows with no known product blocker. The next
+conversion work should promote one of the provisional or open rows into a
+candidate before another sign-off review.
 
 Rows that should not be promoted yet:
 
