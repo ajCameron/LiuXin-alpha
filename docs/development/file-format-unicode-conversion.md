@@ -106,9 +106,10 @@ The HTMLZ pass applies the archive-safety half of the container contract while
 preserving HTMLZ's looser structure: a top-level HTML/XHTML member is required,
 but top-level OPF metadata and cover references are optional enrichment. HTMLZ
 now has reusable multilingual fixtures, valid plugin-path coverage, optional
-OPF/cover warning coverage, hostile archive path checks, and zip-bomb-shaped
-limits. Optional OPF/cover failures should remain visible through warnings
-without aborting an otherwise usable HTML conversion.
+OPF/cover warning and report-event coverage, hostile archive path checks, and
+zip-bomb-shaped limits. Optional OPF/cover failures remain visible through
+warnings and recoverable `ConversionReport` events without aborting an otherwise
+usable HTML conversion.
 
 The comic pass applies archive-safety to ZIP-backed CBZ/CBC input and CBR/RAR
 preflight: reusable CBZ/CBC fixtures, valid multilingual plugin-path coverage,

@@ -8,6 +8,7 @@ from LiuXin_alpha.customize.conversion import InputFormatPlugin
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
+from LiuXin_alpha.file_formats.conversion.report import ensure_conversion_report
 from LiuXin_alpha.file_formats.archive_preflight import (
     normalized_zip_member_name,
     validate_zip_member_infos,
@@ -38,6 +39,21 @@ class HTMLZInput(InputFormatPlugin):
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is not None:
             warn(message)
+
+    def _warn_optional_enrichment_loss(self, log, options, code, message, details=None):
+        self._warn(log, message)
+        report = ensure_conversion_report(options)
+        report.add_warning(message)
+        report.add_loss_event(
+            phase="htmlz-input",
+            code=code,
+            message=message,
+            count=1,
+            source_format="htmlz",
+            target_format="oeb",
+            edge_name="htmlz-to-oeb",
+            details=details or {},
+        )
 
     def _safe_cover_path(self, basedir, cover_path):
         if not cover_path:
@@ -234,22 +250,31 @@ class HTMLZInput(InputFormatPlugin):
                     opf_obj = OPF(opf, basedir=os.getcwd())
                     cover_path = opf_obj.raster_cover or opf_obj.cover
                 except Exception as err:
-                    self._warn(
+                    self._warn_optional_enrichment_loss(
                         log,
+                        options,
+                        "optional-opf-enrichment-failed",
                         _("Could not read HTMLZ metadata file %s: %s") % (opf, err),
+                        {"opf_member": opf, "reason": str(err)},
                     )
             # Set the cover.
             if cover_path:
                 cover_file = self._safe_cover_path(os.getcwd(), cover_path)
                 if cover_file is None:
-                    self._warn(
+                    self._warn_optional_enrichment_loss(
                         log,
+                        options,
+                        "optional-cover-unsafe-path",
                         _("Ignoring unsafe HTMLZ cover path: %s") % cover_path,
+                        {"cover_path": cover_path},
                     )
                 elif not os.path.isfile(cover_file):
-                    self._warn(
+                    self._warn_optional_enrichment_loss(
                         log,
+                        options,
+                        "optional-cover-missing",
                         _("HTMLZ cover file %s was not found") % cover_path,
+                        {"cover_path": cover_path},
                     )
                 else:
                     with open(cover_file, "rb") as cf:

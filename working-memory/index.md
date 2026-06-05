@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-06-03
+Updated: 2026-06-04
 
 Start here for active handoff notes. This index should stay short.
 
@@ -76,6 +76,12 @@ Start here for active handoff notes. This index should stay short.
   report behavior is signed off for the current row scope with focused TXT,
   conversion report/edge/plugin, TXT/TXTZ metadata, and broader text-markup
   validation.
+
+- [conversion-htmlz-diagnostics-2026-06-04.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-htmlz-diagnostics-2026-06-04.md)
+  HTMLZ candidate promotion: optional OPF read failures, unsafe cover paths, and
+  missing cover files now emit structured recoverable conversion loss events,
+  making HTMLZ optional-enrichment diagnostics ready for focused sign-off review
+  after merge.
 
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and

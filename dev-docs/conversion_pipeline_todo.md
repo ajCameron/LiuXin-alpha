@@ -85,6 +85,10 @@ A format or pipeline edge can be treated as signed off when it has:
      replacement now emits `input-decoding-byte-replacement`, and TXT output
      encoding replacement now emits `output-encoding-character-replacement`,
      while preserving recoverable output bytes.
+   - HTMLZ diagnostics slice, 2026-06-04: optional OPF read failures,
+     unsafe cover paths, and missing cover files now emit recoverable
+     `ConversionReport` loss events while preserving existing warning-and-
+     continue behavior.
 
 3. Model conversion edges explicitly.
    - Keep OEB-backed edges.
@@ -159,6 +163,10 @@ A format or pipeline edge can be treated as signed off when it has:
      reporting for the current row scope, with focused TXT loss-report, full
      TXT, conversion report/edge/plugin smoke, TXT/TXTZ metadata, and broader
      TXT/Markdown/Textile validation recorded in the sign-off matrix.
+   - HTMLZ candidate promotion, 2026-06-04: optional-enrichment
+     diagnostics now report malformed optional OPF, unsafe cover paths, and
+     missing cover files. The HTMLZ row is ready for focused sign-off review
+     after this implementation slice merges.
 
 ## Open Decisions
 
