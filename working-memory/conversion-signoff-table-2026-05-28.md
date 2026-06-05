@@ -52,9 +52,9 @@ Rows already reviewed and signed off:
 
 ## Remaining Candidate Rows
 
-There are no remaining candidate rows ready for a deliberate sign-off review.
-The next conversion work should promote one of the provisional or open rows into
-a candidate first.
+Rows that are ready for a deliberate sign-off review:
+
+- HTMLZ optional-enrichment diagnostics
 
 ## Rows Not Ready Yet
 
@@ -63,8 +63,8 @@ Rows that still have named blockers:
 - LIT full output remains blocked by the unavailable LZX compressor backend.
 - MOBI/KF8 remains provisional pending realistic skeleton/div/NCX products,
   non-image resource fixtures, and trusted budget policy.
-- HTMLZ/comic remain provisional mostly around structured diagnostics and
-  backend variance.
+- Comic remains provisional mostly around backend variance and optional
+  structured diagnostics.
 - Markdown/Textile direct or external edges remain open design work.
 - Pipeline-wide report/fallback semantics remain provisional beyond the first
   PML report and edge-model slices.
@@ -206,10 +206,29 @@ python3 -m pytest tests/file_formats/txt tests/file_formats/markdown tests/file_
 90 passed, 3 warnings in 10.01s
 ```
 
+## HTMLZ Candidate Promotion
+
+HTMLZ optional-enrichment diagnostics were promoted to candidate on 2026-06-04.
+Focused validation passed:
+
+```text
+python3 -m pytest tests/file_formats/htmlz/test_htmlz_malformed_hostile.py -q
+18 passed in 14.53s
+
+python3 -m pytest tests/file_formats/htmlz -q
+31 passed in 5.36s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/htmlz/test_htmlz_malformed_hostile.py -q
+33 passed in 4.85s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 10.59s
+```
+
 ## Next Useful Step
 
-There are no remaining candidate rows ready for sign-off. The next useful step
-is to choose a provisional row, close its named blocker, and promote it to a
-candidate. Likely candidates are HTMLZ optional-enrichment diagnostics, comic
-RAR/backend variance, shared archive preflight metadata-reader policy, or
-broader conversion-report plumbing.
+After the HTMLZ diagnostics slice merges, perform a focused HTMLZ sign-off
+review. The candidate scope is optional OPF/cover enrichment diagnostics:
+malformed optional OPF, unsafe cover paths, and missing cover files now emit
+recoverable report events while required HTML and hostile archive failures remain
+strict.

@@ -47,12 +47,14 @@ metadata should not prevent conversion of an otherwise usable HTML payload.
 
 Current optional metadata behavior:
 
-- unreadable or malformed top-level OPF logs a warning and conversion continues
-- missing cover files referenced by OPF log a warning and conversion continues
+- unreadable or malformed top-level OPF logs a warning, emits
+  `optional-opf-enrichment-failed`, and conversion continues
+- missing cover files referenced by OPF log a warning, emit
+  `optional-cover-missing`, and conversion continues
 - unsafe OPF cover paths such as parent traversal, absolute paths, or drive-like
-  paths are ignored with a warning
+  paths are ignored with a warning and `optional-cover-unsafe-path`
 - valid nested non-ASCII cover paths are preserved and attached to the OEB
-  manifest/guide
+  manifest/guide without loss events
 
 This is deliberately different from EPUB and DOCX, where the package metadata
 is part of the core container contract. For HTMLZ, the top-level HTML file is
@@ -103,3 +105,34 @@ Diagnostics for future recovery work should record:
 - ignored or missing cover path, when applicable
 - relaxed archive limit, observed value, and active trusted-input profile
 - dropped linked resources or broken non-ASCII paths, when cheaply available
+
+## Diagnostics Status
+
+The HTMLZ optional-enrichment diagnostics slice promoted HTMLZ to candidate on
+2026-06-04. The current scope preserves existing warning-and-continue behavior
+for optional OPF/cover enrichment failures while adding structured recoverable
+loss events:
+
+- `optional-opf-enrichment-failed` for unreadable or malformed optional OPF
+- `optional-cover-unsafe-path` for unsafe OPF cover references
+- `optional-cover-missing` for missing cover files referenced by OPF
+
+Focused validation passed:
+
+```text
+python3 -m pytest tests/file_formats/htmlz/test_htmlz_malformed_hostile.py -q
+18 passed in 14.53s
+
+python3 -m pytest tests/file_formats/htmlz -q
+31 passed in 5.36s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/htmlz/test_htmlz_malformed_hostile.py -q
+33 passed in 4.85s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 10.59s
+```
+
+Required top-level HTML failures and hostile archive preflight remain strict
+conversion failures rather than recoverable loss events. Broader HTMLZ salvage
+or trusted-input behavior remains separate pipeline/container policy work.

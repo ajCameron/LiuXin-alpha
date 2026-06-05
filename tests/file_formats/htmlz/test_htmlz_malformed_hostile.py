@@ -77,6 +77,22 @@ def _assert_htmlz_rejects_before_html_handoff(
     assert options.debug_pipeline == "keep"
 
 
+def _assert_optional_enrichment_loss(options, code: str, **details) -> None:
+    report = options.conversion_report
+    events = [event for event in report.loss_events if event.code == code]
+    assert len(events) == 1
+    event = events[0]
+    assert event.phase == "htmlz-input"
+    assert event.source_format == "htmlz"
+    assert event.target_format == "oeb"
+    assert event.edge_name == "htmlz-to-oeb"
+    assert event.recoverable is True
+    assert event.count == 1
+    for key, value in details.items():
+        assert event.details[key] == value
+    assert event.message in report.warnings
+
+
 def _assert_htmlz_preflight_rejects_without_partial_output(
     archive: Path,
     workdir: Path,
@@ -170,6 +186,12 @@ def test_htmlz_input_warns_and_ignores_malformed_optional_opf(
     assert recorder.oeb.manifest.added == []
     assert recorder.oeb.guide.added == []
     assert any("Could not read HTMLZ metadata file metadata.opf" in msg for msg in log.messages)
+    _assert_optional_enrichment_loss(
+        options,
+        "optional-opf-enrichment-failed",
+        opf_member=HTMLZ_OPF_MEMBER,
+    )
+    assert "reason" in options.conversion_report.loss_events[0].details
 
 
 def test_htmlz_input_warns_and_ignores_missing_optional_cover(
@@ -181,7 +203,7 @@ def test_htmlz_input_warns_and_ignores_missing_optional_cover(
     rewrite_htmlz_zip(base.path, hostile, remove=(HTMLZ_IMAGE_MEMBER,))
     log = NullLog()
 
-    out, recorder, _options = _convert_htmlz(
+    out, recorder, options = _convert_htmlz(
         hostile,
         tmp_path / "missing_cover_work",
         monkeypatch,
@@ -193,6 +215,11 @@ def test_htmlz_input_warns_and_ignores_missing_optional_cover(
     assert recorder.oeb.manifest.added == []
     assert recorder.oeb.guide.added == []
     assert any("HTMLZ cover file images/深/cover_世界.png was not found" in msg for msg in log.messages)
+    _assert_optional_enrichment_loss(
+        options,
+        "optional-cover-missing",
+        cover_path=HTMLZ_IMAGE_MEMBER,
+    )
 
 
 @pytest.mark.parametrize(
@@ -218,7 +245,7 @@ def test_htmlz_input_warns_and_ignores_unsafe_optional_cover_reference(
     )
     log = NullLog()
 
-    out, recorder, _options = _convert_htmlz(
+    out, recorder, options = _convert_htmlz(
         hostile,
         tmp_path / "unsafe_cover_work",
         monkeypatch,
@@ -230,6 +257,11 @@ def test_htmlz_input_warns_and_ignores_unsafe_optional_cover_reference(
     assert recorder.oeb.manifest.added == []
     assert recorder.oeb.guide.added == []
     assert any(f"Ignoring unsafe HTMLZ cover path: {cover_href}" in msg for msg in log.messages)
+    _assert_optional_enrichment_loss(
+        options,
+        "optional-cover-unsafe-path",
+        cover_path=cover_href,
+    )
 
 
 def test_htmlz_input_rejects_non_zip_payload_before_extraction(
