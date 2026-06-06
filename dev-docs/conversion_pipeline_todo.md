@@ -167,6 +167,10 @@ A format or pipeline edge can be treated as signed off when it has:
      diagnostics now report malformed optional OPF, unsafe cover paths, and
      missing cover files. The HTMLZ row is ready for focused sign-off review
      after this implementation slice merges.
+   - Eighth signed-off row, 2026-06-06: HTMLZ optional-enrichment diagnostics
+     for the current row scope, with focused HTMLZ malformed/hostile, full
+     HTMLZ, shared archive preflight, and conversion report/edge/plugin smoke
+     validation recorded in the sign-off matrix.
 
 ## Open Decisions
 
