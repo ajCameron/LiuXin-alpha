@@ -48,7 +48,7 @@ record why the heavy lane is intentionally skipped.
 | ODT | Done: required members, manifest/meta/content, archive budgets, safe picture extraction | N/A in current scope | Done: multilingual metadata/body extraction and ODT metadata file-source checks | Done: required-member, malformed XML, hostile archive, picture path, bomb-shaped inputs | Done: OPF, XHTML, CSS, and copied assets | Signed off for row scope: strict failures and warnings cover required-member, malformed XML, unsafe pictures, and archive preflight behavior | None for current ODT input/container scope; future real-corpus defects become regressions | Signed off |
 | EPUB | Done: OCF container, OPF package discovery, manifest/spine, nested and non-ASCII assets | N/A in current scope | Done through EPUB/OPF metadata file-source checks | Done: malformed container/package and hostile archive boundaries | Done: multilingual read/conversion product and assets | Signed off for row scope: strict failures and visible preflight logging cover missing structure, unsafe paths, archive budgets, manifest/spine failures, and extraction boundaries | None for current EPUB input/container scope; broader OPF field parity and future salvage/reporting remain separate rows | Signed off |
 | DOCX | Done: OOXML package, content types, relationships, main document, styles, and nested media | N/A in current scope | Done: core/app properties and conversion metadata | Done: malformed package parts, hostile archive, nested media paths, and package XML failures | Done: multilingual document conversion, metadata OPF, HTML/CSS, and extracted media | Signed off for row scope: named `InvalidDOCX` failures and strict preflight cover missing structure, unsafe paths, archive budgets, malformed XML, and extraction boundaries | None for current DOCX input/container scope; future salvage/reporting and trusted budget overrides remain separate rows | Signed off |
-| HTMLZ | Done: top-level HTML/XHTML requirement, optional OPF/cover enrichment | N/A in current scope | Done: optional OPF/cover warnings and report events covered | Done: missing HTML, hostile archive, bomb-shaped inputs | Done: multilingual plugin-path HTML product | Candidate: optional OPF read failures, unsafe cover paths, and missing covers now emit recoverable `ConversionReport` loss events | Focused sign-off review after the HTMLZ diagnostics slice merges; broader salvage/reporting policy remains separate | Candidate |
+| HTMLZ | Done: top-level HTML/XHTML requirement, optional OPF/cover enrichment | N/A in current scope | Done: optional OPF/cover warnings and report events covered | Done: missing HTML, hostile archive, bomb-shaped inputs | Done: multilingual plugin-path HTML product | Signed off for row scope: optional OPF read failures, unsafe cover paths, and missing covers emit recoverable `ConversionReport` loss events while warning-and-continue behavior remains stable | None for current HTMLZ optional-enrichment/container scope; broader salvage/reporting policy remains separate | Signed off |
 | Comic CBZ/CBC/CBR | Done: CBZ/CBC ZIP and CBR/RAR listing/extraction boundaries | N/A in current scope | N/A | Done: path safety, password entries, member budgets where backend exposes sizes | Done: multilingual CBC and comic-page output invariant | Done through warnings/strict failures; RAR name-only backends have limited size data | Real RAR backend variance and optional structured diagnostics | Provisional |
 | FB2/FBZ | Done: FB2 XML and single-FB2-member FBZ selection | Done: `FB2MLizer` and `FB2Output` unicode serialization | Done: FBZ metadata registration and reader/writer paths | Done: malformed XML, hostile archive, embedded-binary ID safety, corrupt base64 warnings | Done: UTF-8/UTF-16 input and zipped/unzipped products | Signed off for row scope: warnings and strict failures cover skipped binaries, unsafe IDs, parser recovery, metadata archive rejection, and archive preflight | None for current FB2/FBZ format scope; future real-corpus defects become regressions | Signed off |
 
@@ -78,6 +78,40 @@ record why the heavy lane is intentionally skipped.
 | Legacy OEB-backed path | Done as current default path | Done as current default path | Format-dependent | Format-dependent | Done where each format row has product assertions | Provisional: fallback and loss reporting are not globally consistent | Promote from implicit default to inspectable planner behavior | Provisional |
 
 ## Signed-Off Reviews
+
+### HTMLZ Optional-Enrichment Diagnostics - 2026-06-06
+
+Decision: signed off for the current HTMLZ optional-enrichment/container scope.
+The signed-off scope includes required top-level HTML/XHTML discovery, optional
+OPF and cover enrichment, recoverable warning-and-continue behavior for optional
+enrichment losses, structured `ConversionReport` events for malformed optional
+OPF, unsafe cover references, and missing cover files, strict failures for
+missing required HTML and hostile archive boundaries, and multilingual
+plugin-path HTML product assertions.
+
+Validation:
+
+```text
+python3 -m py_compile src/LiuXin_alpha/file_formats/conversion/plugins/htmlz_input.py tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+clean
+
+python3 -m pytest tests/file_formats/htmlz/test_htmlz_malformed_hostile.py -q
+18 passed in 13.22s
+
+python3 -m pytest tests/file_formats/htmlz -q
+31 passed in 15.69s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/htmlz/test_htmlz_malformed_hostile.py -q
+33 passed in 7.61s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 7.91s
+```
+
+Broader HTMLZ salvage/reporting policy and trusted archive-budget behavior
+remain separate pipeline/container policy work, not blockers for this
+optional-enrichment/container row. Future real-corpus HTMLZ defects should be
+added as regressions or new follow-up rows.
 
 ### TXT Encoding-Loss Reports - 2026-06-04
 

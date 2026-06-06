@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-06-04
+Updated: 2026-06-06
 
 Start here for active handoff notes. This index should stay short.
 
@@ -82,6 +82,11 @@ Start here for active handoff notes. This index should stay short.
   missing cover files now emit structured recoverable conversion loss events,
   making HTMLZ optional-enrichment diagnostics ready for focused sign-off review
   after merge.
+
+- [conversion-htmlz-signoff-2026-06-06.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-htmlz-signoff-2026-06-06.md)
+  Eighth signed-off conversion matrix row: HTMLZ optional-enrichment diagnostics
+  are signed off for the current row scope with focused HTMLZ, hostile archive,
+  and conversion report/edge/plugin validation.
 
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and

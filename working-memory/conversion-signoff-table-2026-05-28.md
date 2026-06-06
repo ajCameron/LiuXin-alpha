@@ -49,12 +49,14 @@ Rows already reviewed and signed off:
   row scope.
 - TXT input/output encoding-loss report behavior, signed off 2026-06-04 for
   the current row scope.
+- HTMLZ optional-enrichment diagnostics, signed off 2026-06-06 for the current
+  row scope.
 
 ## Remaining Candidate Rows
 
 Rows that are ready for a deliberate sign-off review:
 
-- HTMLZ optional-enrichment diagnostics
+- None currently.
 
 ## Rows Not Ready Yet
 
@@ -206,6 +208,28 @@ python3 -m pytest tests/file_formats/txt tests/file_formats/markdown tests/file_
 90 passed, 3 warnings in 10.01s
 ```
 
+## HTMLZ Review
+
+HTMLZ optional-enrichment diagnostics were reviewed and signed off on
+2026-06-06. Focused validation passed:
+
+```text
+python3 -m py_compile src/LiuXin_alpha/file_formats/conversion/plugins/htmlz_input.py tests/file_formats/htmlz/test_htmlz_malformed_hostile.py
+clean
+
+python3 -m pytest tests/file_formats/htmlz/test_htmlz_malformed_hostile.py -q
+18 passed in 13.22s
+
+python3 -m pytest tests/file_formats/htmlz -q
+31 passed in 15.69s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/htmlz/test_htmlz_malformed_hostile.py -q
+33 passed in 7.61s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 7.91s
+```
+
 ## HTMLZ Candidate Promotion
 
 HTMLZ optional-enrichment diagnostics were promoted to candidate on 2026-06-04.
@@ -227,8 +251,7 @@ python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/
 
 ## Next Useful Step
 
-After the HTMLZ diagnostics slice merges, perform a focused HTMLZ sign-off
-review. The candidate scope is optional OPF/cover enrichment diagnostics:
-malformed optional OPF, unsafe cover paths, and missing cover files now emit
-recoverable report events while required HTML and hostile archive failures remain
-strict.
+There are no remaining candidate rows after HTMLZ sign-off. The next useful
+conversion slice should promote a provisional/open row by removing a named gap:
+comic structured diagnostics/backend variance, MOBI/KF8 richer product
+coverage, or pipeline-wide report/fallback semantics.
