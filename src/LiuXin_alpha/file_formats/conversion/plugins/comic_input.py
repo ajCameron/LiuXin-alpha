@@ -11,6 +11,7 @@ from LiuXin_alpha.file_formats.archive_preflight import (
     normalized_zip_member_name,
     validate_zip_member_infos,
 )
+from LiuXin_alpha.file_formats.conversion.report import ensure_conversion_report
 
 from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.localization import trans as _
@@ -165,6 +166,50 @@ class ComicInput(InputFormatPlugin):
         if warn is not None:
             warn(message)
 
+    def _report_loss_event(
+        self,
+        *,
+        code,
+        message,
+        source_format,
+        count=1,
+        details=None,
+        add_warning=False,
+    ):
+        holder = getattr(self, "opts", None)
+        if holder is None:
+            return None
+
+        edge_name = "%s-to-oeb" % source_format
+        report = ensure_conversion_report(
+            holder,
+            source_format=source_format,
+            target_format="oeb",
+            edge_name=edge_name,
+        )
+        if add_warning:
+            report.add_warning(message)
+        return report.add_loss_event(
+            phase="comic-input",
+            code=code,
+            message=message,
+            count=count,
+            source_format=source_format,
+            target_format="oeb",
+            edge_name=edge_name,
+            details=details or {},
+        )
+
+    def _warn_recoverable_loss(self, *, code, message, source_format, details=None):
+        self._warn(message)
+        self._report_loss_event(
+            code=code,
+            message=message,
+            source_format=source_format,
+            details=details,
+            add_warning=True,
+        )
+
     def normalized_archive_member_name(self, name):
         return normalized_zip_member_name(
             name,
@@ -293,6 +338,7 @@ class ComicInput(InputFormatPlugin):
                 compress_size=None,
                 isdir=lambda name=name: str(name).endswith("/"),
                 needs_password=lambda: False,
+                preflight_backend="external-unrar-names",
             )
             for name in names
         ]
@@ -331,6 +377,7 @@ class ComicInput(InputFormatPlugin):
             )
 
         total_uncompressed = 0
+        names_only_member_count = 0
         for info in infos:
             filename = str(getattr(info, "filename", "")).replace("\\", "/")
             self.normalized_archive_member_name(filename)
@@ -342,6 +389,9 @@ class ComicInput(InputFormatPlugin):
             is_dir = getattr(info, "isdir", None)
             if callable(is_dir) and is_dir():
                 continue
+
+            if getattr(info, "preflight_backend", None) == "external-unrar-names":
+                names_only_member_count += 1
 
             file_size = getattr(info, "file_size", None)
             compress_size = getattr(info, "compress_size", None)
@@ -376,6 +426,27 @@ class ComicInput(InputFormatPlugin):
                         "%s member has suspicious compression ratio: %s (%.1f)"
                         % (label, filename, ratio)
                     )
+
+        if names_only_member_count:
+            self._report_loss_event(
+                code="rar-names-only-preflight-limited",
+                message=(
+                    "CBR RAR preflight used a names-only listing; size and "
+                    "compression-ratio checks could not run before extraction."
+                ),
+                source_format="cbr",
+                count=names_only_member_count,
+                details={
+                    "backend": "external-unrar-names",
+                    "member_count": names_only_member_count,
+                    "unavailable_checks": [
+                        "per-member-size",
+                        "total-expanded-size",
+                        "compression-ratio",
+                        "compressed-size-shape",
+                    ],
+                },
+            )
 
     def warn_preflight_rejection(self, source, error):
         path = getattr(source, "name", source)
@@ -431,7 +502,16 @@ class ComicInput(InputFormatPlugin):
                 if os.access(fname, os.R_OK):
                     comics.append([title, fname])
                 else:
-                    self._warn(_("CBC listed comic file was not found: %s") % listed_name)
+                    message = _("CBC listed comic file was not found: %s") % listed_name
+                    self._warn_recoverable_loss(
+                        code="cbc-listed-comic-missing",
+                        message=message,
+                        source_format="cbc",
+                        details={
+                            "member_name": listed_name,
+                            "title": title,
+                        },
+                    )
 
         if not comics:
             raise ValueError("%s has no comics" % stream.name)
@@ -520,6 +600,7 @@ class ComicInput(InputFormatPlugin):
         from LiuXin_alpha.file_formats.toc import TOC
 
         self.opts, self.log = options, log
+        self.source_format = file_ext.lower()
         stream_name = getattr(stream, "name", f"comic_input.{file_ext}")
         work_root = PersistentTemporaryDirectory("_comic_input_output")
         with CurrentDir(work_root):

@@ -115,6 +115,14 @@ There is no separate comic salvage mode today. The default CBC behavior already
 salvages missing listed comics by warning and continuing when at least one
 listed comic can still be converted.
 
+Current structured diagnostics record:
+
+- `cbc-listed-comic-missing` when CBC skips a listed comic member but still
+  converts at least one remaining comic
+- `rar-names-only-preflight-limited` when CBR/RAR preflight falls back to a
+  names-only external listing, so member-count and path-safety checks still run
+  but size and compression-ratio budgets cannot run before extraction
+
 If future trusted-input overrides are added, they should only raise bounded
 archive budgets. They must not bypass path safety, unreadable ZIP structure,
 invalid `comics.txt` decoding, or the invariant that conversion must produce at
@@ -122,7 +130,6 @@ least one comic page.
 
 Diagnostics for future recovery work should record:
 
-- skipped CBC member and listed title, when applicable
 - rejected nested CBZ member and reason
 - CBR/RAR listing backend failures, including both vendored parser and
   external listing fallback errors when both fail
