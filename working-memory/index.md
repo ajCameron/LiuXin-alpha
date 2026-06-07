@@ -88,6 +88,11 @@ Start here for active handoff notes. This index should stay short.
   are signed off for the current row scope with focused HTMLZ, hostile archive,
   and conversion report/edge/plugin validation.
 
+- [conversion-comic-diagnostics-2026-06-06.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-comic-diagnostics-2026-06-06.md)
+  Comic candidate promotion: missing CBC listed comics and names-only CBR/RAR
+  fallback preflight now emit structured recoverable conversion diagnostics,
+  making Comic ready for focused sign-off review after merge.
+
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and
   make PML unsupported-character replacement visible while preserving current

@@ -31,6 +31,21 @@ def _comic_options() -> SimpleNamespace:
     )
 
 
+def _assert_comic_loss_event(options: SimpleNamespace, code: str, *, source_format: str, **details) -> None:
+    report = options.conversion_report
+    events = [event for event in report.loss_events if event.code == code]
+    assert len(events) == 1
+    event = events[0]
+    assert event.phase == "comic-input"
+    assert event.source_format == source_format
+    assert event.target_format == "oeb"
+    assert event.edge_name == f"{source_format}-to-oeb"
+    assert event.recoverable is True
+    assert event.count == 1
+    for key, value in details.items():
+        assert event.details[key] == value
+
+
 def _assert_comic_convert_rejects_without_local_output(
     archive: Path,
     file_ext: str,
@@ -168,16 +183,25 @@ def test_comic_input_reports_missing_cbc_member_and_uses_remaining_comics(
     workdir.mkdir()
     monkeypatch.chdir(workdir)
     log = NullLog()
+    options = _comic_options()
     plugin = ComicInput(None)
 
     with hostile.open("rb") as stream:
-        out = plugin.convert(stream, _comic_options(), "cbc", log, {})
+        out = plugin.convert(stream, options, "cbc", log, {})
 
     assert Path(out).exists()
     assert any(
         "CBC listed comic file was not found: %s" % missing_spec.member_name in message
         for message in log.messages
     )
+    _assert_comic_loss_event(
+        options,
+        "cbc-listed-comic-missing",
+        source_format="cbc",
+        member_name=missing_spec.member_name,
+        title=missing_spec.title,
+    )
+    assert options.conversion_report.loss_events[0].message in options.conversion_report.warnings
 
     image_names = [Path(path).name for path in plugin.get_images()]
     expected_remaining = [Path(member).name for member in fixture.comic_specs[0].page_members]

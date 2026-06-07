@@ -253,6 +253,61 @@ def test_comic_input_accepts_preflighted_unicode_cbr_through_plugin_path(
     assert [Path(path).name for path in plugin.get_images()] == [page_name]
 
 
+def test_comic_input_reports_names_only_cbr_preflight_diagnostic(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
+    import LiuXin_alpha.file_formats.comic.input as comic_input_impl
+
+    archive = write_stub_cbr(tmp_path / "fallback_Καλημέρα_世界.cbr")
+    page_names = ("01_Καλημέρα.png", "02_世界.png")
+    patch_rarfile_failure(monkeypatch)
+    patch_unrar_names(monkeypatch, tuple(f"pages/{name}" for name in page_names))
+
+    extracted = tmp_path / "extracted_names_only_cbr"
+
+    def _extract_comic(_path):
+        page_dir = extracted / "pages"
+        page_dir.mkdir(parents=True, exist_ok=True)
+        for page_name in page_names:
+            (page_dir / page_name).write_bytes(png_bytes())
+        return str(extracted)
+
+    monkeypatch.setattr(comic_input_impl, "extract_comic", _extract_comic)
+
+    work = tmp_path / "names_only_cbr_work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    options = _comic_options()
+    plugin = ComicInput(None)
+
+    with archive.open("rb") as stream:
+        out = plugin.convert(stream, options, "cbr", NullLog(), {})
+
+    out_path = Path(out)
+    _read_valid_opf(out_path)
+    event = options.conversion_report.loss_events[0]
+    assert event.phase == "comic-input"
+    assert event.code == "rar-names-only-preflight-limited"
+    assert event.source_format == "cbr"
+    assert event.target_format == "oeb"
+    assert event.edge_name == "cbr-to-oeb"
+    assert event.recoverable is True
+    assert event.count == len(page_names)
+    assert event.details == {
+        "backend": "external-unrar-names",
+        "member_count": len(page_names),
+        "unavailable_checks": [
+            "per-member-size",
+            "total-expanded-size",
+            "compression-ratio",
+            "compressed-size-shape",
+        ],
+    }
+    assert [Path(path).name for path in plugin.get_images()] == list(page_names)
+
+
 def test_comic_cbr_preflight_accepts_real_vendored_unicode_rar_listing() -> None:
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 

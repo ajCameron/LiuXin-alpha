@@ -56,7 +56,7 @@ Rows already reviewed and signed off:
 
 Rows that are ready for a deliberate sign-off review:
 
-- None currently.
+- Comic CBZ/CBC/CBR structured diagnostics
 
 ## Rows Not Ready Yet
 
@@ -65,8 +65,6 @@ Rows that still have named blockers:
 - LIT full output remains blocked by the unavailable LZX compressor backend.
 - MOBI/KF8 remains provisional pending realistic skeleton/div/NCX products,
   non-image resource fixtures, and trusted budget policy.
-- Comic remains provisional mostly around backend variance and optional
-  structured diagnostics.
 - Markdown/Textile direct or external edges remain open design work.
 - Pipeline-wide report/fallback semantics remain provisional beyond the first
   PML report and edge-model slices.
@@ -208,6 +206,34 @@ python3 -m pytest tests/file_formats/txt tests/file_formats/markdown tests/file_
 90 passed, 3 warnings in 10.01s
 ```
 
+## Comic Candidate Promotion
+
+Comic CBZ/CBC/CBR diagnostics were promoted to candidate on 2026-06-06.
+Focused validation passed:
+
+```text
+python3 -m py_compile src/LiuXin_alpha/file_formats/conversion/plugins/comic_input.py tests/file_formats/comic/test_comic_malformed_hostile.py tests/file_formats/comic/test_comic_container_framework.py
+clean
+
+python3 -m pytest tests/file_formats/comic/test_comic_malformed_hostile.py tests/file_formats/comic/test_comic_container_framework.py -q
+50 passed in 14.76s
+
+python3 -m pytest tests/file_formats/comic -q
+67 passed in 10.47s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/comic/test_comic_malformed_hostile.py -q
+54 passed in 10.28s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 10.03s
+```
+
+The candidate scope is structured diagnostics for recoverable comic behavior:
+missing CBC listed comics emit `cbc-listed-comic-missing`, names-only CBR/RAR
+fallback preflight emits `rar-names-only-preflight-limited`, and strict archive
+or required-product failures remain strict. A small redistributable real CBR
+corpus remains future regression coverage rather than a blocker for this row.
+
 ## HTMLZ Review
 
 HTMLZ optional-enrichment diagnostics were reviewed and signed off on
@@ -251,7 +277,7 @@ python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/
 
 ## Next Useful Step
 
-There are no remaining candidate rows after HTMLZ sign-off. The next useful
-conversion slice should promote a provisional/open row by removing a named gap:
-comic structured diagnostics/backend variance, MOBI/KF8 richer product
-coverage, or pipeline-wide report/fallback semantics.
+After the comic diagnostics slice merges, perform a focused Comic sign-off
+review. The candidate scope is structured diagnostics for recoverable CBC
+missing-member salvage and CBR/RAR names-only preflight variance while strict
+archive failures remain strict.

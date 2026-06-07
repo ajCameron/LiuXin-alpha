@@ -89,6 +89,10 @@ A format or pipeline edge can be treated as signed off when it has:
      unsafe cover paths, and missing cover files now emit recoverable
      `ConversionReport` loss events while preserving existing warning-and-
      continue behavior.
+   - Comic diagnostics slice, 2026-06-06: missing CBC listed comics now emit
+     `cbc-listed-comic-missing`, and names-only CBR/RAR fallback preflight now
+     emits `rar-names-only-preflight-limited` for unavailable size/ratio
+     checks while preserving strict archive failures.
 
 3. Model conversion edges explicitly.
    - Keep OEB-backed edges.
@@ -171,6 +175,10 @@ A format or pipeline edge can be treated as signed off when it has:
      for the current row scope, with focused HTMLZ malformed/hostile, full
      HTMLZ, shared archive preflight, and conversion report/edge/plugin smoke
      validation recorded in the sign-off matrix.
+   - Comic candidate promotion, 2026-06-06: CBC missing-member salvage and
+     names-only CBR/RAR preflight variance now have structured diagnostics.
+     The Comic row is ready for focused sign-off review after this
+     implementation slice merges.
 
 ## Open Decisions
 
