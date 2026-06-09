@@ -49,7 +49,7 @@ record why the heavy lane is intentionally skipped.
 | EPUB | Done: OCF container, OPF package discovery, manifest/spine, nested and non-ASCII assets | N/A in current scope | Done through EPUB/OPF metadata file-source checks | Done: malformed container/package and hostile archive boundaries | Done: multilingual read/conversion product and assets | Signed off for row scope: strict failures and visible preflight logging cover missing structure, unsafe paths, archive budgets, manifest/spine failures, and extraction boundaries | None for current EPUB input/container scope; broader OPF field parity and future salvage/reporting remain separate rows | Signed off |
 | DOCX | Done: OOXML package, content types, relationships, main document, styles, and nested media | N/A in current scope | Done: core/app properties and conversion metadata | Done: malformed package parts, hostile archive, nested media paths, and package XML failures | Done: multilingual document conversion, metadata OPF, HTML/CSS, and extracted media | Signed off for row scope: named `InvalidDOCX` failures and strict preflight cover missing structure, unsafe paths, archive budgets, malformed XML, and extraction boundaries | None for current DOCX input/container scope; future salvage/reporting and trusted budget overrides remain separate rows | Signed off |
 | HTMLZ | Done: top-level HTML/XHTML requirement, optional OPF/cover enrichment | N/A in current scope | Done: optional OPF/cover warnings and report events covered | Done: missing HTML, hostile archive, bomb-shaped inputs | Done: multilingual plugin-path HTML product | Signed off for row scope: optional OPF read failures, unsafe cover paths, and missing covers emit recoverable `ConversionReport` loss events while warning-and-continue behavior remains stable | None for current HTMLZ optional-enrichment/container scope; broader salvage/reporting policy remains separate | Signed off |
-| Comic CBZ/CBC/CBR | Done: CBZ/CBC ZIP and CBR/RAR listing/extraction boundaries | N/A in current scope | N/A | Done: path safety, password entries, member budgets where backend exposes sizes | Done: multilingual CBC and comic-page output invariant | Candidate: missing CBC listed comics emit `cbc-listed-comic-missing`; names-only RAR fallback emits `rar-names-only-preflight-limited` for unavailable size/ratio checks; strict failures remain strict | Focused sign-off review after the comic diagnostics slice merges; real redistributable CBR corpus remains future regression coverage | Candidate |
+| Comic CBZ/CBC/CBR | Done: CBZ/CBC ZIP and CBR/RAR listing/extraction boundaries | N/A in current scope | N/A | Done: path safety, password entries, member budgets where backend exposes sizes | Done: multilingual CBC and comic-page output invariant | Signed off for row scope: missing CBC listed comics emit `cbc-listed-comic-missing`; names-only RAR fallback emits `rar-names-only-preflight-limited` for unavailable size/ratio checks; strict failures remain strict | None for current Comic CBZ/CBC/CBR diagnostics scope; real redistributable CBR corpus remains future regression coverage | Signed off |
 | FB2/FBZ | Done: FB2 XML and single-FB2-member FBZ selection | Done: `FB2MLizer` and `FB2Output` unicode serialization | Done: FBZ metadata registration and reader/writer paths | Done: malformed XML, hostile archive, embedded-binary ID safety, corrupt base64 warnings | Done: UTF-8/UTF-16 input and zipped/unzipped products | Signed off for row scope: warnings and strict failures cover skipped binaries, unsafe IDs, parser recovery, metadata archive rejection, and archive preflight | None for current FB2/FBZ format scope; future real-corpus defects become regressions | Signed off |
 
 ## Legacy Binary And PalmDB Formats
@@ -78,6 +78,41 @@ record why the heavy lane is intentionally skipped.
 | Legacy OEB-backed path | Done as current default path | Done as current default path | Format-dependent | Format-dependent | Done where each format row has product assertions | Provisional: fallback and loss reporting are not globally consistent | Promote from implicit default to inspectable planner behavior | Provisional |
 
 ## Signed-Off Reviews
+
+### Comic CBZ/CBC/CBR Diagnostics - 2026-06-08
+
+Decision: signed off for the current Comic CBZ/CBC/CBR diagnostics scope. The
+signed-off scope includes ZIP-backed CBZ/CBC archive preflight, CBR/RAR listing
+and extraction boundaries, path safety, password rejection, archive budgets where
+the listing backend exposes sizes, multilingual CBC and comic-page product
+assertions, recoverable `cbc-listed-comic-missing` events for CBC missing-member
+salvage, and recoverable `rar-names-only-preflight-limited` events when CBR/RAR
+preflight falls back to names-only listing.
+
+Validation:
+
+```text
+python3 -m py_compile src/LiuXin_alpha/file_formats/conversion/plugins/comic_input.py tests/file_formats/comic/test_comic_malformed_hostile.py tests/file_formats/comic/test_comic_container_framework.py
+clean
+
+python3 -m pytest tests/file_formats/comic/test_comic_malformed_hostile.py tests/file_formats/comic/test_comic_container_framework.py -q
+50 passed in 11.70s
+
+python3 -m pytest tests/file_formats/comic -q
+67 passed in 8.31s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/comic/test_comic_malformed_hostile.py -q
+54 passed in 9.39s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 7.24s
+```
+
+Strict failures for unsafe paths, invalid archives, password entries, budget
+failures, invalid `comics.txt`, all-listed-CBC-missing, and no-page outputs
+remain strict. A small redistributable real CBR corpus remains future regression
+coverage, not a blocker for this diagnostics row. Future real-corpus comic
+defects should be added as regressions or new follow-up rows.
 
 ### HTMLZ Optional-Enrichment Diagnostics - 2026-06-06
 

@@ -1,6 +1,6 @@
 # Working Memory Index
 
-Updated: 2026-06-06
+Updated: 2026-06-08
 
 Start here for active handoff notes. This index should stay short.
 
@@ -92,6 +92,11 @@ Start here for active handoff notes. This index should stay short.
   Comic candidate promotion: missing CBC listed comics and names-only CBR/RAR
   fallback preflight now emit structured recoverable conversion diagnostics,
   making Comic ready for focused sign-off review after merge.
+
+- [conversion-comic-signoff-2026-06-08.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-comic-signoff-2026-06-08.md)
+  Ninth signed-off conversion matrix row: Comic CBZ/CBC/CBR structured
+  diagnostics are signed off for the current row scope with focused comic,
+  archive preflight, and conversion report/edge/plugin validation.
 
 - [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
   Current conversion implementation slice: add a small report/loss surface and
