@@ -17,8 +17,8 @@ def _create_contract_tables(driver) -> tuple[str, str, str, str]:
     left_table = "contract_link_lefts"
     right_table = "contract_link_rights"
 
-    driver.direct_create_new_main_table(table_name=left_table)
-    driver.direct_create_new_main_table(table_name=right_table)
+    driver.direct_create_main_table(table_name=left_table)
+    driver.direct_create_main_table(table_name=right_table)
 
     left_col = driver.direct_get_column_base(left_table)
     right_col = driver.direct_get_column_base(right_table)

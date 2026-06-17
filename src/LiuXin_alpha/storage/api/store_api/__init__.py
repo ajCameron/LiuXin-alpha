@@ -9,7 +9,7 @@ from typing import Optional, Iterator, TYPE_CHECKING
 from LiuXin_alpha.storage.api.store_api.storage_backend_api import StoreBackendAPI
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.storage.api import StoreStatus
     from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
 

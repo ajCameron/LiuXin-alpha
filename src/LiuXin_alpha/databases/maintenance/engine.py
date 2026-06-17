@@ -28,7 +28,7 @@ from LiuXin_alpha.databases.maintenance.plugins import (
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
-    from LiuXin_alpha.databases.api.maintenance import MaintenancePluginAPI
+    from LiuXin_alpha.databases.api.maintenance_api import MaintenancePluginAPI
 
 
 class MaintenanceCallbackSink:

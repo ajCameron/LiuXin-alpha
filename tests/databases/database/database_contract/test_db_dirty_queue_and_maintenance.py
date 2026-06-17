@@ -81,7 +81,7 @@ def test_get_dirtied_count_tracks_queue_size(open_db):
     table = "books" if "books" in open_db.dirtiable_tables else sorted(open_db.dirtiable_tables)[0]
 
     for i in range(10):
-        open_db.dirty_record(table, i + 1, reason="unit-test")
+        open_db.direct_dirty_record(table, i + 1, reason="unit-test")
 
     end = open_db.get_dirtied_count()
     assert end >= start + 10
@@ -92,7 +92,7 @@ def test_database_dirty_record_enqueues_for_dirtiable_table(open_db):
     table = "books" if "books" in open_db.dirtiable_tables else sorted(open_db.dirtiable_tables)[0]
     before = open_db.get_dirtied_count()
 
-    open_db.dirty_record(table, 123, reason="update")
+    open_db.direct_dirty_record(table, 123, reason="update")
 
     assert open_db.get_dirtied_count() >= before + 1
     got = open_db.dirty_records_queue.get_nowait()
@@ -111,7 +111,7 @@ def test_database_dirty_record_warns_and_does_not_enqueue_for_unknown_table(open
     monkeypatch.setattr(default_log, "log_variables", _fake_log_variables)
 
     before = open_db.get_dirtied_count()
-    open_db.dirty_record("definitely_not_a_real_table", 1, reason="nope")
+    open_db.direct_dirty_record("definitely_not_a_real_table", 1, reason="nope")
     after = open_db.get_dirtied_count()
 
     assert after == before
@@ -124,7 +124,7 @@ def test_database_dirty_record_is_threadsafe(open_db):
 
     def worker(tid: int) -> None:
         for j in range(200):
-            open_db.dirty_record(table, tid * 1_000_000 + j, reason="thread")
+            open_db.direct_dirty_record(table, tid * 1_000_000 + j, reason="thread")
 
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]
     for t in threads:
@@ -142,7 +142,7 @@ def test_database_dirty_record_does_not_enqueue_to_maintainer_queues(stopped_db)
     table = "books" if "books" in stopped_db.dirtiable_tables else sorted(stopped_db.dirtiable_tables)[0]
     _drain(stopped_db.maintenance.main_table_dirtied_queue)
 
-    stopped_db.dirty_record(table, 77, reason="db-level")
+    stopped_db.direct_dirty_record(table, 77, reason="db-level")
     assert stopped_db.dirty_records_queue.get_nowait() == (table, 77, "db-level")
 
     # The maintainer queue should remain empty.
@@ -154,7 +154,7 @@ def test_write_telemetry_snapshot_observes_dirty_queue(stopped_db):
     table = "books" if "books" in stopped_db.dirtiable_tables else sorted(stopped_db.dirtiable_tables)[0]
     before_total = int(stopped_db.get_write_telemetry_snapshot(recent_limit=5).get("observed_total", 0))
 
-    stopped_db.dirty_record(table, 321, reason="telemetry-test")
+    stopped_db.direct_dirty_record(table, 321, reason="telemetry-test")
 
     snapshot = stopped_db.get_write_telemetry_snapshot(recent_limit=5)
     assert int(snapshot.get("observed_total", 0)) >= before_total + 1
@@ -170,7 +170,7 @@ def test_write_telemetry_snapshot_observes_trigger_callback_proxy(stopped_db):
     table = "books" if "books" in stopped_db.main_tables else sorted(stopped_db.main_tables)[0]
     _drain(stopped_db.maintenance.main_table_dirtied_queue)
 
-    stopped_db.driver.maintainer_callback.dirty_record(table, 654)
+    stopped_db.driver.maintainer_callback.direct_dirty_record(table, 654)
 
     got = stopped_db.maintenance.main_table_dirtied_queue.get_nowait()
     assert got == (table, 654)
@@ -199,7 +199,7 @@ def test_dirty_record_trigger_enqueues_via_callback_plumbing(stopped_db, pick_pa
     _drain(stopped_db.maintenance.main_table_dirtied_queue)
 
     payload = pick_payload(10)
-    stopped_db.executescript(
+    stopped_db.direct_execute_sql_script(
         """
         DROP TABLE IF EXISTS contract_dirty_table;
         CREATE TABLE contract_dirty_table (

@@ -4,6 +4,8 @@ import importlib
 
 import pytest
 
+import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
+
 pytest.importorskip("lxml")
 from lxml import etree
 
@@ -76,7 +78,7 @@ def test_opf3_set_metadata_preserves_non_series_collection_and_title_refines(opf
     assert float(mi.series_index) == 4.0
 
     mi.title = "Updated Title"
-    mi.title_sort = "Title, Updated"
+    LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = "Title, Updated"
     mi.series = "Updated Series"
     mi.series_index = 8.0
 

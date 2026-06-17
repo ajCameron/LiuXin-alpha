@@ -1,3 +1,8 @@
+
+"""
+Master version for the apsw SQLite driver.
+"""
+
 # Increment this if ANY submodule is changed
 
 __driver_version__ = (0, 0, 1)
@@ -26,7 +31,7 @@ def get_SQLite_driver_master_version() -> str:
 
     lx_constants_version = lx_constants.__lx_constants_version__
 
-    version_str = "driver_version_{}_database_version_{}_md_tools_version_{}_md_constants_{})_lx_constants".format(
+    version_str = "driver_version_apsw-{}_database_version_{}_md_tools_version_{}_md_constants_{})_lx_constants".format(
         database_version,
         __driver_version__,
         md_tools_version,

@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Iterable
 # Todo: I suspect this is used EVERYWHERE. So let's try and dry out the code base.
 class DriverNamesMixinAPI(abc.ABC):
     """
-    Names manipulation mehtods for the drivers.
+    Names manipulation methods for the drivers.
     """
 
     # Todo: First class method. Should be used in more places. Including custom columns.

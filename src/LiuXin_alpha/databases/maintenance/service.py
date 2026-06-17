@@ -130,7 +130,7 @@ class Maintainer(DatabaseMaintainerAPI):
         :param row_id:
         :return:
         """
-        self.maintainer.callback_sink.dirty_record(table, row_id)
+        self.maintainer.callback_sink.direct_dirty_record(table, row_id)
 
     def new_dirty_record(self, table: str, row_id: int) -> None:
         """

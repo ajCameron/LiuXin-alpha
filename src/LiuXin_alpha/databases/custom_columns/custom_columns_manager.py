@@ -22,7 +22,7 @@ from LiuXin_alpha.databases.custom_columns.custom_columns import CustomColumns
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.row import RowAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 

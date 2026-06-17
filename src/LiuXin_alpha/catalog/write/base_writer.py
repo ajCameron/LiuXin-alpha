@@ -258,7 +258,7 @@ class BaseWriter:
         # Todo: Account for the authors-creators change
         if isinstance(m, string_types):
             m_table = m
-            m_col = db.get_display_column(m)
+            m_col = db.direct_get_display_column(m)
         else:
             m_table = m["table"]
             m_col = m["column"]

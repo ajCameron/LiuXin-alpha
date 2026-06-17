@@ -43,7 +43,7 @@ from LiuXin_alpha.databases.custom_columns.cc_get_methods_mixin import CCGetMeth
 from LiuXin_alpha.databases.custom_columns.cc_delete_methods_mixin import CCDeleteMethodsMixin
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types import MainTableName
 
 

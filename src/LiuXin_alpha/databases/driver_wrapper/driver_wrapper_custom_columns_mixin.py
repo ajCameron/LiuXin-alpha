@@ -1,47 +1,71 @@
+
+"""
+Custom column method mixins -
+"""
+
 import re
+
+from typing import List, TYPE_CHECKING, Any, Optional
 
 from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import to_json_str
 
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.api.macros_api import MacrosAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
+
 # Todo: Round these up and move them to the custom columns mixin - as with everything else
 # Todo: Or, perhaps preferably, move them down into the driver and integrate properly
-class CustomColumnsDriverWrapperMixin(object):
+class CustomColumnsDriverWrapperMixin:
+    """
+    Custom columns driver wrapper methods.
+    """
 
 
-    def __init__(self, db, macros):
+    def __init__(self, db: "DatabaseAPI", macros: "MacrosAPI") -> None:
+        """
+        Constructor.
 
+        :param db:
+        :param macros:
+        """
+        # Worker objects
+        self.db = db
+        self._conn_override = None  # prefer using the live driver connection via @property conn
 
-            # Worker objects
-            self.db = db
-            self._conn_override = None  # prefer using the live driver connection via @property conn
+        # Don't assign to self.macros directly: subclasses (e.g. DriverWrapper) may expose
+        # macros as a read-only @property (no setter). Also avoid clobbering an already-set
+        # macros when macros is None.
+        if macros is not None:
 
-            # Don't assign to self.macros directly: subclasses (e.g. DriverWrapper) may expose
-            # macros as a read-only @property (no setter). Also avoid clobbering an already-set
-            # macros when macros is None.
-            if macros is not None:
-                macros_setter = getattr(self, "set_macros", None)
+            macros_setter = getattr(self, "set_macros", None)
 
-                if callable(macros_setter):
-                    macros_setter(macros)
-                else:
-                    try:
-                        self.macros = macros
-                    except AttributeError:
-                        # Last resort: common convention used by wrappers
-                        setattr(self, "_macros", macros)
+            if callable(macros_setter):
+                macros_setter(macros)
+            else:
+                try:
+                    self.macros = macros
+                except AttributeError:
+                    # Last resort: common convention used by wrappers
+                    setattr(self, "_macros", macros)
 
-            # Todo: Might want to rename this to custom_column_tables
-            # Stores properties of the database
-            self.custom_tables = set()
+        # Todo: Might want to rename this to custom_column_tables
+        # Stores properties of the database
+        self.custom_tables = set()
 
     def _canonicalise_cc_in_table(self, in_table: str) -> str:
-        """Resolve legacy/compat aliases for custom-column attachment tables.
+        """
+        Resolve legacy/compat aliases for custom-column attachment tables.
 
         Calibre-style APIs historically default to 'books'. In a FRBR/WEMI-first schema
         that table may not exist; in that case we opportunistically map to a sensible
         analogue (typically 'manifestations').
+        :param in_table:
+        :return:
         """
 
         available = self.db.main_tables.union(self.db.interlink_tables).union(self.db.intralink_tables)
@@ -106,9 +130,11 @@ class CustomColumnsDriverWrapperMixin(object):
     # ----------------------------------------------------------------------------------------------------------------------
     #
     # - CUSTOM COLUMN METHODS
-    def deleted_marked_custom_columns(self):
+    def deleted_marked_custom_columns(self) -> None:
         """
-        Deleted custom columns which have been marked for removal - should be done during a reload or load before the
+        Deleted custom columns which have been marked for removal.
+
+        Should be done during a reload or load before the
         custom columns are read off the database.
         :return :
         """
@@ -118,7 +144,7 @@ class CustomColumnsDriverWrapperMixin(object):
         num_table_lt_map: dict[int, tuple[str, str]] = {}
 
         # Prefer executing via the connection bound to this instance to avoid
-        # side-effects from driver_wrapper connection/lock aliasing.
+        # side effects from driver_wrapper connection/lock aliasing.
         try:
             rows = self.conn.get_row(
                 "SELECT custom_column_id, custom_column_in_table FROM custom_columns "
@@ -127,6 +153,7 @@ class CustomColumnsDriverWrapperMixin(object):
         except Exception:
             # Backwards-compat path for older DBs/schemas/macros (books-only).
             rows = [(num, "books") for num in self.db.macros.get_all_cc_ids_marked_for_delete(conn=self.conn)]
+
         for r in rows:
             if isinstance(r, dict):
                 num = int(r.get("custom_column_id"))
@@ -141,9 +168,10 @@ class CustomColumnsDriverWrapperMixin(object):
             self.db.macros.preform_cc_column_delete_from_map(num_table_lt_map, conn=self.conn)
 
     @property
-    def direct_custom_tables(self):
+    def direct_custom_tables(self) -> set[str]:
         """
         Get the names of all the custom tables currently registered on the database.
+
         Replaces the custom_tables property.
         :return:
         """
@@ -151,27 +179,30 @@ class CustomColumnsDriverWrapperMixin(object):
         # at a closed connection after driver/connection churn.
         return self.db.macros.direct_get_custom_tables(conn=self.db.driver.conn)
 
-    def direct_get_custom_extra(self, link_table, index):
+    def direct_get_custom_extra(self, link_table: str, index: int) -> Any:
         """
-        Return the results of querying the database for an extra column.
+        Get the extra value for the custom table at a given index.
+
         :param link_table:
         :param index:
         :return:
         """
         return self.db.macros.direct_get_custom_and_extra(link_table, index, conn=self.conn)
 
-    def direct_get_custom_id_val_pairs(self, table):
+    def direct_get_custom_id_val_pairs(self, table: str) -> tuple[int, Any]:
         """
         Retrieve a list of pairs of the ids from the custom table and their values.
+
         :param table:
         :return:
         """
         return self.db.macros.get_all_cc_id_val_pairs(table, conn=self.conn)
 
     @staticmethod
-    def custom_table_names(num, in_table="books"):
+    def custom_table_names(num: int, in_table: str = "books") -> tuple[str, str]:
         """
-        Makes the names that will be used for a custom column table.
+        Get the custom column table name and the link table name associated with it.
+
         :param num:
         :param in_table: The table the custom column is linked to - defaults to "books"
         :return:
@@ -187,9 +218,17 @@ class CustomColumnsDriverWrapperMixin(object):
 
     # Todo: Custom columns needed to be added to the appropriate table name cache after they've been created - check
     #       that this is happening
-    def set_custom_column_metadata(self, num, name=None, label=None, is_editable=None, display=None, in_table=None):
+    def set_custom_column_metadata(
+            self,
+            num: int,
+            name: Optional[str] = None,
+            label: Optional[str] = None,
+            is_editable: Optional[str] = None,
+            display: Optional[str] = None,
+            in_table: str = "books"):
         """
-        Change the metadata for a custom column - identified with the num
+        Change the metadata for a custom column - identified with the num.
+
         :param num: The id integer for the custom column
         :param name: The new name of the custom column
         :param label:
@@ -215,20 +254,23 @@ class CustomColumnsDriverWrapperMixin(object):
     # Todo: The combination of name and table should be unique
     # Todo: Change data_type to datatype
     # Todo: in_table and table seme to do the same thing
+    # Todo: datatype should be fully typeable
     def create_custom_column(
         self,
-        name,
-        datatype="text",
-        is_multiple=False,
-        label=None,
-        editable=True,
-        display=None,
-        in_table="books",
-        table=None,
-        make_category=None,
+        name: str,
+        datatype: str = "text",
+        is_multiple: bool = False,
+        label: Optional[str] = None,
+        editable: bool = True,
+        display: Optional[str] = None,
+        in_table: bool = "books",
+        table: Optional[str] = None,
+        make_category = None,
     ):
         """
         Add a custom column to the books table.
+
+        Also write the metadata describing the custom column out to the metadata tables.
         :param label:
         :param name:
         :param datatype: Must be one of the following - rating, int, text, comments, series, composite, enumeration,
@@ -238,6 +280,8 @@ class CustomColumnsDriverWrapperMixin(object):
         :param display:
         :param in_table: Which table should the custom column be created in? (Defaults to books for historical reasons)
                          Should be in the main, intralink or interlink tables
+        :param table:
+        :param make_category: Add this custom  column to the category browser
         :return:
         """
         # Todo: Somewhere there are allowed cc datatypes - preform a check that we're being given one of them
@@ -362,28 +406,36 @@ class CustomColumnsDriverWrapperMixin(object):
 
         return num
 
-    def delete_custom_column(self, num):
+    def delete_custom_column(self, num: int) -> None:
         """
         Mark a custom column for later deletion.
-        :param label:
+
+        Deletion is not done at this time.
+        It will be done at the next refresh.
         :param num:
         :return:
         """
         self.macros.mark_custom_column_for_delete(num=num)
 
-    def _get_custom_column_row(self, in_table, cc_name):
+    # Todo: CustomColumnRowAPI class?
+    def _get_custom_column_row(self, in_table: str, cc_name: str) -> "RowAPI":
         """
         Return the custom column row for the given custom column.
+
         :return:
         """
         pass
 
-    def update_custom_column(self, in_table, cc_name, value):
+    # Todo: We've got a known list of link table additional info - not just extra - use it
+    def update_custom_column(self, in_table, cc_name, value, extra: Optional[str] = None) -> "RowAPI":
         """
         Preform an update on the given custom column - loading the data into the backend.
+
+        We can fully spec an update on the given custom column with just two values.
         :param in_table: Table the custom column is in
         :param cc_name: Name of the custom column in the table
         :param value: Values to load into the database
+        :param extra: Extra data to set for the link:
         :return:
         """
         raise NotImplementedError

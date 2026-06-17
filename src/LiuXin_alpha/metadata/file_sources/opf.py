@@ -12,6 +12,7 @@ import os
 import re
 from typing import Iterable
 
+import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.metadata.constants import canonicalize_id_name
 from LiuXin_alpha.metadata.metadata import MetaData
 from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn, string_to_authors
@@ -230,7 +231,7 @@ def _extract_opf_like_meta_overrides(root, mi) -> None:
                     pass
             continue
         if lname in {"calibre:title_sort", "opf.titlesort", "opf.title_sort"}:
-            mi.title_sort = content
+            LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = content
             continue
         if lname in {"opf.publisher"}:
             mi.publisher = content
@@ -345,7 +346,7 @@ def _merge_calibre_metadata(preferred, fallback):
     if _is_blank(getattr(preferred, "title_sort", None)):
         title_sort = _normalize(getattr(fallback, "title_sort", None))
         if title_sort:
-            preferred.title_sort = title_sort
+            LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = title_sort
 
     preferred_ids = _safe_get_identifiers(preferred)
     fallback_ids = _safe_get_identifiers(fallback)

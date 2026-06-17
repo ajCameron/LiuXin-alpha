@@ -7,6 +7,7 @@ import queue as Queue
 from collections import OrderedDict
 from collections import defaultdict
 
+import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.catalog.metadata_tools import Add
 from LiuXin_alpha.catalog.metadata_tools.apply import Apply
 from LiuXin_alpha.catalog.metadata_tools import Ensure
@@ -582,7 +583,7 @@ class MeatdataToBookRow(object):
         """
         title = md.title
         if not md.is_null("title_sort"):
-            title_sort_string = md.title_sort
+            title_sort_string = LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort
         else:
             title_sort_string = None
 

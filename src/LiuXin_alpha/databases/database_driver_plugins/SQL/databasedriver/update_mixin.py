@@ -1,8 +1,14 @@
 
+"""
+Macros for preforming updates on the database.
+"""
+
 from copy import deepcopy
 import sqlite3
 
 import pprint
+
+from typing import Any
 
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, force_unicode
 
@@ -16,12 +22,14 @@ class UpdateMixin:
     Methods to update the database.
     """
 
-
     # Todo: Check for field degeneracy
-    def direct_update_columns(self, id_values_map, field=None, table=None):
+    # Todo: I think this may have been superseded by the writers....
+    def direct_update_columns(self, id_values_map, field=None, table=None) -> None:
         """
         For when you only want to update specific columns in rows.
+
         Detects the kind of map entered - preforms different actions depending on what it is.
+
         :return:
         """
         # Check to see if the map is one-one (a id_values_map keyed with an id and values with a single entry - with a
@@ -46,6 +54,7 @@ class UpdateMixin:
 
             # Checking that the field and table make sense
             field_table = self.__identify_table_from_column(field)
+
             if table is not None:
                 if field_table != table:
                     wrn_str = "LiuXin.databases.SQLITE.databasedriver:direct_update_columns was fed inconsistent data."
@@ -80,11 +89,10 @@ class UpdateMixin:
             # Todo: Fix
             raise NotImplementedError
 
-
-
-    def direct_update_row_dict(self, row_dict):
+    def direct_update_row_dict(self, row_dict: dict[str, Any]) -> None:
         """
         Takes a row in the form of a row_dict. Updates that row_dict into the database.
+
         This is the method Row ultimately calls to update itself - THUS DO NOT CALL WITH ROW. IT WAS CAUSE RECURSION.
         :param row_dict:
         :return:

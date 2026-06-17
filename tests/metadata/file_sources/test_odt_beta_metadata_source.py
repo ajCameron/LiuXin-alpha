@@ -7,6 +7,7 @@ import zlib
 import zipfile
 from pathlib import Path
 
+import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.file_formats.odf.dc import Creator, Date, Description, Language, Subject, Title
 from LiuXin_alpha.file_formats.odf.draw import Frame, Image
 from LiuXin_alpha.file_formats.odf.meta import Keyword, UserDefined
@@ -91,7 +92,7 @@ def test_odt_beta_extracts_core_fields_and_overrides(tmp_path: Path) -> None:
     assert mi.authors == ["Carol", "Dan"]
     assert "Καλημέρα" in mi.comments
     assert set(mi.tags) == {"tag-one", "tag-two", "tag-three"}
-    assert mi.title_sort == "Title, Main"
+    assert LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort == "Title, Main"
     assert mi.series == "Series A"
     assert float(mi.series_index) == 3.5
     assert mi.publisher == "Éditions Δ"

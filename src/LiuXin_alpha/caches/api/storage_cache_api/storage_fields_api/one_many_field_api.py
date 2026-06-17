@@ -17,7 +17,7 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins im
 
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
         StorageStorageCacheSingleTableAPI,
     )

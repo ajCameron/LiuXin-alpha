@@ -276,11 +276,11 @@ class TestSQLiteDriverIntrospection:
     def test_validate_existing_table_name_hardening(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
 
-        assert drv.validate_existing_table_name("titles") is True
-        assert drv.validate_existing_table_name("`titles`") is True
-        assert drv.validate_existing_table_name(" titles ") is True
-        assert drv.validate_existing_table_name("titles;") is False
-        assert drv.validate_existing_table_name("titles; DROP TABLE titles") is False
+        assert drv.direct_validate_existing_table_name("titles") is True
+        assert drv.direct_validate_existing_table_name("`titles`") is True
+        assert drv.direct_validate_existing_table_name(" titles ") is True
+        assert drv.direct_validate_existing_table_name("titles;") is False
+        assert drv.direct_validate_existing_table_name("titles; DROP TABLE titles") is False
 
     def test_connection_has_expected_pragmas_and_functions(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
@@ -552,7 +552,7 @@ class TestSQLiteDriverSecurity:
     def test_table_name_injection_is_rejected_by_validation_helpers(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
         bad = "titles; DROP TABLE titles;--"
-        assert drv.validate_existing_table_name(bad) is False
+        assert drv.direct_validate_existing_table_name(bad) is False
 
         with pytest.raises(Exception):
             drv.direct_get_all_rows(bad)

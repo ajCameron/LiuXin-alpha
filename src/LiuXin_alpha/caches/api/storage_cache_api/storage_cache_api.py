@@ -40,7 +40,7 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table i
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types import MainTableName
 
 

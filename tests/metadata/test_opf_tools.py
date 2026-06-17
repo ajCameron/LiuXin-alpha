@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.metadata.book.base import calibreMetadata
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData,
@@ -88,7 +89,7 @@ def test_liuxin_metadata_serializes_to_opf_bytes_and_reads_back() -> None:
     assert _values(parsed.publisher) == ["OPF Press"]
     assert _values(parsed.series) == ["OPF Series"]
     assert float(_first_mapping_value(parsed.series_index, 0.0)) == 2.5
-    assert parsed.title_sort == "Tools, OPF"
+    assert LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort == "Tools, OPF"
     assert "10.1234/example" in _values(parsed.get_identifiers()["doi"])
 
 

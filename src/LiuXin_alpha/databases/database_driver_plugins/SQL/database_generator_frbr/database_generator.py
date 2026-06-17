@@ -1,9 +1,14 @@
-# Generates the database from the stored SQL and instructions
-# Starts from the SQL code for the main tables. Generates them.
-# Some SQL files contain multiple statements; those should be executed via executescript.
-# Takes the default list of interlink tables. Generates the basic SQL syntax for them.
-# Does the same for the intralink tables
-# Adds any additional columns which have been created by the user
+
+"""
+Generate a WEMI table.
+
+Generates the database from the stored SQL and instructions
+Starts from the SQL code for the main tables. Generates them.
+Some SQL files contain multiple statements; those should be executed via executescript.
+Takes the default list of interlink tables. Generates the basic SQL syntax for them.
+Does the same for the intralink tables
+Adds any additional columns which have been created by the user
+"""
 
 import sqlite3
 
@@ -37,9 +42,11 @@ from copy import deepcopy
 
 from typing import Optional
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.constants import \
-    __INTERLINK_TABLE_CONSTRAINTS__, __ALLOWED_INTERLINK_TYPE_VAL_DICT__, \
-    __ALLOWED_INTRALINK_TYPE_VAL_DICT__
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.constants import (
+    __INTERLINK_TABLE_CONSTRAINTS__,
+    __ALLOWED_INTERLINK_TYPE_VAL_DICT__, \
+    __ALLOWED_INTRALINK_TYPE_VAL_DICT__)
+
 from LiuXin_alpha.databases.db_types import (
     ALL_IDENTIFIER_ENTITY_TYPES,
     ENTITY_IDENTIFIER_SCHEMES_BY_TYPE,
@@ -76,9 +83,14 @@ from LiuXin_alpha.constants import VERBOSE_DEBUG
 # ---------------------------------------------------------------------------
 
 def _parse_toml_bool(value: Any, *, default: bool = False) -> bool:
-    """Parse a permissive TOML boolean value.
+    """
+    Parse a permissive TOML boolean value.
 
     Accepts bools, ints, and common string spellings ("true"/"false", "yes"/"no", "1"/"0").
+
+    :param value:
+    :param default:
+    :return:
     """
     if value is None:
         return default
@@ -118,12 +130,22 @@ def _require_toml_bool(value: Any, *, context: str) -> bool:
 
 
 def _sql_quote_literal(value: str) -> str:
-    """SQL-quote a literal string for inclusion in a statement."""
+    """
+    SQL-quote a literal string for inclusion in a statement.
+
+    :param value:
+    :return:
+    """
     return "'" + value.replace("'", "''") + "'"
 
 
 def _sql_in_list(values: list[str] | tuple[str, ...] | set[str]) -> str:
-    """Render a stable SQL IN-list from a collection of string literals."""
+    """
+    Render a stable SQL IN-list from a collection of string literals.
+
+    :param values:
+    :return:
+    """
     return ", ".join(_sql_quote_literal(value) for value in sorted(values))
 
 
@@ -184,11 +206,15 @@ def _build_simple_text_check_sql(
 
 
 def _substitute_canonical_vocabulary_placeholders(sql_text: str) -> str:
-    """Substitute SQL placeholders for canonical DB / metadata vocabularies.
+    """
+    Substitute SQL placeholders for canonical DB / metadata vocabularies.
 
     Today, identifier placeholders are live in the FRBR schema. Additional metadata-family
     placeholders are also supported here so future schema columns can draw constraints from the
     same canonical enums without re-inventing generator glue.
+
+    :param sql_text:
+    :return:
     """
     replacements = {
         "__ENTITY_IDENTIFIER_ENTITY_TYPE_CHECK__": _build_entity_identifier_type_check_sql(),
@@ -243,7 +269,12 @@ def _substitute_canonical_vocabulary_placeholders(sql_text: str) -> str:
 
 
 def collect_type_tables(allowed_types_by_link_table: dict[str, Optional[list[str]]]) -> dict[str, set[str]]:
-    """Collect `{link_table}__types` reference tables to build, keyed by their table names."""
+    """
+    Collect `{link_table}__types` reference tables to build, keyed by their table names.
+
+    :param allowed_types_by_link_table:
+    :return:
+    """
     out: dict[str, set[str]] = {}
     for link_table, types in allowed_types_by_link_table.items():
         if not types:
@@ -255,7 +286,12 @@ def collect_type_tables(allowed_types_by_link_table: dict[str, Optional[list[str
 
 
 def emit_types_tables_sql(types_map: dict[str, set[str]]) -> list[str]:
-    """Emit idempotent SQL statements to create and seed all requested `__types` tables."""
+    """
+    Emit idempotent SQL statements to create and seed all requested `__types` tables.
+
+    :param types_map:
+    :return:
+    """
     stmts: list[str] = []
     for types_table in sorted(types_map):
         stmts.append(
@@ -271,11 +307,14 @@ def emit_types_tables_sql(types_map: dict[str, set[str]]) -> list[str]:
 
 
 def _bcp47_common_variants() -> dict[str, list[str]]:
-    """Return a small curated set of common BCP-47 variants.
+    """
+    Return a small curated set of common BCP-47 variants.
 
     We store these as a convenience for UI filtering / quick lookups. The
     canonicalisation path should still parse arbitrary BCP-47 tags by taking
     their primary language subtag.
+
+    :return:
     """
     return {
         # English
@@ -643,7 +682,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
     def direct_get_tables(self) -> set[str]:
         """
         Returns a index of the names of all tables in the database.
-        :param force_refresh: Force the driver to introspect the database again
+
         :return:
         """
 
@@ -660,6 +699,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         We intentionally derive interlink configuration from `interlink_table_requests.toml` and do not
         support legacy `.txt` request lists.
+
+        :return:
         """
         spec_path_toml = os.path.join(__folder__, "interlink_table_requests.toml")
         if not os.path.exists(spec_path_toml):
@@ -873,6 +914,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
           - allowed_types (optional; only meaningful if "type" is requested)
               - list of strings; if omitted, the type column is free-form text
 
+        :return:
         """
         c = self.conn.cursor()
 
@@ -1204,15 +1246,15 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 "allowed_types": allowed_types_list,
             }
 
-
         return link_tables
-
-
 
     @staticmethod
     def _canonicalize_link_type(link_type: str) -> str:
         """
         Normalize common link-type spellings to a small canonical set.
+
+        :param link_type:
+        :return:
         """
 
         if link_type is None:
@@ -1248,6 +1290,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         generator can enforce cardinality via constraints (many_many / one_many / many_one / one_one).
 
         If a pair has no explicit spec metadata, we default to many-to-many.
+
+        :return:
         """
         default_link_type = getattr(self, "interlink_default_link_type", "many_to_many")
 
@@ -1328,7 +1372,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         tables = input_pattern.match(interlink_request)
 
         if tables is None:
-            return
+            return None
 
         i_table1 = tables.group(1)
         i_table2 = tables.group(2)
@@ -1354,6 +1398,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         FRBR interlinks may request a free-form `type` column without enumerating allowed values.
         If `allowed_types` is present for a link table, we validate it is a list[str].
+
+        :return:
         """
         for link_table in self.interlink_tables:
             allowed = self.interlink_allowed_types_by_table.get(link_table)
@@ -1372,6 +1418,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         Supported optional columns are those in INTERLINK_TABLE_COLUMN_NAME_DICT
         (e.g. priority, primary, type, origin, source, data, index) plus the legacy
         requested_columns entry "nullable" (now handled via the TOML key `nullable`).
+
+        :return:
         """
         allowed_cols = set(self.INTERLINK_TABLE_COLUMN_NAME_DICT.keys())
         for link_table in self.interlink_tables:
@@ -1389,7 +1437,11 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                         f"requested column {cr!r} not valid for {link_table} (allowed: {sorted(allowed_cols)})"
                     )
     def materialize_interlink_type_reference_tables(self) -> None:
-        """Create and seed all `{link_table}__types` tables requested by TOML."""
+        """
+        Create and seed all `{link_table}__types` tables requested by TOML.
+
+        :return:
+        """
         types_map = collect_type_tables(self.interlink_allowed_types_by_table)
         if not types_map:
             return

@@ -1,6 +1,13 @@
 
+"""
+Methods to deal with new_books.
+"""
+
+from __future__ import annotations
 
 import sqlite3
+
+from typing import Any
 
 
 class BookGroupMixin:
@@ -15,9 +22,10 @@ class BookGroupMixin:
     # ----------------------------------------------------------------------------------------------------------------------
 
 
-    def direct_get_next_book_group(self):
+    def direct_get_next_book_group(self) -> tuple[list[dict[str, Any]], int]:
         """
         Returns the next group of files from new_books and the group_id corresponding to that group.
+
         :return book_grouping, min_group_id:
         """
         conn = self.get_connection()
@@ -31,6 +39,7 @@ class BookGroupMixin:
             min_group_id = row[0]
 
         stmt2 = "SELECT * FROM `new_books` WHERE new_book_group_id = ?"
+
         # Internally we cache table names without quoting. Use the canonical name here.
         headings = self.direct_get_column_headings("new_books")
         for row in c.execute(stmt2, (min_group_id,)):
@@ -38,12 +47,14 @@ class BookGroupMixin:
             book_grouping.append(this_row)
 
         conn.close()
+
         return book_grouping, min_group_id
 
     # This should definitely not be here
     def sum_book_group_sizes(self, book_group):
         """
-        Takes a book group in the form of a index of dictionaries.
+        Takes a book group in the form of a index of row dicts - sum their sizes..
+
         :param book_group: A .. group of books?
         :return book_group_size: In bytes
         """
@@ -52,9 +63,10 @@ class BookGroupMixin:
             size += book["new_book_size"]
         return size
 
-    def direct_delete_book_group(self, group_id):
+    def direct_delete_book_group(self, group_id: int) -> None:
         """
         Takes the id of a group of files in the new_books table. Deletes them.
+
         :param group_id: The id of the group of books we are searching for
         :return:
         """

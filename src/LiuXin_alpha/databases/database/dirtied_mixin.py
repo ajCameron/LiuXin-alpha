@@ -106,7 +106,7 @@ class TelemetryMaintainerProxy:
                 row_id=row_id,
                 reason="DIRTY_RECORD",
             )
-        return self._target.dirty_record(table, row_id)
+        return self._target.direct_dirty_record(table, row_id)
 
     def new_dirty_record(self, table, row_id):  # noqa: ANN001 - callback compatibility
         telemetry = self._telemetry

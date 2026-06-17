@@ -1,7 +1,11 @@
 
-from typing import TYPE_CHECKING, Union
-from copy import deepcopy
+# Todo: I think we have solved this problem a bunch of times - needs to be merged
+"""
+Names mixin - nominally similar to other instances of this type.
+"""
 
+from typing import TYPE_CHECKING, Union, Optional
+from copy import deepcopy
 
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError, LogicalError
@@ -15,8 +19,6 @@ if TYPE_CHECKING:
         InterLinkTableName,
         IntraLinkTableName,
         HelperTableName)
-
-
 
 
 class DriverWrapperNamesMixin:
@@ -41,7 +43,7 @@ class DriverWrapperNamesMixin:
         """
         return self.driver.direct_get_column_base(table_name)
 
-    def get_id_column(self, table):
+    def get_id_column(self, table: str) -> str:
         """
         Every table in the database should have an id column.
 
@@ -52,19 +54,22 @@ class DriverWrapperNamesMixin:
         """
         return self.driver.direct_get_id_column(table)
 
-    def get_datestamp_column(self, table):
+    def get_datestamp_column(self, table: str) -> str:
         """
-        Return the datestamp column for the given table - every table should have one, as it's needed in version control
+        Return the datestamp column for the given table.
+
+        every table should have one, as it's needed in version control
          - deciding which data should have primacy when merging two rows.
         :param table: The table to retrive the datestamp column for
         :return:
         """
         return self.driver.direct_get_datestamp_column(table)
 
-
-    def get_link_table_name(self, table1, table2):
+    def get_link_table_name(self, table1: str, table2: str) -> str:
         """
-        Takes two tables. Returns their link table name (if one exists). Returns False otherwise.
+        Takes two tables. Returns their link table name (if one exists).
+
+        Returns False otherwise.
         This method can thus be used to both check to see if such a link exists and
         :param table1:
         :param table2:
@@ -116,9 +121,10 @@ class DriverWrapperNamesMixin:
             cache[cache_key] = result
         return result
 
-    def get_interlink_column(self, table1, table2, column_type):
+    def get_interlink_column(self, table1: str, table2: str, column_type: str) -> str:
         """
         See get_link_column.
+
         :param table1:
         :param table2:
         :param column_type:
@@ -127,10 +133,12 @@ class DriverWrapperNamesMixin:
         return self.get_link_column(table1, table2, column_type)
 
     # Todo: This shouldn't be a DatabaseIntegrityError - something like "no such error"
-    def get_link_column(self, table1, table2, column_type):
+    def get_link_column(self, table1: str, table2: str, column_type: str) -> str:
         """
-        Get the name of a column in the link table connecting the two table - for example. table1 = "titles",
-        table2 = "creators", column_type = "priority" returns creator_title_link_priority.
+        Get the name of a column in the link table connecting the two table.
+
+        for example. table1 = "titles", table2 = "creators", column_type = "priority" returns
+        "creator_title_link_priority".
         Returns False if the table doesn't exist - errors if the table exists but the requested column doesn't
         :param table1:
         :param table2:
@@ -171,9 +179,10 @@ class DriverWrapperNamesMixin:
         else:
             return link_col
 
-    def get_intralink_column(self, table, column_type):
+    def get_intralink_column(self, table: str, column_type: str) -> str:
         """
         Get the name of an intralink column in the intralink table connecting two rows in the same table.
+
         e.g. a call with ("titles", "type") will return title_title_intralink_type
         If the table can't be intralinked, return False.
         :param table:
@@ -182,9 +191,10 @@ class DriverWrapperNamesMixin:
         """
         return self.get_link_column(table, table, column_type)
 
-    def get_scratch_column(self, table):
+    def get_scratch_column(self, table: str) -> str:
         """
         Every table in the database should have a scratch column. This finds the name of that column for the table.
+
         :param table:
         :return:
         """
@@ -197,9 +207,10 @@ class DriverWrapperNamesMixin:
         err_str = default_log.log_variables(err_str, "ERROR", ("table", table), ("column_headings", column_headings))
         raise DatabaseIntegrityError(err_str)
 
-    def get_parent_column(self, table_name):
+    def get_parent_column(self, table_name: str) -> Optional[str]:
         """
         Returns the parent column for the table if it exists.
+
         :param table_name:
         :return:
         """
@@ -223,13 +234,14 @@ class DriverWrapperNamesMixin:
         elif len(candidate_index) == 1:
             return candidate_index[0]
         elif len(candidate_index) == 0:
-            return False
+            return None
         else:
             raise LogicalError
 
-    def get_display_column(self, table_name):
+    def get_display_column(self, table_name: str) -> str:
         """
         Gets the display column for a table (currently based off the shortest column which is not the id column)
+
         :param table_name:
         :return display_column:
         """
@@ -253,9 +265,11 @@ class DriverWrapperNamesMixin:
             )
             raise DatabaseIntegrityError(err_str)
         column_names.sort(key=lambda x: len(x))
+
         if len(column_names) == 0:
             err_str = "table_name seems to only have an id column. If that.\n"
             err_str = default_log.log_variables(err_str, "ERROR", ("table_name", table_name))
             raise DatabaseIntegrityError(err_str)
+
         else:
             return column_names[0]

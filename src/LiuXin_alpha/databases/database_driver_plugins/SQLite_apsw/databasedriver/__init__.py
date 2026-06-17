@@ -1,19 +1,24 @@
-# This class is intended to be linked to a specific instance of a DatabasePing.
-# The internals of the database are deliberately separated here, to make changes more directly without influencing the
-# DatabasePing class itself
-# Also should allow live switching of the DatabaseDriver in and out (i.e. if you want to switch from SQLite to SQL -
-# separating the DatabasePing logic and the Driver logic would seem to make sense).
 
-from __future__ import print_function
+"""
+Contains the logic to actually provide a SQLite database driver - using apsw as the acess backend.
+"""
+
+
+from __future__ import print_function, annotations
+
+import datetime
 
 import apsw
 import os
-import re
 import sqlite3
 import uuid
 from contextlib import closing
 from functools import partial
+import pathlib
 
+from typing import Union, Optional, Any, Sequence, Tuple, TYPE_CHECKING, Iterable, Iterator, Callable
+
+from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
 from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_warning_print
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import SQLiteDatabaseMacros
@@ -27,8 +32,6 @@ from LiuXin_alpha.utils.language_tools.lx_name_manip import authors_str_to_sort_
 
 from LiuXin_alpha.databases.maintenance import run_ta_updates
 
-from LiuXin_alpha.preferences import preferences
-
 from LiuXin_alpha.utils.logging import default_log
 
 from LiuXin_alpha.utils.date import utcfromtimestamp
@@ -40,12 +43,11 @@ from LiuXin_alpha.utils.storage.local.filenames import atomic_rename
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQLiteTableLinkingMixin
 
-# Py2/Py3 compatibility layer
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import SQLBaseDriver, _create_new_database
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import SQLBaseDriver
-
+# Todo: Don't do this...
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import *
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import _author_to_author_sort
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import _author_to_author_sort, title_sort
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.calibre_emulation_mixin import CalibreEmulationMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sql_execution_mixin import SQLExecutionMixin
@@ -57,82 +59,31 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.metadata_
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.triggers_mixin import TriggersMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.search_mixin import SearchMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.value_casting_mixin import ValueCastingMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.book_group_mixin import BookGroupMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.new_book_mixin import BookGroupMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.delete_mixin import DeleteMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.add_mixin import AddingMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.update_mixin import UpdateMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.view_mixin import ViewMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_creation_mixin import TableCreationMixin
 
+if TYPE_CHECKING:
 
-_title_pats = {}
-_ignore_starts = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + [chr(0x2032), chr(0x2033)])
-
-
-def _create_new_database(conn):
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.database_generator import (
-        create_new_database,
-    )
-
-    return create_new_database(conn)
-
-
-def _get_title_sort_pat(lang=None):
-    ans = _title_pats.get(lang, None)
-    if ans is not None:
-        return ans
-
-    q = lang
-    if q is None:
-        q = preferences.get("default_language_for_title_sort")
-
-    data = preferences.get("per_language_title_sort_articles", {})
-    try:
-        ans = data.get(q, None)
-    except AttributeError:
-        ans = None
-    try:
-        ans = frozenset(ans) if ans else frozenset(data["eng"])
-    except Exception:
-        ans = frozenset((r"A\s+", r"The\s+", r"An\s+"))
-    ans = "^(%s)" % "|".join(ans)
-    try:
-        ans = re.compile(ans, re.IGNORECASE)
-    except Exception:
-        ans = re.compile(r"^(A|The|An)\s+", re.IGNORECASE)
-    _title_pats[lang] = ans
-    return ans
-
-
-def title_sort(title, order=None, lang=None):
-    if not title:
-        return ""
-    if order is None:
-        order = preferences.get("title_series_sorting", "library_order")
-    title = str(title).strip()
-    if order == "strictly_alphabetic":
-        return title
-    if title and title[0] in _ignore_starts:
-        title = title[1:]
-    match = _get_title_sort_pat(lang).search(title)
-    if match:
-        try:
-            prep = match.group(1)
-        except IndexError:
-            pass
-        else:
-            title = title[len(prep) :] + ", " + prep
-            if title and title[0] in _ignore_starts:
-                title = title[1:]
-    return title.strip()
-
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
 class Connection(apsw.Connection):
+    """
+    Uses apsw to provide a connection to the database.
+    """
 
     BUSY_TIMEOUT = 10000  # milliseconds
 
-    def __init__(self, path):
+    def __init__(self, path: Union[str, pathlib.Path]) -> None:
+        """
+        Constructor.
+
+        :param path:
+        """
         apsw.Connection.__init__(self, path)
 
         self.setbusytimeout(self.BUSY_TIMEOUT)
@@ -158,11 +109,24 @@ class Connection(apsw.Connection):
         self.createaggregatefunction("concat", Concatenate, 1)
         self.createaggregatefunction("aum_sortconcat", AumSortedConcatenate, 4)
 
-    def create_dynamic_filter(self, name):
+    def create_dynamic_filter(self, name: str) -> None:
+        """
+        Create and register the dymanic filters on the database.
+
+        :param name:
+        :return:
+        """
         f = DynamicFilter(name)
         self.createscalarfunction(name, f, 1)
 
-    def get(self, *args, **kw):
+    def get(self, *args: Any, **kw: Any) -> Optional[Any]:
+        """
+        Front end for the cursor get - uses next to pull a single result.
+
+        :param args:
+        :param kw:
+        :return:
+        """
         ans = self.cursor().execute(*args)
         if kw.get("all", True):
             return ans.fetchall()
@@ -171,38 +135,34 @@ class Connection(apsw.Connection):
         except (StopIteration, IndexError):
             return None
 
-    def execute(self, sql, bindings=None):
+    def execute(self, sql: str, bindings: Optional[tuple[str]] = None) -> Any:
+        """
+        Allows direct execution on the database through the cursor.
+
+        :param sql:
+        :param bindings:
+        :return:
+        """
         cursor = self.cursor()
         return cursor.execute(sql, bindings)
 
-    def executemany(self, sql, sequence_of_bindings):
+    def executemany(self, sql: str, sequence_of_bindings: Sequence[Optional[tuple[str]]]) -> Any:
+        """
+        Execute many statements on the database through the cursor.
+
+        :param sql:
+        :param sequence_of_bindings:
+        :return:
+        """
         with self:  # Disable autocommit mode, for performance
             return self.cursor().executemany(sql, sequence_of_bindings)
-
-
-class DummyMaintenanceBot(object):
-    """
-    Is not a maintenance bot - but presents some of the same methods.
-    """
-
-    def __init__(self):
-        pass
-
-    def dirty_record(self, table, row_id):
-        pass
-
-    def new_dirty_record(self, table, row_id):
-        pass
-
-    def dirty_interlink_record(self, update_type, table1, table2, table1_id, table2_id):
-        pass
 
 
 class SQLite_Connection(sqlite3.Connection):
     """
     Add some helper methods around the SQLite connection.
     """
-    def get(self, *args, **kw):
+    def get(self, *args: Any, **kw: Any) -> Optional[Any]:
         """
         Helper method for retrieving results from a database.
 
@@ -225,7 +185,7 @@ class SQLite_Connection(sqlite3.Connection):
             return ans[0]
         return ans.fetchall()
 
-    def get_row(self, *args, **kw):
+    def get_row(self, *args: Any, **kw: Any) -> Optional[Any]:
         """
         Helper method designed to retrieve entire rows from the database.
 
@@ -248,11 +208,6 @@ class SQLite_Connection(sqlite3.Connection):
         return ans.fetchall()
 
 
-# Any method starting with the word direct is intended to be directly exposed to the outside world.
-# Ideally only these should be present (this is intended to contain only the bare minimum required to interact with the
-# actual, on disk database.
-# NOTE - Using the variable substitution features in SQLite3 provides much better results than anything home baked for
-# preventing SQL injection attacks and escaping strings properly. Use this instead.
 class DatabaseDriver(
     SQLBaseDriver,
     SQLiteCustomColumnsDriverMixin,
@@ -262,16 +217,39 @@ class DatabaseDriver(
     SQLExecutionMixin,
     MathFunctionsMixin,
     DirtyRecordsMixin,
-    TableNamesMixin, TreeMethodsMixin, MetadataMethodMixin, TriggersMixin, SearchMixin, BookGroupMixin, DeleteMixin, AddingMixin, UpdateMixin, ViewMixin, TableCreationMixin):
+    TableNamesMixin,
+    TreeMethodsMixin,
+    MetadataMethodMixin,
+    TriggersMixin,
+    SearchMixin,
+    BookGroupMixin,
+    DeleteMixin,
+    AddingMixin,
+    UpdateMixin,
+    ViewMixin,
+    TableCreationMixin):
     """
     Represents a collection of all the methods needed to interface with an actual database.
+
+    Any method starting with the word direct is intended to be directly exposed to the outside world.
+# Ideally only these should be present (this is intended to contain only the bare minimum required to interact with the
+# actual, on disk database.
+# NOTE - Using the variable substitution features in SQLite3 provides much better results than anything home baked for
+# preventing SQL injection attacks and escaping strings properly. Use this instead.
     """
 
-    def __init__(self, db_metadata, db=None, set_conn=True, dirty_records_queue=None):
+    def __init__(
+            self,
+            db_metadata,
+            db: Optional["DatabaseAPI"] = None,
+            set_conn: bool = True,
+            dirty_records_queue=None) -> None:
         """
-        Initializing the class with db_metadata. Which is an object assumed to have a dictionary like interface which
-        provides all the necessary fields to connect to a database of the given type.
-        This DatabaseDriver (SQLite) requires the database_path. That's about it.
+        Initializing the class with db_metadata.
+
+        Which is an object assumed to have a dictionary like interface which provides all the necessary fields to
+        connect to a database of the given type.
+        This DatabaseDriver (SQLite - apsw backed) requires the database_path. That's about it.
         :param db_metadata:
         :param db: The database this process is driving. Hopefully infinite recursion will not result.
         :param set_conn: Set the globally used connection for the class
@@ -326,9 +304,12 @@ class DatabaseDriver(
         self.dirty_records_queue = dirty_records_queue
 
     # Todo: This needs to be terminated during shutdown
-    def direct_run_ta_update(self, ta_row_id):
+    # Todo: This also needs to be written
+    # Todo: May make no sense in a WEMI context
+    def direct_run_ta_update(self, ta_row_id: int) -> None:
         """
-        Runs the separate worker process which updates the titles_aggregate table after the basic update has occured.
+        Runs the separate worker process which updates the titles_aggregate table after the basic update has occurred.
+
         :param ta_row_id:
         :return:
         """
@@ -351,7 +332,7 @@ class DatabaseDriver(
     # ----------------------------------------------------------------------------------------------------------------------
 
     # Internal, implementation dependant method. Should not be exposed to the outside
-    def get_connection(self):
+    def get_connection(self) -> "sqlite3.Connection":
         """
         Method which creates a connection with foreign key support. Returns a connection.
         :return conn: A connection to the database
@@ -378,7 +359,7 @@ class DatabaseDriver(
         try:
             conn = SQLite_Connection(self.database_path, detect_types=sqlite3.PARSE_DECLTYPES)
 
-            # Aggregator allows sets of unicode to be stored directly as the result of queries
+            # Aggregator allows sets of Unicode to be stored directly as the result of queries
             conn.create_aggregate("pyset", 1, PySetAggregate)
             conn.create_aggregate("sortag", 1, SortAggregate)
             conn.create_aggregate("pylist", 1, PyListAggregate)
@@ -411,7 +392,7 @@ class DatabaseDriver(
 
         # Add the TREE_AGGREGATOR to the connection - allows for string representation of the position of a row in a
         # tree
-        conn.create_function("TREE_AG", 3, self.tree_aggregator)
+        conn.create_function("TREE_AG", 3, self.direct_get_tree_aggregation_str)
 
         # Adds a function which creates sort strings from strings of authors
         # Adds again under a different name for close calibre compatibility
@@ -463,17 +444,27 @@ class DatabaseDriver(
 
         return self._register_open_connection(conn)
 
-    def last_modified(self):
+    def last_modified(self) -> "datetime.date":
         """
         Return last modified time as a UTC datetime object
+
         :return:
         """
         return utcfromtimestamp(os.stat(self.database_path).st_mtime)
 
+    # Todo: Needs to actually be written.
+    def last_modified_epoch_k(self) -> int:
+        """
+        The epoch in miliseconds since the UNIX epoch.
+
+        :return:
+        """
+
     # Use with extreme caution - no safeguards
-    def shell(self):
+    def shell(self) -> None:
         """
         Drops you into an SQLite shell.
+
         Be careful. There are no safeguards.
         :return:
         """
@@ -513,20 +504,23 @@ class DatabaseDriver(
 
         conn.close()
 
-
-
-    def sql_dump(self):
+    def sql_dump(self) -> Iterator[str]:
         """
         Dump the current database out to a series of sql statements.
+
         :return:
         """
         with self.conn:
             for line in self.conn.iterdump():
                 yield line
 
-    def dump_and_restore(self, callback=lambda x: x, sql=None):
+    def dump_and_restore(
+            self,
+            callback: Callable[[str, ], None] = lambda x: x,
+            sql: Optional[str] = None) -> None:
         """
-        Dump the database - and all the information in it - to a series of
+        Dump the database - and all the information in it - to a series SQL statements.
+
         :param callback: Report the progress of the dump.
         :param sql: These statements will be written into the start of the file before the data is saved to it - so they
                     will be executed before the rest as the database is restored.

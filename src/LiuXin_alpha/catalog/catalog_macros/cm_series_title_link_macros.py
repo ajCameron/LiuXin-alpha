@@ -1,27 +1,46 @@
 
+"""
+Macros for manipulating series - title links.
+"""
+
+from __future__ import annotations
 
 from LiuXin_alpha.errors import DatabaseDriverError
 
+from typing import Any, TYPE_CHECKING, Optional, Union
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+
+
+# Todo: This is also a catalog level macro
 class SeriesTitleLinkMacros:
     """
     Macros for controlling series title links.
     """
 
+    db: "DatabaseAPI"
+
     # ------------------------------------------------------------------------------------------------------------------
     #
     # - SERIES_TITLE_LINK MACROS
 
-    def get_series_id_from_value(self, series):
+    def get_series_id_from_value(self, series: str) -> int:
         """
         Returns the series_id from the given series value.
+
+        Needs to be an exact match on the string.
         :param series:
         :return:
         """
         return self.db.driver.conn.get("SELECT series_id FROM series WHERE series=?;", (series,), all=False)
 
-    def check_for_series_title_link(self, series_id, title_id):
+    # Todo: This typing is more hopeful than true
+    def check_for_series_title_link(self, series_id: int, title_id: int) -> bool:
         """
         Check to see if there is an existing link between a given series and title.
+
         :param series_id:
         :param title_id:
         :return:
@@ -34,9 +53,11 @@ class SeriesTitleLinkMacros:
         )
         return self.db.driver.conn.get_row(stmt, (series_id, title_id), all=False)
 
-    def get_primary_series_index(self, title_id):
+    # Todo: What happens if there are no series?
+    def get_primary_series_index(self, title_id: int) -> Optional[int]:
         """
         Return the index of the primary series for the given title.
+
         :param title_id:
         :return:
         """
@@ -48,9 +69,10 @@ class SeriesTitleLinkMacros:
         )
         return self.db.driver.conn.get(stmt, (title_id,), all=False)
 
-    def break_series_title_link(self, title_id, series_id=0):
+    def break_series_title_link(self, title_id: int, series_id: int) -> None:
         """
         Break a link between the series and a given title.
+
         :param title_id:
         :param series_id:
         :return:
@@ -67,9 +89,13 @@ class SeriesTitleLinkMacros:
             ),
         )
 
-    def link_null_series_to_title(self, title_id, series_index):
+    def link_null_series_to_title(
+            self,
+            title_id: int,
+            series_index: Optional[Union[int, float]]) -> None:
         """
         Link the title to the null series - and records the series index for later use.
+
         :param title_id:
         :param series_index:
         :return:
@@ -87,17 +113,23 @@ class SeriesTitleLinkMacros:
             # Todo: Should, if this link exists, update the link with the new index
             pass
 
-    def read_primary_title_series_id_from_meta(self, title_id):
+    def read_primary_title_series_id_from_meta(self, title_id: int) -> Optional[int]:
         """
         Read and return the series_id from the meta view.
+
         :param title_id:
         :return:
         """
         return self.db.driver.conn.get("SELECT series_id FROM meta WHERE id=?;", (title_id,), all=False)
 
-    def update_index_for_series_title_link(self, title_id, series_id, index):
+    def update_index_for_series_title_link(
+            self,
+            title_id: int,
+            series_id: int,
+            index: Optional[Union[int, float]]) -> None:
         """
         Update the index for the given series title link.
+
         :param title_id:
         :param series_id:
         :param index:
@@ -114,3 +146,13 @@ class SeriesTitleLinkMacros:
 
     #
     # ------------------------------------------------------------------------------------------------------------------
+
+
+    def get_title_series_ids_set(self, title_id):
+        """
+        Returns as set of all the series ids associated with a title id
+        :param title_id:
+        :return:
+        """
+        stmt = "SELECT series_title_link_series_id FROM series_title_links WHERE series_title_link_title_id = ?;"
+        return set(row[0] for row in self.execute(stmt, (title_id,)))

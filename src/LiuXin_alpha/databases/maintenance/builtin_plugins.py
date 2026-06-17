@@ -33,7 +33,7 @@ class CreatorSortMaintenancePlugin(MaintenancePluginBase):
         """
         return isinstance(event, DirtyRowEvent) and event.table == "creators"
 
-    # Todo: Type this better
+    # Todo: Type this better?
     def coalesce_key(self, event: MaintenanceEvent) -> object | None:
         if isinstance(event, DirtyRowEvent):
             return event.kind, event.table, event.row_id
@@ -43,7 +43,14 @@ class CreatorSortMaintenancePlugin(MaintenancePluginBase):
         self,
         context: MaintenancePluginContext,
         events: Iterable[MaintenanceEvent],
-    ) -> MaintenancePluginResult:
+    ) -> "MaintenancePluginResult":
+        """
+        Handle maintenance events.
+
+        :param context:
+        :param events:
+        :return:
+        """
         rows = []
         handled = 0
         for event in events:
@@ -60,7 +67,8 @@ class CreatorSortMaintenancePlugin(MaintenancePluginBase):
 
 
 class CreatorRenameMaintenancePlugin(MaintenancePluginBase):
-    """Compatibility plugin for the old ``rename_item()`` API.
+    """
+    Compatibility plugin for the old ``rename_item()`` API.
 
     This keeps the old creators-only behaviour, but routes it through the new
     plugin engine so the engine owns the unit of work rather than the thread
@@ -71,18 +79,31 @@ class CreatorRenameMaintenancePlugin(MaintenancePluginBase):
     priority = 60
 
     def wants_event(self, event: MaintenanceEvent) -> bool:
+        """
+        Check all incoming maintenance events to see if we're going to respond to them.
+
+        :param event:
+        :return:
+        """
         return isinstance(event, RenameRequestEvent) and event.table == "creators"
 
     def coalesce_key(self, event: MaintenanceEvent) -> object | None:
         if isinstance(event, RenameRequestEvent):
-            return (event.table, event.item_id)
+            return event.table, event.item_id
         return None
 
     def handle_events(
         self,
-        context: MaintenancePluginContext,
-        events: Iterable[MaintenanceEvent],
-    ) -> MaintenancePluginResult:
+        context: "MaintenancePluginContext",
+        events: Iterable["MaintenanceEvent"],
+    ) -> "MaintenancePluginResult":
+        """
+        Allow the plugin to process events.
+
+        :param context:
+        :param events:
+        :return:
+        """
         handled = 0
         for event in events:
             if not isinstance(event, RenameRequestEvent):
@@ -99,23 +120,32 @@ class CreatorRenameMaintenancePlugin(MaintenancePluginBase):
 
 
 class NullMaintenancePlugin(MaintenancePluginBase):
-    """Safe default so the engine can be introduced before every job is ported."""
+    """
+    Safe default so the engine can be introduced before every job is ported.
+    """
 
     name = "null-maintenance"
     priority = -100
 
     def handle_events(
         self,
-        context: MaintenancePluginContext,
-        events: Iterable[MaintenanceEvent],
-    ) -> MaintenancePluginResult:
+        context: "MaintenancePluginContext",
+        events: Iterable["MaintenanceEvent"],
+    ) -> "MaintenancePluginResult":
+        """
+        Handle maintenance events.
+
+        :param context:
+        :param events:
+        :return:
+        """
         count = sum(1 for _ in events)
         return MaintenancePluginResult(handled=count)
 
 
 # Explicit builtin registration first. This is safer than trying to hook the
 # heavier calibre-style customize plugin machinery into an internal DB service.
-def get_builtin_maintenance_plugins():
+def get_builtin_maintenance_plugins() -> list["MaintenancePluginBase"]:
     return [
         CreatorRenameMaintenancePlugin(),
         CreatorSortMaintenancePlugin(),

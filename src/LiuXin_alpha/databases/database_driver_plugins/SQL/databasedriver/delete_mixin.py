@@ -3,7 +3,11 @@
 Mixin for deleting entries from the table.
 """
 
+from __future__ import annotations
+
 import sqlite3
+
+from typing import Iterable, Optional, Any
 
 from LiuXin_alpha.utils.logging import default_log
 
@@ -15,12 +19,12 @@ class DeleteMixin:
     Methods to delete entries from the database.
     """
 
-
-    def direct_delete_many_by_ids(self, target_table, row_ids):
+    def direct_delete_many_by_ids(self, target_table: str, row_ids: Iterable[int]) -> bool:
         """
         Delete many entries from the given table.
+
         :param target_table:
-        :param values:
+        :param row_ids:
         :return:
         """
         row_ids = ((str(rid),) for rid in row_ids)
@@ -34,8 +38,10 @@ class DeleteMixin:
         conn = self.get_connection()
         target_table_id_column = self._get_id_column(target_table)
         stmt = "DELETE FROM {} WHERE {} = ?;".format(target_table, target_table_id_column)
+
         try:
             conn.executemany(stmt, row_ids)
+
         except sqlite3.OperationalError as e:
             err_str = "Operational error on table.\n"
             err_str = default_log.log_exception(
@@ -49,6 +55,7 @@ class DeleteMixin:
             conn.commit()
             conn.close()
             raise DatabaseDriverError(err_str)
+
         except sqlite3.IntegrityError as e:
             err_str = "IntegrityError on table."
             err_str = default_log.log_exception(
@@ -62,6 +69,7 @@ class DeleteMixin:
             conn.commit()
             conn.close()
             raise DatabaseIntegrityError(err_str)
+
         finally:
             conn.commit()
             conn.close()
@@ -69,18 +77,18 @@ class DeleteMixin:
         # Todo: Add checking that the delete has gone through
         return True
 
-
     # Todo: Merge
-    def direct_delete(self, target_table, column, value, many=False):
+    def direct_delete(self, target_table: str, column: str, value: str, many: bool = False) -> bool:
         """
         Delete all the entries in the target_table whose column matches that value.
+
         :param target_table:
         :param column:
         :param value:
         :param many: Is it a single value or many
         :return:
         """
-        if not self.validate_existing_table_name(target_table):
+        if not self.direct_validate_existing_table_name(target_table):
             err_str = "target_table not found in database.\n"
             err_str = default_log.log_variables(
                 err_str,
@@ -134,11 +142,11 @@ class DeleteMixin:
         # Todo: Add checking that the delete has gone through
         return True
 
-
     # Todo: Standardize on "table" not "target_table"
-    def direct_delete_many(self, target_table, column, values):
+    def direct_delete_many(self, target_table: str, column: str, values: Any) -> None:
         """
         Delete all the entries in the target_table whose column matches that value.
+
         :param target_table:
         :param column:
         :param values:
@@ -146,15 +154,15 @@ class DeleteMixin:
         """
         self.direct_delete(target_table=target_table, column=column, value=values, many=True)
 
-
-    def direct_delete_row_by_id(self, target_table, row_id):
+    def direct_delete_row_by_id(self, target_table: str, row_id: int) -> bool:
         """
         Takes a table and a row_id - deletes the row with that id.
+
         :param target_table:
         :param row_id:
         :return:
         """
-        if not self.validate_existing_table_name(target_table):
+        if not self.direct_validate_existing_table_name(target_table):
             err_str = "target_table not found in database."
             err_str = default_log.log_variables(err_str, "ERROR", ("target_table", target_table), ("row_id", row_id))
             raise InputIntegrityError(err_str)
@@ -165,6 +173,7 @@ class DeleteMixin:
 
         try:
             conn.execute(stmt, (row_id,))
+
         except sqlite3.OperationalError as e:
             err_str = "Operational error on table."
             err_str = default_log.log_exception(
@@ -177,6 +186,7 @@ class DeleteMixin:
             )
             conn.commit()
             raise DatabaseDriverError(err_str)
+
         except sqlite3.IntegrityError as e:
             err_str = "IntegrityError on table.\n"
             err_str = default_log.log_exception(
@@ -190,14 +200,14 @@ class DeleteMixin:
             default_log.log_exception(message=err_str, exception=e, level="ERROR")
             conn.commit()
             raise DatabaseIntegrityError(err_str)
+
         finally:
             conn.commit()
 
         # Todo: Add checking that the delete has gone through
         return True
 
-
-    def direct_clear_table(self, target_table):
+    def direct_clear_table(self, target_table: str) -> bool:
         """
         Deletes every record from a table.
 
@@ -248,7 +258,7 @@ class DeleteMixin:
         else:
             return False
 
-    def direct_unlink_main_tables(self, primary_table, secondary_table):
+    def direct_unlink_main_tables(self, primary_table: str, secondary_table: str) -> None:
         """
         Break an existing link between two main tables. The link will be broken regardless of type.
 

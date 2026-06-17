@@ -1,9 +1,21 @@
 
+"""
+Methods to directly search the database.
+
+These include methods to
+ - get exact matches based off ID
+ - get random rows (random selection is a form of search - just a bad one)
+ - fuzzy search is not low enough level to be included here (for now)
+"""
+
+from __future__ import annotations
 
 import sqlite3
 import random
 import re
 from copy import deepcopy
+
+from typing import Any, Optional, Iterator, Iterable, Union
 
 from LiuXin_alpha.errors import LogicalError, InputIntegrityError, DatabaseIntegrityError, DatabaseDriverError
 
@@ -20,7 +32,13 @@ class SearchMixin:
     """
 
     @staticmethod
-    def _coerce_search_text(value):
+    def _coerce_search_text(value: Any) -> str:
+        """
+        Gives you back a Unicode string for use in database searches.
+
+        :param value:
+        :return:
+        """
         if isinstance(value, (bytes, bytearray, memoryview)):
             try:
                 return bytes(value).decode("utf-8")
@@ -30,10 +48,13 @@ class SearchMixin:
                 raise InputIntegrityError(err_str) from e
         return force_unicode(value)
 
-
-    def direct_get_random_row_dict(self, target_table, direct=False):
+    def direct_get_random_row_dict(
+            self,
+            target_table: str,
+            direct: bool = False) -> Optional[dict[str, Any]]:
         """
         Returns a random row_dict from the specified table.
+
         :param target_table:
         :param direct:
         :return:
@@ -58,6 +79,7 @@ class SearchMixin:
                 "Could also mean that non-integer ids are being used - in which case this method cannot be used"
             )
             wrn_str = default_log.log_variables(wrn_str, "WARN", ("highest_id", highest_id))
+            default_log.warn(wrn_str)
             conn.close()
             return None
 
@@ -82,10 +104,15 @@ class SearchMixin:
         # In the case where there are no rows in the table, returns None
         return None
 
-
-    def direct_get_all_rows(self, table, sort_column=None, reverse=False):
+    def direct_get_all_rows(
+            self,
+            table: str,
+            sort_column: Optional[str] = None,
+            reverse: bool = False) -> list[dict[str, Any]]:
         """
         Returns all rows from a given table in the database in the form of an index of row_dicts.
+
+        # Todo: Try and fix this
         Should only be used with small tables. Otherwise the memory cost is prohibitive.
         :param table: Yield the rows from this table
         :param sort_column: Sort the rows by the values in this column
@@ -125,8 +152,13 @@ class SearchMixin:
         conn.close()
         return results
 
-
-    def direct_get_row_dict_iterator(self, table, sort_column=None, reverse=False):
+    # Todo: Not sure why reverse is not implemented - fix
+    def direct_get_row_dict_iterator(
+            self,
+            table: str,
+            sort_column: str = None,
+            reverse: bool = False
+    ) -> Iterator[dict[str, Any]]:
         """
         Provides an iterator which returns all the rows in a specified table in the form of row_dicts. Ordered by id
 
@@ -192,14 +224,14 @@ class SearchMixin:
             # Do something with timestamps
             raise NotImplementedError("Cannot currently cope with this combination")
 
-    def direct_get_unique_values_set(self, target_column):
+    def direct_get_unique_values_set(self, target_column: str) -> set[str]:
         """
         Returns a set of the unique values in a column.
 
         :param target_column:
         :return values_set: A set of all the unique values in that column
         """
-        target_table = self.identify_table_from_column(column_heading=target_column)
+        target_table = self.direct_identify_table_from_column(column_heading=target_column)
         stmt = "SELECT DISTINCT {} FROM {};".format(target_column, target_table)
         values_set = set()
         conn = self.get_connection()
@@ -210,7 +242,7 @@ class SearchMixin:
         conn.close()
         return values_set
 
-    def direct_get_unique_values_iterator(self, target_column):
+    def direct_get_unique_values_iterator(self, target_column: str) -> Iterator[str]:
         """
         Iterates over the unique values in a column.
 
@@ -227,11 +259,11 @@ class SearchMixin:
         for value in values_set:
             yield value
 
-
-    def direct_get_row_dict_from_id(self, table, row_id):
+    def direct_get_row_dict_from_id(self, table: str, row_id: int) -> Optional[dict[str, Any]]:
         """
-        Attempts to get a specific row from the table give. Returns the result as a dictionary kweyed with the column
-        name and valued with the values from that row.
+        Attempts to get a specific row from the table give.
+
+        Returns the result as a dictionary kweyed with the column name and valued with the values from that row.
         :param table: The table to search in
         :param row_id: The id this function will be looking for
         :return row/False: The requested Row. False if nothing is found.
@@ -264,27 +296,34 @@ class SearchMixin:
             default_log.error(err_str)
             conn.close()
             raise DatabaseIntegrityError(err_str)
+
         elif len(rows) == 0:
             info_str = "Warning - search yielded no results. Consider sources of logical error."
             default_log.log_variables(info_str, "INFO", ("table", table), ("row_id", row_id))
             conn.close()
-            return False
+            return None
+
         else:
             conn.close()
             return result
 
 
+    # Todo: Should go sideways and become a null rows mixin
     # ------------------------------------------------------------------
     # Sentinel / null-row helpers
     # ------------------------------------------------------------------
 
-    def direct_has_null_row(self, table) -> bool:
-        """Return True if the table contains a sentinel/null row at id=0.
+    def direct_has_null_row(self, table: str) -> bool:
+        """
+        Return True if the table contains a sentinel/null row at id=0.
 
         Some calibre-compatible tables reserve an explicit row with primary-key
         value 0 (often with most fields NULL) to represent a missing/unknown
         reference. Contract tests treat this row as *categorically different*
         from "real" rows.
+
+        :param table:
+        :return:
         """
         table = force_unicode(table)
         if not self.validate_existing_table_name(table):
@@ -300,15 +339,26 @@ class SearchMixin:
         finally:
             conn.close()
 
-    def direct_get_null_row(self, table):
-        """Fetch the sentinel/null row at id=0, or False if none exists."""
+    def direct_get_null_row(self, table: str) -> Optional[dict[str, Any]]:
+        """
+        Fetch the sentinel/null row at id=0, or False if none exists.
+
+        :param table:
+        :return:
+        """
         table = force_unicode(table)
         if not self.direct_has_null_row(table):
-            return False
+            return None
         return self.direct_get_row_dict_from_id(table, 0)
 
-    def direct_update_null_row(self, table, updates=None, **fields) -> bool:
-        """Update the sentinel/null row (id=0) with the provided fields.
+    # Todo: Go through and add :raises : whereever we can
+    def direct_update_null_row(
+            self,
+            table: str,
+            updates: Optional[dict[str, Any]] = None,
+            **fields: Any) -> bool:
+        """
+        Update the sentinel/null row (id=0) with the provided fields.
 
         :param table: Target table.
         :param updates: Optional mapping of column -> value.
@@ -331,10 +381,10 @@ class SearchMixin:
         self.direct_update_row_dict(row_dict)
         return True
 
-
-    def direct_get_all_hashes(self):
+    def direct_get_all_hashes(self) -> set[str]:
         """
         Returns a set of all hashes in the database.
+
         :return:
         """
         candidate_columns_by_table = {
@@ -357,8 +407,10 @@ class SearchMixin:
 
         return {hash_value for hash_value in discovered_hashes if hash_value is not None}
 
+    # Todo: For typing, can we just declare self has the whole driver api?
     # Todo - Merge with direct_get_unique_values - after an upgrade to allow specify a table
-    def direct_get_all_values(self, table, column):
+    # Todo - heavy abuse of typing can probably get this into a better place type wise
+    def direct_get_all_values(self, table: str, column: str) -> set[Any]:
         """
         Returns a set of all values in the given column in the given table.
 
@@ -369,7 +421,7 @@ class SearchMixin:
         if table is not None:
             table = deepcopy(force_unicode(table))
         else:
-            table = self.__identify_table_from_column(column)
+            table = self.direct_identify_table_from_column(column)
         column = deepcopy(force_unicode(column))
 
         current_values = set()
@@ -381,11 +433,23 @@ class SearchMixin:
             current_values.add(row[0])
         return current_values
 
-    def iterator_return(self, stmt, headings, table=None, bindings=None):
-        """Yield row dicts for a pre-built SQL statement.
+    def direct_iterator_return(
+            self,
+            stmt: str,
+            headings: Iterable[str],
+            table: Optional[str] = None,
+            bindings: Optional[tuple[str, ...]] = None) -> None:
+        """
+        Yield row dicts for a pre-built SQL statement.
 
         When `table` is provided, values are coerced using declared column types
         (see :class:`~LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver.value_casting_mixin.ValueCastingMixin`).
+
+        :param stmt:
+        :param headings:
+        :param table:
+        :param bindings:
+        :return:
         """
         conn = self.get_connection()
         c = conn.cursor()
@@ -404,9 +468,15 @@ class SearchMixin:
             conn.close()
 
 
-    def direct_search_table(self, table=None, column=None, search_term=None):
+    def direct_search_table(
+            self,
+            table: Optional[str] = None,
+            column: Optional[str] = None,
+            search_term: Optional[str] = None
+    ) -> list[dict[str, Any]]:
         """
         Searches a specified column in a table by the given search term.
+
         Returns an empty index if no results are found.
         :param table: The table to search (can be unspecified - but don't want to break backwards compatibility
         :param column: The column to search in
@@ -479,12 +549,16 @@ class SearchMixin:
         conn.close()
         return results
 
-
     # Todo: Paused while adding a method to import metadata from a csv file - so I can test something fancy with a join
-    def direct_multi_column_search(self, search_index, iterator_return=False):
+    def direct_multi_column_search(
+            self,
+            search_index: list[str],
+            iterator_return: bool = False
+    ) -> Optional[Union[Iterator[dict[str, Any]], list[dict[str, Any]]]]:
         """
-        Takes an index of tuples (or indexes - the method is not fussy provided it contains the required terms). Which
-        can then be used to search the database.
+        Takes an index of tuples (or indexes - the method is not fussy provided it contains the required terms).
+
+        Which can then be used to search the database.
         Tuples should take the form (column_name, binary_comparison_operator, target_value).
         Binary comparison operators can include the LIKE operator.
         Every tuple is joined together by an AND statement.
@@ -509,7 +583,7 @@ class SearchMixin:
         for term in search_index:
             columns_set.add(term[0])
         for column in columns_set:
-            table_set.add(self.identify_table_from_column(column))
+            table_set.add(self.direct_identify_table_from_column(column))
 
         if len(table_set) == 0:
             err_str = "Attempt to parse the search_index has failed.\n"
@@ -612,7 +686,7 @@ class SearchMixin:
             conn.close()
             return all_results
         else:
-            return self.iterator_return(final_stmt, headings, target_table, bindings=bindings)
+            return self.direct_iterator_return(final_stmt, headings, target_table, bindings=bindings)
 
 
     # Algorithm is as follows.
@@ -624,7 +698,7 @@ class SearchMixin:
     # 2) Converts it, in place, into a string.
     # 3) Continues, until the entire tree has been converted
     # 4) Should end up with something which is semantically identical to the initial query, before it was parsed
-    def locational_search(self, parsed_query):
+    def direct_locational_search(self, parsed_query):
         """
         Takes an index parsed from a search query - builds an appropriate search query from that parsed query and
         executes it on the database.
@@ -699,6 +773,7 @@ class SearchMixin:
     def transform_index(target_index):
         """
         Takes an index - transforms it into intermediate form.
+
         :param target_index:
         :return:
         """

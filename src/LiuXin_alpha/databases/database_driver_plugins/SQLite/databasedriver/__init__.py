@@ -57,16 +57,15 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.metadata_
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.triggers_mixin import TriggersMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.search_mixin import SearchMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.value_casting_mixin import ValueCastingMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.book_group_mixin import BookGroupMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.new_book_mixin import BookGroupMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.delete_mixin import DeleteMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.add_mixin import AddingMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.update_mixin import UpdateMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.view_mixin import ViewMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_creation_mixin import TableCreationMixin
 
-
-_title_pats = {}
-_ignore_starts = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + [chr(0x2032), chr(0x2033)])
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import _get_title_sort_pat, _title_pats, _ignore_starts, title_sort
+from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
 
 
 def _create_new_database(conn):
@@ -77,80 +76,16 @@ def _create_new_database(conn):
     return create_new_database(conn)
 
 
-def _get_title_sort_pat(lang=None):
-    ans = _title_pats.get(lang, None)
-    if ans is not None:
-        return ans
-
-    q = lang
-    if q is None:
-        q = preferences.get("default_language_for_title_sort")
-
-    data = preferences.get("per_language_title_sort_articles", {})
-    try:
-        ans = data.get(q, None)
-    except AttributeError:
-        ans = None
-    try:
-        ans = frozenset(ans) if ans else frozenset(data["eng"])
-    except Exception:
-        ans = frozenset((r"A\s+", r"The\s+", r"An\s+"))
-    ans = "^(%s)" % "|".join(ans)
-    try:
-        ans = re.compile(ans, re.IGNORECASE)
-    except Exception:
-        ans = re.compile(r"^(A|The|An)\s+", re.IGNORECASE)
-    _title_pats[lang] = ans
-    return ans
-
-
-def title_sort(title, order=None, lang=None):
-    if not title:
-        return ""
-    if order is None:
-        order = preferences.get("title_series_sorting", "library_order")
-    title = str(title).strip()
-    if order == "strictly_alphabetic":
-        return title
-    if title and title[0] in _ignore_starts:
-        title = title[1:]
-    match = _get_title_sort_pat(lang).search(title)
-    if match:
-        try:
-            prep = match.group(1)
-        except IndexError:
-            pass
-        else:
-            title = title[len(prep) :] + ", " + prep
-            if title and title[0] in _ignore_starts:
-                title = title[1:]
-    return title.strip()
-
-
-
-
-class DummyMaintenanceBot(object):
-    """
-    Is not a maintenance bot - but presents some of the same methods.
-    """
-
-    def __init__(self):
-        pass
-
-    def dirty_record(self, table, row_id):
-        pass
-
-    def new_dirty_record(self, table, row_id):
-        pass
-
-    def dirty_interlink_record(self, update_type, table1, table2, table1_id, table2_id):
-        pass
-
-
+# Todo: This needs to be a protcol or summit? Probably a protocol.
+# Todo: My feel is there should be a base class for SQLite 3 shaped connection objects.
 class SQLite_Connection(sqlite3.Connection):
+    """
+    Inbuilt only SQLite connection to the database.
+    """
     def get(self, *args, **kw):
         """
         Helper method for retrieving results from a database.
+
         :param args:
         :param kw:
         :return:
@@ -173,6 +108,7 @@ class SQLite_Connection(sqlite3.Connection):
     def get_row(self, *args, **kw):
         """
         Helper method designed to retrieve entire rows from the database.
+
         :param args:
         :return:
         """
@@ -221,7 +157,7 @@ class DatabaseDriver(
     """
     Represents a collection of all the methods needed to interface with an actual database.
     """
-
+    # Todo: This can get merged into the base class?
     def __init__(self, db_metadata, db=None, set_conn=True, dirty_records_queue=None):
         """
         Initializing the class with db_metadata.
@@ -282,14 +218,6 @@ class DatabaseDriver(
 
         # This will be usefully set when the database starts up
         self.dirty_records_queue = dirty_records_queue
-
-
-
-
-
-
-
-
 
     def direct_run_ta_update(self, ta_row_id):
         """
@@ -378,7 +306,7 @@ class DatabaseDriver(
 
         # Add the TREE_AGGREGATOR to the connection - allows for string representation of the position of a row in a
         # tree
-        conn.create_function("TREE_AG", 3, self.tree_aggregator)
+        conn.create_function("TREE_AG", 3, self.direct_get_tree_aggregation_str)
 
         # Adds a function which creates sort strings from strings of authors
         # Adds again under a different name for close calibre compatibility
@@ -479,7 +407,6 @@ class DatabaseDriver(
         self._zero_prop_cache()
 
         conn.close()
-
 
     def sql_dump(self):
         """
@@ -589,33 +516,3 @@ class DatabaseDriver(
                     atomic_rename(tmpdb, self.database_path)
                 finally:
                     self.reopen()
-
-
-    # ----------------------------------------------------------------------------------------------------------------------
-    #
-    # - DB CREATION METHODS
-
-    def direct_create_new_database(self):
-        """
-        Creates a new database using the SQL and other instructions present in the database_generator
-        :return None:
-        """
-        if not os.path.exists(os.path.dirname(self.database_path)):
-            os.makedirs(os.path.dirname(self.database_path))
-
-        conn = self.get_connection()
-        self._create_new_database(conn)
-
-        # Defensive: ensure languages constants are present/locked even if generator changes.
-        try:
-            from LiuXin_alpha.utils.language_tools import ensure_languages_seeded_and_locked
-
-            ensure_languages_seeded_and_locked(conn)
-        except Exception:
-            pass
-
-        conn.commit()
-        conn.close()
-
-    #
-    # ----------------------------------------------------------------------------------------------------------------------

@@ -1,4 +1,11 @@
-from __future__ import division, absolute_import, print_function, unicode_literals
+
+"""
+Writer for writing UUIDs out to the database.
+"""
+
+
+
+from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
 from LiuXin_alpha.catalog.write import OneToOneWriter
 
@@ -11,6 +18,7 @@ class UUIDWriter(OneToOneWriter):
     def set_uuid(self, book_id_val_map, db, field, *args):
         """
         Update the uuid for the book.
+
         :param book_id_val_map: Keyed with the id of the book and valued with the new uuid value
         :param db: The database to preform the update in
         :param field: In memory field representing data from the database

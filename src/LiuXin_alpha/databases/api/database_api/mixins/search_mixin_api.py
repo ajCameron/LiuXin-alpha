@@ -55,7 +55,7 @@ class DatabaseSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_row_from_id(self, table: str, row_id: int) -> Optional["RowAPI"]:
+    def get_row_from_id(self, table: str, row_id: Union[int, str]) -> Optional["RowAPI"]:
         """
         Get a row from the given table by id.
 

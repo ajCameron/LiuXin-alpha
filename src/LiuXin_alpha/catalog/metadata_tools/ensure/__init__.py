@@ -42,7 +42,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 if TYPE_CHECKING:
 
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.api.row import RowAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
 
 
 class Ensure:

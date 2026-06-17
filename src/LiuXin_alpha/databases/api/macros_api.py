@@ -10,7 +10,7 @@ from typing import Optional, Union, TYPE_CHECKING, Any, Iterable
 import datetime
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 
 class MacrosAPI(abc.ABC):

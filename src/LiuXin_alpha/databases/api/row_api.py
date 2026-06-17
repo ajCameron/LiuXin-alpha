@@ -533,28 +533,53 @@ class InterlinkRowAPI(RowAPI):
 
     @property
     def sequence_number(self) -> int:
-        """Return the sequence number of this link."""
+        """
+        Return the sequence number of this link.
+
+        :return:
+        """
         if not self._has_sequence_number:
             raise NoSuchPropertyForLinkException(f"{self.table} does not support sequence_number.")
         return int(self.row_dict.get(self.sequence_number_col))
 
     @sequence_number.setter
     def sequence_number(self, new_sequence_number: int) -> None:
-        """Set the sequence number of this link."""
+        """
+        Set the sequence number of this link.
+
+        :param new_sequence_number:
+        :return:
+        """
         if not self._has_sequence_number:
             raise NoSuchPropertyForLinkException(f"{self.table} does not support sequence_number.")
         self.row_dict[self.sequence_number_col] = int(new_sequence_number)
 
     @property
     def is_required(self) -> bool:
-        """Return whether this link is marked as required."""
+        """
+        Return whether this link is marked as required.
+
+        :return:
+        """
         if not self._has_is_required:
             raise NoSuchPropertyForLinkException(f"{self.table} does not support is_required.")
         return bool(self.row_dict.get(self.is_required_col))
 
     @is_required.setter
     def is_required(self, new_is_required: bool) -> None:
-        """Set whether this link is required."""
+        """
+        Set whether this link is required.
+
+        :param new_is_required:
+        :return:
+        """
         if not self._has_is_required:
             raise NoSuchPropertyForLinkException(f"{self.table} does not support is_required.")
         self.row_dict[self.is_required_col] = int(bool(new_is_required))
+
+
+# Todo: Actually write this
+class ViewRowAPI(RowAPI):
+    """
+    Represents a row in a view.
+    """

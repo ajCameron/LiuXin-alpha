@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, Any, Optional
 from copy import deepcopy
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
-    from LiuXin_alpha.databases.api.row import RowAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
 
 
 # Todo: There has to be better ways to do this

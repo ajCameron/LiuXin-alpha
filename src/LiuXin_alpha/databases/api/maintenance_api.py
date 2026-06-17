@@ -6,7 +6,7 @@ import abc
 
 from typing import Any, Iterable, Optional
 
-from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 
 class DatabaseMaintainerAPI(abc.ABC):

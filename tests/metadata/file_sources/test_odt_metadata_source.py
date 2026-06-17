@@ -7,6 +7,7 @@ import binascii
 import zipfile
 from pathlib import Path
 
+import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.file_formats.odf.dc import Creator, Date, Description, Language, Subject, Title
 from LiuXin_alpha.file_formats.odf.draw import Frame, Image
 from LiuXin_alpha.file_formats.odf.meta import Keyword, UserDefined
@@ -135,7 +136,7 @@ def test_odt_metadata_extracts_core_fields_and_opf_overrides(tmp_path: Path) -> 
     assert mi.comments and "Καλημέρα" in mi.comments
     assert set(mi.tags) == {"tag-one", "tag-two", "tag-three"}
     assert mi.language == "en"
-    assert mi.title_sort == "Title, Main"
+    assert LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort == "Title, Main"
     assert mi.series == "Series A"
     assert float(mi.series_index) == 3.0
     assert mi.isbn == "9780306406157"

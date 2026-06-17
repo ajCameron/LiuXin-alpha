@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     )
     from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
     from LiuXin_alpha.storage.api.policy_apis import ReplicationPolicy
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
 
 

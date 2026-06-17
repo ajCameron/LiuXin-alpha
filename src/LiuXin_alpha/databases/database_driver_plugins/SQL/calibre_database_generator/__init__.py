@@ -12,7 +12,7 @@ Design goals:
 
 from __future__ import annotations
 
-from .database_generator import (
+from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator import (
     create_new_database,
     create_calibre_library_skeleton,
     CalibreLibraryPaths,
@@ -25,7 +25,7 @@ from .database_generator import (
     read_calibre_sql,
 )
 
-from .library_builder import (
+from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.library_builder import (
     CalibreLibraryBuilder,
     AddedBook,
     AddedFormat,

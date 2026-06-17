@@ -67,9 +67,14 @@ _CACHE: Dict[str, CalibreSchemaInfo] = {}
 
 
 def create_new_database(connection: sqlite3.Connection, *, validate: bool = True) -> None:
-    """Create a new blank Calibre *metadata.db* schema in the given connection.
+    """
+    Create a new blank Calibre *metadata.db* schema in the given connection.
 
     The passed connection **must** point at an empty database.
+
+    :param connection:
+    :param validate:
+    :return:
     """
     sql_text = read_calibre_sql("metadata")
 
@@ -85,8 +90,16 @@ def create_new_database(connection: sqlite3.Connection, *, validate: bool = True
         validate_metadata_database(connection)
 
 
-def ensure_library_id_row(connection: sqlite3.Connection, library_uuid: str | None = None) -> str:
-    """Ensure the ``library_id`` table contains a UUID row and return it."""
+def ensure_library_id_row(
+        connection: sqlite3.Connection,
+        library_uuid: str | None = None) -> str:
+    """
+    Ensure the ``library_id`` table contains a UUID row and return it.
+
+    :param connection:
+    :param library_uuid:
+    :return:
+    """
     row = connection.execute("SELECT uuid FROM library_id LIMIT 1").fetchone()
     if row and row[0]:
         return str(row[0])
@@ -142,7 +155,8 @@ def create_calibre_library_skeleton(
     create_fts_db: bool = False,
     best_effort_aux_dbs: bool = True,
 ) -> CalibreLibraryPaths:
-    """Create a minimal on-disk Calibre library folder.
+    """
+    Create a minimal on-disk Calibre library folder.
 
     Always creates ``metadata.db`` in ``library_root``.
 
@@ -153,6 +167,17 @@ def create_calibre_library_skeleton(
     Notes/FTS DB creation is *best effort* by default because Calibre uses a
     custom tokenizer for those (``tokenize='calibre ...'``) that is not present
     in stock sqlite builds.
+
+    :param library_root:
+    :param overwrite:
+    :param validate:
+    :param ensure_library_uuid:
+    :param library_uuid:
+    :param create_data_dir:
+    :param create_notes_db:
+    :param create_fts_db:
+    :param best_effort_aux_dbs:
+    :return:
     """
 
     root = Path(library_root)

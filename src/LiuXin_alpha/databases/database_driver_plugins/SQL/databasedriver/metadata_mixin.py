@@ -1,32 +1,56 @@
 
+"""
+Mixin to handle metadata of the database.
+"""
+
+from __future__ import annotations
+
 import uuid
 
 import pprint
 from copy import deepcopy
+
+from typing import Optional, Any
 
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
+
 class MetadataMethodMixin:
     """
     Metadata methods.
+
+    Includes both database metadata, and also user set metadata.
     """
 
     @property
-    def user_version(self):
+    def user_version(self) -> Optional[str]:
+        """
+        Property of the user version.
+
+        :return:
+        """
         for row in self.conn.execute("pragma user_version;"):
             return row[0]
 
+    def direct_get_user_version(self) -> str:
+        """
+        Return the user version.
 
+        :return:
+        """
+        return self.user_version
 
-    def _get_schema_version(self):
-        """Return the current SQLite ``schema_version`` as an ``int``.
+    def direct_get_schema_version(self) -> Optional[int]:
+        """
+        Return the current SQLite ``schema_version`` as an ``int``.
 
         SQLite increments ``schema_version`` whenever the schema changes. We use this
         to detect when our cached table/column metadata has become stale — including
         when another connection modifies the schema (e.g. during concurrency tests).
+        :return:
         """
         conn = getattr(self, "conn", None)
         close_after = False
@@ -70,9 +94,12 @@ class MetadataMethodMixin:
         # Should never happen, but keep callers safe.
         return None
 
+    def _invalidate_schema_caches(self) -> None:
+        """
+        Invalidate schema-related caches (tables, tables_and_columns).
 
-    def _invalidate_schema_caches(self):
-        """Invalidate schema-related caches (tables, tables_and_columns)."""
+        :return:
+        """
         self.tables = None
         self.tables_and_columns = None
         try:
@@ -80,12 +107,11 @@ class MetadataMethodMixin:
         except Exception:
             pass
 
-
-
     # Either uses the data from self.tables_and_columns, or gets the data while populating it
-    def direct_get_tables(self, force_refresh=False):
+    def direct_get_tables(self, force_refresh: bool = False) -> dict[str, list[str]]:
         """
         Returns a index of the names of all tables in the database.
+
         :param force_refresh: Force the driver to introspect the database again
         :return:
         """
@@ -105,7 +131,7 @@ class MetadataMethodMixin:
 
         # If we have cached data, verify it against schema_version.
         if self.tables is not None and not force_refresh:
-            current = self._get_schema_version()
+            current = self.direct_get_schema_version()
             cached = getattr(self, "_schema_version_cached", None)
             if cached is not None and current is not None and cached != current:
                 self._invalidate_schema_caches()
@@ -128,16 +154,20 @@ class MetadataMethodMixin:
 
             self.tables = processed_return
             # Record the schema_version the cache was built against.
-            self._schema_version_cached = self._get_schema_version()
+            self._schema_version_cached = self.direct_get_schema_version()
             return processed_return
         else:
             return self.tables
 
-    def direct_get_column_headings(self, table, normalize: bool = False):
+    # Todo: Not sure what normalize is intended to do...
+    def direct_get_column_headings(self, table: str, normalize: bool = False) -> list[str]:
         """
-        Gets an index of column headings for the given table. Tries to use the cached version - falls back on direct
-        access if that fails.
+        Gets an index of column headings for the given table.
+
+        Tries to use the cached version - falls back on direct access if that fails.
         :param table:
+        :param normalize:
+
         :return column_headings:
         """
         # Todo: Only try and normalize if first try has failed
@@ -157,9 +187,10 @@ class MetadataMethodMixin:
             except KeyError:
                 raise InputIntegrityError("table {} not found".format(table))
 
-
-    def _canonicalise_table_name_for_cache(self, table):
-        """Return the unquoted table name used as the key in ``tables_and_columns``.
+    @staticmethod
+    def _canonicalise_table_name_for_cache(table: str) -> str:
+        """
+        Return the unquoted table name used as the key in ``tables_and_columns``.
 
         Various call sites (especially legacy code) may pass table identifiers that include
         harmless wrapper characters (e.g. backticks) that SQLite accepts in SQL. Our internal
@@ -167,6 +198,9 @@ class MetadataMethodMixin:
 
         This function keeps behaviour conservative: it only strips a single matching wrapper
         pair at the ends, and does not attempt to parse/transform arbitrary SQL.
+
+        :param table:
+        :return:
         """
         try:
             t = force_unicode(table)
@@ -190,15 +224,16 @@ class MetadataMethodMixin:
 
         return t
 
-
-    def direct_get_tables_and_columns(self, force_refresh: bool = False):
+    def direct_get_tables_and_columns(self, force_refresh: bool = False) -> dict[str, list[str]]:
         """
         Returns a dictionary keyed by the table name with the column headings as the values.
+
+        :param force_refresh:
         :return table_and_columns:
         """
         # If the information is already cached, return it unless it is stale.
         if self.tables_and_columns is not None and not force_refresh:
-            current = self._get_schema_version()
+            current = self.direct_get_schema_version()
             cached = getattr(self, "_schema_version_cached", None)
             if cached is None or current is None or cached == current:
                 return self.tables_and_columns
@@ -224,15 +259,16 @@ class MetadataMethodMixin:
         conn.close()
 
         # Record the schema_version the cache was built against.
-        self._schema_version_cached = self._get_schema_version()
+        self._schema_version_cached = self.direct_get_schema_version()
 
         return self.tables_and_columns
 
 
-    def direct_get_highest_id(self, target_table):
+    def direct_get_highest_id(self, target_table: str) -> Optional[dict[str, Any]]:
         """
         Getting a random id from the database using u'SELECT * FROM {} ORDER BY RANDOM() LIMIT 1' is really slow in the
         case of large tables.
+
         Something a little snappier would be nice.
         Returns the highest id in the table.
         :param target_table:
@@ -272,9 +308,10 @@ class MetadataMethodMixin:
 
         raise NotImplementedError("This position should never be reached")
 
-    def direct_get_row_count(self, table):
+    def direct_get_row_count(self, table: str) -> int:
         """
         Gets the row count off the table.
+
         :param table:
         :return:
         """
@@ -285,13 +322,15 @@ class MetadataMethodMixin:
 
         for row in c.execute(stmt):
             conn.close()
-            return row[0]
+            return int(row[0])
 
+        raise NotImplementedError("This position should never be reached")
 
-    def direct_get_db_unique_id(self):
+    def direct_get_db_unique_id(self) -> Optional[str]:
         """
         It is useful to embed certain information about the database in it directly (thus you can tell your dealing with
         the same database, even if it's been moved to a different place or converted into a different format).
+
         The database_unique_id is a uuid4 string for the database which is written into the database on creation to
         uniquely define it's instance number forwever more.
         :return:
@@ -377,11 +416,10 @@ class MetadataMethodMixin:
             err_str += "md_rows: " + pprint.pformat(md_rows) + "\n"
             raise DatabaseIntegrityError(err_str)
 
-
-
-    def direct_write_metadata(self, md_field_name, md_field_value):
+    def direct_write_metadata(self, md_field_name: str, md_field_value: Any) -> None:
         """
         Allows for storing data in the MetaData table of the database.
+
         The table only has one row - if another value is given then it will be written over.
         :param md_field_name: The name of then field where the value will be stored
         :param md_field_value: The value of the field.
@@ -413,11 +451,10 @@ class MetadataMethodMixin:
         md_row[n_md_field_name] = md_field_value
         self.direct_update_row_dict(row_dict=md_row)
 
-
-
-    def direct_read_metadata(self, md_field_name):
+    def direct_read_metadata(self, md_field_name: str) -> Any:
         """
         Read metadata from the database.
+
         :param md_field_name:
         :return:
         """
@@ -448,4 +485,3 @@ class MetadataMethodMixin:
             return None
         else:
             return deepcopy(candidate_value)
-

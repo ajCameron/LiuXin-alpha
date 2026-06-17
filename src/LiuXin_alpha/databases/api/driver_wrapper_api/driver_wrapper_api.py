@@ -6,12 +6,12 @@ import abc
 
 from typing import Any, Iterable, Iterator, Optional, Union, TYPE_CHECKING, Literal
 
-from LiuXin_alpha.databases.api.database_api.driver_wrapper_mixins.schema_introspection_api import SchemaIntrospectionAPI
+from LiuXin_alpha.databases.api.driver_wrapper_api.mixins.schema_introspection_api import SchemaIntrospectionAPI
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
-    from LiuXin_alpha.databases.api.macros import MacrosAPI
-    from LiuXin_alpha.databases.api.row import RowAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.api.macros_api import MacrosAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
 
 
 class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):

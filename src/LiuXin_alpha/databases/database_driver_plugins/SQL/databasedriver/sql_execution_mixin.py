@@ -1,5 +1,11 @@
 
+"""
+Methods to allows direct execution of SQL on the database.
+"""
+
 import sqlite3
+
+from typing import Union, Optional
 
 from LiuXin_alpha.errors import InputIntegrityError
 
@@ -15,9 +21,12 @@ class SQLExecutionMixin:
     """
 
     # Todo: This should be something like "execute sql script" - to distinguish it from the execute method in the conn
-    def executescript(self, script):
+    def direct_execute_sql_script(
+            self,
+            script: Union[str, list[str]]) -> None:
         """
         Allows arbitrary scripts to be executed on the database.
+
         Try not to shoot yourself in the foot.
         :param script: This will be executed directly on the database.
         :return:
@@ -26,8 +35,10 @@ class SQLExecutionMixin:
         # (intended to suppress the first newline). In raw strings that backslash becomes literal,
         # and SQLite fails with "unrecognized token: \\".
         if isinstance(script, str):
+
             if script.startswith("\\\r\n"):
                 script = script[3:]
+
             elif script.startswith("\\\n"):
                 script = script[2:]
 
@@ -35,9 +46,11 @@ class SQLExecutionMixin:
         conn.executescript(script)
         conn.close()
 
-    def execute_sql(self, sql, parameters=None):
+    # Todo: Check that the return is correctly typed
+    def direct_execute_sql(self, sql: str, parameters: Optional[tuple[str, ...]] = None) -> Optional[int]:
         """
         Execute the given sql using a new conn, which will be closed after the execution.
+
         :param sql:
         :param parameters:
         :return:
@@ -53,7 +66,6 @@ class SQLExecutionMixin:
         last_row_id = conn.execute(sql, parameters).lastrowid
         conn.commit()
         return last_row_id
-
 
     def direct_get_table_sqlite(self, table, conn=None):
         """
@@ -73,8 +85,12 @@ class SQLExecutionMixin:
 
     # Todo: Add zero methods for all the data caches after any of these are used
     # Ideally these would never be used. They are here for testing,
-    def direct_execute(self, sql, values=None):
-        """Execute SQL directly on the database.
+    def direct_execute(
+            self,
+            sql: Union[str, tuple[str, ...], list[str]],
+            values: Optional[tuple[str]] = None) -> None:
+        """
+        Execute SQL directly on the database.
 
         Historically this method opened a fresh connection for every call and then called driver.refresh(), which
         (also historically) closed and replaced the driver's primary connection. That combination made it easy for
@@ -122,18 +138,23 @@ class SQLExecutionMixin:
                 else:
                     query_results = conn.execute(sql)
             return query_results
+
         except sqlite3.OperationalError as e:
             err_str = "Attempting to execute that SQL caused an operational error."
             err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
             raise DatabaseDriverError(err_str)
+
         except ValueError as e:
             err_str = "Attempting to execute that SQL caused a ValueError"
             err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
             raise DatabaseDriverError(err_str)
+
         except Exception as e:
             err_str = "Attempting to execute that SQL threw an Exception"
             err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
             raise DatabaseDriverError(err_str)
+
+        # Todo: This seems to be a good idea. Do it more?
         finally:
             # Invalidate any driver-side caches without forcibly replacing the primary connection.
             try:
@@ -141,20 +162,13 @@ class SQLExecutionMixin:
             except Exception:
                 pass
 
-    def execute_sql(self, sql, values=None):
-        """
-        Front end for the direct_execute method.
-        :param sql:
-        :param values:
-        :return:
-        """
-        self.direct_execute(sql=sql, values=values)
-
-    def direct_executemany(self, sql, values=None):
+    def direct_executemany(self, sql: str, values: Optional[tuple[str, ...]] = None) -> None:
         """
         Executes many statements on the database.
-        Tries to preform sensible input transforms on the values before executing them. This might lead to some problems
-        but I can't immediately think of cases where they would, and it's a bit more convenient this way.
+
+        Tries to preform sensible input transforms on the values before executing them.
+        This might lead to some problems but I can't immediately think of cases where they would, and it's a bit more
+        convenient this way.
         e.g. if values=("Some string", "Another string") these will be transformed to
                        (("Some string", ), ("Another string", )) before any attempt is made to execute them directly.
         (As, usually, you don't supply bindings in the form of chars in a string - which seems to be the default
@@ -186,6 +200,7 @@ class SQLExecutionMixin:
                     new_values.append(update_val)
             values = tuple(new_values)
 
+        # Todo: Tests! Check this.
         # Todo: Theoretically possible to fool the database into doing manifestly stupid stuff here by feeding in the
         conn = getattr(self, "conn", None)
         if conn is None:
@@ -194,6 +209,7 @@ class SQLExecutionMixin:
 
         try:
             with conn:
+
                 if values is not None:
                     try:
                         conn.executemany(sql, values)
@@ -205,6 +221,7 @@ class SQLExecutionMixin:
                             conn.executemany(sql, values)
                 else:
                     conn.executemany(sql, ())
+
         except Exception as e:
             err_str = "direct_executemany has failed"
             err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
@@ -215,10 +232,11 @@ class SQLExecutionMixin:
         except Exception:
             pass
 
-
+    # Todo: Merged with the above, and deprecate one
     def direct_executescript(self, sqlscript):
         """
         Execute a script on the database
+
         :param sqlscript: A series of statements to execute. Seperated by ;
         """
         # Defensive normalization for the same leading "\\\n" raw-string trap as direct_execute().

@@ -1,23 +1,35 @@
 
+"""
+Macros responsible for managing the actual custom columns themsevles.
+"""
 
+from __future__ import annotations
+
+# Todo: Swap out to our hardened parser
 import json
+
+from typing import Optional, TYPE_CHECKING
+
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
 class CustomColumnsManagementMacrosMixin:
     """
     Mixin for management (creation, update and deletion) of custom columns themselves.
     """
-    # ------------------------------------------------------------------------------------------------------------------
-    #
-    # - CC MANAGEMENT METHODS
 
-    def mark_cc_for_delete(self, cc_column_id):
+    db: "DatabaseAPI"
+
+    def mark_cc_for_delete(self, cc_column_id: int) -> None:
         """
         Note that a cc should be deleted on the next restart.
+
         :param cc_column_id: The id of the custom column to delete.
         :return:
         """
@@ -28,14 +40,15 @@ class CustomColumnsManagementMacrosMixin:
 
     def set_custom_column_metadata(
         self,
-        num,
-        name=None,
-        label=None,
-        is_editable=None,
-        display=None,
-        in_table=None,
-        conn=None,
-    ):
+        num: int,
+        name: Optional[str] = None,
+        label: Optional[str] = None,
+        is_editable: Optional[bool] = None,
+        display: Optional[str] = None,
+        in_table: Optional[str] = None,
+        # Todo: Need the conn protocol
+        conn = None,
+    ) -> bool:
         """
         Preforms a set of the custom column metadata.
 
@@ -46,9 +59,9 @@ class CustomColumnsManagementMacrosMixin:
         :param display:
         :param in_table: Which table
 
-        :param conn: An override conn to execute the stmnts on
+        :param conn: An override conn to execute the statements on
 
-        :return:
+        :return changed: Did the custom column metadata change?
         """
         conn = conn if conn is not None else self.db.driver.conn
 
@@ -95,18 +108,20 @@ class CustomColumnsManagementMacrosMixin:
 
     def create_cc_table(
         self,
-        normalized,
-        datatype,
+        normalized: bool,
+        # Todo: We can type this.
+        datatype: str,
         dt,
-        table,
+        table: str,
         link_table,
         collate,
         in_table="books",
-        ordered=False,
+        ordered = False,
         conn=None,
     ):
         """
-        Execute the SQL needed to create a custom table.
+        Create a new cc table.
+
         :param normalized:
         :param datatype:
         :param dt:
@@ -114,6 +129,7 @@ class CustomColumnsManagementMacrosMixin:
         :param link_table:
         :param collate:
         :param in_table:
+        :param ordered:
         :param conn:
         :return:
         """
@@ -412,28 +428,32 @@ class CustomColumnsManagementMacrosMixin:
             ]
 
         script = " \n".join(lines)
-        self.db.driver_wrapper.executescript(script)
+        self.db.driver_wrapper.direct_execute_sql_script(script)
 
-    def do_custom_column_delete_by_num(self, num):
+    # Todo: Is num the same as the id? If not, why. If so, why not called? It doesn't seem to be.
+    def do_custom_column_delete_by_num(self, num: int) -> None:
         """
         Actually do the deletion of a custom column.
+
         :param num:
         :return:
         """
         self.db.driver_wrapper.execute("DELETE FROM custom_columns WHERE custom_column_id=?", (num,))
 
-    def do_custom_column_delete_by_id(self, cc_id):
+    def do_custom_column_delete_by_id(self, cc_id: int) -> None:
         """
         Actually do the deletion of a custom column.
+
         :param cc_id:
         :return:
         """
         del_stmt = "DELETE FROM custom_columns WHERE custom_column_id=?;"
         self.db.driver_wrapper.execute(del_stmt, cc_id)
 
-    def mark_custom_column_for_delete(self, num):
+    def mark_custom_column_for_delete(self, num: int) -> None:
         """
         Set the custom_column_mark_for_delete column value to 1.
+
         It will be deleted on the next restart.
         :param num:
         :return:
@@ -443,9 +463,10 @@ class CustomColumnsManagementMacrosMixin:
             (num,),
         )
 
-    def get_all_cc_ids_marked_for_delete(self, conn=None):
+    def get_all_cc_ids_marked_for_delete(self, conn = None) -> list[int]:
         """
         Get all the custom column ids which are not marked for delete.
+
         :return:
         """
         conn = conn if conn is not None else self.db.driver.conn
@@ -457,9 +478,10 @@ class CustomColumnsManagementMacrosMixin:
             ids_list.append(record[0])
         return ids_list
 
-    def preform_cc_column_delete_from_map(self, num_table_lt_map, conn=None):
+    def preform_cc_column_delete_from_map(self, num_table_lt_map: dict[int, tuple[str, str]], conn=None) -> None:
         """
         Use a num_table_lt map to actually remove entries from the database.
+
         :param num_table_lt_map:
         :param conn:
         :return:
@@ -470,7 +492,7 @@ class CustomColumnsManagementMacrosMixin:
 
             table, lt = table_lt_pair
 
-            conn.executescript(
+            conn.direct_execute_sql_script(
                 """\
                                 DROP INDEX   IF EXISTS {table}_idx;
                                 DROP INDEX   IF EXISTS {lt}_aidx;

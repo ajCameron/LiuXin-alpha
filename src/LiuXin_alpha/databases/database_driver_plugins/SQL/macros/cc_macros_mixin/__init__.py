@@ -1,3 +1,8 @@
+
+"""
+Macros to handle custom column values.
+"""
+
 import datetime
 import json
 import sqlite3
@@ -30,7 +35,7 @@ class SQLiteDatabaseCustomColumnMacros(CustomColumnsManagementMacrosMixin):
         return "{}_id".format(cc_col), "{}_value".format(cc_col)
 
     @staticmethod
-    def _cc_table_col_mapper(self, table: str) -> str:
+    def _cc_table_col_mapper(table: str) -> str:
         """
         Returns the basic column name from the table name.
 
@@ -52,6 +57,7 @@ class SQLiteDatabaseCustomColumnMacros(CustomColumnsManagementMacrosMixin):
         # Schema drift handling:
         #   legacy: metadata_dirtied_books(metadata_dirtied_book)
         #   current: metadata_dirtied_books(metadata_dirtied_table, metadata_dirtied_table_id)
+
         try:
             cols = [row[1] for row in self.db.driver_wrapper.execute("PRAGMA table_info(metadata_dirtied_books)")]
         except Exception:
@@ -403,7 +409,7 @@ class SQLiteDatabaseCustomColumnMacros(CustomColumnsManagementMacrosMixin):
             # This solution was leaving the database locked, but this might be breaking lastrowid
             # return self.db.driver.conn.execute('INSERT INTO %s(value) VALUES(?)'%table, (value,)).lastrowid
             # Todo: not sure lastrowid is entirely thread safe?
-            return self.db.driver.execute_sql(
+            return self.db.driver.direct_execute_sql(
                 "INSERT INTO {table}({table_col}_value) VALUES(?)" "".format(table=table, table_col=cc_table_col),
                 (value,),
             )
@@ -803,6 +809,7 @@ class SQLiteDatabaseCustomColumnMacros(CustomColumnsManagementMacrosMixin):
     def clean_custom(self, cc_num_map, cc_table_name_factory=None, conn=None):
         """
         Takes a cc_num_map (keyed with the cc num and valued with
+
         :param cc_num_map:
         :param cc_table_name_factory: Function which produces the tables names from the cc table num.
         :param conn:
@@ -817,6 +824,7 @@ class SQLiteDatabaseCustomColumnMacros(CustomColumnsManagementMacrosMixin):
 
         statements = []
         for data in cc_num_map.values():
+
             if data["normalized"]:
                 table, lt = cc_table_name_factory(data["num"])
                 table_col = self._cc_table_col_mapper(table)
@@ -825,10 +833,10 @@ class SQLiteDatabaseCustomColumnMacros(CustomColumnsManagementMacrosMixin):
                 statements.append(st.format(lt=lt, table=table, table_col=table_col, lt_col=lt_col))
         if statements:
             if conn is None:
-                self.db.driver.conn.executescript(" \n".join(statements))
+                self.db.driver.conn.direct_execute_sql_script(" \n".join(statements))
                 self.db.driver.conn.commit()
             else:
-                conn.executescript(" \n".join(statements))
+                conn.direct_execute_sql_script(" \n".join(statements))
                 conn.commit()
 
     #

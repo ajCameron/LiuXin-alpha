@@ -23,7 +23,7 @@ def test_iterator_return_preserves_numeric_types_without_table_context(driver):
     stmt = "SELECT 1 AS id, 42 AS n, 3.5 AS f, 'x' AS t;"
     headings = ["id", "n", "f", "t"]
 
-    rows = list(driver.iterator_return(stmt, headings=headings, table=None))
+    rows = list(driver.direct_iterator_return(stmt, headings=headings, table=None))
     assert rows and isinstance(rows[0], dict)
 
     r = rows[0]
@@ -47,7 +47,7 @@ def test_null_row_helpers_on_series_are_explicit_and_non_destructive(driver):
 
     null_row = driver.direct_get_null_row("series")
     assert null_row is not False
-    id_col = driver._get_id_column("series")
+    id_col = driver.direct_get_id_column("series")
     assert null_row[id_col] == 0
 
     # Update a low-risk column (prefer *_scratch) and restore it.

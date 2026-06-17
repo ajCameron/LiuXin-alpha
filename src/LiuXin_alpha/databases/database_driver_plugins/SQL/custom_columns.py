@@ -3,6 +3,8 @@
 Provide custom columns functionality to the database driver.
 """
 
+from __future__ import annotations
+
 
 class SQLiteCustomColumnsDriverMixin:
     """
@@ -17,12 +19,20 @@ class SQLiteCustomColumnsDriverMixin:
     # When deleting an entry in the main table should also take out all entries in the custom columns
     # (do this by modifying the link creation syntax so it supports the option of delete triggers)
     # Support all relation types
-    def direct_create_custom_column(self, in_table, column_name, data_type="TEXT", multi=False):
+    def direct_create_custom_column(
+            self,
+            # Todo: This should be highly typable
+            in_table: str,
+            column_name: str,
+            # Todo: This should be highly typable
+            data_type: str = "TEXT",
+            multi: bool = False) -> None:
         """
         Direct create a custom column in a given table.
 
         This column can have one or many values and will be included in the row return under the custom_fields
         attribute.
+
         Custom columns are stored in tables linked to the main table. You can tell the tables store custom columns
         because their names will start with "custom_column__"
         :param in_table: Table to create the custom column in. Can be "main", "interlink", "intralink" or "helper".
@@ -87,10 +97,15 @@ class SQLiteCustomColumnsDriverMixin:
     # Todo: Front end to database class
     # Todo: Need to register all the custom columns created - make sure this isn't being confused with a main table on restart
     def direct_create_one_to_one_custom_column(
-        self, target_table, custom_column_name, datatype="TEXT", normalized=False
-    ):
+            self,
+            target_table: str,
+            custom_column_name: str,
+            datatype: str = "TEXT",
+            normalized: bool = False
+    ) -> str:
         """
         Create a custom column with a one-one relation between entries in the custom column and the given target table.
+
         There can be, at most, one value for every value in the :param target_table:
         Removing a value from the :param target_table: will also remove a value from this table.
 
@@ -191,17 +206,23 @@ class SQLiteCustomColumnsDriverMixin:
     # Todo: We should know the permissable data types - they should not be changeable
     # Todo: This should update the custom columns table with new information
     # Todo: Check that the direct_link_main_tables method has a properly autoincrementing primary key and priority
-    def direct_create_one_to_many_custom_column(self, target_table, custom_column_name, datatype="TEXT"):
+    def direct_create_one_to_many_custom_column(
+            self,
+            target_table: str,
+            custom_column_name: str,
+            datatype: str = "TEXT") -> str:
         """
         Create a custom column with a one-many relation between entries in the custom column and the given target table.
-        There can be many values for every value in the :param target_table:, but these values must not intersect (they
-        must be unique to the given book, title, series e.t.c)
 
-        Removing a value from the :param target_table: will also remove all the linked
+        There can be many values for every value in the :param target_table:, but these values must not intersect
+        (they must be unique to the given book, title, series e.t.c)
+
+        Removing a value from the :param target_table: will also remove all the linked custom column values.
 
         :param target_table: The table which the custom column will be attached to
         :param custom_column_name: The name of the custom column which will be generated
         :param datatype: Datatype for the custom column
+
         :return custom_col_table: The name of the table holding the new custom column
         """
         assert self._validate_table_name(table_name=custom_column_name)
@@ -253,10 +274,14 @@ class SQLiteCustomColumnsDriverMixin:
         return custom_col_table
 
     # Todo: datatype
-    def direct_create_many_to_one_custom_column(self, target_table, custom_column_name):
+    def direct_create_many_to_one_custom_column(
+            self,
+            target_table: str,
+            custom_column_name: str) -> str:
         """
         Create a custom column with a many-one relation between the entries in the custom column and the given target
         table.
+
         There can be many :param target_table: rows linked to the entries in this column -  but each  can only be linked
         to one of the entries in the custom table.
 
@@ -290,10 +315,14 @@ class SQLiteCustomColumnsDriverMixin:
 
         return custom_col_table
 
-    def direct_create_many_many_custom_column(self, target_table, custom_column_name):
+    def direct_create_many_many_custom_column(
+            self,
+            target_table: str,
+            custom_column_name: str) -> str:
         """
         Create a custom column with a many-many relation between the entries in the custom column and the given target
         table.
+
         There can be many :param target_table: rows linked to the entries in the columns - and many entries can be
         linked to many entries in the custom column.
 
@@ -323,9 +352,11 @@ class SQLiteCustomColumnsDriverMixin:
 
         return custom_col_table
 
-    def direct_get_custom_column_table_name(self, table, column_name):
+    @staticmethod
+    def direct_get_custom_column_table_name(table: str, column_name: str) -> str:
         """
         Returns the name of a table to be used to store the given custom column.
+
         The name of the table contains information as to the name of the custom column and the table it's being applied
         to.
         :param table: The table the custom column is in

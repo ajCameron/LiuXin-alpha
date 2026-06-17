@@ -1,7 +1,13 @@
 
+"""
+Allows generating, getting e.t.c. table names.
+"""
+
 import re
 
 from copy import deepcopy
+from typing import Optional, Iterable
+
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 
 from LiuXin_alpha.errors import InputIntegrityError, DatabaseIntegrityError, LogicalError
@@ -17,20 +23,20 @@ class TableNamesMixin:
     """
 
     # Todo: To driver base class
-    def direct_get_column_name(self, table_name):
+    @ staticmethod
+    def direct_get_column_name(table_name: str) -> str:
         """
         Return a column name for the given table name - just takes the singular form of the table name,
+
         :param table_name:
         :return:
         """
         return plural_singular_mapper(table_name)
 
     def direct_validate_existing_table_name(self, test_name):
-        return self.validate_existing_table_name(test_name)
-
-    def validate_existing_table_name(self, test_name):
         """
         Test to see if a candidate table name is valid (contains no SQL control characters).
+
         Intended to help with SQL injection attack proofing. Should be spread to all columns as well.
         :param test_name:
         :return True/False:
@@ -70,15 +76,25 @@ class TableNamesMixin:
         else:
             return False
 
-
-
-    def direct_get_id_column(self, table, tables_and_columns=None):
+    # needs testing
+    # Currently assumes that there is a column with a name ending in id and that if this is true for multiple rows that
+    # the shortest string ending in id is the id string. Should be tested every time a new column is added
+    def direct_get_id_column(
+            self,
+            table: str,
+            tables_and_columns: Optional[dict[str, list[str]]] = None) -> str:
         """
-        Return the id column for a given table.
+        Every table in the database should have an id column - this function returns it.
+
+        Currently, assumes that
+         - there is a column with a name ending in "id"
+          - if this is true for multiple rows the shortest string ending in "id" is the id column.
+        Should be tested every time a new column/table is added
         :param table:
         :param tables_and_columns:
         :return:
         """
+
         table = force_unicode(table)
         tables_and_columns = self.direct_get_tables_and_columns()
         try:
@@ -112,10 +128,13 @@ class TableNamesMixin:
         else:
             return candidate_ids[0]
 
-
-    def direct_get_datestamp_column(self, table, tables_and_columns=None):
+    def direct_get_datestamp_column(
+            self,
+            table: str,
+            tables_and_columns: Optional[dict[str, list[str]]] = None) -> str:
         """
         Return the id column for a given table.
+
         :param table:
         :param tables_and_columns:
         :return:
@@ -158,27 +177,13 @@ class TableNamesMixin:
         else:
             return candidate_ids[0]
 
-
-    # needs testing
-    # Currently assumes that there is a column with a name ending in id and that if this is true for multiple rows that
-    # the shortest string ending in id is the id string. Should be tested every time a new column is added
-    def _get_id_column(self, table, tables_and_columns=None):
-        """
-        Every table in the database should have an id column.
-
-        Currently, assumes that
-         - there is a column with a name ending in "id"
-          - if this is true for multiple rows the shortest string ending in "id" is the id column.
-        Should be tested every time a new column/table is added
-        :param table:
-        :param tables_and_columns:
-        :return:
-        """
-        return self.direct_get_id_column(table=table, tables_and_columns=tables_and_columns)
-
-    def identify_table_from_column(self, column_heading, headings_and_columns=None, print_error=True):
+    def direct_identify_table_from_column(
+            self,
+            column_heading: str,
+            headings_and_columns: Optional[dict[str, list[str]]] = None) -> str:
         """
         Takes a column heading (and optionally a headings and columns dict). Works out the table it falls into.
+
         :param column_heading: Each column heading should be unique in the database
         :param headings_and_columns: COMPLETELY SUPERFLUOUS
         :param print_error: Will be replaced with LiuXin debug print
@@ -195,22 +200,20 @@ class TableNamesMixin:
             if column_heading in column_headings:
                 return table
         else:
-            if print_error:
-                err_str = "identify_table_from_column failed.\n"
-                err_str += repr(column_heading) + " was not recognized.\n"
-                default_log.error(err_str)
-                raise InputIntegrityError(err_str)
-            else:
-                raise InputIntegrityError
+            err_str = "identify_table_from_column failed.\n"
+            err_str += repr(column_heading) + " was not recognized.\n"
+            default_log.error(err_str)
+            raise InputIntegrityError(err_str)
 
-    def get_display_column(self, table_name):
+    def direct_get_display_column(self, table_name: str) -> str:
         """
-        Gets the display column for a table (currently based off the shortest column which is not the id column)
+        Gets the display column for a table (currently based off the shortest column which is not the id column).
+
         :param table_name:
         :return display_column:
         """
         table_name = deepcopy(table_name)
-        table_id_column = self._get_id_column(table_name)
+        table_id_column = self.direct_get_id_column(table_name)
         tables_and_columns = self.direct_get_tables_and_columns()
         # Don't want to accidentally remove the title_id from the tables_and_columns cache
         column_names = deepcopy(tables_and_columns[table_name])
@@ -225,10 +228,11 @@ class TableNamesMixin:
         else:
             return column_names[0]
 
-    def get_full_column_name(self, target_table):
+    def direct_get_full_column_name(self, target_table: str) -> Optional[str]:
         """
-        Rows which are part of a tree like structure should have a full column. Use to store a string representation of
-        the
+        Rows which are part of a tree like structure should have a full column.
+
+        Use to store a string representation of the tree this row is in.
         This method finds and returns that
         column.
         :param target_table:
@@ -245,10 +249,12 @@ class TableNamesMixin:
         else:
             return None
 
-    def get_tree_id_column(self, target_table):
+    def direct_get_tree_id_column(self, target_table: str) -> Optional[str]:
         """
-        Each table which is in the form of a tree like structure has a tree_id column. The entry in this column is
-        unique for every tree in the table. If none is present then it's assumed that the table isn't organized in a
+        Each table which is in the form of a tree like structure has a tree_id column.
+
+        The entry in this column is unique for every tree in the table.
+        If none is present then it's assumed that the table isn't organized in a
         tree like structure.
         :param target_table:
         :return:
@@ -265,7 +271,7 @@ class TableNamesMixin:
             return None
 
     @staticmethod
-    def _get_table_col_base(table_name):
+    def direct_get_table_col_base(table_name: str) -> str:
         """
         Returns the base name for a column in the given table. e.g. "title" for "titles"
 
@@ -276,10 +282,13 @@ class TableNamesMixin:
 
         return plural_singular_mapper(table_name)
 
+    # Todo: If this is still true, it really shouldn't be (see below)
     # Tree-like tables may use either a legacy ``*_parent`` column or a foreign-key-shaped
     # ``*_parent_id`` column to point at the row above them.
-    def get_parent_column_name(self, table_name):
+    def direct_get_parent_column_name(self, table_name: str) -> Optional[str]:
         """
+        Returns the parent column name for a table with a tree like structure - if it exists.
+
         Takes a table name. Works out if the table has an element ending in "_parent" and returns the parent column name
         if it exists.
         Returns False otherwise
@@ -315,12 +324,12 @@ class TableNamesMixin:
         elif len(candidate_index) == 1:
             return candidate_index[0]
         elif len(candidate_index) == 0:
-            return False
+            return None
         else:
             raise LogicalError
 
     @staticmethod
-    def _validate_table_name(table_name: str) -> bool:
+    def direct_validate_table_name(table_name: str) -> bool:
         """
         Validate that the given table name is valid.
 

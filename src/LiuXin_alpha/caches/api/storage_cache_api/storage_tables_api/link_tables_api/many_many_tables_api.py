@@ -25,7 +25,7 @@ if TYPE_CHECKING:
         ManyManyInterlinkTableUpdate,
         ManyManyInterLinkTableUpdateResults,
     )
-    from LiuXin_alpha.databases.api.row import RowAPI, InterlinkRowAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI, InterlinkRowAPI
 
 
 @dataclasses.dataclass(slots=True)
