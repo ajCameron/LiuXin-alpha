@@ -802,7 +802,7 @@ class CoreRuntime(CoreAPI):
         label = str(payload.get("label", "")).strip() or str(payload.get("job_label", "")).strip() or None
 
         request = JobRequest(
-            module_name="LiuXin_alpha.interfaces.terminal.commands.sync",
+            module_name="LiuXin_alpha.surfaces.terminal.commands.sync",
             function_name="run_sync_store_job",
             kwargs=sync_kwargs,
         )

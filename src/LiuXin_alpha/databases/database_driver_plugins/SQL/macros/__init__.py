@@ -48,7 +48,7 @@ class SQLiteDatabaseMacros(
     Provides pre-defined operations on an SQLite database.
     """
 
-    def __init__(self, db):
+    def __init__(self, db: "DatabaseAPI") -> None:
         """
         Attaches to the underlying database to provide additional services.
         :param db:

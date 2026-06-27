@@ -1,14 +1,36 @@
+"""Top-level surface package.
+
+Keep package import side effects minimal so submodules such as
+``LiuXin_alpha.surfaces.field_metadata`` can be imported directly without
+pulling in unrelated front ends.
+"""
+
 from __future__ import annotations
 
-from . import acquisition
-from . import api_readonly
-from . import catalog
-from . import cli
-from . import images
-from . import opds
-from . import opds_readonly
-from . import read_model
-from . import terminal
-from . import web_readonly
+from importlib import import_module
 
-__all__ = ["cli", "terminal", "web_readonly"]
+
+_LAZY_SUBMODULES = {
+    "categories",
+    "cli",
+    "field_metadata",
+    "tags_icons",
+    "terminal",
+    "thumbnail_cache",
+    "web_readonly",
+}
+
+__all__ = sorted(_LAZY_SUBMODULES)
+
+
+def __getattr__(name: str):
+    if name not in _LAZY_SUBMODULES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    module = import_module(f"{__name__}.{name}")
+    globals()[name] = module
+    return module
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | _LAZY_SUBMODULES)

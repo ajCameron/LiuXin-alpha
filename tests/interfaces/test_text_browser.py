@@ -10,14 +10,14 @@ import pytest
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.interfaces.terminal.commands import DEFAULT_COMMAND_CLASSES
-from LiuXin_alpha.interfaces.terminal.commands import db as db_command_module
-from LiuXin_alpha.interfaces.terminal.commands import off as off_commands
-from LiuXin_alpha.interfaces.terminal.commands import on as on_commands
-from LiuXin_alpha.interfaces.terminal.commands import sync as sync_command_module
-from LiuXin_alpha.interfaces.terminal.plugins import TerminalLifecyclePluginAPI
-from LiuXin_alpha.interfaces.terminal import text_browser as text_browser_module
-from LiuXin_alpha.interfaces.terminal.text_browser import TextDatabaseBrowser, main as browser_main
+from LiuXin_alpha.surfaces.terminal.commands import DEFAULT_COMMAND_CLASSES
+from LiuXin_alpha.surfaces.terminal.commands import db as db_command_module
+from LiuXin_alpha.surfaces.terminal.commands import off as off_commands
+from LiuXin_alpha.surfaces.terminal.commands import on as on_commands
+from LiuXin_alpha.surfaces.terminal.commands import sync as sync_command_module
+from LiuXin_alpha.surfaces.terminal.plugins import TerminalLifecyclePluginAPI
+from LiuXin_alpha.surfaces.terminal import text_browser as text_browser_module
+from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser, main as browser_main
 from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.metadata.standardization import make_tag_search_term, make_title_search_term, standardize_genre
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (

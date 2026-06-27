@@ -52,6 +52,7 @@ from LiuXin_alpha.databases.database.interlink_mixin import DatabaseInterlinkRow
 from LiuXin_alpha.databases.database.intralink_mixin import DatabaseIntralinkRowsMixin
 from LiuXin_alpha.databases.database.tree_mixin import DatabaseTreeMixin
 from LiuXin_alpha.databases.database.linked_rows_mixin import DatabaseLinkedRowsMixin
+from LiuXin_alpha.databases.maintenance import Maintainer
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode

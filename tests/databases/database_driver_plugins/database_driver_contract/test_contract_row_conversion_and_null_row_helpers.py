@@ -33,11 +33,11 @@ def test_iterator_return_preserves_numeric_types_without_table_context(driver):
     assert r["t"] == "x" and isinstance(r["t"], str)
 
 
-def test_get_table_sqlite_is_binding_safe_for_injection_shaped_names(driver):
+def test_direct_get_table_sqlite_is_binding_safe_for_injection_shaped_names(driver):
     # Historically get_table_sqlite used string formatting and would throw
     # sqlite OperationalError if passed a quote. It should now be inert.
     with pytest.raises(InputIntegrityError):
-        driver.get_table_sqlite("titles' OR 1=1 --")
+        driver.direct_get_table_sqlite("titles' OR 1=1 --")
 
 
 def test_null_row_helpers_on_series_are_explicit_and_non_destructive(driver):

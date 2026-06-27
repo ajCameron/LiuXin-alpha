@@ -106,7 +106,7 @@ class RowAPI(abc.ABC):
     # Todo: There's probably a standard way to do this we should just use
     #       So that two different row implementations have the same hash for the same row
     @abc.abstractmethod
-    def __hash__(self) -> str:
+    def __hash__(self) -> int:
         """
         Used to uniquely identify a row.
 

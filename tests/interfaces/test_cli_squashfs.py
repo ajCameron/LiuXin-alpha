@@ -10,7 +10,7 @@ import pytest
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.interfaces.cli.squashfs import main as cli_main
+from LiuXin_alpha.surfaces.cli.squashfs import main as cli_main
 from LiuXin_alpha.storage.reconcile import (
     designate_files_for_squashfs_store,
     ensure_open_squashfs_store,

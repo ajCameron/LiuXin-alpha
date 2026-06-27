@@ -118,7 +118,7 @@ def test_intralink_builder_optional_columns_and_symmetric_types(tmp_path: pathli
         d = _Dummy(conn)
 
         # Build intralink with extra metadata columns and symmetric ordering only for one type.
-        stmts = d.build_intralink_table_sqlite(
+        stmts = d.direct_build_intralink_table_sql(
             "widgets",
             allowed_types=["equivalent", "derived_from"],
             requested_cols={"type", "origin", "policy", "data", "priority"},

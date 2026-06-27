@@ -10,24 +10,39 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreL
 from LiuXin_alpha.errors import InputIntegrityError
 
 
-def test_from_title_row_unpatched_raises_nameerror() -> None:
-    """
-    Current code references RowCollection without importing it.
-    This test both documents and covers that behavior.
-    """
+class _DriverWrapper:
+    def get_display_column(self, table: str) -> str:
+        return {
+            "genres": "genre",
+            "notes": "note",
+            "publishers": "publisher",
+            "series": "series",
+            "synopses": "synopsis",
+            "subjects": "subject",
+            "tags": "tag",
+        }.get(table, table.rstrip("s"))
+
+
+class _FakeDB:
+    def __init__(self, tables: dict[str, list[dict]]) -> None:
+        self._tables = tables
+        self.driver_wrapper = _DriverWrapper()
+
+    def get_linked_rows(self, _title_row, table: str):
+        return list(self._tables.get(table, []))
+
+
+def test_from_title_row_requires_db_linked_rows_api() -> None:
     md = CalibreLikeLiuXinBookMetaData()
 
     class _TitleRow:
         db = object()
 
-    with pytest.raises(NameError):
+    with pytest.raises(AttributeError):
         md.from_title_row(_TitleRow())  # type: ignore[arg-type]
 
 
 def test_from_title_row_patched_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    """
-    Patch RowCollection + DB helpers so we can cover the method without needing the real DB layer.
-    """
     import LiuXin_alpha.metadata.containers.calibre_like_book_metadata.factory_methods as fm
 
     md = CalibreLikeLiuXinBookMetaData()
@@ -37,31 +52,10 @@ def test_from_title_row_patched_happy_path(monkeypatch: pytest.MonkeyPatch) -> N
     # We'll force normalization to "isbn".
     data["isbn"] = set()
 
-    class FakeDB:
-        def get_categorized_tables(self):
-            return {"main": ["titles", "genres", "notes", "publishers", "series", "creators", "identifiers", "languages"]}
-
-        def get_display_column(self, table: str) -> str:
-            return {
-                "genres": "genre",
-                "notes": "note",
-                "publishers": "publisher",
-                "series": "series",
-            }.get(table, table.rstrip("s"))
-
     class FakeTitleRow:
-        db = FakeDB()
-
-    class FakeRowCollection:
-        def __init__(self, _title_row):
-            self._tables = {
-                "titles": [
-                    {
-                        "title": "The Title",
-                        "title_wordcount": 123,
-                        "title_pubdate": None,
-                    }
-                ],
+        db = _FakeDB(
+            {
+                "titles": [{"title": "The Title", "title_wordcount": 123, "title_pubdate": None}],
                 "genres": [{"genre": "SF"}],
                 "notes": [{"note": "N"}],
                 "publishers": [
@@ -73,20 +67,10 @@ def test_from_title_row_patched_happy_path(monkeypatch: pytest.MonkeyPatch) -> N
                     {"creator_title_link_type": None, "creator_id": 1, "creator": "Alice"},
                     {"creator_title_link_type": "editor", "creator_id": 2, "creator": "Ed"},
                 ],
-                "identifiers": [
-                    {"identifier_type": "isbn", "identifier": "978-x"},
-                ],
-                "languages": [
-                    {"language": "en"},
-                ],
+                "identifiers": [{"identifier_type": "isbn", "identifier": "978-x"}],
+                "languages": [{"language": "en"}],
             }
-
-        def __getitem__(self, item: str):
-            return list(self._tables.get(item, []))
-
-    # Inject missing globals + deterministic standardizers
-    monkeypatch.setattr(fm, "RowCollection", FakeRowCollection, raising=False)
-    monkeypatch.setattr(fm, "DatabaseIntegrityError", RuntimeError, raising=False)
+        )
 
     monkeypatch.setattr(fm, "standardize_creator_category", lambda x: "authors" if not x else "editors", raising=False)
     monkeypatch.setattr(fm, "standardize_id_name", lambda x, logging=True: "isbn", raising=False)
@@ -100,6 +84,8 @@ def test_from_title_row_patched_happy_path(monkeypatch: pytest.MonkeyPatch) -> N
     assert "N" in d["notes"]
     assert "Alice" in d["authors"]
     assert "Ed" in d["editors"]
+    assert "BigPub" in d["publishers"]
+    assert "ImprintPub" in d["imprints"]
     assert "en" == d["language"]
     assert d["series_index"] == 7
     assert "978-x" in d["isbn"]
@@ -110,30 +96,17 @@ def test_from_title_row_identifier_norm_none_raises_database_integrity(monkeypat
 
     md = CalibreLikeLiuXinBookMetaData()
 
-    class FakeDB:
-        def get_categorized_tables(self):
-            return {"main": ["titles", "identifiers"]}
-
-        def get_display_column(self, table: str) -> str:
-            return table
-
     class FakeTitleRow:
-        db = FakeDB()
-
-    class FakeRowCollection:
-        def __init__(self, _title_row):
-            self._tables = {
+        db = _FakeDB(
+            {
                 "titles": [{"title": "T", "title_wordcount": 1, "title_pubdate": None}],
                 "identifiers": [{"identifier_type": "???", "identifier": "X"}],
             }
-
-        def __getitem__(self, item: str):
-            return list(self._tables.get(item, []))
+        )
 
     class MyDbIntegrity(Exception):
         pass
 
-    monkeypatch.setattr(fm, "RowCollection", FakeRowCollection, raising=False)
     monkeypatch.setattr(fm, "DatabaseIntegrityError", MyDbIntegrity, raising=False)
     monkeypatch.setattr(fm, "standardize_id_name", lambda x, logging=True: None, raising=False)
     monkeypatch.setattr(fm, "standardize_internal_id_name", lambda x: None, raising=False)
@@ -147,27 +120,14 @@ def test_from_title_row_identifier_both_internal_and_external_raises_input_integ
 
     md = CalibreLikeLiuXinBookMetaData()
 
-    class FakeDB:
-        def get_categorized_tables(self):
-            return {"main": ["titles", "identifiers"]}
-
-        def get_display_column(self, table: str) -> str:
-            return table
-
     class FakeTitleRow:
-        db = FakeDB()
-
-    class FakeRowCollection:
-        def __init__(self, _title_row):
-            self._tables = {
+        db = _FakeDB(
+            {
                 "titles": [{"title": "T", "title_wordcount": 1, "title_pubdate": None}],
                 "identifiers": [{"identifier_type": "isbn", "identifier": "X"}],
             }
+        )
 
-        def __getitem__(self, item: str):
-            return list(self._tables.get(item, []))
-
-    monkeypatch.setattr(fm, "RowCollection", FakeRowCollection, raising=False)
     monkeypatch.setattr(fm, "DatabaseIntegrityError", RuntimeError, raising=False)
     monkeypatch.setattr(fm, "standardize_id_name", lambda x, logging=True: "isbn", raising=False)
     monkeypatch.setattr(fm, "standardize_internal_id_name", lambda x: "liuxin_internal", raising=False)

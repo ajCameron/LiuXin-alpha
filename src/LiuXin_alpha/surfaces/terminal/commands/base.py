@@ -7,7 +7,7 @@ import abc
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.interfaces.terminal.text_browser import TextDatabaseBrowser
+    from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser
 
 
 class TerminalCommandAPI(abc.ABC):

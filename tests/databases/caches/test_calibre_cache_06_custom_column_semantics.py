@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.databases.categories import find_categories
-from LiuXin_alpha.databases.caches.calibre.tables.one_one_tables import (
+from LiuXin_alpha.surfaces.categories import find_categories
+from LiuXin_alpha.library.caches.calibre.tables.one_one_tables import (
     CalibreCustomColumnsOneToOneTable,
 )
-from LiuXin_alpha.databases.field_metadata import FieldMetadata
+from LiuXin_alpha.surfaces.field_metadata import FieldMetadata
 from LiuXin_alpha.errors import InvalidCacheUpdate
 
 def _add_custom_field(

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from LiuXin_alpha.interfaces.terminal.windowed_ui import _CursesUiDriver, WindowedUiConfig
+from LiuXin_alpha.surfaces.terminal.windowed_ui import _CursesUiDriver, WindowedUiConfig
 
 
 class _FakeJobManager:

@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Mapping, Optional, Sequence, TextIO
 
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.interfaces.terminal.commands import TerminalCommandAPI, build_default_commands
-from LiuXin_alpha.interfaces.terminal.plugins import TerminalLifecyclePluginAPI
+from LiuXin_alpha.surfaces.terminal.commands import TerminalCommandAPI, build_default_commands
+from LiuXin_alpha.surfaces.terminal.plugins import TerminalLifecyclePluginAPI
 from LiuXin_alpha.utils.jobs import default_job_manager
 
 try:
@@ -2556,7 +2556,7 @@ def run_windowed_text_browser(
     telemetry_panel_height: int = 9,
 ) -> int:
     """Run the split-pane curses UI wrapper around the text browser."""
-    from LiuXin_alpha.interfaces.terminal.windowed_ui import WindowedUiConfig, run_windowed_browser
+    from LiuXin_alpha.surfaces.terminal.windowed_ui import WindowedUiConfig, run_windowed_browser
 
     config = WindowedUiConfig(
         status_refresh_s=float(status_refresh_s),

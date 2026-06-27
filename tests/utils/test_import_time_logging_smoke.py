@@ -6,10 +6,11 @@ import sys
 from pathlib import Path
 
 
-def test_import_time_modules_do_not_print_to_stdout_or_stderr() -> None:
+def test_import_time_modules_do_not_print_to_stdout_or_stderr(tmp_path) -> None:
     root = Path(__file__).resolve().parents[2]
     env = os.environ.copy()
     env["PYTHONPATH"] = str(root / "src")
+    env["CALIBRE_CONFIG_DIRECTORY"] = str(tmp_path / "calibre-config")
 
     code = (
         "import importlib\n"

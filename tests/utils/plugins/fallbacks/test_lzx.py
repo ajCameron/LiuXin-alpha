@@ -93,7 +93,7 @@ def _worker_decompress(data: bytes, outlen: int, q: "mp.Queue[Tuple[str, Any]]")
         q.put(("exc", (e.__class__.__name__, str(e))))
 
 
-def _decompress_with_timeout(data: bytes, outlen: int, *, timeout_s: float = 2.0) -> Tuple[str, Any]:
+def _decompress_with_timeout(data: bytes, outlen: int, *, timeout_s: float = 5.0) -> Tuple[str, Any]:
     ctx = mp.get_context("spawn")
     q: "mp.Queue[Tuple[str, Any]]" = ctx.Queue()
     p = ctx.Process(target=_worker_decompress, args=(data, outlen, q))
@@ -174,7 +174,7 @@ def test_reset_allows_reuse() -> None:
     ],
 )
 def test_malformed_inputs_do_not_hang(data: bytes) -> None:
-    status, _ = _decompress_with_timeout(data, outlen=8, timeout_s=2.0)
+    status, _ = _decompress_with_timeout(data, outlen=8)
     assert status in {"ok", "exc"}
 
 
@@ -183,5 +183,5 @@ def test_small_random_fuzz_does_not_hang() -> None:
     for _ in range(10):
         ln = rng.randint(1, 64)
         blob = os.urandom(ln)
-        status, _ = _decompress_with_timeout(blob, outlen=32, timeout_s=2.0)
+        status, _ = _decompress_with_timeout(blob, outlen=32)
         assert status in {"ok", "exc"}

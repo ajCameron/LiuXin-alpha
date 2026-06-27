@@ -104,7 +104,7 @@ class MaintenanceServiceAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def rename_item(self, item_id: int, table: str, value: str, now: bool = True, db: Optional[DatabaseAPI] = None) -> None:
+    def rename_item(self, item_id: int, table: str, value: str, now: bool = True) -> None:
         ...
 
 

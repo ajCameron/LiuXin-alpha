@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from LiuXin_alpha.interfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
 class SearchCommand(TerminalCommandAPI):
@@ -18,4 +18,3 @@ class SearchCommand(TerminalCommandAPI):
 
 
 __all__ = ["SearchCommand"]
-

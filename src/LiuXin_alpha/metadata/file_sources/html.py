@@ -149,6 +149,16 @@ def _parse_date_value(raw: str | None):
     if not text:
         return None
 
+    normalized = text.replace("/", "-").replace(".", "-")
+
+    # Year-only values should remain stable instead of inheriting the current
+    # month/day from the generic parser.
+    if re.fullmatch(r"[12]\d{3}", normalized):
+        try:
+            return datetime(int(normalized), 6, 2)
+        except Exception:
+            return None
+
     # Prefer parse_date to preserve full timestamp information when present.
     try:
         dt = parse_date(text)
@@ -166,12 +176,6 @@ def _parse_date_value(raw: str | None):
         pass
 
     # Stdlib-only fallback for environments missing liuxin_dateutil.
-    normalized = text.replace("/", "-").replace(".", "-")
-    if re.fullmatch(r"[12]\d{3}", normalized):
-        try:
-            return datetime(int(normalized), 6, 2)
-        except Exception:
-            return None
     for fmt in ("%Y-%m-%d", "%Y-%m", "%Y%m%d"):
         try:
             return datetime.strptime(normalized, fmt)

@@ -7,7 +7,7 @@ from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.core import CoreCommand, CoreQuery, CoreRuntime
 from LiuXin_alpha.core.proxies import LocalLibraryProxy
 from LiuXin_alpha.core.proxies.local import looks_like_write_method
-from LiuXin_alpha.interfaces.terminal.commands import sync as sync_command_module
+from LiuXin_alpha.surfaces.terminal.commands import sync as sync_command_module
 from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 

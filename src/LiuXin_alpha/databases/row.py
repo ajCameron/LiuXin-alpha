@@ -81,8 +81,12 @@ class Row(RowAPI):
         if cached_row_id is not None or cached_row_id == 0:
             return cached_row_id
 
+        table = self.table
+        if table is None:
+            return None
+
         # If the id column is present but None, omit it so SQLite assigns an id.
-        id_col = self.db.driver_wrapper.get_id_column(self.table)
+        id_col = self.db.driver_wrapper.get_id_column(table)
 
         try:
             return self.row_dict[id_col]

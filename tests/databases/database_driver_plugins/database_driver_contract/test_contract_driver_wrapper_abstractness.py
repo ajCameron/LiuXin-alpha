@@ -15,7 +15,7 @@ def test_driver_wrapper_imports_from_repo_src_and_is_concrete() -> None:
 
     got_file = Path(m.__file__).resolve()
     repo_root = Path(__file__).resolve().parents[3]  # .../tests/databases/driver_contract -> repo root
-    expected = (repo_root / "src" / "LiuXin_alpha" / "databases" / "database_driver_plugins" / "driver_wrapper.py").resolve()
+    expected = (repo_root / "src" / "LiuXin_alpha" / "databases" / "driver_wrapper" / "__init__.py").resolve()
 
     # If we're in a source checkout, insist we import the in-repo module (catches site-packages shadowing).
     if expected.exists():
