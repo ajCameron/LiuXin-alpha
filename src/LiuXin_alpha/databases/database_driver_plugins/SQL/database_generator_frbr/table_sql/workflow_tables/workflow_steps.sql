@@ -55,8 +55,8 @@ BEFORE UPDATE OF `workflow_step_scope` ON `workflow_steps`
 WHEN NEW.`workflow_step_scope` IS NOT NULL
 BEGIN
   SELECT CASE
-    WHEN NEW.`workflow_step_scope` NOT IN ('item','file','both')
-    THEN RAISE(ABORT, 'workflow_steps.workflow_step_scope must be one of: item, file, both')
+    WHEN NEW.`workflow_step_scope` NOT IN ('item','digital_asset','both')
+    THEN RAISE(ABORT, 'workflow_steps.workflow_step_scope must be one of: item, digital_asset, both')
   END;
 END;
 
@@ -82,8 +82,8 @@ BEFORE INSERT ON `workflow_steps`
 WHEN NEW.`workflow_step_scope` IS NOT NULL
 BEGIN
   SELECT CASE
-    WHEN NEW.`workflow_step_scope` NOT IN ('item','file','both')
-    THEN RAISE(ABORT, 'workflow_steps.workflow_step_scope must be one of: item, file, both')
+    WHEN NEW.`workflow_step_scope` NOT IN ('item','digital_asset','both')
+    THEN RAISE(ABORT, 'workflow_steps.workflow_step_scope must be one of: item, digital_asset, both')
   END;
 END;
 

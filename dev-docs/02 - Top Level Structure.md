@@ -42,9 +42,7 @@ As a rule, the library will have access to
 
 # Metadata
 
-
-
-
+Tools for reading, writing and manipulating metadata.
 
 # Storage
 
@@ -65,3 +63,5 @@ My view is that archival software should _never delete anything_.
 At least not without considerable checks.
 
 Exposes the _storage_ class - which is responsible for managing the backend stores.
+
+The storage class is aware of the database - it has to be to make sure that we're backing everything up properly.

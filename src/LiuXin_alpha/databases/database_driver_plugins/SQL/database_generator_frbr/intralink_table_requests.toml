@@ -43,28 +43,25 @@ If they are marked "same_subject" then they are two pictures of the same object 
 """
 
 [[intralinks]]
-table = "files"
+table = "digital_assets"
 requested_cols = ["type", "data", "origin"]
-types = ["converted_from", "compressed_version", "anthology_of"]
+types = ["converted_from", "compressed_version"]
 rationale = """
-Files are often produced by converting or otherwise mangling each other.
+Managed digital assets are often produced by converting or otherwise mangling each other.
 
 This table represents these relations.
 
  - converted_from
 
-Another file has been converted to produce this one.
+Another managed digital asset has been converted to produce this one.
 Data, here, are the conversion settings (including versions - ideally producing a byte to byte identicle final state).
 
  - compressed_version
 
-Another file has been compressed to produce this one.
+Another managed digital asset has been compressed to produce this one.
 Data, here, is the compression settings (including versions).
 
- - anthology_of
-
- A file which is built out of other files.
- Data, here, are the file ids used to build the file in the right order.
+Composite assemblies now live in the normal interlink table between `composite_digital_assets` and `digital_assets` rather than as an intralink type.
 
 """
 

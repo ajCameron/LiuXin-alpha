@@ -174,6 +174,12 @@ class CalibreMetadataLike(Protocol):
 
 
 from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api import (
+    ItemContainerAPI,
+    ItemContainerPropertiesApi,
+    ItemMetadataContainerAPI,
+    ItemMetadataContainerAPIFromWemiApi,
+    ItemRelationLink,
+    ItemStorageHints,
     WorkMetadataContainerAPI,
     WorkMetadataContainerAPIFromWemiApi,
     WorkRelationLink,

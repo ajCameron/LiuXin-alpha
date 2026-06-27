@@ -3,14 +3,14 @@ from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_location import (
-    OnDiskUnmanagedStoreLocation,
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
+    OnDiskExistingManagedStoreLocation,
 )
 
 from .conftest import AsyncOnDiskLocation
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_name_suffix_stem(store, loc_cls) -> None:
     loc = loc_cls("dir", "foo.tar.gz", store=store)
     assert loc.name == "foo.tar.gz"
@@ -19,7 +19,7 @@ def test_name_suffix_stem(store, loc_cls) -> None:
     assert loc.stem == "foo.tar"
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_with_name(store, loc_cls) -> None:
     loc = loc_cls("dir", "file.txt", store=store)
     new = loc.with_name("other.bin")
@@ -28,7 +28,7 @@ def test_with_name(store, loc_cls) -> None:
         loc.with_name("a/b")  # invalid, contains slash
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_with_suffix(store, loc_cls) -> None:
     loc = loc_cls("dir", "file", store=store)
     assert loc.with_suffix(".txt").name == "file.txt"

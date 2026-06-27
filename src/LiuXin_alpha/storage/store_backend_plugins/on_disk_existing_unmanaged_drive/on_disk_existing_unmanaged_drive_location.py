@@ -1,11 +1,13 @@
-"""LiuXin on-disk Location implementation.
+"""Local-disk Location implementations used by on-disk storage plugins.
 
-Reference concrete Location for a plain directory-backed store.
+This module now exposes a small hierarchy:
+- ``OnDiskLocalStoreLocation``: generic writable local-disk location
+- ``OnDiskReadOnlyStoreLocation``: same path semantics, but read-only
+- ``OnDiskUnmanagedStoreLocation``: compatibility name for the read-only variant
 
-Notes
-- The store provides a root directory via ``store.url``.
-- A Location is always interpreted relative to that store root.
-- We actively refuse traversal outside the store root (including via symlinks).
+The key separation-of-concerns rule is that read-only plugins must return
+read-only Location subclasses as well, so callers and tests can trust the
+advertised capability surface instead of stumbling into accidental mutation.
 """
 
 from __future__ import annotations
@@ -14,11 +16,14 @@ import os
 import pathlib
 from typing import Any, Iterator, Self
 
-from LiuXin_alpha.storage.api.location_api import SyncNativePretendAsyncLocation
+from LiuXin_alpha.storage.api.location_api import (
+    ReadOnlySyncNativePretendAsyncLocation,
+    SyncNativePretendAsyncLocation,
+)
 
 
-class OnDiskUnmanagedStoreLocation(SyncNativePretendAsyncLocation):
-    """On-disk Store Location (directory-backed)."""
+class _LocalDiskLocationMixin:
+    """Shared local-filesystem behaviour for store-relative disk locations."""
 
     _loc_path: pathlib.Path
 
@@ -28,7 +33,6 @@ class OnDiskUnmanagedStoreLocation(SyncNativePretendAsyncLocation):
         store_root = pathlib.Path(self.store.url).resolve()
         candidate = store_root.joinpath(*self._tokens)
 
-        # Validate that any existing prefix stays inside the store (symlink-safe).
         probe = store_root
         for seg in self._tokens:
             nxt = probe / seg
@@ -45,8 +49,6 @@ class OnDiskUnmanagedStoreLocation(SyncNativePretendAsyncLocation):
 
         self._loc_path = candidate
 
-    # ---- Existence / type checks ----
-
     def exists(self) -> bool:
         return self._loc_path.exists()
 
@@ -56,83 +58,8 @@ class OnDiskUnmanagedStoreLocation(SyncNativePretendAsyncLocation):
     def is_dir(self) -> bool:
         return self._loc_path.is_dir()
 
-    # ---- Metadata ----
-
     def stat(self) -> os.stat_result:
         return self._loc_path.stat()
-
-    # ---- Mutations ----
-
-    def mkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
-        self._loc_path.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
-
-    def unlink(self, missing_ok: bool = False) -> None:
-        self._loc_path.unlink(missing_ok=missing_ok)
-
-    def rmdir(self) -> None:
-        self._loc_path.rmdir()
-
-    def rename(self, target: str | os.PathLike[str]) -> Self:
-        store_root = pathlib.Path(self.store.url).resolve()
-
-        target_p = pathlib.Path(target)
-
-        # Refuse traversal tokens in relative targets.
-        if not target_p.is_absolute() and any(p == ".." for p in target_p.parts):
-            raise ValueError("Refusing rename with '..' segments (store escape risk).")
-
-        # A bare name means "rename within the same directory".
-        if not target_p.is_absolute() and len(target_p.parts) == 1:
-            target_p = self._loc_path.with_name(target_p.name)
-        elif not target_p.is_absolute():
-            # Otherwise interpret as store-root relative.
-            target_p = store_root.joinpath(target_p)
-            target_p.parent.mkdir(parents=True, exist_ok=True)
-        else:
-            # Absolute targets are allowed only if they remain inside the store root.
-            try:
-                target_p = target_p.resolve()
-            except FileNotFoundError:
-                # If the path doesn't exist yet, resolve its parent.
-                target_p = target_p.parent.resolve() / target_p.name
-            if not target_p.is_relative_to(store_root):
-                raise ValueError("Refusing rename outside store root.")
-            target_p.parent.mkdir(parents=True, exist_ok=True)
-
-        new_path = self._loc_path.rename(target_p)
-        rel = new_path.relative_to(store_root)
-        return self.__class__(*rel.parts, store=self._store)
-
-    def replace(self, target: str | os.PathLike[str]) -> Self:
-        store_root = pathlib.Path(self.store.url).resolve()
-
-        target_p = pathlib.Path(target)
-
-        if not target_p.is_absolute() and any(p == ".." for p in target_p.parts):
-            raise ValueError("Refusing replace with '..' segments (store escape risk).")
-
-        if not target_p.is_absolute() and len(target_p.parts) == 1:
-            target_p = self._loc_path.with_name(target_p.name)
-        elif not target_p.is_absolute():
-            target_p = store_root.joinpath(target_p)
-            target_p.parent.mkdir(parents=True, exist_ok=True)
-        else:
-            try:
-                target_p = target_p.resolve()
-            except FileNotFoundError:
-                target_p = target_p.parent.resolve() / target_p.name
-            if not target_p.is_relative_to(store_root):
-                raise ValueError("Refusing replace outside store root.")
-            target_p.parent.mkdir(parents=True, exist_ok=True)
-
-        new_path = self._loc_path.replace(target_p)
-        rel = new_path.relative_to(store_root)
-        return self.__class__(*rel.parts, store=self._store)
-
-    def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
-        self._loc_path.touch(mode=mode, exist_ok=exist_ok)
-
-    # ---- Directory traversal ----
 
     def iterdir(self) -> Iterator[Self]:
         store_root = pathlib.Path(self.store.url).resolve()
@@ -141,7 +68,6 @@ class OnDiskUnmanagedStoreLocation(SyncNativePretendAsyncLocation):
             yield self.__class__(*rel.parts, store=self._store)
 
     def glob(self, pattern: str) -> Iterator[Self]:
-        # Enforce pathlib-like semantics but ...
         if not pattern:
             raise ValueError(f"Unacceptable pattern: {pattern!r}")
         if pattern.startswith(("/", "\\")):
@@ -167,9 +93,30 @@ class OnDiskUnmanagedStoreLocation(SyncNativePretendAsyncLocation):
             rel = path.relative_to(store_root)
             yield self.__class__(*rel.parts, store=self._store)
 
-    # ---- I/O ----
+    def _resolve_target_within_store(self, target: str | os.PathLike[str], *, verb: str) -> pathlib.Path:
+        store_root = pathlib.Path(self.store.url).resolve()
+        target_p = pathlib.Path(target)
 
-    def open(
+        if not target_p.is_absolute() and any(p == ".." for p in target_p.parts):
+            raise ValueError(f"Refusing {verb} with '..' segments (store escape risk).")
+
+        if not target_p.is_absolute() and len(target_p.parts) == 1:
+            target_p = self._loc_path.with_name(target_p.name)
+        elif not target_p.is_absolute():
+            target_p = store_root.joinpath(target_p)
+            target_p.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            try:
+                target_p = target_p.resolve()
+            except FileNotFoundError:
+                target_p = target_p.parent.resolve() / target_p.name
+            if not target_p.is_relative_to(store_root):
+                raise ValueError(f"Refusing {verb} outside store root.")
+            target_p.parent.mkdir(parents=True, exist_ok=True)
+
+        return target_p
+
+    def _open_local_path(
         self,
         mode: str = "r",
         buffering: int = -1,
@@ -185,7 +132,83 @@ class OnDiskUnmanagedStoreLocation(SyncNativePretendAsyncLocation):
             newline=newline,
         )
 
-    # ---- Backend key ----
-
     def as_store_key(self) -> str:
         return str(self._loc_path)
+
+
+class OnDiskLocalStoreLocation(_LocalDiskLocationMixin, SyncNativePretendAsyncLocation):
+    """Writable local-disk Location rooted inside one configured store."""
+
+    def mkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        self._loc_path.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
+
+    def unlink(self, missing_ok: bool = False) -> None:
+        self._loc_path.unlink(missing_ok=missing_ok)
+
+    def rmdir(self) -> None:
+        self._loc_path.rmdir()
+
+    def rename(self, target: str | os.PathLike[str]) -> Self:
+        store_root = pathlib.Path(self.store.url).resolve()
+        target_p = self._resolve_target_within_store(target, verb="rename")
+        new_path = self._loc_path.rename(target_p)
+        rel = new_path.relative_to(store_root)
+        return self.__class__(*rel.parts, store=self._store)
+
+    def replace(self, target: str | os.PathLike[str]) -> Self:
+        store_root = pathlib.Path(self.store.url).resolve()
+        target_p = self._resolve_target_within_store(target, verb="replace")
+        new_path = self._loc_path.replace(target_p)
+        rel = new_path.relative_to(store_root)
+        return self.__class__(*rel.parts, store=self._store)
+
+    def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None:
+        self._loc_path.touch(mode=mode, exist_ok=exist_ok)
+
+    def open(
+        self,
+        mode: str = "r",
+        buffering: int = -1,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> Any:
+        return self._open_local_path(
+            mode=mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
+
+
+class OnDiskReadOnlyStoreLocation(_LocalDiskLocationMixin, ReadOnlySyncNativePretendAsyncLocation):
+    """Read-only local-disk Location rooted inside one configured store."""
+
+    def open(
+        self,
+        mode: str = "r",
+        buffering: int = -1,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> Any:
+        self._assert_read_mode(mode)
+        return self._open_local_path(
+            mode=mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
+
+
+class OnDiskUnmanagedStoreLocation(OnDiskReadOnlyStoreLocation):
+    """Compatibility name for the read-only local-disk Location class."""
+
+
+__all__ = [
+    "OnDiskLocalStoreLocation",
+    "OnDiskReadOnlyStoreLocation",
+    "OnDiskUnmanagedStoreLocation",
+]

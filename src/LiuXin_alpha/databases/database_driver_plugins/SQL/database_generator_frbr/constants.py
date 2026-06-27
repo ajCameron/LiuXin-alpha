@@ -19,9 +19,9 @@ __INTERLINK_TABLE_CONSTRAINTS__ = {
         "secondary": "covers",
         "link_type": "many_many",
     },
-    "book_file_links": {
+    "book_digital_asset_links": {
         "primary": "books",
-        "secondary": "files",
+        "secondary": "digital_assets",
         "link_type": "one_many",
     },
     "book_folder_links": {
@@ -93,8 +93,8 @@ __INTERLINK_TABLE_CONSTRAINTS__ = {
     # Todo: Is not actually one_one - it's more like one_many_single_val
     # Todo: Your us9ing link type two different ways to mean two different things - consider a rename - mapping_type?
     # Todo: This REALLY needs a set of types
-    "device_file_links": {
-        "primary": "files",
+    "device_digital_asset_links": {
+        "primary": "digital_assets",
         "secondary": "devices",
         "link_type": "many_many",
     },
@@ -103,24 +103,24 @@ __INTERLINK_TABLE_CONSTRAINTS__ = {
         "secondary": "notes",
         "link_type": "one_many",
     },
-    "file_folder_links": {
-        "primary": "files",
+    "digital_asset_folder_links": {
+        "primary": "digital_assets",
         "secondary": "folders",
         "link_type": "many_one",
     },
-    "file_identifier_links": {
-        "primary": "files",
+    "digital_asset_identifier_links": {
+        "primary": "digital_assets",
         "secondary": "identifiers",
         "link_type": "one_many",
     },
     # Todo: Really need to ship with a languages table
-    "file_language_links": {
-        "primary": "files",
+    "digital_asset_language_links": {
+        "primary": "digital_assets",
         "secondary": "languages",
         "link_type": "many_one",
     },
-    "file_publisher_links": {
-        "primary": "files",
+    "digital_asset_publisher_links": {
+        "primary": "digital_assets",
         "secondary": "publishers",
         "link_type": "many_one",
     },
@@ -213,7 +213,7 @@ __INTERLINK_TABLE_CONSTRAINTS__ = {
 }
 __INTERLINK_REQUESTED_COLS__ = {
     "book_cover_links": {"priority", "type"},
-    "book_file_links": {
+    "book_digital_asset_links": {
         "priority",
     },
     "book_folder_links": {
@@ -239,16 +239,16 @@ __INTERLINK_REQUESTED_COLS__ = {
     "creator_synopsis_links": None,
     "creator_tag_links": None,
     "creator_title_links": {"priority", "type"},
-    "device_file_links": {
+    "device_digital_asset_links": {
         "type",
     },
     "device_note_links": {
         "priority",
     },
-    "file_folder_links": None,
-    "file_identifier_links": {"type", "priority"},
-    "file_language_links": None,
-    "file_publisher_links": None,
+    "digital_asset_folder_links": None,
+    "digital_asset_identifier_links": {"type", "priority"},
+    "digital_asset_language_links": None,
+    "digital_asset_publisher_links": None,
     "folder_series_links": {
         "priority",
     },
@@ -297,8 +297,8 @@ __ALLOWED_INTERLINK_TYPE_VAL_DICT__ = {
     "creator_note_links": ("bio", "bibliography"),
     "creator_series_links": tuple(ct for ct in CREATOR_CATEGORIES),
     "creator_title_links": tuple(ct for ct in CREATOR_CATEGORIES),
-    "file_identifier_links": tuple(idt for idt in EXTERNAL_EBOOK_ID_SCHEMA),
-    "device_file_links": ("load_when_can", "ensure_on_device", "delete_when_possible"),
+    "digital_asset_identifier_links": tuple(idt for idt in EXTERNAL_EBOOK_ID_SCHEMA),
+    "device_digital_asset_links": ("load_when_can", "ensure_on_device", "delete_when_possible"),
     "identifier_title_links": tuple(
         [idt for idt in EXTERNAL_EBOOK_ID_SCHEMA] + [idt for idt in INTERNAL_EBOOK_ID_SCHEMA]
     ),
@@ -324,7 +324,7 @@ __ALLOWED_INTRALINK_TYPE_VAL_DICT__ = {
         "backup",
         "mirror",
     ),
-    "files": (
+    "digital_assets": (
         "user_marked_different",
         "derived_from",
         "derived_from-higher_resolution_version",

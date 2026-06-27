@@ -20,9 +20,9 @@ HELPER_TABLES = frozenset(
         "manifestations_plugin_data",
         "items_plugin_data",
         # Workflow tables
-        "file_derivations",
-        "file_workflow",
-        "file_workflow_events",
+        "digital_asset_derivations",
+        "digital_asset_workflow",
+        "digital_asset_workflow_events",
         "item_workflow",
         "item_workflow_events",
         "transform_runs",

@@ -540,80 +540,117 @@ nullable = true
 rationale = """Allows you to give a synopses to a feed."""
 
 [[interlinks]]
-left_table = "files"
-right_table = "folders"
-link_type = "many_to_many"
-rationale = """
-Files can - but do not have to be - grouped into folders.
-These can be real or virtual - the folder store will either try and respect and create them on disk - or not.
-"""
-
-[[interlinks]]
-left_table = "files"
+left_table = "digital_assets"
 right_table = "hashes"
 link_type = "one_to_many"
 requested_columns = ["type", ]
 rationale = """
-Notes the hashes of a given file.
-Every file should have one, and only one, hash.
-(though the hashes can be of different types).
+Notes the hashes of a given managed digital asset.
+Every atomic digital asset should have one or more hashes.
 """
 
 [[interlinks]]
-left_table = "files"
+left_table = "digital_assets"
 right_table = "images"
 link_type = "many_to_many"
 requested_columns = ["priority", "type",]
 nullable = true
 types = ["cover", "contained_image", "author_image"]
 rationale = """
-Allows you to assign a cover, or other type of image, to an individual file.
+Allows you to assign a cover, or other type of image, to an individual managed digital asset.
 """
 
 [[interlinks]]
-left_table = "files"
+left_table = "digital_assets"
 right_table = "items"
-link_type = "many_to_one"
-requested_columns = ["priority", "type",]
+link_type = "many_to_many"
+requested_columns = ["priority", "type", "origin", "primary"]
 nullable = true
+types = [
+  "primary_payload",
+  "cover",
+  "page_scan",
+  "ocr_text",
+  "metadata_sidecar",
+  "preview",
+  "thumbnail",
+  "supplement",
+  "source_archive",
+  "derived_output",
+  "transcript",
+  "caption_track",
+]
 rationale = """
-An item can be assigned files - the actual expresssions of the platonic item.
-This is one of the points where we step off the WEMI stack and into actual storage on disk land.
+Items are assigned atomic managed digital assets.
+This is the point where item-level bibliographic identity meets durable storage-managed payloads.
 """
 
 [[interlinks]]
-left_table = "files"
+left_table = "composite_digital_assets"
+right_table = "items"
+link_type = "many_to_many"
+requested_columns = ["priority", "type", "origin", "primary"]
+nullable = true
+types = [
+  "primary_payload",
+  "supplement",
+  "source_archive",
+  "derived_output",
+  "transcript",
+  "caption_track",
+]
+rationale = """
+Items may also be assigned composite digital assets.
+This allows one item to point at a multipart assembly such as an audiobook split across many files.
+"""
+
+[[interlinks]]
+left_table = "composite_digital_assets"
+right_table = "digital_assets"
+link_type = "many_to_many"
+requested_columns = ["type", "origin", "sequence_number", "is_required"]
+nullable = true
+types = [
+  "member",
+  "chapter",
+  "track",
+  "disc_member",
+  "part",
+]
+rationale = """
+Composite digital assets are assembled from one or more atomic digital assets.
+This uses the normal link-table machinery rather than a bespoke membership table.
+
+ - sequence_number orders the members inside the composite
+ - is_required marks whether a given member is mandatory for the composite to be usable
+ - type captures the semantic role of the member inside the composite
+"""
+
+[[interlinks]]
+left_table = "digital_assets"
 right_table = "labels"
 link_type = "many_to_many"
 rationale = """
-Allows you to label files.
-This is often used for controlling conversion - metadata extraction and other process tasks.
+Allows you to label managed digital assets.
+This is often used for controlling conversion, metadata extraction, and other process tasks.
 """
 
 [[interlinks]]
-left_table = "files"
+left_table = "digital_assets"
 right_table = "languages"
 link_type = "many_to_many"
 requested_columns = ["priority", "type",]
 nullable = true
-rationale = """What languages are contained in the given file?"""
+rationale = """What languages are contained in the given managed digital asset?"""
 
 [[interlinks]]
-left_table = "files"
+left_table = "digital_assets"
 right_table = "last_read_positions"
 link_type = "one_to_many"
 rationale = """
-What last read position did you get to in the given file?
-Probably can be derived from all the files last read positions.
+What last read position did you get to in the given managed digital asset?
+Probably can be derived from all the linked reading sessions later.
 """
-
-[[interlinks]]
-left_table = "files"
-right_table = "stores"
-link_type = "many_to_many"
-requested_columns = ["priority", "type", "policy"]
-rationale = """Files are assigned to stores - which can be on and offline.
-Thus, to ensure high reliability,  each file should be in multiple stores."""
 
 [[interlinks]]
 left_table = "folders"

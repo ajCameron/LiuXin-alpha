@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS `folders` (
   `folder_relpath` TEXT NULL,           -- cached relative path inside store
 
   `folder_policy_json` TEXT NULL,       -- optional overrides for store policy
+  `folder_default_replication_policy_id` INTEGER NULL,
+  `folder_default_backup_policy_id` INTEGER NULL,
   `folder_last_seen_timestamp_ep_k` INTEGER NULL, -- telemetry
 
 
@@ -41,6 +43,18 @@ CREATE TABLE IF NOT EXISTS `folders` (
     FOREIGN KEY (`folder_parent_id`)
     REFERENCES `folders` (`folder_id`)
     ON DELETE SET NULL
+    ON UPDATE CASCADE,
+
+  CONSTRAINT `folder_default_replication_policy_fk`
+    FOREIGN KEY (`folder_default_replication_policy_id`)
+    REFERENCES `replication_policies` (`replication_policy_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+
+  CONSTRAINT `folder_default_backup_policy_fk`
+    FOREIGN KEY (`folder_default_backup_policy_id`)
+    REFERENCES `backup_policies` (`backup_policy_id`)
+    ON DELETE SET NULL
     ON UPDATE CASCADE
 
 );
@@ -58,4 +72,15 @@ ON `folders` (`folder_store_id`, `folder_parent_id`, `folder_name`);
 
 CREATE UNIQUE INDEX IF NOT EXISTS `idx_folders_unique_relpath_per_store`
 ON `folders` (`folder_store_id`, `folder_relpath`);
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_folders_default_replication_policy_id`
+ON `folders` (`folder_default_replication_policy_id`);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_folders_default_backup_policy_id`
+ON `folders` (`folder_default_backup_policy_id`);
 -- BREAK

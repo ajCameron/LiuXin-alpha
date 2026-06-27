@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+from LiuXin_alpha.storage.single_file import SingleFileStatus
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     RcloneBackendOptions,
     RcloneHttpReadOnlyStorageBackend,
@@ -13,10 +14,6 @@ from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly.rclone_http_location import (
     RcloneHttpReadOnlyStoreLocation,
 )
-from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly.rclone_http_single_file import (
-    RcloneHttpReadOnlySingleFile,
-)
-
 
 def _extract_tpslimit(extra_args: tuple[str, ...]) -> float | None:
     for arg in extra_args:
@@ -166,7 +163,7 @@ def test_rclone_backend_true_files_iterates_remote_entries(monkeypatch) -> None:
         options=RcloneBackendOptions(max_http_requests_per_hour=None, enforce_global_rate_limit=False),
     )
 
-    file_urls = [one.file_url for one in store.true_files()]
+    file_urls = [one.file_url for one in store.iter_locations()]
     assert file_urls == [
         "remote:alpha/book1.epub",
         "remote:book2.mobi",
@@ -187,33 +184,49 @@ def test_rclone_backend_normalizes_plain_https_root_to_configless_fs(monkeypatch
     )
 
     assert store.url == ':http,url="https://www.fadedpage.com":'
-    list(store.true_files())
+    list(store.iter_locations())
 
     assert captured_args
     assert captured_args[0][:3] == ["lsjson", "-R", "--files-only"]
     assert captured_args[0][3] == ':http,url="https://www.fadedpage.com":'
 
 
-def test_rclone_single_file_uses_store_wrappers() -> None:
+def test_rclone_location_uses_store_wrappers() -> None:
     calls: list[tuple[str, tuple[str, ...], bool]] = []
 
     class _DummyStore:
+        url = "remote:"
+
         def run_rclone_json(self, args, *, check: bool = True):
             calls.append(("json", tuple(args), check))
-            return {"Size": 12, "Hashes": {"sha256": "abc"}}
+            return {"Size": 12, "Hashes": {"sha256": "abc"}, "IsDir": False}
 
-        def run_rclone(self, args, *, check: bool = True):
-            calls.append(("raw", tuple(args), check))
-            return SimpleNamespace(stdout="payload")
+        def stat(self, file_url: str) -> SingleFileStatus:
+            blob = self.run_rclone_json(["lsjson", "--stat", file_url], check=False)
+            hashes = blob.get("Hashes") or {}
+            return SingleFileStatus(
+                url=file_url,
+                exists=True,
+                size=int(blob.get("Size") or 0),
+                file_hash=str(hashes.get("sha256") or ""),
+                check_exists_function=lambda _url: True,
+                check_size_function=lambda _url: int(blob.get("Size") or 0),
+                check_hash_function=lambda _url: str(hashes.get("sha256") or ""),
+            )
 
-    sf = RcloneHttpReadOnlySingleFile(file_url="remote:path/file.epub", store=_DummyStore())
-    assert sf.as_string() == "payload"
-    status = sf.recheck_status()
-    assert status._exists is True
+        def spawn_rclone_process(self, args):
+            import io
+
+            calls.append(("raw", tuple(args), True))
+            return SimpleNamespace(stdout=io.BytesIO(b"payload"), stderr=io.BytesIO(b""), wait=lambda: 0, poll=lambda: 0, terminate=lambda: None, kill=lambda: None)
+
+    loc = RcloneHttpReadOnlyStoreLocation("path", "file.epub", store=_DummyStore())
+    assert loc.as_string() == "payload"
+    status = loc.recheck_status()
     assert status.size == 12
 
     assert ("raw", ("cat", "remote:path/file.epub"), True) in calls
-    assert ("json", ("lsjson", "--stat", "remote:path/file.epub"), False) in calls
+    assert any(kind == "json" and args[:2] == ("lsjson", "--stat") and check is False for kind, args, check in calls)
 
 
 def test_rclone_location_prefers_store_json_runner() -> None:

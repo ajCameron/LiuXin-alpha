@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_location import (
-    OnDiskUnmanagedStoreLocation,
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
+    OnDiskExistingManagedStoreLocation,
 )
 
 from .conftest import fs_path
@@ -18,9 +18,9 @@ class TestLocationFilesystemAsync:
         fs_path(store, "d").mkdir(parents=True, exist_ok=True)
         fs_path(store, "d", "f.txt").write_text("hi", encoding="utf-8")
 
-        root = OnDiskUnmanagedStoreLocation(store=store)
-        d = OnDiskUnmanagedStoreLocation("d", store=store)
-        f = OnDiskUnmanagedStoreLocation("d", "f.txt", store=store)
+        root = OnDiskExistingManagedStoreLocation(store=store)
+        d = OnDiskExistingManagedStoreLocation("d", store=store)
+        f = OnDiskExistingManagedStoreLocation("d", "f.txt", store=store)
 
         async def go() -> None:
             assert await root.aexists() is True
@@ -37,7 +37,7 @@ class TestLocationFilesystemAsync:
         asyncio.run(go())
 
     def test_async_open_roundtrip_text(self, store) -> None:
-        f = OnDiskUnmanagedStoreLocation("async.txt", store=store)
+        f = OnDiskExistingManagedStoreLocation("async.txt", store=store)
 
         async def go() -> None:
             async with f.aopen("w", encoding="utf-8", newline="\n") as handle:
@@ -51,7 +51,7 @@ class TestLocationFilesystemAsync:
         asyncio.run(go())
 
     def test_async_convenience_helpers(self, store) -> None:
-        f = OnDiskUnmanagedStoreLocation("helpers.txt", store=store)
+        f = OnDiskExistingManagedStoreLocation("helpers.txt", store=store)
 
         async def go() -> None:
             n = await f.awrite_text("abc", encoding="utf-8")
@@ -65,7 +65,7 @@ class TestLocationFilesystemAsync:
         fs_path(store, "dir", "a.txt").write_text("a", encoding="utf-8")
         fs_path(store, "dir", "b.txt").write_text("b", encoding="utf-8")
 
-        d = OnDiskUnmanagedStoreLocation("dir", store=store)
+        d = OnDiskExistingManagedStoreLocation("dir", store=store)
 
         async def go() -> list[str]:
             out: list[str] = []

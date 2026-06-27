@@ -202,6 +202,8 @@ def ensure_unmanaged_store_for_disk(
             "store_kind": store_kind,
             "store_access_protocol": "file",
             "store_root_uri": str(root),
+        "store_operational_role": "live",
+            "store_operational_role": "live",
             "store_is_read_only": 1,
             "store_online_status": "online",
             "store_supports_random_read": 1,
@@ -737,7 +739,7 @@ def register_rclone_http_readonly_store_files(
 
     ebook_exts = _normalize_ebook_extensions(ebook_extensions)
 
-    for remote_file in backend.true_files():
+    for remote_file in backend.iter_locations():
         report.scanned_files += 1
         try:
             storage_key = _storage_key_from_store_url(store_url=backend.url, file_url=remote_file.file_url)

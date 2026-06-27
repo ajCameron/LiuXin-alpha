@@ -5,8 +5,8 @@ import pathlib
 
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_location import (
-    OnDiskUnmanagedStoreLocation,
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
+    OnDiskExistingManagedStoreLocation,
 )
 
 from .conftest import fs_path
@@ -23,7 +23,7 @@ def test_glob_matrix(store) -> None:
     _mk(store, "a/2.bin")
     _mk(store, "a/b/3.txt")
     _mk(store, "a/b/c/4.txt")
-    root = OnDiskUnmanagedStoreLocation(store=store)
+    root = OnDiskExistingManagedStoreLocation(store=store)
 
     # glob in root
     assert {p.as_posix() for p in root.glob("a/*.txt")} == {"a/1.txt"}
@@ -34,5 +34,5 @@ def test_glob_matrix(store) -> None:
     assert {p.as_posix() for p in root.rglob("b/**/*.txt")} == {"a/b/3.txt", "a/b/c/4.txt"}
 
     # glob from subdir location
-    a = OnDiskUnmanagedStoreLocation("a", store=store)
+    a = OnDiskExistingManagedStoreLocation("a", store=store)
     assert {p.as_posix() for p in a.glob("**/*.txt")} == {"a/1.txt", "a/b/3.txt", "a/b/c/4.txt"}

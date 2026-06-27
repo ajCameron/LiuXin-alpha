@@ -1,14 +1,16 @@
 
 """
-Container for a
+Container for a row from the database.
 """
+from __future__ import annotations
 
 import datetime
 import pprint
 from copy import deepcopy
 
-from typing import Optional, Union, Iterator, Any
+from typing import Optional, Union, Iterator, Any, Self, ClassVar
 
+from LiuXin_alpha.databases import DatabaseAPI
 from LiuXin_alpha.errors import DatabaseDriverError, RowReadOnlyError
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -147,7 +149,7 @@ class Row(RowAPI):
         table: Optional[str] = None,
         read_only: bool = False,
         reload_from_db: bool = True,
-    ) -> "Row":
+    ) -> "Self":
         """
         Factory constructor: insert an id-less row_dict into the database and return a Row.
 
@@ -314,6 +316,7 @@ class Row(RowAPI):
             payload['row_dict'] = out
 
         return payload
+
     def refresh_db_properties(self) -> None:
         """
         Read the properties for the row off the database.
@@ -641,3 +644,116 @@ class Row(RowAPI):
         return Row(database=self.db, row_dict=new_row_dict)
 
     # ------------------------
+
+
+class FixedTableStorageRow(Row):
+    """
+    Small storage-facing ``Row`` specialisation with a fixed backing table.
+
+    The generic ``Row`` class infers its table from the available columns.
+    That is useful generally, but a little awkward for API surface objects that are meant
+    to represent exactly one table.
+    This helper pins the table early, offers more convenient constructors, and provides a validation hook for
+    subclasses.
+    """
+
+    TABLE_NAME: ClassVar[Optional[str]] = None
+    ID_COLUMN: ClassVar[Optional[str]] = None
+
+    def __init__(
+            self,
+            database: "DatabaseAPI",
+            row_dict: Optional[dict[str, Any]] = None,
+            read_only: bool = False) -> None:
+        super().__init__(database=database, row_dict=row_dict, read_only=read_only)
+
+        table_name = self.TABLE_NAME
+        if table_name is None:
+            raise TypeError(f"{self.__class__.__name__} must define TABLE_NAME.")
+
+        current_table = getattr(self, "table", None)
+        if current_table is None:
+            self._bind_fixed_table_metadata(table_name)
+        elif current_table != table_name:
+            raise ValueError(
+                f"{self.__class__.__name__} expected table '{table_name}' but row_dict maps to '{current_table}'."
+            )
+
+        self.validate()
+
+    def _bind_fixed_table_metadata(self, table_name: str) -> None:
+        """Populate cached row metadata for an explicitly fixed table."""
+        object.__setattr__(self, "_table", table_name)
+        object.__setattr__(self, "allowed_tables", self.db.driver_wrapper.get_allowed_tables_snapshot())
+        object.__setattr__(self, "self_linkable", bool(self.db.driver_wrapper.check_for_intralink_table(table_name)))
+        object.__setattr__(self, "linkable_tables", self.db.driver_wrapper.get_interlinked_tables(table_name))
+        object.__setattr__(self, "allowed_columns", self.db.get_column_headings(table_name))
+
+        id_column = self.ID_COLUMN or self.db.driver_wrapper.get_id_column(table_name)
+        object.__setattr__(self, "row_id", self.int_row_dict.get(id_column))
+
+    @classmethod
+    def blank(cls, database: "DatabaseAPI", *, read_only: bool = False) -> Self:
+        """Return a blank row for this fixed table."""
+        row = cls(database=database, row_dict=None, read_only=read_only)
+        row.load_blank_row(table=cls.TABLE_NAME)
+        return row
+
+    @classmethod
+    def from_row_id(
+        cls,
+        database: "DatabaseAPI",
+        row_id: int,
+        *,
+        read_only: bool = False,
+    ) -> Self:
+        """Load one row by id from this fixed table."""
+        row = cls(database=database, row_dict=None, read_only=read_only)
+        row.load_row_from_id(row_id=row_id, table=cls.TABLE_NAME)
+        return row
+
+    @classmethod
+    def from_idless_row_dict(
+        cls,
+        database: "DatabaseAPI",
+        row_dict: dict[str, Any],
+        *,
+        table: Optional[str] = None,
+        read_only: bool = False,
+        reload_from_db: bool = True,
+    ) -> Self:
+        """Insert one row for this fixed table and return it as the subclass."""
+        if table is not None and table != cls.TABLE_NAME:
+            raise ValueError(f"{cls.__name__} only supports table '{cls.TABLE_NAME}', not '{table}'.")
+
+        draft = cls(database=database, row_dict=row_dict, read_only=read_only)
+        draft.validate()
+
+        return super().from_idless_row_dict(
+            database=database,
+            row_dict=row_dict,
+            table=cls.TABLE_NAME,
+            read_only=read_only,
+            reload_from_db=reload_from_db,
+        )
+
+    @property
+    def primary_id(self) -> Optional[int]:
+        """Return the fixed table's primary id column, if present."""
+        id_column = self.ID_COLUMN or self.db.driver_wrapper.get_id_column(self.TABLE_NAME)
+        return self.row_dict.get(id_column)
+
+    @primary_id.setter
+    def primary_id(self, value: Optional[int]) -> None:
+        id_column = self.ID_COLUMN or self.db.driver_wrapper.get_id_column(self.TABLE_NAME)
+        self[id_column] = value
+        object.__setattr__(self, "row_id", value)
+
+    def sync(self) -> None:
+        """Validate before syncing the row back to the database."""
+        self.validate()
+        super().sync()
+
+    def validate(self) -> None:
+        """Hook for subclasses to add light table-specific validation."""
+        return None

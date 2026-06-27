@@ -1,21 +1,23 @@
+"""Flat on-disk hash-named store plugin."""
 
-"""
-Flat stores every file very simply - in a single folder with its name the LiuXin file id.
+from __future__ import annotations
 
-Mostly for testing purposes.
-"""
+from importlib import import_module
+from typing import Any
 
-from LiuXin_alpha.storage.api.storage_api import StoreAPI
+__all__ = [
+    "OnDiskFlatStoreLocation",
+    "OnDiskFlatStorageBackend",
+]
 
 
-class OnDiskFlatStorageBackend(StoreAPI):
-    """
-    A flat file store - just stores every file it's given in a single folder.
-    """
-    def __init__(self, url: str) -> None:
-        """
-        Startup an on disc flat file store.
-
-        :param url:
-        """
-        super().__init__(url=url)
+def __getattr__(name: str) -> Any:
+    if name == "OnDiskFlatStoreLocation":
+        return import_module(
+            "LiuXin_alpha.storage.store_backend_plugins.on_disk_flat.on_disk_flat_location"
+        ).OnDiskFlatStoreLocation
+    if name == "OnDiskFlatStorageBackend":
+        return import_module(
+            "LiuXin_alpha.storage.store_backend_plugins.on_disk_flat.on_disk_flat_storage_backend"
+        ).OnDiskFlatStorageBackend
+    raise AttributeError(name)

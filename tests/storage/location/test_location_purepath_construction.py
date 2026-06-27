@@ -7,14 +7,14 @@ import pickle
 
 import pytest
 
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_location import (
-    OnDiskUnmanagedStoreLocation,
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_managed_drive.on_disk_existing_managed_drive_location import (
+    OnDiskExistingManagedStoreLocation,
 )
 
 from .conftest import AsyncOnDiskLocation, fs_path
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_construction_splits_slashes(store, loc_cls) -> None:
     loc = loc_cls("alpha/bravo", "charlie", store=store)
     assert loc.parts == ("alpha", "bravo", "charlie")
@@ -23,13 +23,13 @@ def test_construction_splits_slashes(store, loc_cls) -> None:
     assert loc.as_posix() == "alpha/bravo/charlie"
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_construction_strips_dot_segments(store, loc_cls) -> None:
     loc = loc_cls(".", "a", "./b", "c/./d", store=store)
     assert loc.parts == ("a", "b", "c", "d")
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_construction_refuses_absolute_and_dotdot(store, loc_cls) -> None:
     with pytest.raises(ValueError):
         loc_cls("/abs/path", store=store)  # type: ignore[arg-type]
@@ -37,7 +37,7 @@ def test_construction_refuses_absolute_and_dotdot(store, loc_cls) -> None:
         loc_cls("..", "x", store=store)
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_root_string_and_parts(store, loc_cls) -> None:
     root = loc_cls(store=store)
     assert root.parts == ()
@@ -45,7 +45,7 @@ def test_root_string_and_parts(store, loc_cls) -> None:
     assert root.name == ""
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_fspath_integration(store, loc_cls, tmp_path) -> None:
     loc = loc_cls("file.txt", store=store)
     # os.fspath should call __fspath__, which returns as_store_key() (absolute under store root)
@@ -54,7 +54,7 @@ def test_fspath_integration(store, loc_cls, tmp_path) -> None:
     assert pathlib.Path(loc) == fs_path(store, "file.txt")
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_hash_and_equality_are_store_scoped(store, loc_cls, tmp_path) -> None:
     store2 = type(store)(url=str(tmp_path / "other"))
     store2.url  # touch
@@ -72,7 +72,7 @@ def test_hash_and_equality_are_store_scoped(store, loc_cls, tmp_path) -> None:
     assert b_other_store not in s
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_sorting_requires_same_store(store, loc_cls, tmp_path) -> None:
     store2 = type(store)(url=str(tmp_path / "other2"))
     a = loc_cls("a", store=store)
@@ -82,7 +82,7 @@ def test_sorting_requires_same_store(store, loc_cls, tmp_path) -> None:
         _ = a < loc_cls("a", store=store2)  # type: ignore[operator]
 
 
-@pytest.mark.parametrize("loc_cls", [OnDiskUnmanagedStoreLocation, AsyncOnDiskLocation])
+@pytest.mark.parametrize("loc_cls", [OnDiskExistingManagedStoreLocation, AsyncOnDiskLocation])
 def test_pickle_roundtrip_when_store_is_picklable(store, loc_cls) -> None:
     try:
         pickle.dumps(store)

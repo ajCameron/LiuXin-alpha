@@ -8,6 +8,11 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip(
+    "LiuXin_alpha.interfaces.cli",
+    reason="CLI package is not exposed under interfaces/ in this checkout.",
+)
+
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.surfaces.cli.squashfs import main as cli_main

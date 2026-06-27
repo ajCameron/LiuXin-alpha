@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import pathlib
 
-from LiuXin_alpha.metadata.api import WorkStorageHints
+import pytest
+
+from LiuXin_alpha.metadata.api import ItemStorageHints, WorkStorageHints
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like import (
     OnDiskCalibreLikeStorageBackend,
 )
+from LiuXin_alpha.storage.errors import CalibreLikeImplicitOverwriteError
 
 
 class _DummyFileRow(dict):
@@ -37,7 +40,7 @@ class _HintsOnlyMetadata:
 
 def test_calibre_like_layout_from_basic_metadata(tmp_path) -> None:
     store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
-    file_obj = store.add_file(
+    file_obj = store.write_bytes(
         b"abc",
         metadata={
             "title": "Dune",
@@ -54,7 +57,7 @@ def test_calibre_like_layout_from_basic_metadata(tmp_path) -> None:
 
 def test_calibre_like_layout_uses_author_combo_folder(tmp_path) -> None:
     store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
-    file_obj = store.add_file(
+    file_obj = store.write_bytes(
         b"abc",
         metadata={
             "title": "Good Omens",
@@ -73,7 +76,7 @@ def test_calibre_like_layout_uses_author_combo_folder(tmp_path) -> None:
     assert pathlib.Path(file_obj.file_url) == expected
 
 
-def test_calibre_like_collision_keeps_existing_and_suffixes_new(tmp_path) -> None:
+def test_calibre_like_collision_dedupes_same_bytes_and_rejects_incompatible_overwrite(tmp_path) -> None:
     store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
     metadata = {
         "title": "Dune",
@@ -82,13 +85,13 @@ def test_calibre_like_collision_keeps_existing_and_suffixes_new(tmp_path) -> Non
         "format": "epub",
     }
 
-    file_one = store.add_file(b"one", metadata=metadata)
-    file_same = store.add_file(b"one", metadata=metadata)
-    file_two = store.add_file(b"two", metadata=metadata)
+    file_one = store.write_bytes(b"one", metadata=metadata)
+    file_same = store.write_bytes(b"one", metadata=metadata)
 
     assert file_one.file_url == file_same.file_url
-    assert file_two.file_url != file_one.file_url
-    assert pathlib.Path(file_two.file_url).name.endswith(" (2).epub")
+
+    with pytest.raises(CalibreLikeImplicitOverwriteError, match="overwrite existing bytes"):
+        store.write_bytes(b"two", metadata=metadata)
 
 
 def test_calibre_like_updates_database_file_row(tmp_path) -> None:
@@ -96,7 +99,7 @@ def test_calibre_like_updates_database_file_row(tmp_path) -> None:
     db = _DummyDb(rows_by_id={11: row})
     store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path), database=db, store_id=77)
 
-    file_obj = store.add_file(
+    file_obj = store.write_bytes(
         b"payload",
         metadata={
             "title": "Children of Dune",
@@ -138,7 +141,7 @@ def test_calibre_like_uses_storage_hints_when_direct_fields_absent(tmp_path) -> 
         )
     )
 
-    file_obj = store.add_file(b"hints", metadata=metadata)
+    file_obj = store.write_bytes(b"hints", metadata=metadata)
     expected = (
         tmp_path
         / "Greg Egan"
@@ -148,3 +151,39 @@ def test_calibre_like_uses_storage_hints_when_direct_fields_absent(tmp_path) -> 
 
     assert pathlib.Path(file_obj.file_url) == expected
     assert row["file_storage_key"] == "Greg Egan/Permutation City (5)/Permutation City - Greg Egan.mobi"
+
+
+def test_calibre_like_uses_item_storage_hints_when_available(tmp_path) -> None:
+    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
+
+    class _ItemHintsOnlyMetadata:
+        def storage_hints(self) -> ItemStorageHints:
+            return ItemStorageHints(
+                item_id=44,
+                work_id=5,
+                title="Permutation City",
+                primary_agents=("Greg Egan",),
+                file_formats=("EPUB",),
+                preferred_filename_stem="Permutation City - Greg Egan",
+            )
+
+    file_obj = store.write_bytes(b"hints", metadata=_ItemHintsOnlyMetadata())
+    expected = (
+        tmp_path
+        / "Greg Egan"
+        / "Permutation City (5)"
+        / "Permutation City - Greg Egan.epub"
+    ).resolve()
+
+    assert pathlib.Path(file_obj.file_url) == expected
+
+
+def test_calibre_like_without_metadata_falls_back_to_managed_hash_layout(tmp_path) -> None:
+    store = OnDiskCalibreLikeStorageBackend(url=str(tmp_path))
+    payload = b"abc"
+    expected_hash = __import__("hashlib").sha256(payload).hexdigest()
+
+    file_obj = store.write_bytes(payload, metadata=None)
+
+    expected = (tmp_path / ".liuxin" / "managed_drive" / expected_hash[:5] / expected_hash).resolve()
+    assert pathlib.Path(file_obj.file_url) == expected
