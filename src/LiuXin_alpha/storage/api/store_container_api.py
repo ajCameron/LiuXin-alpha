@@ -15,7 +15,7 @@ from LiuXin_alpha.storage.api.location_api import StoreLocationMixinAPI
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.storage.api.info_containers_api import StoreSpec, StoreStatus
     from LiuXin_alpha.storage.api.store_plugin_api import StorePluginAPI
 

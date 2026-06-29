@@ -54,13 +54,13 @@ def _ensure_noid_table(driver) -> str:
 
 
 def test_validate_existing_table_name_rejects_sql_control_chars(driver):
-    assert driver.validate_existing_table_name("titles") is True
+    assert driver.direct_validate_existing_table_name("titles") is True
     # validate_existing_table_name() strips whitespace: this should still be accepted.
-    assert driver.validate_existing_table_name("titles\n") is True
+    assert driver.direct_validate_existing_table_name("titles\n") is True
 
-    assert driver.validate_existing_table_name("titles;") is False
-    assert driver.validate_existing_table_name("titles:") is False
-    assert driver.validate_existing_table_name("titles&") is False
+    assert driver.direct_validate_existing_table_name("titles;") is False
+    assert driver.direct_validate_existing_table_name("titles:") is False
+    assert driver.direct_validate_existing_table_name("titles&") is False
 
 
 def test_direct_get_column_headings_unknown_table_raises_input_integrity(driver):
@@ -74,7 +74,7 @@ def test_direct_delete_row_by_id_rejects_injection_shaped_table_name(driver, ass
         driver.direct_delete_row_by_id("titles; DROP TABLE titles; --", 1)
 
     # And the schema should remain intact.
-    assert driver.validate_existing_table_name("titles") is True
+    assert driver.direct_validate_existing_table_name("titles") is True
     assert_integrity(driver)
 
 

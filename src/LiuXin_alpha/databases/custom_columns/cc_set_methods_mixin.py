@@ -1,18 +1,41 @@
 
+"""
+Set methods for the custom columns.
+
+Responsible for writing value out to custom columns.
+"""
+
+from __future__ import annotations
+
+from typing import Iterable, Optional, Any, Union
 
 from functools import partial
+
+from LiuXin_alpha.errors import InvalidUpdate
+
+from LiuXin_alpha.databases.api.custom_columns_api import CustomColumnsAPI
+
+from LiuXin_alpha.utils.logging import default_log
 
 
 class CCSetMethodsMixin:
     """
     Set values in a custom column.
     """
-    def set_custom_bulk_multiple(self, ids, add=None, remove=None, label=None, num=None, notify=False):
+    def set_custom_bulk_multiple(
+        self: "CustomColumnsAPI",
+        cc_row_ids: Iterable[int],
+        add: Optional[Iterable[Any]] = None,
+        remove: Optional[Iterable[str]] = None,
+        label: Optional[str] = None,
+        num: Optional[int] = None,
+        notify: bool = False,
+    ) -> None:
         """
         Fast algorithm for updating custom column is_multiple datatypes.
 
         Do not use with other custom column datatypes.
-        :param ids:
+        :param cc_row_ids:
         :param add:
         :param remove:
         :param label:
@@ -40,7 +63,7 @@ class CCSetMethodsMixin:
         add = self.cleanup_tags(add)
         remove = self.cleanup_tags(remove)
         remove = set(remove) - set(add)
-        if not ids or (not add and not remove):
+        if not cc_row_ids or (not add and not remove):
             return
         # get custom table names
         in_table = data.get("in_table") or "books"
@@ -63,31 +86,40 @@ class CCSetMethodsMixin:
         self.db.macros.create_cc_temp_tables(temp_tables, conn=self.conn)
 
         # Populate the books temp custom_table
-        self.db.macros.insert_values_into_temp_table("temp_bulk_tag_edit_books", ids, conn=self.conn)
+        self.db.macros.insert_values_into_temp_table("temp_bulk_tag_edit_books", cc_row_ids, conn=self.conn)
 
         # Populate the add/remove tags temp temp_tables
         self.db.macros.do_cc_db_bulk_addition(temp_tables, custom_table, link_table, add, remove, conn=self.conn)
 
         # get rid of the temp tables
         self.db.macros.destroy_cc_temp_tables(temp_tables, conn=self.conn)
-        self.dirtied(ids, commit=False)
+        self.dirtied(cc_row_ids, commit=False)
         self.conn.commit()
 
         # set the in-memory copies of the tags
-        for x in ids:
+        for x in cc_row_ids:
             tags = self.db.macros.read_cc_value_from_meta_2(data["num"], x, conn=self.conn)
             self.data.set(x, self.FIELD_MAP[data["num"]], tags, row_is_id=True)
 
         if notify:
-            self.notify("metadata", ids)
+            self.notify("metadata", cc_row_ids)
 
-    def set_custom_bulk(self, ids, val, label=None, num=None, append=False, notify=True, extras=None):
+    def set_custom_bulk(
+        self: "CustomColumnsAPI",
+        cc_row_ids: Union[list[int], tuple[int, ...]],
+        val: Any,
+        label: Optional[str] = None,
+        num: Optional[int] = None,
+        append: bool = False,
+        notify: bool = True,
+        extras: list[Any] = None,
+    ) -> None:
         """
         Change the value of a column for a set of books.
 
         The ids parameter is a list of book ids to change. The extra field must be None or a list the same length as
         ids.
-        :param ids: The ids to set the value for
+        :param cc_row_ids: The ids to set the value for
         :param val: Value to set
         :param label: Either this or the num is used to identify the column to set the value for
         :param num: The id of the column in the custom columns table
@@ -96,33 +128,35 @@ class CCSetMethodsMixin:
         :param extras: Either None or a dictionary keyed with the positions of the individual ids in the ids itterator
         :return:
         """
-        if extras is not None and len(extras) != len(ids):
+        if extras is not None and len(extras) != len(cc_row_ids):
             raise ValueError("Length of ids and extras is not the same")
         ev = None
-        for idx, id in enumerate(ids):
+        for idx, id in enumerate(cc_row_ids):
             if extras is not None:
                 ev = extras[idx]
             self._set_custom(id, val, label=label, num=num, append=append, notify=notify, extra=ev)
-        self.dirtied(ids, commit=False)
+        self.dirtied(cc_row_ids, commit=False)
         self.conn.commit()
 
     def set_custom(
-        self,
-        id,
-        val,
-        label=None,
-        num=None,
-        append=False,
-        notify=True,
-        extra=None,
-        commit=True,
-        allow_case_change=False,
-    ):
+        self: "CustomColumnsAPI",
+        cc_row_id: int,
+        val: Any,
+        label: Optional[str] = None,
+        num: Optional[int] = None,
+        append: bool = False,
+        notify: bool = True,
+        extra: Any = None,
+        commit: bool = True,
+        allow_case_change: bool = False,
+    ) -> set[int]:
         """
-        Sets values for a custom column. This method calls the _set_custom method to do the actual work and notes that
+        Sets a single value for a custom column.
+
+        This method calls the _set_custom method to do the actual work and notes that
         the records in question have been dirtied using self.dirtied.
         Calls self._set_custom with all this information, and dirties the appropriate record.
-        :param id: The book id to set the custom column value for
+        :param cc_row_id: The book id to set the custom column value for
         :param val: The value to set the custom_column to
         :param label: Either this, or the num, is used to specify which custom column to set the value for
         :param num: The id of the custom column in the custom column table (either this or label can be used - label is
@@ -137,7 +171,7 @@ class CCSetMethodsMixin:
         :return:
         """
         rv = self._set_custom(
-            id,
+            cc_row_id,
             val,
             label=label,
             num=num,
@@ -146,22 +180,22 @@ class CCSetMethodsMixin:
             extra=extra,
             allow_case_change=allow_case_change,
         )
-        self.dirtied({id} | rv, commit=False)
+        self.dirtied({cc_row_id} | rv, commit=False)
         if commit:
             self.conn.commit()
         return rv
 
     def _set_custom(
-        self,
-        id_,
-        val,
-        label=None,
-        num=None,
-        append=False,
-        notify=True,
-        extra=None,
-        allow_case_change=False,
-    ):
+        self: "CustomColumnsAPI",
+        id_: int,
+        val: Any,
+        label: Optional[str] = None,
+        num: Optional[int] = None,
+        append: bool = False,
+        notify: bool = True,
+        extra: Optional[Any] = None,
+        allow_case_change: bool = False,
+    ) -> set[int]:
         """
         Does the work of setting a custom column to be a designated value.
         Will return an empty set if the datatype is composite (and, thus, not editable)

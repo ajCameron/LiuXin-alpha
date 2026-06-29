@@ -9,6 +9,7 @@ import re
 from collections import defaultdict, namedtuple
 from functools import wraps
 
+import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 from LiuXin_alpha.file_formats.oeb.base import OPF2_NSMAP, OPF, DC
@@ -1146,7 +1147,8 @@ def apply_metadata(
     if ok("identifiers"):
         set_identifiers(root, prefixes, refines, mi.identifiers, force_identifiers=force_identifiers)
     if ok("title"):
-        set_title(root, prefixes, refines, mi.title, mi.title_sort)
+        set_title(root, prefixes, refines, mi.title,
+                  LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort)
     if ok("languages"):
         set_languages(root, prefixes, refines, mi.languages)
     if ok("book_producer"):

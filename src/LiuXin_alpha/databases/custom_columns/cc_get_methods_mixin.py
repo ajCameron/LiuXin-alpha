@@ -1,10 +1,18 @@
 
+"""
+Method to get values from a custom columns table.
+"""
+
+from __future__ import annotations
 
 from functools import partial
-from typing import Optional
+from typing import Optional, TYPE_CHECKING, Any
 
 from LiuXin_alpha.preferences import preferences
 from LiuXin_alpha.utils.libraries.liuxin_six import six_cmp as cmp
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.custom_columns_api import CustomColumnsAPI
 
 
 class CCGetMethodsMixin:
@@ -14,11 +22,11 @@ class CCGetMethodsMixin:
 
     # Begin Convenience methods for getting and setting custom data - {{{
     def get_custom(
-            self,
+            self: "CustomColumnsAPI",
             idx: int,
             label: Optional[str] = None,
             num: Optional[int] = None,
-            index_is_id: bool = False):
+            index_is_id: bool = False) -> Any:
         """
         Returns the value for a given custom column with the given index or id.
 
@@ -48,11 +56,11 @@ class CCGetMethodsMixin:
         return ans
 
     def get_custom_extra(
-            self,
+            self: "CustomColumnsAPI",
             idx: int,
             label: Optional[str] = None,
             num: Optional[int] = None,
-            index_is_id: bool = False):
+            index_is_id: bool = False) -> Any:
         """
         Reads the extra column from the link table for the particular book and returns it.
 
@@ -83,11 +91,11 @@ class CCGetMethodsMixin:
         return self.direct_get_custom_extra(lt, idx)
 
     def get_custom_and_extra(
-            self,
+            self: "CustomColumnsAPI",
             idx: int,
             label: Optional[str] = None,
             num: Optional[int] = None,
-            index_is_id: bool = False):
+            index_is_id: bool = False) -> tuple[Any, Any]:
         """
         Returns the value from the custom column and the extra component from the link table.
 
@@ -125,9 +133,9 @@ class CCGetMethodsMixin:
         return ans, extra
 
     def get_custom_items_with_ids(
-            self,
+            self: "CustomColumnsAPI",
             label: Optional[str] = None,
-            num: Optional[int] = None):
+            num: Optional[int] = None) -> list[tuple[int, Any]]:
         """
         Convenience methods for tag editing.
 
@@ -156,7 +164,7 @@ class CCGetMethodsMixin:
 
     # Todo: What if the book is already in this series, but in another position in the priority stack
     def get_next_cc_series_num_for(
-            self,
+            self: "CustomColumnsAPI",
             series: str,
             label: Optional[str] = None,
             num: Optional[int] = None) -> Optional[float]:
@@ -169,8 +177,10 @@ class CCGetMethodsMixin:
         """
         if label is not None:
             data = self.custom_column_label_map[label]
+
         elif num is not None:
             data = self.custom_column_num_map[num]
+
         else:
             raise NotImplementedError("There is no information here to designate the custom column")
 
@@ -193,7 +203,10 @@ class CCGetMethodsMixin:
 
         return self._get_next_series_num_for_list(series_indices)
 
-    def all_custom(self, label=None, num=None):
+    def all_custom(
+            self: "CustomColumnsAPI",
+            label: Optional[str] = None,
+            num: Optional[int] = None) -> set[Any]:
         """
         Returns all values from a custom column.
 

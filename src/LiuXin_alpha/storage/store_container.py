@@ -18,7 +18,7 @@ from LiuXin_alpha.storage.api.store_plugin_api import StorePluginAPI
 from LiuXin_alpha.storage.store_spec_utils import store_spec_from_row, store_spec_to_row_dict
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 
 @dataclasses.dataclass(slots=True)

@@ -409,7 +409,7 @@ class Row(RowAPI):
         :return:
         """
         row_dict = object.__getattribute__(self, "int_row_dict")
-        target_table = self.db.driver_wrapper.identify_table_from_column(key, error=False)
+        target_table = self.db.driver_wrapper.direct_identify_table_from_column(key, error=False)
         if target_table is None:
             err_str = "Cannot set item - does not correspond to a column heading from any table in this database"
             err_str = default_log.log_variables(err_str, "ERROR", ("db", self.db), ("key", key), ("value", value))

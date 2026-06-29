@@ -35,7 +35,7 @@ def test_scan_report_matches_expected_counts(tmp_path: Path, spec: str) -> None:
 
     # Keep this test reasonably fast: the detailed golden comparisons live in E1.
     # Here we focus on scan-report aggregation correctness.
-    from LiuXin_alpha.databases.calibre_emulation.scan import scan_calibre_library
+    from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import scan_calibre_library
 
     for s in specs:
         lib_root = extract_library_zip(s, tmp_path / s.schema_key / s.name)
@@ -74,7 +74,7 @@ def test_scan_report_opf_fallback(tmp_path: Path) -> None:
     if md.exists():
         md.unlink()
 
-    from LiuXin_alpha.databases.calibre_emulation.scan import scan_calibre_library
+    from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import scan_calibre_library
 
     rep = scan_calibre_library(lib_root, best_effort=True, max_books=50)
     assert rep.mode == "opf"

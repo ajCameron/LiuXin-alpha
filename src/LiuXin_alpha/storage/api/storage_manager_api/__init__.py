@@ -14,7 +14,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.file_manip_api import StoreFil
 from LiuXin_alpha.storage.api.storage_manager_api.stores_management_api import StoresManagerAPI
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 
 class StorageManagerAPI(StoresManagerAPI, StoreFileOrchestrationAPI, abc.ABC):

@@ -47,6 +47,7 @@ def initialise_database_runtime(
     db.driver_wrapper.db = db
     db.driver.db = db
     db.macros.db = db
+    db.metadata_sql.db = db
 
 
 # Todo: As it mixes db and storage, should be in library - perhaps with a dummy for when we just want a db up

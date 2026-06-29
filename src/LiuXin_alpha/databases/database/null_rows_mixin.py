@@ -1,15 +1,25 @@
 
+"""
+Mixin to handle access and control of the null rows.
+"""
+
+from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.bootstrap_constants import AGENTS_NULL_CANONICAL_NAME
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+
 
 # Todo: Null rows class?
 class DatabaseNullRowsMixin:
     """
     Methods to retrieve and manipulate the null rows.
     """
-
-    # Todo: These methods should be private - only run during startup
-    def ensure_null_rows(self):
+    # Todo: Methods to get null rows?
+    # Todo: These methods should be private - only run during startup - probably not
+    def ensure_null_rows(self: "DatabaseAPI") -> None:
         """
         Ensure required sentinel/null rows exist.
 

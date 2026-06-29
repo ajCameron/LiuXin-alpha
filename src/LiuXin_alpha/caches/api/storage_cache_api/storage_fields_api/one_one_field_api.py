@@ -16,7 +16,7 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api
 from LiuXin_alpha.caches.updates.field_updates import OneOneInOneTableFieldUpdate
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_one_tables_api import (
         StorageCacheOneToOneLinkTableAPI,
     )

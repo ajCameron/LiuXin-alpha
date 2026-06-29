@@ -5,6 +5,8 @@ import random
 
 import pytest
 
+import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
+
 pytest.importorskip("lxml")
 from lxml import etree
 
@@ -146,7 +148,7 @@ def test_randomized_parseable_inputs_roundtrip_without_xml_breakage(opf_mod, bas
         mi.comments = _rand_text(rng, max_len=60, with_bad_controls=True)
         mi.publisher = _rand_text(rng, max_len=24, with_bad_controls=True)
         mi.tags = [_rand_text(rng, max_len=16, with_bad_controls=True) for _ in range(3)]
-        mi.title_sort = _rand_text(rng, max_len=24, with_bad_controls=True)
+        LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = _rand_text(rng, max_len=24, with_bad_controls=True)
         mi.series = _rand_text(rng, max_len=20, with_bad_controls=True)
         mi.series_index = float(rng.randint(1, 99))
         mi.set_identifier("custom", _rand_text(rng, max_len=30, with_bad_controls=True))

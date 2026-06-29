@@ -8,7 +8,7 @@ import abc
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 ONE_ONE, MANY_ONE, MANY_MANY, ONE_MANY = range(4)
 

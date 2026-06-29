@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.databases.calibre_emulation import (
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import (
     CalibreLibraryPaths,
     CalibreSchemaInfo,
     CalibreCustomColumnDef,

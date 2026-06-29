@@ -29,7 +29,7 @@ import pytest
 
 def _table_exists(driver, table: str) -> bool:
     try:
-        return bool(driver.validate_existing_table_name(table))
+        return bool(driver.direct_validate_existing_table_name(table))
     except Exception:
         return table in set(driver.direct_get_tables())
 

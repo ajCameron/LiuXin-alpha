@@ -1,6 +1,7 @@
-"""Utilities to *populate* a generated Calibre library.
+"""
+Utilities to *populate* a generated Calibre library.
 
-Stage 5 goal: make it easy to generate realistic Calibre libraries for testing
+Aim - make it easy to generate realistic Calibre libraries for testing
 import/compat layers.
 
 This module intentionally keeps the API small and practical:
@@ -15,6 +16,8 @@ The Calibre schema contains triggers that reference custom SQL functions
 register minimal implementations so inserts don't fail.
 """
 
+# Todo: This should probably be over in utils?
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -28,7 +31,13 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
 
 def _sanitize_component(value: str, *, fallback: str = "Unknown") -> str:
-    """Make a path-safe component (close to Calibre's real behavior, but simpler)."""
+    """
+    Make a path-safe component (close to Calibre's real behavior, but simpler).
+
+    :param value:
+    :param fallback:
+    :return:
+    """
     if value is None:
         value = ""
     value = str(value)
@@ -46,13 +55,24 @@ def _sanitize_component(value: str, *, fallback: str = "Unknown") -> str:
 
 
 def _register_min_calibre_sql_functions(conn: sqlite3.Connection) -> None:
-    """Register the minimal UDFs used by Calibre triggers in metadata.db."""
+    """
+    Register the minimal UDFs used by Calibre triggers in metadata.db.
+
+    :param conn:
+    :return:
+    """
     # Keep this implementation self-contained (LiuXin's richer `title_sort` is
     # tweak-driven and can raise during early bootstrap in some test contexts).
     _articles = re.compile(r"^(a|an|the)\s+", flags=re.IGNORECASE)
     _ignore = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + [chr(0x2032), chr(0x2033)])
 
     def _title_sort(x: str) -> str:
+        """
+        Transform a title into a title sort string.
+
+        :param x:
+        :return:
+        """
         if x is None:
             return ""
         s = str(x).strip()
@@ -74,6 +94,9 @@ def _register_min_calibre_sql_functions(conn: sqlite3.Connection) -> None:
 
 @dataclass(frozen=True)
 class AddedFormat:
+    """
+    Results of adding a format to the library.
+    """
     format: str
     file_path: Path
     size: int
@@ -81,6 +104,9 @@ class AddedFormat:
 
 @dataclass(frozen=True)
 class AddedBook:
+    """
+    Results of adding a book to the library.
+    """
     book_id: int
     relative_path: str
     folder_path: Path
@@ -92,13 +118,23 @@ class AddedBook:
 class CalibreLibraryBuilder:
     """A small helper to populate a Calibre library skeleton."""
 
-    def __init__(self, library_root: str | os.PathLike, *, metadata_db: str | os.PathLike | None = None):
+    def __init__(self, library_root: str | os.PathLike, *, metadata_db: str | os.PathLike | None = None) -> None:
+        """
+
+        :param library_root:
+        :param metadata_db:
+        """
         self.library_root = Path(library_root)
         self.metadata_db = Path(metadata_db) if metadata_db else (self.library_root / "metadata.db")
         if not self.metadata_db.exists():
             raise FileNotFoundError(f"metadata.db not found: {self.metadata_db}")
 
     def connect(self) -> sqlite3.Connection:
+        """
+        Connect to the database.
+
+        :return:
+        """
         conn = sqlite3.connect(str(self.metadata_db))
         conn.execute("PRAGMA foreign_keys = ON")
         _register_min_calibre_sql_functions(conn)
@@ -125,11 +161,22 @@ class CalibreLibraryBuilder:
 
     @staticmethod
     def custom_table_names(num: int) -> tuple[str, str]:
-        """Return (value_table, link_table) names for a custom column."""
+        """
+        Return (value_table, link_table) names for a custom column.
+
+        :param num:
+        :return:
+        """
         return f"custom_column_{num}", f"books_custom_column_{num}_link"
 
     @staticmethod
     def _validate_custom_label(label: str) -> None:
+        """
+        Check the custom-column label is valid.
+
+        :param label:
+        :return:
+        """
         if not label:
             raise ValueError("Custom column label cannot be empty")
         if re.match(r"^\w*$", label) is None:
@@ -150,7 +197,8 @@ class CalibreLibraryBuilder:
         display: Optional[dict] = None,
         if_exists: str = "return",
     ) -> int:
-        """Create a Calibre-style custom column for the *books* table.
+        """
+        Create a Calibre-style custom column for the *books* table.
 
         This mirrors Calibre's runtime custom column creation:
         - inserts a row into `custom_columns`
@@ -159,6 +207,15 @@ class CalibreLibraryBuilder:
         `if_exists`:
             - "return" (default): return existing column id if label exists
             - "raise": raise ValueError if label exists
+
+        :param label:
+        :param name:
+        :param datatype:
+        :param is_multiple:
+        :param editable:
+        :param display:
+        :param if_exists:
+        :return:
         """
 
         label = str(label)
@@ -342,9 +399,17 @@ CREATE TRIGGER fkc_update_{table}
         value: Any,
         extra: Any | None = None,
     ) -> None:
-        """Set a custom-column value for a book.
+        """
+        Set a custom-column value for a book.
 
         The column must already exist (use `create_custom_column()` first).
+
+        :param conn:
+        :param book_id:
+        :param label:
+        :param value:
+        :param extra:
+        :return:
         """
 
         owns_conn = False
@@ -378,12 +443,16 @@ CREATE TRIGGER fkc_update_{table}
                 conn.execute(f"DELETE FROM {lt} WHERE book=?", (book_id,))
 
                 def _parse_series_value(v: Any) -> tuple[str, float | None]:
-                    """Parse a Calibre custom 'series' value into (name, index).
+                    """
+                    Parse a Calibre custom 'series' value into (name, index).
 
                     Accepts:
                         - "Series Name" (uses `extra` parameter / default)
                         - ("Series Name", 2) / ["Series Name", 2]
                         - {"name": "Series", "index": 2}
+
+                    :param v:
+                    :return:
                     """
                     if v is None:
                         raise ValueError(f"NULL is not a valid value for custom column {label!r}")
@@ -472,7 +541,14 @@ CREATE TRIGGER fkc_update_{table}
                 conn.close()
 
     def get_custom_value(self, conn: sqlite3.Connection, *, book_id: int, label: str) -> Any:
-        """Fetch a custom-column value (best-effort helper for tests)."""
+        """
+        Fetch a custom-column value (best-effort helper for tests).
+
+        :param conn:
+        :param book_id:
+        :param label:
+        :return:
+        """
 
         meta = conn.execute(
             "SELECT id, datatype, is_multiple, normalized FROM custom_columns WHERE label=?",
@@ -516,7 +592,6 @@ CREATE TRIGGER fkc_update_{table}
         ).fetchone()
         return row[0] if row else None
 
-
     def add_book(
         self,
         *,
@@ -533,9 +608,24 @@ CREATE TRIGGER fkc_update_{table}
         cover_bytes: bytes | None = None,
         custom_values: Mapping[str, Any] | None = None,
     ) -> AddedBook:
-        """Insert one book + optional metadata, and create on-disk files.
+        """
+        Insert one book + optional metadata, and create on-disk files.
 
         `formats` is a mapping like {"EPUB": b"...", "PDF": b"..."}.
+
+        :param title:
+        :param authors:
+        :param languages:
+        :param tags:
+        :param series:
+        :param series_index:
+        :param publisher:
+        :param identifiers:
+        :param comments_html:
+        :param formats:
+        :param cover_bytes:
+        :param custom_values:
+        :return:
         """
 
         title = str(title)
@@ -614,7 +704,16 @@ CREATE TRIGGER fkc_update_{table}
 
     # --- internals ---
 
-    def _insert_book_row(self, conn: sqlite3.Connection, *, title: str, authors: Sequence[str]) -> int:
+    @staticmethod
+    def _insert_book_row(conn: sqlite3.Connection, *, title: str, authors: Sequence[str]) -> int:
+        """
+        Write a book row to the database.
+
+        :param conn:
+        :param title:
+        :param authors:
+        :return:
+        """
         author_sort = " & ".join(authors)
         cur = conn.execute(
             "INSERT INTO books (title, author_sort, path) VALUES (?, ?, ?)",
@@ -640,14 +739,33 @@ CREATE TRIGGER fkc_update_{table}
         conn.execute("UPDATE books SET path=? WHERE id=?", (rel_path, book_id))
         return rel_path, folder
 
-    def _get_or_create_id(self, conn: sqlite3.Connection, *, table: str, name: str, name_col: str = "name") -> int:
+    @staticmethod
+    def _get_or_create_id(conn: sqlite3.Connection, *, table: str, name: str, name_col: str = "name") -> int:
+        """
+        Get or create an ID in the given table.
+
+        :param conn:
+        :param table:
+        :param name:
+        :param name_col:
+        :return:
+        """
         conn.execute(f"INSERT OR IGNORE INTO {table} ({name_col}) VALUES (?)", (name,))
         row = conn.execute(f"SELECT id FROM {table} WHERE {name_col}=?", (name,)).fetchone()
         if not row:
             raise RuntimeError(f"Failed to create row in {table} for {name!r}")
         return int(row[0])
 
-    def _set_authors(self, conn: sqlite3.Connection, *, book_id: int, authors: Sequence[str]) -> None:
+    @staticmethod
+    def _set_authors(conn: sqlite3.Connection, *, book_id: int, authors: Sequence[str]) -> None:
+        """
+        Set the authors of the book.
+
+        :param conn:
+        :param book_id:
+        :param authors:
+        :return:
+        """
         for a in authors:
             a = str(a)
             conn.execute("INSERT OR IGNORE INTO authors (name) VALUES (?)", (a,))
@@ -657,7 +775,16 @@ CREATE TRIGGER fkc_update_{table}
                 (book_id, aid),
             )
 
-    def _set_languages(self, conn: sqlite3.Connection, *, book_id: int, languages: Sequence[str]) -> None:
+    @staticmethod
+    def _set_languages(conn: sqlite3.Connection, *, book_id: int, languages: Sequence[str]) -> None:
+        """
+        Set a language id for a book.
+
+        :param conn:
+        :param book_id:
+        :param languages:
+        :return:
+        """
         # Calibre stores language rows in `languages` and links via `books_languages_link`.
         for idx, code in enumerate(languages):
             code = str(code)
@@ -668,7 +795,16 @@ CREATE TRIGGER fkc_update_{table}
                 (book_id, lid, idx),
             )
 
-    def _set_tags(self, conn: sqlite3.Connection, *, book_id: int, tags: Sequence[str]) -> None:
+    @staticmethod
+    def _set_tags(conn: sqlite3.Connection, *, book_id: int, tags: Sequence[str]) -> None:
+        """
+        Set tags the given book id.
+
+        :param conn:
+        :param book_id:
+        :param tags:
+        :return:
+        """
         for t in tags:
             t = str(t)
             conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (t,))
@@ -678,7 +814,18 @@ CREATE TRIGGER fkc_update_{table}
                 (book_id, tid),
             )
 
-    def _set_series(self, conn: sqlite3.Connection, *, book_id: int, series: str, series_index: float | None) -> None:
+
+    @staticmethod
+    def _set_series(conn: sqlite3.Connection, *, book_id: int, series: str, series_index: float | None) -> None:
+        """
+        Write a series, and index, out to the database.
+
+        :param conn:
+        :param book_id:
+        :param series:
+        :param series_index:
+        :return:
+        """
         series = str(series)
         conn.execute("INSERT OR IGNORE INTO series (name) VALUES (?)", (series,))
         sid = int(conn.execute("SELECT id FROM series WHERE name=?", (series,)).fetchone()[0])
@@ -686,7 +833,16 @@ CREATE TRIGGER fkc_update_{table}
         if series_index is not None:
             conn.execute("UPDATE books SET series_index=? WHERE id=?", (float(series_index), book_id))
 
-    def _set_publisher(self, conn: sqlite3.Connection, *, book_id: int, publisher: str) -> None:
+    @staticmethod
+    def _set_publisher(conn: sqlite3.Connection, *, book_id: int, publisher: str) -> None:
+        """
+        Write data out to the publisher table.
+
+        :param conn:
+        :param book_id:
+        :param publisher:
+        :return:
+        """
         publisher = str(publisher)
         conn.execute("INSERT OR IGNORE INTO publishers (name) VALUES (?)", (publisher,))
         pid = int(conn.execute("SELECT id FROM publishers WHERE name=?", (publisher,)).fetchone()[0])
@@ -695,21 +851,39 @@ CREATE TRIGGER fkc_update_{table}
             (book_id, pid),
         )
 
-    def _set_comments(self, conn: sqlite3.Connection, *, book_id: int, comments_html: str) -> None:
+    @staticmethod
+    def _set_comments(conn: sqlite3.Connection, *, book_id: int, comments_html: str) -> None:
+        """
+        Write comments data out to the database.
+
+        :param conn:
+        :param book_id:
+        :param comments_html:
+        :return:
+        """
         conn.execute(
             "INSERT OR REPLACE INTO comments (book, text) VALUES (?, ?)",
             (book_id, comments_html),
         )
 
-    def _set_identifiers(self, conn: sqlite3.Connection, *, book_id: int, identifiers: Mapping[str, str]) -> None:
+    @staticmethod
+    def _set_identifiers(conn: sqlite3.Connection, *, book_id: int, identifiers: Mapping[str, str]) -> None:
+        """
+        Write identifier data out to the database through the connection from an identifiers mapping.
+
+        :param conn:
+        :param book_id:
+        :param identifiers:
+        :return:
+        """
         for k, v in identifiers.items():
             conn.execute(
                 "INSERT OR REPLACE INTO identifiers (book, type, val) VALUES (?, ?, ?)",
                 (book_id, str(k), str(v)),
             )
 
+    @staticmethod
     def _add_formats(
-        self,
         conn: sqlite3.Connection,
         *,
         book_id: int,
@@ -718,6 +892,17 @@ CREATE TRIGGER fkc_update_{table}
         authors: Sequence[str],
         formats: Mapping[str, bytes],
     ) -> Dict[str, AddedFormat]:
+        """
+        Write dummy format data out to the database we're building.
+
+        :param conn:
+        :param book_id:
+        :param folder:
+        :param title:
+        :param authors:
+        :param formats:
+        :return:
+        """
         base = f"{_sanitize_component(title)} - {_sanitize_component(authors[0])}"
         added: Dict[str, AddedFormat] = {}
         for fmt, data in formats.items():

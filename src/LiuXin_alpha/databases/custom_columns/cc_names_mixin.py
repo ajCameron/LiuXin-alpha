@@ -1,4 +1,16 @@
 
+"""
+Method for handling the names, and name generation, for custom columns.
+"""
+
+
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.custom_columns_api import CustomColumnsAPI
 
 
 class CCNamesMixin:
@@ -6,7 +18,10 @@ class CCNamesMixin:
     Names methods for custom columns.
     """
 
-    def custom_field_name(self, label=None, num=None):
+    def custom_field_name(
+            self: "CustomColumnsAPI",
+            label: Optional[str] = None,
+            num: Optional[int] = None) -> str:
         """
         Gets the name for a custom field.
 

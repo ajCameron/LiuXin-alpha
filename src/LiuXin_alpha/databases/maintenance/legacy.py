@@ -24,6 +24,8 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import LiuXin_debug_print, default_log
 
+# Todo: Split down. Update or purge.
+
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI, RowAPI
 
@@ -957,7 +959,7 @@ def direct_ensure_creators_sort(db: DatabaseAPI) -> None:
 
 def direct_set_original_one_row_creator_sort(db, creator_row_id):
     """
-    Update the creator sort of a particular creator row to set it to the raw value generator from author_to_author_sort.
+    Update the creator sort of particular creator row to set it to the raw value generator from author_to_author_sort.
 
     :param db:
     :param creator_row_id:

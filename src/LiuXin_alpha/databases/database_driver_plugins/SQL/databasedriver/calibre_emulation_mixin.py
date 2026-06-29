@@ -1,4 +1,12 @@
 
+"""
+calibre emulation add ins.
+
+Some of the calibre emulation methods require direct database access.
+"""
+
+import datetime
+
 from LiuXin_alpha.utils.date import utcfromtimestamp
 
 
@@ -11,9 +19,10 @@ class CalibreEmulationMixin:
     #
     # - CALIBRE EMULATION FUNCTIONS START HERE
 
-    def direct_last_modified(self):
+    def direct_last_modified(self) -> datetime.datetime:
         """
         Returns the last modification time for the databases as a utc (unix time code) timestamp.
+
         :return:
         """
         import os

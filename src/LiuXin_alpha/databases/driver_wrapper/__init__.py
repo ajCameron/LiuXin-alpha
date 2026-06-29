@@ -1,11 +1,13 @@
 
 """
 The driver wrapper provides some utility methods around the driver to improve convenience.
+
+A collection of methods that fit nowhere else.
 """
 
 from __future__ import unicode_literals, annotations
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Union, Literal, Any, Iterable
 
 from copy import deepcopy
 
@@ -16,8 +18,6 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import smart_dictionary_merge, get_unique_id
 from LiuXin_alpha.databases.schema_specs import (
-    StorageTableSpec,
-    StorageColumnSpec,
     RelationKind,
     StorageLinkSpec,
     StorageSchemaSpec,
@@ -31,10 +31,12 @@ from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_view_mixin import Driv
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_tree_mixin import DriverWrapperTreeMixin
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_metadata_mixin import DriverWrapperMetadataMixin
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_search_mixin import DriverWrapperSearchMixin
-from LiuXin_alpha.databases.api.database_api.driver_wrapper import DatabaseDriverWrapperAPI
+from LiuXin_alpha.databases.api.driver_wrapper_api.driver_wrapper_api import DatabaseDriverWrapperAPI
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import MacrosAPI, DatabaseAPI, DatabaseDriverAPI
+    from LiuXin_alpha.databases.schema_specs import (
+        StorageTableSpec, StorageColumnSpec,)
 
 
 class DriverWrapper(
@@ -85,10 +87,23 @@ class DriverWrapper(
         super(DriverWrapper, self).__init__(db=db, macros=None)
 
     def _clear_derived_schema_caches(self) -> None:
+        """
+        Clear cached elements of the schema.
+
+        Should be called after schema changes - so should almost never be called.
+        :return:
+        """
         self._link_table_name_cache = {}
         self._link_table_name_cache_schema_version = None
 
-    def get_table_spec(self, table: str, force_refresh: bool = False) -> StorageTableSpec:
+    def get_table_spec(self, table: str, force_refresh: bool = False) -> "StorageTableSpec":
+        """
+        Provides a spec for the given table.
+
+        :param table:
+        :param force_refresh:
+        :return:
+        """
         if force_refresh:
             self._clear_derived_schema_caches()
 
@@ -130,6 +145,11 @@ class DriverWrapper(
             )
 
         def _optional_id_column() -> Optional[str]:
+            """
+            Return the id column - if it can be identified.
+
+            :return:
+            """
             if relation_type != "table":
                 return None
             if "id" in headings:
@@ -138,6 +158,11 @@ class DriverWrapper(
             return candidates[0] if candidates else None
 
         def _optional_datestamp_column() -> Optional[str]:
+            """
+            Return the datestamp column - if it exists.
+
+            :return:
+            """
             if relation_type != "table":
                 return None
             if "datestamp" in headings:
@@ -156,6 +181,11 @@ class DriverWrapper(
             return candidates[0] if candidates else None
 
         def _optional_scratch_column() -> Optional[str]:
+            """
+            Return the scratch column - if it exists.
+
+            :return:
+            """
             if relation_type != "table":
                 return None
             for heading in headings:
@@ -181,7 +211,15 @@ class DriverWrapper(
             linked_tables=tuple(sorted(self.get_interlinked_tables(table))) if relation_type == "table" else (),
         )
 
-    def get_link_spec(self, table1: str, table2: str, *, force_refresh: bool = False) -> Optional[StorageLinkSpec]:
+    def get_link_spec(self, table1: str, table2: str, *, force_refresh: bool = False) -> Optional["StorageLinkSpec"]:
+        """
+        Return the spec for the link between table1 and table2 - if such a link exists.
+
+        :param table1:
+        :param table2:
+        :param force_refresh:
+        :return:
+        """
         if force_refresh:
             self._clear_derived_schema_caches()
 
@@ -242,6 +280,13 @@ class DriverWrapper(
         force_refresh: bool = False,
         include_views: bool = True,
     ):
+        """
+        Itterate over the specs for all tables on the database.
+
+        :param force_refresh:
+        :param include_views:
+        :return:
+        """
         if force_refresh:
             self._clear_derived_schema_caches()
         seen: set[str] = set()
@@ -254,15 +299,30 @@ class DriverWrapper(
                     continue
                 yield self.get_table_spec(view, force_refresh=False)
 
-    def get_intralink_spec(self, table: str, *, force_refresh: bool = False):
+    def get_intralink_spec(self, table: str, *, force_refresh: bool = False) -> Optional["StorageLinkSpec"]:
+        """
+        Get an intralink spec for self links within the target table - if such exist.
+
+        :param table:
+        :param force_refresh:
+        :return:
+        """
         return self.get_link_spec(table, table, force_refresh=force_refresh)
 
+    # Todo: Consider different link spec classes for intralink and interlink - and add more tree support
     def iter_link_specs(
         self,
         *,
         force_refresh: bool = False,
         include_intralinks: bool = True,
     ):
+        """
+        Iterate over all available link specs - interlink and intralink.
+
+        :param force_refresh:
+        :param include_intralinks:
+        :return:
+        """
         if force_refresh:
             self._clear_derived_schema_caches()
         seen: set[tuple[str, str, str]] = set()
@@ -284,7 +344,14 @@ class DriverWrapper(
                 seen.add(key)
                 yield spec
 
-    def get_schema_spec(self, force_refresh: bool = False) -> StorageSchemaSpec:
+    # Todo: These could be their own mixin?
+    def get_schema_spec(self, force_refresh: bool = False) -> "StorageSchemaSpec":
+        """
+        Return the storage schema spec for the entire database.
+
+        :param force_refresh:
+        :return:
+        """
         tables = {spec.name: spec for spec in self.iter_table_specs(force_refresh=force_refresh, include_views=True)}
         interlinks = []
         intralinks = []
@@ -296,15 +363,36 @@ class DriverWrapper(
         return StorageSchemaSpec(tables=tables, interlinks=tuple(interlinks), intralinks=tuple(intralinks))
 
     def get_row_dataclass(self, table: str, *, force_refresh: bool = False) -> type:
+        """
+        Return the dataclass used to represent a row on the database.
+
+        :param table:
+        :param force_refresh:
+        :return:
+        """
         return build_row_dataclass_for_table(self.get_table_spec(table, force_refresh=force_refresh))
 
+    # Todo: Do think that interlink and intralink should have their own classes
     def get_link_row_dataclass(self, table1: str, table2: str, *, force_refresh: bool = False):
+        """
+        Return the dataclass used to represent a link row on the database.
+
+        :param table1:
+        :param table2:
+        :param force_refresh:
+        :return:
+        """
         spec = self.get_link_spec(table1, table2, force_refresh=force_refresh)
         if spec is None:
             return None
         return build_row_dataclass_for_table(self.get_table_spec(spec.link_table, force_refresh=force_refresh))
 
-    def get_allowed_tables_snapshot(self):
+    def get_allowed_tables_snapshot(self) -> frozenset[str]:
+        """
+        Return all the currently allowed table names.
+
+        :return:
+        """
         tables = set()
         for attr in ("all_tables", "main_tables", "interlink_tables", "intralink_tables", "helper_tables"):
             value = getattr(self, attr, None)
@@ -322,6 +410,12 @@ class DriverWrapper(
         return frozenset(tables)
 
     def __del__(self) -> None:
+        """
+        Shut the class down.
+
+        Needed to make sure that the db ref is clearer and the db shuts down properly.
+        :return:
+        """
         try:
             self.close()
         except Exception:
@@ -366,9 +460,10 @@ class DriverWrapper(
                 pass
         self.break_cycles()
 
-    def break_cycles(self):
+    def break_cycles(self) -> None:
         """
         Preform shutdown in a sensible order - deleting each of the objects in the right order.
+
         :return:
         """
         try:
@@ -384,9 +479,11 @@ class DriverWrapper(
     # - METHODS TO GET INFORMATION ABOUT SPECIFIC TABLES START HERE
     # ------------------------------------------------------------------------------------------------------------------
 
-    def check_for_intralink_table(self, table_name):
+    def check_for_intralink_table(self, table_name: str) -> Union[str, Literal[False]]:
         """
-        Takes the name of a table. Returns the name of the intralink table if one exists, or False if it doesn't
+        Checks, from name, if the given table hosts an interlink table.
+
+        Returns the name of the intralink table if one exists, or False if it doesn't
         :param table_name:
         :return False or intralink_table_name:
         """
@@ -403,8 +500,10 @@ class DriverWrapper(
         else:
             return False
 
-    def get_interlinked_tables(self, table_name):
+    def get_interlinked_tables(self, table_name: str) -> set[str]:
         """
+        Returns every table name linked to this table.
+
         Takes a table name - works out every table which is linked to it. Returns the set of linked tables.
         Does not include an intralink tables, if the main_table has it.
         :param table_name:
@@ -422,7 +521,7 @@ class DriverWrapper(
     # - METHODS TO UPDATE THE ROW/DATABASE START HERE
     # ------------------------------------------------------------------------------------------------------------------
 
-    def ensure_row_has_id(self, row_dict):
+    def ensure_row_has_id(self, row_dict: dict[str, Any]) -> dict[str, Any]:
         """
         Takes a row_dict - ensures that it has an id (pulling one off a blank row if required)
 
@@ -446,9 +545,13 @@ class DriverWrapper(
             row_dict[id_name] = blank_row[id_name]
             return row_dict
 
-    def complete_row(self, partial_row):
+    def complete_row(self, partial_row: dict[str, Any]) -> dict[str, Any]:
         """
-        Takes a partial row - tries to complete it from the database.
+        Takes a partial row - tries to complete it from the database based off id.
+
+        For this to work, the row needs to have an id.
+        No smarter matching will be preformed.
+        But, perhaps, this is a good idea...
         The values already in the row are taken in preference to the values off the database.
         :param partial_row:
         :return:
@@ -471,9 +574,12 @@ class DriverWrapper(
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO GET INFORMATION FROM ROW DICTS START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def identify_table_from_row_dict(self, row_dict):
+    # Todo: Standardize this pattern to Optional[str] instead of False
+    def identify_table_from_row_dict(self, row_dict: dict[str, Any]) -> Union[str, Literal[False]]:
         """
-        Takes a row. Attempts to identify which row it came from.
+        Attempts to identify which table a row came from.
+        
+        On failure, returns False.
         :param row_dict: The row (dict) to be parsed
         :return table_name: The table name (string)
         """
@@ -518,9 +624,10 @@ class DriverWrapper(
         else:
             raise LogicalError("Logical error in identify_table_from_row")
 
-    def get_id_from_row(self, row_dict):
+    def get_id_from_row(self, row_dict: dict[str, Any]) -> Optional[int]:
         """
-        Takes a row. Extracts an id from it if possible. If not returns False
+        Extracts the id from a row dict - if one is present.
+        
         :param row_dict:
         """
         row_table = self.identify_table_from_row_dict(row_dict)
@@ -532,9 +639,10 @@ class DriverWrapper(
             return row_dict[row_id_column]
 
     # Todo: Need to remove the error option - should just always error
-    def identify_table_from_column(self, column_heading, error=True):
+    def identify_table_from_column(self, column_heading: str, error: bool = True) -> Optional[str]:
         """
-        Takes a column heading. Works out the table it comes from.
+        ID the origin table of a column from the column name.
+
         :param column_heading:
         :param error: Should the method error out, or return None
         :return:
@@ -558,24 +666,27 @@ class DriverWrapper(
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO DEAL WITH TRIGGERS START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def get_triggers(self):
+    def get_triggers(self) -> list[str]:
         """
-        Returns all the triggers currently defined on the database.
+        Returns all the triggers currently defined on the database in string form.
+
         :return:
         """
         return self.driver.direct_get_triggers()
 
-    def drop_triggers(self, triggers):
+    def drop_triggers(self, triggers: list[str]) -> None:
         """
         Drops triggers which are named in the list
+
         :param triggers:
         :return:
         """
         return self.driver.direct_drop_triggers(triggers)
 
-    def drop_all_triggers(self):
+    def drop_all_triggers(self) -> None:
         """
         Drops all triggers which are defined on the database.
+
         :return:
         """
         all_triggers = self.get_triggers()
@@ -585,10 +696,12 @@ class DriverWrapper(
     # - SPECIAL METHODS START HERE
     # ------------------------------------------------------------------------------------------------------------------
 
-    # Todo: THese should be semi-private, because they're not offered all the time
-    def shell(self):
+    # Todo: These should be semi-private, because they're not offered all the time
+    # Todo: Should return the error code, if the shell exists with an error code
+    def shell(self) -> None:
         """
         Provides a shell for the underlying database.
+
         Front end for the database driver method.
         :return:
         """
@@ -607,7 +720,8 @@ class DriverWrapper(
     # These methods should not be used if at all possible. They are here for testing a prototyping.
 
     # Todo: Turn semi private - very dependant on implementation
-    def execute(self, sql, values=None):
+    # Todo: The cursor probably returns something - pass it through?
+    def execute(self, sql: str, values: Optional[tuple[str, ...]] = None) -> None:
         """
         Run SQL directly on the database.
 
@@ -617,7 +731,10 @@ class DriverWrapper(
         """
         return self.driver.direct_execute(sql, values)
 
-    def executemany(self, sql, values=None):
+    def executemany(
+            self,
+            sql: Union[str, list[str]],
+            values: Optional[Union[str, tuple[str, ...]]] = None) -> None:
         """
         Run an executemany command direct on the database
 
@@ -647,15 +764,23 @@ class DriverWrapper(
             )
             raise ValueError(err_str)
 
-    def executescript(self, sqlscript):
+    def executescript(self, sqlscript: str) -> None:
         """
         Execute an SQL script on the database.
+
         :param sqlscript:
         :return:
         """
         return self.driver.direct_executescript(sqlscript)
 
     def get(self, *args, **kw):
+        """
+        Execute a get method on the cursor.
+
+        :param args:
+        :param kw:
+        :return:
+        """
         ans = self.execute(*args)
         if kw.get("all", True):
             return ans.fetchall()
@@ -665,21 +790,25 @@ class DriverWrapper(
             return None
 
     # Todo: Might want to be a get_dirtied method for symmetry
+    # Todo: This probably should be a mixin - it's going to be a similar pattern
+    # Todo: Look at reusing mixins more to unfiy the interface
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO DEAL WITH THE DIRTIED_QUEUE START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def get_dirtied_count(self):
+    def get_dirtied_count(self) -> int:
         """
         Return the number of records in the dirtied records Queue.
+
         This calls the qsize method of the Queue and is thus only approximate.
         :return:
         """
         return self.dirty_records_queue.qsize()
 
-    # Todo: Move this into the database - don't want to deal with the queue and want persistent between sessions
-    def dirty_record(self, table, row_id, reason):
+    # Todo: Replace the queue with a database table - don't want to deal with the queue and want persistent between sessions
+    def dirty_record(self, table: str, row_id: int, reason: str) -> None:
         """
         Add a record to the dirtied dictionary.
+
         :param table:
         :param row_id:
         :param reason:
@@ -700,16 +829,19 @@ class DriverWrapper(
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO CREATE NEW MAIN/INTERLINK TABLES/COLUMNS START HERE
     # ------------------------------------------------------------------------------------------------------------------
+    # Todo: DEFINITELY should be their own mixin
+    # Todo: Add validation that the link_properties are within the set we expect
     def create_new_main_table(
         self,
-        table_name,
-        column_headings=None,
-        link_to=None,
-        link_type=None,
-        link_properties=None,
+        table_name: str,
+        column_headings: Optional[Iterable[str]] = None,
+        link_to: Optional[str] = None,
+        link_type: Optional[Literal["many_many", "many_one", "one_many", "one_one"]] = None,
+        link_properties: Optional[Iterable[str]] = None,
     ):
         """
         Create a new main table and (optionally) link it to an existing main table.
+
         :param table_name: The name of the new table to create
         :param column_headings: Column headings for the new table
         :param link_to: Optionally - immediately link the new main table to another, existing main table.
@@ -718,6 +850,9 @@ class DriverWrapper(
                                 properties (columns in the link table)
         :return:
         """
+        assert link_type is not None, (
+            "You have to provide a link type from {}".format(["many_many", "many_one", "one_many", "one_one"]))
+
         self.driver.direct_create_new_main_table(table_name=table_name, column_headings=column_headings)
 
         # Link the new main table to an existing main table - if requested
@@ -729,7 +864,12 @@ class DriverWrapper(
                 requested_cols=link_properties,
             )
 
-    def link_main_tables(self, primary_table, secondary_table, link_type, link_properties=None):
+    def link_main_tables(
+            self,
+            primary_table: str,
+            secondary_table: str,
+            link_type: Literal["many_many", "many_one", "one_many", "one_one"],
+            link_properties: Optional[Iterable[str]] = None) -> None:
         """
         Create a link between two existing main tables.
 

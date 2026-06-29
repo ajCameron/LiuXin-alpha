@@ -1,9 +1,21 @@
 
+"""
+Mixin to handle metadata for the actual database.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import uuid
 
 from copy import deepcopy
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
 class DatabaseMetadataMixin:
@@ -11,7 +23,12 @@ class DatabaseMetadataMixin:
     Mixin to handle the database metadata.
     """
     @property
-    def uuid(self):
+    def uuid(self: "DatabaseAPI") -> str:
+        """
+        Return the uuid of the database.
+
+        :return:
+        """
         if self._uuid is not None:
             return self._uuid
         else:
@@ -19,12 +36,18 @@ class DatabaseMetadataMixin:
             return self._uuid
 
     @uuid.setter
-    def uuid(self, value):
+    def uuid(self: "DatabaseAPI", value: str) -> None:
+        """
+        Set the uuid of the database.
+
+        :param value:
+        :return:
+        """
         self._uuid = value
         self.driver_wrapper.set_uuid(value)
 
     @property
-    def library_id(self):
+    def library_id(self: "DatabaseAPI") -> str:
         """
         The UUID for this library. As long as the user only operates on libraries with LiuXin, it will be unique.
 
@@ -40,9 +63,10 @@ class DatabaseMetadataMixin:
         return self._library_id_
 
     @library_id.setter
-    def library_id(self, value):
+    def library_id(self: "DatabaseAPI", value: str) -> None:
         """
         Setter function for the library id - handles updating the database with the new id.
+
         :param value:
         :return:
         """
@@ -50,9 +74,10 @@ class DatabaseMetadataMixin:
         self.macros.set_library_id(value)
 
     @property
-    def database_version(self):
+    def database_version(self: "DatabaseAPI") -> str:
         """
         The UUID for this library. As long as the user only operates on libraries with LiuXin, it will be unique.
+
         :return:
         """
         if getattr(self, "_database_version_", None) is None:
@@ -65,9 +90,10 @@ class DatabaseMetadataMixin:
         return self._database_version_
 
     @database_version.setter
-    def database_version(self, value):
+    def database_version(self: "DatabaseAPI", value: str) -> None:
         """
         Setter function for the library id - handles updating the database with the new id.
+
         :param value:
         :return:
         """
@@ -79,66 +105,72 @@ class DatabaseMetadataMixin:
     #
     # - METHODS TO GET BASIC INFORMATION ABOUT THE DATABASE START HERE
 
-    def get_tables(self, force_refresh: bool = False):
+    def get_tables(self: "DatabaseAPI", force_refresh: bool = False) -> list[str]:
         """
         Directly get the tables for the currently loaded database
+
         :return:
         """
         return self.driver_wrapper.get_tables(force_refresh=force_refresh)
 
     # Methods to get basic information about the database start here
-    def get_column_headings(self, table):
+    def get_column_headings(self: "DatabaseAPI", table: str) -> list[str]:
         """
         Gets the column headings for a table in the database.
+
         :param table:
         :return column_headings: An index of column headings in the order they appear on the database
         """
         return self.driver_wrapper.get_column_headings(table)
 
-    def get_view_column_headings(self, view):
+    def get_view_column_headings(self: "DatabaseAPI", view: str) -> list[str]:
         """
         Gets the column headings for a table in the database.
-        :param table:
+
+        :param view:
         :return column_headings: An index of column headings in the order they appear on the database
         """
         return self.driver_wrapper.get_view_column_headings(view)
 
-    def get_tables_and_columns(self):
+    def get_tables_and_columns(self: "DatabaseAPI") -> dict[str, list[str]]:
         """
         Returns a dictionary keyed by the table name with the column headings as the values.
+
         :return table_and_columns:
         """
         return self.driver_wrapper.get_tables_and_columns()
 
-
-    def get_record_count(self, target_table):
+    def get_record_count(self: "DatabaseAPI", target_table: str) -> int:
         """
         Returns the number of records in a given table.
+
         :param target_table:
         :return:
         """
         return self.driver_wrapper.get_record_count(target_table)
 
-    def get_max(self, column):
+    def get_max(self: "DatabaseAPI", column: str) -> int:
         """
         Get the maximum value from the given column.
+
         :param column:
         :return:
         """
         return self.driver.direct_get_max(column)
 
-    def get_min(self, column):
+    def get_min(self: "DatabaseAPI", column: str) -> int:
         """
         Get the minimum value from the given column.
+
         :param column:
         :return:
         """
         return self.driver.direct_get_min(column)
 
-
-    def row_counts(self):
+    def row_counts(self: "DatabaseAPI") -> dict[str, int]:
         """
         Returns a string representation of the row counts for every table in the DatabasePing.
+
         :return:
         """
         ans = list()

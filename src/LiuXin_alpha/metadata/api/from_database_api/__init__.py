@@ -35,7 +35,7 @@ from LiuXin_alpha.metadata.api.from_database_api.metadata_read_source_api import
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 
 class DBMetadataSourceAPI(

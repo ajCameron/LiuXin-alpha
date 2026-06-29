@@ -1,8 +1,14 @@
 
+"""
+Macros for preforming updates on the database.
+"""
+
 from copy import deepcopy
 import sqlite3
 
 import pprint
+
+from typing import Any
 
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, force_unicode
 
@@ -16,12 +22,14 @@ class UpdateMixin:
     Methods to update the database.
     """
 
-
     # Todo: Check for field degeneracy
-    def direct_update_columns(self, id_values_map, field=None, table=None):
+    # Todo: I think this may have been superseded by the writers....
+    def direct_update_columns(self, id_values_map, field=None, table=None) -> None:
         """
         For when you only want to update specific columns in rows.
+
         Detects the kind of map entered - preforms different actions depending on what it is.
+
         :return:
         """
         # Check to see if the map is one-one (a id_values_map keyed with an id and values with a single entry - with a
@@ -46,6 +54,7 @@ class UpdateMixin:
 
             # Checking that the field and table make sense
             field_table = self.__identify_table_from_column(field)
+
             if table is not None:
                 if field_table != table:
                     wrn_str = "LiuXin.databases.SQLITE.databasedriver:direct_update_columns was fed inconsistent data."
@@ -67,7 +76,7 @@ class UpdateMixin:
             sequence = ((v, k) for k, v in iteritems(id_values_map))
 
             # Building the statement
-            table_id_col = self._get_id_column(target_table)
+            table_id_col = self.direct_get_id_column(target_table)
             stmt = "UPDATE {} SET {}=? WHERE {}=?".format(target_table, field, table_id_col)
 
             # Executing the statement and the sequence together
@@ -80,16 +89,15 @@ class UpdateMixin:
             # Todo: Fix
             raise NotImplementedError
 
-
-
-    def direct_update_row_dict(self, row_dict):
+    def direct_update_row_dict(self, row_dict: dict[str, Any]) -> None:
         """
         Takes a row in the form of a row_dict. Updates that row_dict into the database.
+
         This is the method Row ultimately calls to update itself - THUS DO NOT CALL WITH ROW. IT WAS CAUSE RECURSION.
         :param row_dict:
         :return:
         """
-        target_table = self.identify_table_from_row(row_dict)
+        target_table = self.direct_identify_table_from_row(row_dict)
         row_dict = deepcopy(row_dict)
 
         # Trying to write a u'None' to a column with a foreign key constraint causes problems. Replacing all of these
@@ -103,7 +111,7 @@ class UpdateMixin:
         row_dict = new_row_dict
 
         # working out what the id column for the table is called
-        row_id = self._get_id_column(target_table)
+        row_id = self.direct_get_id_column(target_table)
         if row_id in row_dict:
             target_row_id = row_dict[row_id]
             del row_dict[row_id]

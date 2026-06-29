@@ -172,7 +172,7 @@ def collect_methods(
 
 
 def test_macros_api_matches_sqlite_macros_full_signature_surface() -> None:
-    api_methods = collect_methods("LiuXin_alpha.databases.api.macros", "MacrosAPI", strict=True)
+    api_methods = collect_methods("LiuXin_alpha.databases.api.macros_api", "MacrosAPI", strict=True)
     concrete_methods = collect_methods(
         "LiuXin_alpha.databases.database_driver_plugins.SQL.macros",
         "SQLiteDatabaseMacros",

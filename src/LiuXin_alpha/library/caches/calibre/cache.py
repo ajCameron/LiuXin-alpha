@@ -120,7 +120,7 @@ from typing import Any, TypeVar, Optional
 from LiuXin_alpha.customize.cache import BaseCache
 
 from LiuXin_alpha.library.caches.utils import read_api, write_api
-from LiuXin_alpha.databases.search import Search
+from LiuXin_alpha.catalog.search import Search
 
 from LiuXin_alpha.library.library_metadata import Metadata as LibraryMetadata
 

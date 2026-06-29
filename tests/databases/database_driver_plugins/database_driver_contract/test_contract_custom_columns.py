@@ -25,7 +25,7 @@ def _create_root_table(driver) -> tuple[str, str]:
     """Create a deterministic main table used as the custom-column target."""
 
     root_table = "contract_custom_roots"
-    driver.direct_create_new_main_table(table_name=root_table)
+    driver.direct_create_main_table(table_name=root_table)
     root_col = driver.direct_get_column_base(root_table)
     return root_table, root_col
 

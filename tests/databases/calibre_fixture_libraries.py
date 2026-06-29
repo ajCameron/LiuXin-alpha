@@ -135,7 +135,7 @@ def extract_library_zip(spec: CalibreFixtureSpec, dst_dir: Path) -> Path:
 def snapshot_calibre_library(library_root: Path) -> Dict[str, Any]:
     """Project a Calibre library into the same snapshot shape as `expected.json`."""
 
-    from LiuXin_alpha.databases.calibre_emulation.readers import CalibreReader
+    from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import CalibreReader
 
     reader = CalibreReader.from_root(library_root)
     schema = reader.db.schema_info(best_effort=True)

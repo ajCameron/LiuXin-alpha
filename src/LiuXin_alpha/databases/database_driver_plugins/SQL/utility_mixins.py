@@ -1,12 +1,19 @@
 
 """
-Mixins for other classes to add functionality.
+Common mixins for other objects to add functionality.
+
+The issue is the same pattern - e.g. name generation - seems to be occuring in a number of places.
+The aim here is to have some common mixins which can DRY out the code base some.
 """
 
 # Moving some of the code here so it can be imported and used for common operations
 
+from __future__ import absolute_import, annotations
+
 import sqlite3
 import re
+
+from typing import TYPE_CHECKING, Optional, Literal, Union
 
 from copy import deepcopy
 
@@ -135,7 +142,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         This provides a concrete implementation for DatabaseBuilderAPI.set_database_version
         for any builder class that mixes in SQLiteTableLinkingMixin.
+
+        :return:
         """
+        # Todo: Just wrong. Very wrong.
         from LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw import get_SQLite_driver_master_version
 
         version_str = get_SQLite_driver_master_version()
@@ -158,18 +168,31 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         ).fetchone()
         assert row is not None and row[0] == version_str
 
-
+    # Todo: The aim is for this to be the single source of truth for the database linker/generator
     def direct_link_main_tables(
         self,
-        primary_table,
-        secondary_table,
-        link_type="many_many",
-        requested_cols="all",
-        index_both=True,
-        allowed_types=None,
-        override_restriction_sql=None,
+        primary_table: str,
+        secondary_table: str,
+        link_type: Literal["many_many", "one_many", "many_one", "one_one"] = "many_many",
+        requested_cols: Union[str, Iterable[str]] = "all",
+        index_both: bool = True,
+        allowed_types: Optional[Iterable[str]] = None,
+        override_restriction_sql: Optional[str] = None,
         nullable_fks: bool = True,
-    ):
+    ) -> str:
+        """
+        Directly link two main tables on the database.
+
+        :param primary_table:
+        :param secondary_table:
+        :param link_type:
+        :param requested_cols:
+        :param index_both:
+        :param allowed_types:
+        :param override_restriction_sql:
+        :param nullable_fks:
+        :return:
+        """
 
         link_sql_list, table_name = self.direct_get_direct_link_main_tables_sql(
             primary_table=primary_table,
@@ -251,9 +274,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         E.g. language_title_links. You are allowed to link lang_1 and title_1 more than once provided the type is either
         null or different.
 
-        # Todo: This should probably go away.
+        # Todo: This should probably go away - if you cannot express a restriction, you need to do more
         :param override_restriction_sql: If provided, then this SQL will be used instead of the automatically generated
                                          one for the restrictions
+
 
         :return:
         """
@@ -751,6 +775,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         :param table1:
         :param table2:
         :param requested_cols:
+        :param allowed_types:
+        :param nullable_fks:
+
         :return:
         """
 
@@ -842,7 +869,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         )
 
 
-
     def build_allowed_types_table_interlink(
             self,
             for_table: str,
@@ -911,9 +937,18 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         interlink_table_name: str,
         interlink_column_base: str,
         allowed_types: list[str],
+        # Todo: This should probably be a protocol
         connection: sqlite3.Connection,
     ) -> None:
-        """Create/seed `{interlink_table_name}__types` and install guard triggers."""
+        """
+        Create/seed `{interlink_table_name}__types` and install guard triggers.
+
+        :param interlink_table_name:
+        :param interlink_column_base:
+        :param allowed_types:
+        :param connection:
+        :return:
+        """
 
         conn = connection
         c = conn.cursor()
@@ -964,13 +999,18 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         conn.commit()
 
-
     def direct_build_allowed_types_table_intralink(
         self,
         for_table: str,
         allowed_types: Optional[Iterable[str]] = None,
     ) -> list[str]:
-        """Build an allowed-types table for an intralink table."""
+        """
+        Build an allowed-types table for an intralink table.
+
+        :param for_table:
+        :param allowed_types:
+        :return:
+        """
 
         # Preserve historical generator behaviour: intralink allowed-types are only
         # meaningful for tables explicitly requested for intralinks.
@@ -1009,7 +1049,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         return [att_table_sqlite] + att_add_sqlite
 
-
     def direct_build_intralink_table_sql(
         self,
         name: str,
@@ -1021,7 +1060,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         symmetric_types: Optional[Iterable[str]] = None,
         use_reference_types_table: bool = False,
     ) -> list[str]:
-        """Build SQLite for a self-link (intralink) table.
+        """
+        Build SQLite for a self-link (intralink) table.
 
         Backwards compatible with the historical signature ``direct_build_intralink_table_sql(name, allowed_types=None)``.
 
@@ -1031,6 +1071,16 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
           - allowed type guards via `{table}__types` reference tables (when ``use_reference_types_table=True``)
           - symmetric ordering enforcement (either for all rows via ``symmetric=True`` or for a subset of types via
             ``symmetric_types=[...]``)
+
+        :param name:
+        :param allowed_types:
+        :param requested_cols:
+        :param index_both:
+        :param nullable_fks:
+        :param symmetric:
+        :param symmetric_types:
+        :param use_reference_types_table:
+        :return:
         """
 
         name_local = deepcopy(name)

@@ -1,5 +1,13 @@
 
+"""
+Add directly to the database.
+"""
+
+from __future__ import annotations
+
 import sqlite3
+
+from typing import Any
 
 from LiuXin_alpha.errors import DatabaseDriverError, DatabaseIntegrityError, InputIntegrityError
 
@@ -12,13 +20,13 @@ from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 
 class AddingMixin:
     """
-    Mathods to add to the database.
+    Methods to add to the database.
     """
-
 
     @staticmethod
     def _sanitize_embedded_nul_text(*, target_table: str, row_dict: dict) -> None:
-        """Sanitize embedded NUL ("\x00") in str payloads.
+        """
+        Sanitize embedded NUL ("\x00") in str payloads.
 
         SQLite can store NULs inside TEXT values, but other parts of the stack
         (and some external tooling) can treat NUL as a string terminator.
@@ -29,20 +37,24 @@ class AddingMixin:
 
         This avoids false-positive rejections during import while keeping stored
         TEXT values safer for common tooling.
+
+        :param target_table:
+        :param row_dict:
+        :return:
         """
 
         for col, val in list(row_dict.items()):
             if isinstance(val, str) and "\x00" in val:
                 row_dict[col] = val.replace("\x00", "<NUL>")
 
-
-    def direct_add_simple_row_dict(self, row_dict):
+    def direct_add_simple_row_dict(self, row_dict: dict[str, Any]) -> int:
         """
         Takes a single row in the form of a dictionary and adds the values to the database.
+
         :param row_dict:
         :return :
         """
-        target_table = self.identify_table_from_row(row_dict)
+        target_table = self.direct_identify_table_from_row(row_dict)
 
         # Calibre-style: sanitize embedded NUL in custom-column value tables.
         # (SQLite will store it, but downstream tooling and some drivers may not.)
@@ -106,7 +118,6 @@ class AddingMixin:
 
         return new_rowid
 
-
     def direct_add_multiple_simple_row_dicts(self, row_dict_list):
         """
         Takes an index of new rows in the form of dictionaries. Adds them to the database.
@@ -117,7 +128,7 @@ class AddingMixin:
 
         # Gets a reference element. Errors will be thrown if every row doesn;t match this one.
         reference_row_dict = row_dict_list[0]
-        target_table = self.identify_table_from_row(reference_row_dict)
+        target_table = self.direct_identify_table_from_row(reference_row_dict)
 
         # Calibre-style: sanitize embedded NUL in custom-column value tables.
         if isinstance(target_table, str) and target_table.startswith("custom_column_"):
@@ -126,7 +137,7 @@ class AddingMixin:
 
         # TODO: re-write add_multiple_simple_rows to handle multiple different types of row
         for row in row_dict_list:
-            if target_table != self.identify_table_from_row(row):
+            if target_table != self.direct_identify_table_from_row(row):
                 raise InputIntegrityError("Rows from different tables.")
 
         # TODO: extend the method to deal with this

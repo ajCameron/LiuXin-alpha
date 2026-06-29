@@ -22,7 +22,7 @@ from LiuXin_alpha.databases.custom_columns.custom_columns import CustomColumns
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.row import RowAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
@@ -178,6 +178,12 @@ class CustomColumnsManager:
     # ---- internals ------------------------------------------------------
 
     def _field_metadata_for(self, table: str) -> Optional[Any]:
+        """
+        Get the field metadata for a custom column.
+
+        :param table:
+        :return:
+        """
         if table in self.field_metadata_by_table:
             return self.field_metadata_by_table[table]
 
@@ -193,7 +199,12 @@ class CustomColumnsManager:
         return None
 
     def _canonicalise_table(self, in_table: str) -> str:
-        """Resolve compat aliases (books -> manifestations, etc.) when needed."""
+        """
+        Resolve compat aliases (books -> manifestations, etc.) when needed.
+
+        :param in_table:
+        :return:
+        """
         if not in_table:
             in_table = self.default_table
 
@@ -222,6 +233,8 @@ class CustomColumnsManager:
         Scan `custom_columns` and return the set of attachment tables.
 
         Excludes rows marked for deletion.
+
+        :return:
         """
         tables: Set[str] = set()
 

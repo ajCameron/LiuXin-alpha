@@ -1,5 +1,12 @@
+
+"""
+Constants defining the database.
+"""
+
+
 from __future__ import unicode_literals
 
+# Todo: MOOOVEEEE
 HELPER_TABLES = frozenset(
     {
         "conversion_options",
