@@ -51,12 +51,14 @@ Rows already reviewed and signed off:
   the current row scope.
 - HTMLZ optional-enrichment diagnostics, signed off 2026-06-06 for the current
   row scope.
+- Comic CBZ/CBC/CBR structured diagnostics, signed off 2026-06-08 for the
+  current row scope.
 
 ## Remaining Candidate Rows
 
 Rows that are ready for a deliberate sign-off review:
 
-- Comic CBZ/CBC/CBR structured diagnostics
+- None currently.
 
 ## Rows Not Ready Yet
 
@@ -206,6 +208,33 @@ python3 -m pytest tests/file_formats/txt tests/file_formats/markdown tests/file_
 90 passed, 3 warnings in 10.01s
 ```
 
+## Comic Review
+
+Comic CBZ/CBC/CBR diagnostics were reviewed and signed off on 2026-06-08.
+Focused validation passed:
+
+```text
+python3 -m py_compile src/LiuXin_alpha/file_formats/conversion/plugins/comic_input.py tests/file_formats/comic/test_comic_malformed_hostile.py tests/file_formats/comic/test_comic_container_framework.py
+clean
+
+python3 -m pytest tests/file_formats/comic/test_comic_malformed_hostile.py tests/file_formats/comic/test_comic_container_framework.py -q
+50 passed in 11.70s
+
+python3 -m pytest tests/file_formats/comic -q
+67 passed in 8.31s
+
+python3 -m pytest tests/file_formats/test_archive_preflight.py tests/file_formats/comic/test_comic_malformed_hostile.py -q
+54 passed in 9.39s
+
+python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/file_formats/conversion/test_conversion_edges.py tests/file_formats/conversion/test_conversion_top_level_smoke.py tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py -q
+13 passed in 7.24s
+```
+
+The signed-off scope covers structured diagnostics for recoverable CBC
+missing-member salvage and CBR/RAR names-only preflight variance. Strict archive
+or required-product failures remain strict. A small redistributable real CBR
+corpus remains future regression coverage rather than a blocker for this row.
+
 ## Comic Candidate Promotion
 
 Comic CBZ/CBC/CBR diagnostics were promoted to candidate on 2026-06-06.
@@ -277,7 +306,7 @@ python3 -m pytest tests/file_formats/conversion/test_conversion_report.py tests/
 
 ## Next Useful Step
 
-After the comic diagnostics slice merges, perform a focused Comic sign-off
-review. The candidate scope is structured diagnostics for recoverable CBC
-missing-member salvage and CBR/RAR names-only preflight variance while strict
-archive failures remain strict.
+There are no remaining candidate rows after Comic sign-off. The next useful
+conversion slice should promote a provisional/open row by removing a named gap:
+MOBI/KF8 richer product coverage, pipeline-wide report/fallback semantics, or
+Markdown/Textile direct or external edge diagnostics.

@@ -179,6 +179,10 @@ A format or pipeline edge can be treated as signed off when it has:
      names-only CBR/RAR preflight variance now have structured diagnostics.
      The Comic row is ready for focused sign-off review after this
      implementation slice merges.
+   - Ninth signed-off row, 2026-06-08: Comic CBZ/CBC/CBR diagnostics for the
+     current row scope, with focused comic malformed/hostile, full comic,
+     shared archive preflight, and conversion report/edge/plugin smoke
+     validation recorded in the sign-off matrix.
 
 ## Open Decisions
 
