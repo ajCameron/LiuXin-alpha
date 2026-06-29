@@ -4,6 +4,8 @@ import io
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
@@ -108,10 +110,13 @@ def test_rtf_get_metadata_pathlike_input(tmp_path: Path) -> None:
     assert _values(md.authors) == ["Path Author"]
 
 
-def test_rtf_invalid_payload_returns_safe_default() -> None:
-    from LiuXin_alpha.metadata.file_sources.rtf import get_metadata
+def test_rtf_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.rtf import RtfFormatError, get_metadata
 
-    md = get_metadata(io.BytesIO(b"not-an-rtf"))
+    with pytest.raises(RtfFormatError):
+        get_metadata(io.BytesIO(b"not-an-rtf"))
+
+    md = get_metadata(io.BytesIO(b"not-an-rtf"), fallback_on_parse_error=True)
     assert _first(md.title) == "Unknown"
     assert _values(md.authors) == ["Unknown"]
 
@@ -136,6 +141,38 @@ def test_rtf_set_metadata_roundtrip_unicode() -> None:
     assert "Comment" in _first(parsed.comments)
     assert _first(parsed.publisher) == "Pub Δ"
     assert {"one", "two"} <= set(_values(parsed.tags))
+
+
+def test_rtf_set_metadata_escapes_hostile_markup_without_mutating_input() -> None:
+    from LiuXin_alpha.metadata.file_sources.rtf import get_document_info, get_metadata, set_metadata
+
+    stream = io.BytesIO(_rtf_payload(b"{\\info{\\title Old}{\\author Old}}"))
+    title = "Danger {Title}\\path \x00\ud800 😀"
+    authors = ["Alice {One}", "Bob\\Two"]
+    mi = calibreMetaInformation(title, authors)
+    mi.comments = "Comment {one}\\two \x01\udfff"
+    mi.publisher = "Pub {House}\\Desk"
+    mi.tags = ["tag{one}", "tag\\two"]
+
+    set_metadata(stream, mi)
+    out = stream.getvalue()
+
+    assert b"Body" in out
+    assert b"\x00" not in out
+    assert b"\\{Title\\}" in out
+    assert b"\\\\path" in out
+    info_block, _pos = get_document_info(io.BytesIO(out))
+    assert info_block is not None
+
+    parsed = get_metadata(io.BytesIO(out))
+    assert parsed.title == "Danger {Title}\\path 😀"
+    assert _values(parsed.authors) == ["Alice {One}", "Bob\\Two"]
+    assert _first(parsed.comments) == "Comment {one}\\two"
+    assert _first(parsed.publisher) == "Pub {House}\\Desk"
+    assert set(_values(parsed.tags)) == {"tag{one}", "tag\\two"}
+
+    assert mi.title == title
+    assert mi.authors == authors
 
 
 def test_rtf_set_metadata_salvages_malformed_info_block() -> None:

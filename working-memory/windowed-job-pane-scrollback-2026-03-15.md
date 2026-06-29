@@ -16,7 +16,7 @@ Behavior:
   - job scrollback offset
 
 Implementation:
-- Added job-pane scroll state and focus state to the curses UI driver in `src/LiuXin_alpha/interfaces/terminal/windowed_ui.py`.
+- Added job-pane scroll state and focus state to the curses UI driver in `src/LiuXin_alpha/surfaces/terminal/windowed_ui.py`.
 - Split job output building into:
   - full content generation
   - wrapped line handling
@@ -24,9 +24,9 @@ Implementation:
 - Reused the console scroll/clamp pattern for the job pane instead of adding a separate ad hoc render path.
 
 Validation:
-- `pytest -q tests/interfaces/test_windowed_ui.py -k 'job_output or scrollback or focus'`
+- `pytest -q tests/surfaces/test_windowed_ui.py -k 'job_output or scrollback or focus'`
   - `8 passed`
-- `pytest -q tests/interfaces/test_windowed_ui.py`
+- `pytest -q tests/surfaces/test_windowed_ui.py`
   - `17 passed`
 
 Notes:

@@ -12,6 +12,7 @@ import os
 import re
 from typing import Iterable
 
+import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.metadata.constants import canonicalize_id_name
 from LiuXin_alpha.metadata.metadata import MetaData
 from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn, string_to_authors
@@ -97,6 +98,18 @@ def _parse_root_from_payload(payload: bytes):
     if root is None:
         raise OpfParseError("Failed to parse OPF/XML payload.")
     return root
+
+
+def _root_looks_like_opf_metadata(root) -> bool:
+    root_name = _local_name(getattr(root, "tag", None))
+    if root_name in {"package", "metadata", "dc-metadata"}:
+        return True
+    return bool(_metadata_candidates(root))
+
+
+def _validate_opf_root(root) -> None:
+    if not _root_looks_like_opf_metadata(root):
+        raise OpfParseError("OPF/XML payload does not look like an OPF metadata document.")
 
 
 def _read_target_bytes(target_file, *, text: bool, file_is_raw_root: bool) -> bytes:
@@ -230,7 +243,7 @@ def _extract_opf_like_meta_overrides(root, mi) -> None:
                     pass
             continue
         if lname in {"calibre:title_sort", "opf.titlesort", "opf.title_sort"}:
-            mi.title_sort = content
+            LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = content
             continue
         if lname in {"opf.publisher"}:
             mi.publisher = content
@@ -345,7 +358,7 @@ def _merge_calibre_metadata(preferred, fallback):
     if _is_blank(getattr(preferred, "title_sort", None)):
         title_sort = _normalize(getattr(fallback, "title_sort", None))
         if title_sort:
-            preferred.title_sort = title_sort
+            LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = title_sort
 
     preferred_ids = _safe_get_identifiers(preferred)
     fallback_ids = _safe_get_identifiers(fallback)
@@ -544,12 +557,18 @@ def get_metadata(
     file_is_raw_root=False,
     seek_md_node=True,
     walk=False,
+    strict_format=True,
+    fallback_on_parse_error=False,
 ):
     """
     Read metadata from an OPF/XML source.
 
     Compatibility args (`seek_md_node`, `walk`) are retained; `walk` no longer
     changes traversal behavior as the new parser always walks metadata nodes.
+
+    By default this reader is strict about OPF-shaped XML. Set
+    `strict_format=False` for internal generic XML metadata extraction, or
+    `fallback_on_parse_error=True` for a best-effort shell metadata result.
     """
     del walk  # retained for compatibility only
     source_name = "" if text else _source_name(target_file)
@@ -560,6 +579,8 @@ def get_metadata(
         else:
             payload = _read_target_bytes(target_file, text=text, file_is_raw_root=file_is_raw_root)
             root = _parse_root_from_payload(payload)
+        if strict_format:
+            _validate_opf_root(root)
     except Exception as err:
         default_log.log_exception(
             "Failed to parse OPF metadata source.",
@@ -567,6 +588,8 @@ def get_metadata(
             "ERROR",
             ("source", source_name or "<stream>"),
         )
+        if not fallback_on_parse_error:
+            raise
         fallback = _default_metadata(source_name)
         return fallback if calibre else _to_liuxin_metadata(fallback)
 

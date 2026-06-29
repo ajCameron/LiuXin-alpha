@@ -19,6 +19,7 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn
 from LiuXin_alpha.metadata.web_sources.base import Source
 from LiuXin_alpha.metadata.web_sources.http_client import RetryPolicy, call_with_backoff, compute_backoff_delay
 from LiuXin_alpha.metadata.web_sources.http_client import decode_http_body
+from LiuXin_alpha.metadata.web_sources.http_client import error_diagnostics
 from LiuXin_alpha.metadata.web_sources.http_client import log_message as _log
 from LiuXin_alpha.metadata.web_sources.http_client import wait_for_backoff
 from LiuXin_alpha.utils.localization import trans as _
@@ -130,6 +131,40 @@ def _extract_douban_id(raw) -> str | None:
     return None
 
 
+def _html_title(raw_html: str) -> str | None:
+    match = re.search(r"<title[^>]*>(.*?)</title>", raw_html, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    title = re.sub(r"\s+", " ", _as_text(match.group(1))).strip()
+    return title or None
+
+
+def _payload_markers(payload: str) -> dict:
+    text = _as_text(payload)
+    lowered = text.lower()
+    markers = {
+        "chars": len(text),
+        "title": _html_title(text),
+        "json": text.lstrip().startswith(("{", "[")),
+        "xml": text.lstrip().startswith("<"),
+        "books_key": '"books"' in lowered,
+        "atom_entry": "<entry" in lowered,
+        "error_key": '"error"' in lowered,
+        "captcha": "captcha" in lowered,
+        "forbidden": "forbidden" in lowered,
+    }
+    try:
+        data = json.loads(text)
+    except Exception:
+        return markers
+    if isinstance(data, Mapping):
+        for key in ("code", "msg", "message", "error"):
+            value = data.get(key)
+            if value:
+                markers[f"json_{key}"] = _as_text(value)[:160]
+    return markers
+
+
 NAMESPACES = {
     "atom": "http://www.w3.org/2005/Atom",
     "db": "http://www.douban.com/xmlns/",
@@ -217,6 +252,23 @@ class Douban(Source):
         if not raw:
             return ""
         return decode_http_body(raw)
+
+    def _open_text_or_none(self, log, abort, url: str, timeout: int, context: str):
+        try:
+            return self._open_text_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
+        except Exception as err:
+            meta = {
+                "context": context,
+                "url": url,
+                **error_diagnostics(err),
+            }
+            _log(
+                log,
+                "warning",
+                "Douban request failed; trying next available endpoint",
+                meta,
+            )
+            return ""
 
     def get_book_url(self, identifiers):
         db = _first_identifier_value(identifiers or {}, "douban")
@@ -529,7 +581,7 @@ class Douban(Source):
 
         parsed_items = []
         for url in query_urls:
-            payload = self._open_text_with_backoff(
+            payload = self._open_text_or_none(
                 log=log,
                 abort=abort,
                 url=url,
@@ -539,13 +591,20 @@ class Douban(Source):
             if not payload:
                 continue
             parsed_items = self._parse_metadata_payload(payload)
+            _log(
+                log,
+                "info",
+                "Douban parsed response records",
+                {"count": len(parsed_items), "query_type": query_type, "url": url},
+            )
             if parsed_items:
                 break
+            _log(log, "info", "Douban response markers", {"query_type": query_type, "url": url, **_payload_markers(payload)})
 
         if not parsed_items and query_type != "search" and title and authors and not abort.is_set():
             search_urls, _ = self.create_query(title=title, authors=authors, identifiers={})
             for url in search_urls or []:
-                payload = self._open_text_with_backoff(
+                payload = self._open_text_or_none(
                     log=log,
                     abort=abort,
                     url=url,
@@ -555,8 +614,15 @@ class Douban(Source):
                 if not payload:
                     continue
                 parsed_items = self._parse_metadata_payload(payload)
+                _log(
+                    log,
+                    "info",
+                    "Douban parsed response records",
+                    {"count": len(parsed_items), "query_type": "retry", "url": url},
+                )
                 if parsed_items:
                     break
+                _log(log, "info", "Douban response markers", {"query_type": "retry", "url": url, **_payload_markers(payload)})
 
         for relevance, (kind, item) in enumerate(parsed_items):
             if abort.is_set():
@@ -609,13 +675,16 @@ class Douban(Source):
         if cached_url is None:
             _log(log, "info", "No cover found")
             return
-        payload = self._open_bytes_with_backoff(
-            log=log,
-            abort=abort,
-            url=cached_url,
-            timeout=timeout,
-            context="Douban cover download",
-        )
+        try:
+            payload = self._open_bytes_with_backoff(
+                log=log,
+                abort=abort,
+                url=cached_url,
+                timeout=timeout,
+                context="Douban cover download",
+            )
+        except Exception:
+            return
         if payload:
             result_queue.put((self, payload))
 

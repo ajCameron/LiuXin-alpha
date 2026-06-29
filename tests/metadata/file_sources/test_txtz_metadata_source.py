@@ -202,10 +202,14 @@ def test_txtz_set_metadata_invalid_zip_raises() -> None:
         set_metadata(io.BytesIO(b"not-a-zip"), calibreMetaInformation("x", ["y"]))
 
 
-def test_txtz_invalid_payload_returns_safe_default() -> None:
+def test_txtz_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.extz import ExtzFormatError
     from LiuXin_alpha.metadata.file_sources.txtz import get_metadata
 
-    md = get_metadata(io.BytesIO(b"not-a-zip"))
+    with pytest.raises(ExtzFormatError):
+        get_metadata(io.BytesIO(b"not-a-zip"))
+
+    md = get_metadata(io.BytesIO(b"not-a-zip"), fallback_on_parse_error=True)
     assert _first(md.title) == "Unknown"
     assert _values(md.authors) == ["Unknown"]
 

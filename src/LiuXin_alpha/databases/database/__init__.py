@@ -6,7 +6,7 @@ Currently, the database speaks to a single backend (probably SQLite).
 It is NOT thread safe - you need to do your own locking elsewhere.
 """
 
-from __future__ import unicode_literals
+from __future__ import annotations, unicode_literals
 
 import re
 import os
@@ -14,7 +14,7 @@ import pprint
 from copy import deepcopy
 
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseDriverWrapperAPI, DatabaseDriverAPI
 
@@ -22,6 +22,7 @@ from LiuXin_alpha.constants.paths import LiuXin_default_database
 from LiuXin_alpha.databases.database.constants import HELPER_TABLES
 
 from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+from LiuXin_alpha.databases.metadata_sql import MetadataSQL
 from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.database.custom_columns_mixin import CustomColumnDatabaseMixin
@@ -32,12 +33,6 @@ from LiuXin_alpha.errors import DatabaseIntegrityError
 from LiuXin_alpha.preferences import preferences
 
 from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.databases.runtime import (
-    StorageBootstrapReport,
-    bootstrap_storage_manager as _bootstrap_storage_manager,
-    initialise_database_runtime,
-)
-from LiuXin_alpha.databases.maintenance.service import Maintainer
 
 from LiuXin_alpha.databases.database.rating_mixin import DatabaseRatingMixin
 from LiuXin_alpha.databases.database.null_rows_mixin import DatabaseNullRowsMixin
@@ -58,12 +53,26 @@ from LiuXin_alpha.databases.maintenance import Maintainer
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
+if TYPE_CHECKING:
+    from LiuXin_alpha.storage.store_manager import StorageBootstrapReport
+
 
 # Todo: Embed this version number in the database - so that we can check the version of the code used to produce each
 #       test database
 __object_version__ = (1, 0, 0)
 
 # Todo: Point uuid requests to the library_id instead
+
+
+class _NoopMaintainerCallback:
+    def dirty_record(self, table, row_id):  # noqa: ANN001 - driver callback compatibility
+        pass
+
+    def new_dirty_record(self, table, row_id):  # noqa: ANN001 - driver callback compatibility
+        pass
+
+    def dirty_interlink_record(self, update_type, table1, table2, table1_id, table2_id):  # noqa: ANN001
+        pass
 
 
 class Database(
@@ -119,6 +128,8 @@ class Database(
         enable_storage_manager: bool = True,
         strict_storage_manager_bootstrap: bool = False,
         storage_startup_on_add: bool = False,
+        repair_bootstrap_rows: bool = True,
+        enable_maintenance: bool = True,
     ) -> None:
         """
         If the database type is not set defaults to SQLite.
@@ -136,16 +147,28 @@ class Database(
         self.type = None
 
         self._macros = None
+        self._metadata_sql = None
         self.write_telemetry = DatabaseWriteTelemetry()
         self.dirty_records_queue = ObservedDirtyRecordsQueue(telemetry=self.write_telemetry)
         self._maintainer_callback_proxy = None
 
         # Fundamental constants for this database
         if existing_driver is None:
-            self.standard_init(metadata=metadata, db_type=db_type, create=create, backup=backup)
+            self.standard_init(
+                metadata=metadata,
+                db_type=db_type,
+                create=create,
+                backup=backup,
+                repair_bootstrap_rows=repair_bootstrap_rows,
+                enable_maintenance=enable_maintenance,
+            )
         else:
             assert metadata is None, "driver is provided - it's assumed that the db metadata is contained within"
-            self.existing_driver_init(existing_driver)
+            self.existing_driver_init(
+                existing_driver,
+                repair_bootstrap_rows=repair_bootstrap_rows,
+                enable_maintenance=enable_maintenance,
+            )
         # Used as a lookup cache for if the link table in question has a priority column
         # Keyed with the table, value with True or False
         self._link_has_priority = dict()
@@ -202,7 +225,32 @@ class Database(
         assert new_macros is not None, "Need to set macros to something that exists"
         self._macros = new_macros
 
-    def existing_driver_init(self, existing_driver: DatabaseDriverAPI) -> None:
+    @property
+    def metadata_sql(self):
+        """
+        Return metadata-aware SQL helpers for the database.
+
+        :return:
+        """
+        return self._metadata_sql
+
+    def set_metadata_sql(self, new_metadata_sql) -> None:
+        """
+        Set the metadata-aware SQL helper class for the database.
+
+        :param new_metadata_sql:
+        :return:
+        """
+        assert new_metadata_sql is not None, "Need to set metadata_sql to something that exists"
+        self._metadata_sql = new_metadata_sql
+
+    def existing_driver_init(
+        self,
+        existing_driver: DatabaseDriverAPI,
+        *,
+        repair_bootstrap_rows: bool = True,
+        enable_maintenance: bool = True,
+    ) -> None:
         """
         Startup method called when the drivber already exists. Useful for testing.
 
@@ -258,16 +306,21 @@ class Database(
         self.driver_wrapper.dirtiable_tables = self.dirtiable_tables
 
         # The rating table should be in a particular form - check that it is
-        self.check_rating_table()
-        self.ensure_null_rows()
+        if repair_bootstrap_rows:
+            self.check_rating_table()
+            self.ensure_null_rows()
 
-        initialise_database_runtime(
-            self,
-            callback_proxy_cls=TelemetryMaintainerProxy,
-            preferences_obj=preferences,
-        )
+        self._initialise_runtime_collaborators(enable_maintenance=enable_maintenance)
 
-    def standard_init(self, metadata=None, db_type="SQLite", create=False, backup=True):
+    def standard_init(
+        self,
+        metadata=None,
+        db_type="SQLite",
+        create=False,
+        backup=True,
+        repair_bootstrap_rows: bool = True,
+        enable_maintenance: bool = True,
+    ):
         """
         Standard constructor - for when the driver doesn't already exist.
 
@@ -334,16 +387,36 @@ class Database(
             self.driver_wrapper.helper_tables = self.helper_tables
             self.driver_wrapper.dirtiable_tables = self.dirtiable_tables
 
-            # The rating table should be in a particular form - check that it is
-            self.check_rating_table()
-            self.ensure_null_rows()
+            # The rating/null sentinel helpers can write to the database. Most
+            # callers want that repair, but read-only probes should be able to
+            # open an existing database without taking a write lock.
+            if repair_bootstrap_rows:
+                self.check_rating_table()
+                self.ensure_null_rows()
 
-        # Todo: What is going on here naming wise? Merge these two
-        self.maintenance = Maintainer(self)
-        self.maintainer = self.maintenance
-        self._maintainer_callback_proxy = TelemetryMaintainerProxy(self.maintenance, self.write_telemetry)
-        self.driver.maintainer_callback = self._maintainer_callback_proxy
-        self.clean = self.maintenance.clean
+        self._initialise_runtime_collaborators(enable_maintenance=enable_maintenance)
+
+    def _initialise_runtime_collaborators(self, *, enable_maintenance: bool = True) -> None:
+        """
+        Attach runtime collaborators to the live database instance.
+
+        Read-only probes can skip the maintenance service so opening and closing
+        an existing database does not start a background thread.
+        """
+        if enable_maintenance:
+            from LiuXin_alpha.databases.maintenance.service import Maintainer
+
+            self.maintenance = Maintainer(self)
+            self.maintainer = self.maintenance
+            self._maintainer_callback_proxy = TelemetryMaintainerProxy(self.maintenance, self.write_telemetry)
+            self.driver.maintainer_callback = self._maintainer_callback_proxy
+            self.clean = self.maintenance.clean
+        else:
+            self.maintenance = None
+            self.maintainer = None
+            self._maintainer_callback_proxy = None
+            self.driver.maintainer_callback = _NoopMaintainerCallback()
+            self.clean = lambda *args, **kwargs: None
 
         # Global database preferences - just a copy of the main program preferences, but can be overridden if needed
         self.preferences = preferences
@@ -354,6 +427,7 @@ class Database(
         self.driver_wrapper.db = self
         self.driver.db = self
         self.macros.db = self
+        self.metadata_sql.db = self
 
     def bootstrap_storage_manager(
         self,
@@ -369,7 +443,9 @@ class Database(
         Runtime/composition work lives in ``LiuXin_alpha.databases.runtime`` so
         the database core can stay focused on database concerns.
         """
-        return _bootstrap_storage_manager(
+        from LiuXin_alpha.databases.runtime import bootstrap_storage_manager
+
+        return bootstrap_storage_manager(
             self,
             startup_on_add=startup_on_add,
             include_offline=include_offline,
@@ -425,6 +501,7 @@ class Database(
         # The wrapper is coupled to the driver and provides a locking connection.
         self._driver_wrapper = DriverWrapper(self._driver)
         self.set_macros(self._driver.macros)
+        self.set_metadata_sql(MetadataSQL(self))
 
         # Convenience lock handle
         try:
@@ -593,6 +670,7 @@ class Database(
             "_driver_wrapper",
             "_driver",
             "_macros",
+            "_metadata_sql",
             "maintenance",
             "maintainer",
             "write_telemetry",

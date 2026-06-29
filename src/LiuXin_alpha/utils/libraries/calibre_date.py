@@ -585,7 +585,7 @@ def c_parse(val):
     else:
         try:
             ans = datetime(year, month, day, hour, minutes, seconds, tzinfo=utc_tz)
-            if tzsecs is not 0:
+            if tzsecs != 0:
                 ans -= timedelta(seconds=tzsecs)
         except OverflowError:
             ans = UNDEFINED_DATE

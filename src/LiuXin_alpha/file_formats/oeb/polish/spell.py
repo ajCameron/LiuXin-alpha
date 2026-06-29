@@ -296,7 +296,7 @@ def replace_word(container, new_word, locations, locale):
 
 if __name__ == "__main__":
     import pprint
-    from LiuXin_alpha.interfaces.gui2.tweak_book import set_book_locale, dictionaries
+    from LiuXin_alpha.surfaces.gui2.tweak_book import set_book_locale, dictionaries
 
     main_container = get_container(sys.argv[-1], tweak_mode=True)
     set_book_locale(main_container.mi.language)

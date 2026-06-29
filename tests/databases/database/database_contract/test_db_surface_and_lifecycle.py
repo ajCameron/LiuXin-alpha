@@ -196,6 +196,25 @@ def test_context_manager_closes_on_normal_exit(db_path: Path, driver_spec, db_me
     _rename_db_file(db_path)
 
 
+def test_database_can_open_without_maintenance_service(db_path: Path, driver_spec, db_metadata: dict):
+    """Read-only callers can skip the background maintainer for faster startup."""
+
+    from LiuXin_alpha.databases.database import Database
+
+    with Database(
+        metadata=db_metadata,
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        enable_maintenance=False,
+    ) as db:
+        assert db.maintenance is None
+        assert db.maintainer is None
+        assert db.get_record_count("items") >= 0
+
+    _rename_db_file(db_path)
+
+
 def test_context_manager_closes_and_propagates_exceptions(db_path: Path, driver_spec, db_metadata: dict):
     """__exit__ should close resources and not swallow exceptions."""
 

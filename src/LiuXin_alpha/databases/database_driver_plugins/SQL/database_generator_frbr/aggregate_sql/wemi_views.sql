@@ -922,7 +922,7 @@ WHERE `rn` = 1
 -- This projects three common facet families onto rays (books):
 --   * subjects  (hierarchical, work-scoped)
 --   * genres    (hierarchical, work-scoped)
---   * labels    (flat tags; may be attached at work/expression/item scope)
+--   * tags      (flat descriptive tags; may be attached at work/expression/item scope)
 --
 -- The view emits ONE ROW per (book_id, facet_kind, facet_scope, facet_id).
 -- UIs can GROUP_CONCAT or de-duplicate as they see fit.
@@ -984,7 +984,7 @@ JOIN `genres` g
 
 UNION ALL
 
--- Labels (work scoped)
+-- Tags (work scoped)
 SELECT
   r.`ray_id` AS `book_id`,
   r.`ray_id` AS `ray_id`,
@@ -992,25 +992,25 @@ SELECT
   r.`expression_id` AS `expression_id`,
   r.`manifestation_id` AS `manifestation_id`,
 
-  'label' AS `facet_kind`,
+  'tag' AS `facet_kind`,
   'work' AS `facet_scope`,
   1 AS `facet_scope_rank`,
 
-  l.`label_id` AS `facet_id`,
-  l.`label_text` AS `facet_text`,
-  l.`label_text_norm` AS `facet_sort`,
-  COALESCE(lwl.`label_work_link_priority`, 0) AS `facet_priority`,
+  t.`tag_id` AS `facet_id`,
+  t.`tag` AS `facet_text`,
+  t.`tag_phash` AS `facet_sort`,
+  COALESCE(twl.`tag_work_link_priority`, 0) AS `facet_priority`,
   NULL AS `facet_type`
 
 FROM `wemi_rays_v` r
-JOIN `label_work_links` lwl
-  ON lwl.`label_work_link_work_id` = r.`work_id`
-JOIN `labels` l
-  ON l.`label_id` = lwl.`label_work_link_label_id`
+JOIN `tag_work_links` twl
+  ON twl.`tag_work_link_work_id` = r.`work_id`
+JOIN `tags` t
+  ON t.`tag_id` = twl.`tag_work_link_tag_id`
 
 UNION ALL
 
--- Labels (expression scoped)
+-- Tags (expression scoped)
 SELECT
   r.`ray_id` AS `book_id`,
   r.`ray_id` AS `ray_id`,
@@ -1018,25 +1018,25 @@ SELECT
   r.`expression_id` AS `expression_id`,
   r.`manifestation_id` AS `manifestation_id`,
 
-  'label' AS `facet_kind`,
+  'tag' AS `facet_kind`,
   'expression' AS `facet_scope`,
   2 AS `facet_scope_rank`,
 
-  l.`label_id` AS `facet_id`,
-  l.`label_text` AS `facet_text`,
-  l.`label_text_norm` AS `facet_sort`,
-  COALESCE(ell.`expression_label_link_priority`, 0) AS `facet_priority`,
+  t.`tag_id` AS `facet_id`,
+  t.`tag` AS `facet_text`,
+  t.`tag_phash` AS `facet_sort`,
+  COALESCE(etl.`expression_tag_link_priority`, 0) AS `facet_priority`,
   NULL AS `facet_type`
 
 FROM `wemi_rays_v` r
-JOIN `expression_label_links` ell
-  ON ell.`expression_label_link_expression_id` = r.`expression_id`
-JOIN `labels` l
-  ON l.`label_id` = ell.`expression_label_link_label_id`
+JOIN `expression_tag_links` etl
+  ON etl.`expression_tag_link_expression_id` = r.`expression_id`
+JOIN `tags` t
+  ON t.`tag_id` = etl.`expression_tag_link_tag_id`
 
 UNION ALL
 
--- Labels (item scoped; operational labels still show up here by design)
+-- Tags (item scoped)
 SELECT
   r.`ray_id` AS `book_id`,
   r.`ray_id` AS `ray_id`,
@@ -1044,23 +1044,23 @@ SELECT
   r.`expression_id` AS `expression_id`,
   r.`manifestation_id` AS `manifestation_id`,
 
-  'label' AS `facet_kind`,
+  'tag' AS `facet_kind`,
   'item' AS `facet_scope`,
   3 AS `facet_scope_rank`,
 
-  l.`label_id` AS `facet_id`,
-  l.`label_text` AS `facet_text`,
-  l.`label_text_norm` AS `facet_sort`,
-  COALESCE(ill.`item_label_link_priority`, 0) AS `facet_priority`,
+  t.`tag_id` AS `facet_id`,
+  t.`tag` AS `facet_text`,
+  t.`tag_phash` AS `facet_sort`,
+  COALESCE(itl.`item_tag_link_priority`, 0) AS `facet_priority`,
   NULL AS `facet_type`
 
 FROM `wemi_rays_v` r
 JOIN `items` i
   ON i.`item_manifestation_id` = r.`manifestation_id`
-JOIN `item_label_links` ill
-  ON ill.`item_label_link_item_id` = i.`item_id`
-JOIN `labels` l
-  ON l.`label_id` = ill.`item_label_link_label_id`
+JOIN `item_tag_links` itl
+  ON itl.`item_tag_link_item_id` = i.`item_id`
+JOIN `tags` t
+  ON t.`tag_id` = itl.`item_tag_link_tag_id`
 ;
 
 
@@ -1068,7 +1068,7 @@ JOIN `labels` l
 -- View: identifiers_v
 --
 -- One row per identifier, across both:
---   * entity_identifiers (curated, per Work/Expression/Manifestation/Item)
+--   * entity_identifiers (curated, per Work/Expression/Manifestation/Item/Agent)
 --   * item_identifiers   (raw observations on Items)
 --
 -- This is intended for UI/debugging/interoperability.
@@ -1130,6 +1130,7 @@ SELECT
     WHEN b.`entity_type` = 'expression' THEN COALESCE(e.`expression_title_override`, e.`expression_label`, CAST(e.`expression_year` AS TEXT))
     WHEN b.`entity_type` = 'manifestation' THEN COALESCE(m.`manifestation_edition_statement`, m.`manifestation_format_detail`, CAST(m.`manifestation_pub_year` AS TEXT))
     WHEN b.`entity_type` = 'item' THEN COALESCE(i.`item_type`, CAST(i.`item_id` AS TEXT))
+    WHEN b.`entity_type` = 'agent' THEN COALESCE(a.`agent_canonical_name`, a.`agent_sort_name`, CAST(a.`agent_id` AS TEXT))
     ELSE NULL
   END AS `entity_display_text`
 
@@ -1142,6 +1143,8 @@ LEFT JOIN `manifestations` m
   ON b.`entity_type` = 'manifestation' AND m.`manifestation_id` = b.`entity_id`
 LEFT JOIN `items` i
   ON b.`entity_type` = 'item' AND i.`item_id` = b.`entity_id`
+LEFT JOIN `agents` a
+  ON b.`entity_type` = 'agent' AND a.`agent_id` = b.`entity_id`
 ;
 
 -- Alias for older code that expects an `identifiers` relation.
@@ -1482,7 +1485,7 @@ SELECT
     ) y
   ) AS `seed_identifiers`,
 
-  -- Tag-like facets (subject/genre/label)
+  -- Tag-like facets (subject/genre/tag)
   (
     SELECT REPLACE(GROUP_CONCAT(z.`facet`), ',', '; ')
     FROM (

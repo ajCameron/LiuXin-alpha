@@ -9,10 +9,8 @@ from copy import deepcopy
 
 from LiuXin_alpha.metadata.constants import METADATA_NULL_VALUES
 
-from LiuXin_alpha.metadata.api import BookMetadataContainerAPI
 
-
-class BookMetadata(BookMetadataContainerAPI):
+class BookMetadata:
     """
     Container for book type works metadata.
 
@@ -24,7 +22,7 @@ class BookMetadata(BookMetadataContainerAPI):
 
         :param title:
         """
-        super().__init__(title=title)
+        self.title = title
 
         _data = deepcopy(METADATA_NULL_VALUES)
 
@@ -33,7 +31,6 @@ class BookMetadata(BookMetadataContainerAPI):
 
         # Needed to that open files can be made safe
         object.__setattr__(self, "_files_for_cleanup", [])
-
 
 
 

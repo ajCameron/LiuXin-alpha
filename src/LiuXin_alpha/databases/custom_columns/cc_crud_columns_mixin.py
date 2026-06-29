@@ -1,10 +1,13 @@
-from __future__ import annotations
 
 """
 CRUD custom columns themselves.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Optional
+
+from LiuXin_alpha.databases.api.custom_columns_api import CustomColumnsAPI
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.db_types import MainTableName
@@ -16,19 +19,22 @@ class CCCRUDColumnsMixin:
     Custom columns themselves CRUD operations.
     """
     def create_custom_column(
-        self,
-        name,
-        datatype="text",
-        is_multiple=False,
-        label=None,
-        editable=True,
-        display=None,
-        in_table="books",
-        table=None,
-        make_category=None,
-    ):
+        self: "CustomColumnsAPI",
+        name: str,
+        # Todo: We can tightly type this?
+        datatype: str = "text",
+        is_multiple: bool = False,
+        label: Optional[str] = None,
+        editable: bool = True,
+        display: Optional[str] = None,
+        # Todo: Typeable?
+        in_table: str = "books",
+        table: Optional[str] = None,
+        make_category: Optional[bool] = None,
+    ) -> int:
         """
         Add a custom column to the books table.
+
         :param label:
         :param name:
         :param datatype: Must be one of the following - rating, int, text, comments, series, composite, enumeration,
@@ -37,6 +43,9 @@ class CCCRUDColumnsMixin:
         :param editable: Is the column editable?
         :param display:
         :param in_table: Which table should the custom column be created in? (Defaults to books for historical reasons)
+        :param table:
+        :param make_category:
+
         :return:
         """
         # Support newer/clearer keyword alias: `table=` (same as `in_table=`)
@@ -45,7 +54,7 @@ class CCCRUDColumnsMixin:
                 raise TypeError("Pass only one of table= or in_table= (or keep them identical).")
             in_table = table
 
-        num = super(self).create_custom_column(
+        num = super().create_custom_column(
             label=label,
             name=name,
             datatype=datatype,
@@ -65,16 +74,16 @@ class CCCRUDColumnsMixin:
 
 
     def set_custom_column_metadata(
-        self,
+        self: "CustomColumnsAPI",
         num: int,
         name: Optional[str] = None,
         label: Optional[str] = None,
         is_editable: Optional[bool] = None,
         display: Optional[str] = None,
-        in_table: MainTableName=None,
-        notify=True,
-        update_last_modified=False,
-    ):
+        in_table: "MainTableName" = None,
+        notify: bool = True,
+        update_last_modified: bool = False,
+    ) -> set[int]:
         """
         Change the metadata for a custom column - identified with the num
 
@@ -92,7 +101,7 @@ class CCCRUDColumnsMixin:
         :return:
         """
         # Actually update the database with the changes made
-        changed = super(self).set_custom_column_metadata(
+        changed = super().set_custom_column_metadata(
             num=num,
             name=name,
             label=label,
@@ -109,9 +118,13 @@ class CCCRUDColumnsMixin:
 
         return changed
 
-    def delete_custom_column(self, label=None, num=None):
+    def delete_custom_column(
+            self: "CustomColumnsAPI",
+            label: Optional[str] = None,
+            num: Optional[int] = None) -> None:
         """
         Mark a custom column for later deletion.
+
         :param label:
         :param num:
         :return:
@@ -119,5 +132,3 @@ class CCCRUDColumnsMixin:
         data = self.custom_field_metadata(label, num)
 
         self.db.macros.mark_custom_column_for_delete(num=data["num"])
-
-

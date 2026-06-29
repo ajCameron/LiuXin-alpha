@@ -275,7 +275,7 @@ class PDFOutput(OutputFormatPlugin):
 
         from lxml import etree
 
-        from LiuXin_alpha.interfaces.gui2 import must_use_qt, load_builtin_fonts
+        from LiuXin_alpha.surfaces.gui2 import must_use_qt, load_builtin_fonts
         from LiuXin_alpha.file_formats.oeb.base import OPF, OPF2_NS
 
         log.info("Converting OEB to PDF...")

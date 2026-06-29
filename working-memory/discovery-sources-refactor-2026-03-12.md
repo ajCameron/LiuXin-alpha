@@ -47,7 +47,7 @@ It reduces duplicated logic and makes it easier to add future discovery engines 
 Passed:
 
 - `pytest -q tests/storage/store_backend_plugins/wget_html_readonly/test_wget_html_readonly_storage_backend.py tests/storage/store_backend_plugins/native_html_readonly/test_native_html_readonly_storage_backend.py tests/storage/reconcile/test_native_html_store_db_sync.py -k 'wget_html or native_html'`
-- `pytest -q tests/interfaces/test_text_browser.py -k 'native_html'`
+- `pytest -q tests/surfaces/test_text_browser.py -k 'native_html'`
 
 ## Next Step
 

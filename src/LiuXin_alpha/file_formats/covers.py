@@ -56,7 +56,7 @@ from LiuXin_alpha.metadata.book.formatter import SafeFormat
 
 
 try:
-    from LiuXin_alpha.interfaces.gui2 import config
+    from LiuXin_alpha.surfaces.gui2 import config
 except Exception:
     config = {"use_roman_numerals_for_series_number": False}
 
@@ -830,8 +830,8 @@ def init_environment():
     if not HAS_QT:
         return
     try:
-        from LiuXin_alpha.interfaces.gui2 import load_builtin_fonts
-        from LiuXin_alpha.interfaces.gui2 import ensure_app
+        from LiuXin_alpha.surfaces.gui2 import load_builtin_fonts
+        from LiuXin_alpha.surfaces.gui2 import ensure_app
     except Exception:
         return
 
@@ -850,7 +850,7 @@ def generate_cover(mi, prefs=None, as_qimage=False):
             raise RuntimeError("Cannot return a QImage when PyQt5 is unavailable")
         return _fallback_cover_bytes(title, subtitle, footer, prefs.cover_width, prefs.cover_height)
 
-    from LiuXin_alpha.interfaces.gui2 import pixmap_to_data
+    from LiuXin_alpha.surfaces.gui2 import pixmap_to_data
 
     init_environment()
     color_theme = random.choice(load_color_themes(prefs))
@@ -932,7 +932,7 @@ def calibre_cover2(title, author_string="", series_string="", prefs=None, as_qim
             raise RuntimeError("Cannot return a QImage when PyQt5 is unavailable")
         return _fallback_cover_bytes(title, subtitle, footer, prefs.cover_width, prefs.cover_height)
 
-    from LiuXin_alpha.interfaces.gui2 import pixmap_to_data
+    from LiuXin_alpha.surfaces.gui2 import pixmap_to_data
 
     init_environment()
     img = QImage(prefs.cover_width, prefs.cover_height, QImage.Format_ARGB32)
@@ -1001,7 +1001,7 @@ def generate_masthead(title, output_path=None, width=600, height=60, as_qimage=F
             f.write(data)
         return
 
-    from LiuXin_alpha.interfaces.gui2 import pixmap_to_data
+    from LiuXin_alpha.surfaces.gui2 import pixmap_to_data
 
     init_environment()
     font_family = font_family or cprefs["title_font_family"] or "Liberation Serif"

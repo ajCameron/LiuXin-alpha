@@ -29,6 +29,10 @@ _FIELD_RE = re.compile(br'([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"')
 _CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f]")
 
 
+class PmlFormatError(Exception):
+    pass
+
+
 def _source_name(target_file) -> str:
     if isinstance(target_file, os.PathLike):
         return os.fspath(target_file)
@@ -172,7 +176,13 @@ def _read_cover_from_zip(
     return None
 
 
-def _extract_pmlz_payload(payload: bytes, *, source_name: str, extract_cover: bool) -> tuple[bytes, bytes | None]:
+def _extract_pmlz_payload(
+    payload: bytes,
+    *,
+    source_name: str,
+    extract_cover: bool,
+    fallback_on_parse_error: bool = False,
+) -> tuple[bytes, bytes | None]:
     pml_data = bytearray()
     cover_data = None
     try:
@@ -181,6 +191,8 @@ def _extract_pmlz_payload(payload: bytes, *, source_name: str, extract_cover: bo
                 [name for name in zf.namelist() if _normalize_zip_name(name).lower().endswith(".pml")],
                 key=str.casefold,
             )
+            if not pml_entries and not fallback_on_parse_error:
+                raise PmlFormatError("PMLZ archive does not contain a PML member.")
             for name in pml_entries:
                 try:
                     pml_data.extend(zf.read(name))
@@ -200,6 +212,10 @@ def _extract_pmlz_payload(payload: bytes, *, source_name: str, extract_cover: bo
             "DEBUG",
             ("source", source_name or "<stream>"),
         )
+        if not fallback_on_parse_error:
+            if isinstance(err, PmlFormatError):
+                raise
+            raise PmlFormatError("Failed parsing PMLZ archive.") from err
     return bytes(pml_data), cover_data
 
 
@@ -271,7 +287,7 @@ def _parse_pml_metadata(payload: bytes, mi) -> None:
         _set_authors(mi, authors)
 
 
-def get_metadata(target_file, extract_cover: bool = True):
+def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
     Read metadata from a PML or PMLZ stream/path.
     """
@@ -285,13 +301,22 @@ def get_metadata(target_file, extract_cover: bool = True):
             "ERROR",
             ("source", _source_name(target_file) or "<stream>"),
         )
+        if not fallback_on_parse_error:
+            raise
         return mi
 
     if not payload:
+        if _source_name(target_file).lower().endswith(".pmlz") and not fallback_on_parse_error:
+            raise PmlFormatError("Empty PMLZ payload.")
         return mi
 
     if _is_probable_pmlz(source_name, payload):
-        pml_payload, cover_bytes = _extract_pmlz_payload(payload, source_name=source_name, extract_cover=extract_cover)
+        pml_payload, cover_bytes = _extract_pmlz_payload(
+            payload,
+            source_name=source_name,
+            extract_cover=extract_cover,
+            fallback_on_parse_error=fallback_on_parse_error,
+        )
         if extract_cover:
             mi.cover_data = ("png", cover_bytes)
     else:
@@ -309,8 +334,8 @@ def get_metadata(target_file, extract_cover: bool = True):
     return mi
 
 
-def get_metadata_inplace(target_file, extract_cover: bool = True):
-    return get_metadata(target_file, extract_cover=extract_cover)
+def get_metadata_inplace(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
+    return get_metadata(target_file, extract_cover=extract_cover, fallback_on_parse_error=fallback_on_parse_error)
 
 
 def get_cover(name, tdir, top_level: bool = False):
@@ -347,6 +372,7 @@ __all__ = [
     "VALID_FOR",
     "PRIORITY_FOR",
     "RUN_COST",
+    "PmlFormatError",
     "get_metadata",
     "get_metadata_inplace",
     "get_cover",

@@ -1,20 +1,27 @@
+"""Core WEMI work identity implementation containers.
 
+Category: core WEMI identity object.
+This module implements the work entity itself, not the editable metadata bundle
+and not any read-side query view.
 """
-Container for information from the Works table.
 
-Works are at the top of the FRBR tree - everything descends from them.
-"""
+
 
 from __future__ import annotations
 
 from typing import Any, Iterator, Mapping, Optional, Iterable
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.work_container_api import WorkContainerAPI
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_identity_api import \
+    WorkIdentityAPI
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    compact_container_string,
+    compact_mapping_string,
+)
 
 from LiuXin_alpha.utils.adaptors import _boolish_to_bool, _bool_to_int_or_none
 
 
-class WorkContainer(WorkContainerAPI):
+class WorkIdentity(WorkIdentityAPI):
     """
     Container for a single row from the `works` table.
 
@@ -72,7 +79,7 @@ class WorkContainer(WorkContainerAPI):
     # -------------------------
 
     @classmethod
-    def from_mapping(cls, row: Mapping[str, Any]) -> "WorkContainer":
+    def from_mapping(cls, row: Mapping[str, Any]) -> "WorkIdentity":
         """
         Build from a mapping (e.g. sqlite3.Row, dict).
         """
@@ -119,6 +126,14 @@ class WorkContainer(WorkContainerAPI):
 
     def to_mapping(self) -> dict[str, Any]:
         return self.to_dict()
+
+    def __str__(self) -> str:
+        return compact_mapping_string(
+            self,
+            self.to_mapping(),
+            id_keys=("work_id",),
+            display_keys=("work_canonical_title", "work_title", "work_type"),
+        )
 
     # -------------------------
     # Core fields
@@ -266,35 +281,35 @@ class WorkContainer(WorkContainerAPI):
 
     def __repr__(self) -> str:
         return (
-            f"WorkContainer(work_id={self._work_id!r}, "
+            f"WorkIdentity(work_id={self._work_id!r}, "
             f"work_title={self._work_title!r}, work_type={self._work_type!r})"
         )
 
 
-class WorksContainer:
+class WorkIdentities:
     """
-    A light collection wrapper for multiple WorkContainer objects.
+    A light collection wrapper for multiple WorkIdentity objects.
     """
 
-    def __init__(self, works: Iterable[WorkContainer] = ()) -> None:
-        self._works: list[WorkContainer] = [wc for wc in works]
+    def __init__(self, works: Iterable[WorkIdentity] = ()) -> None:
+        self._works: list[WorkIdentity] = [wc for wc in works]
 
-    def __iter__(self) -> Iterator[WorkContainer]:
+    def __iter__(self) -> Iterator[WorkIdentity]:
         return iter(self._works)
 
     def __len__(self) -> int:
         return len(self._works)
 
-    def __getitem__(self, idx: int) -> WorkContainer:
+    def __getitem__(self, idx: int) -> WorkIdentity:
         return self._works[idx]
 
-    def add(self, work: WorkContainer) -> None:
+    def add(self, work: WorkIdentity) -> None:
         self._works.append(work)
 
-    def extend(self, works: Iterable[WorkContainer]) -> None:
+    def extend(self, works: Iterable[WorkIdentity]) -> None:
         self._works.extend(list(works))
 
-    def get_by_id(self, work_id: int) -> Optional[WorkContainer]:
+    def get_by_id(self, work_id: int) -> Optional[WorkIdentity]:
         for w in self._works:
             if w.work_id == work_id:
                 return w
@@ -303,4 +318,7 @@ class WorksContainer:
     def to_dicts(self) -> list[dict[str, Any]]:
         return [w.to_dict() for w in self._works]
 
+    def __str__(self) -> str:
+        return compact_container_string(self, count_label="works")
 
+__all__ = ["WorkIdentity", "WorkIdentities"]

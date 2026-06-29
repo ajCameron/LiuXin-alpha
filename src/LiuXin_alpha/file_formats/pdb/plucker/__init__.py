@@ -1,0 +1,2 @@
+class PluckerError(Exception):
+    pass

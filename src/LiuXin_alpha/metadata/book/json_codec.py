@@ -7,7 +7,11 @@ from datetime import datetime, time
 
 from LiuXin_alpha.constants import filesystem_encoding, preferred_encoding
 
-from LiuXin_alpha.surfaces.field_metadata import FieldMetadata
+try:
+    from LiuXin_alpha.library.field_metadata import FieldMetadata
+except Exception:
+    # Ported location in LiuXin_alpha
+    from LiuXin_alpha.surfaces.field_metadata import FieldMetadata
 
 from LiuXin_alpha.metadata.book import SERIALIZABLE_FIELDS
 
@@ -53,19 +57,22 @@ def encode_thumbnail(thumbnail):
     :param thumbnail:
     :return:
     """
-    from LiuXin_alpha.utils.magick import Image
-
     if thumbnail is None:
         return None
     if not isinstance(thumbnail, (tuple, list)):
         try:
+            from LiuXin_alpha.utils.magick import Image
+
             img = Image()
             img.load(thumbnail)
             width, height = img.size
             thumbnail = (width, height, thumbnail)
         except:
             return None
-    return (thumbnail[0], thumbnail[1], b64encode(str(thumbnail[2])))
+    data = thumbnail[2]
+    if not isinstance(data, (bytes, bytearray)):
+        data = str(data).encode(preferred_encoding, "replace")
+    return (thumbnail[0], thumbnail[1], b64encode(data).decode("ascii"))
 
 
 def decode_thumbnail(tup):
@@ -90,15 +97,15 @@ def object_to_unicode(obj, enc=preferred_encoding):
     def dec(x):
         return x.decode(enc, "replace")
 
-    if isbytestring(obj):
+    if isinstance(obj, (bytes, bytearray)):
         return dec(obj)
     if isinstance(obj, (list, tuple)):
-        return [dec(x) if isbytestring(x) else x for x in obj]
+        return [object_to_unicode(x, enc=enc) for x in obj]
     if isinstance(obj, dict):
         ans = {}
         for k, v in obj.items():
-            k = object_to_unicode(k)
-            v = object_to_unicode(v)
+            k = object_to_unicode(k, enc=enc)
+            v = object_to_unicode(v, enc=enc)
             ans[k] = v
         return ans
     return obj
@@ -144,7 +151,7 @@ class JsonCodec(object):
         self.field_metadata = FieldMetadata()
 
     def encode_to_file(self, file_, booklist):
-        file_.write(json.dumps(self.encode_booklist_metadata(booklist), indent=2, encoding="utf-8"))
+        file_.write(json.dumps(self.encode_booklist_metadata(booklist), indent=2, ensure_ascii=False))
 
     def encode_booklist_metadata(self, booklist):
         result = []
@@ -161,7 +168,7 @@ class JsonCodec(object):
     def encode_metadata_attr(self, book, key):
         if key == "user_metadata":
             meta = book.get_all_user_metadata(make_copy=True)
-            for fm in meta.itervalues():
+            for fm in meta.values():
                 if fm["datatype"] == "datetime":
                     fm["#value#"] = datetime_to_string(fm["#value#"])
                 encode_is_multiple(fm)
@@ -184,7 +191,7 @@ class JsonCodec(object):
     def decode_from_file(self, file_, booklist, book_class, prefix):
         js = []
         try:
-            js = json.load(file_, encoding="utf-8")
+            js = json.load(file_)
             for item in js:
                 entry = self.raw_to_book(item, book_class, prefix)
                 if entry is not None:
@@ -195,7 +202,7 @@ class JsonCodec(object):
     def raw_to_book(self, json_book, book_class, prefix):
         try:
             book = book_class(prefix, json_book.get("lpath", None))
-            for key, val in json_book.iteritems():
+            for key, val in json_book.items():
                 meta = self.decode_metadata(key, val)
                 if key == "user_metadata":
                     book.set_all_user_metadata(meta)
@@ -211,7 +218,7 @@ class JsonCodec(object):
         if key == "classifiers":
             key = "identifiers"
         if key == "user_metadata":
-            for fm in value.itervalues():
+            for fm in value.values():
                 if fm["datatype"] == "datetime":
                     fm["#value#"] = string_to_datetime(fm["#value#"])
                 decode_is_multiple(fm)

@@ -1,8 +1,11 @@
-"""Local bridge for field-metadata dependencies.
-
-The database layer should not need to care about the exact module layout of the
-surface package. Import this bridge instead.
 """
+Local bridge for field-metadata dependencies.
+
+The database layer should not directly depend on a particular surface package
+layout. Import this bridge instead.
+"""
+
+# Todo: Probably best just to kill this... and, ideally, the underlying dependency
 
 from __future__ import annotations
 

@@ -87,6 +87,49 @@ def test_fresh_database_bootstrap_creates_ratings_and_null_rows(tmp_path: Path, 
         db.close()
 
 
+def test_database_init_can_skip_bootstrap_repairs(tmp_path: Path, driver_spec):
+    """Read-only probes can opt out of startup helpers that repair rows."""
+
+    from LiuXin_alpha.databases.database import Database
+
+    db_path = tmp_path / f"skip_bootstrap_repairs_{driver_spec.id}.db"
+    meta = {"database_path": str(db_path)}
+
+    db = Database(
+        metadata=meta,
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        enable_storage_manager=False,
+    )
+    try:
+        rating_row = db.get_row_from_id("ratings", 1)
+        assert rating_row is not None
+        rating_row["rating"] = 99
+        rating_row.sync()
+
+        series_row = db.get_row_from_id("series", 0)
+        assert series_row is not None
+        series_row["series"] = "BROKEN"
+        series_row.sync()
+    finally:
+        db.close()
+
+    reopened = Database(
+        metadata=meta,
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        enable_storage_manager=False,
+        repair_bootstrap_rows=False,
+    )
+    try:
+        assert float(reopened.get_row_from_id("ratings", 1)["rating"]) == 99
+        assert reopened.get_row_from_id("series", 0)["series"] == "BROKEN"
+    finally:
+        reopened.close()
+
+
 def test_check_rating_table_is_idempotent(open_db):
     """Calling check_rating_table repeatedly should not change correct data."""
 

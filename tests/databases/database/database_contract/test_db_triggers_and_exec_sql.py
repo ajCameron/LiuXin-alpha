@@ -219,7 +219,7 @@ def test_driver_wrapper_executemany_decorates_valueerror(monkeypatch, open_db, c
 
 def test_driver_wrapper_executescript_creates_and_inserts(open_db):
     table = _mk_ident("db_contract_l12_script")
-    open_db.driver_wrapper.executescript(
+    open_db.driver_wrapper.direct_execute_sql_script(
         f"""
         CREATE TABLE {table} (id INTEGER PRIMARY KEY AUTOINCREMENT, payload TEXT);
         INSERT INTO {table} (payload) VALUES ('one');
@@ -233,7 +233,7 @@ def test_driver_wrapper_executescript_creates_and_inserts(open_db):
 
 def test_driver_wrapper_executescript_syntax_error_raises(open_db):
     with pytest.raises(DatabaseDriverError):
-        open_db.driver_wrapper.executescript("CREATE TABL nope (x);")
+        open_db.driver_wrapper.direct_execute_sql_script("CREATE TABL nope (x);")
 
 
 # -------------------------------------------------------------------------------------------------
@@ -269,7 +269,7 @@ def test_database_create_trigger_visible_then_drop(open_db, contract_table: Cont
     before = set(open_db.get_triggers())
 
     # Create a trigger that writes a predictable marker.
-    open_db.driver_wrapper.executescript(
+    open_db.driver_wrapper.direct_execute_sql_script(
         f"""
         CREATE TRIGGER {trig}
         AFTER INSERT ON {t.name}
@@ -298,7 +298,7 @@ def test_database_drop_triggers_removes_only_target(open_db, contract_table: Con
     trig1 = _mk_ident("trg_l12_a")
     trig2 = _mk_ident("trg_l12_b")
 
-    open_db.driver_wrapper.executescript(
+    open_db.driver_wrapper.direct_execute_sql_script(
         f"""
         CREATE TRIGGER {trig1} AFTER INSERT ON {t.name} BEGIN UPDATE {t.name} SET scratch='a' WHERE id=NEW.id; END;
         CREATE TRIGGER {trig2} AFTER INSERT ON {t.name} BEGIN UPDATE {t.name} SET scratch='b' WHERE id=NEW.id; END;
@@ -323,7 +323,7 @@ def test_database_drop_triggers_injection_like_name_does_not_drop_table(open_db,
     t = contract_table
     trig = _mk_ident("trg_l12_safe")
 
-    open_db.driver_wrapper.executescript(
+    open_db.driver_wrapper.direct_execute_sql_script(
         f"""
         CREATE TRIGGER {trig}
         AFTER INSERT ON {t.name}
@@ -355,7 +355,7 @@ def test_database_drop_all_triggers_on_fresh_db_removes_all(driver_spec, tmp_pat
         table = _mk_ident("t12")
         trig = _mk_ident("trg12")
 
-        db.driver_wrapper.executescript(
+        db.driver_wrapper.direct_execute_sql_script(
             f"""
             CREATE TABLE {table} (id INTEGER PRIMARY KEY AUTOINCREMENT, payload TEXT);
             CREATE TRIGGER {trig} AFTER INSERT ON {table} BEGIN UPDATE {table} SET payload='x' WHERE id=NEW.id; END;

@@ -1,12 +1,20 @@
 
 """
 Mixin to enable adding entries to the database to the driver wrapper.
+
+Allows easier bulk adding to the database.
 """
 
 from __future__ import annotations
 
+from typing import Optional, TYPE_CHECKING, Any
+
 from LiuXin_alpha.errors import InputIntegrityError, DatabaseIntegrityError
-from LiuXin_alpha.utils.python_tools import smart_dictionary_merge, get_unique_id
+from LiuXin_alpha.utils.python_tools import get_unique_id
+
+if TYPE_CHECKING:
+    # Todo: Not sure this name is consistent - make it so
+    from LiuXin_alpha.databases.api.driver_api.driver_api import DatabaseDriverAPI
 
 
 class DriverWrapperAddMixin:
@@ -14,27 +22,31 @@ class DriverWrapperAddMixin:
     Add entries to the database to the driver wrapper.
     """
 
-    def add_row(self, row_dict):
+    driver: "DatabaseDriverAPI"
+
+    def add_row(self, row_dict: dict[str, Any]) -> None:
         """
         Takes a single row in the form of a dictionary and adds the values to the database.
+
         :param row_dict:
         :return:
         """
         # Returns the SQLite rowid / INTEGER PRIMARY KEY value if available.
         return self.driver.direct_add_simple_row_dict(row_dict)
 
-    def add_multiple_rows(self, row_dict_list):
+    def add_multiple_rows(self, row_dict_list: list[dict[str, Any]]) -> None:
         """
         Takes an index of row_dicts and adds each of them to the database.
+
         :param row_dict_list:
         :return:
         """
         self.driver.direct_add_multiple_simple_row_dicts(row_dict_list)
 
-
-    def get_blank_row(self, table):
+    def get_blank_row(self, table: str) -> dict[str, Any]:
         """
-        There are times when the actual row_id of a row matters.
+        Get a pre-assigned blank row from the database.
+
         Such as when it's going to be written into the name of a folder or file.table
         get_blank_row gives you an empty row which data can be written into.
         :param table: The table the row should be in.
@@ -83,6 +95,10 @@ class DriverWrapperAddMixin:
         # a row identified by a unique row id in the scratch column should now exist in the table
         new_row = dict()
         new_row[table_scratch_column] = new_row_id
+        if table == "asset_replicas":
+            # `asset_replicas` enforces a non-empty relative storage key at INSERT time.
+            # Seed a placeholder that callers can overwrite before syncing the row back.
+            new_row["asset_replica_storage_key"] = "blank/{}".format(new_row_id)
         self.add_row(new_row)
         # this required removing the not-null constraints - this might cause trouble later
 

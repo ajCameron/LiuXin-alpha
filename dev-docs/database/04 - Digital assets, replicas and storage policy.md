@@ -58,6 +58,11 @@ Examples:
 
 The role is deliberately not stored on `digital_assets` itself because the same asset may play different roles in different contexts.
 
+Like metadata relation edges, storage link tables should also reserve room for
+provenance. Generated main-schema relation tables include a nullable `source`
+column for where the link assertion came from; the role/type column should
+remain the semantic attachment role.
+
 ### `digital_asset_compositions`
 
 Ordered membership links for multipart payloads.

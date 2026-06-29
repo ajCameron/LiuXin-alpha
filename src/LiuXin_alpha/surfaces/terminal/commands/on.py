@@ -5,6 +5,15 @@ from __future__ import annotations
 from typing import Optional
 
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.surfaces.metadata_facets import (
+    build_tag_row_payload,
+    preferred_tag_table,
+    search_tag_rows,
+)
+from LiuXin_alpha.surfaces.metadata_write_bridge import (
+    metadata_write_report_summary,
+    write_wemi_metadata_relation_link,
+)
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.commands.link import _resolve_table_token
 from LiuXin_alpha.metadata.standardization import (
@@ -148,60 +157,20 @@ def _resolve_or_create_note_row(browser, note_text: str, *, create: bool):
 
 
 def _resolve_or_create_tag_row(browser, tag_text: str, *, create: bool):
-    tables = set(browser.db.get_tables())
-    norm = make_tag_search_term(tag_text)
+    table = preferred_tag_table(browser.db)
+    if table is None:
+        raise ValueError("Database schema has neither `labels` nor `tags` table.")
 
-    if "labels" in tables:
-        columns = set(browser.db.get_column_headings("labels"))
-        if "label_text_norm" in columns:
-            search_column = "label_text_norm"
-            search_value = norm
-        elif "label_phash" in columns:
-            search_column = "label_phash"
-            search_value = norm
-        elif "label_text" in columns:
-            search_column = "label_text"
-            search_value = tag_text
-        else:
-            search_column = "label"
-            search_value = tag_text
+    rows = search_tag_rows(browser.db, table, tag_text)
+    if rows:
+        return table, rows[0]
+    if not create:
+        return None
 
-        rows = browser.db.search("labels", search_column, search_value)
-        if rows:
-            return "labels", rows[0]
-        if not create:
-            return None
-
-        row_dict: dict[str, object] = {}
-        if "label_text" in columns:
-            row_dict["label_text"] = tag_text
-        elif "label" in columns:
-            row_dict["label"] = tag_text
-        else:
-            raise ValueError("`labels` table has no supported text column (`label_text`/`label`).")
-        if "label_text_norm" in columns:
-            row_dict["label_text_norm"] = norm
-        if "label_phash" in columns:
-            row_dict["label_phash"] = norm
-        row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="labels")
-        return "labels", row
-
-    if "tags" in tables:
-        columns = set(browser.db.get_column_headings("tags"))
-        search_column = "tag_phash" if "tag_phash" in columns else "tag"
-        search_value = norm if search_column == "tag_phash" else tag_text
-        rows = browser.db.search("tags", search_column, search_value)
-        if rows:
-            return "tags", rows[0]
-        if not create:
-            return None
-        row_dict = {"tag": tag_text}
-        if "tag_phash" in columns:
-            row_dict["tag_phash"] = norm
-        row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="tags")
-        return "tags", row
-
-    raise ValueError("Database schema has neither `labels` nor `tags` table.")
+    columns = set(browser.db.get_column_headings(table))
+    row_dict = build_tag_row_payload(table, columns, tag_text)
+    row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table=table)
+    return table, row
 
 
 def _resolve_or_create_genre_row(browser, genre_text: str, *, create: bool):
@@ -498,6 +467,42 @@ def _link_one_value(
         )
         return False, None
 
+    report = write_wemi_metadata_relation_link(
+        browser.db,
+        target_row=target_row,
+        relation_table=source_table,
+        relation_row=source_row,
+    )
+    if report is not None:
+        errors = list(getattr(report, "errors", []) or [])
+        if errors:
+            raise ValueError("; ".join(str(error) for error in errors))
+        if not bool(getattr(report, "changed", False)):
+            browser.emit(
+                "{} not changed: {}={} -> {}:{} ({})".format(
+                    kind_label.capitalize(),
+                    source_id_column,
+                    source_id,
+                    target_table,
+                    target_id,
+                    metadata_write_report_summary(report),
+                )
+            )
+            return False, None
+
+        link_row = _find_interlink_row(browser, source_row=source_row, target_row=target_row)
+        browser.emit(
+            "{} linked: {}={} -> {}:{} (metadata writer; {})".format(
+                kind_label.capitalize(),
+                source_id_column,
+                source_id,
+                target_table,
+                target_id,
+                metadata_write_report_summary(report),
+            )
+        )
+        return True, link_row
+
     link_row = browser.db.interlink_rows(primary_row=source_row, secondary_row=target_row)
     browser.emit(
         "{} linked: {}={} -> {}:{}".format(
@@ -509,6 +514,25 @@ def _link_one_value(
         )
     )
     return True, link_row
+
+
+def _find_interlink_row(browser, *, source_row, target_row) -> Optional[Row]:
+    for primary_row, secondary_row in ((source_row, target_row), (target_row, source_row)):
+        try:
+            link_row = browser.db.get_interlink_row(
+                primary_row=primary_row,
+                secondary_row=secondary_row,
+                onelink=False,
+            )
+        except Exception:
+            link_row = None
+        if isinstance(link_row, list):
+            if link_row:
+                return link_row[0]
+            continue
+        if link_row is not None:
+            return link_row
+    return None
 
 
 class _OnBaseCommand(TerminalCommandAPI):

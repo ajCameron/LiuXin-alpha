@@ -4,11 +4,11 @@ Date: 2026-03-16
 
 ## Summary
 
-Extracted a neutral shared read/query backend at `interfaces/read_model` and wired the main read-only hosts to it.
+Extracted a neutral shared read/query backend at `surfaces/read_model` and wired the main read-only hosts to it.
 
 ## What Changed
 
-- Added `interfaces/read_model`:
+- Added `surfaces/read_model`:
   - `ReadModelBackend`
   - `ReadModelHostApi`
 - `ReadOnlyWebApplication` now owns `self.read_model`.
@@ -57,13 +57,13 @@ That is a better base for future HTML, OPDS, JSON, and client-facing interfaces 
 
 ## Validation
 
-- `PYTHONPATH=src .venv/bin/python -m py_compile src/LiuXin_alpha/interfaces/read_model/api.py src/LiuXin_alpha/interfaces/catalog/api.py src/LiuXin_alpha/interfaces/api_readonly/app.py src/LiuXin_alpha/interfaces/web_readonly/app.py src/LiuXin_alpha/interfaces/web_calibre_readonly/app.py src/LiuXin_alpha/interfaces/opds_readonly/app.py tests/interfaces/test_read_model_api.py`
+- `PYTHONPATH=src .venv/bin/python -m py_compile src/LiuXin_alpha/surfaces/read_model/api.py src/LiuXin_alpha/surfaces/catalog/api.py src/LiuXin_alpha/surfaces/api_readonly/app.py src/LiuXin_alpha/surfaces/web_readonly/app.py src/LiuXin_alpha/surfaces/web_calibre_readonly/app.py src/LiuXin_alpha/surfaces/opds_readonly/app.py tests/surfaces/test_read_model_api.py`
   - passed
-- `PYTHONPATH=src .venv/bin/python -m pytest -q tests/interfaces/test_read_model_api.py tests/interfaces/test_catalog_api.py tests/interfaces/test_api_readonly.py tests/interfaces/test_acquisition_api.py tests/interfaces/test_opds_api.py tests/interfaces/test_opds_readonly.py tests/interfaces/test_web_calibre_readonly.py tests/interfaces/test_web_readonly.py`
+- `PYTHONPATH=src .venv/bin/python -m pytest -q tests/surfaces/test_read_model_api.py tests/surfaces/test_catalog_api.py tests/surfaces/test_api_readonly.py tests/surfaces/test_acquisition_api.py tests/surfaces/test_opds_api.py tests/surfaces/test_opds_readonly.py tests/surfaces/test_web_calibre_readonly.py tests/surfaces/test_web_readonly.py`
   - `37 passed`
-- `PYTHONPATH=src .venv/bin/python -m pytest -q tests/interfaces/test_read_model_api.py tests/interfaces/test_catalog_api.py tests/interfaces/test_api_readonly.py tests/interfaces/test_web_readonly.py tests/interfaces/test_web_calibre_readonly.py tests/interfaces/test_opds_readonly.py`
+- `PYTHONPATH=src .venv/bin/python -m pytest -q tests/surfaces/test_read_model_api.py tests/surfaces/test_catalog_api.py tests/surfaces/test_api_readonly.py tests/surfaces/test_web_readonly.py tests/surfaces/test_web_calibre_readonly.py tests/surfaces/test_opds_readonly.py`
   - `32 passed`
 
 ## Next Step
 
-- extract an even more presentation-neutral catalog/query service only if the remaining `interfaces/catalog` responsibilities stop being clearly Calibre-shaped
+- extract an even more presentation-neutral catalog/query service only if the remaining `surfaces/catalog` responsibilities stop being clearly Calibre-shaped

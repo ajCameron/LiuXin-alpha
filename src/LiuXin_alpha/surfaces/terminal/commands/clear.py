@@ -1,4 +1,4 @@
-"""Clear output command for terminal interface."""
+"""Clear output command for the terminal surface."""
 
 from __future__ import annotations
 

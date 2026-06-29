@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.databases.metadata_tools.add import Add
+from LiuXin_alpha.catalog.metadata_tools import Add
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.surfaces.metadata_facets import (
+    build_tag_row_payload,
+    preferred_tag_table,
+    search_tag_rows,
+    tag_row_identity_column,
+    tag_row_text,
+    tag_search_value,
+)
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
-from LiuXin_alpha.metadata.standardization import make_tag_search_term
 
 
 def _clean_optional(value: str) -> Optional[str]:
@@ -16,7 +23,7 @@ def _clean_optional(value: str) -> Optional[str]:
 
 
 class NewTagWizardCommand(TerminalCommandAPI):
-    """Create a tag-like row (`labels` on FRBR schema, `tags` on legacy schemas)."""
+    """Create a tag row, falling back to legacy label rows when needed."""
 
     group = "add"
     name = "tag"
@@ -37,10 +44,8 @@ class NewTagWizardCommand(TerminalCommandAPI):
         if args:
             raise ValueError("Usage: {}".format(self.usage))
 
-        tables = set(browser.db.get_tables())
-        has_labels = "labels" in tables
-        has_tags = "tags" in tables
-        if not (has_labels or has_tags):
+        tag_table = preferred_tag_table(browser.db)
+        if tag_table is None:
             raise ValueError("Database schema has neither `labels` nor `tags` table.")
 
         browser.emit("New tag wizard")
@@ -50,21 +55,14 @@ class NewTagWizardCommand(TerminalCommandAPI):
         if not tag_text:
             raise ValueError("Tag text cannot be blank.")
 
-        tag_norm = make_tag_search_term(tag_text)
+        tag_norm = tag_search_value(tag_text)
         description = _clean_optional(browser.prompt_text("Tag description", default=""))
 
-        if has_labels:
-            existing = browser.db.search("labels", "label_text_norm", tag_norm)
-        else:
-            existing = browser.db.search("tags", "tag_phash", tag_norm)
+        existing = search_tag_rows(browser.db, tag_table, tag_text)
 
         if existing:
-            if has_labels:
-                existing_id = existing[0]["label_id"]
-                existing_value = existing[0]["label_text"]
-            else:
-                existing_id = existing[0]["tag_id"]
-                existing_value = existing[0]["tag"]
+            existing_id = existing[0][tag_row_identity_column(tag_table)]
+            existing_value = tag_row_text(existing[0])
             browser.emit(
                 "Possible duplicate tag exists: id={} value={!r}".format(
                     existing_id,
@@ -79,8 +77,7 @@ class NewTagWizardCommand(TerminalCommandAPI):
             ("text", tag_text),
             ("normalized", tag_norm),
         ]
-        if has_labels:
-            summary_rows.append(("description", description or ""))
+        summary_rows.append(("description", description or ""))
         browser.emit_detail_sections(
             [("", summary_rows)],
             title="Tag summary",
@@ -90,32 +87,32 @@ class NewTagWizardCommand(TerminalCommandAPI):
         if not proceed:
             raise ValueError("Tag wizard canceled.")
 
-        if has_labels:
-            row_dict = {
-                "label_text": tag_text,
-                "label_text_norm": tag_norm,
-            }
-            if description is not None:
-                row_dict["label_description"] = description
-            tag_row = Row.from_idless_row_dict(
-                browser.db,
-                row_dict=row_dict,
-                table="labels",
-            )
+        if tag_table == "tags":
+            add = Add(browser.db)
+            tag_row = add.tag(tag=tag_text, tag_phash=tag_norm)
+            if description is not None and "tag_description" in set(browser.db.get_column_headings("tags")):
+                tag_row["tag_description"] = description
+                tag_row.sync()
             browser.emit(
-                "Tag created: label_id={} label_text={!r}".format(
-                    tag_row["label_id"],
-                    tag_row["label_text"],
+                "Tag created: tag_id={} tag={!r}".format(
+                    tag_row["tag_id"],
+                    tag_row["tag"],
                 )
             )
             return True
 
-        add = Add(browser.db)
-        tag_row = add.tag(tag=tag_text, tag_phash=tag_norm)
-        browser.emit(
-            "Tag created: tag_id={} tag={!r}".format(
-                tag_row["tag_id"],
-                tag_row["tag"],
+        if tag_table == "labels":
+            columns = set(browser.db.get_column_headings("labels"))
+            row_dict = build_tag_row_payload("labels", columns, tag_text)
+            if description is not None:
+                row_dict["label_description"] = description
+            tag_row = Row.from_idless_row_dict(browser.db, row_dict=row_dict, table="labels")
+            browser.emit(
+                "Tag created: label_id={} label_text={!r}".format(
+                    tag_row["label_id"],
+                    tag_row_text(tag_row),
+                )
             )
-        )
-        return True
+            return True
+
+        raise ValueError("Unsupported tag table: {!r}".format(tag_table))

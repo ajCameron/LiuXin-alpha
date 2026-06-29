@@ -11,13 +11,26 @@ from importlib import import_module
 
 
 _LAZY_SUBMODULES = {
+    "acquisition",
+    "api",
+    "api_readonly",
+    "catalog",
     "categories",
     "cli",
     "field_metadata",
+    "images",
+    "metadata_facets",
+    "opds",
+    "opds_readonly",
+    "read_model",
+    "renderers",
     "tags_icons",
     "terminal",
     "thumbnail_cache",
+    "tkinter_gui",
+    "web_calibre_readonly",
     "web_readonly",
+    "web_readwrite",
 }
 
 __all__ = sorted(_LAZY_SUBMODULES)

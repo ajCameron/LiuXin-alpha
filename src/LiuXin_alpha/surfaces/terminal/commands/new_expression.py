@@ -4,13 +4,18 @@ from __future__ import annotations
 
 from typing import Optional
 
-from LiuXin_alpha.databases.metadata_tools.add import Add
+from LiuXin_alpha.catalog.metadata_tools import Add
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
 def _clean_optional(value: str) -> Optional[str]:
     text = str(value).strip()
     return text or None
+
+
+def _clean_flags(value: str) -> tuple[str, ...]:
+    flags = [flag.strip() for flag in str(value).split(",") if flag.strip()]
+    return tuple(dict.fromkeys(flags))
 
 
 def _safe_int(value: str) -> Optional[int]:
@@ -62,7 +67,7 @@ class NewExpressionWizardCommand(TerminalCommandAPI):
         expression_original_copyright_date = _clean_optional(
             browser.prompt_text("Expression original copyright date", default="")
         )
-        expression_flags = _clean_optional(browser.prompt_text("Expression flags", default=""))
+        expression_flags = _clean_flags(browser.prompt_text("Expression flags", default=""))
 
         language_text = browser.prompt_text("Expression language", default="").strip()
         if language_text:

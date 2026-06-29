@@ -1,21 +1,24 @@
-"""
-Concrete container for one row from the ``items`` table.
-"""
+"""Core WEMI item identity implementation containers.
 
+Category: core WEMI identity object.
+This module implements the item entity itself, not the editable metadata bundle
+and not a read-side query result.
+"""
 from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_container_api import (
-    ItemContainerAPI,
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import ItemIdentityAPI
+from LiuXin_alpha.metadata.containers.metadata_containers._string_formatting import (
+    compact_mapping_string,
 )
 
 
-class ItemContainer(ItemContainerAPI):
+class ItemIdentity(ItemIdentityAPI):
     """
     Lightweight concrete container for one ``items`` row.
 
-    This intentionally mirrors the style of :class:`WorkContainer`: it is only
+    This intentionally mirrors the style of :class:`WorkIdentity`: it is only
     the row itself plus a couple of construction/serialization helpers.
     """
 
@@ -69,7 +72,7 @@ class ItemContainer(ItemContainerAPI):
         self.item_scratch = item_scratch
 
     @classmethod
-    def from_mapping(cls, row: Mapping[str, Any]) -> "ItemContainer":
+    def from_mapping(cls, row: Mapping[str, Any]) -> "ItemIdentity":
         return cls(
             item_id=row.get("item_id"),
             item_manifestation_id=row.get("item_manifestation_id"),
@@ -118,6 +121,14 @@ class ItemContainer(ItemContainerAPI):
             "item_source_modified_datestamp_ep_k": self.item_source_modified_datestamp_ep_k,
             "item_scratch": self.item_scratch,
         }
+
+    def __str__(self) -> str:
+        return compact_mapping_string(
+            self,
+            self.to_mapping(),
+            id_keys=("item_id", "item_manifestation_id"),
+            display_keys=("item_source_name", "item_source_path", "item_type"),
+        )
 
     @property
     def item_id(self) -> Optional[int]:
@@ -235,4 +246,4 @@ class ItemContainer(ItemContainerAPI):
         self._item_condition = item_condition
 
 
-__all__ = ["ItemContainer"]
+__all__ = ["ItemIdentity"]

@@ -14,6 +14,7 @@ from LiuXin_alpha.file_formats.mobi.utils import rescale_image
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
 from LiuXin_alpha.utils.date import now as nowf
 from LiuXin_alpha.utils.image_tools.imghdr import what
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import canonicalize_lang, lang_as_iso639_1, trans as _
 from LiuXin_alpha.utils.logging import default_log
 
@@ -26,6 +27,35 @@ def is_image(ss):
     if ss is None:
         return False
     return what(None, ss[:200]) is not None
+
+
+def _clean_mobi_text(value):
+    if value is None:
+        return ""
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        value = bytes(value).decode("utf-8", "replace")
+    return normalize(clean_xml_chars(str(value))).strip()
+
+
+def _clean_mobi_list(values):
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    elif isinstance(values, dict):
+        values = values.keys()
+    try:
+        iterable = list(values)
+    except TypeError:
+        iterable = [values]
+    return [text for text in (_clean_mobi_text(value) for value in iterable) if text]
+
+
+def _metadata_is_null(mi, field):
+    try:
+        return bool(mi.is_null(field))
+    except Exception:
+        return not bool(getattr(mi, field, None))
 
 
 class StreamSlicer:
@@ -327,7 +357,7 @@ class MetadataUpdater:
     def update(self, mi, asin=None):
         if hasattr(mi, "to_calibre"):
             mi = mi.to_calibre()
-        mi.title = normalize(mi.title)
+        title = _clean_mobi_text(getattr(mi, "title", None)) or _("Unknown")
 
         def update_exth_record(rec):
             recs.append(rec)
@@ -350,41 +380,48 @@ class MetadataUpdater:
             pas = False
             kindle_pdoc = None
             share_not_sync = False
-        if mi.author_sort and pas:
+        author_sort = _clean_mobi_text(getattr(mi, "author_sort", None))
+        authors = _clean_mobi_list(getattr(mi, "authors", None))
+        if author_sort and pas:
             # We want an EXTH field per author...
-            authors = mi.author_sort.split(' & ')
+            authors = [author for author in author_sort.split(' & ') if author]
             for author in authors:
-                update_exth_record((100, normalize(author).encode(self.codec, 'replace')))
-        elif mi.authors:
-            authors = mi.authors
+                update_exth_record((100, author.encode(self.codec, 'replace')))
+        elif authors:
             for author in authors:
-                update_exth_record((100, normalize(author).encode(self.codec, 'replace')))
-        if mi.publisher:
-            update_exth_record((101, normalize(mi.publisher).encode(self.codec, 'replace')))
-        if mi.comments:
+                update_exth_record((100, author.encode(self.codec, 'replace')))
+        publisher = _clean_mobi_text(getattr(mi, "publisher", None))
+        if publisher:
+            update_exth_record((101, publisher.encode(self.codec, 'replace')))
+        comments = _clean_mobi_text(getattr(mi, "comments", None))
+        if comments:
             # Strip user annotations
-            a_offset = mi.comments.find('<div class="user_annotations">')
-            ad_offset = mi.comments.find('<hr class="annotations_divider" />')
+            a_offset = comments.find('<div class="user_annotations">')
+            ad_offset = comments.find('<hr class="annotations_divider" />')
             if a_offset >= 0:
-                mi.comments = mi.comments[:a_offset]
+                comments = comments[:a_offset]
             if ad_offset >= 0:
-                mi.comments = mi.comments[:ad_offset]
-            update_exth_record((103, normalize(mi.comments).encode(self.codec, 'replace')))
-        if mi.isbn:
-            update_exth_record((104, mi.isbn.encode(self.codec, 'replace')))
-        if mi.tags:
+                comments = comments[:ad_offset]
+            update_exth_record((103, comments.encode(self.codec, 'replace')))
+        isbn = _clean_mobi_text(getattr(mi, "isbn", None))
+        if isbn:
+            update_exth_record((104, isbn.encode(self.codec, 'replace')))
+        tags = _clean_mobi_list(getattr(mi, "tags", None))
+        if tags:
             # FIXME: Keep a single subject per EXTH field?
-            subjects = '; '.join(mi.tags)
-            update_exth_record((105, normalize(subjects).encode(self.codec, 'replace')))
+            subjects = '; '.join(tags)
+            update_exth_record((105, subjects.encode(self.codec, 'replace')))
 
-            if kindle_pdoc and (kindle_pdoc == '*' or kindle_pdoc in mi.tags):
+            if kindle_pdoc and (kindle_pdoc == '*' or kindle_pdoc in tags):
                 added_501 = True
                 update_exth_record((501, b'PDOC'))
 
-        if mi.pubdate:
-            update_exth_record((106, str(mi.pubdate).encode(self.codec, 'replace')))
-        elif mi.timestamp:
-            update_exth_record((106, str(mi.timestamp).encode(self.codec, 'replace')))
+        pubdate = _clean_mobi_text(getattr(mi, "pubdate", None))
+        timestamp = _clean_mobi_text(getattr(mi, "timestamp", None))
+        if pubdate:
+            update_exth_record((106, pubdate.encode(self.codec, 'replace')))
+        elif timestamp:
+            update_exth_record((106, timestamp.encode(self.codec, 'replace')))
         elif self.timestamp:
             update_exth_record((106, self.timestamp))
         else:
@@ -402,24 +439,27 @@ class MetadataUpdater:
             update_exth_record((113, str(uuid4()).encode(self.codec)))
 
         if asin is not None:
-            update_exth_record((113, asin.encode(self.codec)))
+            clean_asin = _clean_mobi_text(asin)
+            update_exth_record((113, clean_asin.encode(self.codec)))
             update_exth_record((501, b'EBOK'))
-            update_exth_record((504, asin.encode(self.codec)))
+            update_exth_record((504, clean_asin.encode(self.codec)))
 
         # Add a 112 record with actual UUID
-        if getattr(mi, 'uuid', None):
+        uuid = _clean_mobi_text(getattr(mi, 'uuid', None))
+        if uuid:
             update_exth_record((112,
-                    (f'calibre:{mi.uuid}').encode(self.codec, 'replace')))
+                    (f'calibre:{uuid}').encode(self.codec, 'replace')))
         if 503 in self.original_exth_records:
-            update_exth_record((503, mi.title.encode(self.codec, 'replace')))
+            update_exth_record((503, title.encode(self.codec, 'replace')))
 
         # Update book producer
-        if getattr(mi, 'book_producer', False):
-            update_exth_record((108, mi.book_producer.encode(self.codec, 'replace')))
+        book_producer = _clean_mobi_text(getattr(mi, 'book_producer', None))
+        if book_producer:
+            update_exth_record((108, book_producer.encode(self.codec, 'replace')))
 
         # Set langcode in EXTH header
-        if not mi.is_null('language'):
-            lang = canonicalize_lang(mi.language)
+        if not _metadata_is_null(mi, 'language'):
+            lang = canonicalize_lang(_clean_mobi_text(getattr(mi, 'language', None)))
             lang = lang_as_iso639_1(lang) or lang
             if lang:
                 update_exth_record((524, lang.encode(self.codec, 'replace')))
@@ -442,18 +482,23 @@ class MetadataUpdater:
         if getattr(self, 'exth', None) is None:
             raise MobiError('No existing EXTH record. Cannot update metadata.')
 
-        if not mi.is_null('language'):
-            self.record0[92:96] = iana2mobi(mi.language)
-        self.create_exth(exth=exth, new_title=mi.title)
+        if not _metadata_is_null(mi, 'language'):
+            self.record0[92:96] = iana2mobi(_clean_mobi_text(getattr(mi, 'language', None)))
+        self.create_exth(exth=exth, new_title=title)
 
         # Fetch updated timestamp, cover_record, thumbnail_record
         self.fetchEXTHFields()
 
-        if mi.cover_data[1] or mi.cover:
+        cover_data = getattr(mi, "cover_data", None)
+        cover_payload = None
+        if isinstance(cover_data, (tuple, list)) and len(cover_data) > 1:
+            cover_payload = cover_data[1]
+        cover_path = getattr(mi, "cover", None)
+        if cover_payload or cover_path:
             try:
-                data = mi.cover_data[1]
+                data = cover_payload
                 if not data:
-                    with open(mi.cover, 'rb') as f:
+                    with open(cover_path, 'rb') as f:
                         data = f.read()
             except Exception:
                 pass
@@ -513,7 +558,13 @@ def _read_cover_from_header(mh):
         return b""
 
 
-def read_metadata_from_stream(stream, source_name: str = "", extract_cover: bool = True):
+def read_metadata_from_stream(
+    stream,
+    source_name: str = "",
+    extract_cover: bool = True,
+    *,
+    fallback_on_parse_error: bool = False,
+):
     from LiuXin_alpha.file_formats.mobi.reader.headers import MetadataHeader
     from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
     from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
@@ -539,6 +590,8 @@ def read_metadata_from_stream(stream, source_name: str = "", extract_cover: bool
                 "WARNING",
                 ("source", source_name or "<stream>"),
             )
+            if not fallback_on_parse_error:
+                raise MobiError("Topaz metadata reader is unavailable.") from err
             return mi
         try:
             return topaz_get_metadata(stream)
@@ -549,6 +602,8 @@ def read_metadata_from_stream(stream, source_name: str = "", extract_cover: bool
                 "ERROR",
                 ("source", source_name or "<stream>"),
             )
+            if not fallback_on_parse_error:
+                raise MobiError("Failed to read metadata from embedded Topaz stream.") from err
             return mi
 
     try:
@@ -582,10 +637,14 @@ def read_metadata_from_stream(stream, source_name: str = "", extract_cover: bool
             "ERROR",
             ("source", source_name or "<stream>"),
         )
+        if not fallback_on_parse_error:
+            if isinstance(err, MobiError):
+                raise
+            raise MobiError("Failed to read MOBI metadata.") from err
     return mi
 
 
-def get_metadata(target_file, extract_cover: bool = True):
+def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
     Read metadata from a MOBI path/pathlike or readable binary stream.
     """
@@ -610,7 +669,12 @@ def get_metadata(target_file, extract_cover: bool = True):
             pos = None
 
     try:
-        return read_metadata_from_stream(stream, source_name=source_name, extract_cover=extract_cover)
+        return read_metadata_from_stream(
+            stream,
+            source_name=source_name,
+            extract_cover=extract_cover,
+            fallback_on_parse_error=fallback_on_parse_error,
+        )
     finally:
         if stream_needs_close:
             stream.close()
@@ -621,11 +685,11 @@ def get_metadata(target_file, extract_cover: bool = True):
                 pass
 
 
-def get_metadata_inplace(target_file):
+def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False):
     """
     Path-oriented metadata read optimized for in-place plugin calls.
     """
-    return get_metadata(target_file, extract_cover=False)
+    return get_metadata(target_file, extract_cover=False, fallback_on_parse_error=fallback_on_parse_error)
 
 
 __all__ = [

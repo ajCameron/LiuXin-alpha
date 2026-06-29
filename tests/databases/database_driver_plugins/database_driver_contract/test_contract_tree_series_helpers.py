@@ -45,7 +45,7 @@ def _fetch_row(driver, table: str, row_id: int) -> dict:
 def _make_subjects_chain(
     driver, *, root_value: str, child_value: str, grand_value: str
 ) -> Tuple[int, int, int]:
-    parent_col = driver.get_parent_column_name("subjects")
+    parent_col = driver.direct_get_parent_column_name("subjects")
     root_id = _insert_and_get_id(driver, "subjects", {"subject": root_value, parent_col: None})
     child_id = _insert_and_get_id(driver, "subjects", {"subject": child_value, parent_col: root_id})
     grand_id = _insert_and_get_id(driver, "subjects", {"subject": grand_value, parent_col: child_id})
@@ -53,7 +53,7 @@ def _make_subjects_chain(
 
 
 def _make_series_chain(driver, *, root_value, child_value, grand_value) -> Tuple[int, int, int]:
-    parent_col = driver.get_parent_column_name("series")
+    parent_col = driver.direct_get_parent_column_name("series")
     root_id = _insert_and_get_id(driver, "series", {"series": root_value, parent_col: None})
     child_id = _insert_and_get_id(driver, "series", {"series": child_value, parent_col: root_id})
     grand_id = _insert_and_get_id(driver, "series", {"series": grand_value, parent_col: child_id})

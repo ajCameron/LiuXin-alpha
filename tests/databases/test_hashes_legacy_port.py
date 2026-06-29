@@ -6,7 +6,7 @@ from LiuXin_alpha.databases.hashes import (
     generate_book_fingerprint,
     generate_title_fingerprint,
 )
-from LiuXin_alpha.databases.metadata_tools.fingerprints import (
+from LiuXin_alpha.catalog.metadata_tools.fingerprints import (
     generate_title_fingerprint as metadata_tools_generate_title_fingerprint,
 )
 

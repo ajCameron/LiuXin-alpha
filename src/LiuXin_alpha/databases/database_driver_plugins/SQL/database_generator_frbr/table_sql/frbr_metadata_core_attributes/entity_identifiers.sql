@@ -3,14 +3,14 @@
 
 -- -----------------------------------------------------
 -- Table `entity_identifiers`
--- Curated/derived identifiers for any entity (Work/Expression/Manifestation/Item)
+-- Curated/derived identifiers for any entity (Work/Expression/Manifestation/Item/Agent)
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `entity_identifiers` (
   `entity_identifier_id` INTEGER PRIMARY KEY,
 
   -- NOTE: kept nullable so DriverWrapper.get_blank_row() can insert a placeholder row.
   -- Application logic can enforce presence later.
-  `entity_identifier_entity_type` TEXT NULL,  -- 'work', 'expression', 'manifestation', 'item'
+  `entity_identifier_entity_type` TEXT NULL,  -- 'work', 'expression', 'manifestation', 'item', 'agent'
   `entity_identifier_entity_id`   INTEGER NULL,
   `entity_identifier_scheme`      TEXT NULL,  -- 'isbn13', 'asin', 'uuid', ...
   `entity_identifier_value`       TEXT NULL,
@@ -23,9 +23,11 @@ CREATE TABLE IF NOT EXISTS `entity_identifiers` (
   `entity_identifier_modified_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
   `entity_identifier_source_created_datestamp_ep_k` INTEGER NULL,
   `entity_identifier_source_modified_datestamp_ep_k` INTEGER NULL,
+  `entity_identifier_scratch` TEXT NULL,
 
 
-  `entity_identifier_scratch` TEXT NULL
+  __ENTITY_IDENTIFIER_ENTITY_TYPE_CHECK__
+  __ENTITY_IDENTIFIER_SCHEME_BY_TYPE_CHECK__
 
 
 );

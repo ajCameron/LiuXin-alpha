@@ -101,7 +101,7 @@ class TestDB17Builder(TestDB4Builder):
         linked_to_id_col = scratch_db.driver_wrapper.driver.direct_get_id_column(linked_to)
 
         # Construct the new main table
-        scratch_db.driver_wrapper.driver.direct_create_new_main_table(table_name=new_table_name)
+        scratch_db.driver_wrapper.driver.direct_create_main_table(table_name=new_table_name)
 
         # Link the new main table back to the linked_to table - with a one to one relation
         scratch_db.driver_wrapper.driver.direct_link_main_tables(
@@ -169,7 +169,7 @@ class TestDB17Builder(TestDB4Builder):
         linked_to_id_col = scratch_db.driver_wrapper.driver.direct_get_id_column(linked_to)
 
         # Construct the new main table
-        scratch_db.driver_wrapper.driver.direct_create_new_main_table(table_name=new_table_name)
+        scratch_db.driver_wrapper.driver.direct_create_main_table(table_name=new_table_name)
 
         # Link the new main table back to the linked_to table - with a one to one relation
         scratch_db.driver_wrapper.driver.direct_link_main_tables(
@@ -260,7 +260,7 @@ class TestDB17Builder(TestDB4Builder):
         linked_to_id_col = scratch_db.driver_wrapper.driver.direct_get_id_column(linked_to)
 
         # Construct the new main table
-        scratch_db.driver_wrapper.driver.direct_create_new_main_table(table_name=new_table_name)
+        scratch_db.driver_wrapper.driver.direct_create_main_table(table_name=new_table_name)
 
         # Link the new main table back to the linked_to table - with a many to one relation between the new table and
         # the linked to table
@@ -353,7 +353,7 @@ class TestDB17Builder(TestDB4Builder):
         linked_to_id_col = scratch_db.driver_wrapper.driver.direct_get_id_column(linked_to)
 
         # Construct the new main table
-        scratch_db.driver_wrapper.driver.direct_create_new_main_table(table_name=new_table_name)
+        scratch_db.driver_wrapper.driver.direct_create_main_table(table_name=new_table_name)
 
         # Link the new main table back to the linked_to table - with a one to one relation
         scratch_db.driver_wrapper.driver.direct_link_main_tables(

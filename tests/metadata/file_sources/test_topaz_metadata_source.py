@@ -4,6 +4,8 @@ import io
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
@@ -150,9 +152,38 @@ def test_topaz_set_metadata_roundtrip_unicode() -> None:
     assert _values(parsed.authors) == ["Alice", "Боб"]
 
 
-def test_topaz_set_metadata_invalid_payload_raises_clean_error() -> None:
-    import pytest
+def test_topaz_set_metadata_sanitizes_hostile_text_and_preserves_payload() -> None:
+    from LiuXin_alpha.metadata.file_sources.topaz import get_metadata, set_metadata
 
+    stream = io.BytesIO(
+        _build_topaz_bytes(
+            title="Before",
+            authors="Old One; Old Two",
+            extra_fields={"bookLength": b"12345"},
+            trailing=b"TAIL",
+        )
+    )
+    title = "Topaz\x00Title\ud800 😀"
+    authors = ["Alice\x01 One", "Bob\udfff Two", "李白"]
+    mi = calibreMetaInformation(title, authors)
+
+    set_metadata(stream, mi)
+    out = stream.getvalue()
+
+    assert out.startswith(b"TPZ")
+    assert b"bookLength" in out
+    assert b"12345" in out
+    assert b"TAIL" in out
+
+    parsed = get_metadata(io.BytesIO(out))
+    assert parsed.title == "TopazTitle 😀"
+    assert _values(parsed.authors) == ["Alice One", "Bob Two", "李白"]
+
+    assert mi.title == title
+    assert mi.authors == authors
+
+
+def test_topaz_set_metadata_invalid_payload_raises_clean_error() -> None:
     from LiuXin_alpha.metadata.file_sources.topaz import set_metadata
 
     stream = io.BytesIO(b"not-a-topaz-file")
@@ -162,10 +193,13 @@ def test_topaz_set_metadata_invalid_payload_raises_clean_error() -> None:
         set_metadata(stream, mi)
 
 
-def test_topaz_invalid_payload_returns_safe_default() -> None:
-    from LiuXin_alpha.metadata.file_sources.topaz import get_metadata
+def test_topaz_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.topaz import TopazFormatError, get_metadata
 
-    md = get_metadata(io.BytesIO(b"not-a-topaz-file"))
+    with pytest.raises(TopazFormatError):
+        get_metadata(io.BytesIO(b"not-a-topaz-file"))
+
+    md = get_metadata(io.BytesIO(b"not-a-topaz-file"), fallback_on_parse_error=True)
     assert _first(md.title) == "Unknown"
     assert _values(md.authors) == ["Unknown"]
 

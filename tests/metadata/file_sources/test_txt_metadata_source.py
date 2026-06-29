@@ -110,6 +110,41 @@ def test_txt_invalid_payload_returns_safe_default() -> None:
     assert _values(md.authors) == ["Unknown"]
 
 
+def test_txt_binary_signatures_do_not_become_titles() -> None:
+    from LiuXin_alpha.metadata.file_sources.txt import get_metadata
+
+    for payload in (
+        b"\x89PNG\r\n\x1a\n" + b"\x00" * 32,
+        b"%PDF-1.7\nnot really text",
+        b"PK\x03\x04" + b"\x00" * 20,
+    ):
+        md = get_metadata(io.BytesIO(payload))
+        assert _first(md.title) == "Unknown"
+        assert _values(md.authors) == ["Unknown"]
+
+
+def test_txt_utf16_bom_is_not_rejected_as_binary() -> None:
+    from LiuXin_alpha.metadata.file_sources.txt import get_metadata
+
+    payload = "UTF16 Title\n\n\nby UTF16 Author\n".encode("utf-16")
+    md = get_metadata(io.BytesIO(payload))
+
+    assert md.title == "UTF16 Title"
+    assert _values(md.authors) == ["UTF16 Author"]
+
+
+def test_txt_unicode_torture_and_controls_are_sanitized() -> None:
+    from LiuXin_alpha.metadata.file_sources.txt import get_metadata
+
+    payload = "Title\x00 With Controls — Καλημέρα — こんにちは — 😀\n\n\nby Renée & 李白\x07\n".encode("utf-8")
+    md = get_metadata(io.BytesIO(payload))
+
+    assert "\x00" not in md.title
+    assert "\x07" not in md.title
+    assert "Καλημέρα" in md.title
+    assert _values(md.authors) == ["Renée", "李白"]
+
+
 def test_txt_md_fixture_smoke_and_deterministic(md_test_fixture) -> None:
     from LiuXin_alpha.metadata.file_sources.txt import get_metadata
 

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from LiuXin_alpha.storage.api.backup_api import BackupSourceKind, BackupSourceSpec, BackupWorkflowKind, BackupWorkflowSpec
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

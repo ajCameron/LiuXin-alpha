@@ -1,4 +1,9 @@
 
+"""
+Driver mixins for handling views.
+"""
+
+from typing import Any, Optional
 
 from LiuXin_alpha.utils.libraries.liuxin_six import force_cmp, user_input, force_unicode
 
@@ -11,10 +16,11 @@ class ViewMixin:
     """
     Provides methods to manipulate views.
     """
-    def direct_get_view_row_dict_from_id(self, view, row_id):
+    def direct_get_view_row_dict_from_id(self, view: str, row_id: int) -> Optional[dict[str, Any]]:
         """
-        Retrieve a row from a view and return it as a dictionary, keyed with the column headings of the row and valued
-        with the values of that column.
+        Retrieve a row from a view and return it as a dict.
+
+        Keyed with the column headings of the row and valued with the values of that column.
         :param view:
         :param row_id:
         :return:
@@ -35,24 +41,29 @@ class ViewMixin:
             # Use the same typed coercion as table-row helpers (INTEGER stays int, etc.)
             result = self._row_to_dict(table=view, headings=headings, row=row)
             rows.append(result)
+
         if len(rows) > 1:
             err_str = "Error - search yielded multiple rows. Aborting.\n"
             err_str += repr(rows)
             default_log.error(err_str)
             conn.close()
             raise DatabaseIntegrityError(err_str)
+
         elif len(rows) == 0:
             info_str = "Warning - search yielded no results. Consider sources of logical error."
             default_log.log_variables(info_str, "INFO", ("table", view), ("row_id", row_id))
             conn.close()
-            return False
+            return None
+
         else:
             conn.close()
             return result
 
-    def direct_get_view_column_headings(self, view):
+    # Todo: We, nominally, know all the views in the schema ... so we can type this
+    def direct_get_view_column_headings(self, view: str) -> list[str]:
         """
         Returns the column headings for the given view.
+
         :param view:
         :return:
         """

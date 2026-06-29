@@ -1,5 +1,5 @@
 """
-Hydrator/factory for concrete :class:`ItemMetadataContainer` objects.
+Hydrator/factory for concrete :class:`ItemMetadata` objects.
 """
 
 from __future__ import annotations
@@ -8,21 +8,22 @@ from collections.abc import Mapping
 from typing import Any, Iterable, Optional
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.metadata.api.metadata_container_api.wemi_containers_api.item_metadata_container_api import (
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_metadata_api import (
     ItemRelationLink,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import (
-    ItemContainer,
+    ItemIdentity,
 )
 from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import (
-    ItemMetadataContainer,
+    ItemMetadata,
 )
+from LiuXin_alpha.metadata.read_sources import metadata_read_source_from
 from LiuXin_alpha.utils.adaptors import _boolish_to_bool
 
 
 class ItemMetadataHydrator:
     """
-    Build :class:`ItemMetadataContainer` instances from database rows or views.
+    Build :class:`ItemMetadata` instances from database rows or views.
 
     Supported entry points:
     - item id
@@ -34,7 +35,7 @@ class ItemMetadataHydrator:
     def __init__(self, database: Any) -> None:
         if database is None:
             raise ValueError("ItemMetadataHydrator requires a database instance.")
-        self.db = database
+        self.db = metadata_read_source_from(database)
         try:
             self._tables = set(self.db.get_tables(force_refresh=False))
         except Exception:
@@ -44,13 +45,13 @@ class ItemMetadataHydrator:
         except Exception:
             self._tables_and_columns = {}
 
-    def from_item_id(self, item_id: int) -> ItemMetadataContainer:
+    def from_item_id(self, item_id: int) -> ItemMetadata:
         item_row = self.db.get_row_from_id("items", int(item_id))
         if item_row is None:
             raise ValueError("No item found for id {}.".format(int(item_id)))
         return self._hydrate(item_row=item_row, source_row=item_row)
 
-    def from_source_row(self, source_row: Mapping[str, Any] | Row) -> ItemMetadataContainer:
+    def from_source_row(self, source_row: Mapping[str, Any] | Row) -> ItemMetadata:
         ids = self._extract_known_ids(source_row)
         item_row = None
         if isinstance(source_row, Row) and source_row.table == "items":
@@ -101,17 +102,17 @@ class ItemMetadataHydrator:
             "work_id": _as_int(mapping.get("work_id") or mapping.get("book_work_id") or mapping.get("title_id")),
         }
 
-    def _hydrate(self, *, item_row: Optional[Row], source_row: Mapping[str, Any] | Row) -> ItemMetadataContainer:
+    def _hydrate(self, *, item_row: Optional[Row], source_row: Mapping[str, Any] | Row) -> ItemMetadata:
         ids = self._extract_known_ids(source_row)
         source_map = self._mapping_from(source_row)
 
         item_container = None
         if item_row is not None:
-            item_container = ItemContainer.from_mapping(item_row.row_dict)
+            item_container = ItemIdentity.from_mapping(item_row.row_dict)
         elif self._looks_like_item_mapping(source_map):
-            item_container = ItemContainer.from_mapping(source_map)
+            item_container = ItemIdentity.from_mapping(source_map)
 
-        container = ItemMetadataContainer(item=item_container)
+        container = ItemMetadata(item=item_container)
 
         manifestation_rows: list[Row] = []
         expression_rows: list[Row] = []
@@ -137,11 +138,37 @@ class ItemMetadataHydrator:
                     ),
                 )
 
+        if item_row is not None:
+            manifestation_links = self._collect_interlinks_from_row(
+                item_row,
+                secondary_table="manifestations",
+                source_entity_type="item",
+            )
+            if manifestation_links:
+                self._append_links_unique(
+                    container,
+                    "manifestations",
+                    manifestation_links,
+                )
+                for link in manifestation_links:
+                    if isinstance(link.target, Row):
+                        manifestation_rows.append(link.target)
+
+        manifestation_rows = self._dedupe_rows(manifestation_rows)
+
         explicit_expression_id = ids["expression_id"]
         if explicit_expression_id is not None:
             expression_row = self.db.get_row_from_id("expressions", int(explicit_expression_id))
             if expression_row is not None:
                 expression_rows.append(expression_row)
+                self._ensure_row_link(
+                    container,
+                    "expressions",
+                    expression_row,
+                    type_hint="source_expression",
+                    source_entity_type="item",
+                    primary=True,
+                )
 
         if manifestation_rows:
             for manifestation_row in manifestation_rows:
@@ -165,6 +192,14 @@ class ItemMetadataHydrator:
             work_row = self.db.get_row_from_id("works", int(explicit_work_id))
             if work_row is not None:
                 work_rows.append(work_row)
+                self._ensure_row_link(
+                    container,
+                    "works",
+                    work_row,
+                    type_hint="source_work",
+                    source_entity_type="item",
+                    primary=True,
+                )
 
         for expression_row in expression_rows:
             links = self._collect_interlinks_from_row(
@@ -300,23 +335,86 @@ class ItemMetadataHydrator:
                     primary=True,
                     type=link.type,
                     origin=link.origin,
+                    source=link.source,
                     policy=link.policy,
                     data=link.data,
                     index=link.index,
+                    link_id=link.link_id,
+                    cardinality=link.cardinality,
                     extra=dict(link.extra),
                 )
                 break
 
-    def _append_links_unique(self, container: ItemMetadataContainer, relation: str, links: Iterable[ItemRelationLink]) -> None:
+    def _append_links_unique(self, container: ItemMetadata, relation: str, links: Iterable[ItemRelationLink]) -> None:
         existing = container.get_relation_links(relation)
-        seen_rows = {self._row_key(link.target) for link in existing if isinstance(link.target, Row)}
+        seen_rows = {
+            self._row_key(link.target): index
+            for index, link in enumerate(existing)
+            if isinstance(link.target, Row)
+        }
         for link in links:
             key = self._row_key(link.target)
-            if key is not None and key in seen_rows:
+            if key is not None and key in seen_rows and seen_rows[key] is not None:
+                existing_index = seen_rows[key]
+                existing[existing_index] = self._merge_link_metadata(
+                    existing[existing_index],
+                    link,
+                )
                 continue
             existing.append(link)
             if key is not None:
-                seen_rows.add(key)
+                seen_rows[key] = len(existing) - 1
+
+    @staticmethod
+    def _merge_link_metadata(
+        existing: ItemRelationLink,
+        incoming: ItemRelationLink,
+    ) -> ItemRelationLink:
+        extra = dict(existing.extra)
+        extra.update(incoming.extra)
+        return ItemRelationLink(
+            target=existing.target,
+            priority=incoming.priority if incoming.priority is not None else existing.priority,
+            primary=incoming.primary if incoming.primary is not None else existing.primary,
+            type=incoming.type if incoming.type is not None else existing.type,
+            origin=incoming.origin if incoming.origin is not None else existing.origin,
+            source=incoming.source if incoming.source is not None else existing.source,
+            policy=incoming.policy if incoming.policy is not None else existing.policy,
+            data=incoming.data if incoming.data is not None else existing.data,
+            index=incoming.index if incoming.index is not None else existing.index,
+            link_id=incoming.link_id if incoming.link_id is not None else existing.link_id,
+            cardinality=(
+                incoming.cardinality
+                if incoming.cardinality is not None
+                else existing.cardinality
+            ),
+            extra=extra,
+        )
+
+    def _ensure_row_link(
+        self,
+        container: ItemMetadata,
+        relation: str,
+        row: Row,
+        *,
+        type_hint: str,
+        source_entity_type: str,
+        primary: bool | None = None,
+    ) -> None:
+        key = self._row_key(row)
+        if key is None:
+            return
+        for link in container.get_relation_links(relation):
+            if self._row_key(link.target) == key:
+                return
+        container.get_relation_links(relation).append(
+            ItemRelationLink(
+                target=row,
+                primary=primary,
+                type=type_hint,
+                extra={"source_entity_type": source_entity_type},
+            )
+        )
 
     def _collect_interlinks_from_row(
         self,
@@ -377,9 +475,11 @@ class ItemMetadataHydrator:
                         "primary",
                         "type",
                         "origin",
+                        "source",
                         "policy",
                         "data",
                         "index",
+                        "id",
                     }:
                         continue
                     extra[suffix] = value
@@ -391,9 +491,11 @@ class ItemMetadataHydrator:
                     primary=_boolish_to_bool(link_map.get(prefix + "_primary")) if prefix else None,
                     type=link_map.get(prefix + "_type") if prefix else None,
                     origin=link_map.get(prefix + "_origin") if prefix else None,
+                    source=link_map.get(prefix + "_source") if prefix else None,
                     policy=link_map.get(prefix + "_policy") if prefix else None,
                     data=link_map.get(prefix + "_data") if prefix else None,
                     index=link_map.get(prefix + "_index") if prefix else None,
+                    link_id=link_map.get(prefix + "_id") if prefix else None,
                     extra=extra,
                 )
             )
@@ -464,7 +566,7 @@ class ItemMetadataHydrator:
                     )
         return links
 
-    def _hydrate_folders_and_stores(self, container: ItemMetadataContainer, *, work_rows: list[Row]) -> None:
+    def _hydrate_folders_and_stores(self, container: ItemMetadata, *, work_rows: list[Row]) -> None:
         folder_rows: list[Row] = []
         store_rows: list[Row] = []
 

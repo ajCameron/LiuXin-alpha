@@ -1,7 +1,7 @@
 """Interactive text UI for browsing LiuXin database contents.
 
 This module intentionally provides a read-only shell focused on schema and row
-inspection while the broader interfaces layer is still being built out.
+inspection while the broader surfaces layer is still being built out.
 """
 
 from __future__ import annotations
@@ -14,9 +14,10 @@ import sys
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Optional, Sequence, TextIO
+from typing import Any, Mapping, Optional, Sequence, TextIO
 
 from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.surfaces.metadata_facets import resolve_tag_or_label_table_token
 from LiuXin_alpha.surfaces.terminal.commands import TerminalCommandAPI, build_default_commands
 from LiuXin_alpha.surfaces.terminal.plugins import TerminalLifecyclePluginAPI
 from LiuXin_alpha.utils.jobs import default_job_manager
@@ -69,7 +70,15 @@ def _build_default_core_runtime(db: Database, *, job_manager):
     return CoreRuntime(library=library, job_manager=job_manager)
 
 
-def _open_database(*, database_path: str, db_type: str, create_if_missing: bool = True) -> Database:
+def _open_database(
+    *,
+    database_path: str,
+    db_type: str,
+    create_if_missing: bool = True,
+    enable_storage_manager: bool = False,
+    enable_maintenance: bool = False,
+    repair_bootstrap_rows: bool = False,
+) -> Database:
     db_path = Path(database_path).expanduser()
     should_create = bool(create_if_missing and not db_path.exists())
     if should_create:
@@ -79,6 +88,9 @@ def _open_database(*, database_path: str, db_type: str, create_if_missing: bool 
         db_type=db_type,
         create=should_create,
         backup=False,
+        enable_storage_manager=bool(enable_storage_manager),
+        enable_maintenance=bool(enable_maintenance),
+        repair_bootstrap_rows=bool(repair_bootstrap_rows),
     )
 
 
@@ -557,8 +569,10 @@ class TextDatabaseBrowser:
         lifecycle_plugins: Optional[Sequence[TerminalLifecyclePluginAPI]] = None,
         job_manager=None,
         core_runtime=None,
+        metadata_read_source: Any = None,
     ) -> None:
         self.db = db
+        self.metadata_read_source = metadata_read_source
         self.page_size = max(1, int(page_size))
         self.input = input or sys.stdin
         self.output = output or sys.stdout
@@ -688,6 +702,8 @@ class TextDatabaseBrowser:
 
     def _execute_command(self, command_token: str, command_impl: TerminalCommandAPI, args: list[str]) -> bool:
         should_continue = bool(command_impl.execute(self, args))
+        if bool(getattr(command_impl, "mutates_data", False)):
+            self.notify_write_completed()
         if not should_continue and self._shutdown_reason is None:
             self.request_shutdown("command:{}".format(command_token))
         return should_continue
@@ -1126,6 +1142,12 @@ class TextDatabaseBrowser:
     def emit(self, text: str, *, end: str = "\n") -> None:
         """Public output sink for command implementations."""
         self._write(text, end=end)
+
+    def notify_write_completed(self) -> bool:
+        """Refresh any attached metadata read source after a successful write."""
+        from LiuXin_alpha.surfaces.write_refresh import refresh_metadata_read_source_after_write
+
+        return refresh_metadata_read_source_after_write(self)
 
     def supports_core_commands(self) -> bool:
         """Whether this browser can dispatch write commands through core runtime."""
@@ -2044,12 +2066,9 @@ class TextDatabaseBrowser:
         if text in tables:
             return text
 
-        # Common logical aliases that appear in user-facing command usage.
-        if text in {"tag", "tags", "label", "labels"}:
-            if "labels" in tables:
-                return "labels"
-            if "tags" in tables:
-                return "tags"
+        tag_or_label_table = resolve_tag_or_label_table_token(text, tables)
+        if tag_or_label_table is not None:
+            return tag_or_label_table
 
         common_aliases = {
             "note": "notes",
@@ -2145,7 +2164,7 @@ class TextDatabaseBrowser:
             "works": ("work_title", "work_canonical_title", "work_sort_title"),
             "stores": ("store_name", "store_kind", "store_root_uri"),
             "labels": ("label_text", "label", "label_text_norm"),
-            "tags": ("tag", "label_text", "label"),
+            "tags": ("tag", "tag_phash", "label_text", "label"),
             "notes": ("note", "note_text", "note_body"),
             "folders": ("folder_name", "folder_relpath"),
             "files": ("file_name", "file_original_name", "file_storage_key"),
@@ -2537,6 +2556,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fail if the database path does not exist (default creates a new library database).",
     )
     parser.add_argument(
+        "--enable-storage-manager",
+        action="store_true",
+        help="Bootstrap storage manager integration when opening the database. Slower startup.",
+    )
+    parser.add_argument(
+        "--enable-maintenance",
+        action="store_true",
+        help="Start the background maintenance service when opening the database. Slower startup.",
+    )
+    parser.add_argument(
+        "--repair-bootstrap-rows",
+        action="store_true",
+        help="Run rating/null-row bootstrap repairs while opening the database. May write to the database.",
+    )
+    parser.add_argument(
         "--command",
         action="append",
         default=[],
@@ -2598,6 +2632,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             database_path=database_path,
             db_type=db_type,
             create_if_missing=not bool(args.no_create_if_missing),
+            enable_storage_manager=bool(args.enable_storage_manager),
+            enable_maintenance=bool(args.enable_maintenance),
+            repair_bootstrap_rows=bool(args.repair_bootstrap_rows),
         ) as db:
             if args.command:
                 shell = TextDatabaseBrowser(

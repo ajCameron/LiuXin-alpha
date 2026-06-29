@@ -10,7 +10,6 @@ from copy import deepcopy
 
 from typing import Optional, Union, Iterator, Any, Self, ClassVar
 
-from LiuXin_alpha.databases import DatabaseAPI
 from LiuXin_alpha.errors import DatabaseDriverError, RowReadOnlyError
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -414,7 +413,7 @@ class Row(RowAPI):
         :return:
         """
         row_dict = object.__getattribute__(self, "int_row_dict")
-        target_table = self.db.driver_wrapper.identify_table_from_column(key, error=False)
+        target_table = self.db.driver_wrapper.direct_identify_table_from_column(key, error=False)
         if target_table is None:
             err_str = "Cannot set item - does not correspond to a column heading from any table in this database"
             err_str = default_log.log_variables(err_str, "ERROR", ("db", self.db), ("key", key), ("value", value))
@@ -646,6 +645,7 @@ class Row(RowAPI):
     # ------------------------
 
 
+# Todo: Consider this for all main tables?
 class FixedTableStorageRow(Row):
     """
     Small storage-facing ``Row`` specialisation with a fixed backing table.

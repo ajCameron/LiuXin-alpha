@@ -4,9 +4,9 @@ Date: 2026-03-16
 
 ## Summary
 
-Extracted the OPDS route/feed/token implementation out of `interfaces/web_calibre_readonly` into a neutral shared package:
+Extracted the OPDS route/feed/token implementation out of `surfaces/web_calibre_readonly` into a neutral shared package:
 
-- `interfaces/opds`
+- `surfaces/opds`
 - shared router: `OpdsApi`
 - explicit host protocol: `OpdsHostApi`
 
@@ -33,8 +33,8 @@ Host interfaces now provide explicit methods such as:
 
 ## Current Hosts
 
-- `interfaces/web_calibre_readonly`
-- `interfaces/opds_readonly`
+- `surfaces/web_calibre_readonly`
+- `surfaces/opds_readonly`
 
 `web_calibre_readonly` is now an OPDS host instead of an OPDS implementation.
 
@@ -48,14 +48,14 @@ This gives a real reuse seam for later interfaces:
 
 ## Validation
 
-- `pytest -q tests/interfaces/test_opds_api.py tests/interfaces/test_opds_readonly.py tests/interfaces/test_web_calibre_readonly.py tests/interfaces/test_web_readonly.py`
+- `pytest -q tests/surfaces/test_opds_api.py tests/surfaces/test_opds_readonly.py tests/surfaces/test_web_calibre_readonly.py tests/surfaces/test_web_readonly.py`
   - `25 passed`
-- `python -m py_compile src/LiuXin_alpha/interfaces/opds/api.py src/LiuXin_alpha/interfaces/opds_readonly/app.py src/LiuXin_alpha/interfaces/web_calibre_readonly/app.py tests/interfaces/test_opds_api.py tests/interfaces/test_opds_readonly.py tests/interfaces/test_web_calibre_readonly.py`
+- `python -m py_compile src/LiuXin_alpha/surfaces/opds/api.py src/LiuXin_alpha/surfaces/opds_readonly/app.py src/LiuXin_alpha/surfaces/web_calibre_readonly/app.py tests/surfaces/test_opds_api.py tests/surfaces/test_opds_readonly.py tests/surfaces/test_web_calibre_readonly.py`
   - passed
 
 
 Update:
-- Calibre-compatible acquisition/download behavior now also lives in a neutral shared package, `interfaces/acquisition`, instead of being owned by `web_calibre_readonly`.
+- Calibre-compatible acquisition/download behavior now also lives in a neutral shared package, `surfaces/acquisition`, instead of being owned by `web_calibre_readonly`.
 
 ## TODO
 

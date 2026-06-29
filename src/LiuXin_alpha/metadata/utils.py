@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import sys
 import re
-from urllib.parse import urlparse
+from urllib.parse import quote, unquote, urlparse
 from collections import namedtuple
 
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree, LXML_AVAILABLE
@@ -159,7 +159,7 @@ def author_to_author_sort(
     if ltoks.intersection(copy_words):
         method = "copy"
 
-    if method == "comma":
+    if method == "copy":
         return author
 
     prefixes = set([y.lower() for y in tweaks["author_name_prefixes"]])
@@ -284,10 +284,10 @@ def title_sort(title: str, order: Optional[str] = None, lang: Optional[str] = No
     return title.strip()
 
 
-coding = zip(
+coding = tuple(zip(
     [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1],
     ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"],
-)
+))
 
 
 def roman(num: int) -> str:
@@ -353,8 +353,8 @@ class Resource:
         :param basedir:
         :param is_path:
         """
-        from urllib import unquote
-
+        if isinstance(basedir, bytes):
+            basedir = basedir.decode(sys.getfilesystemencoding(), "replace")
         self._href = None
         self._basedir = basedir
         self.path = None
@@ -378,9 +378,9 @@ class Resource:
                 self._href = href_or_path
             else:
                 pc = url[2]
-                if isinstance(pc, str):
-                    pc = pc.encode("utf-8")
-                pc = unquote(pc).decode("utf-8")
+                if isinstance(pc, bytes):
+                    pc = pc.decode("utf-8", "replace")
+                pc = unquote(pc)
                 self.path = os.path.abspath(os.path.join(basedir, pc.replace("/", os.sep)))
                 self.fragment = unquote(url[-1])
 
@@ -392,26 +392,29 @@ class Resource:
         If this resource has no basedir, then the current working directory is used as the basedir.
         """
 
-        from urllib import quote
-
         if basedir is None:
             if self._basedir:
                 basedir = self._basedir
             else:
-                basedir = os.getcwdu()
+                basedir = os.getcwd()
+        if isinstance(basedir, bytes):
+            basedir = basedir.decode(sys.getfilesystemencoding(), "replace")
         if self.path is None:
             return self._href
-        f = self.fragment.encode("utf-8") if isinstance(self.fragment, unicode) else self.fragment
-        frag = "#" + quote(f) if self.fragment else ""
+        frag = "#" + quote(self.fragment) if self.fragment else ""
         if self.path == basedir:
             return "" + frag
         try:
             rpath = relpath(self.path, basedir)
         except OSError:  # On windows path and basedir could be on different drives
             rpath = self.path
-        if isinstance(rpath, unicode):
-            rpath = rpath.encode("utf-8")
+        if isinstance(rpath, bytes):
+            rpath = rpath.decode("utf-8", "replace")
         return quote(rpath.replace(os.sep, "/")) + frag
+
+    @classmethod
+    def from_path(cls, path, basedir=None):
+        return cls(path, basedir=os.getcwd() if basedir is None else basedir, is_path=True)
 
     def set_basedir(self, path):
         self._basedir = path
@@ -500,11 +503,10 @@ class ResourceCollection:
         :return:
         """
         collection = ResourceCollection()
-        for spec in os.walk(top, topdown=topdown):
-            path = os.path.abspath(os.path.join(spec[0], spec[1]))
-            res = Resource.from_path(path)
-            res.set_basedir(top)
-            collection.append(res)
+        for dirpath, _dirnames, filenames in os.walk(top, topdown=topdown):
+            for filename in filenames:
+                path = os.path.abspath(os.path.join(dirpath, filename))
+                collection.append(Resource.from_path(path, basedir=top))
         return collection
 
     def set_basedir(self, path):
@@ -707,6 +709,7 @@ def parse_opf(stream_or_path):
     """
     stream = stream_or_path
     if not hasattr(stream, "read"):
+        stream = os.fspath(stream) if isinstance(stream, os.PathLike) else stream
         if len(stream) < 4096 and os.path.exists(stream):
             with open(stream, "rb") as opf_stream:
                 raw = opf_stream.read()
@@ -751,19 +754,41 @@ def normalize_languages(opf_languages, mi_languages):
         # Keep unknown values in a stable lower-cased form so we round-trip
         # instead of dropping potentially valid-but-unlisted BCP-47 tags.
         langcode = canonicalize_lang(primary) or primary.lower()
-        country = tail.partition("-")[0].strip().upper() if tail else ""
+        tail_parts = [part.strip() for part in tail.split("-") if part.strip()]
+        country = ""
+        if tail_parts:
+            country = next(
+                (
+                    part
+                    for part in tail_parts
+                    if len(part) == 2 or (len(part) == 3 and part.isdigit())
+                ),
+                tail_parts[0],
+            )
+            country = country.upper()
         return LocaleCode(langcode=langcode, countrycode=(country or None))
 
-    opf_languages = filter(None, map(parse, opf_languages))
-    cc_map = {c.langcode: c.countrycode for c in opf_languages}
+    def iso2(lc):
+        lc2 = lang_as_iso639_1(lc)
+        if not lc2 or len(lc2) != 2:
+            lc2 = fallback_lang_as_iso639_1(lc) or lc2
+        return lc2
+
+    opf_languages = list(filter(None, map(parse, opf_languages)))
+    cc_map = {}
+    for c in opf_languages:
+        cc_map[c.langcode] = c.countrycode
+        lc2 = iso2(c.langcode)
+        if lc2:
+            cc_map.setdefault(lc2, c.countrycode)
     mi_languages = filter(None, map(parse, mi_languages))
 
     def norm(x):
         lc = x.langcode
         cc = x.countrycode or cc_map.get(lc, None)
-        lc2 = lang_as_iso639_1(lc)
-        if not lc2 or len(lc2) != 2:
-            lc2 = fallback_lang_as_iso639_1(lc) or lc2
+        lc2 = iso2(lc)
+        if not cc and lc2:
+            cc = cc_map.get(lc2, None)
         lc = lc2 or lc
         if cc:
             lc += "-" + cc
@@ -798,7 +823,7 @@ def create_manifest_item(root, href_template, id_template, media_type=None):
     item_id = ensure_unique(id_template, all_ids)
     manifest = root.find(OPF("manifest"))
     if manifest is not None:
-        i = manifest.makeelement(OPF("item"))
+        i = manifest.makeelement(OPF("item"), {})
         i.set("href", href), i.set("id", item_id)
         mtype = media_type
         if not mtype:

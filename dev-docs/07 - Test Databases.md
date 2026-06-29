@@ -75,7 +75,7 @@ and can also be built with custom counts via:
 The first benchmark harness now exists separately from pytest:
 
 - [benchmark_read_paths.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_read_paths.py)
-- [benchmark_interface_paths.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_interface_paths.py)
+- [benchmark_surface_paths.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_surface_paths.py)
 - [benchmark_baseline_suite.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_baseline_suite.py)
 - [summarize_benchmark_report.py](/home/blackjane/LiuXin-alpha-wsl/scripts/summarize_benchmark_report.py)
 
@@ -118,7 +118,7 @@ First live member:
 Purpose:
 
 - current storage-backed file semantics
-- interface and acquisition realism
+- surface and acquisition realism
 
 Should contain:
 

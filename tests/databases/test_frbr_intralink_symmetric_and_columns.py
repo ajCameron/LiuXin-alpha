@@ -145,7 +145,13 @@ def test_intralink_builder_optional_columns_and_symmetric_types(tmp_path: pathli
         assert "widget_widget_intralink_policy" in cols
         assert "widget_widget_intralink_data" in cols
         assert "widget_widget_intralink_priority" in cols
+        assert "widget_widget_intralink_source" in cols
         assert "widget_widget_intralink_type" in cols
+        source_info = {
+            r[1]: r
+            for r in conn.execute("PRAGMA table_info(`widget_widget_intralinks`);").fetchall()
+        }
+        assert int(source_info["widget_widget_intralink_source"][3]) == 0
 
         # symmetric_types enforced for 'equivalent'
         with pytest.raises(sqlite3.IntegrityError):

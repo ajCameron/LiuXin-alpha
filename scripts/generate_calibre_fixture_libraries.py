@@ -31,13 +31,12 @@ import argparse
 import json
 import os
 import shutil
-import sqlite3
 import sys
 import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 
 # -------------------------------------------------------------------------------------------------
@@ -306,7 +305,7 @@ def _create_base_library(tmp_root: Path, *, name: str, notes_db: bool, fts_db: b
 
 
 def _snapshot_library(lib_root: Path) -> dict[str, Any]:
-    from LiuXin_alpha.databases.calibre_emulation.readers import CalibreReader
+    from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import CalibreReader
 
     reader = CalibreReader.from_root(lib_root)
     schema = reader.db.schema_info(best_effort=True)

@@ -4,7 +4,7 @@ import pathlib
 
 import pytest
 
-from LiuXin_alpha.metadata.api import ItemStorageHints, WorkStorageHints
+from LiuXin_alpha.storage.api import ItemStorageHints, WorkStorageHints
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like import (
     OnDiskCalibreLikeStorageBackend,
 )

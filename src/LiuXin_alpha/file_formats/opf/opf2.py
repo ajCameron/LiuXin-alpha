@@ -17,6 +17,7 @@ import uuid
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
 
+import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 
 from LiuXin_alpha.file_formats.utils import escape_xpath_attr
@@ -2606,8 +2607,8 @@ def metadata_to_opf(mi, as_string=True, default_lang=None):
     # --------
 
     # TITLE SORT
-    if mi.title_sort:
-        meta("title_sort", mi.title_sort)
+    if LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort:
+        meta("title_sort", LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort)
     # ----------
 
     # USER CATEGORIES
@@ -2715,7 +2716,7 @@ def calibre_metadata_to_opf(mi, as_string=True, default_lang=None):
         try:
             elem = metadata.makeelement(tag, attrib=attrib)
         except ValueError:
-            elem = metadata.makeelement(tag, attrib={k: clean_xml_chars(v) for k, v in attrib.iteritems()})
+            elem = metadata.makeelement(tag, attrib={k: clean_xml_chars(v) for k, v in iteritems(attrib)})
         elem.tail = "\n" + (" " * 8)
         if text:
             try:
@@ -2736,7 +2737,7 @@ def calibre_metadata_to_opf(mi, as_string=True, default_lang=None):
         factory(DC("description"), clean_ascii_chars(mi.comments))
     if mi.publisher:
         factory(DC("publisher"), mi.publisher)
-    for key, val in mi.get_identifiers().iteritems():
+    for key, val in iteritems(mi.get_identifiers()):
         factory(DC("identifier"), val, scheme=icu_upper(key))
     if mi.rights:
         factory(DC("rights"), mi.rights)
@@ -2760,8 +2761,8 @@ def calibre_metadata_to_opf(mi, as_string=True, default_lang=None):
         meta("timestamp", isoformat(mi.timestamp))
     if mi.publication_type:
         meta("publication_type", mi.publication_type)
-    if mi.title_sort:
-        meta("title_sort", mi.title_sort)
+    if LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort:
+        meta("title_sort", LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort)
     if mi.user_categories:
         meta("user_categories", dump_dict(mi.user_categories))
 

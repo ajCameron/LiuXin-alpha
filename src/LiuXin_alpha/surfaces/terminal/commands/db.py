@@ -1,4 +1,4 @@
-"""Database maintenance commands for the terminal interface."""
+"""Database maintenance commands for the terminal surface."""
 
 from __future__ import annotations
 

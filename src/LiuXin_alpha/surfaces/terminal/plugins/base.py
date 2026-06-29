@@ -1,4 +1,4 @@
-"""Lifecycle plugin API for terminal interfaces."""
+"""Lifecycle plugin API for terminal surfaces."""
 
 from __future__ import annotations
 

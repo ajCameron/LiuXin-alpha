@@ -204,6 +204,7 @@ METADATA_NULL_VALUES = {
     "imprint": OrderedDict(),
     "internal_identifiers": OrderedDict(),
     "language": "und",
+    "labels": OrderedDict(),
     "languages": [],
     "languages_available": OrderedDict(),
     "last_modified": None,
@@ -386,3 +387,15 @@ INFO_DICT_KEY_DROP_SET = {
 }
 
 INFO_DICT_VALUE_DROP_SET = {r"HTML Tidy for Mac OS X (vers 1st December 2004), see www.w3.org"}
+
+
+from .container_vocabularies import (
+    TitleKind,
+    NoteKind,
+    NoteFormat,
+    NoteVisibility,
+    LabelKind,
+    GenreKind,
+    SubjectKind,
+    IdentifierStatus,
+)

@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from tests.support.file_format_zip import write_zip_archive
 
 
 def _values(raw):
@@ -37,6 +38,23 @@ def _cover_pair(raw):
             if isinstance(key, tuple) and len(key) == 2:
                 return key
     return None, b""
+
+
+def _contains_forbidden_xml_char(text: str) -> bool:
+    for ch in text:
+        cp = ord(ch)
+        if cp == 0x7F:
+            return True
+        if cp in (0x9, 0xA, 0xD):
+            continue
+        if 0x20 <= cp <= 0xD7FF:
+            continue
+        if 0xE000 <= cp <= 0xFFFD:
+            continue
+        if 0x10000 <= cp <= 0x10FFFF:
+            continue
+        return True
+    return False
 
 
 def _build_fb2_xml(*, title: str, first_name: str, last_name: str, encoding: str = "UTF-8") -> str:
@@ -101,6 +119,7 @@ def test_fb2_reader_plugin_is_available(md_test_fixture) -> None:
     plugins = get_metadata_reader_plugins()
     fb2_cls = next((p for p in plugins if p.__name__ == "FB2MetadataReader"), None)
     assert fb2_cls is not None
+    assert {"fb2", "fbz"}.issubset(set(fb2_cls.file_types))
 
     reader = fb2_cls(None)
     with fixture.open("rb") as stream:
@@ -186,6 +205,7 @@ def test_fb2_writer_plugin_is_available(tmp_path: Path, md_test_fixture) -> None
     plugins = get_metadata_set_plugins()
     fb2_cls = next((p for p in plugins if p.__name__ == "FB2MetadataWriter"), None)
     assert fb2_cls is not None
+    assert {"fb2", "fbz"}.issubset(set(fb2_cls.file_types))
 
     writer = fb2_cls(None)
     updated = calibreMetaInformation("Plugin FB2 Title", ["Plugin Author"])
@@ -229,7 +249,49 @@ def test_fb2_unicode_torture_roundtrip(tmp_path: Path, md_test_fixture) -> None:
         assert expected in comments
 
 
-def test_fb2_handles_malformed_payload_gracefully(monkeypatch) -> None:
+def test_fb2_set_metadata_sanitizes_hostile_xml_without_mutating_input(
+    tmp_path: Path,
+    md_test_fixture,
+) -> None:
+    from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
+    from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+
+    source = md_test_fixture(file_ext="fb2", file_num=1, verify_hash=True)
+    target = tmp_path / "fb2_hostile_xml.fb2"
+    shutil.copy2(source, target)
+
+    title = "Bad\x00Title\ud800 😀"
+    authors = ["Author\x01 One", "Second\udfff Author"]
+    tags = ["Tag\x02One", "Emoji 😀"]
+
+    updated = calibreMetaInformation(title, authors)
+    updated.tags = tags
+    updated.comments = "First\x03 paragraph\nSecond\ud800 paragraph 😀"
+    updated.publisher = "Pub\x04lisher"
+    updated.series = "Series\x05Name"
+
+    set_metadata(target, updated)
+
+    payload = target.read_text(encoding="utf-8")
+    assert not _contains_forbidden_xml_char(payload)
+    etree.fromstring(payload.encode("utf-8"))
+
+    metadata = get_metadata(target)
+    assert "BadTitle" in metadata.title
+    assert "😀" in metadata.title
+    assert _values(metadata.authors) == ["Author One", "Second Author"]
+    assert set(_values(metadata.tags)) == {"TagOne", "Emoji 😀"}
+    assert "First paragraph" in _first_value(metadata.comments)
+    assert "Second paragraph 😀" in _first_value(metadata.comments)
+    assert _first_value(metadata.publisher) == "Publisher"
+    assert _first_value(metadata.series) == "SeriesName"
+
+    assert updated.title == title
+    assert updated.authors == authors
+    assert updated.tags == tags
+
+
+def test_fb2_malformed_payload_raises_by_default_and_can_opt_into_fallback(monkeypatch) -> None:
     import LiuXin_alpha.metadata.file_sources.fb2 as fb2
 
     calls: list[tuple[str, str]] = []
@@ -241,7 +303,11 @@ def test_fb2_handles_malformed_payload_gracefully(monkeypatch) -> None:
 
     stream = io.BytesIO(b"this is not xml")
     stream.name = "broken_file.fb2"
-    metadata = fb2.get_metadata(stream)
+
+    with pytest.raises(fb2.FB2ParseError):
+        fb2.get_metadata(stream)
+
+    metadata = fb2.get_metadata(stream, fallback_on_parse_error=True)
 
     assert metadata.title == "broken_file"
     assert _first_value(metadata.authors).lower() == "unknown"
@@ -309,7 +375,7 @@ def test_fb2_reads_and_writes_fb2_inside_zip_container_preserving_other_members(
     from LiuXin_alpha.metadata.file_sources.fb2 import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="fb2", file_num=1, verify_hash=True)
-    zip_target = tmp_path / "book_bundle.zip"
+    zip_target = tmp_path / "book_bundle.fbz"
 
     with zipfile.ZipFile(zip_target, "w") as zf:
         zf.writestr("book/book.fb2", source.read_bytes())
@@ -330,3 +396,40 @@ def test_fb2_reads_and_writes_fb2_inside_zip_container_preserving_other_members(
         assert "book/extra.txt" in names
         payload = zf.read("book/book.fb2")
         assert b"Zipped FB2 Title" in payload
+
+
+@pytest.mark.parametrize(
+    ("case_id", "members", "match"),
+    (
+        ("no_fb2_member", {"readme.txt": b"not a book"}, "no FB2 member"),
+        (
+            "multiple_fb2_members",
+            {
+                "a/book.fb2": _build_fb2_xml(title="A", first_name="A", last_name="One").encode("utf-8"),
+                "b/book.fb2": _build_fb2_xml(title="B", first_name="B", last_name="Two").encode("utf-8"),
+            },
+            "multiple FB2 members",
+        ),
+        (
+            "unsafe_member_path",
+            {
+                "book/book.fb2": _build_fb2_xml(title="Safe", first_name="A", last_name="One").encode("utf-8"),
+                "book/../escape.txt": b"unsafe",
+            },
+            "unsafe path",
+        ),
+    ),
+)
+def test_fb2_metadata_rejects_hostile_zip_payloads(
+    tmp_path: Path,
+    case_id: str,
+    members: dict[str, bytes],
+    match: str,
+) -> None:
+    import LiuXin_alpha.metadata.file_sources.fb2 as fb2
+
+    archive = tmp_path / f"{case_id}.fbz"
+    write_zip_archive(archive, members)
+
+    with pytest.raises(fb2.FB2ParseError, match=match):
+        fb2.get_metadata(archive)

@@ -9,10 +9,13 @@ import os
 import posixpath
 from collections.abc import Iterable
 
+from LiuXin_alpha.metadata.file_sources.extz import ExtzFormatError
 from LiuXin_alpha.metadata.file_sources.extz import get_metadata as extz_get_metadata
 from LiuXin_alpha.metadata.file_sources.extz import set_metadata as extz_set_metadata
 from LiuXin_alpha.metadata.file_sources.txt import get_metadata as txt_get_metadata
+from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
 from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
+from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 
 VALID_FOR = ["TXTZ"]
@@ -131,6 +134,10 @@ def _read_source_bytes(target_file) -> tuple[bytes, str]:
     raise TypeError("TXTZ metadata reader expects a filesystem path or readable binary stream.")
 
 
+def _fallback_metadata() -> MetaInformation:
+    return MetaInformation(_("Unknown"), [_("Unknown")])
+
+
 def _txt_member_key(name: str) -> tuple[int, int, str]:
     norm = name.replace("\\", "/").lstrip("./")
     base = posixpath.basename(norm).lower()
@@ -164,12 +171,14 @@ def _find_cover_member(zf: ZipFile) -> str | None:
     return sorted(candidates)[0][-1]
 
 
-def _fallback_from_txt_member(target_file, md, *, extract_cover: bool):
+def _fallback_from_txt_member(target_file, md, *, extract_cover: bool) -> bool:
+    found_metadata_source = False
     try:
         raw, source_name = _read_source_bytes(target_file)
         with ZipFile(io.BytesIO(raw), "r") as zf:
             txt_member = _find_txt_member(zf)
             if txt_member:
+                found_metadata_source = True
                 payload = zf.read(txt_member)
                 txt_stream = io.BytesIO(payload)
                 txt_stream.name = txt_member
@@ -183,6 +192,7 @@ def _fallback_from_txt_member(target_file, md, *, extract_cover: bool):
             if extract_cover and not getattr(md, "cover_data", None):
                 cover_member = _find_cover_member(zf)
                 if cover_member:
+                    found_metadata_source = True
                     ext = posixpath.splitext(cover_member)[1].lower().lstrip(".")
                     if ext == "jpeg":
                         ext = "jpg"
@@ -194,13 +204,24 @@ def _fallback_from_txt_member(target_file, md, *, extract_cover: bool):
             "DEBUG",
             ("source", source_name if "source_name" in locals() else _source_name(target_file) or "<stream>"),
         )
+        return False
+    return found_metadata_source
 
 
-def get_metadata(target_file, extract_cover: bool = True):
+def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
     Read TXTZ metadata. Prefer OPF/EXTZ metadata; fall back to embedded .txt parsing.
     """
-    md = extz_get_metadata(target_file, extract_cover=extract_cover)
+    try:
+        md = extz_get_metadata(target_file, extract_cover=extract_cover)
+    except ExtzFormatError as err:
+        md = _fallback_metadata()
+        if _fallback_from_txt_member(target_file, md, extract_cover=extract_cover):
+            return md
+        if fallback_on_parse_error:
+            return md
+        raise ExtzFormatError("TXTZ archive does not contain OPF metadata or an embedded text source.") from err
+
     if _title_is_unknown(md) or _authors_are_unknown(md):
         _fallback_from_txt_member(target_file, md, extract_cover=extract_cover)
     return md

@@ -21,8 +21,7 @@ from LiuXin_alpha.ingest import (
     register_native_html_readonly_store_files,
     register_wget_html_readonly_store_files,
 )
-from LiuXin_alpha.metadata.api import MetadataContainerAPI
-from LiuXin_alpha.metadata.containers import ItemMetadataContainer, ItemMetadataHydrator
+from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
 from LiuXin_alpha.storage.api import StoreContainerAPI, StoreLocationMixinAPI
 from LiuXin_alpha.storage.reconcile import (
     SquashfsArchivePublishReport,
@@ -163,7 +162,7 @@ class Library:
         *,
         item_id: int | None = None,
         source_row: Mapping[str, Any] | Row | None = None,
-    ) -> ItemMetadataContainer:
+    ) -> ItemMetadata:
         """Return one concrete item metadata bundle.
 
         Callers may provide either an ``item_id`` or an already-fetched row/view
@@ -388,31 +387,31 @@ class Library:
     def add_file(
         self,
         file_bytes: bytes,
-        metadata: Optional[MetadataContainerAPI] = None,
+        metadata: Optional[Any] = None,
         *,
         preferred_store: Optional[str] = None,
     ) -> StoreLocationMixinAPI:
-        return self.storage.add_file(file_bytes=file_bytes, metadata=metadata, preferred_store=preferred_store)
+        return self.storage.store_bytes(file_bytes=file_bytes, metadata=metadata, preferred_store=preferred_store)
 
     def retrieve_file(
         self,
         file_url: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
+        metadata: Optional[Any] = None,
         *,
         preferred_store: Optional[str] = None,
     ) -> StoreLocationMixinAPI:
-        return self.storage.retrieve_file(file_url=file_url, metadata=metadata, preferred_store=preferred_store)
+        return self.storage.locate_file(file_url=file_url, metadata=metadata, preferred_store=preferred_store)
 
     def delete_file(
         self,
         file_url: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
+        metadata: Optional[Any] = None,
         file_container: Optional[StoreLocationMixinAPI] = None,
     ) -> bool:
-        return self.storage.delete_file(file_url=file_url, metadata=metadata, file_container=file_container)
+        return self.storage.delete_location(file_url=file_url, metadata=metadata, location=file_container)
 
     def iter_files(self) -> Iterator[StoreLocationMixinAPI]:
-        return self.storage.iter()
+        return self.storage.iter_locations()
 
     def register_unmanaged_disk(
         self,

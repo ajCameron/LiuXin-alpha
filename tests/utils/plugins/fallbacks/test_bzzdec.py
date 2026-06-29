@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import multiprocessing as mp
-import os
 import random
 from typing import Any, Tuple
 
@@ -11,6 +10,13 @@ import pytest
 
 
 # --- subprocess runner (guards against pathological inputs hanging forever) ---
+
+def _mp_context() -> mp.context.BaseContext:
+    methods = set(mp.get_all_start_methods())
+    if "fork" in methods:
+        return mp.get_context("fork")
+    return mp.get_context("spawn")
+
 
 def _worker_decompress(data: bytes, q: "mp.Queue[Tuple[str, Any]]") -> None:
     """
@@ -26,7 +32,7 @@ def _worker_decompress(data: bytes, q: "mp.Queue[Tuple[str, Any]]") -> None:
 
 
 def _decompress_with_timeout(data: bytes, *, timeout_s: float = 5.0) -> Tuple[str, Any]:
-    ctx = mp.get_context("spawn")
+    ctx = _mp_context()
     q: "mp.Queue[Tuple[str, Any]]" = ctx.Queue()
     p = ctx.Process(target=_worker_decompress, args=(data, q))
     p.daemon = True
@@ -99,9 +105,21 @@ def test_decompress_small_random_fuzz_does_not_hang() -> None:
     rng = random.Random(1337)
     for _ in range(12):
         ln = rng.randint(1, 24)
-        blob = os.urandom(ln)
+        blob = bytes(rng.getrandbits(8) for _ in range(ln))
         status, _payload = _decompress_with_timeout(blob, timeout_s=5.25)
         assert status in {"ok", "exc"}
+
+
+def test_decompress_rejects_implausible_tiny_stream_expansion_quickly() -> None:
+    """
+    Regression case from a full coverage run: this 12-byte malformed payload
+    claimed a multi-megabyte block and spent seconds decoding before EOF.
+    """
+    from LiuXin_alpha.utils.plugins.fallbacks import bzzdec
+
+    data = b'\xd3\xd3HC,r"J+O\x14\xf4'
+    with pytest.raises(ValueError, match="implausible block expansion"):
+        bzzdec.decompress(data)
 
 
 # --- deterministic unit tests of output-header behaviour (monkeypatched decode) ---

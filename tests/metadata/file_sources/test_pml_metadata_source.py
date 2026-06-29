@@ -5,6 +5,8 @@ import zipfile
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 
 def _values(raw):
     if raw is None:
@@ -111,6 +113,40 @@ def test_pml_get_metadata_parses_utf8_unicode_torture() -> None:
     assert _first(md.publisher) == "出版者"
 
 
+def test_plain_pml_binaryish_payload_returns_safe_default() -> None:
+    from LiuXin_alpha.metadata.file_sources.pml import get_metadata
+
+    for payload in (
+        b"\x89PNG\r\n\x1a\n" + b"\x00" * 32,
+        b"%PDF-1.7\nnot really pml",
+        b"\x00\x01\x02\x03\x04",
+    ):
+        md = get_metadata(io.BytesIO(payload), extract_cover=False)
+        assert _first(md.title) == "Unknown"
+        assert _values(md.authors) == ["Unknown"]
+
+
+def test_plain_pml_malformed_comments_are_ignored_safely() -> None:
+    from LiuXin_alpha.metadata.file_sources.pml import get_metadata
+
+    payload = b'\\vTITLE="Good Title" AUTHOR="Alice and Bob"\\v \\vTITLE="unterminated AUTHOR=Ignored\\v'
+    md = get_metadata(io.BytesIO(payload), extract_cover=False)
+
+    assert md.title == "Good Title"
+    assert _values(md.authors) == ["Alice", "Bob"]
+
+
+def test_plain_pml_control_characters_do_not_leak_from_fields() -> None:
+    from LiuXin_alpha.metadata.file_sources.pml import get_metadata
+
+    payload = _build_pml_comment(TITLE="A\x00B\x01C", PUBLISHER="Pub\x02 & Co", AUTHOR="Renée & 李白")
+    md = get_metadata(io.BytesIO(payload), extract_cover=False)
+
+    assert md.title == "ABC"
+    assert _first(md.publisher) == "Pub &amp; Co"
+    assert _values(md.authors) == ["Renée", "李白"]
+
+
 def test_pmlz_metadata_extracts_from_embedded_pml_and_index_cover() -> None:
     from LiuXin_alpha.metadata.file_sources.pml import get_metadata
 
@@ -139,6 +175,19 @@ def test_pmlz_metadata_works_for_nameless_stream_via_zip_detection() -> None:
     md = get_metadata(stream, extract_cover=False)
 
     assert md.title == "No Name Stream"
+
+
+def test_pmlz_invalid_archive_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.pml import PmlFormatError, get_metadata
+
+    stream = io.BytesIO(b"not-a-zip")
+    stream.name = "broken.pmlz"
+    with pytest.raises(PmlFormatError):
+        get_metadata(stream)
+
+    md = get_metadata(stream, fallback_on_parse_error=True)
+    assert _first(md.title) == "Unknown"
+    assert _values(md.authors) == ["Unknown"]
 
 
 def test_pml_pathlike_cover_lookup_uses_name_img_folder(tmp_path: Path) -> None:

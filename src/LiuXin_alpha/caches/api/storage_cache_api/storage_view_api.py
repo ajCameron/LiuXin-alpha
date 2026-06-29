@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from LiuXin_alpha.databases.db_types import MainTableID, MainTableName
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.api.storage_cache_api.storage_fields.base_field import (
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field import (
         FieldBasicInterfaceAPI,
     )
 
@@ -62,6 +62,10 @@ class CacheViewSpec:
     id_column: str = "id"
     columns: tuple[CacheViewColumnSpec, ...] = ()
     default_sort: tuple[CacheViewSortSpec, ...] = (CacheViewSortSpec("id", True),)
+
+    def __post_init__(self) -> None:
+        if self.default_sort == (CacheViewSortSpec("id", True),) and self.id_column != "id":
+            object.__setattr__(self, "default_sort", (CacheViewSortSpec(self.id_column, True),))
 
 
 @dataclasses.dataclass(slots=True)
@@ -304,3 +308,13 @@ class CacheViewAPI(abc.ABC):
         """
         Add the given ids to the view.
         """
+
+
+__all__ = [
+    "CacheViewAPI",
+    "CacheViewColumnSpec",
+    "CacheViewRowAPI",
+    "CacheViewSortSpec",
+    "CacheViewSpec",
+    "CacheViewState",
+]

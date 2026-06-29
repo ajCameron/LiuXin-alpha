@@ -9,6 +9,7 @@ from LiuXin_alpha.storage.reconcile import (
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     rclone_http_storage_backend as backend_module,
 )
+from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _extract_tpslimit(extra_args: tuple[str, ...]) -> float | None:
@@ -21,25 +22,53 @@ def _extract_tpslimit(extra_args: tuple[str, ...]) -> float | None:
     return None
 
 
-def test_register_rclone_http_store_files_inserts_rows_and_tracks_policy(db, monkeypatch) -> None:
-    captured_extra_args: list[tuple[str, ...]] = []
-
+def _fake_rclone_json_from_listing(
+    listing: list[dict[str, object]],
+    *,
+    captured_extra_args: list[tuple[str, ...]] | None = None,
+):
     def _fake_run_rclone_json(args, **kwargs):
-        captured_extra_args.append(tuple(kwargs.get("extra_args", ())))
+        if captured_extra_args is not None:
+            captured_extra_args.append(tuple(kwargs.get("extra_args", ())))
+
         if list(args[:3]) == ["lsjson", "-R", "--files-only"]:
-            return [
-                {"Path": "books/one.epub", "Name": "one.epub", "Size": 11, "ModTime": "2025-01-02T03:04:05Z"},
-                {"Path": "covers/one.jpg", "Name": "one.jpg", "Size": 7, "ModTime": "2025-01-02T03:04:05Z"},
-            ]
+            return [dict(entry) for entry in listing]
+
+        if list(args[:2]) == ["lsjson", "--stat"] and len(args) >= 3:
+            target = str(args[2])
+            rel = target.split(":", 1)[1] if ":" in target else target
+            rel = rel.lstrip("/")
+            for entry in listing:
+                entry_path = str(entry.get("Path") or entry.get("Name") or "").lstrip("/")
+                if entry_path == rel:
+                    return dict(entry)
+            return {}
+
         return []
 
-    monkeypatch.setattr(backend_module, "run_rclone_json", _fake_run_rclone_json)
+    return _fake_run_rclone_json
+
+
+def test_register_rclone_http_store_files_inserts_rows_and_tracks_policy(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
+    captured_extra_args: list[tuple[str, ...]] = []
+    listing = [
+        {"Path": "books/one.epub", "Name": "one.epub", "Size": 11, "ModTime": "2025-01-02T03:04:05Z"},
+        {"Path": "covers/one.jpg", "Name": "one.jpg", "Size": 7, "ModTime": "2025-01-02T03:04:05Z"},
+    ]
+
+    monkeypatch.setattr(
+        backend_module,
+        "run_rclone_json",
+        _fake_rclone_json_from_listing(listing, captured_extra_args=captured_extra_args),
+    )
 
     report = register_rclone_http_readonly_store_files(
         db,
         remote_url="remote:",
         store_name="web_mirror",
         max_http_requests_per_hour=10.0,
+        enforce_global_rate_limit=False,
         refresh_storage_manager=False,
     )
 
@@ -76,21 +105,18 @@ def test_register_rclone_http_store_files_inserts_rows_and_tracks_policy(db, mon
 
 
 def test_register_rclone_http_store_files_is_idempotent_and_updates(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     listing = [
         {"Path": "books/one.epub", "Name": "one.epub", "Size": 11, "ModTime": "2025-01-02T03:04:05Z"},
     ]
 
-    def _fake_run_rclone_json(args, **kwargs):
-        if list(args[:3]) == ["lsjson", "-R", "--files-only"]:
-            return list(listing)
-        return []
-
-    monkeypatch.setattr(backend_module, "run_rclone_json", _fake_run_rclone_json)
+    monkeypatch.setattr(backend_module, "run_rclone_json", _fake_rclone_json_from_listing(listing))
 
     first = register_rclone_http_readonly_store_files(
         db,
         remote_url="remote:",
         store_name="web_mirror",
+        enforce_global_rate_limit=False,
         refresh_storage_manager=False,
     )
     assert first.inserted_files == 1
@@ -99,6 +125,7 @@ def test_register_rclone_http_store_files_is_idempotent_and_updates(db, monkeypa
         db,
         remote_url="remote:",
         store_name="web_mirror",
+        enforce_global_rate_limit=False,
         refresh_storage_manager=False,
     )
     assert second.inserted_files == 0
@@ -115,6 +142,7 @@ def test_register_rclone_http_store_files_is_idempotent_and_updates(db, monkeypa
         db,
         remote_url="remote:",
         store_name="web_mirror",
+        enforce_global_rate_limit=False,
         refresh_storage_manager=False,
     )
     assert third.updated_files >= 1
@@ -125,40 +153,54 @@ def test_register_rclone_http_store_files_is_idempotent_and_updates(db, monkeypa
 
 
 def test_rclone_rate_limit_is_restored_when_storage_manager_bootstraps(db, monkeypatch) -> None:
-    def _fake_run_rclone_json(args, **kwargs):
-        if list(args[:3]) == ["lsjson", "-R", "--files-only"]:
-            return [{"Path": "books/one.epub", "Name": "one.epub", "Size": 5, "ModTime": "2025-01-02T03:04:05Z"}]
-        return []
-
-    monkeypatch.setattr(backend_module, "run_rclone_json", _fake_run_rclone_json)
+    ensure_surface_asset_tables(db)
+    monkeypatch.setattr(
+        backend_module,
+        "run_rclone_json",
+        _fake_rclone_json_from_listing(
+            [{"Path": "books/one.epub", "Name": "one.epub", "Size": 5, "ModTime": "2025-01-02T03:04:05Z"}]
+        ),
+    )
 
     register_rclone_http_readonly_store_files(
         db,
         remote_url="remote:",
         store_name="web_mirror_bootstrap",
         max_http_requests_per_hour=5.0,
+        enforce_global_rate_limit=False,
         refresh_storage_manager=True,
     )
 
     assert db.storage is not None
-    store = db.storage.get_store("web_mirror_bootstrap")
-    assert getattr(store.options, "max_http_requests_per_hour", None) == 5.0
+    store = db.storage.get_store_container("web_mirror_bootstrap")
+    assert getattr(store.plugin.options, "max_http_requests_per_hour", None) == 5.0
 
 
 def test_register_rclone_http_with_database_path_helper(provision_test_database, driver_spec, monkeypatch) -> None:
+    from LiuXin_alpha.databases.database import Database
+
     provisioned = provision_test_database("test_db_13")
+    with Database(
+        metadata={"database_path": str(provisioned.db_path)},
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+    ) as seeded:
+        ensure_surface_asset_tables(seeded)
 
-    def _fake_run_rclone_json(args, **kwargs):
-        if list(args[:3]) == ["lsjson", "-R", "--files-only"]:
-            return [{"Path": "books/one.epub", "Name": "one.epub", "Size": 5, "ModTime": "2025-01-02T03:04:05Z"}]
-        return []
-
-    monkeypatch.setattr(backend_module, "run_rclone_json", _fake_run_rclone_json)
+    monkeypatch.setattr(
+        backend_module,
+        "run_rclone_json",
+        _fake_rclone_json_from_listing(
+            [{"Path": "books/one.epub", "Name": "one.epub", "Size": 5, "ModTime": "2025-01-02T03:04:05Z"}]
+        ),
+    )
 
     report = register_rclone_http_readonly_with_database_path(
         database_path=provisioned.db_path,
         remote_url="remote:",
         db_type=driver_spec.db_type,
+        enforce_global_rate_limit=False,
         refresh_storage_manager=False,
     )
     assert report.inserted_files == 1

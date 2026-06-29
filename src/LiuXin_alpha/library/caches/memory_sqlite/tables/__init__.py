@@ -64,6 +64,7 @@ class SQLiteOneToOneTable(SQLiteTable, BaseOneToOneTable):
 
         self.memory_db = None
         self.macros = None
+        self.metadata_sql = None
 
         # Properties of the table - later used to more easily retrieve values
         if self.metadata["table"] is None:
@@ -86,6 +87,7 @@ class SQLiteOneToOneTable(SQLiteTable, BaseOneToOneTable):
     def startup(self, memory_db, db):
         self.memory_db = memory_db
         self.macros = self.memory_db.macros
+        self.metadata_sql = self.memory_db.metadata_sql
         self.set_link_tables(db)
 
     def remove_books(self, book_ids, db):
@@ -97,7 +99,7 @@ class SQLiteOneToOneTable(SQLiteTable, BaseOneToOneTable):
         :return:
         """
         for book_id in book_ids:
-            self.macros.delete_title(title_id=book_id)
+            self.metadata_sql.delete_title(title_id=book_id)
 
     def get_value(self, rid, default_value=None):
         """
@@ -133,7 +135,7 @@ class SQLitePathTable(SQLiteOneToOneTable, BasePathTable):
         :param db:
         :return:
         """
-        self.macros.set_override_book_path(book_id=book_id, path=path)
+        self.metadata_sql.set_override_book_path(book_id=book_id, path=path)
         self.set_db_path(book_id, path, db)
 
 
@@ -240,7 +242,7 @@ class SQLiteManyToOneTable(SQLiteOneToOneTable, BaseManyToOneTable):
         :return:
         """
         for book_id in book_ids:
-            self.macros.delete_title(book_id)
+            self.metadata_sql.delete_title(book_id)
 
         # Todo: Retrieve the item ids and mark them for cleaning
 
@@ -394,7 +396,7 @@ class SQLiteCreatorsTable(SQLiteTypedManyToManyTable, BaseCreatorsTable):
         :param cid:
         :return:
         """
-        return self.memory_db.macros.get_creator_sort(cid)
+        return self.memory_db.metadata_sql.get_creator_sort(cid)
 
     def get_creator_link(self, cid):
         """
@@ -402,7 +404,7 @@ class SQLiteCreatorsTable(SQLiteTypedManyToManyTable, BaseCreatorsTable):
         :param cid:
         :return:
         """
-        return self.memory_db.macros.get_creator_link(cid)
+        return self.memory_db.metadata_sql.get_creator_link(cid)
 
     def set_sort_names(self, aus_map, db):
         """
@@ -416,10 +418,10 @@ class SQLiteCreatorsTable(SQLiteTypedManyToManyTable, BaseCreatorsTable):
         aus_map = {aid: a for aid, a in iteritems(aus_map) if a != self.get_creator_sort(aid)}
 
         # Update the cache
-        self.memory_db.macros.update_creator_sorts([(v, k) for k, v in iteritems(aus_map)])
+        self.memory_db.metadata_sql.update_creator_sorts([(v, k) for k, v in iteritems(aus_map)])
 
         # Update the backend
-        db.macros.update_creator_sorts([(v, k) for k, v in iteritems(aus_map)])
+        db.metadata_sql.update_creator_sorts([(v, k) for k, v in iteritems(aus_map)])
         return aus_map
 
     def set_links(self, link_map, db):
@@ -434,9 +436,9 @@ class SQLiteCreatorsTable(SQLiteTypedManyToManyTable, BaseCreatorsTable):
         link_map = {author_id: (l or "").strip() for author_id, l in iteritems(link_map)}
         link_map = {aid: l for aid, l in iteritems(link_map) if l != self.get_creator_link(aid)}
 
-        self.memory_db.macros.update_creator_links([(v, k) for k, v in iteritems(link_map)])
+        self.memory_db.metadata_sql.update_creator_links([(v, k) for k, v in iteritems(link_map)])
 
-        db.macros.update_creator_links([(v, k) for k, v in iteritems(link_map)])
+        db.metadata_sql.update_creator_links([(v, k) for k, v in iteritems(link_map)])
         return link_map
 
 
@@ -466,7 +468,7 @@ class SQLiteFormatsTable(SQLiteManyToManyTable, BaseFormatsTable):
             file_ext,
             file_name,
             file_size,
-        ) in self.memory_db.macros.read_file_properties_for_book(book_id):
+        ) in self.memory_db.metadata_sql.read_file_properties_for_book(book_id):
             if file_ext in fmt_counts:
                 fmt_counts[file_ext] += 1
                 numbered_fmt = "{}_{}".format(file_ext.upper(), fmt_counts[file_ext])
@@ -490,10 +492,10 @@ class SQLiteFormatsTable(SQLiteManyToManyTable, BaseFormatsTable):
         file_id = fmt_file_map[fmt]
 
         # Preform the update in the cache
-        self.memory_db.macros.set_file_name(file_id, fname)
+        self.memory_db.metadata_sql.set_file_name(file_id, fname)
 
         # Preform the update in the main database
-        db.macros.set_file_name(file_id, fname)
+        db.metadata_sql.set_file_name(file_id, fname)
 
         # Todo: Notify the maintainer that the file name has changed and this needs to be updated on disk
 

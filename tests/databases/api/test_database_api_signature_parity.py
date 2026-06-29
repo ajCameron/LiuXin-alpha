@@ -174,6 +174,9 @@ def _returns_compatible(expected: str | None, actual: str | None) -> bool:
     if expected == actual:
         return True
 
+    if actual == "Self":
+        return True
+
     if expected.endswith("API") and actual == expected.removesuffix("API"):
         return True
 
@@ -272,7 +275,7 @@ ALWAYS_IGNORED_NAMES: set[str] = {"__init__"}
     ("api_ref", "concrete_refs", "ignored_names"),
     [
         (
-            ClassRef("LiuXin_alpha.databases.api.database_api.database_generator", "DatabaseGeneratorAPI"),
+            ClassRef("LiuXin_alpha.databases.api.database_api.database_generator_api", "DatabaseGeneratorAPI"),
             [
                 ClassRef(
                     "LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.database_generator",
@@ -282,17 +285,17 @@ ALWAYS_IGNORED_NAMES: set[str] = {"__init__"}
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.row", "RowAPI"),
+            ClassRef("LiuXin_alpha.databases.api.row_api", "RowAPI"),
             [ClassRef("LiuXin_alpha.databases.row", "Row")],
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.database_api.driver_wrapper", "DatabaseDriverWrapperAPI"),
+            ClassRef("LiuXin_alpha.databases.api.driver_wrapper_api.driver_wrapper_api", "DatabaseDriverWrapperAPI"),
             [ClassRef("LiuXin_alpha.databases.driver_wrapper", "DriverWrapper")],
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.database_api.driver", "DatabaseDriverAPI"),
+            ClassRef("LiuXin_alpha.databases.api.driver_api.driver_api", "DatabaseDriverAPI"),
             [
                 ClassRef("LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver", "DatabaseDriver"),
                 ClassRef("LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver", "DatabaseDriver"),
@@ -300,12 +303,12 @@ ALWAYS_IGNORED_NAMES: set[str] = {"__init__"}
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.maintenance", "DatabaseMaintainerAPI"),
+            ClassRef("LiuXin_alpha.databases.api.maintenance_api", "DatabaseMaintainerAPI"),
             [ClassRef("LiuXin_alpha.databases.maintenance.service", "Maintainer")],
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.maintenance", "MaintenanceBotAPI"),
+            ClassRef("LiuXin_alpha.databases.api.maintenance_api", "MaintenanceBotAPI"),
             [ClassRef("LiuXin_alpha.databases.maintenance.engine", "MaintenanceEngine")],
             set(),
         ),

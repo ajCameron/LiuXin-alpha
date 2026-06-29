@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, Any, Optional
 from copy import deepcopy
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database import DatabaseAPI
-    from LiuXin_alpha.databases.api.row import RowAPI
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
 
 
 # Todo: There has to be better ways to do this
@@ -37,6 +37,7 @@ def _row_value(row: Any, key: str, default: Optional[Any] = None) -> Any:
         return default
 
 
+# Todo: In general, these are not relevant anymore - as we're working on WEMI principles.
 def generate_book_fingerprint(db: "DatabaseAPI", book_row: "RowAPI") -> set[str]:
     """
     The union of all the things the book is linked to - with all the things the title is linked to.

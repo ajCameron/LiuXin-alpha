@@ -28,6 +28,7 @@ _METADATA_PRIORITIES = [
     "xhtm",
     "rtf",
     "fb2",
+    "fbz",
     "pdf",
     "prc",
     "odt",

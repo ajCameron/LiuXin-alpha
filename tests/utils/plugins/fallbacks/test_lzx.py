@@ -93,8 +93,15 @@ def _worker_decompress(data: bytes, outlen: int, q: "mp.Queue[Tuple[str, Any]]")
         q.put(("exc", (e.__class__.__name__, str(e))))
 
 
-def _decompress_with_timeout(data: bytes, outlen: int, *, timeout_s: float = 5.0) -> Tuple[str, Any]:
-    ctx = mp.get_context("spawn")
+def _mp_context() -> mp.context.BaseContext:
+    methods = set(mp.get_all_start_methods())
+    if "fork" in methods:
+        return mp.get_context("fork")
+    return mp.get_context("spawn")
+
+
+def _decompress_with_timeout(data: bytes, outlen: int, *, timeout_s: float = 2.0) -> Tuple[str, Any]:
+    ctx = _mp_context()
     q: "mp.Queue[Tuple[str, Any]]" = ctx.Queue()
     p = ctx.Process(target=_worker_decompress, args=(data, outlen, q))
     p.daemon = True

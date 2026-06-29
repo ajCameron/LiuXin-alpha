@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io
 import shutil
+import zipfile
+import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -20,6 +22,23 @@ def _field_values(raw):
     if isinstance(raw, str):
         return [raw]
     return list(raw)
+
+
+def _contains_forbidden_xml_char(text: str) -> bool:
+    for ch in text:
+        cp = ord(ch)
+        if cp == 0x7F:
+            return True
+        if cp in (0x9, 0xA, 0xD):
+            continue
+        if 0x20 <= cp <= 0xD7FF:
+            continue
+        if 0xE000 <= cp <= 0xFFFD:
+            continue
+        if 0x10000 <= cp <= 0x10FFFF:
+            continue
+        return True
+    return False
 
 
 def test_docx_metadata_module_import_smoke() -> None:
@@ -135,7 +154,57 @@ def test_docx_set_metadata_unicode_torture_roundtrip(tmp_path: Path, md_test_fix
     assert _field_values(metadata.publisher) == _field_values(updated.publisher)
 
 
+def test_docx_set_metadata_preserves_zip_members_and_sanitizes_hostile_xml(
+    tmp_path: Path,
+    md_test_fixture,
+) -> None:
+    from LiuXin_alpha.metadata.file_sources.docx import get_metadata, set_metadata
+
+    source = md_test_fixture(file_ext="docx", file_num=1, verify_hash=True)
+    target = tmp_path / "roundtrip_container_contract.docx"
+    shutil.copy2(source, target)
+
+    with zipfile.ZipFile(target, "r") as zf:
+        before = {name: zf.read(name) for name in zf.namelist()}
+
+    title = "DOCX\x00Title\ud800 😀"
+    authors = ["Alice\x01 One", "Bob\udfff Two"]
+    updated = calibreMetaInformation(title, authors)
+    updated.tags = ["tag\x02one", "emoji 😀"]
+    updated.comments = "Comment\x03 with <xml> & emoji 😀"
+    updated.publisher = "Pub\x04lisher"
+
+    set_metadata(target, updated)
+
+    with zipfile.ZipFile(target, "r") as zf:
+        assert zf.testzip() is None
+        assert set(zf.namelist()) == set(before)
+        for name, payload in before.items():
+            if name in {"docProps/core.xml", "docProps/app.xml"}:
+                continue
+            assert zf.read(name) == payload
+        core_xml = zf.read("docProps/core.xml")
+        app_xml = zf.read("docProps/app.xml")
+
+    ET.fromstring(core_xml)
+    ET.fromstring(app_xml)
+    combined_xml = (core_xml + app_xml).decode("utf-8")
+    assert not _contains_forbidden_xml_char(combined_xml)
+    assert "DOCXTitle" in combined_xml
+    assert "Publisher" in combined_xml
+
+    metadata = get_metadata(target)
+    assert metadata.title == "DOCXTitle 😀"
+    assert _field_values(metadata.authors) == ["Alice One", "Bob Two"]
+    assert _field_values(metadata.tags) == ["tagone", "emoji 😀"]
+    assert _field_values(metadata.comments) == ["Comment with <xml> & emoji 😀"]
+    assert _field_values(metadata.publisher) == ["Publisher"]
+    assert updated.title == title
+    assert updated.authors == authors
+
+
 def test_docx_set_metadata_invalid_zip_raises_clean_error() -> None:
+    from LiuXin_alpha.file_formats.docx import InvalidDOCX
     from LiuXin_alpha.utils.libraries.calibre_zipfile import BadZipfile
     from zipfile import BadZipFile
 
@@ -143,5 +212,5 @@ def test_docx_set_metadata_invalid_zip_raises_clean_error() -> None:
 
     stream = io.BytesIO(b"not-a-zip")
     mi = calibreMetaInformation("x", ["y"])
-    with pytest.raises((BadZipFile, BadZipfile)):
+    with pytest.raises((BadZipFile, BadZipfile, InvalidDOCX)):
         set_metadata(stream, mi)

@@ -10,7 +10,7 @@ import struct
 import zlib
 
 from LiuXin_alpha.file_formats import DRMError
-from LiuXin_alpha.file_formats.pdb.ereader import EreaderError
+from LiuXin_alpha.file_formats.pdb.ereader import EreaderError, image_name
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
 from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
@@ -22,6 +22,9 @@ __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
 
+HEADER_RECORD_SIZE = 132
+IMAGE_RECORD_HEADER_SIZE = 62
+
 
 class HeaderRecord(object):
     """
@@ -32,6 +35,8 @@ class HeaderRecord(object):
     """
 
     def __init__(self, raw):
+        if len(raw) < HEADER_RECORD_SIZE:
+            raise EreaderError("Truncated eReader 132-byte header record")
         (self.compression,) = struct.unpack(">H", raw[0:2])
         (self.non_text_offset,) = struct.unpack(">H", raw[12:14])
         (self.chapter_count,) = struct.unpack(">H", raw[14:16])
@@ -51,7 +56,7 @@ class HeaderRecord(object):
         (self.last_data_offset,) = struct.unpack(">H", raw[52:54])
 
         self.num_text_pages = self.non_text_offset - 1
-        self.num_image_pages = self.metadata_offset - self.image_data_offset
+        self.num_image_pages = self.image_count
 
 
 class Reader132(FormatReader):
@@ -72,25 +77,53 @@ class Reader132(FormatReader):
                 raise DRMError("eReader DRM is not supported.")
             else:
                 raise EreaderError("Unknown book compression %i." % self.header_record.compression)
+        self._validate_header_ranges()
 
         from LiuXin_alpha.metadata.file_sources.pdb import get_metadata
 
         self.mi = get_metadata(stream, False)
 
+    def _validate_section_range(self, offset, count, label):
+        if count <= 0:
+            return
+        if offset < 0 or offset + count > len(self.sections):
+            raise EreaderError("%s range exceeds available eReader sections" % label)
+
+    def _validate_header_ranges(self):
+        if self.header_record.non_text_offset < 1 or self.header_record.non_text_offset > len(self.sections):
+            raise EreaderError("eReader text range exceeds available sections")
+        self._validate_section_range(self.header_record.chapter_offset, self.header_record.chapter_count, "eReader chapter")
+        self._validate_section_range(self.header_record.image_data_offset, self.header_record.image_count, "eReader image")
+        self._validate_section_range(self.header_record.link_offset, self.header_record.link_count, "eReader link")
+        self._validate_section_range(self.header_record.footnote_offset, self.header_record.footnote_count, "eReader footnote")
+        self._validate_section_range(self.header_record.sidebar_offset, self.header_record.sidebar_count, "eReader sidebar")
+        if self.header_record.has_metadata and not (0 <= self.header_record.metadata_offset < len(self.sections)):
+            raise EreaderError("eReader metadata offset exceeds available sections")
+
+    def _text_encoding(self):
+        return "cp1252" if self.encoding is None else self.encoding
+
     def section_data(self, number):
+        if number < 0 or number >= len(self.sections):
+            raise EreaderError("eReader section %i is outside the PDB section table" % number)
         return self.sections[number]
 
     def decompress_text(self, number):
-        if self.header_record.compression == 2:
-            from LiuXin_alpha.utils.calibre.ebooks.compression.palmdoc import decompress_doc
+        payload = self.section_data(number)
+        try:
+            if self.header_record.compression == 2:
+                from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 
-            return decompress_doc(self.section_data(number)).decode(
-                "cp1252" if self.encoding is None else self.encoding, "replace"
-            )
-        if self.header_record.compression == 10:
-            return zlib.decompress(self.section_data(number)).decode(
-                "cp1252" if self.encoding is None else self.encoding, "replace"
-            )
+                raw = decompress_doc(payload)
+            elif self.header_record.compression == 10:
+                raw = zlib.decompress(payload)
+            else:
+                raise EreaderError("Unknown book compression %i." % self.header_record.compression)
+            return raw.decode(self._text_encoding(), "replace")
+        except EreaderError:
+            raise
+        except Exception as err:
+            raise EreaderError("eReader text decompression failed for section %i: %s" % (number, err)) from err
 
     def get_image(self, number):
         if (
@@ -99,7 +132,9 @@ class Reader132(FormatReader):
         ):
             return "empty", ""
         data = self.section_data(number)
-        name = data[4 : 4 + 32].strip("\x00")
+        if len(data) < IMAGE_RECORD_HEADER_SIZE:
+            raise EreaderError("Truncated eReader image record")
+        name = image_name(data[4 : 4 + 32]).strip("\x00")
         img = data[62:]
         return name, img
 
@@ -144,7 +179,7 @@ class Reader132(FormatReader):
         if self.header_record.footnote_count > 0:
             html += "<br /><h1>%s</h1>" % _("Footnotes")
             footnoteids = re.findall(
-                "\w+(?=\x00)",
+                r"\w+(?=\x00)",
                 self.section_data(self.header_record.footnote_offset).decode(
                     "cp1252" if self.encoding is None else self.encoding
                 ),
@@ -165,7 +200,7 @@ class Reader132(FormatReader):
         if self.header_record.sidebar_count > 0:
             html += "<br /><h1>%s</h1>" % _("Sidebar")
             sidebarids = re.findall(
-                "\w+(?=\x00)",
+                r"\w+(?=\x00)",
                 self.section_data(self.header_record.sidebar_offset).decode(
                     "cp1252" if self.encoding is None else self.encoding
                 ),

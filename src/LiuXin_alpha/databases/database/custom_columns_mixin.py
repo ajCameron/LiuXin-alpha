@@ -3,10 +3,21 @@
 Mixin to the database to provide custom columns functionality.
 """
 
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING
 
 from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 from LiuXin_alpha.utils.logging import default_log
+
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    # Todo: We also need a custom columns row api e.t.c
+    from LiuXin_alpha.databases.api.row_api import RowAPI
+
 
 
 class CustomColumnDatabaseMixin:
@@ -30,17 +41,22 @@ class CustomColumnDatabaseMixin:
     # Todo: Need to change custom column numbering so that it includes a reference to the table - so it's namespaced
     #       by table
     # Todo: Change target_row to primary_row, in line with ALL THE REST
-    def get_interlinked_rows_cc(self, target_row, custom_column, link_table=True):
+    def get_interlinked_rows_cc(
+            self: "DatabaseAPI",
+            primary_row: "RowAPI",
+            custom_column: str,
+            link_table: bool = True) -> list["RowAPI"]:
         """
         Takes a row and a custom column - returns the custom column rows for the given custom column
 
-        :param target_row: A row in a table with a custom column
+        :param primary_row: A row in a table with a custom column
         :param custom_column: The name of the custom column to retrieve the rows for
                               E.g. "custom_column_2"
+        :param link_table:
         :return:
         """
         if link_table:
-            target_table = target_row.table
+            target_table = primary_row.table
 
             cand_cc_link_table = "{}_{}_link".format(target_table, custom_column)
 
@@ -58,7 +74,7 @@ class CustomColumnDatabaseMixin:
             cc_link_rows = self.driver_wrapper.search(
                 table=cand_cc_link_table,
                 column=cc_col + "_book",
-                search_term=target_row.row_id,
+                search_term=primary_row.row_id,
             )
             if not cc_link_rows:
                 return []
@@ -79,7 +95,7 @@ class CustomColumnDatabaseMixin:
             cc_rows = self.driver_wrapper.search(
                 table=custom_column,
                 column=cc_col + "_book",
-                search_term=target_row.row_id,
+                search_term=primary_row.row_id,
             )
             if not cc_rows:
                 return []

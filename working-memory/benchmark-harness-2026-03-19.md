@@ -9,7 +9,7 @@ The first alpha-native benchmark script suite is now live.
 Scripts:
 
 - [benchmark_read_paths.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_read_paths.py)
-- [benchmark_interface_paths.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_interface_paths.py)
+- [benchmark_surface_paths.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_surface_paths.py)
 - [benchmark_baseline_suite.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_baseline_suite.py)
 - [summarize_benchmark_report.py](/home/blackjane/LiuXin-alpha-wsl/scripts/summarize_benchmark_report.py)
 - shared support:
@@ -29,13 +29,13 @@ database path:
 - file download path
 - image-byte resolution path
 
-### `benchmark_interface_paths.py`
+### `benchmark_surface_paths.py`
 
 Benchmarks WSGI request handling for:
 
-- [web_readonly](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/interfaces/web_readonly/app.py)
-- [api_readonly](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/interfaces/api_readonly/app.py)
-- [opds_readonly](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/interfaces/opds_readonly/app.py)
+- [web_readonly](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/surfaces/web_readonly/app.py)
+- [api_readonly](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/surfaces/api_readonly/app.py)
+- [opds_readonly](/home/blackjane/LiuXin-alpha-wsl/src/LiuXin_alpha/surfaces/opds_readonly/app.py)
 
 Default route coverage:
 
@@ -67,7 +67,7 @@ Default backend targets:
 - `pathological_relations_db_0`
 - `weird_data_db_0`
 
-Default interface targets:
+Default surface targets:
 
 - `metadata_rich_db_1`
 - `stores_assets_db_1`
@@ -125,11 +125,11 @@ Default runtime behavior:
 
 Combined report:
 
-- [benchmark-baseline-2026-03-18.json](/home/blackjane/LiuXin-alpha-wsl/working-memory/test-results/benchmark-baseline-2026-03-18.json)
+- [benchmark-baseline-2026-03-18.json](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/test-results/benchmark-baseline-2026-03-18.json)
 
 Summary derived from that report:
 
-- [benchmark-baseline-2026-03-18-summary.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/test-results/benchmark-baseline-2026-03-18-summary.md)
+- [benchmark-baseline-2026-03-18-summary.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/test-results/benchmark-baseline-2026-03-18-summary.md)
 
 This was generated with:
 
@@ -143,7 +143,7 @@ It is a shape/baseline artifact, not a statistically serious performance run.
 - `python3 -m py_compile` passed for the summarizer as well
 - direct backend benchmark smoke:
   - `stores_assets_db_1`
-- direct interface benchmark smoke:
+- direct surface benchmark smoke:
   - `metadata_rich_db_1`
 - combined baseline suite completed and wrote the JSON report above
 - summarizer ran against the combined baseline report and produced the markdown
@@ -163,7 +163,7 @@ It is a shape/baseline artifact, not a statistically serious performance run.
 
 First hot-path optimization pass is now recorded in:
 
-- [optimization-pass-driver-wrapper-opds-2026-03-19.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/optimization-pass-driver-wrapper-opds-2026-03-19.md)
+- [optimization-pass-driver-wrapper-opds-2026-03-19.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/optimization-pass-driver-wrapper-opds-2026-03-19.md)
 
 Key measured improvements from that pass:
 

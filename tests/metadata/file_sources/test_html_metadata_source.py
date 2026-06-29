@@ -385,6 +385,51 @@ def test_html_invalid_utf8_bytes_are_replaced_without_crashing() -> None:
     assert _values(md.authors) == ["Alice", "Bob"]
 
 
+def test_html_get_metadata_accepts_bytes_payload_directly() -> None:
+    from LiuXin_alpha.metadata.file_sources.html import get_metadata
+
+    raw = "<html><head><title>Bytes Payload — 世界</title></head></html>".encode("utf-8")
+    md = get_metadata(raw)
+
+    assert md.title == "Bytes Payload — 世界"
+
+
+def test_html_binary_signatures_return_safe_default() -> None:
+    from LiuXin_alpha.metadata.file_sources.html import get_metadata_
+
+    for payload in (
+        b"\x89PNG\r\n\x1a\n" + b"\x00" * 32,
+        b"%PDF-1.7\n<title>Not HTML</title>",
+        b"PK\x03\x04" + b"\x00" * 20,
+    ):
+        md = get_metadata_(payload)
+        assert md.title == "Unknown"
+        assert _values(md.authors) == ["Unknown"]
+
+
+def test_html_parser_internal_errors_return_safe_default(monkeypatch) -> None:
+    import LiuXin_alpha.metadata.file_sources.html as html_md
+
+    class _BrokenParser:
+        comment_tags = {}
+        meta_tags = {}
+        meta_identifiers = {}
+        title_text = ""
+
+        def feed(self, _src):
+            raise RuntimeError("parser failed")
+
+        def close(self):
+            raise AssertionError("unreachable")
+
+    monkeypatch.setattr(html_md, "_HTMLMetadataParser", _BrokenParser)
+
+    md = html_md.get_metadata_("<html><head><title>Ignored</title></head></html>")
+
+    assert md.title == "Unknown"
+    assert _values(md.authors) == ["Unknown"]
+
+
 def test_html_input_scan_limit_is_predictable() -> None:
     from LiuXin_alpha.metadata.file_sources.html import get_metadata_
 

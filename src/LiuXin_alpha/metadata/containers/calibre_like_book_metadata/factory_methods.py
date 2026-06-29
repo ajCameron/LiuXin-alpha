@@ -45,6 +45,8 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata.help_methods im
 from LiuXin_alpha.errors import InputIntegrityError, DatabaseIntegrityError, LogicalError
 
 
+
+# Todo: This is - probably - staggeringly broken
 class FactoryMethodsMixin:
     """
     Mixin for the factory methods.
@@ -87,7 +89,7 @@ class FactoryMethodsMixin:
         for table in standard_tables:
 
             standard_rows = db.get_linked_rows(title_row, table)
-            standard_display_column = db.driver_wrapper.get_display_column(table)
+            standard_display_column = db.driver_wrapper.direct_get_display_column(table)
             for standard_link in standard_rows:
                 dis_value = standard_link[standard_display_column]
 

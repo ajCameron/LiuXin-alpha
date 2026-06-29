@@ -36,6 +36,7 @@ def _create_storage_schema(tmp_path: pathlib.Path) -> sqlite3.Connection:
         root / "table_sql" / "storage_tables" / "1b-backup-workflows.sql",
         root / "table_sql" / "storage_tables" / "2-folders.sql",
         root / "table_sql" / "storage_tables" / "3-digital-assets.sql",
+        root / "table_sql" / "storage_tables" / "1c-backup-presence-links.sql",
         root / "trigger_sql" / "storage" / "3-digital-assets_triggers.sql",
     ]
     for script_path in scripts:
@@ -65,6 +66,9 @@ def test_storage_schema_contains_store_operational_role_and_backup_workflow_tabl
 
         output_cols = _pragma_cols(conn, "backup_workflow_outputs")
         assert "backup_workflow_output_asset_replica_id" in output_cols
+
+        presence_cols = _pragma_cols(conn, "backup_presence_links")
+        assert "backup_presence_link_source" in presence_cols
     finally:
         conn.close()
 

@@ -1,4 +1,14 @@
 
+"""
+Mixin of methods to handle triggers.
+
+Allows CRUD for triggers.
+"""
+
+from __future__ import annotations
+
+from typing import Iterable
+
 import sqlite3
 
 
@@ -10,6 +20,7 @@ class TriggersMixin:
     def direct_get_triggers(self) -> list[str]:
         """
         Returns a list of all triggers defined on the database.
+
         Returns an empty set if there are
         :return:
         """
@@ -25,9 +36,10 @@ class TriggersMixin:
             raise
         return triggers
 
-    def direct_drop_triggers(self, triggers):
+    def direct_drop_triggers(self, triggers: Iterable[str]) -> bool:
         """
-        Takes a list of triggers by name - drops all of them from the DatabasePing.
+        Drops all named triggers from the database.
+
         :return:
         """
         conn = self.get_connection()

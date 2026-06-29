@@ -7,6 +7,10 @@ from dataclasses import dataclass
 
 from LiuXin_alpha.storage import StoreContainer
 from LiuXin_alpha.storage.api import (
+    AssetReplicaIdentityAPI,
+    AssetReplicaMetadataAPI,
+    DigitalAssetIdentityAPI,
+    DigitalAssetMetadataAPI,
     StoreCheckStatus,
     StoreContainerAPI,
     StorePluginAPI,
@@ -15,6 +19,19 @@ from LiuXin_alpha.storage.api import (
 )
 from LiuXin_alpha.storage.single_file import SingleFileStatus
 from LiuXin_alpha.storage.store_manager import StorageManager
+
+
+def test_storage_api_exports_asset_contracts() -> None:
+    import LiuXin_alpha.storage.api as storage_api
+
+    for name, contract in {
+        "AssetReplicaIdentityAPI": AssetReplicaIdentityAPI,
+        "AssetReplicaMetadataAPI": AssetReplicaMetadataAPI,
+        "DigitalAssetIdentityAPI": DigitalAssetIdentityAPI,
+        "DigitalAssetMetadataAPI": DigitalAssetMetadataAPI,
+    }.items():
+        assert name in storage_api.__all__
+        assert getattr(storage_api, name) is contract
 
 
 class _DummyLocation(SyncNativePretendAsyncLocation):

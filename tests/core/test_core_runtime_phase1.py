@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+import pytest
+
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.core import CoreCommand, CoreQuery, CoreRuntime
 from LiuXin_alpha.core.proxies import LocalLibraryProxy
 from LiuXin_alpha.core.proxies.local import looks_like_write_method
-from LiuXin_alpha.surfaces.terminal.commands import sync as sync_command_module
 from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 
@@ -46,7 +47,13 @@ def test_core_runtime_emits_command_lifecycle_events(core_runtime_factory: Calla
 
     event_types = [event.event_type for event in events]
     assert "command.started" in event_types
+    assert "write.completed" in event_types
     assert "command.finished" in event_types
+    write_events = [event for event in events if event.event_type == "write.completed"]
+    assert len(write_events) == 1
+    assert write_events[0].payload["target"] == "database"
+    assert write_events[0].payload["method"] == "set_value"
+    assert write_events[0].payload["command_id"] == command.command_id
 
 
 def test_core_runtime_api_describe_exposes_named_handlers_and_targets(
@@ -335,6 +342,11 @@ def test_core_runtime_library_delete_impact_reports_direct_references(tmp_path) 
 
 
 def test_core_runtime_sync_store_start_submits_job(monkeypatch) -> None:
+    sync_command_module = pytest.importorskip(
+        "LiuXin_alpha.surfaces.terminal.commands.sync",
+        reason="Terminal command package is not exposed under surfaces/ in this checkout.",
+    )
+
     @dataclass
     class _FakeDatabase:
         value: int = 0

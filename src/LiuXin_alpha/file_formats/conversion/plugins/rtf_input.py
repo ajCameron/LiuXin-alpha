@@ -265,6 +265,11 @@ class RTFInput(InputFormatPlugin):
         from LiuXin_alpha.metadata.utils import calibreMetaInformation
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.file_formats.rtf2xml.ParseRtf import RtfInvalidCodeException
+
+        try:
+            from LiuXin_alpha.file_formats.rtf2xml.ParseRtf import InvalidRtfException
+        except ImportError:
+            InvalidRtfException = RtfInvalidCodeException
         from LiuXin_alpha.file_formats.rtf.input import InlineClass
 
         work_root = choose_conversion_workdir("_rtf_input")
@@ -274,10 +279,10 @@ class RTFInput(InputFormatPlugin):
             self.log("Converting RTF to XML...")
             try:
                 xml = self.generate_xml(getattr(stream, "name", stream))
-            except RtfInvalidCodeException as e:
+            except (InvalidRtfException, RtfInvalidCodeException) as e:
                 raise ValueError(
                     _(
-                        "This RTF file has a feature calibre does not "
+                        "This RTF file is malformed or has a feature calibre does not "
                         "support. Convert it to HTML first and then try it.\n%s"
                     )
                     % e

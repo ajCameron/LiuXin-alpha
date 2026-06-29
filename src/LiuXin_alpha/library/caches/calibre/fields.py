@@ -2499,7 +2499,7 @@ class CalibreLanguagesField(CalibreManyToManyField):
             if isinstance(book_val, basestring):
                 # Todo: Need a search method for the language code and name
                 lang_row = db.ensure.language(language_string=book_val, lang_code="either")
-                db.macros.set_title_primary_language(title_id=book_id, lang_id=lang_row["language_id"])
+                db.metadata_sql.set_title_primary_language(title_id=book_id, lang_id=lang_row["language_id"])
             # id and val are retained for conventional update
             else:
                 new_book_id_to_val_map[book_id] = book_val

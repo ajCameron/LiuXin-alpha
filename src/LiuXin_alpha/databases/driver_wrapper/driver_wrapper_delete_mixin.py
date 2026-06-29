@@ -1,4 +1,15 @@
 
+"""
+Driver wrapper mixin methods responsible for deleting entries from the database.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.driver_api.driver_api import DatabaseDriverAPI
 
 
 class DriverWrapperDeleteMixin:
@@ -6,7 +17,9 @@ class DriverWrapperDeleteMixin:
     Delete methods for the driver wrapper.
     """
 
-    def delete(self, target_table, column, value):
+    driver: "DatabaseDriverAPI"
+
+    def delete(self, target_table: str, column: str, value: Any) -> None:
         """
         Deletes all the entries which equal that column value in the table.
 
@@ -20,9 +33,10 @@ class DriverWrapperDeleteMixin:
         else:
             return self.driver.direct_delete(target_table=target_table, column=column, value=value)
 
-    def delete_by_id(self, target_table, row_id):
+    def delete_by_id(self, target_table: str, row_id: int) -> None:
         """
         Deletes all the entries which have that id from that table.
+
         :param target_table:
         :param row_id: If is a list or set, deletes all the elements in that list or set.
         :return:
@@ -32,7 +46,7 @@ class DriverWrapperDeleteMixin:
         else:
             return self.driver.direct_delete_row_by_id(target_table, row_id)
 
-    def nullify_column(self, table, row_id, column):
+    def nullify_column(self, table: str, row_id: int, column: str) -> None:
         """
         Delete an entry for in a specified column for a specified row in a table
         :param table:
@@ -42,9 +56,10 @@ class DriverWrapperDeleteMixin:
         """
         return self.update_column(table, row_id, column, None)
 
-    def clear(self, target_table):
+    def clear(self, target_table: str) -> None:
         """
-        A separate method - so as to reduce the chance of accidentally
+        A separate method - to reduce the chance of accidentally
+
         :param target_table:
         :return:
         """

@@ -1,28 +1,40 @@
-"""Type-aware row-dict conversion for SQLite-backed drivers.
+"""
+Type-aware row-dict conversion for SQLite-backed drivers.
 
 This exists to prevent the historical behaviour of coercing *all* DB values via
 `force_unicode`, which converts integers like 999 into strings like '999'.
 
 Casting is conservative: only coerce to numeric when the DB driver already
-returned a numeric type. Otherwise keep malformed values visible as text.
+returned a numeric type.
+Otherwise, keep malformed values visible as text.
+The intent is convenient - not to obscure problems.
 """
+
+# Todo: Might be an idea to add a as_value to row - so we can be sure we're e.g. getting an int
 
 from __future__ import annotations
 
 import re
 
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence, Union
 
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 
 
 class ValueCastingMixin:
-    """Add type-aware row-to-dict conversion for SQLite-backed drivers."""
+    """
+    Add type-aware row-to-dict conversion for SQLite-backed drivers.
+    """
 
     _DECLARED_TYPES_CACHE_ATTR = "_declared_types_cache"
 
-    def _get_declared_types_for_table(self, table: str) -> Dict[str, str]:
-        """Return a mapping of column name -> declared type string for a table."""
+    def direct_get_declared_types_for_table(self, table: str) -> Dict[str, str]:
+        """
+        Return a mapping of column name -> declared type string for a table.
+
+        :param table:
+        :return:
+        """
         cache = getattr(self, self._DECLARED_TYPES_CACHE_ATTR, None)
         if cache is None:
             cache = {}
@@ -47,6 +59,12 @@ class ValueCastingMixin:
 
     @staticmethod
     def _normalize_declared_type(declared_type: Any) -> str:
+        """
+        Bring the declared type into normal - comparable - form.
+
+        :param declared_type:
+        :return:
+        """
         if declared_type is None:
             return ""
         dt = str(declared_type).strip().upper()
@@ -62,7 +80,12 @@ class ValueCastingMixin:
 
     @classmethod
     def _sqlite_affinity(cls, declared_type: Any) -> str:
-        """Return SQLite affinity bucket from a declared type string."""
+        """
+        Return SQLite affinity bucket from a declared type string.
+
+        :param declared_type:
+        :return:
+        """
         dt = cls._normalize_declared_type(declared_type)
 
         # SQLite affinity rules (simplified)
@@ -76,8 +99,18 @@ class ValueCastingMixin:
             return "REAL"
         return "NUMERIC"
 
-    def _coerce_db_value(self, value: Any, declared_type: Any) -> Any:
-        """Coerce a DB value based on declared type, conservatively."""
+    # Todo: We can... possibly make this better with some protocol work
+    def _coerce_db_value(
+            self,
+            value: Any,
+            declared_type: Any) -> Optional[Union[bool, int, float, str, bytes]]:
+        """
+        Coerce a DB value based on declared type, conservatively.
+
+        :param value:
+        :param declared_type:
+        :return:
+        """
         if value is None:
             return None
 
@@ -208,8 +241,10 @@ class ValueCastingMixin:
         # TEXT
         return force_unicode(value)
 
-    def _coerce_untyped_value(self, value: Any) -> Any:
-        """Best-effort coercion when no declared type information is available.
+    @staticmethod
+    def _coerce_untyped_value(value: Any) -> Optional[Union[bool, int, float, str, bytes]]:
+        """
+        Best-effort coercion when no declared type information is available.
 
         This is intentionally conservative:
         - Preserve ints/floats/bools as-is.
@@ -219,6 +254,9 @@ class ValueCastingMixin:
 
         Unlike :meth:`_coerce_db_value`, we do **not** parse numeric strings into
         numbers, because we have no declared affinity to justify doing so.
+
+        :param value:
+        :return:
         """
         if value is None:
             return None
@@ -226,13 +264,16 @@ class ValueCastingMixin:
         if isinstance(value, bool):
             # bool is a subtype of int; preserve intent
             return bool(value)
+
         if isinstance(value, int):
             return int(value)
+
         if isinstance(value, float):
             return float(value)
 
         if isinstance(value, memoryview):
             return bytes(value)
+
         if isinstance(value, (bytes, bytearray)):
             return force_unicode(bytes(value))
 
@@ -245,13 +286,19 @@ class ValueCastingMixin:
         headings: Sequence[Any],
         row: Sequence[Any],
     ) -> Dict[Any, Any]:
-        """Convert a DB row tuple into a dict.
+        """
+        Convert a DB row tuple into a dict.
 
         If ``table`` is provided, declared types are used for conservative
         casting (INTEGER stays int, etc.). If ``table`` is ``None``, a conservative
         best-effort conversion is applied that preserves numeric types.
+
+        :param table:
+        :param headings:
+        :param row:
+        :return:
         """
-        declared_types = self._get_declared_types_for_table(table) if table else {}
+        declared_types = self.direct_get_declared_types_for_table(table) if table else {}
         result: Dict[Any, Any] = {}
         for i, head in enumerate(headings):
             val = row[i]

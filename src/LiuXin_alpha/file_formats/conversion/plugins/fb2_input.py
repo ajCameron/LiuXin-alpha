@@ -4,10 +4,22 @@ from __future__ import with_statement
 Convert .fb2 files to .lrf
 """
 
+import base64
+import binascii
 import os
 import re
+from io import BytesIO
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.fb2.archive import (
+    DEFAULT_MAX_ARCHIVE_MEMBERS,
+    DEFAULT_MAX_COMPRESSION_RATIO,
+    DEFAULT_MAX_MEMBER_UNCOMPRESSED_SIZE,
+    DEFAULT_MAX_TOTAL_UNCOMPRESSED_SIZE,
+    DEFAULT_MIN_COMPRESSION_RATIO_CHECK_SIZE,
+    FB2ZipError,
+    extract_fb2_payload_from_bytes,
+)
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
     choose_conversion_workdir,
 )
@@ -48,8 +60,13 @@ class FB2Input(InputFormatPlugin):
 
     name = "FB2 Input"
     author = "Anatoly Shipitsin"
-    description = "Convert FB2 files to HTML"
-    file_types = {"fb2"}
+    description = "Convert FB2 and FBZ files to HTML"
+    file_types = {"fb2", "fbz"}
+    max_archive_members = DEFAULT_MAX_ARCHIVE_MEMBERS
+    max_member_uncompressed_size = DEFAULT_MAX_MEMBER_UNCOMPRESSED_SIZE
+    max_total_uncompressed_size = DEFAULT_MAX_TOTAL_UNCOMPRESSED_SIZE
+    max_compression_ratio = DEFAULT_MAX_COMPRESSION_RATIO
+    min_compression_ratio_check_size = DEFAULT_MIN_COMPRESSION_RATIO_CHECK_SIZE
 
     recommendations = {
         ("level1_toc", "//h:h1", OptionRecommendation.MED),
@@ -66,6 +83,96 @@ class FB2Input(InputFormatPlugin):
         ),
     }
 
+    def _warn(self, message):
+        log = getattr(self, "log", None)
+        warn = getattr(log, "warning", None) or getattr(log, "warn", None)
+        if warn is not None:
+            warn(message)
+
+    def warn_preflight_rejection(self, stream, log, error):
+        warn = getattr(log, "warning", None) or getattr(log, "warn", None)
+        if warn is None:
+            return
+        source = getattr(stream, "name", "stream")
+        warn("FB2 preflight rejected %s: %s" % (source, error))
+
+    def extract_input_payload(self, raw_container, file_ext):
+        return extract_fb2_payload_from_bytes(
+            raw_container,
+            label="FB2 input",
+            force_zip=str(file_ext or "").lower() == "fbz",
+            max_archive_members=self.max_archive_members,
+            max_member_uncompressed_size=self.max_member_uncompressed_size,
+            max_total_uncompressed_size=self.max_total_uncompressed_size,
+            max_compression_ratio=self.max_compression_ratio,
+            min_compression_ratio_check_size=self.min_compression_ratio_check_size,
+        )
+
+    def embedded_binary_filename_is_unsafe(self, name):
+        if not name:
+            return True
+        normalized = str(name).replace("\\", "/")
+        parts = normalized.split("/")
+        return (
+            "\\" in str(name)
+            or "/" in normalized
+            or normalized.startswith("/")
+            or (len(normalized) > 1 and normalized[1] == ":")
+            or normalized in {".", ".."}
+            or ".." in parts
+            or os.path.isabs(str(name))
+        )
+
+    def safe_embedded_binary_filename(self, binary_id, content_type, index, used_names):
+        original_name = str(binary_id or "").strip()
+        candidate = original_name
+        content_ext = str(content_type or "").rpartition("/")[-1].lower()
+        if content_ext == "jpeg":
+            content_ext = "jpg"
+        image_exts = {"jpg", "jpeg", "png"}
+
+        if content_ext in image_exts and candidate.lower().rpartition(".")[-1] not in image_exts:
+            candidate += "." + content_ext
+
+        if self.embedded_binary_filename_is_unsafe(candidate):
+            basename = original_name.replace("\\", "/").rsplit("/", 1)[-1]
+            existing_ext = os.path.splitext(basename)[1]
+            if content_ext in image_exts:
+                suffix = "." + content_ext
+            elif existing_ext and len(existing_ext) <= 16:
+                suffix = existing_ext
+            else:
+                suffix = ".bin"
+            candidate = "fb2_binary_%04d%s" % (index, suffix)
+            self._warn(
+                _("FB2 embedded binary id has unsafe filename; using %s for %s")
+                % (candidate, original_name)
+            )
+
+        root, ext = os.path.splitext(candidate)
+        unique_candidate = candidate
+        counter = 1
+        while unique_candidate.casefold() in used_names:
+            unique_candidate = "%s_%d%s" % (root, counter, ext)
+            counter += 1
+        used_names.add(unique_candidate.casefold())
+        return unique_candidate
+
+    def decode_embedded_binary(self, raw, binary_id):
+        if isinstance(raw, bytes):
+            compact = b"".join(raw.split())
+        else:
+            try:
+                compact = "".join(str(raw).split()).encode("ascii")
+            except UnicodeEncodeError:
+                self._warn(_("Binary data with id=%s is corrupted, ignoring") % binary_id)
+                return None
+        try:
+            return base64.b64decode(compact, validate=True)
+        except (binascii.Error, TypeError, ValueError):
+            self._warn(_("Binary data with id=%s is corrupted, ignoring") % binary_id)
+            return None
+
     def convert(self, stream, options, file_ext, log, accelerators):
         from LiuXin_alpha.file_formats.chardet import xml_to_unicode
         from LiuXin_alpha.file_formats.oeb.base import XLINK_NS, XHTML_NS, RECOVER_PARSER
@@ -77,12 +184,21 @@ class FB2Input(InputFormatPlugin):
         self.log = log
 
         log.debug("Parsing XML...")
-        raw = stream.read()
-        if isinstance(raw, bytes):
-            raw = raw.replace(b"\0", b"")
+        raw_container = stream.read()
+        try:
+            raw_payload, zip_member = self.extract_input_payload(raw_container, file_ext)
+        except FB2ZipError as err:
+            self.warn_preflight_rejection(stream, log, err)
+            raise
+
+        if zip_member:
+            log.debug("Using FB2 member from archive: %s", zip_member)
+
+        if isinstance(raw_payload, bytes):
+            raw = xml_to_unicode(raw_payload, strip_encoding_pats=True, assume_utf8=True, resolve_entities=True)[0]
         else:
-            raw = raw.replace("\0", "")
-        raw = xml_to_unicode(raw, strip_encoding_pats=True, assume_utf8=True, resolve_entities=True)[0]
+            raw = str(raw_payload)
+        raw = raw.replace("\0", "")
 
         try:
             doc = etree.fromstring(raw)
@@ -182,8 +298,9 @@ class FB2Input(InputFormatPlugin):
                 bin_index_html.write(index)
             with open("inline-styles.css", "wb") as bin_css_file:
                 bin_css_file.write(css.encode("utf-8"))
-            stream.seek(0)
-            mi = _get_fb2_metadata(stream, "fb2")
+            metadata_stream = BytesIO(raw_payload)
+            metadata_stream.name = os.path.basename(zip_member or getattr(stream, "name", "stream.fb2"))
+            mi = _get_fb2_metadata(metadata_stream, "fb2")
             if not mi.title:
                 mi.title = _("Unknown")
             if not mi.authors:
@@ -199,6 +316,13 @@ class FB2Input(InputFormatPlugin):
                     if href is not None:
                         if href.startswith("#"):
                             href = href[1:]
+                        href = self.binary_map.get(href, href)
+                        if self.embedded_binary_filename_is_unsafe(href):
+                            self._warn(_("FB2 cover image reference has unsafe path: %s") % href)
+                            continue
+                        if not os.path.exists(href):
+                            self._warn(_("FB2 cover image was not extracted: %s") % href)
+                            continue
                         cpath = os.path.abspath(href)
                         break
 
@@ -219,23 +343,19 @@ class FB2Input(InputFormatPlugin):
         :return:
         """
 
-        from LiuXin_alpha.file_formats.fb2 import base64_decode
-
         self.binary_map = {}
+        used_names = set()
+        binary_index = 0
         for elem in doc.xpath("./*"):
             if elem.text and "binary" in elem.tag and "id" in elem.attrib:
+                binary_index += 1
                 ct = elem.get("content-type", "")
-                fname = elem.attrib["id"]
-                ext = ct.rpartition("/")[-1].lower()
-                if ext in ("png", "jpeg", "jpg"):
-                    if fname.lower().rpartition(".")[-1] not in {"jpg", "jpeg", "png"}:
-                        fname += "." + ext
-                    self.binary_map[elem.get("id")] = fname
+                binary_id = elem.attrib["id"]
+                fname = self.safe_embedded_binary_filename(binary_id, ct, binary_index, used_names)
+                self.binary_map[binary_id] = fname
                 raw = elem.text.strip()
-                try:
-                    data = base64_decode(raw)
-                except TypeError:
-                    self.log.exception("Binary data with id=%s is corrupted, ignoring" % (elem.get("id")))
-                else:
-                    with open(fname, "wb") as f:
-                        f.write(data)
+                data = self.decode_embedded_binary(raw, binary_id)
+                if data is None:
+                    continue
+                with open(fname, "wb") as f:
+                    f.write(data)

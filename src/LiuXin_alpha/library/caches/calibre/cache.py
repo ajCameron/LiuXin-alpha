@@ -79,7 +79,7 @@ from LiuXin_alpha.library.caches.calibre.fields import (
     InvalidLinkTable,
 )
 from LiuXin_alpha.library.caches.calibre.tables.base import CalibreVirtualTable
-from LiuXin_alpha.interfaces.categories import get_categories
+from LiuXin_alpha.surfaces.categories import get_categories
 from LiuXin_alpha.library.lazy import FormatMetadata, FormatsList, ProxyMetadata
 from LiuXin_alpha.utils.python_tools import uniq
 
@@ -120,7 +120,7 @@ from typing import Any, TypeVar, Optional
 from LiuXin_alpha.customize.cache import BaseCache
 
 from LiuXin_alpha.library.caches.utils import read_api, write_api
-from LiuXin_alpha.databases.search import Search
+from LiuXin_alpha.catalog.search import Search
 
 from LiuXin_alpha.library.library_metadata import Metadata as LibraryMetadata
 

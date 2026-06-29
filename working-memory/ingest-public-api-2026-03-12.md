@@ -20,7 +20,7 @@ Added:
 Rewired callers:
 
 - `src/LiuXin_alpha/library/library.py`
-- `src/LiuXin_alpha/interfaces/terminal/commands/sync.py`
+- `src/LiuXin_alpha/surfaces/terminal/commands/sync.py`
 - remote-HTML tests now import from `LiuXin_alpha.ingest`
 
 Removed old public exports from:
@@ -62,7 +62,7 @@ It also reduces the risk of import-order bugs while the ingest area keeps growin
 Passed:
 
 - `pytest -q tests/storage/reconcile/test_wget_html_store_db_sync.py tests/storage/reconcile/test_native_html_store_db_sync.py`
-- `pytest -q tests/interfaces/test_text_browser.py tests/library/test_native_html_ingest_library.py tests/storage/api/test_storage_manager_database_wiring.py -k 'native_html or wget_html'`
+- `pytest -q tests/surfaces/test_text_browser.py tests/library/test_native_html_ingest_library.py tests/storage/api/test_storage_manager_database_wiring.py -k 'native_html or wget_html'`
 
 ## Next Step
 

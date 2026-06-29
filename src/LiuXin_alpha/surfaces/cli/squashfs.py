@@ -306,8 +306,8 @@ def build_squashfs_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="LiuXin CLI interfaces")
-    subparsers = parser.add_subparsers(dest="interface", required=True)
+    parser = argparse.ArgumentParser(description="LiuXin CLI surfaces")
+    subparsers = parser.add_subparsers(dest="surface", required=True)
     build_squashfs_parser(subparsers)
     args = parser.parse_args(argv)
 

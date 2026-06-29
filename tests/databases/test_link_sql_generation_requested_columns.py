@@ -12,7 +12,7 @@ class _Dummy(SQLiteTableLinkingMixin):
     pass
 
 
-def test_link_sql_all_includes_origin_policy_data() -> None:
+def test_link_sql_all_includes_origin_source_policy_data() -> None:
     d = _Dummy()
     sql_list, _ = d.direct_get_direct_link_main_tables_sql(
         primary_table="agents",
@@ -22,6 +22,7 @@ def test_link_sql_all_includes_origin_policy_data() -> None:
     )
     sql = "\n".join(sql_list)
     assert "_origin" in sql
+    assert "_source" in sql
     assert "_policy" in sql
     assert "_data" in sql
 
@@ -36,6 +37,21 @@ def test_link_sql_bespoke_columns_are_emitted_as_text() -> None:
     )
     sql = "\n".join(sql_list)
     assert "`agent_work_link_extra_meta` TEXT NULL" in sql, f"missing bespoke column in {table_name}"
+    assert "`agent_work_link_source` TEXT NULL" in sql, f"missing standard source column in {table_name}"
+
+
+def test_link_sql_source_request_does_not_duplicate_standard_column() -> None:
+    d = _Dummy()
+    sql_list, table_name = d.direct_get_direct_link_main_tables_sql(
+        primary_table="agents",
+        secondary_table="works",
+        requested_cols={"priority", "source"},
+        nullable_fks=True,
+    )
+    sql = "\n".join(sql_list)
+    assert sql.count("`agent_work_link_source` TEXT NULL") == 1, (
+        f"source should be a single standard column for {table_name}"
+    )
 
 
 def test_link_sql_nullable_sentinel_does_not_create_physical_column() -> None:

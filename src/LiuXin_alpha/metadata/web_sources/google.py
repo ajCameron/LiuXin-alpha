@@ -14,10 +14,12 @@ import re
 from collections.abc import Mapping
 from queue import Empty, Queue
 from urllib.parse import parse_qs, quote, urlencode, urlparse
+from xml.etree import ElementTree as ET
 
 from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn
 from LiuXin_alpha.metadata.web_sources.base import Source
 from LiuXin_alpha.metadata.web_sources.http_client import RetryPolicy, call_with_backoff, compute_backoff_delay
+from LiuXin_alpha.metadata.web_sources.http_client import decode_http_body
 from LiuXin_alpha.metadata.web_sources.http_client import log_message as _shared_log_message
 from LiuXin_alpha.metadata.web_sources.http_client import wait_for_backoff
 from LiuXin_alpha.utils.date import parse_only_date
@@ -79,6 +81,12 @@ def _log(log, level: str, *parts) -> None:
     _shared_log_message(log, level, *parts)
 
 
+_ATOM_NS = "http://www.w3.org/2005/Atom"
+_DC_NS = "http://purl.org/dc/terms"
+_GOOGLE_THUMBNAIL_REL = "http://schemas.google.com/books/2008/thumbnail"
+_FEED_NAMESPACES = {"atom": _ATOM_NS, "dc": _DC_NS}
+
+
 def pretty_google_books_comments(raw: str | None) -> str | None:
     if not raw:
         return None
@@ -117,6 +125,8 @@ class GoogleBooks(Source):
 
     GOOGLE_COVER = "https://books.google.com/books?id=%s&printsec=frontcover&img=1"
     GOOGLE_BOOKS_API_ENTRY = "https://www.googleapis.com/books/v1/volumes"
+    GOOGLE_BOOKS_FEED_ENTRY = "https://books.google.com/books/feeds/volumes"
+    GOOGLE_BOOKS_FEED_DETAIL = "https://www.google.com/books/feeds/volumes"
 
     DUMMY_IMAGE_MD5 = frozenset(
         (
@@ -230,6 +240,81 @@ class GoogleBooks(Source):
             backoff_fn=self._retry_backoff,
             wait_for_backoff_fn=self._wait_for_backoff,
         )
+
+    def _request_json_or_none(self, log, abort, context: str, path: str = "", timeout: int = 30, **params):
+        try:
+            return self._request_json_with_backoff(
+                log=log,
+                abort=abort,
+                context=context,
+                path=path,
+                timeout=timeout,
+                **params,
+            )
+        except Exception as err:
+            _log(
+                log,
+                "warning",
+                "Google identify request failed; continuing with fallback paths",
+                {"context": context, "error_type": type(err).__name__, "error": str(err)},
+            )
+            return None
+
+    def _build_feed_url(self, google_id: str | None = None, **params) -> str:
+        if google_id:
+            gid = _as_text(google_id).strip()
+            return self.GOOGLE_BOOKS_FEED_DETAIL + "/" + quote(gid, safe="")
+        url = self.GOOGLE_BOOKS_FEED_ENTRY
+        feed_params = {k: _as_text(v) for k, v in params.items() if v is not None and _as_text(v) != ""}
+        if feed_params:
+            url += "?" + urlencode(feed_params)
+        return url
+
+    def _request_text(self, url: str, timeout: int = 30) -> str:
+        raw = self.browser().open_novisit(url, timeout=timeout).read()
+        return decode_http_body(raw)
+
+    def _request_text_with_backoff(self, log, abort, context: str, url: str, timeout: int = 30) -> str:
+        return call_with_backoff(
+            lambda: self._request_text(url, timeout=timeout),
+            log=log,
+            abort=abort,
+            context=context,
+            policy=self._retry_policy(),
+            timeout_seconds=timeout,
+            url=url,
+            retry_message="Transient Google Books feed error; retrying with backoff",
+            error_message="Google Books feed request failed",
+            abort_result="",
+            backoff_fn=self._retry_backoff,
+            wait_for_backoff_fn=self._wait_for_backoff,
+        )
+
+    def _request_feed_entries_or_empty(self, log, abort, context: str, url: str, timeout: int = 30):
+        if abort is not None and getattr(abort, "is_set", lambda: False)():
+            return []
+        try:
+            payload = self._request_text_with_backoff(
+                log=log,
+                abort=abort,
+                context=context,
+                url=url,
+                timeout=timeout,
+            )
+            return self._feed_entries_from_payload(payload)
+        except Exception as err:
+            _log(
+                log,
+                "warning",
+                "Google legacy feed request failed; continuing with fallback paths",
+                {
+                    "context": context,
+                    "url": url,
+                    "error_type": type(err).__name__,
+                    "error": str(err),
+                },
+            )
+            return []
 
     def _open_with_backoff(self, log, abort, url: str, timeout: int, context: str):
         return call_with_backoff(
@@ -346,6 +431,141 @@ class GoogleBooks(Source):
         mi.has_google_cover = cover_url
         return mi
 
+    @staticmethod
+    def _feed_entries_from_payload(payload):
+        text = decode_http_body(payload).strip()
+        if not text:
+            return []
+        root = ET.fromstring(text)
+        local_name = root.tag.rsplit("}", 1)[-1]
+        if local_name == "entry":
+            return [root]
+        return list(root.findall(".//atom:entry", _FEED_NAMESPACES))
+
+    @staticmethod
+    def _feed_texts(entry, xpath: str) -> list[str]:
+        ans = []
+        for elem in entry.findall(xpath, _FEED_NAMESPACES):
+            text = _as_text(elem.text).strip() if elem.text is not None else ""
+            if text:
+                ans.append(text)
+        return ans
+
+    @classmethod
+    def _feed_text(cls, entry, xpath: str) -> str | None:
+        values = cls._feed_texts(entry, xpath)
+        return values[0] if values else None
+
+    @classmethod
+    def _feed_google_id(cls, entry) -> str | None:
+        candidates = [cls._feed_text(entry, "atom:id")]
+        for link in entry.findall("atom:link", _FEED_NAMESPACES):
+            rel = _as_text(link.attrib.get("rel", "")).lower()
+            if rel == "self":
+                candidates.append(link.attrib.get("href"))
+        for raw in candidates:
+            text = _as_text(raw or "").strip()
+            if not text:
+                continue
+            parsed = urlparse(text)
+            path = parsed.path.rstrip("/") if parsed.path else text.rstrip("/")
+            gid = path.rsplit("/", 1)[-1].strip()
+            if gid:
+                return gid
+        return None
+
+    @staticmethod
+    def _feed_cover_url(entry) -> str | None:
+        for link in entry.findall("atom:link", _FEED_NAMESPACES):
+            rel = _as_text(link.attrib.get("rel", "")).lower()
+            if rel != _GOOGLE_THUMBNAIL_REL and "thumbnail" not in rel:
+                continue
+            href = _as_text(link.attrib.get("href", "")).strip()
+            if href:
+                return href
+        return None
+
+    @staticmethod
+    def _feed_identifier_parts(raw: str) -> tuple[str, str] | tuple[None, None]:
+        text = _as_text(raw).strip()
+        if not text:
+            return (None, None)
+        lowered = text.lower()
+        if lowered.startswith("urn:isbn:"):
+            return ("isbn", text.split(":", 2)[-1].strip())
+        if ":" not in text:
+            return (None, None)
+        key, value = text.split(":", 1)
+        return (_clean_identifier_key(key), value.strip())
+
+    def _metadata_from_feed_entry(self, entry):
+        titles = self._feed_texts(entry, "dc:title")
+        title = ": ".join(titles) if titles else self._feed_text(entry, "atom:title")
+        title = _as_text(title).strip() if title else _("Unknown")
+
+        authors = [_as_text(x).strip() for x in self._feed_texts(entry, "dc:creator") if _as_text(x).strip()]
+        if not authors:
+            authors = [_("Unknown")]
+
+        mi = calibreMetaInformation(title, authors)
+        google_id = self._feed_google_id(entry)
+        if google_id:
+            mi.set_identifier("google", google_id)
+
+        description = self._feed_text(entry, "dc:description")
+        if description:
+            mi.comments = description
+
+        lang = canonicalize_lang(self._feed_text(entry, "dc:language"))
+        if lang:
+            mi.language = lang
+
+        publisher = self._feed_text(entry, "dc:publisher")
+        if publisher:
+            mi.publisher = _as_text(publisher).strip()
+
+        published = self._feed_text(entry, "dc:date")
+        if published:
+            try:
+                mi.pubdate = parse_only_date(_as_text(published))
+            except Exception:
+                pass
+
+        all_isbns = []
+        for raw_identifier in self._feed_texts(entry, "dc:identifier"):
+            key, value = self._feed_identifier_parts(raw_identifier)
+            if not key or not value:
+                continue
+            if key in {"isbn", "isbn_10", "isbn_13"}:
+                checked = check_isbn(value)
+                if not checked:
+                    compact = re.sub(r"[^0-9Xx]+", "", value)
+                    checked = check_isbn(compact) if compact else None
+                if checked:
+                    all_isbns.append(checked)
+                    mi.set_identifier("isbn", checked)
+                continue
+            mi.set_identifier(key, value)
+
+        if all_isbns:
+            mi.all_isbns = sorted(set(all_isbns))
+            if not getattr(mi, "isbn", None):
+                mi.set_identifier("isbn", sorted(set(all_isbns), key=len)[-1])
+
+        tags = []
+        seen_tags = set()
+        for subject in self._feed_texts(entry, "dc:subject"):
+            for raw_part in re.split(r"\s*/\s*", subject):
+                tag = _as_text(raw_part).strip().replace(",", ";")
+                if tag and tag not in seen_tags:
+                    tags.append(tag)
+                    seen_tags.add(tag)
+        if tags:
+            mi.tags = tags
+
+        mi.has_google_cover = self._feed_cover_url(entry)
+        return mi
+
     # }}}
 
     # Source API {{{
@@ -378,9 +598,10 @@ class GoogleBooks(Source):
             return
 
         items = []
+        feed_entries = []
         google_id = _first_identifier_value(identifiers, "google")
         if google_id:
-            payload = self._request_json_with_backoff(
+            payload = self._request_json_or_none(
                 log=log,
                 abort=abort,
                 context="GoogleBooks identifier lookup",
@@ -389,11 +610,20 @@ class GoogleBooks(Source):
             )
             if payload:
                 items = [payload]
-        else:
+            if not items and not (title or authors or _safe_isbn(identifiers)):
+                feed_entries = self._request_feed_entries_or_empty(
+                    log=log,
+                    abort=abort,
+                    context="GoogleBooks legacy identifier lookup",
+                    url=self._build_feed_url(google_id=_as_text(google_id)),
+                    timeout=timeout,
+                )
+
+        if not items and not feed_entries:
             query = self.create_query(title=title, authors=authors, identifiers=identifiers)
             if not query:
                 return
-            payload = self._request_json_with_backoff(
+            payload = self._request_json_or_none(
                 log=log,
                 abort=abort,
                 context="GoogleBooks identify query",
@@ -404,15 +634,14 @@ class GoogleBooks(Source):
                 projection="full",
                 printType="books",
             )
-            if payload is None:
-                return
-            items = payload.get("items") or []
+            items = (payload or {}).get("items") or []
 
-            # Fallback: if an ISBN query yields nothing and we have title/author, retry text query.
-            if not items and _safe_isbn(identifiers) and (title or authors):
+            # Fallback: if an ISBN/identifier query yields nothing and we have title/author, retry text query.
+            retry = None
+            if not items and (_safe_isbn(identifiers) or google_id) and (title or authors):
                 retry = self.create_query(title=title, authors=authors, identifiers={})
                 if retry:
-                    payload = self._request_json_with_backoff(
+                    payload = self._request_json_or_none(
                         log=log,
                         abort=abort,
                         context="GoogleBooks identify retry query",
@@ -423,9 +652,29 @@ class GoogleBooks(Source):
                         projection="full",
                         printType="books",
                     )
-                    if payload is None:
-                        return
-                    items = payload.get("items") or []
+                    items = (payload or {}).get("items") or []
+
+            if not items:
+                feed_query = retry or query
+                feed_entries = self._request_feed_entries_or_empty(
+                    log=log,
+                    abort=abort,
+                    context="GoogleBooks legacy identify query",
+                    url=self._build_feed_url(
+                        q=feed_query,
+                        **{"max-results": 20, "start-index": 1, "min-viewability": "none"},
+                    ),
+                    timeout=timeout,
+                )
+
+        if not items and not feed_entries and google_id:
+            feed_entries = self._request_feed_entries_or_empty(
+                log=log,
+                abort=abort,
+                context="GoogleBooks legacy identifier lookup",
+                url=self._build_feed_url(google_id=_as_text(google_id)),
+                timeout=timeout,
+            )
 
         for relevance, item in enumerate(items):
             if abort.is_set():
@@ -435,6 +684,18 @@ class GoogleBooks(Source):
                 mi = self._postprocess_downloaded_google_metadata(mi, relevance=relevance)
             except Exception:
                 log.exception("Failed to parse Google Books result item")
+                continue
+            if mi is not None:
+                result_queue.put(mi)
+
+        for relevance, entry in enumerate(feed_entries):
+            if abort.is_set():
+                break
+            try:
+                mi = self._metadata_from_feed_entry(entry)
+                mi = self._postprocess_downloaded_google_metadata(mi, relevance=relevance)
+            except Exception:
+                log.exception("Failed to parse Google Books legacy feed result item")
                 continue
             if mi is not None:
                 result_queue.put(mi)

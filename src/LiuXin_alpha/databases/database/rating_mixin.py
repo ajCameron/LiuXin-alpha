@@ -1,12 +1,22 @@
 
 """
-
+Methods to handle interacting with
 """
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from LiuXin_alpha.utils.logging import default_log
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+
+
 
 
 class DatabaseRatingMixin:
@@ -14,8 +24,8 @@ class DatabaseRatingMixin:
     Mixin class which provides specialized methods for dealing with the ratings table.
     """
 
-    # Todo: THis might also want to be an internal method
-    def check_rating_table(self):
+    # Todo: This might also want to be an internal method
+    def check_rating_table(self: "DatabaseAPI") -> None:
         """
         Checks that there is a valid ratings table.
 

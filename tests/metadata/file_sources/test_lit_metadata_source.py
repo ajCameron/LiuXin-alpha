@@ -4,6 +4,8 @@ import io
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 
 def _values(raw):
     if raw is None:
@@ -124,7 +126,10 @@ def test_lit_cover_standard_reference_preferred_when_present(monkeypatch) -> Non
     assert md.cover_data[1] == b"B" * 8
 
 
-def test_lit_get_metadata_fallback_on_reader_error_and_path_title(tmp_path: Path, monkeypatch) -> None:
+def test_lit_get_metadata_reader_error_raises_by_default_and_can_opt_into_fallback(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     from LiuXin_alpha.metadata.file_sources import lit as lit_md
 
     class _BrokenContainer:
@@ -136,7 +141,10 @@ def test_lit_get_metadata_fallback_on_reader_error_and_path_title(tmp_path: Path
     lit_path = tmp_path / "fallback_title.lit"
     lit_path.write_bytes(b"broken")
 
-    md = lit_md.get_metadata(lit_path)
+    with pytest.raises(lit_md.LitFormatError):
+        lit_md.get_metadata(lit_path)
+
+    md = lit_md.get_metadata(lit_path, fallback_on_parse_error=True)
     assert md.title == "fallback_title"
     assert _values(md.authors) == ["Unknown"]
 

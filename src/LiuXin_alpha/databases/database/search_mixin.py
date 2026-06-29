@@ -1,10 +1,25 @@
 
+"""
+Search mixins support searching the database.
+
+This can be in basic ways "get this row" or sophisticated ways "get this random row".
+"""
+
+from __future__ import annotations
+
 from copy import deepcopy
+
+from typing import TYPE_CHECKING, Optional, Any, Union, Iterable
 
 from LiuXin_alpha.databases.row import Row
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
 
 
 class DatabaseSearchMixin:
@@ -16,20 +31,23 @@ class DatabaseSearchMixin:
     #
     # - METHODS TO SEARCH THE DATABASE START HERE
 
-    def search(self, table, column, search_term):
+    def search(self: "DatabaseAPI", table: str, column: str, search_term: Optional[str]) -> list["RowAPI"]:
         """
         Search the database for specific values.
+
         :param table: Table to search in
         :param column: Column within that table
-        :param search_term: The thing to search with (will be coerced to unicode)
+        :param search_term: The thing to search with (will be coerced to Unicode)
         :return:
         """
         return [Row(row_dict=r, database=self) for r in self.driver_wrapper.search(table, column, search_term)]
 
     # Todo: This does not work
-    def multi_column_search(self, search_index, iterator_return=False):
+    def multi_column_search(self: "DatabaseAPI", search_index: Any, iterator_return: bool = False) -> list["RowAPI"]:
         """
-        Takes an index of tuples (or indexes - the method is not fussy provided it contains the required terms). Which
+        Takes an index of tuples and uses it to search the database.
+
+        (or indexes - the method is not fussy provided it contains the required terms). Which
         can then be used to search the database.
         Tuples should take the form (column_name, binary_comparison_operator, target_value).
         Binary comparison operators can include the LIKE operator.
@@ -42,13 +60,22 @@ class DatabaseSearchMixin:
         :return found_rows:
         """
         row_dicts = self.driver.direct_multi_column_search(search_index=search_index, iterator_return=iterator_return)
+        return [Row(row_dict=r, database=self) for r in row_dicts]
 
-    def get_unique(self, target_column):
+    # Todo: We can probably do better with some abuse of typing
+    def get_unique(self, target_column: str) -> set[Any]:
+        """
+        Returns all the values, in a set, for the target column.
+
+        :param target_column:
+        :return:
+        """
         return self.get_values_set(target_column=target_column)
 
-    def get_values_set(self, target_column, iterator_return=False):
+    def get_values_set(self: "DatabaseAPI", target_column, iterator_return=False):
         """
         Gets a set of the unique values that a particular column has.
+
         :param target_column: Which column should the unique values be extracted from?
         :param iterator_return: Should the function return an iterator or not?
         :return:
@@ -58,7 +85,7 @@ class DatabaseSearchMixin:
         else:
             return self.driver.direct_get_unique_values_set(target_column=target_column)
 
-    def get_row_from_id(self, table, row_id):
+    def get_row_from_id(self: "DatabaseAPI", table: str, row_id: int) -> Optional["RowAPI"]:
         """
         Gets a row from its particular id.
 
@@ -72,18 +99,25 @@ class DatabaseSearchMixin:
         else:
             return Row(row_dict=row_dict, database=self)
 
-    def get_random_row(self, table):
+    def get_random_row(self: "DatabaseAPI", table: str) -> "RowAPI":
         """
         Return a randomly chosen row from the given table
+
         :param table:
         :return:
         """
         row_dict = self.driver_wrapper.get_random_row(table=table)
         return Row(row_dict=row_dict, database=self)
 
-    def get_all_rows(self, table, iterator_return=True, sort_column=None, reverse=False):
+    def get_all_rows(
+            self: "DatabaseAPI",
+            table: str,
+            iterator_return: bool = True,
+            sort_column: Optional[str] = None,
+            reverse: bool = False) -> Iterable["RowAPI"]:
         """
         Returns all rows from a given table in the database in the form of a list of Rows, or an iterator.
+
         Iterator_return is on by default, as otherwise the return could be very large.
         :param table:
         :param iterator_return:
@@ -100,10 +134,12 @@ class DatabaseSearchMixin:
             row_dicts = self.driver_wrapper.get_all_rows(table, sort_column, reverse)
             return [Row(row_dict=r, database=self) for r in row_dicts]
 
-    def __get_all_rows_iterator_return(self, table):
+    # Todo: Merge with the above - if we can
+    def __get_all_rows_iterator_return(self: "DatabaseAPI", table: str) -> Iterable["RowAPI"]:
         """
-        Helper function to get round one of the limitations of Python 2.7 (that you can't have both a return and a
-        yield statement in the same function. Can be merged into get_all_rows after upgrading.
+        Helper function to get round one of the limitations of Python 2.7
+
+        (that you can't have both a return and a yield statement in the same function. Can be merged into get_all_rows after upgrading.
         :param table:
         :return:
         """
@@ -112,16 +148,20 @@ class DatabaseSearchMixin:
             yield Row(row_dict=row_dict, database=self)
 
     # Todo: Test
-    def chunk_iterator(self, column, target_table=None):
+    def chunk_iterator(
+            self: "DatabaseAPI",
+            column: str,
+            target_table: Optional[str] = None) -> Iterable[list["RowAPI"]]:
         """
         Iterates through a table retuning rows from it grouped by the grouping_column.
+
         :param column: Return will be grouped using this column
         :param target_table: The table to be grouped - if None will assume that the grouping column is in the
         target_table
         :return:
         """
         column = six_unicode(deepcopy(column))
-        column_table = self.driver_wrapper.identify_table_from_column(column)
+        column_table = self.driver_wrapper.direct_identify_table_from_column(column)
 
         # Iterate over the table - yield rows from the table in chunks
         if target_table is None or (target_table == column_table):

@@ -17,6 +17,7 @@ to validate the conventions used by DriverWrapper (id/scratch/base columns).
 from __future__ import annotations
 
 import copy
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -315,10 +316,11 @@ def test_row_sync_inserts_when_missing_id(open_db, primary_table_shape: TableSha
 
 def test_row_properties_refresh_for_empty_row_dict(open_db):
     row = Row(database=open_db, row_dict={})
-    assert row.row_id is None
     assert row.table is None
     assert row.allowed_tables is not None
-    assert isinstance(row.allowed_tables, set)
+    assert isinstance(row.allowed_tables, AbstractSet)
+    with pytest.raises(InputIntegrityError):
+        _ = row.row_id
 
 
 def test_row_setitem_on_empty_row_dict_infers_table(open_db, primary_table_shape: TableShape, pick_payload):

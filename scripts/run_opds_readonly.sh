@@ -8,6 +8,9 @@ VENV_PYTHON="${VENV_DIR}/bin/python"
 
 DATABASE_PATH=""
 DB_TYPE="sqlite"
+METADATA_READ_SOURCE="database"
+CACHE_TYPE="schema_backed"
+NO_CACHE_DB_FALLBACK=0
 HOST="127.0.0.1"
 PORT="8080"
 TITLE="LiuXin OPDS Read-Only"
@@ -23,6 +26,10 @@ Usage: scripts/run_opds_readonly.sh --database <path> [options]
 Options:
   --database <path>             Database path to open (required)
   --db-type <type>              Database driver type (default: sqlite)
+  --metadata-read-source <database|cache>
+                                Read metadata from the live database or cache (default: database)
+  --cache-type <type>           Storage cache backend for --metadata-read-source cache (default: schema_backed)
+  --no-cache-db-fallback        Do not fall back to live database reads for cache metadata reads
   --host <host>                 Bind host (default: 127.0.0.1)
   --port <port>                 Bind port (default: 8080)
   --title <text>                Service title (default: LiuXin OPDS Read-Only)
@@ -35,6 +42,7 @@ Options:
 Examples:
   scripts/run_opds_readonly.sh --database /home/blackjane/scratch_library.sqlite --port 8082
   scripts/run_opds_readonly.sh --database /home/blackjane/scratch_library.sqlite --host 0.0.0.0 --port 8082
+  scripts/run_opds_readonly.sh --database /home/blackjane/scratch_library.sqlite --metadata-read-source cache --port 8082
 USAGE
 }
 
@@ -52,6 +60,18 @@ while [[ $# -gt 0 ]]; do
         --db-type)
             DB_TYPE="$2"
             shift 2
+            ;;
+        --metadata-read-source)
+            METADATA_READ_SOURCE="$2"
+            shift 2
+            ;;
+        --cache-type)
+            CACHE_TYPE="$2"
+            shift 2
+            ;;
+        --no-cache-db-fallback)
+            NO_CACHE_DB_FALLBACK=1
+            shift
             ;;
         --host)
             HOST="$2"
@@ -105,7 +125,7 @@ if [[ ! -x "${VENV_PYTHON}" ]]; then
 fi
 
 WEB_CMD=(
-    "${VENV_PYTHON}" -m LiuXin_alpha.interfaces.opds_readonly
+    "${VENV_PYTHON}" -m LiuXin_alpha.surfaces.opds_readonly
     --database "${DATABASE_PATH}"
     --db-type "${DB_TYPE}"
     --host "${HOST}"
@@ -115,6 +135,18 @@ WEB_CMD=(
     --max-page-size "${MAX_PAGE_SIZE}"
     --opds-max-ungrouped-items "${OPDS_MAX_UNGROUPED_ITEMS}"
 )
+
+if [[ "${METADATA_READ_SOURCE}" != "database" ]]; then
+    WEB_CMD+=(--metadata-read-source "${METADATA_READ_SOURCE}")
+fi
+
+if [[ "${CACHE_TYPE}" != "schema_backed" ]]; then
+    WEB_CMD+=(--cache-type "${CACHE_TYPE}")
+fi
+
+if [[ ${NO_CACHE_DB_FALLBACK} -eq 1 ]]; then
+    WEB_CMD+=(--no-cache-db-fallback)
+fi
 
 if [[ ${NO_FILE_DOWNLOADS} -eq 1 ]]; then
     WEB_CMD+=(--no-file-downloads)

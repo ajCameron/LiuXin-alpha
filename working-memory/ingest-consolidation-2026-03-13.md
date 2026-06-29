@@ -64,7 +64,7 @@ Passed:
 
 - `pytest -q tests/storage/reconcile/test_wget_html_store_db_sync.py tests/storage/reconcile/test_native_html_store_db_sync.py tests/library/test_native_html_ingest_library.py tests/storage/api/test_storage_manager_database_wiring.py`
   - `32 passed`
-- `pytest -q tests/interfaces/test_text_browser.py tests/core/test_core_runtime_phase1.py -k 'sync_store or sync\\.store\\.start or crawler'`
+- `pytest -q tests/surfaces/test_text_browser.py tests/core/test_core_runtime_phase1.py -k 'sync_store or sync\\.store\\.start or crawler'`
   - `48 passed, 303 deselected`
 
 ## Next Step

@@ -34,6 +34,11 @@ Internally, the files might, or might not, be in folders (indeed, many stores wi
 They might, or might not, be compressed.
 You don't get to know. Leave that all to the StorageManager.
 
+Placement and naming hints are part of the storage API. Metadata containers
+provide facts and relation links; storage derives the placement projection it
+needs from those objects. The metadata API should not grow `storage_hints()`
+methods or `*StorageHints` exports.
+
 Folders in a storage manager are entirely a virtual concept.
 There is no guarantee that they actually exist before they are rendered by the StorageManager.
 (This rendering might just be a copy - but, again, you don't need to know that).
@@ -104,7 +109,7 @@ There is now a read-only remote store backend for site/file-tree style mirrors:
 - Typical root URI: `remote:` or `:http,url=https://example.com:`
 - It can iterate remote files and register them into the `files` table.
 
-The terminal interface route is:
+The terminal surface route is:
 
 - `sync store <store_id|store_name> to-db [options]`
 
@@ -213,6 +218,10 @@ Storage now reasons in three layers:
 - `items` are the library-facing exemplars
 - `digital_assets` are the managed payloads
 - `asset_replicas` are the concrete copies on stores
+
+The abstract contracts for digital assets and asset replicas live in
+`LiuXin_alpha.storage.api`. Metadata may reference those concepts by relation
+name or structural target, but it does not own their table-shaped APIs.
 
 Composite payloads use `digital_asset_compositions`.
 Semantic roles such as `primary_payload` and `cover` live on the item<->digital_asset link, not on the asset row itself.

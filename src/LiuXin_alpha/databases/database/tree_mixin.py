@@ -3,10 +3,20 @@
 Mixin to handle dealing with tree like structures in the database.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from LiuXin_alpha.databases.row import Row
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.driver_wrapper_api.driver_wrapper_api import DatabaseDriverWrapperAPI
 
 
 class DatabaseTreeMixin:
+
+    driver_wrapper: "DatabaseDriverWrapperAPI"
 
     # ----------------------------------------------------------------------------------------------------------------------
     #
@@ -15,6 +25,7 @@ class DatabaseTreeMixin:
     def get_root_row(self, start_row):
         """
         Get the root series of a tree.
+
         ALWAYS USE THIS INSTEAD OF get_root_series
         :param start_row:
         :return:
@@ -47,6 +58,7 @@ class DatabaseTreeMixin:
         Takes a starting row. Iterates up the tree, making an index of rows as it goes.
         Starts from the highest entry, then proceeds down.
         .......... -> grandparent_series -> parent_series -> series
+
         :param start_row:
         :return tree_row_index:
         """

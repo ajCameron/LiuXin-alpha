@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.metadata_tools.add import Add
-from LiuXin_alpha.databases.metadata_tools.apply import Apply
-from LiuXin_alpha.databases.metadata_tools.ensure import Ensure
-from LiuXin_alpha.databases.metadata_tools.intralinker import Intralinker
+from LiuXin_alpha.catalog.metadata_tools import Add
+from LiuXin_alpha.catalog.metadata_tools.apply import Apply
+from LiuXin_alpha.catalog.metadata_tools import Ensure
+from LiuXin_alpha.catalog.metadata_tools.intralinker import Intralinker
 
 
 class BasicMetadataFramework(object):

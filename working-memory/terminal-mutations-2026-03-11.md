@@ -54,7 +54,7 @@ This keeps the terminal aligned with the in-process core runtime now, and remote
 
 Relevant test slices that passed during this session:
 
-- `pytest -q tests/interfaces/test_text_browser.py -k 'set_command or edit_command or delete_command or command_completion_candidates'`
+- `pytest -q tests/surfaces/test_text_browser.py -k 'set_command or edit_command or delete_command or command_completion_candidates'`
 - `pytest -q tests/core/test_core_runtime_phase1.py`
 
 ## Follow-up

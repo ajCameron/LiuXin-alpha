@@ -21,6 +21,16 @@ RUN_COST = ["LOW"]
 
 _MAX_SCAN_BYTES = 16 * 1024
 _CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+_BINARY_SIGNATURES = (
+    b"\x89PNG\r\n\x1a\n",
+    b"\xff\xd8\xff",
+    b"GIF87a",
+    b"GIF89a",
+    b"%PDF-",
+    b"PK\x03\x04",
+    b"PK\x05\x06",
+    b"Rar!",
+)
 _LEGACY_BLOCK_RE = re.compile(
     r"(?u)^[ ]*(?P<title>.+?)[ ]*(\n{3}|(\r\n){3}|\r{3})[ ]*(?P<author>.+?)[ ]*(\n|\r\n|\r|$)"
 )
@@ -66,6 +76,18 @@ def _decode_head(raw: bytes) -> str:
         except Exception:
             continue
     return raw.decode("utf-8", "replace")
+
+
+def _looks_binaryish(raw: bytes) -> bool:
+    if not raw:
+        return False
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff", b"\xef\xbb\xbf")):
+        return False
+    if raw.startswith(_BINARY_SIGNATURES):
+        return True
+    sample = raw[:1024]
+    control_count = sum(1 for byte in sample if byte < 32 and byte not in (9, 10, 13))
+    return bool(sample) and (control_count / len(sample)) > 0.20
 
 
 def _sanitize_text(text: str) -> str:
@@ -228,7 +250,10 @@ def get_metadata(target_file):
         if isinstance(raw, str):
             text = raw
         else:
-            text = _decode_head(bytes(raw))
+            raw = bytes(raw)
+            if _looks_binaryish(raw):
+                return mi
+            text = _decode_head(raw)
         text = _sanitize_text(text)
 
         title, author = _extract_metadata_from_text(text)

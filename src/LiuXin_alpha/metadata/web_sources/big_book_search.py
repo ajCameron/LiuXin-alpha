@@ -15,6 +15,7 @@ from urllib.parse import quote_plus, urljoin
 from LiuXin_alpha.metadata.web_sources.base import Option, Source
 from LiuXin_alpha.metadata.web_sources.http_client import RetryPolicy, call_with_backoff, compute_backoff_delay
 from LiuXin_alpha.metadata.web_sources.http_client import decode_http_body
+from LiuXin_alpha.metadata.web_sources.http_client import error_diagnostics
 from LiuXin_alpha.metadata.web_sources.http_client import log_message
 from LiuXin_alpha.metadata.web_sources.http_client import wait_for_backoff
 from LiuXin_alpha.utils.localization import trans as _
@@ -22,6 +23,11 @@ from LiuXin_alpha.utils.localization import trans as _
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
+
+BIG_BOOK_SEARCH_BASE_URLS = (
+    "https://www.bigbooksearch.com",
+    "https://bigbooksearch.com",
+)
 
 
 def _as_text(raw) -> str:
@@ -64,17 +70,45 @@ def parse_image_urls(raw_html: str, base_url: str):
     return list(candidates)
 
 
+def _html_title(raw_html: str) -> str | None:
+    match = re.search(r"<title[^>]*>(.*?)</title>", raw_html, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    title = re.sub(r"\s+", " ", unescape(match.group(1))).strip()
+    return title or None
+
+
+def _response_markers(raw_html: str) -> dict:
+    html = _as_text(raw_html)
+    lowered = html.lower()
+    return {
+        "chars": len(html),
+        "title": _html_title(html),
+        "img_tags": len(re.findall(r"<img\b", html, re.IGNORECASE)),
+        "data_src": "data-src" in lowered,
+        "captcha": "captcha" in lowered,
+        "cloudflare": "cloudflare" in lowered,
+        "not_found": "not found" in lowered,
+    }
+
+
 def _build_query(tokens) -> str:
     escaped = [quote_plus(_as_text(x)) for x in tokens if _as_text(x).strip()]
     return "+".join(escaped)
 
 
 def _search_urls_for_query(query: str):
-    return (
-        "https://bigbooksearch.com/please-dont-scrape-my-site-you-will-put-my-api-key-over-the-usage-limit-and-the-site-will-break/books/"
-        + query,
-        "https://bigbooksearch.com/books/" + query,
-    )
+    urls = []
+    for base_url in BIG_BOOK_SEARCH_BASE_URLS:
+        urls.extend(
+            (
+                base_url
+                + "/please-dont-scrape-my-site-you-will-put-my-api-key-over-the-usage-limit-and-the-site-will-break/books/"
+                + query,
+                base_url + "/books/" + query,
+            )
+        )
+    return tuple(urls)
 
 
 def get_urls(
@@ -108,13 +142,21 @@ def get_urls(
                 backoff_fn=backoff_fn,
                 wait_for_backoff_fn=wait_for_backoff_fn,
             )
-        except Exception:
+        except Exception as err:
+            if log is not None:
+                meta = {"url": url, **error_diagnostics(err)}
+                log_message(log, "warning", "Big Book Search endpoint failed; trying next URL", meta)
             continue
         if not raw:
+            log_message(log, "info", "Big Book Search empty response", {"url": url})
             continue
-        urls = parse_image_urls(decode_http_body(raw), base_url=url)
+        html = decode_http_body(raw)
+        urls = parse_image_urls(html, base_url=url)
+        log_message(log, "info", "Big Book Search parsed candidate URLs", {"count": len(urls), "url": url})
         if urls:
             return urls
+        log_message(log, "info", "Big Book Search response markers", {"url": url, **_response_markers(html)})
+    log_message(log, "info", "Big Book Search exhausted query URLs", {"query": query, "attempted": len(_search_urls_for_query(query))})
     return []
 
 

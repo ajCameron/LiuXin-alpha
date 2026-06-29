@@ -33,8 +33,8 @@ Short answer:
 ## Current Related Coverage
 
 Higher-level cover/image behavior is already exercised in:
-- [test_images_api.py](/home/blackjane/LiuXin-alpha-wsl/tests/interfaces/test_images_api.py)
-- [test_web_calibre_readonly.py](/home/blackjane/LiuXin-alpha-wsl/tests/interfaces/test_web_calibre_readonly.py)
+- [test_images_api.py](/home/blackjane/LiuXin-alpha-wsl/tests/surfaces/test_images_api.py)
+- [test_web_calibre_readonly.py](/home/blackjane/LiuXin-alpha-wsl/tests/surfaces/test_web_calibre_readonly.py)
 - [test_metadata_files_and_covers.py](/home/blackjane/LiuXin-alpha-wsl/tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py)
 
 But those tests do not lock down the old cache-path utilities such as:

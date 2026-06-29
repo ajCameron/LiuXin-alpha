@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.databases.metadata_tools.add import Add
+from LiuXin_alpha.catalog.metadata_tools import Add
 
 
 def test_add_creator_writes_agent_and_human_sidecar_with_links(open_db) -> None:

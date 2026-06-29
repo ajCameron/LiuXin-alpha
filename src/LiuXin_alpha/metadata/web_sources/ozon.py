@@ -12,12 +12,14 @@ from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from datetime import datetime
 from queue import Empty, Queue
+from urllib.error import HTTPError
 from urllib.parse import quote, quote_plus, urlparse
 
 from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn
 from LiuXin_alpha.metadata.web_sources.base import Option, Source
 from LiuXin_alpha.metadata.web_sources.http_client import RetryPolicy, call_with_backoff, compute_backoff_delay
 from LiuXin_alpha.metadata.web_sources.http_client import decode_http_body
+from LiuXin_alpha.metadata.web_sources.http_client import error_diagnostics
 from LiuXin_alpha.metadata.web_sources.http_client import log_message
 from LiuXin_alpha.metadata.web_sources.http_client import wait_for_backoff
 from LiuXin_alpha.utils.date import parse_only_date
@@ -120,6 +122,39 @@ def _extract_meta_content(raw_html: str, key: str):
         if m:
             return _as_text(m.group(1)).strip()
     return ""
+
+
+def _html_title(raw_html: str) -> str | None:
+    match = re.search(r"<title[^>]*>(.*?)</title>", raw_html, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    title = re.sub(r"\s+", " ", _as_text(match.group(1))).strip()
+    return title or None
+
+
+def _response_markers(raw_html: str) -> dict:
+    html = _as_text(raw_html)
+    lowered = html.lower()
+    return {
+        "chars": len(html),
+        "title": _html_title(html),
+        "ozon_ids": len(set(re.findall(r"/(?:context/detail/id|product)/[^\"'<>]+", html, re.IGNORECASE))),
+        "json_ld": "application/ld+json" in lowered,
+        "next_data": "__next_data__" in lowered,
+        "captcha": "captcha" in lowered or "капча" in lowered,
+        "cloudflare": "cloudflare" in lowered,
+        "forbidden": "forbidden" in lowered,
+        "enable_javascript": "enable javascript" in lowered or "включите javascript" in lowered,
+    }
+
+
+def _is_rr_redirect_loop(err) -> bool:
+    if error_diagnostics(err).get("status_code") != 307 and not isinstance(err, HTTPError):
+        return False
+    meta = error_diagnostics(err)
+    text = " ".join(_as_text(meta.get(key, "")) for key in ("error", "reason", "location", "exception_url"))
+    lowered = text.lower()
+    return "__rr=" in lowered and ("redirect" in lowered or "temporary redirect" in lowered)
 
 
 def _parse_pubdate(raw) -> datetime | None:
@@ -278,6 +313,21 @@ class Ozon(Source):
             return ""
         return decode_http_body(raw)
 
+    def _open_text_or_none(self, log, abort, url: str, timeout: int, context: str):
+        try:
+            self._last_redirect_loop = False
+            return self._open_text_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
+        except Exception as err:
+            if _is_rr_redirect_loop(err):
+                self._last_redirect_loop = True
+            log_message(
+                log,
+                "warning",
+                "Ozon request failed; continuing with available fallback paths",
+                {"context": context, "url": url, **error_diagnostics(err)},
+            )
+            return ""
+
     def _detail_url(self, ozon_id: str):
         return f"{self.OZON_URL}/context/detail/id/{quote(_as_text(ozon_id).strip())}/"
 
@@ -312,6 +362,24 @@ class Ozon(Source):
             return None
         query = " ".join(tokens)
         return ("search", self.SEARCH_URL + quote_plus(query), None)
+
+    def _redirect_loop_seen(self) -> bool:
+        return bool(getattr(self, "_last_redirect_loop", False))
+
+    def _search_url_variants(self, url: str):
+        text = _as_text(url).split("text=", 1)[-1].split("&", 1)[0]
+        if not text or text == _as_text(url):
+            return (url,)
+        return tuple(
+            dict.fromkeys(
+                (
+                    url,
+                    f"{self.OZON_URL}/search/?from_global=true&text={text}",
+                    f"{self.OZON_URL}/search/?deny_category_prediction=true&text={text}",
+                    f"{self.OZON_URL}/search/?text={text}&from_global=true",
+                )
+            )
+        )
 
     def _extract_ozon_ids_from_search_html(self, raw_html: str, limit: int = 8):
         html = _as_text(raw_html)
@@ -500,30 +568,48 @@ class Ozon(Source):
         if mode == "detail":
             ozon_ids = [ozon_id]
         else:
-            search_html = self._open_text_with_backoff(
-                log=log,
-                abort=abort,
-                url=url,
-                timeout=timeout,
-                context="Ozon search",
-            )
-            if not search_html:
-                return
-            ozon_ids = self._extract_ozon_ids_from_search_html(search_html, limit=8)
+            for search_url in self._search_url_variants(url):
+                search_html = self._open_text_or_none(
+                    log=log,
+                    abort=abort,
+                    url=search_url,
+                    timeout=timeout,
+                    context="Ozon search",
+                )
+                if self._redirect_loop_seen():
+                    log_message(log, "warning", "Ozon redirect-loop signature observed; skipping remaining search URL variants", {"url": search_url})
+                    break
+                if not search_html:
+                    continue
+                ozon_ids = self._extract_ozon_ids_from_search_html(search_html, limit=8)
+                log_message(log, "info", "Ozon parsed search ids", {"count": len(ozon_ids), "url": search_url})
+                if ozon_ids:
+                    break
+                log_message(log, "info", "Ozon response markers", {"url": search_url, **_response_markers(search_html)})
 
             if not ozon_ids and _safe_isbn(identifiers) and (title or authors) and not abort.is_set():
                 retry = self.create_query(title=title, authors=authors, identifiers={})
                 if retry:
                     _, retry_url, _ = retry
                     log_message(log, "info", "Ozon ISBN search yielded no results, retrying with title/author query")
-                    search_html = self._open_text_with_backoff(
-                        log=log,
-                        abort=abort,
-                        url=retry_url,
-                        timeout=timeout,
-                        context="Ozon search fallback",
-                    )
-                    ozon_ids = self._extract_ozon_ids_from_search_html(search_html, limit=8)
+                    for fallback_url in self._search_url_variants(retry_url):
+                        search_html = self._open_text_or_none(
+                            log=log,
+                            abort=abort,
+                            url=fallback_url,
+                            timeout=timeout,
+                            context="Ozon search fallback",
+                        )
+                        if self._redirect_loop_seen():
+                            log_message(log, "warning", "Ozon redirect-loop signature observed; skipping remaining fallback URL variants", {"url": fallback_url})
+                            break
+                        if not search_html:
+                            continue
+                        ozon_ids = self._extract_ozon_ids_from_search_html(search_html, limit=8)
+                        log_message(log, "info", "Ozon parsed search ids", {"count": len(ozon_ids), "url": fallback_url, "fallback": True})
+                        if ozon_ids:
+                            break
+                        log_message(log, "info", "Ozon response markers", {"url": fallback_url, "fallback": True, **_response_markers(search_html)})
 
         seen = set()
         for relevance, oid in enumerate(ozon_ids):
@@ -533,16 +619,13 @@ class Ozon(Source):
                 continue
             seen.add(oid)
             detail_url = self._detail_url(oid)
-            try:
-                detail_html = self._open_text_with_backoff(
-                    log=log,
-                    abort=abort,
-                    url=detail_url,
-                    timeout=timeout,
-                    context="Ozon detail page",
-                )
-            except Exception:
-                continue
+            detail_html = self._open_text_or_none(
+                log=log,
+                abort=abort,
+                url=detail_url,
+                timeout=timeout,
+                context="Ozon detail page",
+            )
             if not detail_html:
                 continue
             mi = self._metadata_from_detail_html(detail_html, ozon_id=oid, relevance=relevance)

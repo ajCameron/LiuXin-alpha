@@ -25,6 +25,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any, Optional, Type
 
 from LiuXin_alpha.storage.api import StoreStatus
+from LiuXin_alpha.storage.api.placement_hints_api import derive_storage_hints
 from LiuXin_alpha.storage.errors import CalibreLikeImplicitOverwriteError
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_calibre_like.on_disk_calibre_like_location import (
     OnDiskCalibreLikeStoreLocation,
@@ -211,13 +212,7 @@ class OnDiskCalibreLikeStorageBackend(OnDiskExistingManagedStorageBackend):
     def _extract_hints(metadata: Any) -> Any:
         if metadata is None:
             return None
-        hints_fn = getattr(metadata, "storage_hints", None)
-        if not callable(hints_fn):
-            return None
-        try:
-            return hints_fn()
-        except Exception:
-            return None
+        return derive_storage_hints(metadata)
 
     def _extract_value(self, metadata: Any, hints: Any, keys: tuple[str, ...]) -> Any:
         for source in (metadata, hints):

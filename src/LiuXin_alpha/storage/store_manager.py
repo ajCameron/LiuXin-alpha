@@ -16,7 +16,6 @@ import pathlib
 from collections.abc import Iterable, Iterator, Mapping
 from typing import TYPE_CHECKING, Any, Optional
 
-from LiuXin_alpha.metadata.api import MetadataContainerAPI
 from LiuXin_alpha.storage.api import (
     StoreContainerAPI,
     StoreLocationMixinAPI,
@@ -24,6 +23,7 @@ from LiuXin_alpha.storage.api import (
     StorePluginAPI,
     StoreSpec,
 )
+from LiuXin_alpha.storage.api.placement_hints_api import derive_storage_hints
 from LiuXin_alpha.storage.store_container import StoreContainer
 from LiuXin_alpha.storage.store_spec_utils import store_spec_from_row
 
@@ -358,7 +358,7 @@ class StorageManager(StorageManagerAPI):
     def store_bytes(
         self,
         file_bytes: bytes,
-        metadata: Optional[MetadataContainerAPI] = None,
+        metadata: Optional[Any] = None,
         *,
         preferred_store: "StoreRef | None" = None,
     ) -> StoreLocationMixinAPI:
@@ -387,7 +387,7 @@ class StorageManager(StorageManagerAPI):
     def locate_file(
         self,
         file_url: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
+        metadata: Optional[Any] = None,
         *,
         preferred_store: "StoreRef | None" = None,
     ) -> StoreLocationMixinAPI:
@@ -435,7 +435,7 @@ class StorageManager(StorageManagerAPI):
     def delete_location(
         self,
         file_url: Optional[str] = None,
-        metadata: Optional[MetadataContainerAPI] = None,
+        metadata: Optional[Any] = None,
         location: Optional[StoreLocationMixinAPI] = None,
     ) -> bool:
         resolved_url = file_url
@@ -784,7 +784,7 @@ class StorageManager(StorageManagerAPI):
         self,
         *,
         preferred_store: "StoreRef | None",
-        metadata: Optional[MetadataContainerAPI],
+        metadata: Optional[Any],
         file_url: Optional[str],
     ) -> list[StoreContainerAPI]:
         store_containers: list[StoreContainerAPI] = []
@@ -821,28 +821,23 @@ class StorageManager(StorageManagerAPI):
             _append(store_container)
         return store_containers
 
-    def _metadata_sources(self, metadata: Optional[MetadataContainerAPI]) -> list[Any]:
+    def _metadata_sources(self, metadata: Optional[Any]) -> list[Any]:
         if metadata is None:
             return []
         sources: list[Any] = [metadata]
-        hints_fn = getattr(metadata, "storage_hints", None)
-        if callable(hints_fn):
-            try:
-                hints = hints_fn()
-            except Exception:
-                hints = None
-            if hints is not None:
-                sources.append(hints)
-                extra = self._get_value(hints, "extra")
-                if isinstance(extra, Mapping):
-                    sources.append(extra)
+        hints = derive_storage_hints(metadata)
+        if hints is not None:
+            sources.append(hints)
+            extra = self._get_value(hints, "extra")
+            if isinstance(extra, Mapping):
+                sources.append(extra)
         if isinstance(metadata, Mapping):
             extra = metadata.get("extra")
             if isinstance(extra, Mapping):
                 sources.append(extra)
         return sources
 
-    def _get_metadata_value(self, metadata: Optional[MetadataContainerAPI], *keys: str) -> Any:
+    def _get_metadata_value(self, metadata: Optional[Any], *keys: str) -> Any:
         for source in self._metadata_sources(metadata):
             for key in keys:
                 value = self._get_value(source, key)
@@ -856,7 +851,7 @@ class StorageManager(StorageManagerAPI):
             return source.get(key)
         return getattr(source, key, None)
 
-    def _metadata_file_url(self, metadata: Optional[MetadataContainerAPI]) -> Optional[str]:
+    def _metadata_file_url(self, metadata: Optional[Any]) -> Optional[str]:
         value = self._get_metadata_value(metadata, "file_url", "url", "file_path", "path", "file_storage_key", "storage_key")
         if value is None:
             file_row = self._get_metadata_value(metadata, "file_row")
@@ -868,7 +863,7 @@ class StorageManager(StorageManagerAPI):
                     value = self._get_value(file_row, "file_storage_key")
         return None if value is None else str(value)
 
-    def _metadata_store_identifiers(self, metadata: Optional[MetadataContainerAPI]) -> Iterator[str]:
+    def _metadata_store_identifiers(self, metadata: Optional[Any]) -> Iterator[str]:
         for key in (
             "preferred_store",
             "store",

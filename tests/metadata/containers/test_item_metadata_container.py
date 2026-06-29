@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from LiuXin_alpha.metadata.api import ItemRelationLink
-from LiuXin_alpha.metadata.containers import ItemContainer, ItemMetadataContainer
+from LiuXin_alpha.metadata.containers import ItemIdentity, ItemMetadata
 
 
-def test_item_metadata_container_round_trip_and_hints() -> None:
-    container = ItemMetadataContainer(
-        item=ItemContainer(
+def test_item_metadata_container_round_trip() -> None:
+    container = ItemMetadata(
+        item=ItemIdentity(
             item_id=44,
             item_manifestation_id=12,
             item_type="digital",
@@ -29,13 +29,21 @@ def test_item_metadata_container_round_trip_and_hints() -> None:
     )
 
     payload = container.to_mapping()
-    hydrated = ItemMetadataContainer.from_mapping(payload)
-    hints = hydrated.storage_hints()
+    hydrated = ItemMetadata.from_mapping(payload)
 
-    assert hints.item_id == 44
-    assert hints.work_id == 5
-    assert hints.title == "Permutation City"
-    assert hints.primary_agents == ("Greg Egan",)
-    assert hints.file_formats == ("EPUB",)
-    assert hints.preferred_filename_stem == "Permutation City - Greg Egan"
-    assert hints.preferred_storage_key.endswith("Greg Egan.epub")
+    assert hydrated.item is not None
+    assert hydrated.item.item_id == 44
+    assert hydrated.item.item_manifestation_id == 12
+    assert hydrated.item.item_source_name == "permutation-city.epub"
+    assert hydrated.get_relation_links("works")[0].target == {
+        "work_id": 5,
+        "work_title": "Permutation City",
+        "work_canonical_title": "Permutation City",
+    }
+    assert hydrated.get_relation_links("agents")[0].target == {"agent_canonical_name": "Greg Egan"}
+    assert hydrated.get_relation_links("files")[0].target == {
+        "file_extension": "epub",
+        "file_role": "primary",
+        "file_storage_key": "Greg Egan/Permutation City (5)/Permutation City - Greg Egan.epub",
+    }
+    assert not hasattr(hydrated, "storage_hints")

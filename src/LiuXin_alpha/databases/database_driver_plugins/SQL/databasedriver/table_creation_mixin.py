@@ -2,50 +2,49 @@
 """
 Mixin method to allow the driver to create tables.
 
-Does not include custom column table creation logic.
+Does not include custom column table creation logic - those live in their own mixins.
 """
 
+from __future__ import annotations
+
+from typing import Optional, Iterable, Union
+
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
-
-
 
 
 class TableCreationMixin:
     """
     Mixin to permit the creation of new main tables.
     """
-
+    # Todo: Should be creation methods for all types of table
+    # Todo: Central registyr on the database for table types
     # ----------------------------------------------------------------------------------------------------------------------
     #
     # - TABLE CREATION METHODS
     # Todo: Need a way to change the data type of the default column - also the data type of any additional columns created
     # Todo: Pull the "new" out of the name - that's implcit
     # Todo: Need a way to designate this new table "custom"
-    def direct_create_new_main_table(
+    def direct_create_main_table(
             self,
-            table_name,
-            column_headings=None,
-            index_on="all",
-            default_datatype="TEXT",
-            default_unique=False,
-    ):
+            table_name: str,
+            column_headings: Optional[Iterable[str]] = None,
+            index_on: Optional[Union[str, Iterable[str]]]="all",
+            default_datatype: str = "TEXT",
+            default_unique: bool = False,
+    ) -> None:
         """
         Create a new main table on the database.
 
+        This should rarely, to never, be actually used.
         :param table_name: Name for the new main table (please obey the naming scheme). Trying to create a table with a
                            name the same as that of another in the database)
-
         :param column_headings: Columns names (in the final table the name of the table _ column name.
                                 The final table with have additional datestamp and scratch columns.
                                 Columns headings should be provided in the form of a dictionary (optionally ordered)
                                 Keyed with the name of the column and valued with the datatype for that column.
-
         :param index_on: The columns to also create indexes for - defaults to 'all' - which will generate an index for
                          all the requested custom columns
-
         :param default_datatype: The default datatype what will be used if no other is provided. Defaults to txt.
-
-
 
         :return:
         """

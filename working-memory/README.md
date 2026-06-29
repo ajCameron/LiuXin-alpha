@@ -13,6 +13,12 @@ Do not use this folder for:
 - long transcripts
 - raw command dumps unless they are genuinely needed
 
+## Commit convention
+
+When the user asks to "commit", treat that as shorthand for:
+- update the relevant working-memory note first
+- then commit the code/tests/docs/working-memory changes together
+
 ## Naming
 
 Use:
@@ -22,7 +28,7 @@ Use:
 ```
 
 Examples:
-- `interface-findings-2026-03-11.md`
+- `surface-findings-2026-03-11.md`
 - `rpc-cutover-2026-03-11.md`
 - `sync-debug-2026-03-11.md`
 

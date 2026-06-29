@@ -2,33 +2,43 @@
 """
 Holds database macros.
 
+Holds the base class for the macros - should include an implementation of all the given macros using the basic db
+methods.
+Each of the individual macros implementations should subclass this - so all the necessary methods will be there and
+will have a functional implementation
+
+
 Macros make working with the database easier - they are common operations which can be usefully speeded up
 by re-writing them in a backend dependent way.
 E.g,
 """
 
+from __future__ import annotations
 
-
-# Holds the base class for the macros - should include an implementation of all the given macros using the basic db
-# methods.
-# Each of the individual macros implementations should subclass this - so all the necessary methods will be there and
-# will have a functional implementation
+from typing import TYPE_CHECKING
 
 from collections import defaultdict
 
-from LiuXin_alpha.databases.api import DatabaseAPI
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api import DatabaseAPI
 
 
+# Todo: Actually make this the base.
 class MacrosBase:
-    def __init__(self, db: DatabaseAPI):
+    """
+    Base class for macros.
+    """
+
+    def __init__(self, db: "DatabaseAPI"):
         """
         Attaches to the underlying database to provide additional services.
+
         :param db:
         """
         self.db = db
 
-
-
+    # Todo: This should be a dataclass return
     def get_link_data(self,
                       table1: str,
                       table2: str,

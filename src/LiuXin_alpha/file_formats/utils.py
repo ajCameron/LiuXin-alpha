@@ -103,6 +103,34 @@ def extract_calibre_cover(raw, base, log) -> Optional[bytes]:
     """
     from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
 
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", "replace")
+    try:
+        from lxml import html as lxml_html
+
+        root = lxml_html.fromstring(raw)
+        matches = root.xpath(".//h1|.//h2|.//h3|.//h4|.//h5|.//h6|.//p|.//span|.//font|.//br")
+        images = root.xpath(".//img")
+        if not matches and len(images) == 1 and images[0].get("alt", "") == "cover":
+            src = images[0].get("src")
+            if src:
+                img = os.path.join(base, *src.split("/"))
+                return return_raster_image(img)
+
+        if not matches:
+            bodies = root.xpath(".//body")
+            body = bodies[0] if bodies else root
+            text = "".join(body.itertext())
+            if text.strip():
+                return None
+            images = body.xpath(".//img[@src]")
+            if 0 < len(images) < 2:
+                img = os.path.join(base, *images[0].get("src").split("/"))
+                return return_raster_image(img)
+        return None
+    except Exception:
+        pass
+
     soup = BeautifulSoup(raw)
     matches = soup.find(name=["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "font", "br"])
     images = soup.findAll("img")
@@ -160,7 +188,7 @@ def render_html_svg_workaround(path_to_html, log, width=590, height=750):
     # Todo: Install https://github.com/AdamN/python-webkit2png as a fallback for when PyQt isn't installed at all
     if data is None:
         try:
-            from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+            from LiuXin_alpha.surfaces.gui2 import is_ok_to_use_qt
         except Exception:
             is_ok_to_use_qt = lambda: False
 
@@ -201,7 +229,7 @@ def render_html(path_to_html, width=590, height=750, as_xhtml=True):
     except Exception:
         return None
     try:
-        from LiuXin_alpha.interfaces.gui2 import is_ok_to_use_qt
+        from LiuXin_alpha.surfaces.gui2 import is_ok_to_use_qt
     except Exception:
         return None
 

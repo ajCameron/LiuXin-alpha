@@ -1,15 +1,22 @@
 
+"""
+Methods to interact directly with the dirtied records table.
+"""
+
+from __future__ import annotations
 
 from LiuXin_alpha.utils.logging import default_log
+
+
 
 class DirtyRecordsMixin:
     """
     Mixin to deal with dirty records.
     """
 
-    def dirty_record(self, table, table_id, reason):
+    def direct_dirty_record(self, table: str, table_id: int, reason: str) -> None:
         """
-        Add a record to the dirtied dictionary.
+        Add a record to the dirtied queue.
 
         :param table:
         :param table_id:

@@ -11,9 +11,10 @@ from itertools import repeat
 
 from lxml import etree
 
+from LiuXin_alpha.file_formats.mobi import MobiError
 from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator, Guide
 from LiuXin_alpha.file_formats.mobi.reader.headers import NULL_INDEX
-from LiuXin_alpha.file_formats.mobi.reader.index import read_index
+from LiuXin_alpha.file_formats.mobi.reader.index import InvalidFile, read_index
 from LiuXin_alpha.file_formats.mobi.reader.ncx import read_ncx, build_toc
 from LiuXin_alpha.file_formats.mobi.reader.markup import expand_mobi8_markup
 from LiuXin_alpha.file_formats.mobi.reader.containers import Container, find_imgtype
@@ -84,6 +85,47 @@ class Mobi8Reader(object):
         self.header = mobi6_reader.book_header
         self.encrypted_fonts = []
 
+    def _kf8_section(self, index, context):
+        try:
+            outside = index < 0 or index >= len(self.kf8_sections)
+        except TypeError:
+            outside = True
+        if outside:
+            raise MobiError("%s index outside KF8 sections: %r" % (context, index))
+        try:
+            return self.kf8_sections[index][0]
+        except (IndexError, TypeError):
+            raise MobiError("Malformed %s section entry" % context)
+
+    def _read_index(self, index, context):
+        try:
+            return read_index(self.kf8_sections, index, self.header.codec)
+        except (InvalidFile, IndexError, KeyError, TypeError, ValueError, struct.error) as err:
+            raise MobiError("Malformed KF8 %s index: %s" % (context, err))
+
+    def _read_fdst(self):
+        header = self._kf8_section(self.header.fdstidx, "FDST")
+        if header[:4] != b"FDST":
+            raise MobiError("KF8 does not have a valid FDST record")
+        if len(header) < 12:
+            raise MobiError("Truncated KF8 FDST record")
+        sec_start, num_sections = struct.unpack_from(b">LL", header, 4)
+        if sec_start < 12:
+            raise MobiError("KF8 FDST table starts before the header")
+        if sec_start + (num_sections * 8) > len(header):
+            raise MobiError("Truncated KF8 FDST table")
+
+        secs = struct.unpack_from(b">%dL" % (num_sections * 2), header, sec_start)
+        flow_table = tuple(six_zip(secs[::2], secs[1::2]))
+        raw_ml = getattr(self.mobi6_reader, "mobi_html", b"")
+        raw_len = len(raw_ml if raw_ml is not None else b"")
+        for start, end in flow_table:
+            if start > end:
+                raise MobiError("KF8 FDST flow range is reversed")
+            if end > raw_len:
+                raise MobiError("KF8 FDST flow range exceeds raw markup")
+        return flow_table
+
     def __call__(self):
         self.mobi6_reader.check_for_drm()
         bh = self.mobi6_reader.book_header
@@ -130,56 +172,60 @@ class Mobi8Reader(object):
         self.flow_table = ()
 
         if self.header.fdstidx != NULL_INDEX:
-            header = self.kf8_sections[self.header.fdstidx][0]
-            if header[:4] != b"FDST":
-                raise ValueError("KF8 does not have a valid FDST record")
-            sec_start, num_sections = struct.unpack_from(b">LL", header, 4)
-            secs = struct.unpack_from(b">%dL" % (num_sections * 2), header, sec_start)
-            self.flow_table = tuple(six_zip(secs[::2], secs[1::2]))
+            self.flow_table = self._read_fdst()
 
         self.files = []
         if self.header.skelidx != NULL_INDEX:
-            table = read_index(self.kf8_sections, self.header.skelidx, self.header.codec)[0]
-            file_tuple = namedtuple("File", "file_number name divtbl_count start_position length")
+            try:
+                table = self._read_index(self.header.skelidx, "skeleton")[0]
+                file_tuple = namedtuple("File", "file_number name divtbl_count start_position length")
 
-            for i, text in enumerate(iterkeys(table)):
-                tag_map = table[text]
-                self.files.append(file_tuple(i, text, tag_map[1][0], tag_map[6][0], tag_map[6][1]))
+                for i, text in enumerate(iterkeys(table)):
+                    tag_map = table[text]
+                    self.files.append(file_tuple(i, text, tag_map[1][0], tag_map[6][0], tag_map[6][1]))
+            except (IndexError, KeyError, TypeError, ValueError) as err:
+                raise MobiError("Malformed KF8 skeleton index: %s" % err)
 
         self.elems = []
         if self.header.dividx != NULL_INDEX:
-            table, cncx = read_index(self.kf8_sections, self.header.dividx, self.header.codec)
-            for i, text in enumerate(iterkeys(table)):
-                tag_map = table[text]
-                toc_text = cncx[tag_map[2][0]]
-                self.elems.append(
-                    Elem(
-                        int(text),
-                        toc_text,
-                        tag_map[3][0],
-                        tag_map[4][0],
-                        tag_map[6][0],
-                        tag_map[6][1],
+            try:
+                table, cncx = self._read_index(self.header.dividx, "division")
+                for i, text in enumerate(iterkeys(table)):
+                    tag_map = table[text]
+                    toc_text = cncx[tag_map[2][0]]
+                    self.elems.append(
+                        Elem(
+                            int(text),
+                            toc_text,
+                            tag_map[3][0],
+                            tag_map[4][0],
+                            tag_map[6][0],
+                            tag_map[6][1],
+                        )
                     )
-                )
+            except (IndexError, KeyError, TypeError, ValueError) as err:
+                raise MobiError("Malformed KF8 division index: %s" % err)
 
         self.guide = []
         if self.header.othidx != NULL_INDEX:
-            table, cncx = read_index(self.kf8_sections, self.header.othidx, self.header.codec)
-            Item = namedtuple("Item", "type title pos_fid")
+            try:
+                table, cncx = self._read_index(self.header.othidx, "guide")
+                Item = namedtuple("Item", "type title pos_fid")
 
-            for i, ref_type in enumerate(iterkeys(table)):
-                tag_map = table[ref_type]
-                # ref_type, ref_title, div/frag number
-                title = cncx[tag_map[1][0]]
-                fileno = None
-                if 3 in tag_map.keys():
-                    fileno = tag_map[3][0]
-                if 6 in tag_map.keys():
-                    fileno = tag_map[6]
-                if isinstance(ref_type, (bytes, bytearray)):
-                    ref_type = ref_type.decode(self.header.codec, "replace")
-                self.guide.append(Item(ref_type, title, fileno))
+                for i, ref_type in enumerate(iterkeys(table)):
+                    tag_map = table[ref_type]
+                    # ref_type, ref_title, div/frag number
+                    title = cncx[tag_map[1][0]]
+                    fileno = None
+                    if 3 in tag_map.keys():
+                        fileno = tag_map[3][0]
+                    if 6 in tag_map.keys():
+                        fileno = tag_map[6]
+                    if isinstance(ref_type, (bytes, bytearray)):
+                        ref_type = ref_type.decode(self.header.codec, "replace")
+                    self.guide.append(Item(ref_type, title, fileno))
+            except (IndexError, KeyError, TypeError, ValueError) as err:
+                raise MobiError("Malformed KF8 guide index: %s" % err)
 
     def build_parts(self):
         raw_ml = self.mobi6_reader.mobi_html
@@ -399,45 +445,56 @@ class Mobi8Reader(object):
         return guide
 
     def create_ncx(self):
-        index_entries = read_ncx(self.kf8_sections, self.header.ncxidx, self.header.codec)
-        remove = []
+        try:
+            index_entries = read_ncx(self.kf8_sections, self.header.ncxidx, self.header.codec)
+            remove = []
 
-        # Add href and anchor info to the index entries
-        for entry in index_entries:
-            pos_fid = entry["pos_fid"]
-            if pos_fid is None:
-                pos = entry["pos"]
-                fi = self.get_file_info(pos)
-                if fi.filename is None:
-                    raise ValueError("Index entry has invalid pos: %d" % pos)
-                idtag = self.get_id_tag(pos).decode(self.header.codec)
-                href = "%s/%s" % (fi.type, fi.filename)
-            else:
-                try:
-                    href, idtag = self.get_id_tag_by_pos_fid(*pos_fid)
-                except ValueError:
-                    self.log.warn("Invalid entry in NCX (title: %s), ignoring" % entry["text"])
-                    remove.append(entry)
-                    continue
+            # Add href and anchor info to the index entries
+            for entry in index_entries:
+                pos_fid = entry["pos_fid"]
+                if pos_fid is None:
+                    pos = entry["pos"]
+                    fi = self.get_file_info(pos)
+                    if fi.filename is None:
+                        raise ValueError("Index entry has invalid pos: %d" % pos)
+                    idtag = self.get_id_tag(pos).decode(self.header.codec)
+                    href = "%s/%s" % (fi.type, fi.filename)
+                else:
+                    try:
+                        href, idtag = self.get_id_tag_by_pos_fid(*pos_fid)
+                    except ValueError:
+                        self.log.warn("Invalid entry in NCX (title: %s), ignoring" % entry["text"])
+                        remove.append(entry)
+                        continue
 
-            if isinstance(href, (bytes, bytearray)):
-                href = href.decode(self.header.codec, "replace")
-            if isinstance(idtag, (bytes, bytearray)):
-                idtag = idtag.decode(self.header.codec, "replace")
-            entry["href"] = href
-            entry["idtag"] = idtag
+                if isinstance(href, (bytes, bytearray)):
+                    href = href.decode(self.header.codec, "replace")
+                if isinstance(idtag, (bytes, bytearray)):
+                    idtag = idtag.decode(self.header.codec, "replace")
+                entry["href"] = href
+                entry["idtag"] = idtag
 
-        for e in remove:
-            index_entries.remove(e)
+            for e in remove:
+                index_entries.remove(e)
 
-        # Build the TOC object
-        return build_toc(index_entries)
+            # Build the TOC object
+            return build_toc(index_entries)
+        except (InvalidFile, IndexError, KeyError, TypeError, ValueError, struct.error) as err:
+            raise MobiError("Malformed KF8 NCX index: %s" % err)
 
     def extract_resources(self, sections):
         from LiuXin_alpha.file_formats.mobi.writer2.resources import PLACEHOLDER_GIF
 
         resource_map = []
         container = None
+        for start, end in self.resource_offsets:
+            try:
+                outside = start < 0 or end < start or end > len(sections)
+            except TypeError:
+                outside = True
+            if outside:
+                raise MobiError("KF8 resource range outside section table: %r-%r" % (start, end))
+
         for x in ("fonts", "images"):
             os.makedirs(x, exist_ok=True)
 
@@ -479,6 +536,8 @@ class Mobi8Reader(object):
                         continue
                     container = Container(data)
                 elif typ == b"CRES":
+                    if container is None:
+                        raise MobiError("CRES resource without CONT container")
                     data, imgtype = container.load_image(data)
                     if data is not None:
                         href = "images/%05d.%s" % (container.resource_index, imgtype)

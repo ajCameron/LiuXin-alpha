@@ -44,7 +44,7 @@ This change makes the boundary more coherent:
 
 Passed:
 
-- `pytest -q tests/storage/reconcile/test_wget_html_store_db_sync.py tests/storage/reconcile/test_native_html_store_db_sync.py tests/interfaces/test_text_browser.py tests/library/test_native_html_ingest_library.py tests/storage/api/test_storage_manager_database_wiring.py -k 'native_html or wget_html'`
+- `pytest -q tests/storage/reconcile/test_wget_html_store_db_sync.py tests/storage/reconcile/test_native_html_store_db_sync.py tests/surfaces/test_text_browser.py tests/library/test_native_html_ingest_library.py tests/storage/api/test_storage_manager_database_wiring.py -k 'native_html or wget_html'`
 
 Result:
 

@@ -27,7 +27,7 @@ That module now owns:
 Updated active callers to use the shared helper:
 
 - `src/LiuXin_alpha/ingest/remote_html.py`
-- `src/LiuXin_alpha/interfaces/terminal/commands/sync.py`
+- `src/LiuXin_alpha/surfaces/terminal/commands/sync.py`
 - `src/LiuXin_alpha/storage/store_backend_plugins/wget_html_readonly/*`
 - `src/LiuXin_alpha/storage/store_backend_plugins/native_html_readonly/*`
 - `src/LiuXin_alpha/ingest/sources/wget_html.py`
@@ -56,7 +56,7 @@ Passed:
 
 - `pytest -q tests/preferences/test_preferences_regression.py tests/storage/store_backend_plugins/wget_html_readonly/test_wget_html_readonly_storage_backend.py tests/storage/store_backend_plugins/native_html_readonly/test_native_html_readonly_storage_backend.py tests/storage/reconcile/test_wget_html_store_db_sync.py tests/storage/reconcile/test_native_html_store_db_sync.py tests/library/test_native_html_ingest_library.py tests/storage/api/test_storage_manager_database_wiring.py`
   - `54 passed`
-- `pytest -q tests/interfaces/test_text_browser.py tests/core/test_core_runtime_phase1.py -k 'sync_store or sync\\.store\\.start or crawler'`
+- `pytest -q tests/surfaces/test_text_browser.py tests/core/test_core_runtime_phase1.py -k 'sync_store or sync\\.store\\.start or crawler'`
   - `48 passed, 303 deselected`
 
 ## Follow-up

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import pytest
 
@@ -11,8 +11,8 @@ hypothesis = pytest.importorskip("hypothesis", reason="Install hypothesis to run
 from hypothesis import HealthCheck, given, settings  # type: ignore  # noqa: E402
 import hypothesis.strategies as st  # type: ignore  # noqa: E402
 
-from LiuXin_alpha.databases.calibre_emulation import CalibreReader
-from LiuXin_alpha.databases.calibre_emulation.readers import (
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import CalibreReader
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import (
     _coerce_custom_item,
     _dedupe_preserve_order,
     _normalize_datetime,

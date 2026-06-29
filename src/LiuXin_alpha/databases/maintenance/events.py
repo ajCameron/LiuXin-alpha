@@ -1,4 +1,6 @@
-"""Typed maintenance events for the database maintenance engine."""
+"""
+Typed maintenance events for the database maintenance engine.
+"""
 
 from __future__ import annotations
 
@@ -20,6 +22,9 @@ MaintenanceEventKind = Literal[
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class MaintenanceEvent:
+    """
+    Records a maintenance event.
+    """
     kind: MaintenanceEventKind
     created_at: float = dataclasses.field(default_factory=time.monotonic)
     event_id: str = dataclasses.field(default_factory=lambda: str(uuid.uuid4()))
@@ -27,10 +32,20 @@ class MaintenanceEvent:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class DirtyRowEvent(MaintenanceEvent):
+    """
+    Records that a row has been dirtied.
+    """
     table: str = ""
     row_id: int = 0
 
     def __init__(self, table: str, row_id: int, *, kind: MaintenanceEventKind = "dirty_row") -> None:
+        """
+        Constructor.
+
+        :param table:
+        :param row_id:
+        :param kind:
+        """
         object.__setattr__(self, "kind", kind)
         object.__setattr__(self, "created_at", time.monotonic())
         object.__setattr__(self, "event_id", str(uuid.uuid4()))
@@ -40,6 +55,9 @@ class DirtyRowEvent(MaintenanceEvent):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class DirtyInterlinkEvent(MaintenanceEvent):
+    """
+    Records that an interlink row has been dirtied.
+    """
     update_type: str = ""
     table1: str = ""
     table2: str = ""
@@ -59,11 +77,21 @@ class DirtyInterlinkEvent(MaintenanceEvent):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class RenameRequestEvent(MaintenanceEvent):
+    """
+    Register that a rename has been requested by the system.
+    """
     item_id: int = 0
     table: str = ""
     value: str = ""
 
     def __init__(self, item_id: int, table: str, value: str) -> None:
+        """
+        Constructor.
+
+        :param item_id:
+        :param table:
+        :param value:
+        """
         object.__setattr__(self, "kind", "rename_request")
         object.__setattr__(self, "created_at", time.monotonic())
         object.__setattr__(self, "event_id", str(uuid.uuid4()))

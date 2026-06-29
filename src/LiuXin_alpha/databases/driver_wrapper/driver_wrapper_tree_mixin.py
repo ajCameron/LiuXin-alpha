@@ -1,8 +1,17 @@
 
+"""
+Tree access and update methods.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Iterator
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.errors import InputIntegrityError
+
+
 
 
 class DriverWrapperTreeMixin:
@@ -14,9 +23,10 @@ class DriverWrapperTreeMixin:
     # - METHODS TO DEAL WITH TREE STRUCTURES IN TABLES
     # ------------------------------------------------------------------------------------------------------------------
     # Todo: Needs to throw an error when used on a table without a tree structure
-    def get_linear_row_list(self, start_row):
+    def get_linear_row_list(self, start_row: dict[str, Any]) -> list[dict[str, Any]]:
         """
         Takes a starting row. Iterates up the tree, making an index of rows as it goes.
+
         Starts from the highest entry, then proceeds down.
         .......... -> grandparent_series -> parent_series -> series
         :param start_row:
@@ -57,27 +67,32 @@ class DriverWrapperTreeMixin:
         return linear_rows
 
     # Todo: Again, should error when called on a table which does not have a tree structure
-    def set_tree_ids(self, table):
+    def set_tree_ids(self, table: str) -> None:
         """
-        Every tree should have a unique tree id - this goes through and makes sure it's been set for every tree in the
+        Every tree should have a unique tree id -
+
+        This goes through and makes sure it's been set for every tree in the
         given table.
         :param table:
         :return:
         """
         return self.driver.direct_set_tree_ids(table)
 
-    def set_full_column(self, table):
+    def set_full_column(self, table: str) -> None:
         """
-        Rows which are part of a tree structure have a _full column. This is a string representation of their place in
-        the tree structure. This method populates the full column for the target table.
+        Rows which are part of a tree structure have a _full column.
+
+        This is a string representation of their place in the tree structure.
+        This method populates the full column for the target table.
         :param table:
         :return:
         """
         return self.driver.direct_set_full_column(target_table=table)
 
-    def walk(self, start_row):
+    def walk(self, start_row: dict[str, Any]) -> Iterator[dict[str, Any]]:
         """
         Walk the tree yielding all the rows in it, starting with the start_row itself.
+
         :param start_row: Walk starts here.
         :return:
         """
@@ -99,7 +114,12 @@ class DriverWrapperTreeMixin:
 
         return self._walk(start_row, table, table_id_col, table_parent_col)
 
-    def _walk(self, start_row, table, table_id_col, table_parent_col):
+    def _walk(
+            self,
+            start_row: dict[str, Any],
+            table: str,
+            table_id_col: str,
+            table_parent_col: str) -> Iterator[dict[str, Any]]:
         # Load the ids pool with the ids of parent rows - search for them in the parent column and yield those rows
         # If a row has no children (not referenced in any parent column) then it's a leaf row and we're done for that
         # branch

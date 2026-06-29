@@ -6,7 +6,7 @@ Date: 2026-03-16
 
 Extracted the Calibre-compatible acquisition/download path into a neutral shared package:
 
-- `interfaces/acquisition`
+- `surfaces/acquisition`
 - shared router/service: `AcquisitionCompatApi`
 - explicit host protocol: `AcquisitionHostApi`
 
@@ -35,22 +35,22 @@ Hosts now provide explicit methods such as:
 
 ## Current Hosts
 
-- `interfaces/web_calibre_readonly`
-- `interfaces/opds_readonly` via a direct `ReadOnlyWebApplication` host implementation
+- `surfaces/web_calibre_readonly`
+- `surfaces/opds_readonly` via a direct `ReadOnlyWebApplication` host implementation
 
 ## Why
 
 This reduces the remaining protocol behavior owned by `web_calibre_readonly`:
 
-- OPDS route/feed behavior is already shared under `interfaces/opds`
+- OPDS route/feed behavior is already shared under `surfaces/opds`
 - acquisition/download compatibility is now also shared
 - remaining inheritance is increasingly about the HTML/compatibility surface rather than protocol implementation
 
 ## Validation
 
-- `pytest -q tests/interfaces/test_acquisition_api.py tests/interfaces/test_opds_api.py tests/interfaces/test_opds_readonly.py tests/interfaces/test_web_calibre_readonly.py tests/interfaces/test_web_readonly.py`
+- `pytest -q tests/surfaces/test_acquisition_api.py tests/surfaces/test_opds_api.py tests/surfaces/test_opds_readonly.py tests/surfaces/test_web_calibre_readonly.py tests/surfaces/test_web_readonly.py`
   - `29 passed`
-- `python -m py_compile src/LiuXin_alpha/interfaces/acquisition/api.py src/LiuXin_alpha/interfaces/opds/api.py src/LiuXin_alpha/interfaces/opds_readonly/app.py src/LiuXin_alpha/interfaces/web_calibre_readonly/app.py tests/interfaces/test_acquisition_api.py tests/interfaces/test_opds_api.py tests/interfaces/test_opds_readonly.py`
+- `python -m py_compile src/LiuXin_alpha/surfaces/acquisition/api.py src/LiuXin_alpha/surfaces/opds/api.py src/LiuXin_alpha/surfaces/opds_readonly/app.py src/LiuXin_alpha/surfaces/web_calibre_readonly/app.py tests/surfaces/test_acquisition_api.py tests/surfaces/test_opds_api.py tests/surfaces/test_opds_readonly.py`
   - passed
 
 ## TODO

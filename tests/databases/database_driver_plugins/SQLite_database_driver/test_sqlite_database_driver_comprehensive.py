@@ -276,11 +276,11 @@ class TestSQLiteDriverIntrospection:
     def test_validate_existing_table_name_hardening(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
 
-        assert drv.validate_existing_table_name("titles") is True
-        assert drv.validate_existing_table_name("`titles`") is True
-        assert drv.validate_existing_table_name(" titles ") is True
-        assert drv.validate_existing_table_name("titles;") is False
-        assert drv.validate_existing_table_name("titles; DROP TABLE titles") is False
+        assert drv.direct_validate_existing_table_name("titles") is True
+        assert drv.direct_validate_existing_table_name("`titles`") is True
+        assert drv.direct_validate_existing_table_name(" titles ") is True
+        assert drv.direct_validate_existing_table_name("titles;") is False
+        assert drv.direct_validate_existing_table_name("titles; DROP TABLE titles") is False
 
     def test_connection_has_expected_pragmas_and_functions(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
@@ -552,7 +552,7 @@ class TestSQLiteDriverSecurity:
     def test_table_name_injection_is_rejected_by_validation_helpers(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
         bad = "titles; DROP TABLE titles;--"
-        assert drv.validate_existing_table_name(bad) is False
+        assert drv.direct_validate_existing_table_name(bad) is False
 
         with pytest.raises(Exception):
             drv.direct_get_all_rows(bad)
@@ -635,30 +635,18 @@ class TestSQLiteDriverMetadata:
 
 
 class TestSQLiteDriverKnownIssues:
-    @pytest.mark.xfail(
-        reason="direct_get_max uses cursor.next() (Py2) instead of next(cursor) (Py3)",
-        raises=AttributeError,
-    )
     def test_direct_get_max_works_on_py3(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
         _insert_minimal_title_row(drv, title="A")
         _insert_minimal_title_row(drv, title="B")
         assert drv.direct_get_max("title_id") is not None
 
-    @pytest.mark.xfail(
-        reason="direct_get_min uses cursor.next() (Py2) instead of next(cursor) (Py3)",
-        raises=AttributeError,
-    )
     def test_direct_get_min_works_on_py3(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
         _insert_minimal_title_row(drv, title="A")
         _insert_minimal_title_row(drv, title="B")
         assert drv.direct_get_min("title_id") is not None
 
-    @pytest.mark.xfail(
-        reason="direct_update_columns contains Py2 iterator usage and needs porting",
-        raises=AttributeError,
-    )
     @pytest.mark.xfail(
         reason="direct_update_columns contains Py2 iterator usage and needs porting",
         raises=AttributeError,

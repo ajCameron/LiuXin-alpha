@@ -36,6 +36,12 @@ def _relation_exists(conn: sqlite3.Connection, name: str) -> bool:
     return row is not None
 
 
+def _count_relation(conn: sqlite3.Connection, name: str) -> int:
+    if not _relation_exists(conn, name):
+        return 0
+    return int(conn.execute(f"SELECT COUNT(*) FROM {name};").fetchone()[0])
+
+
 def _expected_book_count(name: str) -> int:
     if name == "test_db_0":
         return 0
@@ -104,7 +110,11 @@ def test_resources_manager_lists_semantic_dbs_via_supported_imported_entrypoints
 
 def test_imported_provider_prefers_supported_semantic_modules_only(test_resources_manager) -> None:
     for name in SEMANTIC_DB_NAMES:
-        assert type(test_resources_manager._db_registry.resolve(name)).__name__ == "ImportedModuleDatabaseProvider"
+        provider_name = type(test_resources_manager._db_registry.resolve(name)).__name__
+        if name == "metadata_rich_db_1":
+            assert provider_name in {"ImportedModuleDatabaseProvider", "PrebuiltDirectoryDatabaseProvider"}
+            continue
+        assert provider_name == "ImportedModuleDatabaseProvider"
     assert type(test_resources_manager._db_registry.resolve("test_db_1")).__name__ == "BuiltinSpecDatabaseProvider"
 
 
@@ -142,6 +152,28 @@ def test_test_db_2_generates_and_is_pruned(provision_test_database) -> None:
 
         book_count = conn.execute("SELECT COUNT(*) FROM books;").fetchone()[0]
         assert int(book_count) == 1
+
+        tags = {
+            str(row[0])
+            for row in conn.execute("SELECT tag FROM tags ORDER BY tag;").fetchall()
+        }
+        assert tags == {
+            trm.PROFILED_COMMON_TAG,
+            trm.PROFILED_FIRST_TAG,
+            trm.PROFILED_ODD_TAG,
+            "test_db_2",
+        }
+
+        tag_link_count = conn.execute("SELECT COUNT(*) FROM tag_work_links;").fetchone()[0]
+        assert int(tag_link_count) == 4
+
+        tag_facets = {
+            str(row[0])
+            for row in conn.execute(
+                "SELECT facet_text FROM subjects_tags_v WHERE facet_kind = 'tag';"
+            ).fetchall()
+        }
+        assert tag_facets == tags
     finally:
         conn.close()
 
@@ -152,8 +184,8 @@ def test_test_db_3_generates_formats_fixture(provision_test_database) -> None:
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
         book_count = int(conn.execute("SELECT COUNT(*) FROM books;").fetchone()[0])
-        folder_count = int(conn.execute("SELECT COUNT(*) FROM folders;").fetchone()[0])
-        file_count = int(conn.execute("SELECT COUNT(*) FROM files;").fetchone()[0])
+        folder_count = _count_relation(conn, "folders")
+        file_count = _count_relation(conn, "files")
         fwl_count = int(conn.execute("SELECT COUNT(*) FROM folder_work_links;").fetchone()[0])
         ffl_count = int(conn.execute("SELECT COUNT(*) FROM file_folder_links;").fetchone()[0])
 
@@ -186,8 +218,8 @@ def test_benchmark_db_smoke_generates_expected_shape(provision_test_database) ->
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
         book_count = int(conn.execute("SELECT COUNT(*) FROM books;").fetchone()[0])
-        folder_count = int(conn.execute("SELECT COUNT(*) FROM folders;").fetchone()[0])
-        file_count = int(conn.execute("SELECT COUNT(*) FROM files;").fetchone()[0])
+        folder_count = _count_relation(conn, "folders")
+        file_count = _count_relation(conn, "files")
         fwl_count = int(conn.execute("SELECT COUNT(*) FROM folder_work_links;").fetchone()[0])
         ffl_count = int(conn.execute("SELECT COUNT(*) FROM file_folder_links;").fetchone()[0])
 
@@ -216,17 +248,19 @@ def test_all_test_db_profiles_smoke_and_shape(provision_test_database, db_name: 
         assert _relation_exists(conn, "titles")
         assert _relation_exists(conn, "books")
         assert _relation_exists(conn, "works")
-        assert _relation_exists(conn, "files")
-        assert _relation_exists(conn, "folders")
-
-        title_count = int(conn.execute("SELECT COUNT(*) FROM titles;").fetchone()[0])
-        book_count = int(conn.execute("SELECT COUNT(*) FROM books;").fetchone()[0])
-        folder_count = int(conn.execute("SELECT COUNT(*) FROM folders;").fetchone()[0])
-        file_count = int(conn.execute("SELECT COUNT(*) FROM files;").fetchone()[0])
+        title_count = _count_relation(conn, "titles")
+        book_count = _count_relation(conn, "books")
+        folder_count = _count_relation(conn, "folders")
+        file_count = _count_relation(conn, "files")
 
         exp_titles = _expected_title_count(db_name)
         exp_books = _expected_book_count(db_name)
         exp_folders, exp_files = _expected_asset_counts(db_name)
+
+        if exp_folders > 0:
+            assert _relation_exists(conn, "folders")
+        if exp_files > 0:
+            assert _relation_exists(conn, "files")
 
         assert title_count == exp_titles
         assert book_count == exp_books
@@ -234,6 +268,8 @@ def test_all_test_db_profiles_smoke_and_shape(provision_test_database, db_name: 
         assert file_count == exp_files
 
         if exp_folders > 0:
+            assert _relation_exists(conn, "folder_work_links")
+            assert _relation_exists(conn, "file_folder_links")
             fwl_count = int(conn.execute("SELECT COUNT(*) FROM folder_work_links;").fetchone()[0])
             ffl_count = int(conn.execute("SELECT COUNT(*) FROM file_folder_links;").fetchone()[0])
             assert fwl_count == exp_folders
@@ -252,8 +288,8 @@ def test_semantic_asset_profile_partition(provision_test_database) -> None:
         provisioned = provision_test_database(db_name)
         conn = sqlite3.connect(str(provisioned.db_path))
         try:
-            all_folder_counts[db_name] = int(conn.execute("SELECT COUNT(*) FROM folders;").fetchone()[0])
-            all_file_counts[db_name] = int(conn.execute("SELECT COUNT(*) FROM files;").fetchone()[0])
+            all_folder_counts[db_name] = _count_relation(conn, "folders")
+            all_file_counts[db_name] = _count_relation(conn, "files")
         finally:
             conn.close()
 
@@ -288,8 +324,8 @@ def test_provisioned_profiles_do_not_materialize_legacy_folder_stores(
         ).fetchone()
         assert folder_store_table is None
 
-        folder_count = int(conn.execute("SELECT COUNT(*) FROM folders;").fetchone()[0])
-        file_count = int(conn.execute("SELECT COUNT(*) FROM files;").fetchone()[0])
+        folder_count = _count_relation(conn, "folders")
+        file_count = _count_relation(conn, "files")
 
         assert folder_count == expected_folders
         assert file_count == expected_files
@@ -392,13 +428,22 @@ def test_metadata_rich_db_1_provisions_multilingual_dense_metadata(provision_tes
         assert int(conn.execute("SELECT COUNT(*) FROM human_agents;").fetchone()[0]) == 5
         assert int(conn.execute("SELECT COUNT(*) FROM org_agents;").fetchone()[0]) == 1
         assert int(conn.execute("SELECT COUNT(*) FROM agent_work_links;").fetchone()[0]) == 10
+        assert int(conn.execute("SELECT COUNT(*) FROM tags;").fetchone()[0]) == 9
+        assert int(conn.execute("SELECT COUNT(*) FROM tag_work_links;").fetchone()[0]) == 21
         assert int(conn.execute("SELECT COUNT(*) FROM labels;").fetchone()[0]) == 5
         assert int(conn.execute("SELECT COUNT(*) FROM label_work_links;").fetchone()[0]) == 7
         assert int(conn.execute("SELECT COUNT(*) FROM series;").fetchone()[0]) == 4
         assert int(conn.execute("SELECT COUNT(*) FROM series_work_links;").fetchone()[0]) == 4
+        assert int(conn.execute("SELECT COUNT(*) FROM genres;").fetchone()[0]) == 3
+        assert int(conn.execute("SELECT COUNT(*) FROM genre_work_links;").fetchone()[0]) == 6
         assert int(conn.execute("SELECT COUNT(*) FROM subjects;").fetchone()[0]) == 4
         assert int(conn.execute("SELECT COUNT(*) FROM subject_work_links;").fetchone()[0]) == 7
         assert int(conn.execute("SELECT COUNT(*) FROM language_work_links;").fetchone()[0]) == 6
+        assert int(conn.execute("SELECT COUNT(*) FROM stores;").fetchone()[0]) == 1
+        assert int(conn.execute("SELECT COUNT(*) FROM folders;").fetchone()[0]) == 1
+        assert int(conn.execute("SELECT COUNT(*) FROM folder_work_links;").fetchone()[0]) == 4
+        assert int(conn.execute("SELECT COUNT(*) FROM files;").fetchone()[0]) == 5
+        assert int(conn.execute("SELECT COUNT(*) FROM file_folder_links;").fetchone()[0]) == 5
         assert int(conn.execute("SELECT COUNT(*) FROM notes;").fetchone()[0]) == 3
         assert int(conn.execute("SELECT COUNT(*) FROM comments;").fetchone()[0]) == 3
         assert int(conn.execute("SELECT COUNT(*) FROM synopses;").fetchone()[0]) == 3
@@ -468,7 +513,7 @@ def test_stores_assets_db_0_provisions_real_store_backed_assets(provision_test_d
     ) as db:
         assert db.storage is not None
         first_file = db.get_all_rows("files", iterator_return=False)[0]
-        got = db.storage.retrieve_file(
+        got = db.storage.locate_file(
             metadata={
                 "file_storage_key": str(first_file["file_storage_key"]),
                 "file_store_id": int(first_file["file_store_id"]),
@@ -515,13 +560,13 @@ def test_stores_assets_db_1_provisions_multi_store_assets(provision_test_databas
         rows = db.get_all_rows("files", iterator_return=False)
         primary = next(row for row in rows if str(row["file_name"]).endswith(".epub"))
         secondary = next(row for row in rows if str(row["file_name"]).endswith(".mobi"))
-        got_primary = db.storage.retrieve_file(
+        got_primary = db.storage.locate_file(
             metadata={
                 "file_storage_key": str(primary["file_storage_key"]),
                 "file_store_id": int(primary["file_store_id"]),
             }
         )
-        got_secondary = db.storage.retrieve_file(
+        got_secondary = db.storage.locate_file(
             metadata={
                 "file_storage_key": str(secondary["file_storage_key"]),
                 "file_store_id": int(secondary["file_store_id"]),
@@ -577,7 +622,7 @@ def test_images_covers_db_0_provisions_cover_heavy_store_assets(provision_test_d
     ) as db:
         assert db.storage is not None
         first_image = db.get_all_rows("images", iterator_return=False)[0]
-        got = db.storage.retrieve_file(
+        got = db.storage.locate_file(
             metadata={
                 "file_storage_key": str(first_image["image_storage_key"]),
                 "file_store_id": int(first_image["image_store_id"]),
@@ -622,7 +667,7 @@ def test_images_covers_db_1_provisions_cover_variants_and_gaps(provision_test_da
         storage_startup_on_add=False,
     ) as db:
         first_image = db.get_all_rows("images", iterator_return=False)[0]
-        got = db.storage.retrieve_file(
+        got = db.storage.locate_file(
             metadata={
                 "file_storage_key": str(first_image["image_storage_key"]),
                 "file_store_id": int(first_image["image_store_id"]),

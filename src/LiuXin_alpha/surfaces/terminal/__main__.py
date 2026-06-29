@@ -1,4 +1,4 @@
-"""Entrypoint for terminal interfaces."""
+"""Entrypoint for terminal surfaces."""
 
 from __future__ import annotations
 

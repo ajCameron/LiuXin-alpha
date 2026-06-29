@@ -1,7 +1,12 @@
 
+"""
+Driver methods to deal with trees.
+"""
+
 import sqlite3
 from copy import deepcopy
 
+from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, force_unicode
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError, DatabaseDriverError
@@ -16,10 +21,13 @@ class TreeMethodsMixin:
     Methods to handle tree methods.
     """
 
-    def direct_set_full_column(self, target_table):
+    def direct_set_full_column(self, target_table: str) -> bool:
         """
-        Rows which are part of a tree structure have a _full column. This is a string representation of their place in
-        the tree structure. This method populates the full column for the target table.
+        Populates the full column of the target table.
+
+        Rows which are part of a tree structure have a _full column.
+        This is a string representation of their place in the tree structure.
+        This method populates the full column for the target table.
 
         Note:
             This operates on "real" rows only; the row iterator intentionally excludes any sentinel/null row at id=0.
@@ -28,7 +36,7 @@ class TreeMethodsMixin:
         """
         target_table = deepcopy(target_table)
         conn = self.get_connection()
-        target_table_id_column = self._get_id_column(target_table)
+        target_table_id_column = self.direct_get_id_column(target_table)
         target_table_full_column = self.get_full_column_name(target_table)
         if target_table_full_column is None:
             err_str = "Cannot set full column - table: {} - does not have one".format(target_table)
@@ -39,7 +47,7 @@ class TreeMethodsMixin:
         for row in self.direct_get_row_dict_iterator(target_table):
 
             row_id = row[target_table_id_column]
-            agg_value = self.tree_aggregator(
+            agg_value = self.direct_get_tree_aggregation_str(
                 table=target_table,
                 table_display_column=target_table_display_column,
                 table_row_id=row_id,
@@ -60,10 +68,11 @@ class TreeMethodsMixin:
             # If the code every reaches this point everything should have worked already
             return True
 
-
     # Todo: This is absolutely, hideously, heinously inefficient
-    def direct_set_tree_ids(self, table):
+    def direct_set_tree_ids(self, table: str) -> bool:
         """
+        Ensures that every distinct tree has a distinct id.
+
         Every tree in a tree like structure should have a unique id assigned to every row in that tree.
         This function ensures that.
 
@@ -76,7 +85,7 @@ class TreeMethodsMixin:
         :return:
         """
         table = deepcopy(table)
-        table_id_column = self._get_id_column(table)
+        table_id_column = self.direct_get_id_column(table)
         table_tree_id_column = self.get_tree_id_column(table)
         if table_tree_id_column is None:
             err_str = "Cannot set_tree_ids - there doesn't seem to be a tree id for this table - {}".format(table)
@@ -109,26 +118,24 @@ class TreeMethodsMixin:
 
             return True
 
-    # Todo: Should be called direct_get_root_series
-    def direct_get_root_series(self, start_row):
-        return self.get_root_series(start_row)
-
-    def get_root_series(self, start_row):
+    def direct_get_root_series(self, start_row: dict[str, Any]) -> dict[str, Any]:
         """
         Gets the row at the root of the given tree. In the case of a trivial tree just returns the given row.
+
         :param start_row:
         :return root_row:
         """
         return self.get_linear_row_index(start_row)[0]
 
-    def direct_get_all_tree_rows(self, start_row):
+    def direct_get_all_tree_rows(self, start_row: dict[str, Any]) -> dict[str, Any]:
         """
         Starts from a series. Walks up the series tree, and then walks back down, collecting all references in one set.
+
         This is going to take a number of database operations.
         :param start_row:
         :return:
         """
-        row_table = self.identify_table_from_row(start_row)
+        row_table = self.direct_identify_table_from_row(start_row)
         row_parent_column = self.get_parent_column_name(row_table)
         root_series = self.get_root_series(start_row)
 
@@ -161,9 +168,14 @@ class TreeMethodsMixin:
     # ----------------------------------------------------------------------------------------------------------------------
 
     # HELPER FUNCTIONS TO RUN THE TREE AGGREGATOR START HERE
-    def tree_aggregator(self, table, table_display_column, table_row_id):
+    def direct_get_tree_aggregation_str(
+            self,
+            table: str,
+            table_display_column: str,
+            table_row_id: int) -> str:
         """
         Builds a string, starting at the current index and working it's way back up to the root of the tree.
+
         Useful for expressing the position of an element in a tree in a single string.
         For example, used with series it would produce ....: series_grandfather: series_father: series
         :param table: The table to search in
@@ -179,10 +191,15 @@ class TreeMethodsMixin:
         return return_str
 
     # Todo - Promote this to an actual method with tests
-    def _get_linear_index_of_columns(self, start_row, display_column):
+    def direct_get_linear_index_of_columns(
+            self,
+            start_row: dict[str, Any],
+            display_column: str) -> list[str]:
         """
         Takes a starting row. Calls get_linear_row_index to get a list of rows with order .......... ->
-        grandparent_series -> parent_series -> series. Extracts the designated column from each of these rows to form a
+        grandparent_series -> parent_series -> series.
+
+        Extracts the designated column from each of these rows to form a
         linear index of columns. Could be used, for example, in series to create a full series string.
         What is actually used is a stripped down version of these functions, which has been added directly to the
         connection.
@@ -213,9 +230,7 @@ class TreeMethodsMixin:
 
         return row_column_index
 
-
-
-    def get_linear_row_index(self, start_row):
+    def get_linear_row_index(self, start_row: dict[str, Any]) -> list[dict[str, Any]]:
         """
         Takes a starting row. Iterates up the tree building an index of all the rows_dicts as it goes.
 
@@ -224,7 +239,7 @@ class TreeMethodsMixin:
         .......... -> grandparent_series -> parent_series -> series
         """
         start_row_dict = start_row
-        row_table = self.identify_table_from_row(start_row_dict)
+        row_table = self.direct_identify_table_from_row(start_row_dict)
         row_parent_column = self.get_parent_column_name(row_table)
         linear_index = []
         current_row = start_row_dict

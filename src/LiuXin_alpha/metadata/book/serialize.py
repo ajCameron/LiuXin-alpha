@@ -11,23 +11,22 @@ from LiuXin_alpha.constants import preferred_encoding
 from LiuXin_alpha.metadata.book import SERIALIZABLE_FIELDS
 from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
 
-from LiuXin_alpha.utils.imghdr import what
-from LiuXin_alpha.utils.file_ops.file_ops import local_open as lopen
+from LiuXin_alpha.utils.image_tools.imghdr import what
 
 # Py2/Py3 compatibility layer
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 def ensure_unicode(obj, enc=preferred_encoding):
-    if isinstance(obj, unicode):
+    if isinstance(obj, six_unicode):
         return obj
     if isinstance(obj, bytes):
         return obj.decode(enc, "replace")
     if isinstance(obj, (list, tuple)):
-        return [ensure_unicode(x) for x in obj]
+        return [ensure_unicode(x, enc=enc) for x in obj]
     if isinstance(obj, dict):
-        return {ensure_unicode(k): ensure_unicode(v) for k, v in iteritems(obj)}
+        return {ensure_unicode(k, enc=enc): ensure_unicode(v, enc=enc) for k, v in iteritems(obj)}
     return obj
 
 
@@ -36,7 +35,7 @@ def read_cover(mi):
         return mi
     if mi.cover:
         try:
-            with lopen(mi.cover, "rb") as f:
+            with open(mi.cover, "rb") as f:
                 cd = f.read()
             mi.cover_data = what(None, cd), cd
         except EnvironmentError:
@@ -56,7 +55,7 @@ def metadata_as_dict(mi, encode_cover_data=False):
         if encode_cover_data:
             ans["cover_data"] = [
                 mi.cover_data[0],
-                base64.standard_b64encode(bytes(mi.cover_data[1])),
+                base64.standard_b64encode(bytes(mi.cover_data[1])).decode("ascii"),
             ]
         else:
             ans["cover_data"] = mi.cover_data

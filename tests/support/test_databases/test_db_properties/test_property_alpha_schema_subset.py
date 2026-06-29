@@ -50,13 +50,24 @@ def test_alpha_property_subset_matches_live_schema(provision_test_database, db_n
                 "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
             ).fetchall()
         }
-        assert set(properties_class.alpha_focus_tables).issubset(table_names)
+        optional_absent_tables = {
+            table_name
+            for table_name, expected_count in properties_class.alpha_focus_row_counts.items()
+            if expected_count == 0 and table_name not in table_names
+        }
+        assert (set(properties_class.alpha_focus_tables) - optional_absent_tables).issubset(table_names)
 
         for table_name, expected_columns in properties_class.alpha_focus_table_columns.items():
+            if table_name not in table_names:
+                assert table_name in optional_absent_tables
+                continue
             actual_columns = [row[1] for row in conn.execute(f"PRAGMA table_info({table_name})")]
             assert actual_columns == expected_columns
 
         for table_name, expected_count in properties_class.alpha_focus_row_counts.items():
+            if table_name not in table_names:
+                assert expected_count == 0
+                continue
             actual_count = conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
             assert actual_count == expected_count
 

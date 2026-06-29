@@ -4,9 +4,11 @@ from LiuXin_alpha.library.library import Library
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     rclone_http_storage_backend as backend_module,
 )
+from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def test_library_register_rclone_http_store(db, monkeypatch) -> None:
+    ensure_surface_asset_tables(db)
     def _fake_run_rclone_json(args, **kwargs):
         if list(args[:3]) == ["lsjson", "-R", "--files-only"]:
             return [{"Path": "books/one.epub", "Name": "one.epub", "Size": 11, "ModTime": "2025-01-02T03:04:05Z"}]
@@ -22,4 +24,3 @@ def test_library_register_rclone_http_store(db, monkeypatch) -> None:
     )
     assert report.inserted_files == 1
     assert report.errors == []
-

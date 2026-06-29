@@ -1,4 +1,16 @@
 
+"""
+Hash methods - to monitor tables for changes.
+"""
+
+from __future__ import annotations
+
+from typing import Optional, TYPE_CHECKING, Iterable
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+
 
 
 class HashTablesMacrosMixin:
@@ -6,7 +18,9 @@ class HashTablesMacrosMixin:
     Hash methods - which create gists and hashes of tables.
     """
 
-    def hash_table(self, target_table, columns):
+    db: "DatabaseAPI"
+
+    def hash_table(self, target_table: str, columns: Iterable[str]) -> str:
         """
         Construct a hash of the given table using the given columns.
 

@@ -150,15 +150,15 @@ def test_validate_existing_table_name_accepts_real_and_rejects_controls(driver) 
     table = str(tables[0])
 
     # Exact name should validate
-    assert driver.validate_existing_table_name(table) is True
+    assert driver.direct_validate_existing_table_name(table) is True
 
     # Whitespace is stripped by the implementation.
-    assert driver.validate_existing_table_name(f"  {table}  ") is True
+    assert driver.direct_validate_existing_table_name(f"  {table}  ") is True
 
     # Control characters that are explicitly forbidden should fail.
-    assert driver.validate_existing_table_name(f"{table};") is False
-    assert driver.validate_existing_table_name(f"{table}:") is False
-    assert driver.validate_existing_table_name(f"{table}&") is False
+    assert driver.direct_validate_existing_table_name(f"{table};") is False
+    assert driver.direct_validate_existing_table_name(f"{table}:") is False
+    assert driver.direct_validate_existing_table_name(f"{table}&") is False
 
 
 def test_unknown_table_raises_input_integrity(driver) -> None:
