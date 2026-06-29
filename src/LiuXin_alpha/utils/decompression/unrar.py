@@ -10,6 +10,7 @@ __docformat__ = "restructuredtext en"
 import os
 import sys
 import re
+import posixpath
 from io import BytesIO
 
 from LiuXin_alpha.utils.calibre import force_unicode
@@ -113,6 +114,18 @@ class SaveStream(object):
 
 
 def safe_path(base, relpath):
+    relpath = str(relpath).replace("\\", "/")
+    parts = relpath.split("/")
+    if (
+        relpath.startswith("/")
+        or (len(relpath) > 1 and relpath[1] == ":")
+        or ".." in parts
+    ):
+        return None
+    relpath = posixpath.normpath(relpath)
+    if relpath in {"", ".", ".."} or relpath.startswith("../"):
+        return None
+
     base = os.path.abspath(base)
     path = os.path.abspath(os.path.join(base, relpath))
     if os.path.normcase(path) == os.path.normcase(base) or not os.path.normcase(path).startswith(
@@ -149,12 +162,14 @@ def stream_extract(stream, location):
                         pass
             else:
                 path = safe_path(location, h["filename"])
-                if path is not None:
-                    base, fname = os.path.split(path)
-                    if not os.path.exists(base):
-                        os.makedirs(base)
-                    with open(path, "wb") as dest:
-                        f.process_current_item(dest)
+                if path is None:
+                    f.process_current_item()
+                    continue
+                base, fname = os.path.split(path)
+                if not os.path.exists(base):
+                    os.makedirs(base)
+                with open(path, "wb") as dest:
+                    f.process_current_item(dest)
 
 
 def extract(path, location):

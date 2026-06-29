@@ -146,10 +146,13 @@ def test_lrx_get_metadata_pathlike_input(tmp_path: Path) -> None:
     assert _values(md.authors) == ["Ada Lovelace"]
 
 
-def test_lrx_invalid_header_returns_safe_default() -> None:
-    from LiuXin_alpha.metadata.file_sources.lrx import get_metadata
+def test_lrx_invalid_header_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.lrx import LrxFormatError, get_metadata
 
-    md = get_metadata(io.BytesIO(b"not-a-valid-lrx"))
+    with pytest.raises(LrxFormatError):
+        get_metadata(io.BytesIO(b"not-a-valid-lrx"))
+
+    md = get_metadata(io.BytesIO(b"not-a-valid-lrx"), fallback_on_parse_error=True)
     assert md.title == "Unknown"
     assert _values(md.authors) == ["Unknown"]
 
@@ -163,15 +166,18 @@ def test_lrx_unsupported_librie_header_returns_safe_default() -> None:
     assert _values(md.authors) == ["Unknown"]
 
 
-def test_lrx_truncated_payload_falls_back_to_filename_title(tmp_path: Path) -> None:
-    from LiuXin_alpha.metadata.file_sources.lrx import get_metadata
+def test_lrx_truncated_payload_raises_by_default_and_can_opt_into_fallback(tmp_path: Path) -> None:
+    from LiuXin_alpha.metadata.file_sources.lrx import LrxFormatError, get_metadata
 
     path = tmp_path / "broken_sample.lrx"
     payload = bytearray(_build_lrx_payload(title="Ignored"))
     del payload[-5:]
     path.write_bytes(bytes(payload))
 
-    md = get_metadata(path)
+    with pytest.raises(LrxFormatError):
+        get_metadata(path)
+
+    md = get_metadata(path, fallback_on_parse_error=True)
     assert md.title == "broken_sample"
     assert _values(md.authors) == ["Unknown"]
 

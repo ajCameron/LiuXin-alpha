@@ -4,6 +4,8 @@ import io
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 
 def _values(raw):
     if raw is None:
@@ -92,10 +94,13 @@ def test_imp_get_metadata_pathlike_input(tmp_path: Path) -> None:
     assert _first(md.authors) == "Path Author"
 
 
-def test_imp_invalid_magic_returns_safe_default() -> None:
-    from LiuXin_alpha.metadata.file_sources.imp import get_metadata
+def test_imp_invalid_magic_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.imp import ImpFormatError, get_metadata
 
-    md = get_metadata(io.BytesIO(b"not-an-imp-file"))
+    with pytest.raises(ImpFormatError):
+        get_metadata(io.BytesIO(b"not-an-imp-file"))
+
+    md = get_metadata(io.BytesIO(b"not-an-imp-file"), fallback_on_parse_error=True)
     assert md.title == "Unknown"
     assert _first(md.authors) == "Unknown"
 

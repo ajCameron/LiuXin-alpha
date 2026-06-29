@@ -24,14 +24,17 @@ KNOWN_WEB_SOURCE_MODULES: tuple[str, ...] = (
     "google",
     "google_images",
     "identify",
+    "internet_archive",
     "isbndb",
     "kdl",
+    "library_of_congress",
     "library_thing",
     "openlibrary",
     "overdrive",
     "ozon",
     "prefs",
     "worker",
+    "wikidata",
     "xisbn",
 )
 

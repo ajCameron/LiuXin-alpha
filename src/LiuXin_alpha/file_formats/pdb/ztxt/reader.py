@@ -16,6 +16,12 @@ __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
 
 SUPPORTED_VERSION = (1, 40)
+ZTXT_HEADER_RECORD_SIZE = 32
+
+
+def _require_bytes(raw, size, context):
+    if len(raw) < size:
+        raise zTXTError("Truncated zTXT %s" % context)
 
 
 class HeaderRecord(object):
@@ -25,6 +31,7 @@ class HeaderRecord(object):
     """
 
     def __init__(self, raw):
+        _require_bytes(raw, ZTXT_HEADER_RECORD_SIZE, "header record")
         (self.version,) = struct.unpack(">H", raw[0:2])
         (self.num_records,) = struct.unpack(">H", raw[2:4])
         (self.size,) = struct.unpack(">L", raw[4:8])
@@ -43,6 +50,8 @@ class Reader(FormatReader):
             self.sections.append(header.section_data(i))
 
         self.header_record = HeaderRecord(self.section_data(0))
+        if self.header_record.num_records > len(self.sections) - 1:
+            raise zTXTError("zTXT text record count exceeds available PDB sections")
 
         vmajor = (self.header_record.version & 0x0000FF00) >> 8
         vminor = self.header_record.version & 0x000000FF
@@ -59,9 +68,14 @@ class Reader(FormatReader):
 
         # Initalize the decompressor
         self.uncompressor = zlib.decompressobj()
-        self.uncompressor.decompress(self.section_data(1))
+        try:
+            self.uncompressor.decompress(self.section_data(1))
+        except zlib.error as err:
+            raise zTXTError("zTXT decompression failed for section 1: %s" % err) from err
 
     def section_data(self, number):
+        if number < 0 or number >= len(self.sections):
+            raise zTXTError("zTXT section %i is outside the PDB section table" % number)
         return self.sections[number]
 
     def decompress_text(self, number):
@@ -72,7 +86,10 @@ class Reader(FormatReader):
         """
         if number == 1:
             self.uncompressor = zlib.decompressobj()
-        return self.uncompressor.decompress(self.section_data(number))
+        try:
+            return self.uncompressor.decompress(self.section_data(number))
+        except zlib.error as err:
+            raise zTXTError("zTXT decompression failed for section %i: %s" % (number, err)) from err
 
     def extract_content(self, output_dir):
         """

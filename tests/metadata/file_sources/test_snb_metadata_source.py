@@ -4,6 +4,8 @@ import io
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 
 def _values(raw):
     if raw is None:
@@ -133,10 +135,13 @@ def test_snb_get_metadata_pathlike_input(tmp_path: Path) -> None:
     assert _values(md.authors) == ["Path Author"]
 
 
-def test_snb_invalid_payload_returns_safe_default() -> None:
-    from LiuXin_alpha.metadata.file_sources.snb import get_metadata
+def test_snb_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    from LiuXin_alpha.metadata.file_sources.snb import SnbFormatError, get_metadata
 
-    md = get_metadata(io.BytesIO(b"not-a-valid-snb"))
+    with pytest.raises(SnbFormatError):
+        get_metadata(io.BytesIO(b"not-a-valid-snb"))
+
+    md = get_metadata(io.BytesIO(b"not-a-valid-snb"), fallback_on_parse_error=True)
     assert _first(md.title) == "Unknown"
     assert _values(md.authors) == ["Unknown"]
 

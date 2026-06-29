@@ -7,6 +7,7 @@ environments that do not have full GUI/network plugin stacks available.
 
 from __future__ import annotations
 
+import gzip
 import inspect
 import io
 import os
@@ -18,6 +19,7 @@ import traceback
 from dataclasses import dataclass
 from functools import total_ordering
 from typing import Any, Iterable
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from LiuXin_alpha.customize import Plugin
@@ -120,6 +122,7 @@ class _StdlibBrowser:
     ):
         self._verify_ssl = bool(verify_ssl_certificates)
         self._handle_gzip = False
+        self._cookies: list[tuple[str, str, str, str]] = []
         self.addheaders = [("User-Agent", user_agent or random_user_agent())]
         if rich_headers:
             self.addheaders.extend(
@@ -136,9 +139,63 @@ class _StdlibBrowser:
     def set_handle_gzip(self, enabled: bool) -> None:
         self._handle_gzip = bool(enabled)
 
+    def current_user_agent(self) -> str:
+        for key, value in self.addheaders:
+            if key.lower() == "user-agent":
+                return value
+        return ""
+
+    def set_user_agent(self, value: str) -> None:
+        value = _as_text(value)
+        for index, (key, _old_value) in enumerate(self.addheaders):
+            if key.lower() == "user-agent":
+                self.addheaders[index] = (key, value)
+                return
+        self.addheaders.insert(0, ("User-Agent", value))
+
+    def set_simple_cookie(self, name: str, value: str, domain: str, path: str = "/") -> None:
+        cookie = (_as_text(name), _as_text(value), _as_text(domain), _as_text(path or "/"))
+        self._cookies = [x for x in self._cookies if (x[0], x[2], x[3]) != (cookie[0], cookie[2], cookie[3])]
+        self._cookies.append(cookie)
+
+    def _cookie_header_for_url(self, url: str) -> str:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        path = parsed.path or "/"
+        pairs = []
+        for name, value, domain, cookie_path in self._cookies:
+            normalized_domain = domain.lstrip(".").lower()
+            if normalized_domain and host != normalized_domain and not host.endswith("." + normalized_domain):
+                continue
+            if cookie_path and not path.startswith(cookie_path):
+                continue
+            pairs.append(f"{name}={value}")
+        return "; ".join(pairs)
+
+    @staticmethod
+    def _response_header(response, name: str) -> str:
+        headers = getattr(response, "headers", None)
+        if headers is not None:
+            try:
+                value = headers.get(name)
+            except Exception:
+                value = None
+            if value:
+                return _as_text(value)
+        info = getattr(response, "info", None)
+        if callable(info):
+            try:
+                value = info().get(name)
+            except Exception:
+                value = None
+            if value:
+                return _as_text(value)
+        return ""
+
     def clone_browser(self):
         clone = _StdlibBrowser(verify_ssl_certificates=self._verify_ssl)
         clone.addheaders = list(self.addheaders)
+        clone._cookies = list(self._cookies)
         clone._handle_gzip = self._handle_gzip
         return clone
 
@@ -146,11 +203,20 @@ class _StdlibBrowser:
         headers = {k: v for k, v in self.addheaders}
         if self._handle_gzip:
             headers.setdefault("Accept-Encoding", "gzip")
+        cookie_header = self._cookie_header_for_url(url)
+        if cookie_header:
+            headers.setdefault("Cookie", cookie_header)
         req = Request(url, headers=headers)
         context = None
         if not self._verify_ssl:
             context = ssl._create_unverified_context()
-        return urlopen(req, timeout=timeout, context=context)
+        response = urlopen(req, timeout=timeout, context=context)
+        content_encoding = self._response_header(response, "Content-Encoding").lower()
+        if self._handle_gzip and "gzip" in content_encoding:
+            return io.BytesIO(gzip.decompress(response.read()))
+        return response
+
+    open = open_novisit
 
 
 def browser(user_agent: str | None = None, verify_ssl_certificates: bool = True, rich_headers: bool = False):
@@ -163,9 +229,12 @@ def browser(user_agent: str | None = None, verify_ssl_certificates: bool = True,
 
 def random_user_agent(index: int | None = None, allow_rotation: bool | None = None) -> str:
     agents = (
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.4; rv:125.0) Gecko/20100101 Firefox/125.0",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
     )
     if index is not None:
         return agents[index % len(agents)]
@@ -412,13 +481,13 @@ class Source(Plugin):
 
     # Browser {{{
     def user_agent(self):
-        return random_user_agent(allow_rotation=self._rotate_user_agents())
+        return random_user_agent(allow_rotation=True)
 
     def _rotate_user_agents(self) -> bool:
         return _env_truthy("LIUXIN_WEB_SOURCES_RANDOM_UA", default=False)
 
     def _use_rich_headers(self) -> bool:
-        return _env_truthy("LIUXIN_WEB_SOURCES_RICH_HEADERS", default=False)
+        return _env_truthy("LIUXIN_WEB_SOURCES_RICH_HEADERS", default=True)
 
     def _create_browser(self):
         b = browser(

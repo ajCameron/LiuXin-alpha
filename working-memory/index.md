@@ -1,10 +1,329 @@
 # Working Memory Index
 
-Updated: 2026-05-15
+Updated: 2026-06-08
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [codex-collaboration-contract-2026-05-25.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/codex-collaboration-contract-2026-05-25.md)
+  Lightweight operating contract for future Codex work: ask or state
+  assumptions when repo path, branch/worktree, goal, scope, done criteria,
+  verification, or long-run artifact conventions are missing. Highest-risk
+  omission is repo path.
+
+- [long-run-artifact-scripts-2026-05-25.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/long-run-artifact-scripts-2026-05-25.md)
+  Script-level implementation note for long-running test artifacts:
+  full-suite, coverage, and live-web shell runners now default logs, JSON or
+  coverage outputs, and done markers into `working-memory/test-results` with
+  explicit `--run-id`, `--log-file`, and `--done-file` overrides.
+
+- [coverage-run-2026-05-25.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/coverage-run-2026-05-25.md)
+  Coverage baseline from run `coverage-2026-05-25-154712`: pytest completed
+  green, line coverage is 54.83%, branch coverage is 38.33%, combined
+  line+branch coverage is 50.54%, and the wrapper `.done` marker is caveated
+  because that run exited after a post-pytest shell syntax error.
+
+- [conversion-format-hardening-tails-2026-05-27.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-format-hardening-tails-2026-05-27.md)
+  Stage 5 format-tail note: PDB Haodoo, MOBI decompression/KF8 image resources,
+  and the LIT unavailable-LZX writer boundary are complete, documented, and
+  covered by the fast file-format lane.
+
+- [conversion-signoff-table-2026-05-28.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-signoff-table-2026-05-28.md)
+  Stage 6 sign-off-table note: durable matrix added at
+  `dev-docs/conversion_pipeline_signoff.md`, with candidate, provisional,
+  blocked, and open rows for current format and pipeline sign-off decisions.
+
+- [conversion-fb2-fbz-signoff-2026-05-31.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-fb2-fbz-signoff-2026-05-31.md)
+  First signed-off conversion matrix row: FB2/FBZ input/output/metadata is
+  signed off for the current format scope with focused file-format, metadata,
+  hostile archive, and shared preflight validation.
+
+- [conversion-odt-signoff-2026-06-01.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-odt-signoff-2026-06-01.md)
+  Second signed-off conversion matrix row: ODT input/container conversion is
+  signed off for the current format scope with focused ODT/ODF, metadata,
+  hostile-container, and shared preflight validation.
+
+- [conversion-epub-signoff-2026-06-02.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-epub-signoff-2026-06-02.md)
+  Third signed-off conversion matrix row: EPUB input/container conversion is
+  signed off for the current format scope with focused EPUB/OPF, metadata,
+  hostile-container, and shared preflight validation.
+
+- [conversion-docx-signoff-2026-06-02.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-docx-signoff-2026-06-02.md)
+  Fourth signed-off conversion matrix row: DOCX input/container conversion is
+  signed off for the current format scope with focused DOCX, metadata,
+  hostile-container, and shared preflight validation.
+
+- [conversion-pdb-signoff-2026-06-03.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pdb-signoff-2026-06-03.md)
+  Fifth signed-off conversion matrix row: PDB input/metadata hardening is signed
+  off for the current format scope with focused PDB subreader, metadata
+  fallback, malformed-input fuzzing, and conversion smoke validation.
+
+- [conversion-pml-signoff-2026-06-03.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-signoff-2026-06-03.md)
+  Sixth signed-off conversion matrix row: PML output lossy-boundary behavior is
+  signed off for the current row scope with deterministic output, structured
+  unsupported-character loss reporting, edge context, metadata, and plugin-smoke
+  validation.
+
+- [conversion-txt-loss-report-2026-06-03.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-txt-loss-report-2026-06-03.md)
+  TXT candidate promotion: malformed TXT input decode replacement and TXT output
+  encoding replacement now emit structured conversion loss events, making TXT
+  input/output encoding-loss behavior ready for focused sign-off review after
+  merge.
+
+- [conversion-txt-signoff-2026-06-04.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-txt-signoff-2026-06-04.md)
+  Seventh signed-off conversion matrix row: TXT input/output encoding-loss
+  report behavior is signed off for the current row scope with focused TXT,
+  conversion report/edge/plugin, TXT/TXTZ metadata, and broader text-markup
+  validation.
+
+- [conversion-htmlz-diagnostics-2026-06-04.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-htmlz-diagnostics-2026-06-04.md)
+  HTMLZ candidate promotion: optional OPF read failures, unsafe cover paths, and
+  missing cover files now emit structured recoverable conversion loss events,
+  making HTMLZ optional-enrichment diagnostics ready for focused sign-off review
+  after merge.
+
+- [conversion-htmlz-signoff-2026-06-06.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-htmlz-signoff-2026-06-06.md)
+  Eighth signed-off conversion matrix row: HTMLZ optional-enrichment diagnostics
+  are signed off for the current row scope with focused HTMLZ, hostile archive,
+  and conversion report/edge/plugin validation.
+
+- [conversion-comic-diagnostics-2026-06-06.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-comic-diagnostics-2026-06-06.md)
+  Comic candidate promotion: missing CBC listed comics and names-only CBR/RAR
+  fallback preflight now emit structured recoverable conversion diagnostics,
+  making Comic ready for focused sign-off review after merge.
+
+- [conversion-comic-signoff-2026-06-08.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-comic-signoff-2026-06-08.md)
+  Ninth signed-off conversion matrix row: Comic CBZ/CBC/CBR structured
+  diagnostics are signed off for the current row scope with focused comic,
+  archive preflight, and conversion report/edge/plugin validation.
+
+- [conversion-pml-loss-report-slice-2026-05-26.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pml-loss-report-slice-2026-05-26.md)
+  Current conversion implementation slice: add a small report/loss surface and
+  make PML unsupported-character replacement visible while preserving current
+  recoverable output behavior; also records the first explicit
+  `ConversionEdge` model for the legacy OEB-backed path and the shared ZIP
+  archive preflight helper for FBZ/HTMLZ/EPUB/DOCX/ODT/comic containers.
+
+- [conversion-pipeline-architecture-todo-2026-05-24.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/conversion-pipeline-architecture-todo-2026-05-24.md)
+  Current architecture TODO for moving from format-by-format hardening toward a
+  sign-off-able conversion pipeline: explicit capability edges, reportable
+  lossy conversion, fallback diagnostics, shared archive preflight, and
+  format/edge done criteria. Durable TODO:
+  `dev-docs/conversion_pipeline_todo.md`.
+
+- [file-formats-pdb-hardening-2026-05-23.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-pdb-hardening-2026-05-23.md)
+  Current branch note for the PDB/PalmDB hardening pass: branch setup,
+  entry-point inventory, durable PDB dossier, reusable PDB/PalmDB fixture
+  layer, strict wrapper validation, PalmDOC/zTXT hostile subreader hardening,
+  eReader, Plucker, and Haodoo hostile subreader hardening.
+  Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/pdb/README.md`.
+
+- [file-formats-mobi-hardening-2026-05-23.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-mobi-hardening-2026-05-23.md)
+  Current branch note for the MOBI/KF8/AZW-style hardening pass: reusable
+  PalmDB/MOBI fixtures, hostile PalmDB/MOBI/EXTH parser coverage, deep
+  HUFF/CDIC and KF8 index/resource hardening, verification, and remaining
+  decompression/resource follow-ups. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/mobi/README.md`.
+
+- [file-formats-fbz-hardening-2026-05-22.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-fbz-hardening-2026-05-22.md)
+  Current branch note for the zipped-FB2 hardening pass: reusable zip fixture
+  helpers, first-class `.fbz` conversion/metadata registration, strict
+  single-FB2-member archive selection, hostile path/budget coverage, and
+  unicode conversion-product checks for UTF-8/UTF-16 zipped FB2. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/fb2/README.md`.
+
+- [file-formats-cbr-rar-hardening-2026-05-22.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-cbr-rar-hardening-2026-05-22.md)
+  Current branch note for the CBR/RAR continuation of the comic hardening pass:
+  RAR listing preflight, hostile CBR path/budget/password coverage, deterministic
+  fake-RAR fixtures, lower-level `unrar` safe extraction-boundary coverage, and
+  the tiny `databases.row` import-cycle unblocker needed after the database
+  review merge. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/comic/README.md`.
+
+- [file-formats-lit-hostile-hardening-2026-05-22.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-lit-hostile-hardening-2026-05-22.md)
+  Current branch note for the LIT legacy binary-container parser pass:
+  reusable LIT parser fixtures, malformed whole-file/header/manifest/namelist
+  coverage, `UnBinary` hostile control coverage, reader hardening to raise
+  `LitError` instead of raw parser failures or hangs, plus conversion-facing
+  unicode checks for input products, `postprocess_book`, `ReBinary`, and writer
+  manifest serialization. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/lit/README.md`.
+
+- [file-formats-fb2-unicode-hostile-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-fb2-unicode-hostile-2026-05-21.md)
+  Current branch note for the FB2 XML/input-output pass: reusable FB2 fixtures,
+  UTF-8/UTF-16 valid conversion coverage, recoverable malformed XML cases,
+  unsafe embedded-binary ID sanitization, corrupted base64 warnings, output
+  unicode serialization coverage, and the zipped-FB2/reporting follow-ups.
+  Durable docs: `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/fb2/README.md`.
+
+- [file-formats-comic-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-comic-container-2026-05-21.md)
+  Current branch note for the comic CBZ/CBC archive/container pass: reusable
+  comic fixtures, valid multilingual plugin-path coverage, CBC `comics.txt`
+  decoding and missing-member warning behavior, nested CBZ preflight, hostile
+  archive limits, and the explicit CBR/RAR follow-up boundary. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/comic/README.md`.
+
+- [file-formats-htmlz-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-htmlz-container-2026-05-21.md)
+  Current branch note for the HTMLZ archive/container pass: reusable HTMLZ
+  fixtures, valid multilingual plugin-path coverage, malformed optional
+  OPF/cover warning behavior, required top-level HTML failures, hostile archive
+  limits, and the HTMLZ-specific salvage/reporting boundary. Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/htmlz/README.md`.
+
+- [file-formats-docx-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-docx-container-2026-05-21.md)
+  Current branch note for the DOCX archive/XML container pass: reusable DOCX
+  fixtures first, then valid conversion coverage, malformed package cases,
+  hostile archive limits, nested media paths, and salvage/reporting docs.
+  Durable docs: `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/docx/README.md`.
+
+- [file-formats-epub-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-epub-container-2026-05-21.md)
+  Current note for the EPUB archive/XML container pass and salvage/reporting
+  follow-up: reusable EPUB fixtures, multilingual conversion/read coverage,
+  OCF/OPF malformed-container cases, hostile archive limits, nested asset paths,
+  preflight rejection diagnostics, and the explicit future salvage boundary.
+  Durable docs:
+  `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/epub/README.md`.
+
+- [file-formats-odt-container-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-odt-container-2026-05-21.md)
+  Current branch note for the ODT archive/XML container pass: reusable ODT
+  fixtures, required-member validation, hostile picture-path hardening,
+  multilingual Extract/ODTInput coverage, generated OPF/XHTML/CSS/assets,
+  bounded archive preflight checks, and the guarded-override docs direction.
+  Durable docs: `docs/development/file-format-unicode-conversion.md` and
+  `docs/development/file-formats/odt/README.md`.
+
+- [file-formats-markup-hostile-2026-05-21.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-markup-hostile-2026-05-21.md)
+  Current branch note for the optional lightweight-markup hostile-input pass:
+  shared malformed Markdown/Textile fixtures, TXTInput extension-path coverage,
+  delimiter stress, and the direct/external converter pipeline follow-up.
+  Durable doc: `docs/development/file-format-unicode-conversion.md`.
+
+- [file-formats-pml-unicode-2026-05-20.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-pml-unicode-2026-05-20.md)
+  Current branch note for the PML pass after PR #69: shared OEB fixture
+  coverage for `PMLMLizer`/`PMLOutput`, deterministic `.pmlz` output, and the
+  explicit supported-versus-lossy PML unicode boundary. Durable doc:
+  `docs/development/file-format-unicode-conversion.md`.
+
+- [file-formats-text-unicode-2026-05-20.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-text-unicode-2026-05-20.md)
+  Current branch note for the text/unicode file-format pass: reusable
+  multiscript corpus, encoded payload cases, deterministic fuzz helpers,
+  output encoding/newline matrix helpers, and the first TXT conversion/input
+  tests built on the shared framework.
+
+- [file-formats-cover-utils-2026-05-20.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/file-formats-cover-utils-2026-05-20.md)
+  Current branch note for the lateral file-format pass: deterministic
+  cover-extraction utility coverage, Python 3 byte-HTML parsing fixes,
+  top-level/package utility alignment, and the environment-stable PML Pillow
+  fallback test.
+
+- [metadata-web-sources-hardening-2026-05-18.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-web-sources-hardening-2026-05-18.md)
+  Current web-source hardening and expansion note: provider parser/backoff
+  coverage, Google Images rendered-browser fallback, the new Library of
+  Congress source slice, live-probe behavior, and next source candidates.
+  Durable doc: `docs/development/metadata-web-sources.md`.
+
+- [metadata-wemi-container-hardening-plan-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-wemi-container-hardening-plan-2026-05-17.md)
+  Current branch note for the planned WEMI container/conversion hardening pass:
+  conversion contracts, identity-spine versus full-graph invariants,
+  lazy/eager projection parity, writer safety, and relation-container torture
+  coverage. Durable doc:
+  `docs/development/metadata-wemi-container-hardening.md`.
+
+- [metadata-utils-coverage-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-utils-coverage-2026-05-17.md)
+  Current branch note for the metadata helper coverage pass:
+  `metadata.utils` / `metadata.ebook_metadata_tools` coverage, unicode
+  torture, OPF/resource/language/timestamp fixes, and focused coverage at
+  `93%` across the two helper modules.
+
+- [metadata-standardize-coverage-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-standardize-coverage-2026-05-17.md)
+  Current branch note for the metadata standardization coverage pass:
+  title separator/strip fixes, Python 3-safe tag cleanup, creator-name
+  punctuation preservation, shared-module parity checks, and focused coverage
+  at `97%` across `metadata.standardize` / `metadata.standardization`.
+
+- [metadata-book-coverage-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-book-coverage-2026-05-17.md)
+  Current branch note for the metadata.book coverage pass: core
+  `calibreMetadata`, JSON/dict serialization, unicode torture, renderer
+  wrappers, and narrow Python 3 compatibility fixes now have focused coverage.
+
+- [metadata-coverage-fallback-alignment-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-coverage-fallback-alignment-2026-05-17.md)
+  Current branch note for the post-coverage stale-test alignment: strict
+  reader defaults stay strict, explicit `fallback_on_parse_error=True` owns
+  conservative shell metadata, and the latest external coverage run is green.
+
+- [metadata-text-reader-fuzzing-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-text-reader-fuzzing-2026-05-17.md)
+  Current branch note for the permissive text-reader malformed-input pass:
+  TXT/HTML/plain-PML safe fallbacks, direct HTML byte payload handling,
+  binary-signature guards, and text-like safety corpus coverage.
+
+- [metadata-comic-reader-fuzzing-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-comic-reader-fuzzing-2026-05-17.md)
+  Current branch note for the post-PR #48 CBR/CBZ malformed-input pass:
+  dedicated comic reader wrapper, strict unreadable/non-comic archive failures,
+  and preserved shell metadata for valid image archives without comments.
+
+- [metadata-container-reader-fuzzing-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-container-reader-fuzzing-2026-05-17.md)
+  Follow-up on PR #48 for the next metadata reader pass: ODT/ODT-beta named
+  strict failures, a new LRF file-source wrapper, and shared malformed-input
+  coverage for ODT/RAR/LRF.
+
+- [metadata-legacy-format-fuzzing-2026-05-17.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-legacy-format-fuzzing-2026-05-17.md)
+  Active branch note for the next malformed-input lane after PR #47:
+  legacy/specialty metadata readers, starting with RTF/SNB/LRX strict wrapper
+  checks while preserving valid-container fallbacks.
+
+- [metadata-malformed-input-fuzzing-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-malformed-input-fuzzing-2026-05-16.md)
+  Active branch note for deterministic malformed-input and wrong-format
+  metadata extractor coverage. The first slice adds
+  `metadata.file_sources.registry` so tests and future plugin loading can
+  enumerate/register readers without putting registry state on the base class.
+
+- [metadata-writer-coverage-plan-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-writer-coverage-plan-2026-05-16.md)
+  Next high-value lane after extractor coverage: metadata writer tests as
+  corruption-prevention checks, with round-trip readability, container
+  validity, payload preservation, hostile unicode/escaping, and clean failure
+  behavior. Durable doc: `docs/development/metadata-writer-coverage-contract.md`.
+
+- [metadata-ingest-source-coverage-plan-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-ingest-source-coverage-plan-2026-05-16.md)
+  Coverage plan for production-heavy metadata file-source ingest readers, with
+  a unicode/malformed-input testing strategy. The pass now covers the newer
+  ingest readers plus archive/text/ODT, dispatcher/worker, PDB sub-readers, and
+  older adapters; latest private-corpus validation is `457 passed`, `4 skipped`,
+  with `metadata.file_sources` coverage at 91%.
+
+- [data-artifacts-plan-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/data-artifacts-plan-2026-05-16.md)
+  Optional artifacts now use `scripts/build_artifacts.py`, track small fixtures
+  directly, and keep multi-GB ISFDB DB payloads manifest-only with deterministic
+  child build environment settings.
+
+- [metadata-coverage-lift-2026-05-16.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-coverage-lift-2026-05-16.md)
+  Focused coverage lift for the recent metadata API/container work, including
+  the new WEMI projection/relation/lazy-value tests, 100% focused coverage
+  across the six metadata hydrator modules, and the post-merge bzzdec malformed
+  payload fix. Durable malformed-input testing docs:
+  `docs/development/malformed-input-fuzzing.md`.
+
+- [coverage-syntax-warning-cleanup-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/coverage-syntax-warning-cleanup-2026-05-15.md)
+  Coverage-runner and SyntaxWarning cleanup note: adds the dedicated coverage
+  wrapper, redirects coverage data out of the repo root, records the 17-file
+  warning cleanup, focused validation, and the remaining full coverage rerun.
+
+- [type-checking-and-coverage-scope-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/type-checking-and-coverage-scope-2026-05-15.md)
+  Adds the static typing toolchain/config/runner scope and records the latest
+  full coverage result: suite green, project-wide coverage dominated by
+  legacy/vendor areas, and `surfaces.renderers.calibre_metadata` as the next
+  targeted test gap.
 
 - [metadata-api-todo-followups-2026-05-15.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/metadata-api-todo-followups-2026-05-15.md)
   Numbered list of the still-relevant TODOs in the metadata API/container slice

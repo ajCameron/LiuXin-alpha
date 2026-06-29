@@ -26,13 +26,92 @@ __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 NULL_INDEX = 0xFFFFFFFF
+PALMDB_HEADER_SIZE = 78
+PALMDB_RECORD_TABLE_ENTRY_SIZE = 8
+MAX_PALMDB_RECORDS = 4096
+MAX_MOBI_HEADER_LENGTH = 500
+
+
+def _require_bytes(raw, length, context):
+    if len(raw) < length:
+        raise MobiError("Truncated MOBI data while reading %s" % context)
+
+
+def _unpack(fmt, raw, offset, context):
+    length = struct.calcsize(fmt)
+    _require_bytes(raw, offset + length, context)
+    return struct.unpack_from(fmt, raw, offset)
+
+
+def _read_exact(stream, length, context):
+    raw = stream.read(length)
+    if len(raw) != length:
+        raise MobiError("Truncated MOBI data while reading %s" % context)
+    return raw
+
+
+def _stream_length(stream):
+    if not (hasattr(stream, "seek") and hasattr(stream, "tell")):
+        return None
+    pos = stream.tell()
+    try:
+        stream.seek(0, os.SEEK_END)
+        return stream.tell()
+    finally:
+        stream.seek(pos)
+
+
+def _validate_record_count(count):
+    if count > MAX_PALMDB_RECORDS:
+        raise MobiError("PalmDB record count %d exceeds limit %d" % (count, MAX_PALMDB_RECORDS))
+
+
+def _validate_record_offsets(offsets, *, data_size, table_end):
+    previous = None
+    for index, offset in enumerate(offsets):
+        if offset < table_end:
+            raise MobiError("PalmDB record %d starts inside the record table" % index)
+        if data_size is not None and offset > data_size:
+            raise MobiError("PalmDB record %d starts beyond end of file" % index)
+        if previous is not None and offset <= previous:
+            raise MobiError("PalmDB record offsets are not strictly increasing")
+        previous = offset
+
+
+def read_palmdb_record_table(raw):
+    _require_bytes(raw, PALMDB_HEADER_SIZE, "PalmDB header")
+    count = _unpack(">H", raw, 76, "PalmDB record count")[0]
+    if count < 1:
+        raise MobiError("PalmDB file has no records")
+    _validate_record_count(count)
+
+    table_end = PALMDB_HEADER_SIZE + (count * PALMDB_RECORD_TABLE_ENTRY_SIZE) + 2
+    _require_bytes(raw, table_end, "PalmDB record table")
+
+    records = []
+    offsets = []
+    for index in range(count):
+        entry_offset = PALMDB_HEADER_SIZE + (index * PALMDB_RECORD_TABLE_ENTRY_SIZE)
+        offset, a1, a2, a3, a4 = _unpack(">LBBBB", raw, entry_offset, "PalmDB record table entry")
+        flags, val = a1, a2 << 16 | a3 << 8 | a4
+        records.append((offset, flags, val))
+        offsets.append(offset)
+    _validate_record_offsets(offsets, data_size=len(raw), table_end=table_end)
+    return count, records
 
 
 class EXTHHeader(object):  # {{{
     def __init__(self, raw, codec, title):
+        _require_bytes(raw, 12, "EXTH header")
         self.doctype = raw[:4]
-        self.length, self.num_items = struct.unpack(">LL", raw[4:12])
-        raw = raw[12:]
+        if self.doctype != b"EXTH":
+            raise MobiError("Invalid EXTH header signature")
+        self.length, self.num_items = _unpack(">LL", raw, 4, "EXTH length and item count")
+        if self.length < 12:
+            raise MobiError("Invalid EXTH header length")
+        if self.length > len(raw):
+            raise MobiError("EXTH header length exceeds available data")
+        raw = raw[12:self.length]
         pos = 0
         self.mi = calibreMetaInformation(_("Unknown"), [_("Unknown")])
         self.has_fake_cover = True
@@ -46,18 +125,27 @@ class EXTHHeader(object):  # {{{
 
         while left > 0:
             left -= 1
+            if pos + 8 > len(raw):
+                raise MobiError("Truncated EXTH item header")
             idx, size = struct.unpack(">LL", raw[pos : pos + 8])
+            if size < 8:
+                raise MobiError("Invalid EXTH item size")
+            if pos + size > len(raw):
+                raise MobiError("EXTH item extends beyond header block")
             content = raw[pos + 8 : pos + size]
             pos += size
             if 200 > idx >= 100:
                 self.process_metadata(idx, content, codec)
             elif idx == 203:
+                _require_bytes(content, 4, "EXTH fake-cover flag")
                 self.has_fake_cover = bool(struct.unpack(">L", content)[0])
             elif idx == 201:
+                _require_bytes(content, 4, "EXTH cover offset")
                 (co,) = struct.unpack(">L", content)
                 if co < NULL_INDEX:
                     self.cover_offset = co
             elif idx == 202:
+                _require_bytes(content, 4, "EXTH thumbnail offset")
                 (self.thumbnail_offset,) = struct.unpack(">L", content)
             elif idx == 501:
                 try:
@@ -166,8 +254,10 @@ class EXTHHeader(object):  # {{{
             except:
                 self.uuid = None
         elif idx == 116:
+            _require_bytes(content, 4, "EXTH start offset")
             (self.start_offset,) = struct.unpack(b">L", content)
         elif idx == 121:
+            _require_bytes(content, 4, "EXTH KF8 header offset")
             (self.kf8_header,) = struct.unpack(b">L", content)
             if self.kf8_header == NULL_INDEX:
                 self.kf8_header = None
@@ -183,8 +273,9 @@ class BookHeader(object):
         self.log = log
         ident_text = ident.decode("ascii", "ignore") if isinstance(ident, (bytes, bytearray)) else str(ident)
         self.compression_type = raw[:2]
-        self.records, self.records_size = struct.unpack(">HH", raw[8:12])
-        (self.encryption_type,) = struct.unpack(">H", raw[12:14])
+        _require_bytes(raw, 14, "MOBI record 0 header")
+        self.records, self.records_size = _unpack(">HH", raw, 8, "MOBI text record metadata")
+        (self.encryption_type,) = _unpack(">H", raw, 12, "MOBI encryption type")
         if ident_text == "TEXTREAD":
             self.codepage = 1252
         if len(raw) <= 16:
@@ -198,15 +289,22 @@ class BookHeader(object):
             self.first_image_index = -1
             self.mobi_version = 1
         else:
+            _require_bytes(raw, 0x84, "MOBI header")
             self.ancient = False
             self.doctype = raw[16:20]
+            if ident_text != "TEXTREAD" and self.doctype != b"MOBI":
+                raise MobiError("Invalid MOBI record 0 signature")
             (
                 self.length,
                 self.type,
                 self.codepage,
                 self.unique_id,
                 self.version,
-            ) = struct.unpack(">LLLLL", raw[20:40])
+            ) = _unpack(">LLLLL", raw, 20, "MOBI header fields")
+            if self.length > MAX_MOBI_HEADER_LENGTH:
+                raise MobiError("MOBI header length %d exceeds limit %d" % (self.length, MAX_MOBI_HEADER_LENGTH))
+            if 16 + self.length > len(raw):
+                raise MobiError("MOBI header length exceeds record 0")
 
             try:
                 self.codec = {
@@ -228,23 +326,25 @@ class BookHeader(object):
             ):
                 self.extra_flags = 0
             else:
-                (self.extra_flags,) = struct.unpack(">H", raw[0xF2:0xF4])
+                (self.extra_flags,) = _unpack(">H", raw, 0xF2, "MOBI extra data flags")
 
             if self.compression_type == b"DH":
-                self.huff_offset, self.huff_number = struct.unpack(">LL", raw[0x70:0x78])
+                self.huff_offset, self.huff_number = _unpack(">LL", raw, 0x70, "HUFF/CDIC offsets")
 
-            toff, tlen = struct.unpack(">II", raw[0x54:0x5C])
+            toff, tlen = _unpack(">II", raw, 0x54, "MOBI title offset and length")
             tend = toff + tlen
+            if tlen and (toff >= len(raw) or tend > len(raw)):
+                raise MobiError("MOBI title extends beyond record 0")
             self.title = raw[toff:tend] if tend < len(raw) else _("Unknown")
-            langcode = struct.unpack("!L", raw[0x5C:0x60])[0]
+            langcode = _unpack("!L", raw, 0x5C, "MOBI language code")[0]
             langid = langcode & 0xFF
             sublangid = (langcode >> 10) & 0xFF
             self.language = main_language.get(langid, "ENGLISH")
             self.sublanguage = sub_language.get(sublangid, "NEUTRAL")
-            self.mobi_version = struct.unpack(">I", raw[0x68:0x6C])[0]
-            self.first_image_index = struct.unpack(">L", raw[0x6C : 0x6C + 4])[0]
+            self.mobi_version = _unpack(">I", raw, 0x68, "MOBI version")[0]
+            self.first_image_index = _unpack(">L", raw, 0x6C, "MOBI first image index")[0]
 
-            (self.exth_flag,) = struct.unpack(">L", raw[0x80:0x84])
+            (self.exth_flag,) = _unpack(">L", raw, 0x80, "MOBI EXTH flag")
             self.exth = None
 
             if not isinstance(self.title, str):
@@ -259,13 +359,15 @@ class BookHeader(object):
                             self.exth.mi.language = mobi2iana(langid, sublangid)
                         except:
                             self.log.exception("Unknown language code")
+                except MobiError:
+                    raise
                 except:
                     self.log.exception("Invalid EXTH header")
                     self.exth_flag = 0
 
             self.ncxidx = NULL_INDEX
             if len(raw) >= 0xF8:
-                (self.ncxidx,) = struct.unpack_from(b">L", raw, 0xF4)
+                (self.ncxidx,) = _unpack(b">L", raw, 0xF4, "MOBI NCX index")
 
             # Ancient PRC files from Baen can have random values for
             # mobi_version, so be conservative
@@ -275,12 +377,12 @@ class BookHeader(object):
                     self.skelidx,
                     self.datpidx,
                     self.othidx,
-                ) = struct.unpack_from(b">4L", raw, 0xF8)
+                ) = _unpack(b">4L", raw, 0xF8, "KF8 index pointers")
 
                 # need to use the FDST record to find out how to properly
                 # unpack the raw_ml into pieces it is simply a table of start
                 # and end locations for each flow piece
-                self.fdstidx, self.fdstcnt = struct.unpack_from(b">2L", raw, 0xC0)
+                self.fdstidx, self.fdstcnt = _unpack(b">2L", raw, 0xC0, "KF8 FDST metadata")
                 # if cnt is 1 or less, fdst section number can be garbage
                 if self.fdstcnt <= 1:
                     self.fdstidx = NULL_INDEX
@@ -291,8 +393,11 @@ class BookHeader(object):
 class MetadataHeader(BookHeader):
     def __init__(self, stream, log):
         self.stream = stream
+        self._stream_size = _stream_length(stream)
         self.ident = self.identity()
         self.num_sections = self.section_count()
+        _validate_record_count(self.num_sections)
+        self._record_offsets = self._read_record_offsets() if self.num_sections else []
         if self.num_sections >= 2:
             header = self.header()
             BookHeader.__init__(self, header, self.ident, None, log)
@@ -316,18 +421,35 @@ class MetadataHeader(BookHeader):
 
     def identity(self):
         self.stream.seek(60)
-        ident = self.stream.read(8).upper()
+        ident = _read_exact(self.stream, 8, "PalmDB identity").upper()
         if ident not in (b"BOOKMOBI", b"TEXTREAD"):
             raise MobiError("Unknown book type: %s" % ident)
         return ident
 
     def section_count(self):
         self.stream.seek(76)
-        return struct.unpack(">H", self.stream.read(2))[0]
+        return struct.unpack(">H", _read_exact(self.stream, 2, "PalmDB record count"))[0]
+
+    def _read_record_offsets(self):
+        table_end = PALMDB_HEADER_SIZE + (self.num_sections * PALMDB_RECORD_TABLE_ENTRY_SIZE) + 2
+        if self._stream_size is not None and table_end > self._stream_size:
+            raise MobiError("Truncated MOBI data while reading PalmDB record table")
+
+        offsets = []
+        for number in range(self.num_sections):
+            self.stream.seek(PALMDB_HEADER_SIZE + number * PALMDB_RECORD_TABLE_ENTRY_SIZE)
+            data = _read_exact(self.stream, PALMDB_RECORD_TABLE_ENTRY_SIZE, "PalmDB record table entry")
+            offsets.append(struct.unpack(">LBBBB", data)[0])
+        _validate_record_offsets(offsets, data_size=self._stream_size, table_end=table_end)
+        return offsets
 
     def section_offset(self, number):
+        if number < 0 or number >= self.num_sections:
+            raise MobiError("non-existent MOBI section %r" % number)
+        if hasattr(self, "_record_offsets"):
+            return self._record_offsets[number]
         self.stream.seek(78 + number * 8)
-        return struct.unpack(">LBBBB", self.stream.read(8))[0]
+        return struct.unpack(">LBBBB", _read_exact(self.stream, 8, "PalmDB record table entry"))[0]
 
     def header(self):
         section_headers = list()
@@ -338,13 +460,20 @@ class MetadataHeader(BookHeader):
 
         end_off = section_headers[1]
         off = section_headers[0]
+        if end_off <= off:
+            raise MobiError("Invalid MOBI record 0 bounds")
         self.stream.seek(off)
-        return self.stream.read(end_off - off)
+        return _read_exact(self.stream, end_off - off, "MOBI record 0")
 
     def section_data(self, number):
+        if number < 0 or number >= self.num_sections:
+            raise MobiError("non-existent MOBI section %r" % number)
         start = self.section_offset(number)
         if number == self.num_sections - 1:
-            if hasattr(self.stream, "name") and self.stream.name:
+            stream_size = getattr(self, "_stream_size", None)
+            if stream_size is not None:
+                end = stream_size
+            elif hasattr(self.stream, "name") and self.stream.name:
                 end = os.stat(self.stream.name).st_size
             else:
                 pos = self.stream.tell()
@@ -355,6 +484,8 @@ class MetadataHeader(BookHeader):
                     self.stream.seek(pos)
         else:
             end = self.section_offset(number + 1)
+        if end < start:
+            raise MobiError("Invalid MOBI section bounds")
         self.stream.seek(start)
         try:
             return self.stream.read(end - start)

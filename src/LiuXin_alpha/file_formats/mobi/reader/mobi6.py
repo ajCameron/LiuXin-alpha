@@ -28,7 +28,7 @@ from LiuXin_alpha.file_formats.chardet import ENCODING_PATS
 from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 from LiuXin_alpha.file_formats.mobi import MobiError
 from LiuXin_alpha.file_formats.mobi.huffcdic import HuffReader
-from LiuXin_alpha.file_formats.mobi.reader.headers import BookHeader
+from LiuXin_alpha.file_formats.mobi.reader.headers import BookHeader, read_palmdb_record_table
 from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator, OPF
 
 from LiuXin_alpha.utils.calibre import xml_entity_to_unicode, entity_to_unicode
@@ -56,6 +56,8 @@ class MobiReader(object):
         re.IGNORECASE,
     )
     IMAGE_ATTRS = ("lowrecindex", "recindex", "hirecindex")
+    MAX_TEXT_RECORD_UNCOMPRESSED_SIZE = 8 * 1024 * 1024
+    MAX_TOTAL_TEXT_UNCOMPRESSED_SIZE = 128 * 1024 * 1024
 
     def __init__(
         self,
@@ -103,20 +105,15 @@ class MobiReader(object):
         if raw.startswith(b"TPZ"):
             raise TopazError(_("This is an Amazon Topaz book. It cannot be processed."))
 
+        self.num_sections, self.section_headers = read_palmdb_record_table(raw)
         self.header = raw[0:72]
         self.name = self.header[:32].replace(b"\x00", b"")
-        (self.num_sections,) = struct.unpack(">H", raw[76:78])
 
         self.ident = self.header[0x3C : 0x3C + 8].upper()
         if self.ident not in (b"BOOKMOBI", b"TEXTREAD"):
             raise MobiError("Unknown book type: %s" % repr(self.ident))
 
         self.sections = []
-        self.section_headers = []
-        for i in range(self.num_sections):
-            offset, a1, a2, a3, a4 = struct.unpack(">LBBBB", raw[78 + i * 8 : 78 + i * 8 + 8])
-            flags, val = a1, a2 << 16 | a3 << 8 | a4
-            self.section_headers.append((offset, flags, val))
 
         def section(section_number):
             if section_number == self.num_sections - 1:
@@ -832,6 +829,34 @@ class MobiReader(object):
         trail_size = self.sizeof_trailing_entries(data)
         return data[: len(data) - trail_size]
 
+    def text_record_uncompressed_limit(self):
+        declared = max(int(getattr(self.book_header, "records_size", 0) or 0), 0)
+        configured = max(int(self.MAX_TEXT_RECORD_UNCOMPRESSED_SIZE), 1)
+        return min(declared, configured) if declared else configured
+
+    def total_text_uncompressed_limit(self, record_limit):
+        declared_records = max(int(getattr(self.book_header, "records", 0) or 0), 0)
+        configured = max(int(self.MAX_TOTAL_TEXT_UNCOMPRESSED_SIZE), record_limit)
+        if declared_records:
+            return min(configured, declared_records * record_limit)
+        return configured
+
+    def checked_text_record(self, data, section_number, record_limit, total_size, total_limit):
+        if isinstance(data, str):
+            data = data.encode(self.book_header.codec, "replace")
+        size = len(data)
+        if size > record_limit:
+            raise MobiError(
+                "MOBI text record %d expands beyond limit: %d > %d bytes"
+                % (section_number, size, record_limit)
+            )
+        if total_size + size > total_limit:
+            raise MobiError(
+                "MOBI text records expand beyond total limit: %d > %d bytes"
+                % (total_size + size, total_limit)
+            )
+        return data
+
     def extract_text(self, offset=1):
         self.log.debug("Extracting text...")
         text_sections = [
@@ -841,22 +866,23 @@ class MobiReader(object):
         processed_records = list(range(offset - 1, self.book_header.records + offset))
 
         self.mobi_html = b""
+        record_limit = self.text_record_uncompressed_limit()
+        total_limit = self.total_text_uncompressed_limit(record_limit)
 
         if self.book_header.compression_type == b"DH":
+            huff_start = self.book_header.huff_offset
+            huff_end = huff_start + self.book_header.huff_number
+            if self.book_header.huff_number < 1 or huff_start < 0 or huff_end > len(self.sections):
+                raise MobiError("HUFF/CDIC record range is outside MOBI sections")
             huffs = [
                 self.sections[i][0]
                 for i in memory_range(
-                    self.book_header.huff_offset,
-                    self.book_header.huff_offset + self.book_header.huff_number,
+                    huff_start,
+                    huff_end,
                 )
             ]
-            processed_records += list(
-                memory_range(
-                    self.book_header.huff_offset,
-                    self.book_header.huff_offset + self.book_header.huff_number,
-                )
-            )
-            huff = HuffReader(huffs)
+            processed_records += list(memory_range(huff_start, huff_end))
+            huff = HuffReader(huffs, max_output_size=record_limit)
             unpack = huff.unpack
 
         elif self.book_header.compression_type == b"\x00\x02":
@@ -869,7 +895,26 @@ class MobiReader(object):
 
         else:
             raise MobiError("Unknown compression algorithm: %s" % repr(self.book_header.compression_type))
-        self.mobi_html = b"".join(map(unpack, text_sections))
+        decoded_sections = []
+        total_uncompressed = 0
+        for text_index, text_section in enumerate(text_sections, start=offset):
+            try:
+                decoded = unpack(text_section)
+            except MobiError:
+                raise
+            except Exception as err:
+                raise MobiError("Failed to decompress MOBI text record %d" % text_index) from err
+            decoded = self.checked_text_record(
+                decoded,
+                text_index,
+                record_limit,
+                total_uncompressed,
+                total_limit,
+            )
+            total_uncompressed += len(decoded)
+            decoded_sections.append(decoded)
+
+        self.mobi_html = b"".join(decoded_sections)
         if self.mobi_html.endswith(b"#"):
             self.mobi_html = self.mobi_html[:-1]
 

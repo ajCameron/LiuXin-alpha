@@ -68,6 +68,7 @@ BOOK_EXTENSIONS = [
     "doc",
     "epub",
     "fb2",
+    "fbz",
     "djv",
     "djvu",
     "lrx",
@@ -173,29 +174,9 @@ def extract_calibre_cover(raw, base, log):
     :param log:
     :return:
     """
-    from LiuXin_alpha.file_formats.BeautifulSoup import BeautifulSoup
+    from LiuXin_alpha.file_formats.utils import extract_calibre_cover as _extract_calibre_cover
 
-    soup = BeautifulSoup(raw)
-    matches = soup.find(name=["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "font", "br"])
-    images = soup.findAll("img")
-    if matches is None and len(images) == 1 and images[0].get("alt", "") == "cover":
-        img = images[0]
-        img = os.path.join(base, *img["src"].split("/"))
-        cover = return_raster_image(img)
-        return cover
-
-    # Look for a simple cover, i.e. a body with no text and only one <img> tag
-    if matches is None:
-        body = soup.find("body")
-        if body is not None:
-            text = "".join(map(six_unicode, body.findAll(text=True)))
-            if text.strip():
-                # Body has text, abort
-                return
-            images = body.findAll("img", src=True)
-            if 0 < len(images) < 2:
-                img = os.path.join(base, *images[0]["src"].split("/"))
-                return return_raster_image(img)
+    return _extract_calibre_cover(raw, base, log)
 
 
 def render_html_svg_workaround(path_to_html, log, width=590, height=750):

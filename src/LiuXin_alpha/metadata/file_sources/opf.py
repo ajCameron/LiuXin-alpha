@@ -100,6 +100,18 @@ def _parse_root_from_payload(payload: bytes):
     return root
 
 
+def _root_looks_like_opf_metadata(root) -> bool:
+    root_name = _local_name(getattr(root, "tag", None))
+    if root_name in {"package", "metadata", "dc-metadata"}:
+        return True
+    return bool(_metadata_candidates(root))
+
+
+def _validate_opf_root(root) -> None:
+    if not _root_looks_like_opf_metadata(root):
+        raise OpfParseError("OPF/XML payload does not look like an OPF metadata document.")
+
+
 def _read_target_bytes(target_file, *, text: bool, file_is_raw_root: bool) -> bytes:
     if file_is_raw_root and _is_xml_element(target_file):
         return etree.tostring(target_file, encoding="utf-8")
@@ -545,12 +557,18 @@ def get_metadata(
     file_is_raw_root=False,
     seek_md_node=True,
     walk=False,
+    strict_format=True,
+    fallback_on_parse_error=False,
 ):
     """
     Read metadata from an OPF/XML source.
 
     Compatibility args (`seek_md_node`, `walk`) are retained; `walk` no longer
     changes traversal behavior as the new parser always walks metadata nodes.
+
+    By default this reader is strict about OPF-shaped XML. Set
+    `strict_format=False` for internal generic XML metadata extraction, or
+    `fallback_on_parse_error=True` for a best-effort shell metadata result.
     """
     del walk  # retained for compatibility only
     source_name = "" if text else _source_name(target_file)
@@ -561,6 +579,8 @@ def get_metadata(
         else:
             payload = _read_target_bytes(target_file, text=text, file_is_raw_root=file_is_raw_root)
             root = _parse_root_from_payload(payload)
+        if strict_format:
+            _validate_opf_root(root)
     except Exception as err:
         default_log.log_exception(
             "Failed to parse OPF metadata source.",
@@ -568,6 +588,8 @@ def get_metadata(
             "ERROR",
             ("source", source_name or "<stream>"),
         )
+        if not fallback_on_parse_error:
+            raise
         fallback = _default_metadata(source_name)
         return fallback if calibre else _to_liuxin_metadata(fallback)
 

@@ -3,11 +3,6 @@ Metadata readers are tools to read metadata from an ebook file.
 
 The builtin ones bundled with LiuXin are imported here.
 """
-
-
-import os
-import functools
-
 from LiuXin_alpha.customize import MetadataReaderPlugin
 
 from LiuXin_alpha.utils.localization import trans as _
@@ -18,9 +13,7 @@ file_type_plugins: list[type[MetadataReaderPlugin]] = []
 
 # Todo: Make sure finalize is being called from every method
 try:
-    from LiuXin_alpha.utils.decompression.unrar import extract_first_alphabetically as comic_extract_first
-    from LiuXin_alpha.utils.decompression.libunzip import extract_member as comic_extract_member
-    from LiuXin_alpha.metadata.file_sources.archive import get_comic_metadata
+    from LiuXin_alpha.metadata.file_sources.comic import get_metadata as comic_get_metadata
 except ImportError as e:
     info_str = "Unable to define ComicMetadataReader - required functions cannot be imported"
     default_log.log_exception(info_str, e, "INFO")
@@ -39,41 +32,17 @@ else:
                 "issue number instead."
             )
 
-        def get_metadata(self, stream, ftype):
-            if hasattr(stream, "seek") and hasattr(stream, "tell"):
-                pos = stream.tell()
-                id_ = stream.read(3)
-                stream.seek(pos)
-                if id_ == b"Rar":
-                    ftype = "cbr"
-                elif id_.startswith(b"PK"):
-                    ftype = "cbz"
-            if ftype == "cbr":
-                from LiuXin_alpha.utils.decompression.unrar import (
-                    extract_first_alphabetically as extract_first,
-                )
-            else:
-                from LiuXin_alpha.utils.decompression.libunzip import extract_member
+        def get_metadata(self, stream, ftype, **kwargs):
+            series_index = self.site_customization
+            if series_index not in {"volume", "issue"}:
+                series_index = "volume"
+            return comic_get_metadata(stream, ftype=ftype, series_index=series_index, **kwargs)
 
-                extract_first = functools.partial(extract_member, sort_alphabetically=True)
-            from LiuXin_alpha.metadata.utils import calibreMetaInformation
-
-            ret = extract_first(stream)
-            mi = calibreMetaInformation(None, None)
-            stream.seek(0)
-            if ftype in {"cbr", "cbz"}:
-                series_index = self.site_customization
-                if series_index not in {"volume", "issue"}:
-                    series_index = "volume"
-                try:
-                    mi.smart_update(get_comic_metadata(stream, ftype, series_index=series_index))
-                except:
-                    pass
-            if ret is not None:
-                path, data = ret
-                ext = os.path.splitext(path)[1][1:]
-                mi.cover_data = (ext.lower(), data)
-            return mi
+        def get_metadata_inplace(self, file_path, ftype):
+            series_index = self.site_customization
+            if series_index not in {"volume", "issue"}:
+                series_index = "volume"
+            return comic_get_metadata(file_path, ftype=ftype, series_index=series_index)
 
     file_type_plugins += [ComicMetadataReader]
 
@@ -173,7 +142,7 @@ else:
     class FB2MetadataReader(MetadataReaderPlugin):
 
         name = "Read FB2 metadata"
-        file_types = frozenset(["fb2"])
+        file_types = frozenset(["fb2", "fbz"])
         description = _("Read metadata from %s files") % "FB2"
 
         def get_metadata(self, stream, ftype):
@@ -276,11 +245,11 @@ else:
 
 
 try:
-    from LiuXin_alpha.file_formats.lrf.meta import get_metadata as lrf_get_metadata
+    from LiuXin_alpha.metadata.file_sources.lrf import get_metadata as lrf_get_metadata
 except Exception as e:
     debug_str = (
         "Unable to initialize LRFMetadataReader - necessary functions couldn't be imported from "
-        "LiuXfile_formats.lrf.metatml"
+        "LiuXin_alpha.metadata.file_sources.lrf"
     )
     default_log.log_exception(debug_str, e, "DEBUG")
 else:
@@ -292,13 +261,11 @@ else:
         file_types = frozenset(["lrf"])
         description = _("Read metadata from %s files") % "LRF"
 
-        def get_metadata(self, stream, ftype):
-            # Check this actually works
-            return lrf_get_metadata(stream, calibre_md=False)
+        def get_metadata(self, stream, ftype, **kwargs):
+            return lrf_get_metadata(stream, calibre_md=False, **kwargs)
 
         def get_metadata_inplace(self, file_path, ftype):
-            with open(file_path, "rb") as lrf_file_stream:
-                return lrf_get_metadata(lrf_file_stream, calibre_md=False)
+            return lrf_get_metadata(file_path, calibre_md=False)
 
     file_type_plugins += [LRFMetadataReader]
 

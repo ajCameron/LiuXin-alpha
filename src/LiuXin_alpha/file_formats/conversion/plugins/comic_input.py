@@ -4,8 +4,14 @@ import codecs
 import os
 import shutil
 import textwrap
+from types import SimpleNamespace
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.archive_preflight import (
+    normalized_zip_member_name,
+    validate_zip_member_infos,
+)
+from LiuXin_alpha.file_formats.conversion.report import ensure_conversion_report
 
 from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.localization import trans as _
@@ -28,6 +34,11 @@ class ComicInput(InputFormatPlugin):
     file_types = frozenset(["cbz", "cbr", "cbc"])
     is_image_collection = True
     core_usage = -1
+    max_archive_members = 4096
+    max_member_uncompressed_size = 256 * 1024 * 1024
+    max_total_uncompressed_size = 512 * 1024 * 1024
+    max_compression_ratio = 1000
+    min_compression_ratio_check_size = 1024 * 1024
 
     options = {
         OptionRecommendation(
@@ -149,6 +160,298 @@ class ComicInput(InputFormatPlugin):
         ("linearize_tables", False, OptionRecommendation.HIGH),
     }
 
+    def _warn(self, message):
+        log = getattr(self, "log", None)
+        warn = getattr(log, "warning", None) or getattr(log, "warn", None)
+        if warn is not None:
+            warn(message)
+
+    def _report_loss_event(
+        self,
+        *,
+        code,
+        message,
+        source_format,
+        count=1,
+        details=None,
+        add_warning=False,
+    ):
+        holder = getattr(self, "opts", None)
+        if holder is None:
+            return None
+
+        edge_name = "%s-to-oeb" % source_format
+        report = ensure_conversion_report(
+            holder,
+            source_format=source_format,
+            target_format="oeb",
+            edge_name=edge_name,
+        )
+        if add_warning:
+            report.add_warning(message)
+        return report.add_loss_event(
+            phase="comic-input",
+            code=code,
+            message=message,
+            count=count,
+            source_format=source_format,
+            target_format="oeb",
+            edge_name=edge_name,
+            details=details or {},
+        )
+
+    def _warn_recoverable_loss(self, *, code, message, source_format, details=None):
+        self._warn(message)
+        self._report_loss_event(
+            code=code,
+            message=message,
+            source_format=source_format,
+            details=details,
+            add_warning=True,
+        )
+
+    def normalized_archive_member_name(self, name):
+        return normalized_zip_member_name(
+            name,
+            member_label="comic archive",
+            error_type=ValueError,
+        )
+
+    def should_preflight_zip_archive(self, source, ext_hint=None):
+        if ext_hint and ext_hint.lower() in {"cbz", "cbc", "zip"}:
+            return True
+
+        path = os.fspath(source) if isinstance(source, os.PathLike) else source
+        if isinstance(path, str):
+            ext = os.path.splitext(path)[1][1:].lower()
+            if ext in {"cbz", "cbc", "zip"}:
+                return True
+            try:
+                with open(path, "rb") as stream:
+                    return stream.read(2) == b"PK"
+            except Exception:
+                return False
+        return False
+
+    def should_preflight_rar_archive(self, source, ext_hint=None):
+        if ext_hint and ext_hint.lower() in {"cbr", "rar"}:
+            return True
+
+        path = os.fspath(source) if isinstance(source, os.PathLike) else source
+        if isinstance(path, str):
+            ext = os.path.splitext(path)[1][1:].lower()
+            if ext in {"cbr", "rar"}:
+                return True
+            try:
+                with open(path, "rb") as stream:
+                    return stream.read(3) == b"Rar"
+            except Exception:
+                return False
+
+        if hasattr(source, "read"):
+            pos = None
+            try:
+                pos = source.tell()
+            except Exception:
+                pos = None
+            try:
+                try:
+                    source.seek(0)
+                except Exception:
+                    pass
+                return source.read(3) == b"Rar"
+            except Exception:
+                return False
+            finally:
+                if pos is not None:
+                    try:
+                        source.seek(pos)
+                    except Exception:
+                        pass
+
+        return False
+
+    def validate_zip_archive_members(self, source, label="comic archive"):
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
+
+        if hasattr(source, "seek"):
+            try:
+                source.seek(0)
+            except Exception:
+                pass
+
+        try:
+            zf = ZipFile(source, "r")
+        except Exception as err:
+            if hasattr(source, "seek"):
+                try:
+                    source.seek(0)
+                except Exception:
+                    pass
+            raise ValueError("%s appears to be invalid ZIP file" % label) from err
+
+        try:
+            validate_zip_member_infos(
+                zf.infolist(),
+                container_label=label,
+                member_label=label,
+                error_type=ValueError,
+                max_archive_members=self.max_archive_members,
+                max_member_uncompressed_size=self.max_member_uncompressed_size,
+                max_total_uncompressed_size=self.max_total_uncompressed_size,
+                max_compression_ratio=self.max_compression_ratio,
+                min_compression_ratio_check_size=self.min_compression_ratio_check_size,
+            )
+        finally:
+            zf.close()
+            if hasattr(source, "seek"):
+                try:
+                    source.seek(0)
+                except Exception:
+                    pass
+
+    def _rar_source_path(self, source):
+        path = os.fspath(source) if isinstance(source, os.PathLike) else source
+        if isinstance(path, str) and os.path.exists(path):
+            return os.path.abspath(path)
+
+        stream_name = getattr(source, "name", None)
+        if stream_name and os.path.exists(stream_name):
+            return os.path.abspath(stream_name)
+
+        if hasattr(source, "read"):
+            tdir = PersistentTemporaryDirectory("_comic_rar_preflight")
+            return self._stream_to_path(source, tdir, "rar")
+
+        raise ValueError("RAR archive source is not readable")
+
+    def _rar_infos_from_external_listing(self, path):
+        from LiuXin_alpha.utils.decompression import unrar
+
+        with open(path, "rb") as stream:
+            names = list(unrar.names(stream))
+
+        return [
+            SimpleNamespace(
+                filename=name,
+                file_size=None,
+                compress_size=None,
+                isdir=lambda name=name: str(name).endswith("/"),
+                needs_password=lambda: False,
+                preflight_backend="external-unrar-names",
+            )
+            for name in names
+        ]
+
+    def _rar_archive_infos(self, path):
+        try:
+            from LiuXin_alpha.utils.decompression.rarfile import rarfile
+
+            with rarfile.RarFile(path) as archive:
+                return list(archive.infolist())
+        except Exception as parser_error:
+            try:
+                return self._rar_infos_from_external_listing(path)
+            except Exception as listing_error:
+                raise ValueError(
+                    "RAR header parser and external listing both failed: "
+                    "parser=%s; external=%s" % (parser_error, listing_error)
+                ) from listing_error
+
+    def validate_rar_archive_members(self, source, label="comic archive"):
+        path = self._rar_source_path(source)
+        try:
+            infos = self._rar_archive_infos(path)
+        except Exception as err:
+            detail = str(err).strip()
+            suffix = ": %s" % detail if detail else ""
+            raise ValueError("%s appears to be invalid RAR file%s" % (label, suffix)) from err
+
+        if not infos:
+            raise ValueError("%s has no archive members" % label)
+
+        if len(infos) > self.max_archive_members:
+            raise ValueError(
+                "%s has too many archive members: %d > %d"
+                % (label, len(infos), self.max_archive_members)
+            )
+
+        total_uncompressed = 0
+        names_only_member_count = 0
+        for info in infos:
+            filename = str(getattr(info, "filename", "")).replace("\\", "/")
+            self.normalized_archive_member_name(filename)
+
+            needs_password = getattr(info, "needs_password", None)
+            if callable(needs_password) and needs_password():
+                raise ValueError("%s member requires a password: %s" % (label, filename))
+
+            is_dir = getattr(info, "isdir", None)
+            if callable(is_dir) and is_dir():
+                continue
+
+            if getattr(info, "preflight_backend", None) == "external-unrar-names":
+                names_only_member_count += 1
+
+            file_size = getattr(info, "file_size", None)
+            compress_size = getattr(info, "compress_size", None)
+            if file_size is None:
+                continue
+
+            file_size = max(int(file_size or 0), 0)
+            compress_size = max(int(compress_size or 0), 0)
+            total_uncompressed += file_size
+            if file_size > self.max_member_uncompressed_size:
+                raise ValueError(
+                    "%s member is too large: %s (%d bytes)"
+                    % (label, filename, file_size)
+                )
+            if total_uncompressed > self.max_total_uncompressed_size:
+                raise ValueError(
+                    "%s expands to too much data: %d > %d bytes"
+                    % (label, total_uncompressed, self.max_total_uncompressed_size)
+                )
+            if file_size > 0 and compress_size == 0:
+                raise ValueError(
+                    "%s member has invalid compressed size: %s"
+                    % (label, filename)
+                )
+            if (
+                file_size >= self.min_compression_ratio_check_size
+                and compress_size > 0
+            ):
+                ratio = file_size / float(compress_size)
+                if ratio > self.max_compression_ratio:
+                    raise ValueError(
+                        "%s member has suspicious compression ratio: %s (%.1f)"
+                        % (label, filename, ratio)
+                    )
+
+        if names_only_member_count:
+            self._report_loss_event(
+                code="rar-names-only-preflight-limited",
+                message=(
+                    "CBR RAR preflight used a names-only listing; size and "
+                    "compression-ratio checks could not run before extraction."
+                ),
+                source_format="cbr",
+                count=names_only_member_count,
+                details={
+                    "backend": "external-unrar-names",
+                    "member_count": names_only_member_count,
+                    "unavailable_checks": [
+                        "per-member-size",
+                        "total-expanded-size",
+                        "compression-ratio",
+                        "compressed-size-shape",
+                    ],
+                },
+            )
+
+    def warn_preflight_rejection(self, source, error):
+        path = getattr(source, "name", source)
+        self._warn("Comic preflight rejected %s: %s" % (path, error))
+
     def get_comics_from_collection(self, stream):
         """
         Extract comics from a collection (which seems to be a zipped together collection of comics with a comix.txt file
@@ -158,6 +461,12 @@ class ComicInput(InputFormatPlugin):
         """
         from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
 
+        try:
+            self.validate_zip_archive_members(stream, "CBC")
+        except ValueError as err:
+            self.warn_preflight_rejection(stream, err)
+            raise
+
         tdir = PersistentTemporaryDirectory("_comic_collection")
         zipextract(stream, tdir)
         comics = []
@@ -166,14 +475,19 @@ class ComicInput(InputFormatPlugin):
             if not os.path.exists("comics.txt"):
                 raise ValueError("%s is not a valid comic collection no comics.txt was found in the file" % stream.name)
             raw = open("comics.txt", "rb").read()
-            if raw.startswith(codecs.BOM_UTF16_BE):
-                raw = raw.decode("utf-16-be")[1:]
-            elif raw.startswith(codecs.BOM_UTF16_LE):
-                raw = raw.decode("utf-16-le")[1:]
-            elif raw.startswith(codecs.BOM_UTF8):
-                raw = raw.decode("utf-8")[1:]
-            else:
-                raw = raw.decode("utf-8")
+            try:
+                if raw.startswith(codecs.BOM_UTF16_BE):
+                    raw = raw.decode("utf-16-be")[1:]
+                elif raw.startswith(codecs.BOM_UTF16_LE):
+                    raw = raw.decode("utf-16-le")[1:]
+                elif raw.startswith(codecs.BOM_UTF8):
+                    raw = raw.decode("utf-8")[1:]
+                else:
+                    raw = raw.decode("utf-8")
+            except UnicodeDecodeError as err:
+                raise ValueError(
+                    "%s has a comics.txt file that is not valid UTF-8 or UTF-16" % stream.name
+                ) from err
 
             for line in raw.splitlines():
                 line = line.strip()
@@ -181,11 +495,23 @@ class ComicInput(InputFormatPlugin):
                     continue
                 fname, title = line.partition(":")[0], line.partition(":")[-1]
                 fname = fname.replace("#", "_")
+                listed_name = fname
                 fname = os.path.join(tdir, *fname.split("/"))
                 if not title:
                     title = os.path.basename(fname).rpartition(".")[0]
                 if os.access(fname, os.R_OK):
                     comics.append([title, fname])
+                else:
+                    message = _("CBC listed comic file was not found: %s") % listed_name
+                    self._warn_recoverable_loss(
+                        code="cbc-listed-comic-missing",
+                        message=message,
+                        source_format="cbc",
+                        details={
+                            "member_name": listed_name,
+                            "title": title,
+                        },
+                    )
 
         if not comics:
             raise ValueError("%s has no comics" % stream.name)
@@ -199,6 +525,19 @@ class ComicInput(InputFormatPlugin):
             process_pages,
             find_pages,
         )
+
+        if self.should_preflight_zip_archive(comic):
+            try:
+                self.validate_zip_archive_members(comic, "CBZ")
+            except ValueError as err:
+                self.warn_preflight_rejection(comic, err)
+                raise
+        elif self.should_preflight_rar_archive(comic):
+            try:
+                self.validate_rar_archive_members(comic, "CBR")
+            except ValueError as err:
+                self.warn_preflight_rejection(comic, err)
+                raise
 
         tdir = extract_comic(comic)
         new_pages = find_pages(tdir, sort_on_mtime=self.opts.no_sort, verbose=self.opts.verbose)
@@ -261,12 +600,19 @@ class ComicInput(InputFormatPlugin):
         from LiuXin_alpha.file_formats.toc import TOC
 
         self.opts, self.log = options, log
+        self.source_format = file_ext.lower()
         stream_name = getattr(stream, "name", f"comic_input.{file_ext}")
         work_root = PersistentTemporaryDirectory("_comic_input_output")
         with CurrentDir(work_root):
             if file_ext == "cbc":
                 comics_ = self.get_comics_from_collection(stream)
             else:
+                if file_ext == "cbz":
+                    try:
+                        self.validate_zip_archive_members(stream, "CBZ")
+                    except ValueError as err:
+                        self.warn_preflight_rejection(stream, err)
+                        raise
                 tdir = PersistentTemporaryDirectory("_comic_input")
                 stream_path = self._stream_to_path(stream, tdir, file_ext)
                 comics_ = [["Comic", stream_path]]

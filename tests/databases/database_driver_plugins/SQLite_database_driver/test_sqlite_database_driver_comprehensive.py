@@ -635,30 +635,18 @@ class TestSQLiteDriverMetadata:
 
 
 class TestSQLiteDriverKnownIssues:
-    @pytest.mark.xfail(
-        reason="direct_get_max uses cursor.next() (Py2) instead of next(cursor) (Py3)",
-        raises=AttributeError,
-    )
     def test_direct_get_max_works_on_py3(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
         _insert_minimal_title_row(drv, title="A")
         _insert_minimal_title_row(drv, title="B")
         assert drv.direct_get_max("title_id") is not None
 
-    @pytest.mark.xfail(
-        reason="direct_get_min uses cursor.next() (Py2) instead of next(cursor) (Py3)",
-        raises=AttributeError,
-    )
     def test_direct_get_min_works_on_py3(self, sqlite_driver_bundle):
         drv = sqlite_driver_bundle.driver
         _insert_minimal_title_row(drv, title="A")
         _insert_minimal_title_row(drv, title="B")
         assert drv.direct_get_min("title_id") is not None
 
-    @pytest.mark.xfail(
-        reason="direct_update_columns contains Py2 iterator usage and needs porting",
-        raises=AttributeError,
-    )
     @pytest.mark.xfail(
         reason="direct_update_columns contains Py2 iterator usage and needs porting",
         raises=AttributeError,

@@ -4,9 +4,12 @@ Shared HTTP retry/backoff helpers for web metadata sources.
 
 from __future__ import annotations
 
+import errno
+import socket
 import time
 from dataclasses import dataclass
 from typing import Any, Callable
+from urllib.error import URLError
 
 __all__ = [
     "DEFAULT_RETRY_POLICY",
@@ -14,6 +17,7 @@ __all__ = [
     "call_with_backoff",
     "compute_backoff_delay",
     "decode_http_body",
+    "error_diagnostics",
     "error_status_code",
     "is_retryable_error",
     "log_message",
@@ -59,12 +63,94 @@ def error_status_code(err) -> int | None:
     return None
 
 
+def _header_value(headers, name: str) -> str | None:
+    if headers is None:
+        return None
+    for key in (name, name.lower(), name.title()):
+        try:
+            value = headers.get(key)
+        except Exception:
+            value = None
+        if value:
+            return str(value)
+    return None
+
+
+def error_diagnostics(err) -> dict[str, Any]:
+    """
+    Return small, safe diagnostics for logs without reading response bodies.
+    """
+    meta: dict[str, Any] = {
+        "status_code": error_status_code(err),
+        "error_type": type(err).__name__,
+        "error": str(err),
+    }
+    reason = getattr(err, "reason", None)
+    if reason is not None:
+        meta["reason_type"] = type(reason).__name__
+        meta["reason"] = str(reason)
+
+    url = getattr(err, "url", None) or getattr(err, "filename", None)
+    if url:
+        meta["exception_url"] = str(url)
+
+    headers = getattr(err, "headers", None) or getattr(err, "hdrs", None)
+    for header, key in (
+        ("Location", "location"),
+        ("Retry-After", "retry_after"),
+        ("Content-Type", "content_type"),
+        ("Server", "server"),
+    ):
+        value = _header_value(headers, header)
+        if value:
+            meta[key] = value
+    return meta
+
+
+def _retryable_os_error(err) -> bool:
+    code = getattr(err, "errno", None)
+    retryable_errnos = {
+        errno.ETIMEDOUT,
+        errno.ECONNRESET,
+        errno.ECONNABORTED,
+        errno.ECONNREFUSED,
+        errno.EHOSTUNREACH,
+        errno.ENETUNREACH,
+    }
+    if code in retryable_errnos:
+        return True
+    if isinstance(err, socket.gaierror):
+        return getattr(socket, "EAI_AGAIN", object()) == getattr(err, "errno", None)
+    text = str(err).lower()
+    return any(
+        fragment in text
+        for fragment in (
+            "timed out",
+            "temporary failure",
+            "connection reset",
+            "connection refused",
+            "connection aborted",
+            "network is unreachable",
+            "host is unreachable",
+        )
+    )
+
+
 def is_retryable_error(err, retryable_status_codes: set[int] | frozenset[int] | None = None) -> bool:
     retry_codes = retryable_status_codes or DEFAULT_RETRY_POLICY.retryable_status_codes
     status = error_status_code(err)
     if status is not None:
         return status in retry_codes
-    return isinstance(err, (TimeoutError, ConnectionError))
+    if isinstance(err, (TimeoutError, ConnectionError, socket.timeout)):
+        return True
+    if isinstance(err, URLError):
+        reason = getattr(err, "reason", None)
+        if reason is not None:
+            return _retryable_os_error(reason)
+        return _retryable_os_error(err)
+    if isinstance(err, OSError):
+        return _retryable_os_error(err)
+    return False
 
 
 def compute_backoff_delay(attempt: int, base_delay: float = 0.5, max_delay: float = 6.0) -> float:
@@ -134,7 +220,11 @@ def call_with_backoff(
                 "retryable": retryable,
                 "timeout_seconds": timeout_seconds,
                 "url": url,
+                "error_type": type(err).__name__,
+                "error": str(err),
             }
+            for key, value in error_diagnostics(err).items():
+                meta.setdefault(key, value)
             if retryable and attempt < attempts:
                 delay = (
                     backoff_fn(attempt)

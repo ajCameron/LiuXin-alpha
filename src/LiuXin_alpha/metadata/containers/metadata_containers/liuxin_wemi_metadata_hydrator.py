@@ -17,6 +17,9 @@ from LiuXin_alpha.metadata.api.from_database_api.metadata_hydrator_api import (
     HydratedMetadataAPI,
     MetadataHydratorAPI,
 )
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
+    select_primary_relation_link,
+)
 from LiuXin_alpha.metadata.read_sources import metadata_read_source_from
 from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata import (
     LiuXinWEMIMetadata,
@@ -140,12 +143,8 @@ class LiuXinWEMIMetadataHydrator(MetadataHydratorAPI):
             )
 
         ids["manifestation_id"] = self._prefer_id(
+            item_metadata.primary_manifestation_id,
             ids["manifestation_id"],
-            self._first_relation_target_id(
-                item_metadata,
-                "manifestations",
-                "manifestation_id",
-            ),
         )
         manifestation_metadata = self._get_manifestation_metadata_or_empty(
             ids["manifestation_id"],
@@ -163,20 +162,11 @@ class LiuXinWEMIMetadataHydrator(MetadataHydratorAPI):
             )
 
         ids["expression_id"] = self._prefer_id(
-            ids["expression_id"],
-            self._first_relation_target_id(
-                item_metadata,
-                "expressions",
-                "expression_id",
+            self._first_id(
+                manifestation_metadata.primary_expression_id,
+                item_metadata.primary_expression_id,
             ),
-        )
-        ids["expression_id"] = self._prefer_id(
             ids["expression_id"],
-            self._first_relation_target_id(
-                manifestation_metadata,
-                "expressions",
-                "expression_id",
-            ),
         )
         expression_metadata = self._get_expression_metadata_or_empty(
             ids["expression_id"],
@@ -194,12 +184,12 @@ class LiuXinWEMIMetadataHydrator(MetadataHydratorAPI):
             )
 
         ids["work_id"] = self._prefer_id(
+            self._first_id(
+                expression_metadata.primary_work_id,
+                manifestation_metadata.primary_work_id,
+                item_metadata.primary_work_id,
+            ),
             ids["work_id"],
-            self._first_relation_target_id(item_metadata, "works", "work_id"),
-        )
-        ids["work_id"] = self._prefer_id(
-            ids["work_id"],
-            self._first_relation_target_id(expression_metadata, "works", "work_id"),
         )
         work_metadata = self._get_work_metadata_or_empty(ids["work_id"], source_row)
 
@@ -314,6 +304,14 @@ class LiuXinWEMIMetadataHydrator(MetadataHydratorAPI):
             return current_id
         return cls._as_int(fallback)
 
+    @classmethod
+    def _first_id(cls, *values: Any) -> int | None:
+        for value in values:
+            value_id = cls._as_int(value)
+            if value_id is not None:
+                return value_id
+        return None
+
     def _get_work_metadata_or_empty(
         self,
         work_id: int | None,
@@ -364,16 +362,17 @@ class LiuXinWEMIMetadataHydrator(MetadataHydratorAPI):
         id_column: str,
     ) -> int | None:
         try:
-            links = metadata.get_relation_links(relation)
+            links = list(metadata.get_relation_links(relation))
         except KeyError:
             return None
-        for link in sorted(
-            links,
-            key=lambda relation_link: not bool(relation_link.primary),
-        ):
+        while links:
+            link = select_primary_relation_link(links)
+            if link is None:
+                return None
             target_id = cls._target_id(link.target, id_column)
             if target_id is not None:
                 return target_id
+            links.remove(link)
         return None
 
     @classmethod

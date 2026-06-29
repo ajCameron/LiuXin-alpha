@@ -4,9 +4,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+import pytest
+
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError
-from LiuXin_alpha.metadata.api import WorkRelationLink
+from LiuXin_alpha.metadata.api import UnloadedMetadataProjectionError, WorkRelationLink
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData,
 )
@@ -64,6 +66,26 @@ def _metadata_values(raw: Any) -> list[Any]:
 
 def _identifier_values(metadata: Any, scheme: str) -> list[Any]:
     return _metadata_values(metadata.get_identifiers().get(scheme))
+
+
+def _projection_snapshot(metadata: Any) -> dict[str, Any]:
+    values = metadata.values
+    return {
+        "tags": values.tags,
+        "labels": values.labels,
+        "genres": values.genres,
+        "subjects": values.subjects,
+        "series": values.series,
+        "languages": values.languages,
+        "ratings": values.ratings,
+        "agent_names": values.agent_names,
+        "identifiers": {
+            scheme: tuple(raw_values)
+            for scheme, raw_values in values.identifiers.items()
+        },
+        "titles": values.titles,
+        "primary_title": values.primary_title,
+    }
 
 
 class FakeDriverWrapper:
@@ -792,6 +814,142 @@ def _build_fake_database() -> FakeDatabase:
     return db
 
 
+def _add_alternate_primary_spine(db: FakeDatabase) -> None:
+    db.add_row(
+        "expressions",
+        {
+            "expression_id": 21,
+            "expression_title_override": "Alternate expression",
+        },
+    )
+    db.add_row(
+        "works",
+        {
+            "work_id": 31,
+            "work_title": "Alternate Work",
+            "work_canonical_title": "Alternate Work",
+            "work_sort_title": "Alternate Work",
+        },
+    )
+    db.interlinks[("items", 1, "manifestations")] = [
+        {
+            "item_manifestation_link_id": "im-10",
+            "item_manifestation_link_manifestation_id": 10,
+            "item_manifestation_link_priority": 2,
+            "item_manifestation_link_primary": 0,
+            "item_manifestation_link_type": "stored_as",
+        },
+        {
+            "item_manifestation_link_id": "im-11",
+            "item_manifestation_link_manifestation_id": 11,
+            "item_manifestation_link_priority": 1,
+            "item_manifestation_link_primary": 1,
+            "item_manifestation_link_type": "preferred_variant",
+        },
+    ]
+    db.interlinks[("manifestations", 11, "expressions")] = [
+        {
+            "expression_manifestation_link_id": "em-21",
+            "expression_manifestation_link_expression_id": 21,
+            "expression_manifestation_link_priority": 1,
+            "expression_manifestation_link_primary": 1,
+            "expression_manifestation_link_type": "preferred_expression",
+        }
+    ]
+    db.interlinks[("expressions", 21, "works")] = [
+        {
+            "expression_work_link_id": "ew-31",
+            "expression_work_link_work_id": 31,
+            "expression_work_link_priority": 1,
+            "expression_work_link_primary": 1,
+            "expression_work_link_type": "preferred_work",
+        }
+    ]
+
+
+def _add_no_primary_priority_spine(db: FakeDatabase) -> None:
+    db.add_row(
+        "expressions",
+        {
+            "expression_id": 21,
+            "expression_title_override": "Fallback expression",
+        },
+    )
+    db.add_row(
+        "expressions",
+        {
+            "expression_id": 22,
+            "expression_title_override": "Preferred by priority",
+        },
+    )
+    db.add_row(
+        "works",
+        {
+            "work_id": 31,
+            "work_title": "Fallback Work",
+            "work_canonical_title": "Fallback Work",
+            "work_sort_title": "Fallback Work",
+        },
+    )
+    db.add_row(
+        "works",
+        {
+            "work_id": 32,
+            "work_title": "Priority Work",
+            "work_canonical_title": "Priority Work",
+            "work_sort_title": "Priority Work",
+        },
+    )
+    db.interlinks[("items", 1, "manifestations")] = [
+        {
+            "item_manifestation_link_id": "im-fallback-10",
+            "item_manifestation_link_manifestation_id": 10,
+            "item_manifestation_link_priority": 4,
+            "item_manifestation_link_primary": 0,
+            "item_manifestation_link_type": "stored_as",
+        },
+        {
+            "item_manifestation_link_id": "im-fallback-11",
+            "item_manifestation_link_manifestation_id": 11,
+            "item_manifestation_link_priority": 1,
+            "item_manifestation_link_primary": 0,
+            "item_manifestation_link_type": "preferred_by_priority",
+        },
+    ]
+    db.interlinks[("manifestations", 11, "expressions")] = [
+        {
+            "expression_manifestation_link_id": "em-fallback-21",
+            "expression_manifestation_link_expression_id": 21,
+            "expression_manifestation_link_priority": 3,
+            "expression_manifestation_link_primary": 0,
+            "expression_manifestation_link_type": "fallback_expression",
+        },
+        {
+            "expression_manifestation_link_id": "em-fallback-22",
+            "expression_manifestation_link_expression_id": 22,
+            "expression_manifestation_link_priority": 1,
+            "expression_manifestation_link_primary": 0,
+            "expression_manifestation_link_type": "preferred_by_priority",
+        },
+    ]
+    db.interlinks[("expressions", 22, "works")] = [
+        {
+            "expression_work_link_id": "ew-fallback-31",
+            "expression_work_link_work_id": 31,
+            "expression_work_link_priority": 2,
+            "expression_work_link_primary": 0,
+            "expression_work_link_type": "fallback_work",
+        },
+        {
+            "expression_work_link_id": "ew-fallback-32",
+            "expression_work_link_work_id": 32,
+            "expression_work_link_priority": 1,
+            "expression_work_link_primary": 0,
+            "expression_work_link_type": "preferred_by_priority",
+        },
+    ]
+
+
 def test_item_metadata_hydrator_from_item_id_and_source_row() -> None:
     db = _build_fake_database()
     hydrator = ItemMetadataHydrator(db)
@@ -832,6 +990,111 @@ def test_item_metadata_hydrator_from_item_id_and_source_row() -> None:
     )
     assert via_mapping.item is not None
     assert via_mapping.item.item_id == 1
+
+
+def test_wemi_hydrator_selected_spine_uses_primary_links_without_collapsing_graph() -> None:
+    db = _build_fake_database()
+    _add_alternate_primary_spine(db)
+
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    assert metadata.item is not None
+    assert metadata.item.item_manifestation_id == 10
+    assert metadata.manifestation is not None
+    assert metadata.manifestation.manifestation_id == 11
+    assert metadata.expression is not None
+    assert metadata.expression.expression_id == 21
+    assert metadata.work is not None
+    assert metadata.work.work_id == 31
+
+    assert [
+        row.row_id
+        for row in metadata.get_wemi_related("item", "manifestations")
+        if isinstance(row, Row)
+    ] == [10, 11]
+    assert metadata.get_primary_wemi_related("item", "manifestations").row_id == 11
+    assert metadata.get_wemi_relation_link_ids("item", "manifestations") == (
+        "im-10",
+        "im-11",
+    )
+
+    sidecar = metadata.to_sidecar_mapping()
+    round_tripped = LiuXinWEMIMetadata.from_mapping(sidecar)
+
+    assert round_tripped.get_wemi_relation_link_ids("item", "manifestations") == (
+        "im-10",
+        "im-11",
+    )
+    assert round_tripped.get_primary_wemi_related("item", "manifestations")[
+        "manifestation_id"
+    ] == 11
+
+
+def test_lazy_wemi_hydrator_selected_spine_matches_primary_graph_links() -> None:
+    db = _build_fake_database()
+    _add_alternate_primary_spine(db)
+
+    metadata = LazyLiuXinWEMIMetadataHydrator(db).get_lazy_liuxin_wemi_metadata(item_id=1)
+
+    assert metadata.manifestation is not None
+    assert metadata.manifestation.manifestation_id == 11
+    assert metadata.expression is not None
+    assert metadata.expression.expression_id == 21
+    assert metadata.work is not None
+    assert metadata.work.work_id == 31
+
+    assert [
+        row.row_id
+        for row in metadata.get_wemi_related("item", "manifestations")
+        if isinstance(row, Row)
+    ] == [11, 10]
+    assert metadata.get_primary_wemi_related("item", "manifestations").row_id == 11
+
+
+def test_wemi_hydrator_no_primary_spine_uses_priority_fallback() -> None:
+    db = _build_fake_database()
+    _add_no_primary_priority_spine(db)
+
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    assert metadata.manifestation is not None
+    assert metadata.manifestation.manifestation_id == 11
+    assert metadata.expression is not None
+    assert metadata.expression.expression_id == 22
+    assert metadata.work is not None
+    assert metadata.work.work_id == 32
+
+    assert metadata.get_primary_wemi_related("item", "manifestations").row_id == 11
+    assert (
+        metadata.get_primary_wemi_related("manifestation", "expressions").row_id
+        == 22
+    )
+    assert metadata.get_primary_wemi_related("expression", "works").row_id == 32
+
+
+def test_lazy_wemi_hydrator_no_primary_spine_uses_priority_fallback() -> None:
+    db = _build_fake_database()
+    _add_no_primary_priority_spine(db)
+
+    metadata = LazyLiuXinWEMIMetadataHydrator(db).get_lazy_liuxin_wemi_metadata(item_id=1)
+
+    assert metadata.manifestation is not None
+    assert metadata.manifestation.manifestation_id == 11
+    assert metadata.expression is not None
+    assert metadata.expression.expression_id == 22
+    assert metadata.work is not None
+    assert metadata.work.work_id == 32
+
+    assert [
+        row.row_id
+        for row in metadata.get_wemi_related("manifestation", "expressions")
+        if isinstance(row, Row)
+    ] == [22, 21]
+    assert [
+        row.row_id
+        for row in metadata.get_wemi_related("expression", "works")
+        if isinstance(row, Row)
+    ] == [32, 31]
 
 
 def test_liuxin_wemi_metadata_hydrator_builds_complete_item_slice() -> None:
@@ -978,6 +1241,83 @@ def test_lazy_liuxin_wemi_metadata_can_force_hydrate_fields() -> None:
     assert list(metadata.direct_get("labels").keys()) == ["Science Fiction"]
 
 
+def test_lazy_wemi_projection_errors_do_not_materialize_hydrated_dependencies() -> None:
+    db = _build_fake_database()
+    metadata = LazyLiuXinWEMIMetadataHydrator(db).get_lazy_liuxin_wemi_metadata(item_id=1)
+    interlink_queries = list(db.interlink_queries)
+
+    with pytest.raises(UnloadedMetadataProjectionError) as error_info:
+        metadata.values.tags
+
+    assert error_info.value.relation_key == "tags"
+    assert set(error_info.value.unloaded_dependencies) >= {
+        "legacy:tags",
+        "work:tags",
+    }
+    assert metadata.is_lazy_field_loaded("tags") is False
+    assert "tags" in metadata.lazy_fields()
+    assert db.interlink_queries == interlink_queries
+
+
+def test_lazy_wemi_projection_loads_one_field_and_keeps_other_fields_guarded() -> None:
+    eager_db = _build_fake_database()
+    eager = LiuXinWEMIMetadataHydrator(eager_db).get_liuxin_wemi_metadata(item_id=1)
+    lazy_db = _build_fake_database()
+    lazy = LazyLiuXinWEMIMetadataHydrator(lazy_db).get_lazy_liuxin_wemi_metadata(
+        item_id=1,
+    )
+
+    assert lazy.load("tags") is lazy
+    assert lazy.values.tags == eager.values.tags
+    assert lazy.text.tags == eager.text.tags
+
+    with pytest.raises(UnloadedMetadataProjectionError) as error_info:
+        lazy.values.labels
+
+    assert error_info.value.relation_key == "labels"
+    assert "labels" in lazy.lazy_fields()
+
+
+def test_lazy_wemi_projection_force_hydrate_selected_fields_matches_eager() -> None:
+    eager_db = _build_fake_database()
+    eager = LiuXinWEMIMetadataHydrator(eager_db).get_liuxin_wemi_metadata(item_id=1)
+    lazy_db = _build_fake_database()
+    lazy = LazyLiuXinWEMIMetadataHydrator(lazy_db).get_lazy_liuxin_wemi_metadata(
+        item_id=1,
+    )
+
+    assert lazy.force_hydrate(fields=("tags", "labels", "identifiers")) is lazy
+    assert lazy.values.tags == eager.values.tags
+    assert lazy.values.labels == eager.values.labels
+    assert dict(lazy.values.identifiers) == dict(eager.values.identifiers)
+
+    with pytest.raises(UnloadedMetadataProjectionError) as error_info:
+        lazy.values.genres
+
+    assert error_info.value.relation_key == "genres"
+
+
+def test_lazy_wemi_projection_full_load_matches_eager_and_repeated_access_is_stable() -> None:
+    eager_db = _build_fake_database()
+    eager = LiuXinWEMIMetadataHydrator(eager_db).get_liuxin_wemi_metadata(item_id=1)
+    lazy_db = _build_fake_database()
+    lazy = LazyLiuXinWEMIMetadataHydrator(lazy_db).get_lazy_liuxin_wemi_metadata(
+        item_id=1,
+    )
+
+    assert lazy.load() is lazy
+    assert _projection_snapshot(lazy) == _projection_snapshot(eager)
+
+    interlink_queries = list(lazy_db.interlink_queries)
+    search_queries = list(lazy_db.search_queries)
+
+    assert _projection_snapshot(lazy) == _projection_snapshot(eager)
+    assert lazy.text.tags == eager.text.tags
+    assert lazy.text.agent_names == eager.text.agent_names
+    assert lazy_db.interlink_queries == interlink_queries
+    assert lazy_db.search_queries == search_queries
+
+
 def test_liuxin_wemi_metadata_write_to_database_adds_missing_relation_terms() -> None:
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
@@ -1061,6 +1401,315 @@ def test_liuxin_wemi_metadata_write_to_database_can_replace_identifier_rows() ->
     assert _identifier_values(rehydrated, "openlibrary") == []
     assert _identifier_values(rehydrated, "doi") == ["10.5555/replacement"]
     assert _identifier_values(rehydrated, "isbn") == ["9780000000001"]
+
+
+def test_liuxin_wemi_metadata_write_marks_existing_identifier_primary() -> None:
+    db = _build_fake_database()
+    for row in db.rows_by_table["entity_identifiers"]:
+        row.row_dict["entity_identifier_is_primary"] = 0
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    report = metadata.write_to_database(db, fields=("identifiers",))
+
+    assert report.changed is True
+    assert {
+        (
+            row["scheme"],
+            row["value"],
+            row["column"],
+            row["new_value"],
+        )
+        for row in report.rows_updated
+    } == {("openlibrary", "OL123W", "entity_identifier_is_primary", 1)}
+    assert [
+        row.row_dict["entity_identifier_is_primary"]
+        for row in db.rows_by_table["entity_identifiers"]
+        if row.row_dict["entity_identifier_value"] == "OL123W"
+    ] == [1]
+
+
+def test_liuxin_wemi_metadata_write_adds_existing_term_link_with_relation_metadata() -> None:
+    db = _build_fake_database()
+    db.add_row(
+        "tags",
+        {
+            "tag_id": 99,
+            "tag": "Metadata Writer Existing",
+            "tag_phash": "metadatawriterexisting",
+        },
+    )
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    metadata.add_wemi_relation_link(
+        "work",
+        "tags",
+        WorkRelationLink(
+            target={
+                "tag_id": 99,
+                "tag": "Metadata Writer Existing",
+            },
+            priority=7,
+            primary=True,
+            type="curated",
+            origin="unit-origin",
+            source="unit-source",
+            policy="unit-policy",
+            data="unit-data",
+            index=3,
+            extra={"source_entity_type": "work"},
+        ),
+    )
+
+    report = metadata.write_to_database(db, fields=("tags",), mark_dirty=False)
+
+    assert report.changed is True
+    assert report.rows_added == []
+    assert len(report.links_added) == 1
+    assert db.dirtied == []
+    link = db.interlinks[("works", 30, "tags")][-1]
+    assert link["tag_work_link_tag_id"] == 99
+    assert link["tag_work_link_type"] == "curated"
+    assert link["tag_work_link_primary"] == 1
+    assert link["tag_work_link_origin"] == "unit-origin"
+    assert link["tag_work_link_source"] == "unit-source"
+    assert link["tag_work_link_policy"] == "unit-policy"
+    assert link["tag_work_link_data"] == "unit-data"
+    assert link["tag_work_link_index"] == 3
+
+
+def test_calibre_like_metadata_write_to_database_accepts_explicit_target_row_mapping() -> None:
+    db = _build_fake_database()
+    metadata = CalibreLikeLiuXinBookMetaData(
+        title="Permutation City",
+        authors=["Greg Egan"],
+    )
+    metadata.tags = "Expression Target Row Tag"
+
+    report = metadata.write_to_database(
+        db,
+        fields=("tags",),
+        target_level="expression",
+        target_row={"expression_id": 20},
+    )
+
+    assert report.changed is True
+    assert report.target_level == "expression"
+    assert report.target_table == "expressions"
+    assert report.target_id == 20
+    assert [row["text"] for row in report.rows_added] == [
+        "Expression Target Row Tag",
+    ]
+    assert db.interlinks[("expressions", 20, "tags")][-1][
+        "expression_tag_link_tag_id"
+    ] == report.links_added[0]["target"]["row_id"]
+
+
+def test_metadata_writer_skips_missing_relation_table_and_identifier_columns() -> None:
+    db = _build_fake_database()
+    del db.tables_and_columns["tags"]
+    metadata = CalibreLikeLiuXinBookMetaData(
+        title="Permutation City",
+        authors=["Greg Egan"],
+    )
+    metadata.tags = "Missing Table Tag"
+
+    report = metadata.write_to_database(db, fields=("tags",), item_id=1)
+
+    assert report.changed is False
+    assert report.fields_checked == ["tags"]
+    assert report.skipped == ["tags: table 'tags' is not present."]
+    assert report.rows_added == []
+    assert report.links_added == []
+
+    db = _build_fake_database()
+    db.tables_and_columns["entity_identifiers"].remove("entity_identifier_value")
+    metadata = CalibreLikeLiuXinBookMetaData(
+        title="Permutation City",
+        authors=["Greg Egan"],
+    )
+    metadata.set_identifier("doi", "10.5555/missing-column")
+
+    report = metadata.write_to_database(db, fields=("identifiers",), item_id=1)
+
+    assert report.changed is False
+    assert report.fields_checked == ["identifiers"]
+    assert report.rows_added == []
+    assert report.skipped == [
+        "identifiers: table 'entity_identifiers' is missing columns "
+        "entity_identifier_value."
+    ]
+
+
+def test_metadata_writer_skips_unsupported_relation_pairs() -> None:
+    db = _build_fake_database()
+    original_link_table_name = db.driver_wrapper.get_link_table_name
+
+    def unsupported_work_tag_link(table1: str, table2: str) -> str:
+        if (str(table1), str(table2)) == ("works", "tags"):
+            return ""
+        return original_link_table_name(table1, table2)
+
+    setattr(db.driver_wrapper, "get_link_table_name", unsupported_work_tag_link)
+    metadata = CalibreLikeLiuXinBookMetaData(
+        title="Permutation City",
+        authors=["Greg Egan"],
+    )
+    metadata.tags = "Unsupported Link Tag"
+
+    report = metadata.write_to_database(
+        db,
+        fields=("tags",),
+        target_level="work",
+        target_row={"work_id": 30},
+    )
+
+    assert report.changed is False
+    assert report.skipped == ["tags: 'works' cannot link to 'tags'."]
+    assert report.rows_added == []
+    assert report.links_added == []
+
+
+def test_metadata_writer_reports_failed_link_and_unlink_operations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    metadata.tags = "Link Failure Tag"
+
+    def fail_interlink_rows(*_args: Any, **_kwargs: Any) -> None:
+        raise RuntimeError("link failed")
+
+    monkeypatch.setattr(db, "interlink_rows", fail_interlink_rows)
+
+    report = metadata.write_to_database(db, fields=("tags",))
+
+    assert report.changed is True
+    assert [row["text"] for row in report.rows_added] == ["Link Failure Tag"]
+    assert report.links_added == []
+    assert report.errors == [
+        "tags: could not link works:30 to tags:92.",
+    ]
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert "Link Failure Tag" not in rehydrated.tags
+
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    metadata.nullify("tags")
+
+    def fail_unlink_interlink(*_args: Any, **_kwargs: Any) -> None:
+        raise RuntimeError("unlink failed")
+
+    monkeypatch.setattr(db, "unlink_interlink", fail_unlink_interlink)
+
+    report = metadata.write_to_database(db, fields=("tags",), replace=True)
+
+    assert report.changed is False
+    assert report.links_removed == []
+    assert report.errors == [
+        "tags: could not remove link from works:30 to tags:91.",
+    ]
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert list(rehydrated.tags.keys()) == ["Space Opera"]
+
+
+def test_metadata_writer_reports_failed_identifier_delete_and_primary_update(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    metadata.set_identifiers({"doi": {"10.5555/delete-failure"}}, update=False)
+
+    def fail_delete(_row: Row) -> None:
+        raise RuntimeError("delete failed")
+
+    monkeypatch.setattr(db, "delete", fail_delete)
+
+    report = metadata.write_to_database(db, fields=("identifiers",), replace=True)
+
+    assert report.changed is True
+    assert report.rows_removed == []
+    assert any("could not remove row entity_identifiers:80" in error for error in report.errors)
+    assert [
+        row.row_dict["entity_identifier_value"]
+        for row in db.rows_by_table["entity_identifiers"]
+        if row.row_dict["entity_identifier_value"] == "OL123W"
+    ] == ["OL123W"]
+
+    db = _build_fake_database()
+    for row in db.rows_by_table["entity_identifiers"]:
+        row.row_dict["entity_identifier_is_primary"] = 0
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    def fail_update_column(
+        _table: str,
+        _row_id: int,
+        _column: str,
+        _new_value: Any,
+    ) -> None:
+        raise RuntimeError("update failed")
+
+    monkeypatch.setattr(db.driver_wrapper, "update_column", fail_update_column)
+
+    report = metadata.write_to_database(db, fields=("identifiers",))
+
+    assert report.rows_updated == []
+    assert any(
+        "could not mark row entity_identifiers:80 as primary" in error
+        for error in report.errors
+    )
+    assert [
+        row.row_dict["entity_identifier_is_primary"]
+        for row in db.rows_by_table["entity_identifiers"]
+        if row.row_dict["entity_identifier_value"] == "OL123W"
+    ] == [0]
+
+
+def test_metadata_writer_accepts_valid_unicode_and_rejects_unsafe_text() -> None:
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    valid_tag = "unicode-\u4e66\u7c4d-\u30bf\u30b0-\U0001f4da"
+    metadata.tags = [
+        valid_tag,
+        "bad\x00tag",
+        "bad" + chr(0xD800) + "tag",
+    ]
+
+    report = metadata.write_to_database(db, fields=("tags",))
+
+    assert [row["text"] for row in report.rows_added] == [valid_tag]
+    assert len(report.errors) == 2
+    assert all("skipped unsafe text value" in error for error in report.errors)
+    assert [
+        row.row_dict["tag"]
+        for row in db.rows_by_table["tags"]
+        if row.row_dict["tag"] == valid_tag
+    ] == [valid_tag]
+    assert all("\x00" not in row.row_dict["tag"] for row in db.rows_by_table["tags"])
+
+    db = _build_fake_database()
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    valid_identifier = "10.5555/unicode-\u4e66\u7c4d"
+    metadata.set_identifiers(
+        {
+            "doi": [
+                valid_identifier,
+                "10.5555/bad\x00identifier",
+            ],
+        },
+        update=False,
+    )
+
+    report = metadata.write_to_database(db, fields=("identifiers",), replace=True)
+
+    assert valid_identifier in {row["value"] for row in report.rows_added}
+    assert all(
+        row["value"] != "10.5555/bad\x00identifier"
+        for row in report.rows_added
+    )
+    assert any("skipped unsafe value" in error for error in report.errors)
+    assert all(
+        "\x00" not in row.row_dict["entity_identifier_value"]
+        for row in db.rows_by_table["entity_identifiers"]
+    )
 
 
 def test_liuxin_wemi_metadata_wemi_relation_edits_round_trip_to_database() -> None:

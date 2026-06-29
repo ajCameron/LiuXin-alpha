@@ -1107,8 +1107,8 @@ class Preferences:
             # Hungarian
             "hun": (
                 r"A\s+",
-                "Az\s+",
-                "Egy\s+",
+                r"Az\s+",
+                r"Egy\s+",
             ),
         }
         self.type_set(

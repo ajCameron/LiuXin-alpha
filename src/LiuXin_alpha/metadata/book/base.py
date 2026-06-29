@@ -701,6 +701,8 @@ class calibreMetadata(object):
                             # Case-insensitive but case preserving merging
                             lotags = [t.lower() for t in other_tags]
                             try:
+                                if isinstance(self_tags, basestring):
+                                    raise TypeError
                                 lstags = [t.lower() for t in self_tags]
                             except TypeError:
                                 # Happens if x is not a text, is_multiple field

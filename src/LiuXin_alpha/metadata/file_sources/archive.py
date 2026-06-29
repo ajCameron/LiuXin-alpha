@@ -33,6 +33,7 @@ _SUPPORTED_SINGLE_MEMBER_TYPES = {
     "azw1",
     "azw3",
     "fb2",
+    "fbz",
 }
 
 

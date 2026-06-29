@@ -96,6 +96,20 @@ def test_txt_input_broken_encoding_falls_back_to_replacement(tmp_path: Path, mon
     assert "Latin café" in decoded_html
     assert "\ufffd" in decoded_html
 
+    report = opts.conversion_report
+    events = [event for event in report.loss_events if event.code == "input-decoding-byte-replacement"]
+    assert len(events) == 1
+    event = events[0]
+    assert event.phase == "txt-input"
+    assert event.source_format == "txt"
+    assert event.target_format == "oeb"
+    assert event.edge_name == "txt-to-oeb"
+    assert event.recoverable is True
+    assert event.count >= 1
+    assert event.details["encoding"] == "utf-8"
+    assert event.details["replacement"] == "\ufffd"
+    assert event.samples[0].codepoints == ("U+FFFD",)
+
 
 def test_detect_formatting_type_unicode_fuzz_stable() -> None:
     mod = importlib.import_module("LiuXin_alpha.file_formats.txt.processor")

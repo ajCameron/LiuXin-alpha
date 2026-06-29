@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from typing import Any, ClassVar, Literal, TypeAlias, cast
@@ -557,6 +558,48 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     def as_calibre_metadata(self) -> Any:
         return self.to_calibre()
+
+    def to_calibre(self) -> Any:
+        """
+        Return a Calibre-shaped metadata object with supported WEMI values projected.
+
+        OPF/Calibre metadata is a flat format, so this conversion intentionally
+        loses relation link ids and provenance. It still includes supported
+        relation target values from the WEMI stack without mutating this
+        container's legacy field state.
+        """
+        metadata = self.deepcopy_metadata()
+        metadata._sync_projection_fields_for_calibre_conversion()
+        return CalibreLikeLiuXinBookMetaData.to_calibre(metadata)
+
+    def _sync_projection_fields_for_calibre_conversion(self) -> None:
+        data = object.__getattribute__(self, "_data")
+        values = self.values
+
+        title = values.primary_title or self.display_title or self.canonical_title
+        if title and not str(data.get("title") or "").strip():
+            data["title"] = title
+
+        self._replace_conversion_terms("tags", values.tags)
+        self._replace_conversion_terms("subject", values.subjects)
+        self._replace_conversion_terms("genre", values.genres)
+        self._replace_conversion_terms("labels", values.labels)
+        self._replace_conversion_terms("series", values.series)
+
+        languages = tuple(values.languages)
+        if languages:
+            data["languages"] = list(languages)
+
+        for scheme, identifiers in values.identifiers.items():
+            for identifier in identifiers:
+                self.set_identifier(scheme, identifier)
+
+    def _replace_conversion_terms(self, field: str, values: Iterable[str]) -> None:
+        object.__getattribute__(self, "_data")[field] = OrderedDict(
+            (str(value), None)
+            for value in values
+            if str(value).strip()
+        )
 
     @classmethod
     def from_opf(

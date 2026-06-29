@@ -92,8 +92,13 @@ class ManifestationMetadata(ManifestationMetadataAPI):
 
     @staticmethod
     def _serialize_target(target: Any) -> Any:
-        if hasattr(target, 'to_mapping') and callable(target.to_mapping):
-            return target.to_mapping()
+        if target is None:
+            return None
+        if isinstance(target, Row):
+            return dict(target.row_dict)
+        to_mapping = getattr(target, "to_mapping", None)
+        if callable(to_mapping):
+            return to_mapping()
         if isinstance(target, Mapping):
             return dict(target)
         return target

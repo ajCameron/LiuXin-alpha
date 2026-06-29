@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
+from tests.support.file_format_epub import EPUB_AUTHORS, EPUB_TITLE, build_unicode_epub
+from tests.support.file_format_unicode import assert_no_replacement_chars
 
 
 def _values(raw):
@@ -55,6 +57,41 @@ def _opf_text_from_epub(epub_path: Path) -> str:
                 break
         assert opf_path is not None
         return zf.read(opf_path).decode("utf-8", "replace")
+
+
+def _contains_forbidden_xml_char(text: str) -> bool:
+    for ch in text:
+        cp = ord(ch)
+        if cp == 0x7F:
+            return True
+        if cp in (0x9, 0xA, 0xD):
+            continue
+        if 0x20 <= cp <= 0xD7FF:
+            continue
+        if 0xE000 <= cp <= 0xFFFD:
+            continue
+        if 0x10000 <= cp <= 0x10FFFF:
+            continue
+        return True
+    return False
+
+
+def _opf_with_cover() -> bytes:
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">'
+        '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">'
+        "<dc:title>Original</dc:title>"
+        "<dc:creator>Original Author</dc:creator>"
+        '<meta name="cover" content="cover-image"/>'
+        "</metadata>"
+        "<manifest>"
+        '<item id="cover-image" href="images/cover.jpg" media-type="image/jpeg"/>'
+        '<item id="chapter" href="text/chapter.xhtml" media-type="application/xhtml+xml"/>'
+        "</manifest>"
+        '<spine><itemref idref="chapter"/></spine>'
+        "</package>"
+    ).encode("utf-8")
 
 
 def test_epub_metadata_module_import_smoke() -> None:
@@ -160,6 +197,44 @@ def test_epub_metadata_reader_plugin_is_available(md_test_fixture) -> None:
     assert metadata.title == "Twenty Thousand Leagues Under the Seas: An Underwater Tour of the World"
     assert _values(metadata.authors) == ["Jules Verne"]
     assert inplace_metadata.title == "Twenty Thousand Leagues Under the Seas: An Underwater Tour of the World"
+
+
+def test_epub_metadata_reads_generated_multilingual_fixture_path_stream_and_plugin(tmp_path: Path) -> None:
+    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    from LiuXin_alpha.metadata.file_sources.epub import get_metadata, get_metadata_inplace, get_quick_metadata
+
+    fixture = build_unicode_epub(tmp_path / "metadata_Καλημέρα_世界.epub", include_image=True)
+
+    metadata = get_metadata(fixture.path, extract_cover=True, calibre_metadata=True)
+    assert metadata.title == EPUB_TITLE
+    assert _values(metadata.authors) == list(EPUB_AUTHORS)
+    assert_no_replacement_chars(metadata.title, context="EPUB metadata title")
+    assert_no_replacement_chars(" ".join(_values(metadata.authors)), context="EPUB metadata authors")
+    assert metadata.cover_data is not None
+    cover_format, cover_payload = metadata.cover_data
+    assert cover_format == "png"
+    assert cover_payload.startswith(b"\x89PNG")
+
+    with fixture.path.open("rb") as stream:
+        stream_metadata = get_metadata(stream, extract_cover=False, calibre_metadata=True)
+        quick_metadata = get_quick_metadata(stream)
+        assert stream.tell() == 0
+
+    assert stream_metadata.title == EPUB_TITLE
+    assert _values(stream_metadata.authors) == list(EPUB_AUTHORS)
+    assert quick_metadata.title == EPUB_TITLE
+    assert _values(quick_metadata.authors) == list(EPUB_AUTHORS)
+
+    liuxin_metadata = get_metadata_inplace(fixture.path)
+    assert liuxin_metadata.title == EPUB_TITLE
+    assert _values(liuxin_metadata.authors) == list(EPUB_AUTHORS)
+
+    epub_cls = next(p for p in get_metadata_reader_plugins() if p.__name__ == "EPUBMetadataReader")
+    reader = epub_cls(None)
+    with fixture.path.open("rb") as stream:
+        plugin_metadata = reader.get_metadata(stream=stream, ftype="epub")
+    assert plugin_metadata.title == EPUB_TITLE
+    assert _values(plugin_metadata.authors) == list(EPUB_AUTHORS)
 
 
 def test_epub_cover_extracts_raster_cover_when_present(md_test_fixture) -> None:
@@ -322,6 +397,56 @@ def test_epub_unicode_torture_roundtrip_title_and_authors(tmp_path: Path, md_tes
     assert "出版社" in opf_text
     assert "Series" in opf_text
     assert "12.75" in opf_text
+
+
+def test_epub_set_metadata_preserves_zip_members_replaces_cover_and_sanitizes_xml(tmp_path: Path) -> None:
+    from LiuXin_alpha.metadata.file_sources.epub import get_metadata, set_metadata
+
+    target = tmp_path / "container_contract.epub"
+    with zipfile.ZipFile(target, "w") as zf:
+        zf.writestr("mimetype", "application/epub+zip")
+        zf.writestr("META-INF/container.xml", _container_xml(opf_path="OEBPS/content.opf"))
+        zf.writestr("OEBPS/content.opf", _opf_with_cover())
+        zf.writestr("OEBPS/text/chapter.xhtml", b"<html><body>chapter bytes</body></html>")
+        zf.writestr("OEBPS/images/cover.jpg", b"old-cover-bytes")
+        zf.writestr("OEBPS/styles/main.css", b"body { color: black; }")
+
+    with zipfile.ZipFile(target, "r") as zf:
+        preserved = {
+            "mimetype": zf.read("mimetype"),
+            "META-INF/container.xml": zf.read("META-INF/container.xml"),
+            "OEBPS/text/chapter.xhtml": zf.read("OEBPS/text/chapter.xhtml"),
+            "OEBPS/styles/main.css": zf.read("OEBPS/styles/main.css"),
+        }
+
+    title = "EPUB\x00Title\ud800 😀"
+    authors = ["Alice\x01 One", "Bob\udfff Two"]
+    updated = calibreMetaInformation(title, authors)
+    updated.tags = ["tag\x02one", "emoji 😀"]
+    updated.comments = "Comment\x03 with <xml> & emoji 😀"
+    updated.publisher = "Pub\x04lisher"
+    updated.cover_data = ("jpeg", b"new-cover-bytes")
+
+    set_metadata(target, updated)
+
+    with zipfile.ZipFile(target, "r") as zf:
+        assert zf.testzip() is None
+        for name, payload in preserved.items():
+            assert zf.read(name) == payload
+        assert zf.read("OEBPS/images/cover.jpg") == b"new-cover-bytes"
+        opf_raw = zf.read("OEBPS/content.opf")
+
+    opf_text = opf_raw.decode("utf-8")
+    assert not _contains_forbidden_xml_char(opf_text)
+    ET.fromstring(opf_raw)
+    assert "EPUBTitle" in opf_text
+    assert "Publisher" in opf_text
+
+    metadata = get_metadata(target, extract_cover=False, calibre_metadata=True)
+    assert metadata.title == "EPUBTitle 😀"
+    assert _values(metadata.authors) == ["Alice One", "Bob Two"]
+    assert updated.title == title
+    assert updated.authors == authors
 
 
 def test_epub_broken_encoding_in_opf_is_tolerated(tmp_path: Path) -> None:

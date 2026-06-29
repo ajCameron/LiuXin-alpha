@@ -53,6 +53,8 @@ def _ffz16(x: int) -> int:
 MAXBLOCK = 4096
 FREQMAX = 4
 CTXIDS = 3
+_MAX_TINY_STREAM_EXPANSION = 64 * 1024
+_MIN_TRUSTED_BLOCK_SIZE = 64 * 1024
 
 
 @dataclass
@@ -242,6 +244,9 @@ def _decode_block(st: _State, ctx: bytearray) -> bool:
         return False
     if xsize > MAXBLOCK * 1024:
         raise ValueError("Corrupt bitstream (block too large)")
+    max_tiny_block = max(_MIN_TRUSTED_BLOCK_SIZE, len(st.raw) * _MAX_TINY_STREAM_EXPANSION)
+    if xsize > max_tiny_block:
+        raise ValueError("Corrupt bitstream (implausible block expansion)")
 
     # Decode Estimation Speed
     if _zpcodec_decoder(st):

@@ -5,10 +5,12 @@ import shutil
 import uuid
 from pathlib import Path
 
+import pytest
+
 from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 from LiuXin_alpha.customize.builtins.metadata_writers import get_metadata_set_plugins
 from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
-from LiuXin_alpha.metadata.file_sources.pdb import get_metadata, get_pheader_ident, set_metadata
+from LiuXin_alpha.metadata.file_sources.pdb import PdbFormatError, get_metadata, get_pheader_ident, set_metadata
 from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
@@ -140,7 +142,10 @@ def test_pdb_writer_sanitizes_header_title_characters(md_test_fixture, tmp_path:
 
 
 def test_pdb_get_metadata_handles_truncated_stream_sensibly() -> None:
-    md = get_metadata(io.BytesIO(b"\x00\x01\x02"), extract_cover=False)
+    with pytest.raises(PdbFormatError):
+        get_metadata(io.BytesIO(b"\x00\x01\x02"), extract_cover=False)
+
+    md = get_metadata(io.BytesIO(b"\x00\x01\x02"), extract_cover=False, fallback_on_parse_error=True)
     assert md.title == "Unknown"
     assert md.authors == ["Unknown"]
 
@@ -149,20 +154,19 @@ def test_pdb_get_metadata_uses_filename_hint_for_corrupt_path(tmp_path: Path) ->
     broken = tmp_path / "broken_fixture.pdb"
     broken.write_bytes(b"\x00\x01")
 
-    md = get_metadata(broken, extract_cover=False)
+    with pytest.raises(PdbFormatError):
+        get_metadata(broken, extract_cover=False)
+
+    md = get_metadata(broken, extract_cover=False, fallback_on_parse_error=True)
     assert md.title == "broken_fixture"
     assert md.authors == ["Unknown"]
 
 
 def test_pdb_get_pheader_ident_raises_clean_value_error_on_corrupt_input() -> None:
-    import pytest
-
     with pytest.raises(ValueError, match="Unable to parse PDB header identity"):
         get_pheader_ident(io.BytesIO(b""))
 
 
 def test_pdb_set_metadata_raises_clean_value_error_on_corrupt_input() -> None:
-    import pytest
-
     with pytest.raises(ValueError, match="invalid or corrupt PDB header"):
         set_metadata(io.BytesIO(b"\x00"), calibreMetaInformation("x", ["y"]))

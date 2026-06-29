@@ -10,6 +10,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from LiuXin_alpha.file_formats.opf.opf import _sanitize_metadata_for_xml
 from LiuXin_alpha.file_formats.opf.opf2 import OPF
 from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
 from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata as OPFCalibreMetadata
@@ -24,6 +25,10 @@ __copyright__ = "2011, John Schember <john@nachtimwald.com>"
 _IMAGE_EXTENSIONS = {"jpeg", "jpg", "png", "webp", "gif", "bmp"}
 
 
+class ExtzFormatError(Exception):
+    pass
+
+
 def _is_path_like(target: Any) -> bool:
     return isinstance(target, (str, bytes, os.PathLike))
 
@@ -36,6 +41,20 @@ def _source_name(target: Any) -> str:
 
 def _fallback_metadata() -> MetaInformation:
     return MetaInformation(_("Unknown"), [_("Unknown")])
+
+
+def _archive_has_credible_fallback_content(zf, source_name: str) -> bool:
+    ext = os.path.splitext(source_name or "")[1].lower().lstrip(".")
+    names = [str(name).replace("\\", "/").lstrip("/") for name in zf.namelist()]
+    lower_names = [name.lower() for name in names if name and not name.endswith("/")]
+    if ext == "htmlz":
+        return any(
+            name.endswith((".html", ".htm", ".xhtml")) or os.path.basename(name) == "manifest.xml"
+            for name in lower_names
+        )
+    if ext == "txtz":
+        return any(name.endswith(".txt") for name in lower_names)
+    return False
 
 
 def _as_opf_calibre_metadata(mi: Any) -> OPFCalibreMetadata:
@@ -179,13 +198,17 @@ def get_first_opf_name(zf) -> str:
     return sorted(opf_names)[0]
 
 
-def get_metadata(stream_or_path, extract_cover: bool = True):
+def get_metadata(stream_or_path, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
     Return metadata from an EXTZ stream/path as a LiuXin metadata object.
+
+    EXTZ/HTMLZ readers reject broken archives or archives without credible
+    fallback content by default. Use `fallback_on_parse_error=True` only from a
+    best-effort facade that deliberately wants shell metadata.
     """
     if _is_path_like(stream_or_path):
         with open(stream_or_path, "rb") as stream:
-            return get_metadata(stream, extract_cover=extract_cover)
+            return get_metadata(stream, extract_cover=extract_cover, fallback_on_parse_error=fallback_on_parse_error)
 
     stream = stream_or_path
     if not hasattr(stream, "read"):
@@ -204,7 +227,12 @@ def get_metadata(stream_or_path, extract_cover: bool = True):
         if hasattr(stream, "seek"):
             stream.seek(0)
         with ZipFile(stream) as zf:
-            opf_name = get_first_opf_name(zf)
+            try:
+                opf_name = get_first_opf_name(zf)
+            except FileNotFoundError:
+                if _archive_has_credible_fallback_content(zf, source_name):
+                    return mi
+                raise
             opf_stream = BytesIO(zf.read(opf_name))
             opf = OPF(opf_stream)
             mi = opf.to_book_metadata(calibre=False)
@@ -232,6 +260,10 @@ def get_metadata(stream_or_path, extract_cover: bool = True):
             ("archive", source_name),
             ("extract_cover", extract_cover),
         )
+        if not fallback_on_parse_error:
+            if isinstance(err, ExtzFormatError):
+                raise
+            raise ExtzFormatError("Failed to extract metadata from EXTZ archive.") from err
         return mi
     finally:
         if pos is not None and hasattr(stream, "seek"):
@@ -264,7 +296,7 @@ def set_metadata(stream_or_path, mi):
             opf_path = get_first_opf_name(zf)
             opf = OPF(BytesIO(zf.read(opf_path)))
 
-        md = _as_opf_calibre_metadata(mi)
+        md = _sanitize_metadata_for_xml(_as_opf_calibre_metadata(mi))
 
         cover_data = None
         try:
@@ -303,6 +335,7 @@ def set_metadata(stream_or_path, mi):
 
 
 __all__ = [
+    "ExtzFormatError",
     "get_first_opf_name",
     "get_metadata",
     "set_metadata",

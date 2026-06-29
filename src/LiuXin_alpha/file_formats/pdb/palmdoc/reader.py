@@ -7,11 +7,20 @@ Read content from palmdoc pdb file.
 import io
 import struct
 
+from LiuXin_alpha.file_formats.pdb import PDBError
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
+
+PALMDOC_HEADER_RECORD_SIZE = 16
+SUPPORTED_COMPRESSION = {1, 2, 258}
+
+
+def _require_bytes(raw, size, context):
+    if len(raw) < size:
+        raise PDBError("Truncated PalmDOC %s" % context)
 
 
 class HeaderRecord(object):
@@ -23,6 +32,7 @@ class HeaderRecord(object):
     """
 
     def __init__(self, raw):
+        _require_bytes(raw, PALMDOC_HEADER_RECORD_SIZE, "header record")
         (self.compression,) = struct.unpack(">H", raw[0:2])
         (self.num_records,) = struct.unpack(">H", raw[8:10])
 
@@ -38,8 +48,14 @@ class Reader(FormatReader):
             self.sections.append(header.section_data(i))
 
         self.header_record = HeaderRecord(self.section_data(0))
+        if self.header_record.compression not in SUPPORTED_COMPRESSION:
+            raise PDBError("Unsupported PalmDOC compression type %i" % self.header_record.compression)
+        if self.header_record.num_records > len(self.sections) - 1:
+            raise PDBError("PalmDOC text record count exceeds available PDB sections")
 
     def section_data(self, number):
+        if number < 0 or number >= len(self.sections):
+            raise PDBError("PalmDOC section %i is outside the PDB section table" % number)
         return self.sections[number]
 
     def decompress_text(self, number):
@@ -48,8 +64,12 @@ class Reader(FormatReader):
         if self.header_record.compression == 2 or self.header_record.compression == 258:
             from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 
-            return decompress_doc(self.section_data(number))
-        return b""
+            payload = self.section_data(number)
+            try:
+                return decompress_doc(payload)
+            except Exception as err:
+                raise PDBError("PalmDOC decompression failed for section %i: %s" % (number, err)) from err
+        raise PDBError("Unsupported PalmDOC compression type %i" % self.header_record.compression)
 
     def extract_content(self, output_dir):
         """

@@ -103,6 +103,34 @@ def extract_calibre_cover(raw, base, log) -> Optional[bytes]:
     """
     from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
 
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", "replace")
+    try:
+        from lxml import html as lxml_html
+
+        root = lxml_html.fromstring(raw)
+        matches = root.xpath(".//h1|.//h2|.//h3|.//h4|.//h5|.//h6|.//p|.//span|.//font|.//br")
+        images = root.xpath(".//img")
+        if not matches and len(images) == 1 and images[0].get("alt", "") == "cover":
+            src = images[0].get("src")
+            if src:
+                img = os.path.join(base, *src.split("/"))
+                return return_raster_image(img)
+
+        if not matches:
+            bodies = root.xpath(".//body")
+            body = bodies[0] if bodies else root
+            text = "".join(body.itertext())
+            if text.strip():
+                return None
+            images = body.xpath(".//img[@src]")
+            if 0 < len(images) < 2:
+                img = os.path.join(base, *images[0].get("src").split("/"))
+                return return_raster_image(img)
+        return None
+    except Exception:
+        pass
+
     soup = BeautifulSoup(raw)
     matches = soup.find(name=["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "font", "br"])
     images = soup.findAll("img")

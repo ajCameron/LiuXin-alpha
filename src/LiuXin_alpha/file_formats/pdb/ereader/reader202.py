@@ -8,14 +8,17 @@ import os
 import struct
 
 from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
+from LiuXin_alpha.file_formats.pdb.ereader import EreaderError, image_name
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
-from LiuXin_alpha.file_formats.pdb.ereader import EreaderError
 
 from LiuXin_alpha.utils.calibre import CurrentDir
 
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
+
+HEADER_RECORD_SIZES = (116, 202)
+IMAGE_RECORD_HEADER_SIZE = 62
 
 
 class HeaderRecord(object):
@@ -27,6 +30,8 @@ class HeaderRecord(object):
     """
 
     def __init__(self, raw):
+        if len(raw) not in HEADER_RECORD_SIZES:
+            raise EreaderError("Size mismatch. eReader header record size %s KB is not supported." % len(raw))
         (self.version,) = struct.unpack(">H", raw[0:2])
         (self.non_text_offset,) = struct.unpack(">H", raw[8:10])
 
@@ -48,28 +53,45 @@ class Reader202(FormatReader):
 
         if self.header_record.version not in (2, 4):
             raise EreaderError("Unknown book version %i." % self.header_record.version)
+        self._validate_header_ranges()
 
         from LiuXin_alpha.metadata.file_sources.pdb import get_metadata
 
         self.mi = get_metadata(stream, False)
 
+    def _validate_header_ranges(self):
+        if self.header_record.non_text_offset < 1 or self.header_record.non_text_offset > len(self.sections):
+            raise EreaderError("eReader text range exceeds available sections")
+
+    def _text_encoding(self):
+        return "cp1252" if self.encoding is None else self.encoding
+
     def section_data(self, number):
+        if number < 0 or number >= len(self.sections):
+            raise EreaderError("eReader section %i is outside the PDB section table" % number)
         return self.sections[number]
 
     def decompress_text(self, number):
         from LiuXin_alpha.file_formats.compression.palmdoc import decompress_doc
 
-        return decompress_doc("".join([chr(ord(x) ^ 0xA5) for x in self.section_data(number)])).decode(
-            "cp1252" if self.encoding is None else self.encoding, "replace"
-        )
+        payload = self.section_data(number)
+        if isinstance(payload, str):
+            payload = payload.encode("latin-1", "replace")
+        try:
+            raw = bytes(byte ^ 0xA5 for byte in payload)
+            return decompress_doc(raw).decode(self._text_encoding(), "replace")
+        except Exception as err:
+            raise EreaderError("eReader text decompression failed for section %i: %s" % (number, err)) from err
 
     def get_image(self, number):
         name = None
         img = None
 
         data = self.section_data(number)
-        if data.startswith("PNG"):
-            name = data[4 : 4 + 32].strip("\x00")
+        if data.startswith(b"PNG"):
+            if len(data) < IMAGE_RECORD_HEADER_SIZE:
+                raise EreaderError("Truncated eReader image record")
+            name = image_name(data[4 : 4 + 32]).strip("\x00")
             img = data[62:]
 
         return name, img
@@ -167,7 +189,8 @@ class Reader202(FormatReader):
             os.makedirs(output_dir)
 
         with CurrentDir(output_dir):
-            for i in range(0, self.header_record.num_image_pages):
-                name, img = self.get_image(self.header_record.image_data_offset + i)
-                with open(name, "wb") as imgf:
-                    imgf.write(img)
+            for i in range(self.header_record.non_text_offset, len(self.sections)):
+                name, img = self.get_image(i)
+                if name:
+                    with open(name, "wb") as imgf:
+                        imgf.write(img)

@@ -136,6 +136,44 @@ def test_pdb_set_metadata_updates_ereader_payload_and_wrapper_title() -> None:
     assert wrapper_title == expected_wrapper
 
 
+def test_pdb_set_metadata_sanitizes_hostile_ereader_text_without_field_shift() -> None:
+    from LiuXin_alpha.metadata.file_sources.pdb import get_metadata, set_metadata
+
+    metadata_record = b"Old Title\x00Old Author\x00\x00Old Pub\x001111111111111\x00"
+    header_record = _ereader_header_record(metadata_offset=1, last_data_offset=2)
+    stream = _build_pdb("PNPdPPrs", "Old Wrapper", [header_record, metadata_record, b"MeTaInFo\x00"])
+
+    title = "Bad\x00Title\ud800 Café"
+    authors = ["Alice\x00Injected", "Bob\udfff"]
+    update = calibreMetaInformation(title, authors)
+    update.publisher = "Pub\x01House"
+    update.isbn = "978\x02123"
+
+    set_metadata(stream, update)
+
+    read_back = get_metadata(stream, extract_cover=False)
+    assert read_back.title == "BadTitle Café"
+    assert read_back.authors == ["AliceInjected & Bob"]
+    assert read_back.publisher == "PubHouse"
+    assert read_back.isbn == "978123"
+
+    pheader = PdbHeaderReader(stream)
+    raw_metadata = pheader.section_data(1)
+    assert raw_metadata.split(b"\x00")[:5] == [
+        "BadTitle Café".encode("cp1252"),
+        b"AliceInjected & Bob",
+        b"",
+        b"PubHouse",
+        b"978123",
+    ]
+    assert b"\x01" not in raw_metadata
+    assert b"\x02" not in raw_metadata
+    assert pheader.title == "BadTitle Caf_"
+
+    assert update.title == title
+    assert update.authors == authors
+
+
 def test_pdb_plucker_metadata_reader_extracts_fields() -> None:
     from LiuXin_alpha.metadata.file_sources.pdb import get_metadata
 

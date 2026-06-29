@@ -802,6 +802,16 @@ class Convert(object):
             self.styles.register(css, "frame")
 
     def mark_block_runs(self, paras):
+        def numeric_margin(value):
+            if isinstance(value, (int, float)):
+                return value
+            if isinstance(value, str) and value.endswith("pt"):
+                try:
+                    return float(value[:-2])
+                except ValueError:
+                    pass
+            return 0
+
         def process_run(run):
             max_left = max_right = 0
             has_visible_border = None
@@ -809,7 +819,9 @@ class Convert(object):
                 style = self.styles.resolve_paragraph(p)
                 if has_visible_border is None:
                     has_visible_border = style.has_visible_border()
-                max_left, max_right = max(style.margin_left, max_left), max(style.margin_right, max_right)
+                if has_visible_border:
+                    max_left = max(numeric_margin(style.margin_left), max_left)
+                    max_right = max(numeric_margin(style.margin_right), max_right)
                 if has_visible_border:
                     style.margin_left = style.margin_right = inherit
                 if p is not run[0]:

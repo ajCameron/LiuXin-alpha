@@ -12,6 +12,9 @@ from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import (
     ManifestationRelationLink,
     WorkRelationLink,
 )
+from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_link_api import (
+    select_primary_relation_link,
+)
 from LiuXin_alpha.metadata.containers.metadata_containers.lazy_liuxin_wemi_metadata import (
     LazyLiuXinWEMIMetadata,
 )
@@ -123,6 +126,18 @@ class LazyLiuXinWEMIMetadataHydrator:
                 item_row.row_dict.get("item_manifestation_id"),
             )
 
+        manifestation_link = None
+        if item_row is not None:
+            manifestation_link = self._first_relation_link(
+                level="item",
+                source_row=item_row,
+                secondary_table="manifestations",
+            )
+            ids["manifestation_id"] = self._prefer_relation_link_id(
+                ids["manifestation_id"],
+                manifestation_link,
+            )
+
         manifestation_row = self._resolve_row("manifestations", ids["manifestation_id"])
         if manifestation_row is None and isinstance(source_row, Row) and source_row.table == "manifestations":
             manifestation_row = source_row
@@ -137,17 +152,16 @@ class LazyLiuXinWEMIMetadataHydrator:
             )
 
         expression_link = None
-        if ids["expression_id"] is None and manifestation_row is not None:
+        if manifestation_row is not None:
             expression_link = self._first_relation_link(
                 level="manifestation",
                 source_row=manifestation_row,
                 secondary_table="expressions",
             )
-            if expression_link is not None and isinstance(expression_link.target, Row):
-                ids["expression_id"] = self._prefer_id(
-                    ids["expression_id"],
-                    expression_link.target.row_id,
-                )
+            ids["expression_id"] = self._prefer_relation_link_id(
+                ids["expression_id"],
+                expression_link,
+            )
 
         expression_row = self._resolve_row("expressions", ids["expression_id"])
         if expression_row is None and isinstance(source_row, Row) and source_row.table == "expressions":
@@ -160,14 +174,13 @@ class LazyLiuXinWEMIMetadataHydrator:
             )
 
         work_link = None
-        if ids["work_id"] is None and expression_row is not None:
+        if expression_row is not None:
             work_link = self._first_relation_link(
                 level="expression",
                 source_row=expression_row,
                 secondary_table="works",
             )
-            if work_link is not None and isinstance(work_link.target, Row):
-                ids["work_id"] = self._prefer_id(ids["work_id"], work_link.target.row_id)
+            ids["work_id"] = self._prefer_relation_link_id(ids["work_id"], work_link)
 
         work_row = self._resolve_row("works", ids["work_id"])
         if work_row is None and isinstance(source_row, Row) and source_row.table == "works":
@@ -238,6 +251,16 @@ class LazyLiuXinWEMIMetadataHydrator:
     @staticmethod
     def _prefer_id(current: Any, fallback: Any) -> int | None:
         return LiuXinWEMIMetadataHydrator._prefer_id(current, fallback)
+
+    @classmethod
+    def _prefer_relation_link_id(cls, current: Any, relation_link: Any) -> int | None:
+        current_id = cls._prefer_id(current, None)
+        target = getattr(relation_link, "target", None)
+        target_id = target.row_id if isinstance(target, Row) else None
+        target_id = cls._prefer_id(target_id, None)
+        if target_id is None:
+            return current_id
+        return target_id
 
     def _has_table(self, table: str) -> bool:
         return table in self._tables or table in self._tables_and_columns
@@ -543,9 +566,7 @@ class LazyLiuXinWEMIMetadataHydrator:
             source_row=source_row,
             secondary_table=secondary_table,
         )
-        if not links:
-            return None
-        return sorted(links, key=lambda link: not bool(link.primary))[0]
+        return select_primary_relation_link(links)
 
     def _collect_relation_links(
         self,

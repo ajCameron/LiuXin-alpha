@@ -24,3 +24,50 @@ test = [
 search = [
   "rapidfuzz>=3.9",
 ]
+typing = [
+  "basedpyright>=1.39,<2",
+  "mypy>=1.20,<3",
+]
+
+[tool.basedpyright]
+include = [
+  "src/LiuXin_alpha/metadata/api",
+  "src/LiuXin_alpha/metadata/containers/metadata_containers",
+  "src/LiuXin_alpha/surfaces/renderers",
+]
+strict = [
+  "src/LiuXin_alpha/metadata/api",
+  "src/LiuXin_alpha/metadata/containers/metadata_containers",
+  "src/LiuXin_alpha/surfaces/renderers",
+]
+exclude = [
+  "**/__pycache__",
+  ".venv",
+  "build",
+  "dist",
+  "working-memory/test-results",
+]
+pythonVersion = "3.12"
+
+[tool.mypy]
+python_version = "3.12"
+files = [
+  "src/LiuXin_alpha/metadata/api",
+  "src/LiuXin_alpha/metadata/containers/metadata_containers",
+  "src/LiuXin_alpha/surfaces/renderers",
+]
+mypy_path = "$MYPY_CONFIG_FILE_DIR/src"
+namespace_packages = true
+explicit_package_bases = true
+strict = true
+pretty = true
+show_error_codes = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unreachable = true
+exclude = [
+  "^\\.venv/",
+  "^build/",
+  "^dist/",
+  "^working-memory/test-results/",
+]

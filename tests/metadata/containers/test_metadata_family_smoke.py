@@ -262,4 +262,5 @@ def test_agent_participation_snapshot_smoke() -> None:
     )
 
     assert not snapshot.is_empty()
+    assert snapshot.all_entries() == snapshot.works
     assert snapshot.counts_by_level()["works"] == 1

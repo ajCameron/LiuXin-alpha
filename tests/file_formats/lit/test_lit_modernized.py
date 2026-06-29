@@ -5,28 +5,7 @@ import io
 import sys
 import types
 
-
-class _Log:
-    def __init__(self) -> None:
-        self.messages: list[str] = []
-
-    def _record(self, *parts) -> None:
-        self.messages.append(" ".join(str(x) for x in parts))
-
-    def __call__(self, *parts) -> None:
-        self._record(*parts)
-
-    def debug(self, *parts) -> None:
-        self._record(*parts)
-
-    def info(self, *parts) -> None:
-        self._record(*parts)
-
-    def warn(self, *parts) -> None:
-        self._record(*parts)
-
-    def warning(self, *parts) -> None:
-        self._record(*parts)
+from tests.support.file_format_lit import LitLog, lit_options
 
 
 def test_lit_modules_import_smoke() -> None:
@@ -109,7 +88,7 @@ def test_lit_input_convert_glue_smoke(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.conversion.plumber", fake_plumber)
 
     plugin = lit_input_mod.LITInput(None)
-    out = plugin.convert(io.BytesIO(b"lit"), types.SimpleNamespace(), "lit", _Log(), {})
+    out = plugin.convert(io.BytesIO(b"lit"), lit_options(), "lit", LitLog(), {})
 
     assert out is sentinel_oeb
 
@@ -125,7 +104,7 @@ def test_lit_input_postprocess_book_pre_to_div() -> None:
     oeb = types.SimpleNamespace(spine=[types.SimpleNamespace(data=root)])
 
     plugin = lit_input_mod.LITInput(None)
-    plugin.postprocess_book(oeb, types.SimpleNamespace(), _Log())
+    plugin.postprocess_book(oeb, lit_options(), LitLog())
 
     body = root.find(XHTML("body"))
     assert body is not None
@@ -183,6 +162,6 @@ def test_lit_output_convert_glue_smoke(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "LiuXin_alpha.file_formats.oeb.transforms.split", fake_split)
 
     plugin = lit_output_mod.LITOutput(None)
-    plugin.convert(types.SimpleNamespace(), "out.lit", None, types.SimpleNamespace(), _Log())
+    plugin.convert(types.SimpleNamespace(), "out.lit", None, lit_options(), LitLog())
 
     assert calls == ["split", "htmltoc", "case", "raster", "write:out.lit"]

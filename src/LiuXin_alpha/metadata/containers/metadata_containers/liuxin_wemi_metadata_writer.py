@@ -275,6 +275,7 @@ class LiuXinWEMIMetadataWriter:
                 actual_level,
                 include_wemi_relations=not replace,
             )
+            desired = self._filter_safe_terms(field_name, desired, report)
             existing = self._existing_terms(source_row, spec)
             desired_links = self._desired_relation_links(metadata, spec, actual_level)
             for text, row_id in desired.items():
@@ -292,6 +293,16 @@ class LiuXinWEMIMetadataWriter:
                             "source": self._row_ref(source_row),
                             "target": self._row_ref(target_row),
                         }
+                    )
+                else:
+                    report.errors.append(
+                        "{}: could not link {}:{} to {}:{}.".format(
+                            field_name,
+                            source_row.table,
+                            source_row.row_id,
+                            target_row.table,
+                            target_row.row_id,
+                        )
                     )
                 if created:
                     report.rows_added.append(
@@ -317,10 +328,37 @@ class LiuXinWEMIMetadataWriter:
                                 "target": self._row_ref(target_row),
                             }
                         )
+                    else:
+                        report.errors.append(
+                            "{}: could not remove link from {}:{} to {}:{}.".format(
+                                field_name,
+                                source_row.table,
+                                source_row.row_id,
+                                target_row.table,
+                                target_row.row_id,
+                            )
+                        )
 
         if mark_dirty and report.changed:
             self._mark_dirty(source_row, reason="metadata_write_back")
         return report
+
+    def _filter_safe_terms(
+        self,
+        field_name: str,
+        desired: OrderedDict[str, Any],
+        report: LiuXinWEMIMetadataWriteReport,
+    ) -> OrderedDict[str, Any]:
+        out: OrderedDict[str, Any] = OrderedDict()
+        for text, row_id in desired.items():
+            unsafe_reason = self._unsafe_text_reason(text)
+            if unsafe_reason is not None:
+                report.errors.append(
+                    f"{field_name}: skipped unsafe text value ({unsafe_reason})."
+                )
+                continue
+            out[text] = row_id
+        return out
 
     def _normalize_level(self, level: str) -> str:
         level_key = str(level).strip().lower()
@@ -944,6 +982,7 @@ class LiuXinWEMIMetadataWriter:
             actual_level,
             include_wemi_relations=not replace,
         )
+        desired = self._filter_safe_identifiers(desired, report)
 
         if replace:
             for key, row in list(existing.items()):
@@ -976,7 +1015,7 @@ class LiuXinWEMIMetadataWriter:
                         {
                             **self._identifier_report_row(row),
                             "column": "entity_identifier_is_primary",
-                            "value": 1,
+                            "new_value": 1,
                         }
                     )
                     primary_schemes.add(key[0])
@@ -1011,6 +1050,28 @@ class LiuXinWEMIMetadataWriter:
                 continue
             report.rows_added.append(self._identifier_report_row(row))
             existing[key] = row
+
+    def _filter_safe_identifiers(
+        self,
+        desired: OrderedDict[tuple[str, str], tuple[str, str, Any | None]],
+        report: LiuXinWEMIMetadataWriteReport,
+    ) -> OrderedDict[tuple[str, str], tuple[str, str, Any | None]]:
+        out: OrderedDict[tuple[str, str], tuple[str, str, Any | None]] = OrderedDict()
+        for key, (scheme, value, relation_link) in desired.items():
+            unsafe_scheme = self._unsafe_text_reason(scheme)
+            if unsafe_scheme is not None:
+                report.errors.append(
+                    f"identifiers: skipped unsafe scheme ({unsafe_scheme})."
+                )
+                continue
+            unsafe_value = self._unsafe_text_reason(value)
+            if unsafe_value is not None:
+                report.errors.append(
+                    f"identifiers: skipped unsafe value ({unsafe_value})."
+                )
+                continue
+            out[key] = (scheme, value, relation_link)
+        return out
 
     def _existing_identifiers(
         self,
@@ -1201,6 +1262,17 @@ class LiuXinWEMIMetadataWriter:
             return None
         text = str(value).strip()
         return text or None
+
+    @staticmethod
+    def _unsafe_text_reason(value: Any) -> str | None:
+        text = str(value)
+        for char in text:
+            codepoint = ord(char)
+            if codepoint < 0x20 and char not in "\t\n\r":
+                return f"contains unsupported control character U+{codepoint:04X}"
+            if 0xD800 <= codepoint <= 0xDFFF:
+                return f"contains unsupported surrogate U+{codepoint:04X}"
+        return None
 
     @staticmethod
     def _first_mapping_value(

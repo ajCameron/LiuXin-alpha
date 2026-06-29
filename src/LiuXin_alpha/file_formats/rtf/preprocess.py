@@ -312,22 +312,22 @@ class RtfTokenizer:
 
                     # we have numeric argument before delimiter
                     if isChar(self.rtfData[i], "-") or isDigit(self.rtfData[i]):
-                        # consume the numeric argument
-                        consumed = False
+                        # consume the optional sign and numeric argument
+                        if isChar(self.rtfData[i], "-"):
+                            i += 1
                         l = 0
-                        while i < len(self.rtfData):
-                            if not isDigit(self.rtfData[i]):
-                                consumed = True
-                                break
+                        while i < len(self.rtfData) and isDigit(self.rtfData[i]):
                             l += 1
                             i += 1
                             if l > 10:
                                 raise Exception(
-                                    "Error (at:%d): Too many digits in control word numeric argument." % [tokenStart]
+                                    "Error (at:%d): Too many digits in control word numeric argument." % tokenStart
                                 )
 
-                        if not consumed:
-                            raise Exception("Error (at:%d): Control Word without numeric argument end." % [tokenStart])
+                        if l == 0:
+                            raise Exception("Error (at:%d): Control Word without numeric argument digits." % tokenStart)
+                        if i >= len(self.rtfData):
+                            raise Exception("Error (at:%d): Control Word without numeric argument end." % tokenStart)
 
                     separator = ""
                     if isChar(self.rtfData[i], " "):
