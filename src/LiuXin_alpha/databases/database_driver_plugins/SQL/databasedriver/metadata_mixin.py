@@ -275,7 +275,7 @@ class MetadataMethodMixin:
         :return:
         """
         target_table = force_unicode(target_table)
-        target_table_id = self._get_id_column(target_table)
+        target_table_id = self.direct_get_id_column(target_table)
         stmt = "SELECT max({}) FROM {};".format(target_table_id, target_table)
 
         conn = self.get_connection()
@@ -294,7 +294,7 @@ class MetadataMethodMixin:
         :param target_table:
         :return:
         """
-        if not self.validate_existing_table_name(target_table):
+        if not self.direct_validate_existing_table_name(target_table):
             err_str = "target_table not found in database.\n"
             err_str = default_log.log_variables(err_str, "ERROR", ("target_table", target_table))
             raise InputIntegrityError(err_str)

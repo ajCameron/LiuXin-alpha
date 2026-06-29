@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.databases.calibre_emulation import CalibreSidecarReader, CalibreUnsafePathError
-from LiuXin_alpha.databases.calibre_emulation.opf_sidecar import parse_metadata_opf
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import CalibreSidecarReader, CalibreUnsafePathError
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import parse_metadata_opf
 
 
 def _write_min_opf(path: Path) -> None:

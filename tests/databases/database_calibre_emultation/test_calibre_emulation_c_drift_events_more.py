@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-import sqlite3
-
-import pytest
-
-from LiuXin_alpha.databases.calibre_emulation import CalibreReader
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import CalibreReader
 from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import CalibreLibraryBuilder
 
 

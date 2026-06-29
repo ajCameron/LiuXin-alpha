@@ -50,6 +50,6 @@ class AuthorSortWriter(BaseWriter):
         :return:
         """
         for book_id, creator_val in iteritems(book_id_val_map):
-            db.macros.update_title_creator_sort(title_id=book_id, creator_val=creator_val)
+            db.metadata_sql.update_title_creator_sort(title_id=book_id, creator_val=creator_val)
 
         return set(book_id_val_map)

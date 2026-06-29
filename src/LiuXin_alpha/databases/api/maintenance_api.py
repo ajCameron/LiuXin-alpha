@@ -1,4 +1,6 @@
-"""Maintenance-related API contracts."""
+"""
+Maintenance-related API contracts.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +12,9 @@ from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 
 class DatabaseMaintainerAPI(abc.ABC):
-    """Compatibility façade between the database and maintenance services."""
+    """
+    Compatibility façade between the database and maintenance services.
+    """
 
     def __init__(self, db: DatabaseAPI) -> None:
         self.db = db

@@ -22,6 +22,7 @@ from LiuXin_alpha.constants.paths import LiuXin_default_database
 from LiuXin_alpha.databases.database.constants import HELPER_TABLES
 
 from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
+from LiuXin_alpha.databases.metadata_sql import MetadataSQL
 from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.database.custom_columns_mixin import CustomColumnDatabaseMixin
@@ -145,6 +146,7 @@ class Database(
         self.type = None
 
         self._macros = None
+        self._metadata_sql = None
         self.write_telemetry = DatabaseWriteTelemetry()
         self.dirty_records_queue = ObservedDirtyRecordsQueue(telemetry=self.write_telemetry)
         self._maintainer_callback_proxy = None
@@ -221,6 +223,25 @@ class Database(
         """
         assert new_macros is not None, "Need to set macros to something that exists"
         self._macros = new_macros
+
+    @property
+    def metadata_sql(self):
+        """
+        Return metadata-aware SQL helpers for the database.
+
+        :return:
+        """
+        return self._metadata_sql
+
+    def set_metadata_sql(self, new_metadata_sql) -> None:
+        """
+        Set the metadata-aware SQL helper class for the database.
+
+        :param new_metadata_sql:
+        :return:
+        """
+        assert new_metadata_sql is not None, "Need to set metadata_sql to something that exists"
+        self._metadata_sql = new_metadata_sql
 
     def existing_driver_init(
         self,
@@ -405,6 +426,7 @@ class Database(
         self.driver_wrapper.db = self
         self.driver.db = self
         self.macros.db = self
+        self.metadata_sql.db = self
 
     def bootstrap_storage_manager(
         self,
@@ -478,6 +500,7 @@ class Database(
         # The wrapper is coupled to the driver and provides a locking connection.
         self._driver_wrapper = DriverWrapper(self._driver)
         self.set_macros(self._driver.macros)
+        self.set_metadata_sql(MetadataSQL(self))
 
         # Convenience lock handle
         try:
@@ -646,6 +669,7 @@ class Database(
             "_driver_wrapper",
             "_driver",
             "_macros",
+            "_metadata_sql",
             "maintenance",
             "maintainer",
             "write_telemetry",

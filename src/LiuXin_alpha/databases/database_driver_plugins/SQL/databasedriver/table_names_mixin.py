@@ -49,7 +49,7 @@ class TableNamesMixin:
         try:
             test_name = force_unicode(test_name)
         except UnicodeDecodeError:
-            err_str = "Attempt to validate_existing_table_name has failed. Could not coerce test_name to unicode."
+            err_str = "Attempt to direct_validate_existing_table_name has failed. Could not coerce test_name to unicode."
             err_str += "test_name: " + repr(test_name) + "\n"
             raise InputIntegrityError(err_str)
 

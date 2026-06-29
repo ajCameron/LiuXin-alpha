@@ -75,20 +75,6 @@ class DriverNamesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def _get_id_column(
-            self,
-            table: str,
-            tables_and_columns: Optional[dict[str, Iterable[str]]] = None) -> None:
-        """
-        Get the id column for a given table.
-
-        :param table:
-        :param tables_and_columns:
-        :return:
-        """
-
-
-    @abc.abstractmethod
     def direct_get_id_column(
             self,
             table: str,
@@ -167,16 +153,6 @@ class DriverNamesMixinAPI(abc.ABC):
         :param target_table:
         :return:
         """
-
-    @abc.abstractmethod
-    def validate_existing_table_name(self, test_name: str) -> bool:
-        """
-        Check that the given test name is a valid table name of the table.
-
-        :param test_name:
-        :return:
-        """
-
 
     @staticmethod
     @abc.abstractmethod

@@ -15,10 +15,16 @@ from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin.cc_management_macros import (
     CustomColumnsManagementMacrosMixin)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin.cc_ensure_values_mixin import (
+    CustomColumnsEnsureValueMacrosMixin,
+)
 
 
 
-class SQLiteDatabaseCustomColumnMacros(CustomColumnsManagementMacrosMixin):
+class SQLiteDatabaseCustomColumnMacros(
+    CustomColumnsEnsureValueMacrosMixin,
+    CustomColumnsManagementMacrosMixin,
+):
     """
     Macros affecting only custom columns.
 
@@ -833,10 +839,10 @@ class SQLiteDatabaseCustomColumnMacros(CustomColumnsManagementMacrosMixin):
                 statements.append(st.format(lt=lt, table=table, table_col=table_col, lt_col=lt_col))
         if statements:
             if conn is None:
-                self.db.driver.conn.direct_execute_sql_script(" \n".join(statements))
+                self.db.driver.conn.executescript(" \n".join(statements))
                 self.db.driver.conn.commit()
             else:
-                conn.direct_execute_sql_script(" \n".join(statements))
+                conn.executescript(" \n".join(statements))
                 conn.commit()
 
     #

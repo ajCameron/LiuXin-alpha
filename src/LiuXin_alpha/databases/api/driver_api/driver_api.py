@@ -347,7 +347,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def identify_table_from_column(
+    def direct_identify_table_from_column(
             self,
             column_heading: str,
             headings_and_columns: Optional[dict[str, set[str]]] = None,
@@ -362,7 +362,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def identify_table_from_row(self, row_dict: dict[str, Any]) -> str:
+    def direct_identify_table_from_row(self, row_dict: dict[str, Any]) -> str:
         """
         Take a row dict and identify a table from it.
 

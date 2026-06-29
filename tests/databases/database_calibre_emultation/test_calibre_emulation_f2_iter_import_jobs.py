@@ -16,7 +16,7 @@ def test_iter_import_jobs_full_for_clean_books(provision_populated_calibre_libra
         cover_bytes=b"\xff\xd8\xff\xd9",
     )
 
-    from LiuXin_alpha.databases.calibre_emulation import iter_import_jobs
+    from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import iter_import_jobs
 
     it = iter_import_jobs(lib.root)
     job = next(it)
@@ -41,7 +41,7 @@ def test_iter_import_jobs_metadata_only_when_book_folder_missing(provision_popul
     # Simulate a common real-world drift case: DB exists but folders were not copied.
     shutil.rmtree(added.folder_path)
 
-    from LiuXin_alpha.databases.calibre_emulation import iter_import_jobs
+    from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import iter_import_jobs
 
     job = next(iter_import_jobs(lib.root))
 
@@ -67,7 +67,7 @@ def test_iter_import_jobs_full_when_one_of_multiple_formats_missing(provision_po
     pdf_path = added.formats["PDF"].file_path
     pdf_path.unlink()
 
-    from LiuXin_alpha.databases.calibre_emulation import iter_import_jobs
+    from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import iter_import_jobs
 
     job = next(iter_import_jobs(lib.root))
     assert job.action == "full"
@@ -96,7 +96,7 @@ def test_iter_import_jobs_metadata_only_on_unsafe_book_path(provision_populated_
     finally:
         conn.close()
 
-    from LiuXin_alpha.databases.calibre_emulation import iter_import_jobs
+    from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import iter_import_jobs
 
     job = next(iter_import_jobs(lib.root, strict_paths=False))
     assert job.action == "metadata_only"

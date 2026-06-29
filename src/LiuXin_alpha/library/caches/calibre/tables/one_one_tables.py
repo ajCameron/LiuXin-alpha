@@ -321,11 +321,11 @@ class CalibreSizeTable(CalibreOneToOneTable, BaseSizeTable):
         :return:
         """
         if self.size_mode == "sum":
-            query = db.macros.read_book_sizes_sum_mode()
+            query = db.metadata_sql.read_book_sizes_sum_mode()
         elif self.size_mode == "max":
-            query = db.macros.read_book_sizes_max_mode()
+            query = db.metadata_sql.read_book_sizes_max_mode()
         elif self.size_mode == "min":
-            query = db.macros.read_book_sizes_min_mode()
+            query = db.metadata_sql.read_book_sizes_min_mode()
         else:
             raise NotImplementedError("Given size mode is not supported")
 
@@ -481,7 +481,7 @@ class CalibreCoversTable(CalibreOneToOneTable, BaseCoversTable):
             book_id,
             cover_id,
             cover_name,
-        ) in db.macros.read_book_id_with_cover_id_and_cover_nmame():
+        ) in db.metadata_sql.read_book_id_with_cover_id_and_cover_nmame():
             # Record the name for the file type
             cname_map[book_id][cover_id] = cover_name
 

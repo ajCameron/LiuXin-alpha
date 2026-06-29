@@ -1,4 +1,4 @@
-"""Storage/mutation policy API contracts for the catalog layer."""
+"""Mutation policy API contracts for the catalog layer."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from .mutation_policy import MutationPolicyAPI
 
 
 @runtime_checkable
-class CatalogStorageAPI(Protocol):
+class CatalogMutationsAPI(Protocol):
     """Grouped mutation API exposed by the catalog facade."""
 
     writer: MetadataWriterAPI
     policy: MutationPolicyAPI
 
 
-__all__ = ["CatalogStorageAPI", "MetadataWriterAPI", "MutationPolicyAPI"]
+__all__ = ["CatalogMutationsAPI", "MetadataWriterAPI", "MutationPolicyAPI"]

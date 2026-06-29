@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
-# Todo: Clearly in the catalog
 class BooksMacrosMixin:
     """
     Methods to deal with books.

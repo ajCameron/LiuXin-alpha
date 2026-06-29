@@ -51,7 +51,7 @@ class LanguagesWriter(BaseWriter):
             if isinstance(lang_code, six_string_types):
 
                 # Scrub any primary languages from the languages table - if they exist
-                db.macros.break_lang_title_links(book_id, link_type="primary")
+                db.metadata_sql.break_lang_title_links(book_id, link_type="primary")
 
                 title_row = db.get_row_from_id("titles", row_id=book_id)
                 # Todo: ensure.language is being called at least three times in this module - does it need to be?
@@ -62,7 +62,7 @@ class LanguagesWriter(BaseWriter):
             elif isinstance(lang_code, dict):
 
                 # Scrub all language_title links for the given id from the database - the ones in use will be recreated
-                db.macros.break_lang_title_links(book_id)
+                db.metadata_sql.break_lang_title_links(book_id)
 
                 # Going to need the title row to link language rows to it
                 title_row = db.get_row_from_id("titles", row_id=book_id)

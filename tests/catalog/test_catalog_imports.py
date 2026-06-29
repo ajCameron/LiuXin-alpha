@@ -1,7 +1,7 @@
 """Smoke tests for the catalog API skeleton."""
 
 from LiuXin_alpha.catalog import Catalog
-from LiuXin_alpha.catalog.api import CatalogAPI, IdentifierCandidate, MetadataCandidate
+from LiuXin_alpha.catalog.api import CatalogAPI, CatalogMutationsAPI, IdentifierCandidate, MetadataCandidate
 
 
 class DummyDatabase:
@@ -14,7 +14,9 @@ def test_catalog_facade_imports_and_instantiates() -> None:
     assert catalog.agents is catalog.repositories.agents
     assert catalog.matching.works is not None
     assert catalog.retrieval.bundles is not None
-    assert catalog.storage.policy is not None
+    assert catalog.mutations.policy is not None
+    assert catalog.mutations.writer is not None
+    assert not hasattr(catalog, "storage")
 
 
 def test_api_dataclasses_are_lightweight() -> None:
@@ -27,3 +29,4 @@ def test_api_dataclasses_are_lightweight() -> None:
 def test_catalog_matches_protocol_shape() -> None:
     catalog = Catalog(DummyDatabase())
     assert isinstance(catalog, CatalogAPI)
+    assert isinstance(catalog.mutations, CatalogMutationsAPI)

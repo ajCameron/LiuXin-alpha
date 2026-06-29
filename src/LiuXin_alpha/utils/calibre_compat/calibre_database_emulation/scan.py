@@ -1,4 +1,5 @@
-"""Bulk ingestion helpers (Stage F1).
+"""
+Bulk ingestion helpers.
 
 These helpers sit *above* the DB/sidecar readers and are designed to:
 
@@ -10,15 +11,17 @@ The output is intentionally JSON-friendly (via :meth:`to_dict`) so callers can
 store scan reports alongside ingestion logs.
 """
 
+# Todo: This should probably all be over in utils
+
 from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple
+from typing import Any, Iterator, List, Mapping, Optional, Tuple, TYPE_CHECKING
 
-from .opf_sidecar import CalibreSidecarReader
-from .readers import CalibreReader
-from .types import (
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.opf_sidecar import CalibreSidecarReader
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.readers import CalibreReader
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.types import (
     CalibreDriftEvent,
     CalibreDriftSummary,
     CalibreImportJob,
@@ -29,16 +32,26 @@ from .types import (
     CalibreSchemaInfo,
 )
 
+if TYPE_CHECKING:
+    from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.types import CalibreBookNormalized
+
 
 def _trim_payload_for_metadata_only(
     payload,
     *,
     keep_cover_path: bool = False,
     keep_formats: bool = False,
-):
-    """Return a copy of a CalibreBookNormalized with heavy/IO-ish fields stripped."""
+) -> "CalibreBookNormalized":
+    """
+    Return a copy of a CalibreBookNormalized with heavy/IO-ish fields stripped.
 
-    from .types import CalibreBookNormalized
+    :param payload:
+    :param keep_cover_path:
+    :param keep_formats:
+    :return:
+    """
+
+    from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.types import CalibreBookNormalized
 
     if not isinstance(payload, CalibreBookNormalized):
         return payload
@@ -70,10 +83,21 @@ def scan_calibre_library(
     sample_drift_events: int = 10,
     sample_books: int = 5,
     max_books: Optional[int] = None,
-) -> CalibreScanReport:
-    """Scan a Calibre library root and return an aggregate report.
+) -> "CalibreScanReport":
+    """
+    Scan a Calibre library root and return an aggregate report.
 
     If ``metadata.db`` is missing, this falls back to OPF sidecar scanning.
+
+    :param library_root:
+    :param best_effort:
+    :param filesystem_reconcile:
+    :param include_orphan_formats:
+    :param strict_paths:
+    :param sample_drift_events:
+    :param sample_books:
+    :param max_books:
+    :return:
     """
 
     root = Path(library_root)
@@ -200,8 +224,9 @@ def iter_import_jobs(
     strict_paths: bool = False,
     batch_size: int = 500,
     max_books: Optional[int] = None,
-) -> Iterator[CalibreImportJob]:
-    """Yield streaming import jobs for a Calibre library.
+) -> Iterator["CalibreImportJob"]:
+    """
+    Yield streaming import jobs for a Calibre library.
 
     This is designed for bulk ingestion pipelines:
 
@@ -211,6 +236,16 @@ def iter_import_jobs(
     * never loads file bytes; it only yields paths
 
     If ``metadata.db`` is missing, falls back to OPF sidecar mode.
+
+    :param library_root:
+    :param policy:
+    :param best_effort:
+    :param filesystem_reconcile:
+    :param include_orphan_formats:
+    :param strict_paths:
+    :param batch_size:
+    :param max_books:
+    :return:
     """
 
     root = Path(library_root)

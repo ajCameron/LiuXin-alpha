@@ -1,4 +1,5 @@
-"""Stage A3: streaming readers for existing Calibre libraries.
+"""
+Stage A3: streaming readers for existing Calibre libraries.
 
 This module builds on CalibreDB (Stage A2) to stream book payloads suitable
 for ingestion, without loading the entire library into RAM.
@@ -13,17 +14,16 @@ Design goals:
 from __future__ import annotations
 
 from dataclasses import dataclass
-import io
 import json
 from pathlib import Path
 import os
 import sqlite3
 from datetime import datetime, timezone
-from typing import Any, Dict, IO, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, IO, Iterator, List, Mapping, Sequence, Tuple, Optional
 
-from .db import CalibreDB
-from .errors import CalibreSchemaError, CalibreUnsafePathError
-from .types import (
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.db import CalibreDB
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.errors import CalibreSchemaError, CalibreUnsafePathError
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.types import (
     CalibreBookNormalized,
     CalibreCustomColumnDef,
     CalibreFormatRef,
@@ -33,6 +33,13 @@ from .types import (
 
 
 def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
+    """
+    Check a table with the given name exists on the given connection.
+
+    :param conn:
+    :param table_name:
+    :return:
+    """
     row = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
         (table_name,),
@@ -41,6 +48,13 @@ def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
 
 
 def _table_columns(conn: sqlite3.Connection, table_name: str) -> Tuple[str, ...]:
+    """
+    Get the column headings for the given table.
+
+    :param conn:
+    :param table_name:
+    :return:
+    """
     rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
     # pragma table_info: cid, name, type, notnull, dflt_value, pk
     cols = []
@@ -53,12 +67,21 @@ def _table_columns(conn: sqlite3.Connection, table_name: str) -> Tuple[str, ...]
 
 
 def _pick_column(cols: Sequence[str], *, candidates: Sequence[str], fallback: Optional[str] = None) -> str:
+    """
+    Choose a column.
+
+    :param cols:
+    :param candidates:
+    :param fallback:
+    :return:
+    """
     s = {c.lower(): c for c in cols}
     for cand in candidates:
         if cand.lower() in s:
             return s[cand.lower()]
     if fallback is not None:
         return fallback
+
     # Last resort: pick the first non-id column if available, otherwise first column.
     for c in cols:
         if c.lower() not in {"id"}:
@@ -66,8 +89,15 @@ def _pick_column(cols: Sequence[str], *, candidates: Sequence[str], fallback: Op
     return cols[0] if cols else ""
 
 
-def _row_get(row: Any, key: str, default: Any = None) -> Any:
-    """Best-effort mapping access for sqlite3.Row / dict-like objects."""
+def _row_get(row: Any, key: str, default: Any = None) -> Optional[Any]:
+    """
+    Best-effort mapping access for sqlite3.Row / dict-like objects.
+
+    :param row:
+    :param key:
+    :param default:
+    :return:
+    """
     if row is None:
         return default
     try:
@@ -75,6 +105,7 @@ def _row_get(row: Any, key: str, default: Any = None) -> Any:
             return row.get(key, default)
     except Exception:
         pass
+
     try:
         return row[key]
     except Exception:
@@ -87,6 +118,14 @@ def _iter_book_id_batches(
     book_id_col: str,
     batch_size: int,
 ) -> Iterator[List[int]]:
+    """
+    Iterate over batches of ids.
+
+    :param conn:
+    :param book_id_col:
+    :param batch_size:
+    :return:
+    """
     last_id = 0
     while True:
         rows = conn.execute(
@@ -101,21 +140,37 @@ def _iter_book_id_batches(
 
 
 def _qmarks(n: int) -> str:
+    """
+    Get a string of n question marks.
+
+    :param n:
+    :return:
+    """
     return ",".join(["?"] * int(n))
 
 
 def _as_rel_path(p: Any) -> str:
+    """
+    Path to a relative path.
+
+    :param p:
+    :return:
+    """
     if p is None:
         return ""
     return str(p).lstrip("/").lstrip("\\")
 
 
 def _split_rel_parts(p: Any) -> Tuple[str, ...]:
-    """Split a Calibre-stored relative path into safe path parts.
+    """
+    Split a Calibre-stored relative path into safe path parts.
 
     Calibre typically stores paths like ``Author/Title (id)``. When ingesting
     arbitrary libraries, however, we should defend against attempts to escape
     the library root (e.g. via ``..``) or to smuggle absolute paths.
+
+    :param p:
+    :return:
     """
     s = _as_rel_path(p)
     # Normalize Windows-style separators that may appear in DBs created on Windows.
@@ -134,7 +189,13 @@ def _split_rel_parts(p: Any) -> Tuple[str, ...]:
 
 
 def _safe_join_under_root(library_root: Path, rel_path: Any) -> Path:
-    """Resolve a relative path under root and ensure it stays inside root."""
+    """
+    Resolve a relative path under root and ensure it stays inside root.
+
+    :param library_root: Root of the library
+    :param rel_path: Relative path to try and join to the library path.
+    :return:
+    """
     root = library_root.resolve()
     parts = _split_rel_parts(rel_path)
     if parts and parts[0] == "..":
@@ -151,19 +212,30 @@ def _safe_join_under_root(library_root: Path, rel_path: Any) -> Path:
 
 
 def _sanitize_filename(name: Any) -> str:
-    """Return a basename-like filename (no path separators)."""
+    """
+    Return a basename-like filename (no path separators).
+
+    :param name:
+    :return:
+    """
     if name is None:
         return ""
     s = str(name).replace("\x00", "")
+
     # Protect against odd DB values like "../foo" or "a/b".
     s = s.replace("\\", "/")
     return os.path.basename(s)
 
 
 def _ensure_path_under_root(library_root: Path, p: Path) -> Path:
-    """Ensure an absolute path is within the library root.
+    """
+    Ensure an absolute path is within the library root.
 
     This is used by file open helpers as a last line of defense.
+
+    :param library_root:
+    :param p:
+    :return:
     """
     root = library_root.resolve()
     rp = p.resolve()
@@ -175,15 +247,35 @@ def _ensure_path_under_root(library_root: Path, p: Path) -> Path:
 
 
 def _resolve_book_dir(library_root: Path, books_path: Any) -> Path:
+    """
+    Resolve a book dir to an actual path.
+
+    :param library_root:
+    :param books_path:
+    :return:
+    """
     return _safe_join_under_root(library_root, books_path)
 
 
 def _resolve_cover_path(book_dir: Path) -> Path:
-    # Calibre convention: cover.jpg
+    """
+    Calibre convention: cover.jpg
+
+    :param book_dir:
+    :return:
+    """
     return book_dir / "cover.jpg"
 
 
 def _resolve_format_path(book_dir: Path, *, base_name: str, fmt: str) -> Path:
+    """
+    Resolve a path to a format.
+
+    :param book_dir:
+    :param base_name:
+    :param fmt:
+    :return:
+    """
     fmt_clean = (fmt or "").strip()
     ext = fmt_clean.lower()
     if not ext:
@@ -220,7 +312,12 @@ _SIDECAR_FILENAMES = {
 
 
 def _list_book_files(book_dir: Path) -> Tuple[Path, ...]:
-    """List immediate files in a Calibre book directory (non-recursive)."""
+    """
+    List immediate files in a Calibre book directory (non-recursive).
+
+    :param book_dir:
+    :return:
+    """
     try:
         return tuple(sorted((p for p in book_dir.iterdir() if p.is_file()), key=lambda x: x.name.lower()))
     except Exception:
@@ -228,6 +325,12 @@ def _list_book_files(book_dir: Path) -> Tuple[Path, ...]:
 
 
 def _is_sidecar_file(p: Path) -> bool:
+    """
+    Checks to see if a file is a sidecar file.
+
+    :param p:
+    :return:
+    """
     n = p.name.lower()
     if n in _SIDECAR_FILENAMES:
         return True
@@ -239,6 +342,12 @@ def _is_sidecar_file(p: Path) -> bool:
 
 
 def _files_by_ext(files: Sequence[Path]) -> Dict[str, List[Path]]:
+    """
+    Dict of files keyed by extension and valued with a list of those files.
+
+    :param files:
+    :return:
+    """
     out: Dict[str, List[Path]] = {}
     for p in files:
         ext = p.suffix[1:].lower() if p.suffix else ""
@@ -249,6 +358,12 @@ def _files_by_ext(files: Sequence[Path]) -> Dict[str, List[Path]]:
 
 
 def _pick_newest(paths: Sequence[Path]) -> Optional[Path]:
+    """
+    Select the newest path out of a sequence of paths.
+
+    :param paths:
+    :return:
+    """
     best: Optional[Path] = None
     best_m = -1
     for p in paths:
@@ -263,11 +378,15 @@ def _pick_newest(paths: Sequence[Path]) -> Optional[Path]:
 
 
 def _dedupe_preserve_order(values: Sequence[Any]) -> List[Any]:
-    """Deduplicate values while preserving order (best-effort).
+    """
+    Deduplicate values while preserving order (best-effort).
 
     Real Calibre schemas enforce uniqueness for most custom-column link tables,
     but mangled DBs can contain duplicates. Deduping avoids surprising importer
     behavior while keeping the output stable.
+
+    :param values:
+    :return:
     """
 
     out: List[Any] = []
@@ -288,6 +407,12 @@ def _dedupe_preserve_order(values: Sequence[Any]) -> List[Any]:
 
 
 def _coerce_int(v: Any) -> Optional[int]:
+    """
+    Force a value to an int.
+
+    :param v:
+    :return:
+    """
     if v is None:
         return None
     try:
@@ -300,6 +425,12 @@ def _coerce_int(v: Any) -> Optional[int]:
 
 
 def _coerce_float(v: Any) -> Optional[float]:
+    """
+    Force a value to a float.
+
+    :param v:
+    :return:
+    """
     if v is None:
         return None
     try:
@@ -312,6 +443,12 @@ def _coerce_float(v: Any) -> Optional[float]:
 
 
 def _coerce_bool(v: Any) -> bool:
+    """
+    Force a value to a bool.
+
+    :param v:
+    :return:
+    """
     if v is None:
         return False
     if isinstance(v, bool):
@@ -328,10 +465,14 @@ def _coerce_bool(v: Any) -> bool:
 
 
 def _normalize_datetime(v: Any) -> Optional[str]:
-    """Normalize a Calibre datetime-ish value to an ISO8601 string.
+    """
+    Normalize a Calibre datetime-ish value to an ISO8601 string.
 
     Calibre typically stores datetimes as TEXT in sqlite (often ISO-like), but
     in the wild you may see numeric epochs or legacy string formats.
+
+    :param v:
+    :return:
     """
 
     if v is None:
@@ -377,6 +518,14 @@ def _normalize_datetime(v: Any) -> Optional[str]:
 
 
 def _coerce_custom_item(datatype: str, val: Any, extra: Any) -> Any:
+    """
+    Coerce the custom value for an object.
+
+    :param datatype:
+    :param val:
+    :param extra:
+    :return:
+    """
     dt = (datatype or "").strip().lower()
     if dt == "series":
         idx = _coerce_float(extra)
@@ -398,15 +547,21 @@ def _coerce_custom_item(datatype: str, val: Any, extra: Any) -> Any:
         return _coerce_bool(val)
     if dt == "datetime":
         return _normalize_datetime(val)
+
     # comments/enumeration/composite/text fall back to strings.
     return None if val is None else str(val)
 
 
 def _case_insensitive_resolve_dir(root: Path, rel_parts: Sequence[str]) -> Optional[Path]:
-    """Resolve a directory under root by casefolding each path component.
+    """
+    Resolve a directory under root by casefolding each path component.
 
     Useful when ingesting a library created on a case-insensitive filesystem
     but imported onto a case-sensitive one.
+
+    :param root:
+    :param rel_parts:
+    :return:
     """
     cur = Path(root)
     for part in rel_parts:
@@ -424,6 +579,12 @@ def _case_insensitive_resolve_dir(root: Path, rel_parts: Sequence[str]) -> Optio
 
 
 def _safe_getsize(p: Path) -> Optional[int]:
+    """
+    Safely get the size of an object.
+
+    :param p:
+    :return:
+    """
     try:
         return int(p.stat().st_size)
     except Exception:
@@ -431,7 +592,13 @@ def _safe_getsize(p: Path) -> Optional[int]:
 
 
 def _ensure_under_root(library_root: Path, candidate: Path) -> Path:
-    """Ensure an absolute candidate path is inside the library root."""
+    """
+    Ensure an absolute candidate path is inside the library root.
+
+    :param library_root:
+    :param candidate:
+    :return:
+    """
     root = library_root.resolve()
     c = candidate.resolve()
     try:
@@ -449,15 +616,34 @@ class CalibreReader:
 
     @classmethod
     def from_root(cls, library_root: str | Path, *, read_only: bool = True, timeout_ms: int = 5_000) -> "CalibreReader":
+        """
+        Construct the reader from a library root.
+
+        :param library_root:
+        :param read_only:
+        :param timeout_ms:
+        :return:
+        """
         return cls(db=CalibreDB.from_root(library_root, read_only=read_only, timeout_ms=timeout_ms))
 
 
     def schema_info(self, **kwargs):
-        """Convenience pass-through to :meth:`CalibreDB.schema_info`."""
+        """
+        Convenience pass-through to :meth:`CalibreDB.schema_info`.
+
+        :param kwargs:
+        :return:
+        """
         return self.db.schema_info(**kwargs)
 
     def custom_columns(self, *, best_effort: bool = True) -> Tuple[CalibreCustomColumnDef, ...]:
-        """Return custom column definitions (best-effort by default)."""
+        """
+        Return custom column definitions (best-effort by default).
+
+        Doing our best to pull as much info out the library as possible.
+        :param best_effort:
+        :return:
+        """
         info = self.db.schema_info(
             include_custom_columns=True,
             include_tables=True,
@@ -469,10 +655,15 @@ class CalibreReader:
         return tuple(info.custom_columns)
 
     def read_custom_values(self, book_id: int, *, best_effort: bool = True) -> Dict[str, Any]:
-        """Read custom values for a single book id.
+        """
+        Read custom values for a single book id.
 
         This is a convenience wrapper around the internal batch reader used by
         :meth:`iter_book_payloads`.
+
+        :param book_id:
+        :param best_effort:
+        :return:
         """
 
         conn = self.db.connect()
@@ -504,18 +695,26 @@ class CalibreReader:
     # ----------------------------
 
     def open_cover(self, cover_path: Path) -> IO[bytes]:
-        """Open a cover file for streaming reads.
+        """
+        Open a cover file for streaming reads.
 
         Guardrail: refuses to open paths outside the library root.
+
+        :param cover_path:
+        :return:
         """
         root = Path(self.db.paths.library_root)
         safe = _ensure_path_under_root(root, Path(cover_path))
         return open(safe, "rb")
 
     def open_format(self, fmt: CalibreFormatRef) -> IO[bytes]:
-        """Open a format file for streaming reads.
+        """
+        Open a format file for streaming reads.
 
         Guardrail: refuses to open paths outside the library root.
+
+        :param fmt:
+        :return:
         """
         root = Path(self.db.paths.library_root)
         safe = _ensure_path_under_root(root, Path(fmt.file_path))
@@ -523,7 +722,13 @@ class CalibreReader:
 
     @staticmethod
     def iter_file_chunks(fh: IO[bytes], *, chunk_size: int = 1024 * 1024) -> Iterator[bytes]:
-        """Yield bytes from an already-open file handle."""
+        """
+        Yield bytes from an already-open file handle.
+
+        :param fh:
+        :param chunk_size:
+        :return:
+        """
         while True:
             chunk = fh.read(int(chunk_size))
             if not chunk:
@@ -543,8 +748,22 @@ class CalibreReader:
         include_orphan_formats: bool = False,
         strict_paths: bool = False,
         best_effort: bool = True,
-    ) -> Iterator[CalibreBookNormalized]:
-        """Stream CalibreBookNormalized payloads for ingestion."""
+    ) -> Iterator["CalibreBookNormalized"]:
+        """
+        Stream CalibreBookNormalized payloads for ingestion.
+
+        :param batch_size:
+        :param include_custom_values:
+        :param include_formats:
+        :param include_cover_path:
+        :param include_files:
+        :param include_covers:
+        :param filesystem_reconcile:
+        :param include_orphan_formats:
+        :param strict_paths:
+        :param best_effort:
+        :return:
+        """
         # Back-compat aliases
         if include_files is not None:
             include_formats = bool(include_files)
@@ -994,6 +1213,13 @@ class CalibreReader:
 
     @staticmethod
     def _read_authors_for_books(conn: sqlite3.Connection, book_ids: Sequence[int]) -> Dict[int, Tuple[str, ...]]:
+        """
+        Read authors for a sequence of book ids.
+
+        :param conn:
+        :param book_ids:
+        :return:
+        """
         q = _qmarks(len(book_ids))
         rows = conn.execute(
             f"""
@@ -1014,6 +1240,13 @@ class CalibreReader:
 
     @staticmethod
     def _read_tags_for_books(conn: sqlite3.Connection, book_ids: Sequence[int]) -> Dict[int, Tuple[str, ...]]:
+        """
+        Read all the tags for a sequence of books.
+
+        :param conn:
+        :param book_ids:
+        :return:
+        """
         q = _qmarks(len(book_ids))
         rows = conn.execute(
             f"""
@@ -1034,8 +1267,17 @@ class CalibreReader:
 
     @staticmethod
     def _read_languages_for_books(
-        conn: sqlite3.Connection, book_ids: Sequence[int], *, languages_code_col: str
+            conn: sqlite3.Connection,
+            book_ids: Sequence[int], *, languages_code_col: str
     ) -> Dict[int, Tuple[str, ...]]:
+        """
+        Read all the languages for a sequence of books.
+
+        :param conn:
+        :param book_ids:
+        :param languages_code_col:
+        :return:
+        """
         q = _qmarks(len(book_ids))
         # books_languages_link columns: book, lang_code (FK -> languages.id)
         rows = conn.execute(
@@ -1063,6 +1305,15 @@ class CalibreReader:
         ident_type_col: str,
         ident_val_col: str,
     ) -> Dict[int, Dict[str, str]]:
+        """
+        Read the identifiers for a sequence of books.
+
+        :param conn:
+        :param book_ids:
+        :param ident_type_col:
+        :param ident_val_col:
+        :return:
+        """
         if not _table_exists(conn, "identifiers"):
             return {}
         q = _qmarks(len(book_ids))
@@ -1092,6 +1343,15 @@ class CalibreReader:
         by_id: Mapping[int, sqlite3.Row],
         series_index_col: Optional[str] = "series_index",
     ) -> Dict[int, Optional[CalibreSeriesRef]]:
+        """
+        Read all the series and indicies for the given sequence of books.
+
+        :param conn:
+        :param book_ids:
+        :param by_id:
+        :param series_index_col:
+        :return:
+        """
         q = _qmarks(len(book_ids))
         if not (_table_exists(conn, "books_series_link") and _table_exists(conn, "series")):
             return {}
@@ -1126,6 +1386,14 @@ class CalibreReader:
         *,
         comments_text_col: str,
     ) -> Dict[int, str]:
+        """
+        Read all the comments for a given sequence of books.
+
+        :param conn:
+        :param book_ids:
+        :param comments_text_col:
+        :return:
+        """
         q = _qmarks(len(book_ids))
         rows = conn.execute(
             f"SELECT book, {comments_text_col} FROM comments WHERE book IN ({q})",
@@ -1153,6 +1421,20 @@ class CalibreReader:
         data_size_col: str,
         strict_paths: bool,
     ) -> Tuple[Dict[int, Tuple[CalibreFormatRef, ...]], set[int]]:
+        """
+        Read all the formats for a given sequence of books.
+
+        :param conn:
+        :param book_ids:
+        :param by_id:
+        :param books_path_col:
+        :param library_root:
+        :param data_format_col:
+        :param data_name_col:
+        :param data_size_col:
+        :param strict_paths:
+        :return:
+        """
         q = _qmarks(len(book_ids))
         rows = conn.execute(
             f"""
@@ -1203,6 +1485,14 @@ class CalibreReader:
         book_ids: Sequence[int],
         custom_defs: Sequence[CalibreCustomColumnDef],
     ) -> Dict[int, Dict[str, Any]]:
+        """
+        Read the custom values for books.
+
+        :param conn:
+        :param book_ids:
+        :param custom_defs:
+        :return:
+        """
         out: Dict[int, Dict[str, Any]] = {}
 
         for cd in custom_defs:

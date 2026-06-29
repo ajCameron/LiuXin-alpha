@@ -1,10 +1,14 @@
 
 """
-
+Methods to handle interlink rows.
 """
+
+from __future__ import annotations
 
 from copy import deepcopy
 from numbers import Number
+
+from typing import TYPE_CHECKING, Optional, Union, Any, Optional, Literal, Iterable
 
 from LiuXin_alpha.databases.row import Row
 
@@ -13,6 +17,11 @@ from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.utils.logging import default_log
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI, IntralinkRowAPI
 
 
 class DatabaseInterlinkRowsMixin:
@@ -23,11 +32,18 @@ class DatabaseInterlinkRowsMixin:
     # ----------------------------------------------------------------------------------------------------------------------
     #
     # - METHODS TO READ INTERLINK TABLES START HERE
-
-    def get_interlink_row(self, primary_row, secondary_row, onelink=True):
+    # Todo: We can have multiple links with different types...
+    # Todo: Givne the existence of onlink, we eprobably want two different methods ... for typing
+    def get_interlink_row(
+            self: "DatabaseAPI",
+            primary_row: "RowAPI",
+            secondary_row: "RowAPI",
+            onelink: bool = True) -> Optional[Union["RowAPI", list["RowAPI"]]]:
         """
-        Get the row connecting the primary_row and the secondary row. Errors if there is more than one. Returns None if
-        there is less than one.
+        Get the row connecting the primary_row and the secondary row.
+
+        Errors if there is more than one.
+        Returns None if there is less than one.
         If the tables can't be linked, errors.
         :param primary_row:
         :param secondary_row:
@@ -97,9 +113,13 @@ class DatabaseInterlinkRowsMixin:
             else:
                 return candidate_rows
 
-    def get_interlink_rows(self, primary_row, secondary_table):
+    def get_interlink_rows(
+            self: "DatabaseAPI" ,
+            primary_row: "RowAPI",
+            secondary_table: str) -> list["RowAPI"]:
         """
         Get all the interlink rows connecting the primary row and any row in the secondary table.
+
         :param primary_row:
         :param secondary_table:
         :return:
@@ -139,9 +159,16 @@ class DatabaseInterlinkRowsMixin:
             link_rows = sorted(link_rows, key=lambda x: x[priority_col])
         return link_rows
 
-    def get_interlinked_rows(self, target_row=None, secondary_table=None, type_filter=None, **kwargs):
+    def get_interlinked_rows(
+            self: "DatabaseAPI",
+            target_row: Optional["RowAPI"] = None,
+            secondary_table: Optional[str] = None,
+            type_filter: Optional[str] = None,
+            **kwargs: Any) -> list["RowAPI"]:
         """
-        Takes a row and the name of another table. Finds all the rows in the second table linked to the given row.
+        Takes a row and the name of another table.
+
+        Finds all the rows in the second table linked to the given row.
         Returns them as an index ordered by their priority.
         :param target_row:
         :param secondary_table:
@@ -229,11 +256,15 @@ class DatabaseInterlinkRowsMixin:
             secondary_rows = [self.get_row_from_id(table=secondary_table, row_id=r_id) for r_id in secondary_ids]
             return secondary_rows
 
-    def get_interlink_values(self, target_row, secondary_column):
+    def get_interlink_values(
+            self: "DatabaseAPI",
+            target_row: "RowAPI",
+            secondary_column: str) -> set[Any]:
         """
         Takes a row and a column - in a table linked to the row.
 
-        Returns a set of every value of that column in a row linked to the given target row - for example, searching with a title_row "creator" yields every creator linked
+        Returns a set of every value of that column in a row linked to the given target row -
+        for example, searching with a title_row "creator" yields every creator linked
         to that target row.
         :param target_row:
         :param secondary_column:
@@ -249,10 +280,17 @@ class DatabaseInterlinkRowsMixin:
     #
     # - METHODS TO WRITE TO INTERLINK TABLES START HERE
 
-    def _check_for_link_table_priority(self, link_table_name, primary_link_table_name, secondary_link_table_name):
+    def check_for_link_table_priority(
+            self: "DatabaseAPI",
+            link_table_name: str,
+            primary_link_table_name: str,
+            secondary_link_table_name: str) -> bool:
         """
         Check to see if the link table has a priority column.
+
         :param link_table_name:
+        :param primary_link_table_name:
+        :param secondary_link_table_name:
         :return:
         """
         if link_table_name in self._link_has_priority:
@@ -268,10 +306,18 @@ class DatabaseInterlinkRowsMixin:
             return True
 
     # Todo: Remain type to link type
-    def interlink_rows(self, primary_row, secondary_row, priority="highest", type=None, **col_value_pairs):
+    # Todo: Extend with the other permissable link attributes
+    def interlink_rows(
+            self: "DatabaseAPI",
+            primary_row: "RowAPI",
+            secondary_row: "RowAPI",
+            priority: str = "highest",
+            type: Optional[Union[Literal["not-set"], Literal["highest"], Literal["lowest"], Number]] = None,
+            **col_value_pairs: Any) -> "IntralinkRowAPI":
         """
-        Link two rows - col_value_pairs provide a means of adding more information to the link - they can include such
-        things as index and type.
+        Link two rows - col_value_pairs provide a means of adding more information to the link.
+
+        They can include such things as index and type.
         priority accepts integer values, or highest/lowest. This will set the priority to the highest/lowest value in
         that column of the link table. Which is crude, but can be prettified later.
         :param primary_row:
@@ -330,7 +376,7 @@ class DatabaseInterlinkRowsMixin:
         # Process the priority - only numbers can be written into the priority column
         if priority != "not_set":
 
-            if self._check_for_link_table_priority(link_table, primary_row_table, secondary_row_table):
+            if self.check_for_link_table_priority(link_table, primary_row_table, secondary_row_table):
                 priority_col = self.driver_wrapper.get_link_column(primary_row_table, secondary_row_table, "priority")
 
                 # Set the priority of the link if the table has a priority column
@@ -396,7 +442,7 @@ class DatabaseInterlinkRowsMixin:
         # multiple links for the same primary row may collide with UNIQUE(primary_id, priority).
         # In that case, auto-assign the next available priority for this primary (and type, if relevant).
         if priority == "not_set":
-            if self._check_for_link_table_priority(link_table, primary_row_table, secondary_row_table):
+            if self.check_for_link_table_priority(link_table, primary_row_table, secondary_row_table):
                 priority_col = self.driver_wrapper.get_link_column(primary_row_table, secondary_row_table, "priority")
                 if priority_col is not None:
                     blank_default = blank_link_row.get(priority_col, None)
@@ -484,14 +530,15 @@ class DatabaseInterlinkRowsMixin:
 
     def dupe_interlinks(
             self,
-            src_row,
-            dst_row,
-            swap_priorities=False,
-            restrict_to_tables=None,
-            force_priority=None,
+            src_row: "RowAPI",
+            dst_row: "RowAPI",
+            swap_priorities: bool = False,
+            restrict_to_tables: Optional[Iterable[str]]=None,
+            force_priority: Optional[str] = None,
     ):
         """
         Duplicates the interlinks from one row and applied them to another.
+
         The dst row will end up having a higher priority in the links that the src row.
         :param src_row: Interlinks from this row will be applied to the dst_row
         :param dst_row:
@@ -529,9 +576,14 @@ class DatabaseInterlinkRowsMixin:
                 if swap_priorities:
                     self.swap_priorities(src_row=src_linked_row, dst_row_1=src_row, dst_row_2=dst_row)
 
-    def swap_priorities(self, src_row, dst_row_1, dst_row_2):
+    def swap_priorities(
+            self: "DatabaseAPI",
+            src_row: "RowAPI",
+            dst_row_1: "RowAPI",
+            dst_row_2: "RowAPI") -> None:
         """
         Swap the priorities of two rows linked to the same src row.
+
         :param src_row: The row which is linked to dst_row_1 and dst_row_2
         :param dst_row_1:
         :param dst_row_2:
@@ -548,7 +600,7 @@ class DatabaseInterlinkRowsMixin:
         dst_row_1_link[link_priority_column] = dst_row_2_link[link_priority_column]
         dst_row_2_link[link_priority_column] = priority_hold
 
-        # Need this to get around the uniquen constraint
+        # Need this to get around the unique constraint
         dst_row_1_link[link_priority_column] = None
         dst_row_1_link.sync()
 
@@ -557,14 +609,21 @@ class DatabaseInterlinkRowsMixin:
         dst_row_2_link.sync()
 
     # Todo: Need tests for the other col-value pairs
-    def update_interlink(self, primary_row, secondary_row, priority="unchanged", **col_value_pairs):
+    def update_interlink(
+            self: "DatabaseAPI",
+            primary_row: "RowAPI",
+            secondary_row: "RowAPI",
+            priority: Union[Literal["unchanged"], Literal["highest"], Literal["lowest"]] = "unchanged",
+            **col_value_pairs: Any) -> "IntralinkRowAPI":
         """
         Update the link row connecting the primary_row and the secondary_row.
+
         Errors if there is no link to update.
         :param primary_row: The primary row in the link
         :param secondary_row: The secondary row in the link
         :param priority: highest, lowest or unchanged
-        :param col_value_pairs: Pass an other link variables you want updated as keywords
+        :param col_value_pairs: Pass any other link variables you want updated as keywords
+
         :return interlink_row: The updated row, with the updates having been written out to the database
         """
         interlink_row = self.get_interlink_row(primary_row=primary_row, secondary_row=secondary_row)
@@ -620,9 +679,14 @@ class DatabaseInterlinkRowsMixin:
         return interlink_row
 
     # Todo: Test this with both a tuple and list of ids
-    def update_interlink_priority(self, primary_row, secondary_table, ordered_ids):
+    def update_interlink_priority(
+            self: "DatabaseAPI",
+            primary_row: "RowAPI",
+            secondary_table: str,
+            ordered_ids: Union[tuple[int, ...], list[int]]) -> None:
         """
         Re-write the priorities of all the rows in a secondary table that are linked to a primary row.
+
         :param primary_row: All the rows linked to this row from the secondary table will have their priorities updated
         :param secondary_table: All rows, linked to the primary row, in this secondary table will be updated
         :param ordered_ids: The order of the ids - the rows in the secondary table will be re-ordered so they have this
@@ -648,9 +712,10 @@ class DatabaseInterlinkRowsMixin:
     #
     # - METHOD TO UNLINK TWO ROWS STARTS HERE
 
-    def unlink_interlink(self, primary_row, secondary_row):
+    def unlink_interlink(self: "DatabaseAPI", primary_row: "RowAPI", secondary_row: "RowAPI") -> None:
         """
         Remove any interlink rows linking the priamry_row and the secondary_row.
+
         Errors if there is not such row to delete.
         :param primary_row:
         :param secondary_row:
@@ -662,9 +727,14 @@ class DatabaseInterlinkRowsMixin:
     # Todo: Test on a table like ratings, where we can have multiple links between the same title and rating but with
     #       different types. That caused this method to error.
     # Todo: Test on multiple different type filters - including types filters which are lists
-    def unlink_all(self, primary_row, secondary_table, type_filter=None):
+    def unlink_all(
+            self: "DatabaseAPI",
+            primary_row: "RowAPI",
+            secondary_table: str,
+            type_filter: Optional[str] = None) -> None:
         """
         Removes every interlink between the primary row and any row in the secondary table.
+
         :param primary_row:
         :param secondary_table:
         :param type_filter: If provided, then only links with this type will be removed

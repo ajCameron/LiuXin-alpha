@@ -428,7 +428,7 @@ class CustomColumnsManagementMacrosMixin:
             ]
 
         script = " \n".join(lines)
-        self.db.driver_wrapper.direct_execute_sql_script(script)
+        self.db.driver.direct_execute_sql_script(script)
 
     # Todo: Is num the same as the id? If not, why. If so, why not called? It doesn't seem to be.
     def do_custom_column_delete_by_num(self, num: int) -> None:
@@ -492,7 +492,7 @@ class CustomColumnsManagementMacrosMixin:
 
             table, lt = table_lt_pair
 
-            conn.direct_execute_sql_script(
+            conn.executescript(
                 """\
                                 DROP INDEX   IF EXISTS {table}_idx;
                                 DROP INDEX   IF EXISTS {lt}_aidx;

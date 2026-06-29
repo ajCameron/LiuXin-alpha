@@ -27,6 +27,7 @@ from LiuXin_alpha.databases.api.database_api.mixins.dirty_records_mixin_api impo
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.row_api import RowAPI
     from LiuXin_alpha.databases.api.macros_api import MacrosAPI
+    from LiuXin_alpha.databases.api.metadata_sql_api import MetadataSQLAPI
 
 
 
@@ -69,6 +70,10 @@ class DatabaseAPI(
     def set_macros(self, new_macros: "MacrosAPI") -> None:
         """Attach a new macros instance."""
 
+    @abc.abstractmethod
+    def set_metadata_sql(self, new_metadata_sql: "MetadataSQLAPI") -> None:
+        """Attach metadata-aware SQL helpers."""
+
     @property
     @abc.abstractmethod
     def driver(self) -> "DatabaseDriverAPI":
@@ -83,6 +88,11 @@ class DatabaseAPI(
     @abc.abstractmethod
     def macros(self) -> "MacrosAPI":
         """Return the macros instance."""
+
+    @property
+    @abc.abstractmethod
+    def metadata_sql(self) -> "MetadataSQLAPI":
+        """Return metadata-aware SQL helpers."""
 
     # These are commonly present on the concrete Database, but are not required for all fakes.
     # They are therefore declared as attributes rather than abstract properties.
@@ -208,5 +218,4 @@ class DatabaseAPI(
     @abc.abstractmethod
     def update_columns(self, values_map: Any, field: Optional[str] = None, table: Optional[str] = None) -> None:
         """Bulk update columns (pass-through to the wrapper)."""
-
 

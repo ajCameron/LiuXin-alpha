@@ -47,13 +47,9 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.db_types import MainTableName
 
 
-
-#
-# ----------------------------------------------------------------------------------------------------------------------
-
-
 from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 
+# Todo: These notes should not be here
 # NOTES ON CUSTOM_DATA_TYPES
 # enumeration - can take any of a pre set range of values - this range is stored in the view field of the custom columns
 #               converted to text on return. Is normalized (has a link table which connects the entries in the
@@ -112,7 +108,9 @@ class CustomColumns(
         embed: bool = False,
     ):
         """
-        Represents the custom columns for a given table. Defaults to books.
+        Represents the custom columns for a given table.
+
+        Defaults to books.
         :param db: The database containing the custom columns
         :param conn: Connection object to allow executing SQL on the database
         :param table: Defaults to books.
@@ -152,6 +150,7 @@ class CustomColumns(
             self.data = {}
         else:
             self.data = data
+
         if field_map is None:
             # This is the default field map for the meta2 view - if the field map changes elsewhere it also HAS to be
             # changed here
@@ -446,7 +445,10 @@ class CustomColumns(
 
     # Todo: Test the right item is being set
     # Todo: This is also kinda cursed, ngl
-    def rename_custom_item_in_data(self, book_ids, column_num: str, new_value) -> None:
+    def rename_custom_item_in_data(
+            self,
+            book_ids: Union[Iterable[int], Iterable[str]],
+            column_num: str, new_value: Any) -> None:
         """
         Replace all the elements in data with the new value.
 
@@ -583,7 +585,10 @@ class CustomColumns(
         return lines
 
     # c.f. calibre.library.databases2 - around line 424
-    def update_field_map_from_custom_columns_in_meta(self, lines, update_field_metadata=True):
+    def update_field_map_from_custom_columns_in_meta(
+            self,
+            lines: dict[int, str],
+            update_field_metadata: bool = True) -> None:
         """
         The field map exists to provide a mapping between the position of a column in meta2 and the name of that column.
 
@@ -605,7 +610,7 @@ class CustomColumns(
         # custom col labels are numbers (the id in the custom_columns table)
         custom_cols = list(sorted(custom_map.keys()))
 
-        # Assume the field map is in it's default state - before any custom columns have been registered to it
+        # Assume the field map is in its default state - before any custom columns have been registered to it
         base = max(self.FIELD_MAP.values())
 
         for col in custom_cols:
@@ -616,6 +621,7 @@ class CustomColumns(
                 )
 
             if self.custom_column_num_map[col]["datatype"] == "series":
+
                 # account for the series index column. Field_metadata knows that the series index is one larger than the
                 # series. If you change it here, be sure to change it there as well.
                 self.FIELD_MAP[str(col) + "_index"] = base = base + 1
@@ -626,12 +632,13 @@ class CustomColumns(
                         prefer_custom=True,
                     )
 
+    # Todo: Probably the custom column metadata should be a dataclas
     def custom_field_metadata(self, label=None, num=None):
         if label is not None:
             return self.custom_column_label_map[label]
         return self.custom_column_num_map[num]
 
-    def _get_series_values(self, val):
+    def _get_series_values(self, val: Any) -> tuple[str, Optional[float]]:
         """
         Takes a calibre formated series string and returns the series name and the desired position.
 
@@ -653,11 +660,18 @@ class CustomColumns(
         else:
             raise NotImplementedError("val was not of an expected type {}".format(val))
 
-    def cleanup_tags(self, tags_list):
+    @staticmethod
+    def cleanup_tags(tags_list: list[str]) -> list[str]:
+        """
+        Preform a clean of the given tags - ready for writing.
+
+        :param tags_list:
+        :return:
+        """
         return cleanup_tags(tags_list)
 
     # Todo: This is mostly not going to actually work. Need ... something better.
-    def custom_dirty_books_referencing(self, field, id, commit=True):
+    def custom_dirty_books_referencing(self, field, id, commit: bool = True) -> Iterable[int]:
         """
         Version of the dirty_books_referencing function specifically for custom books.
 

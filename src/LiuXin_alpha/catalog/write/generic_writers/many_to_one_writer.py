@@ -215,11 +215,11 @@ class ManyToOneWriter(BaseWriter):
         # Preform updates on all the links which haven't been broken
         for book_id in updated:
             book_val = updated[book_id]
-            db.macros.set_title_rating(book_id, book_val)
+            db.metadata_sql.set_title_rating(book_id, book_val)
 
         # Break any links which have been marked to be deleted
         for book_id in deleted:
-            db.macros.set_title_rating(db, book_id, 0)
+            db.metadata_sql.set_title_rating(book_id, 0)
 
         # Todo: This is a problem that needs to be fixed - by returning the maps - later
         return None, None
@@ -237,10 +237,10 @@ class ManyToOneWriter(BaseWriter):
         # Update the db link table - remove all the links to the book
         if deleted:
             # Todo: Neither of these forms seem to actually work - fix this
-            # db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, ((k,) for k in deleted))
-            # db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
+            # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, ((k,) for k in deleted))
+            # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
             for del_id in deleted:
-                db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, del_id)
+                db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, del_id)
 
         if updated:
             if is_custom_series:
@@ -260,7 +260,7 @@ class ManyToOneWriter(BaseWriter):
                     if isinstance(book_val, int):
 
                         # About to write a new link - so all old links - regardless of type - must be broken
-                        db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, book_id)
+                        db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, book_id)
 
                         title_row = db.get_row_from_id("titles", row_id=book_id)
                         book_row = db.get_row_from_id(table.name, row_id=book_val)
@@ -290,7 +290,7 @@ class ManyToOneWriter(BaseWriter):
                     elif book_val is None:
 
                         # Nullify the link for the specified type - or the whole thing
-                        db.macros.break_generic_link(
+                        db.metadata_sql.break_generic_link(
                             table.link_table,
                             table.link_table_bt_id_column,
                             book_id,
@@ -329,7 +329,7 @@ class ManyToOneWriter(BaseWriter):
         if remove:
             m = field.metadata
             table_id = m["table_id"] if "table_id" in m.keys() else "id"
-            db.macros.break_generic_link(m["table"], table_id, ((item_id,) for item_id in remove))
+            db.metadata_sql.break_generic_link(m["table"], table_id, ((item_id,) for item_id in remove))
 
             # Todo: This needs to be in the table rather than in write - seperation of concerns
             for item_id in remove:

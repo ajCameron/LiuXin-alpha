@@ -1,9 +1,5 @@
 """
 Mutation/policy implementations for the catalog layer.
-
-Perhaps "storage" would be a more natural name for this, but it clashes with the "storage" top level module.
-So here we are.
-
 """
 
 from __future__ import annotations
@@ -17,9 +13,9 @@ from .mutation_policy import MutationPolicy
 
 
 @dataclass(slots=True)
-class CatalogWriting:
+class CatalogMutations:
     """
-    Grouped writing services exposed by `Catalog.write`.
+    Grouped mutation services exposed by `Catalog.mutations`.
     """
 
     db: DatabaseHandle
@@ -37,4 +33,4 @@ class CatalogWriting:
         self.writer = MetadataWriter(self.db, self.repositories, self.policy)
 
 
-__all__ = ["CatalogWriting", "MetadataWriter", "MutationPolicy"]
+__all__ = ["CatalogMutations", "MetadataWriter", "MutationPolicy"]

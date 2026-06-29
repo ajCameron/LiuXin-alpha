@@ -315,7 +315,7 @@ class Apply(LabelApplyMixin):
         """
         assert isinstance(language, Row), "must pass the language in the form of a row"
 
-        self.db.macros.set_title_primary_language(title_id=title_row.row_id, lang_id=language.row_id)
+        self.db.metadata_sql.set_title_primary_language(title_id=title_row.row_id, lang_id=language.row_id)
 
     # ------------------------------------------------------------------------------------------------------------------
 

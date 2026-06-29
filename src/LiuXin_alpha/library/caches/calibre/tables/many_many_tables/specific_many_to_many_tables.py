@@ -149,7 +149,7 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         self.id_map = im = {}
         us = self.unserialize
 
-        for aid, name, sort, link in db.macros.read_creator_with_sort_and_link():
+        for aid, name, sort, link in db.metadata_sql.read_creator_with_sort_and_link():
             name = us(name)
             im[aid] = name
             sort_map[aid] = sort or author_to_author_sort(name)
@@ -221,7 +221,7 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         self.asort_map.update(aus_map)
 
         # Write the changes out to the database
-        db.macros.update_creator_sorts([(v, k) for k, v in iteritems(aus_map)])
+        db.metadata_sql.update_creator_sorts([(v, k) for k, v in iteritems(aus_map)])
 
         return aus_map
 
@@ -240,7 +240,7 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         link_map = {aid: l for aid, l in iteritems(link_map) if l != self.alink_map.get(aid, None)}
         self.alink_map.update(link_map)
 
-        db.macros.update_creator_links([(v, k) for k, v in iteritems(link_map)])
+        db.metadata_sql.update_creator_links([(v, k) for k, v in iteritems(link_map)])
         return link_map
 
     def remove_books(self, book_ids: Iterable[SrcTableID], db) -> set[DstTableID]:
@@ -412,7 +412,7 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
             fmt,
             file_name,
             file_size,
-        ) in db.macros.read_book_id_with_file_id_file_ext_file_name_and_file_size():
+        ) in db.metadata_sql.read_book_id_with_file_id_file_ext_file_name_and_file_size():
 
             seen_books.add(book_id)
 
@@ -502,7 +502,7 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
 
         # Lookup the file_id for the file which corresponds to that format in that book
         file_id = self.book_file_map[book_id][fmt]
-        db.macros.set_file_name(file_id, fname)
+        db.metadata_sql.set_file_name(file_id, fname)
 
         # Todo: Notify the maintainer that the file name has changed - so it can change the file on disk
 
@@ -534,7 +534,7 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         # Todo: Need to mark these for deletion by the folder store manager
         # Discard the unused files from the link table - then discard the unused files from the files table
         # Should overcome any problems with the foreign key constraint
-        db.macros.delete_files_by_id([file_id for file_id in clean])
+        db.metadata_sql.delete_files_by_id([file_id for file_id in clean])
 
         for book_id, fmts in iteritems(formats_map):
             self.reload_book_from_db(db=db, book_id=book_id)
@@ -607,7 +607,7 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         # id of that file that file backs up (this is because one file could have multiple backups - at some point in
         # the future).
         backup_dict = dict()
-        for primary_file_id, secondary_file_id in db.macros.read_file_backups_for_book(book_id):
+        for primary_file_id, secondary_file_id in db.metadata_sql.read_file_backups_for_book(book_id):
             backup_dict[int(secondary_file_id)] = int(primary_file_id)
 
         # Read all the data from the database first - will be processed into the caches in a second
@@ -620,7 +620,7 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
             fmt,
             file_name,
             file_size,
-        ) in db.macros.read_file_properties_for_book(book_id):
+        ) in db.metadata_sql.read_file_properties_for_book(book_id):
 
             if fmt is None:
                 continue
@@ -773,9 +773,9 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
                 raise KeyError(err_str)
 
         if fname is not None:
-            db.macros.set_file_size_and_name(file_id=file_id, size=size, fname=fname)
+            db.metadata_sql.set_file_size_and_name(file_id=file_id, size=size, fname=fname)
         else:
-            db.macros.set_file_size(file_id=file_id, size=size)
+            db.metadata_sql.set_file_size(file_id=file_id, size=size)
 
     def get_last_priority_fmt(self, book_id: SrcTableID, fmt: GenericFormat) -> SpecificFormat:
         """

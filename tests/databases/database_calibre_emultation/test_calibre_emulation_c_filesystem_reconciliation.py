@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import sqlite3
 
-from LiuXin_alpha.databases.calibre_emulation import CalibreReader
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import CalibreReader
 
 
 def _payload_by_id(reader: CalibreReader, book_id: int, **kwargs):

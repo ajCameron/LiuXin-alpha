@@ -64,7 +64,7 @@ class SearchMixin:
         target_table = force_unicode(deepcopy(target_table))
 
         # checks that you're requesting data from an existing table
-        if not self.validate_existing_table_name(target_table):
+        if not self.direct_validate_existing_table_name(target_table):
             err_str = "table name passed into direct_get_random_row_dict failed validation.\n"
             err_str = default_log.log_variables(err_str, "ERROR", ("target_table", target_table))
             raise InputIntegrityError(err_str)
@@ -125,7 +125,7 @@ class SearchMixin:
         headings = self.direct_get_column_headings(table)
 
         # checks that you're requesting data from an existing table
-        if not self.validate_existing_table_name(table):
+        if not self.direct_validate_existing_table_name(table):
             err_str = "table name passed into direct_get_all_rows failed validation.\n"
             err_str = default_log.log_variables(err_str, "ERROR", ("table", table))
             raise InputIntegrityError(err_str)
@@ -174,11 +174,11 @@ class SearchMixin:
         :return:
         """
         table = force_unicode(table)
-        table_id_column = self._get_id_column(table)
+        table_id_column = self.direct_get_id_column(table)
         headings = self.direct_get_column_headings(table)
 
         # checks that you're requesting data from an existing table
-        if not self.validate_existing_table_name(table):
+        if not self.direct_validate_existing_table_name(table):
             err_str = "table name passed into direct_get_all_rows failed validation."
             err_str = default_log.log_variables(err_str, "ERROR", ("table", table))
             raise InputIntegrityError(err_str)
@@ -275,7 +275,7 @@ class SearchMixin:
         c = conn.cursor()
 
         headings = self.direct_get_column_headings(table)
-        table_id_name = self._get_id_column(table)
+        table_id_name = self.direct_get_id_column(table)
 
         stmt = "SELECT * FROM {} WHERE {} = ?".format(table, table_id_name)
 
@@ -326,10 +326,10 @@ class SearchMixin:
         :return:
         """
         table = force_unicode(table)
-        if not self.validate_existing_table_name(table):
+        if not self.direct_validate_existing_table_name(table):
             raise InputIntegrityError(f"Unknown table: {table!r}")
 
-        id_col = self._get_id_column(table)
+        id_col = self.direct_get_id_column(table)
         stmt = f"SELECT 1 FROM `{table}` WHERE `{id_col}` = 0 LIMIT 1;"
         conn = self.get_connection()
         try:
@@ -375,7 +375,7 @@ class SearchMixin:
         if not self.direct_has_null_row(table):
             raise InputIntegrityError(f"Table {table!r} has no sentinel/null row at id=0")
 
-        id_col = self._get_id_column(table)
+        id_col = self.direct_get_id_column(table)
         row_dict = {id_col: 0}
         row_dict.update(updates)
         self.direct_update_row_dict(row_dict)
@@ -520,7 +520,7 @@ class SearchMixin:
         c = conn.cursor()
 
         results = []
-        if not self.validate_existing_table_name(table):
+        if not self.direct_validate_existing_table_name(table):
             err_str = "table name passed into direct_search_table failed validation.\n"
             err_str = default_log.log_variables(err_str, "ERROR", ("table", table))
             conn.close()

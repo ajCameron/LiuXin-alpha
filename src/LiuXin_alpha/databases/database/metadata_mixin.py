@@ -132,42 +132,45 @@ class DatabaseMetadataMixin:
         """
         return self.driver_wrapper.get_view_column_headings(view)
 
-    def get_tables_and_columns(self):
+    def get_tables_and_columns(self: "DatabaseAPI") -> dict[str, list[str]]:
         """
         Returns a dictionary keyed by the table name with the column headings as the values.
+
         :return table_and_columns:
         """
         return self.driver_wrapper.get_tables_and_columns()
 
-
-    def get_record_count(self, target_table):
+    def get_record_count(self: "DatabaseAPI", target_table: str) -> int:
         """
         Returns the number of records in a given table.
+
         :param target_table:
         :return:
         """
         return self.driver_wrapper.get_record_count(target_table)
 
-    def get_max(self, column):
+    def get_max(self: "DatabaseAPI", column: str) -> int:
         """
         Get the maximum value from the given column.
+
         :param column:
         :return:
         """
         return self.driver.direct_get_max(column)
 
-    def get_min(self, column):
+    def get_min(self: "DatabaseAPI", column: str) -> int:
         """
         Get the minimum value from the given column.
+
         :param column:
         :return:
         """
         return self.driver.direct_get_min(column)
 
-
-    def row_counts(self):
+    def row_counts(self: "DatabaseAPI") -> dict[str, int]:
         """
         Returns a string representation of the row counts for every table in the DatabasePing.
+
         :return:
         """
         ans = list()

@@ -1,4 +1,5 @@
-"""Stage B: Calibre schema/version handling.
+"""
+Stage B: Calibre schema/version handling.
 
 This module is intentionally conservative.
 
@@ -24,7 +25,8 @@ from .types import CalibreVersionPlan
 
 @dataclass(frozen=True, slots=True)
 class CalibreVersionPolicy:
-    """Policy knobs for interpreting Calibre ``application_id``/``user_version``.
+    """
+    Policy knobs for interpreting Calibre ``application_id``/``user_version``.
 
     Default policy is permissive (warn + continue). Set the allow_* flags to
     False to turn specific drift cases into a "refuse" action in the returned
@@ -41,7 +43,9 @@ class CalibreVersionPolicy:
 
 
 def _try_load_snapshot_versions() -> Tuple[Optional[int], Optional[int]]:
-    """Return (expected_application_id, latest_supported_user_version) if available."""
+    """
+    Return (expected_application_id, latest_supported_user_version) if available.
+    """
     try:
         from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator import (
             calibre_metadata_application_id,
@@ -60,7 +64,15 @@ def resolve_version_plan(
     target_user_version: str | int = "latest_supported",
     policy: Optional[CalibreVersionPolicy] = None,
 ) -> CalibreVersionPlan:
-    """Build a CalibreVersionPlan for the observed DB pragmas."""
+    """
+    Build a CalibreVersionPlan for the observed DB pragmas.
+
+    :param application_id:
+    :param user_version:
+    :param target_user_version:
+    :param policy:
+    :return:
+    """
     pol = policy or CalibreVersionPolicy()
 
     exp_app = pol.expected_application_id

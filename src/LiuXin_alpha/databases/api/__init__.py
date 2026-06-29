@@ -16,6 +16,11 @@ from LiuXin_alpha.databases.api.database_api.mixins.metadata_mixin_api import Da
 
 
 from .row_api import RowAPI
+from LiuXin_alpha.databases.api.custom_columns_api import (
+    CustomColumnDataAdapter,
+    CustomColumnMetadata,
+    CustomColumnsAPI,
+)
 from LiuXin_alpha.databases.api.database_api.database_generator_api import DatabaseGeneratorAPI
 from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 from LiuXin_alpha.databases.api.database_api.mixins import (
@@ -32,6 +37,7 @@ from LiuXin_alpha.databases.api.database_api.mixins.triggers_mixin_api import Da
 from LiuXin_alpha.databases.api.driver_api.driver_api import DatabaseDriverAPI
 from LiuXin_alpha.databases.api.driver_wrapper_api.driver_wrapper_api import DatabaseDriverWrapperAPI
 from LiuXin_alpha.databases.api.macros_api import MacrosAPI
+from LiuXin_alpha.databases.api.metadata_sql_api import MetadataSQLAPI
 from LiuXin_alpha.databases.api.maintenance_api import (
     DatabaseMaintainerAPI,
     MaintenanceBotAPI,
@@ -43,6 +49,9 @@ from LiuXin_alpha.databases.api.maintenance_api import (
 
 __all__ = [
     "DatabaseAPI",
+    "CustomColumnDataAdapter",
+    "CustomColumnMetadata",
+    "CustomColumnsAPI",
     "DatabaseGeneratorAPI",
     "DatabaseDirtiedRecordsMixinAPI",
     "DatabaseDriverAPI",
@@ -62,5 +71,6 @@ __all__ = [
     "MaintenanceCallbackSinkAPI",
     "MaintenancePluginAPI",
     "MaintenanceServiceAPI",
+    "MetadataSQLAPI",
     "RowAPI",
 ]

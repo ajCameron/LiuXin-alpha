@@ -224,7 +224,7 @@ class BaseWriter:
 
         # Delete all references to the book from the link table - foreign keys should take out the value from the
         # one_to_one table as well
-        db.macros.break_generic_link(field.table.link_table, field.table.link_table_bt_id_column, deleted_ids)
+        db.metadata_sql.break_generic_link(field.table.link_table, field.table.link_table_bt_id_column, deleted_ids)
 
     @staticmethod
     def custom_delete_one_to_one_in_other(db: "DatabaseAPI", field, deleted):
@@ -308,10 +308,10 @@ class BaseWriter:
         # Update the db link table - remove all the links to the book
         if deleted:
             # Todo: This also doesn't seem to work - at all - needs to be fixed
-            # db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, ((k,) for k in deleted))
-            # db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
+            # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, ((k,) for k in deleted))
+            # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
             for del_id in deleted:
-                db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, del_id)
+                db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, del_id)
 
         if updated:
             if is_custom_series:
@@ -327,7 +327,7 @@ class BaseWriter:
             # Lock the database to stop anything else from writing to it while doing the update
             with db.lock:
                 # Todo: This macro just won't work in this form
-                # db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column,
+                # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column,
                 #                              (book_id for book_id in iterkeys(updated)))
 
                 for book_id, item_id in iteritems(updated):
@@ -337,14 +337,14 @@ class BaseWriter:
                     if isinstance(item_id, int):
 
                         # Done here to allow the recursive call for the dict process
-                        db.macros.break_generic_link(
+                        db.metadata_sql.break_generic_link(
                             link_table=table.link_table,
                             link_col=table.link_table_bt_id_column,
                             remove_id=book_id,
                             link_type=link_type,
                         )
                         # Break any existing links to the item - they need to be repointed
-                        db.macros.break_generic_link(
+                        db.metadata_sql.break_generic_link(
                             link_table=table.link_table,
                             link_col=table.link_table_table_id_column,
                             remove_id=item_id,
@@ -373,7 +373,7 @@ class BaseWriter:
                     elif isinstance(item_id, (set, list, tuple)):
 
                         # Done here to allow the recursive call for the dict process
-                        db.macros.break_generic_link(
+                        db.metadata_sql.break_generic_link(
                             link_table=table.link_table,
                             link_col=table.link_table_bt_id_column,
                             remove_id=book_id,
@@ -385,7 +385,7 @@ class BaseWriter:
 
                         for true_item_id in item_id:
                             # Break any existing links to the item - with any type- they need to be repointed
-                            db.macros.break_generic_link(
+                            db.metadata_sql.break_generic_link(
                                 link_table=table.link_table,
                                 link_col=table.link_table_table_id_column,
                                 remove_id=true_item_id,
@@ -428,7 +428,7 @@ class BaseWriter:
                                     link_type=local_link_type,
                                 )
                             else:
-                                db.macros.break_generic_link(
+                                db.metadata_sql.break_generic_link(
                                     link_table=table.link_table,
                                     link_col=table.link_table_bt_id_column,
                                     remove_id=book_id,
@@ -470,10 +470,10 @@ class BaseWriter:
         # Update the db link table - remove all the links to the book
         if deleted:
             # Todo: This also doesn't seem to work - at all
-            # db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, ((k,) for k in deleted))
-            # db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
+            # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, ((k,) for k in deleted))
+            # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
             for del_id in deleted:
-                db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, del_id)
+                db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, del_id)
 
         if updated:
             if is_custom_series:
@@ -488,7 +488,7 @@ class BaseWriter:
             # Lock the database to stop anything else from writing to it while doing the update
             with db.lock:
                 # Todo: This macro just won't work in this form
-                # db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column,
+                # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column,
                 #                              (book_id for book_id in iterkeys(updated)))
 
                 for book_id, item_id in iteritems(updated):
@@ -580,7 +580,7 @@ class BaseWriter:
                         # Remove the links which once existed but are no longer needed
                         for excess_item_id in set(existing_item_ids) - set(item_id):
 
-                            db.macros.break_generic_single_link(
+                            db.metadata_sql.break_generic_single_link(
                                 link_table=table.link_table,
                                 left_link_col=table.link_table_bt_id_column,
                                 right_link_col=table.link_table_table_id_column,
@@ -617,7 +617,7 @@ class BaseWriter:
                                     link_type=local_link_type,
                                 )
                             else:
-                                db.macros.break_generic_link(
+                                db.metadata_sql.break_generic_link(
                                     link_table=table.link_table,
                                     link_col=table.link_table_bt_id_column,
                                     remove_id=book_id,

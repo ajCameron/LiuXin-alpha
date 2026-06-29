@@ -2,9 +2,7 @@
 """
 Simplified front ends for the write system which should be (mostly) used instead of actual writers.
 
-Macros are common functions which can best be expressed in pure SQL.
-(Either in principle, but currently there's a shim, or in practice).
-Catalog macros are aware of metadata, and thus operate at a higher level than database macros.
+These helpers express catalog-level metadata intent and delegate SQL execution to ``db.metadata_sql``.
 """
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
@@ -32,7 +30,7 @@ def library_set_title(db: "DatabaseAPI", title_id: int, title: str) -> None:
     :param title: The title string to set the title too
     :return:
     """
-    db.macros.update_title(title_id=title_id, title=title)
+    db.metadata_sql.update_title(title_id=title_id, title=title)
 
 
 def library_add_feed(db: "DatabaseAPI", title: Union[bytes, str], script: Union[bytes, str]) -> None:
@@ -48,7 +46,7 @@ def library_add_feed(db: "DatabaseAPI", title: Union[bytes, str], script: Union[
         title = title.decode("utf-8")
     if isbytestring(script):
         script = script.decode("utf-8")
-    db.macros.add_feed(title, script)
+    db.metadata_sql.add_feed(title, script)
 
 
 def library_remove_feeds(db: "DatabaseAPI", ids: set[int]) -> None:
@@ -59,7 +57,7 @@ def library_remove_feeds(db: "DatabaseAPI", ids: set[int]) -> None:
     :param ids: The ids of the feeds to remove
     :return:
     """
-    db.macros.delete_feed(ids)
+    db.metadata_sql.delete_feed(ids)
 
 
 def library_unapply_series_tags(db: "DatabaseAPI", series_id: int, tags: Iterable[str]):
@@ -72,7 +70,7 @@ def library_unapply_series_tags(db: "DatabaseAPI", series_id: int, tags: Iterabl
     :param tags: Text of the tags to remove from the series
     :return:
     """
-    db.macros.unapply_series_tags(series_id, tags)
+    db.metadata_sql.unapply_series_tags(series_id, tags)
 
 
 def library_update_feed(db: "DatabaseAPI", feed_id: int, script: Union[bytes, str], title: str) -> None:
@@ -85,7 +83,7 @@ def library_update_feed(db: "DatabaseAPI", feed_id: int, script: Union[bytes, st
     :param title: The title of the feed
     :return:
     """
-    db.macros.update_feed(feed_id, script, title)
+    db.metadata_sql.update_feed(feed_id, script, title)
 
 
 def library_set_feeds(db: "DatabaseAPI", feeds: Iterable[Union[bytes, str]]) -> None:
@@ -97,7 +95,7 @@ def library_set_feeds(db: "DatabaseAPI", feeds: Iterable[Union[bytes, str]]) -> 
                   of the feeds table. The feeds table will be cleared otherwise.
     :return:
     """
-    db.macros.set_feeds(feeds)
+    db.metadata_sql.set_feeds(feeds)
 
 
 def library_set_author_sort(db: "DatabaseAPI", title_id, sort):
@@ -109,7 +107,7 @@ def library_set_author_sort(db: "DatabaseAPI", title_id, sort):
     :param sort:
     :return:
     """
-    db.macros.set_author_sort(title_id, sort)
+    db.metadata_sql.set_author_sort(title_id, sort)
 
 
 # Todo: I guess this would be in items now? Does it still exist?
@@ -122,7 +120,7 @@ def library_set_cover(db: "DatabaseAPI", book_id: int, value: bool) -> None:
     :param value:
     :return:
     """
-    db.macros.set_has_cover(book_id, value)
+    db.metadata_sql.set_has_cover(book_id, value)
 
 
 def library_remove_unused_series(db: "DatabaseAPI") -> None:
@@ -133,7 +131,7 @@ def library_remove_unused_series(db: "DatabaseAPI") -> None:
     :param db:
     :return:
     """
-    db.macros.remove_unused_series()
+    db.metadata_sql.remove_unused_series()
 
 
 # Todo: Prrroobably an expressions level thing?
@@ -157,7 +155,7 @@ def library_set_conversion_options(db: "DatabaseAPI", book_id: int, fmt: str, op
     :param options: This wil be stored as a CPickle.dump in the conversion_option_data column
     :return:
     """
-    db.macros.set_conversion_options(book_id=book_id, fmt=fmt, options=options)
+    db.metadata_sql.set_conversion_options(book_id=book_id, fmt=fmt, options=options)
 
 
 def library_delete_conversion_options(db: "DatabaseAPI", book_id: int, fmt: str, commit: bool = True) -> None:
@@ -170,7 +168,7 @@ def library_delete_conversion_options(db: "DatabaseAPI", book_id: int, fmt: str,
     :param commit: Commit the change once it's been made
     :return:
     """
-    db.macros.delete_conversion_options(book_id, fmt, commit)
+    db.metadata_sql.delete_conversion_options(book_id, fmt, commit)
 
 
 # Todo: Sensible, but there are, again, multiple levels this could be applied to.
@@ -183,7 +181,7 @@ def library_set_isbn(db: "DatabaseAPI", title_id: int, isbn: str) -> bool:
     :param isbn: The isbn of the book to update.
     :return
     """
-    return db.macros.set_title_isbn(title_id, isbn)
+    return db.metadata_sql.set_title_isbn(title_id, isbn)
 
 
 def library_set_publisher(
@@ -216,7 +214,7 @@ def library_set_publisher(
             return pub_pairs[0]
         except IndexError:
             # Todo: Spin this off into a delete method - which is where it should be being handled
-            db.macros.clear_publisher_title_links_by_title_id(title_id)
+            db.metadata_sql.clear_publisher_title_links_by_title_id(title_id)
             return None, None
 
     # Check to see if there is already a link between the publisher and the title
@@ -242,7 +240,7 @@ def library_set_publisher(
 
             pub_id = pub_row["publisher_id"]
 
-        pt_id = db.macros.check_for_title_id_publisher_id_link(pub_id=pub_id, title_id=title_id)
+        pt_id = db.metadata_sql.check_for_title_id_publisher_id_link(pub_id=pub_id, title_id=title_id)
 
         if pt_id:
 
@@ -261,14 +259,14 @@ def library_set_publisher(
             db.interlink_rows(primary_row=title_row, secondary_row=pub_row)
 
         # Ensure that there isn't a reference to the null publisher anywhere in the stack
-        db.macros.clear_null_publisher_links_from_title(title_id)
+        db.metadata_sql.clear_null_publisher_links_from_title(title_id)
 
         return pub_row["publisher_id"], pub_row["publisher"]
 
     else:
 
         # Nullify the publisher - by linking it to the null pub row
-        db.macros.link_publisher_to_null_publisher_row(title_id)
+        db.metadata_sql.link_publisher_to_null_publisher_row(title_id)
 
         return None, None
 
@@ -293,7 +291,7 @@ def library_set_comment(db: "DatabaseAPI", title_id: int, text: Optional[str]) -
         db.interlink_rows(primary_row=title_row, secondary_row=comment_row)
         return comment_row["comment_id"]
     else:
-        db.macros.clear_title_comments_from_title_id(title_id)
+        db.metadata_sql.clear_title_comments_from_title_id(title_id)
         return None
 
 
@@ -306,7 +304,7 @@ def library_delete_tag(db: "DatabaseAPI", tag: str) -> None:
     :param tag:
     :return:
     """
-    db.macros.delete_tag_by_value(tag)
+    db.metadata_sql.delete_tag_by_value(tag)
 
 
 def library_delete_tags(db: "DatabaseAPI", tags: Iterable[str]) -> None:
@@ -334,9 +332,9 @@ def library_unapply_tags(db: "DatabaseAPI", book_id: int, tags: Iterable[str]) -
     """
     tag_ids = set()
     for tag in tags:
-        tag_id = db.macros.get_tag_id_from_value(tag)
+        tag_id = db.metadata_sql.get_tag_id_from_value(tag)
         if tag_id:
-            db.macros.break_tag_title_link(tag_id=tag_id, title_id=book_id)
+            db.metadata_sql.break_tag_title_link(tag_id=tag_id, title_id=book_id)
         tag_ids.add(tag_id)
     db.driver.conn.commit()
     return tag_ids
@@ -354,9 +352,9 @@ def library_unapply_creator_tags(db: "DatabaseAPI", creator_id: int, tags: Itera
     """
     tag_ids = set()
     for tag in tags:
-        tag_id = db.macros.get_tag_id_from_value(tag)
+        tag_id = db.metadata_sql.get_tag_id_from_value(tag)
         if tag_id:
-            db.macros.break_creator_tag_link(tag_id, creator_id)
+            db.metadata_sql.break_creator_tag_link(tag_id, creator_id)
         tag_ids.add(tag_id)
     db.driver.conn.commit()
 
@@ -390,7 +388,7 @@ def library_set_tags(db: "DatabaseAPI", title_id: int, tags: Iterable[str], appe
     """
     # If not append - clear all the tags linked to the book/title out - then run the add as normal
     if not append:
-        db.macros.clear_tag_title_links_for_title(title_id)
+        db.metadata_sql.clear_tag_title_links_for_title(title_id)
 
     tag_ids = set()
 
@@ -399,15 +397,15 @@ def library_set_tags(db: "DatabaseAPI", title_id: int, tags: Iterable[str], appe
         tag = tag.lower().strip()
         if not tag:
             continue
-        t = db.macros.get_tag_id_from_value(tag)
+        t = db.metadata_sql.get_tag_id_from_value(tag)
         # Todo: Need to replace this with some species of ensure tag
         if t:
             tid = t
         else:
-            tid = db.macros.add_tag(tag)
+            tid = db.metadata_sql.add_tag(tag)
 
-        if not db.macros.check_for_tag_title_link(title_id, tid):
-            db.macros.add_tag_title_link(title_id, tid)
+        if not db.metadata_sql.check_for_tag_title_link(title_id, tid):
+            db.metadata_sql.add_tag_title_link(title_id, tid)
 
         tag_ids.add(tid)
     db.driver.conn.commit()
@@ -426,21 +424,21 @@ def library_set_creator_tags(db: "DatabaseAPI", creator_id: int, tags: Iterable[
     :return:
     """
     if not append:
-        db.macros.clear_creator_tag_links_for_creator(creator_id)
+        db.metadata_sql.clear_creator_tag_links_for_creator(creator_id)
 
     # Add back the tags
     for tag in set(tags):
         tag = tag.lower().strip()
         if not tag:
             continue
-        t = db.macros.get_tag_id_from_value(tag)
+        t = db.metadata_sql.get_tag_id_from_value(tag)
         if t:
             tid = t
         else:
-            tid = db.macros.add_tag(tag)
+            tid = db.metadata_sql.add_tag(tag)
 
-        if not db.macros.check_for_creator_tag_link(creator_id, tid):
-            db.macros.add_creator_tag_link(creator_id=creator_id, tag_id=tid)
+        if not db.metadata_sql.check_for_creator_tag_link(creator_id, tid):
+            db.metadata_sql.add_creator_tag_link(creator_id=creator_id, tag_id=tid)
 
     db.driver.conn.commit()
 
@@ -456,21 +454,21 @@ def library_set_series_tags(db: "DatabaseAPI", series_id: int, tags: Iterable[st
     :return:
     """
     if not append:
-        db.macros.clear_series_tag_links_for_series(series_id)
+        db.metadata_sql.clear_series_tag_links_for_series(series_id)
 
     # Add back the tags
     for tag in set(tags):
         tag = tag.lower().strip()
         if not tag:
             continue
-        t = db.macros.get_tag_id_from_value(tag)
+        t = db.metadata_sql.get_tag_id_from_value(tag)
         if t:
             tid = t
         else:
-            tid = db.macros.add_tag(tag)
+            tid = db.metadata_sql.add_tag(tag)
 
-        if not db.macros.check_for_series_tag_link(series_id=series_id, tag_id=tid):
-            db.macros.add_series_tag_link(series_id, tid)
+        if not db.metadata_sql.check_for_series_tag_link(series_id=series_id, tag_id=tid):
+            db.metadata_sql.add_series_tag_link(series_id, tid)
 
     db.driver.conn.commit()
 
@@ -505,7 +503,7 @@ def library_unset_series(
     """
     if series is not None:
         raise NotImplementedError
-    db.macros.library_unset_series(title_id=title_id, series_id=series_id)
+    db.metadata_sql.library_unset_series(title_id=title_id, series_id=series_id)
 
 
 def library_set_series(
@@ -535,13 +533,13 @@ def library_set_series(
     if series is not None:
 
         title_row = db.get_row_from_id(table="titles", row_id=title_id)
-        series_id = db.macros.get_series_id_from_value(series)
+        series_id = db.metadata_sql.get_series_id_from_value(series)
 
         if series_id:
             series_row = db.get_row_from_id(table="series", row_id=series_id)
 
             # Check to see if there is already a link which will need updating
-            st_status = db.macros.check_for_series_title_link(series_id, title_id)
+            st_status = db.metadata_sql.check_for_series_title_link(series_id, title_id)
 
             # Link exists and has to be updated
             if st_status:
@@ -562,7 +560,7 @@ def library_set_series(
             else:
 
                 # Retrieve the index to copy across
-                st_index = db.macros.get_primary_series_index(title_id)
+                st_index = db.metadata_sql.get_primary_series_index(title_id)
 
                 db.interlink_rows(primary_row=title_row, secondary_row=series_row, index=st_index)
 
@@ -571,20 +569,20 @@ def library_set_series(
             series_row = db.ensure.series_blind(creator_rows=[], series_name=series, stand=False)
 
             # Retrieve the index to copy across
-            st_index = db.macros.get_primary_series_index(title_id=title_id)
+            st_index = db.metadata_sql.get_primary_series_index(title_id=title_id)
 
             # Create the new row with the index
             # Todo: Might be nice to set where the series came from - a source column
             db.interlink_rows(primary_row=title_row, secondary_row=series_row, index=st_index)
 
         # Ensure that there isn't a reference to the null series elsewhere in the stack
-        db.macros.break_series_title_link(title_id=title_id, series_id=0)
+        db.metadata_sql.break_series_title_link(title_id=title_id, series_id=0)
 
     elif series_id is not None:
 
         series_row = db.get_row_from_id(table="series", row_id=series_id)
         # Check to see if there is already a link for updating
-        st_status = db.macros.check_for_series_title_link(series_id=series_id, title_id=title_id)
+        st_status = db.metadata_sql.check_for_series_title_link(series_id=series_id, title_id=title_id)
 
         # Link exists and has to be updated
         if st_status:
@@ -606,7 +604,7 @@ def library_set_series(
         else:
 
             # Retrieve the index to copy across
-            st_index = db.macros.get_primary_series_index(title_id=title_id)
+            st_index = db.metadata_sql.get_primary_series_index(title_id=title_id)
 
             title_row = db.get_row_from_id("titles", title_id)
 
@@ -614,17 +612,17 @@ def library_set_series(
             db.interlink_rows(primary_row=title_row, secondary_row=series_row, index=st_index)
 
         # Ensure that there isn't a reference to the null series elsewhere in the stack
-        db.macros.break_series_title_link(title_id=title_id, series_id=0)
+        db.metadata_sql.break_series_title_link(title_id=title_id, series_id=0)
 
     else:
 
         # Check to see if there is already a link to any series - if there is then use the index from that link
         # so that it's preserved in the top entry of the stack - statement will return None if there isn't - which
         # is fine
-        series_index = db.macros.get_primary_series_index(title_id)
+        series_index = db.metadata_sql.get_primary_series_index(title_id)
 
         # Nullify the series - by linking it to the null series row
-        db.macros.link_null_series_to_title(title_id=title_id, series_index=series_index)
+        db.metadata_sql.link_null_series_to_title(title_id=title_id, series_index=series_index)
 
         # Series index is not changed - so doesn't have to be updated in the cache
 
@@ -662,14 +660,14 @@ def library_set_series_index(
     try:
         series_id = series_id(title_id, index_is_id=True)
     except NotImplementedError:
-        series_id = db.macros.read_primary_title_series_id_from_meta(title_id)
+        series_id = db.metadata_sql.read_primary_title_series_id_from_meta(title_id)
 
     if series_id is not None:
         # Update the link's index
-        db.macros.update_index_for_series_title_link(title_id, series_id, idx)
+        db.metadata_sql.update_index_for_series_title_link(title_id, series_id, idx)
     else:
         # No links where found - insert a link to the null series including the index information
-        db.macros.link_null_series_to_title(title_id, idx)
+        db.metadata_sql.link_null_series_to_title(title_id, idx)
 
     if update_cache_series_idx is not None:
         update_cache_series_idx(title_id, idx)
@@ -687,7 +685,7 @@ def library_set_last_modified(
     :param last_modified:
     :return:
     """
-    db.macros.update_book_last_modified(book_id=book_id, last_modified=last_modified)
+    db.metadata_sql.update_book_last_modified(book_id=book_id, last_modified=last_modified)
 
 
 def library_set_authors_from_ids(
@@ -709,7 +707,7 @@ def library_set_authors_from_ids(
     """
     # If not append then clear the author type creator links to to the book and add the new set back in
     if not append:
-        db.macros.clear_title_creator_links_for_given_type_and_title(title_id)
+        db.metadata_sql.clear_title_creator_links_for_given_type_and_title(title_id)
 
         priority = len(author_ids) + 1
         link_row_dicts = []
@@ -732,7 +730,7 @@ def library_set_authors_from_ids(
     ct_link_priority = db.get_min("creator_title_link_priority") - 1
     for author_id in author_ids:
 
-        ct_link_id = db.macros.check_for_title_author_link(title_id=title_id, creator_id=author_id)
+        ct_link_id = db.metadata_sql.check_for_title_author_link(title_id=title_id, creator_id=author_id)
 
         # If there is no link then create one
         if ct_link_id is None:
@@ -745,7 +743,7 @@ def library_set_authors_from_ids(
             )
         # If there is a link then update it's priority
         else:
-            db.macros.update_title_author_link_priority(
+            db.metadata_sql.update_title_author_link_priority(
                 title_id=title_id, creator_id=author_id, new_priority=ct_link_priority
             )
 
@@ -764,4 +762,4 @@ def library_set_language(db: "DatabaseAPI", title_id: int, lang_string: str) -> 
     lang_row = db.ensure.language(lang_string, lang_code="either")
     lang_id = lang_row["language_id"]
 
-    db.macros.set_title_primary_language(db, title_id, lang_id)
+    db.metadata_sql.set_title_primary_language(title_id, lang_id)

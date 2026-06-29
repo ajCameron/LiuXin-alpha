@@ -26,7 +26,7 @@ from LiuXin_alpha.catalog.write.custom_columns_writers import CustomSeriesIndexW
 from LiuXin_alpha.catalog.write.generic_writers.one_to_one_writer import OneToOneWriter
 from LiuXin_alpha.catalog.write.identifiers_writer import IdentifiersWrite
 from LiuXin_alpha.catalog.write.languages_writer import LanguagesWriter
-from LiuXin_alpha.catalog.write.library_macros import (
+from LiuXin_alpha.catalog.catalog_macros import (
     library_set_cover,
     library_set_publisher,
     library_set_comment,

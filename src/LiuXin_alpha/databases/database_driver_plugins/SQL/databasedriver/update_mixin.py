@@ -76,7 +76,7 @@ class UpdateMixin:
             sequence = ((v, k) for k, v in iteritems(id_values_map))
 
             # Building the statement
-            table_id_col = self._get_id_column(target_table)
+            table_id_col = self.direct_get_id_column(target_table)
             stmt = "UPDATE {} SET {}=? WHERE {}=?".format(target_table, field, table_id_col)
 
             # Executing the statement and the sequence together
@@ -97,7 +97,7 @@ class UpdateMixin:
         :param row_dict:
         :return:
         """
-        target_table = self.identify_table_from_row(row_dict)
+        target_table = self.direct_identify_table_from_row(row_dict)
         row_dict = deepcopy(row_dict)
 
         # Trying to write a u'None' to a column with a foreign key constraint causes problems. Replacing all of these
@@ -111,7 +111,7 @@ class UpdateMixin:
         row_dict = new_row_dict
 
         # working out what the id column for the table is called
-        row_id = self._get_id_column(target_table)
+        row_id = self.direct_get_id_column(target_table)
         if row_id in row_dict:
             target_row_id = row_dict[row_id]
             del row_dict[row_id]

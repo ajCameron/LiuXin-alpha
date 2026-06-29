@@ -30,7 +30,7 @@ class MacrosAPI(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def _cc_table_col_mapper(self, table: str) -> str:
+    def _cc_table_col_mapper(table: str) -> str:
         ...
 
     @staticmethod
@@ -50,29 +50,11 @@ class MacrosAPI(abc.ABC):
     def add_cc_table_value(self, table, value, conn=None):
         ...
 
-    @abc.abstractmethod
-    def add_creator_tag_link(self, creator_id, tag_id):
-        ...
 
-    @abc.abstractmethod
-    def add_feed(self, title, script):
-        ...
 
-    @abc.abstractmethod
-    def add_series_tag_link(self, series_id, tag_id):
-        ...
 
-    @abc.abstractmethod
-    def add_tag(self, tag_value):
-        ...
 
-    @abc.abstractmethod
-    def add_tag_title_link(self, title_id, tag_id):
-        ...
 
-    @abc.abstractmethod
-    def add_title_identifier(self, title_id, id_type, id_val):
-        ...
 
     @abc.abstractmethod
     def break_cc_links_by_book_id(self, lt, book_id, conn=None):
@@ -86,37 +68,13 @@ class MacrosAPI(abc.ABC):
     def break_cc_lt_link(self, lt, book, value=None):
         ...
 
-    @abc.abstractmethod
-    def break_creator_tag_link(self, tag_id, creator_id):
-        ...
 
-    @abc.abstractmethod
-    def break_creator_title_links(self, title_id, creator_type=('author', 'authors')):
-        ...
 
-    @abc.abstractmethod
-    def break_generic_link(self, link_table, link_col, remove_id, link_type=None):
-        ...
 
-    @abc.abstractmethod
-    def break_generic_single_link(self, link_table, left_link_col, right_link_col, left_id, right_id):
-        ...
 
-    @abc.abstractmethod
-    def break_lang_title_links(self, title_id, link_type=None):
-        ...
 
-    @abc.abstractmethod
-    def break_lang_title_primary_link(self, title_id):
-        ...
 
-    @abc.abstractmethod
-    def break_series_title_link(self, title_id, series_id=0):
-        ...
 
-    @abc.abstractmethod
-    def break_tag_title_link(self, tag_id, title_id):
-        ...
 
     @abc.abstractmethod
     def bulk_add_links(self, link_table, src_col, dst_col, values):
@@ -138,29 +96,11 @@ class MacrosAPI(abc.ABC):
     def check_for_cc_link(self, link_table: str, book_id: int, value_id: int, conn: Optional[sqlite3.Connection]=None) -> bool:
         ...
 
-    @abc.abstractmethod
-    def check_for_creator_tag_link(self, creator_id, tag_id):
-        ...
 
-    @abc.abstractmethod
-    def check_for_series_tag_link(self, series_id, tag_id):
-        ...
 
-    @abc.abstractmethod
-    def check_for_series_title_link(self, series_id, title_id):
-        ...
 
-    @abc.abstractmethod
-    def check_for_tag_title_link(self, title_id, tag_id):
-        ...
 
-    @abc.abstractmethod
-    def check_for_title_author_link(self, title_id, creator_id):
-        ...
 
-    @abc.abstractmethod
-    def check_for_title_id_publisher_id_link(self, pub_id, title_id):
-        ...
 
     @abc.abstractmethod
     def clean_custom(self, cc_num_map, cc_table_name_factory=None, conn=None):
@@ -174,69 +114,41 @@ class MacrosAPI(abc.ABC):
     def clear_cc_unused_table_entries(self, table, lt, conn=None):
         ...
 
+
+
+
+
+
+
+
     @abc.abstractmethod
-    def clear_creator_tag_links_for_creator(self, creator_id):
+    def create_cc_table(
+        self,
+        normalized: bool,
+        datatype: str,
+        dt,
+        table: str,
+        link_table,
+        collate,
+        in_table='books',
+        ordered=False,
+        conn=None,
+    ):
         ...
 
     @abc.abstractmethod
-    def clear_null_publisher_links_from_title(self, title_id):
+    def create_cc_temp_tables(self, temp_tables: Iterable[str], conn: Any=None) -> None:
         ...
 
-    @abc.abstractmethod
-    def clear_publisher_title_links_by_title_id(self, title_id):
-        ...
 
-    @abc.abstractmethod
-    def clear_series_tag_links_for_series(self, series_id):
-        ...
-
-    @abc.abstractmethod
-    def clear_tag_title_links_for_title(self, title_id):
-        ...
-
-    @abc.abstractmethod
-    def clear_title_comments_from_title_id(self, title_id):
-        ...
-
-    @abc.abstractmethod
-    def clear_title_creator_links_for_given_type_and_title(self, title_id):
-        ...
-
-    @abc.abstractmethod
-    def create_cc_table(self, normalized, datatype, dt, table, link_table, collate, in_table='books', ordered=False, conn=None):
-        ...
-
-    @abc.abstractmethod
-    def create_cc_temp_tables(self, temp_tables, conn=None):
-        ...
-
-    @abc.abstractmethod
-    def creator_clear_unused(self):
-        ...
-
-    @abc.abstractmethod
-    def delete_book(self, book_id):
-        ...
 
     @abc.abstractmethod
     def delete_cc_item(self, table, lt, target_id, conn=None):
         ...
 
-    @abc.abstractmethod
-    def delete_conversion_options(self, book_id, fmt, commit=True):
-        ...
 
-    @abc.abstractmethod
-    def delete_feed(self, feed_id):
-        ...
 
-    @abc.abstractmethod
-    def delete_file_by_id(self, file_id):
-        ...
 
-    @abc.abstractmethod
-    def delete_files_by_id(self, file_ids):
-        ...
 
     @abc.abstractmethod
     def delete_from_cc_table_by_id(self, table, target_id, conn=None):
@@ -250,24 +162,12 @@ class MacrosAPI(abc.ABC):
     def delete_in_table(self, table, column, value):
         ...
 
-    @abc.abstractmethod
-    def delete_item_by_id(self, item_table, item_id_col, item_id):
-        ...
+
+
+
 
     @abc.abstractmethod
-    def delete_tag_by_value(self, tag):
-        ...
-
-    @abc.abstractmethod
-    def delete_title(self, title_id):
-        ...
-
-    @abc.abstractmethod
-    def delete_title_identifiers(self, title_id, id_type=None):
-        ...
-
-    @abc.abstractmethod
-    def destroy_cc_temp_tables(self, temp_tables, conn=None):
+    def destroy_cc_temp_tables(self, temp_tables: Iterable[str], conn: Any=None) -> None:
         ...
 
     @abc.abstractmethod
@@ -287,15 +187,15 @@ class MacrosAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def do_custom_column_delete_by_id(self, cc_id):
+    def do_custom_column_delete_by_id(self, cc_id: int) -> None:
         ...
 
     @abc.abstractmethod
-    def do_custom_column_delete_by_num(self, num):
+    def do_custom_column_delete_by_num(self, num: int) -> None:
         ...
 
     @abc.abstractmethod
-    def ensure_custom_column_value(self, cc_table, value):
+    def ensure_custom_column_value(self, cc_table: str, value: Any) -> Any:
         ...
 
     @property
@@ -326,7 +226,7 @@ class MacrosAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_all_cc_ids_marked_for_delete(self, conn=None):
+    def get_all_cc_ids_marked_for_delete(self, conn=None) -> list[int]:
         ...
 
     @abc.abstractmethod
@@ -370,13 +270,7 @@ class MacrosAPI(abc.ABC):
             conn: Optional[sqlite3.Connection] = None) -> tuple[Union[float, int], ...]:
         ...
 
-    @abc.abstractmethod
-    def get_creator_link(self, creator_id):
-        ...
 
-    @abc.abstractmethod
-    def get_creator_sort(self, creator_id):
-        ...
 
     @abc.abstractmethod
     def get_dirtied_cache(self):
@@ -394,21 +288,9 @@ class MacrosAPI(abc.ABC):
     def get_linked_ids(self, link_table, left_id_col, right_id_col, left_id, type_filter=None):
         ...
 
-    @abc.abstractmethod
-    def get_primary_series_index(self, title_id):
-        ...
 
-    @abc.abstractmethod
-    def get_series_id_from_value(self, series):
-        ...
 
-    @abc.abstractmethod
-    def get_tag_id_from_value(self, tag):
-        ...
 
-    @abc.abstractmethod
-    def get_title_series_ids_set(self, title_id):
-        ...
 
     @abc.abstractmethod
     def get_unique_values(self, table, column):
@@ -419,7 +301,7 @@ class MacrosAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def hash_table(self, target_table, columns):
+    def hash_table(self, target_table: str, columns: Iterable[str]) -> str:
         ...
 
     @abc.abstractmethod
@@ -427,24 +309,12 @@ class MacrosAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def insert_values_into_temp_table(self, temp_table, values, conn=None):
+    def insert_values_into_temp_table(self, temp_table: str, values: Iterable[Any], conn: Any=None) -> None:
         ...
 
-    @abc.abstractmethod
-    def library_unset_series(self, title_id, series_id):
-        ...
 
-    @abc.abstractmethod
-    def link_null_series_to_title(self, title_id, series_index):
-        ...
 
-    @abc.abstractmethod
-    def link_publisher_to_null_publisher_row(self, title_id):
-        ...
 
-    @abc.abstractmethod
-    def make_creator_title_links(self, title_id=None, creator_id=None, id_pairs=None, creator_type='authors'):
-        ...
 
     @abc.abstractmethod
     def make_generic_link(self, link_table, left_link_col, right_link_col, priority_col, left_id, right_id):
@@ -455,92 +325,41 @@ class MacrosAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def mark_cc_for_delete(self, cc_column_id):
+    def mark_cc_for_delete(self, cc_column_id: int) -> None:
         ...
 
     @abc.abstractmethod
-    def mark_custom_column_for_delete(self, num):
+    def mark_custom_column_for_delete(self, num: int) -> None:
         ...
 
     @abc.abstractmethod
-    def preform_cc_column_delete_from_map(self, num_table_lt_map, conn=None):
+    def preform_cc_column_delete_from_map(self, num_table_lt_map: dict[int, tuple[str, str]], conn=None) -> None:
         ...
 
-    @abc.abstractmethod
-    def publisher_clear_unused(self):
-        ...
 
-    @abc.abstractmethod
-    def read_all_identifiers(self):
-        ...
 
-    @abc.abstractmethod
-    def read_book_id_with_cover_id_and_cover_nmame(self):
-        ...
 
-    @abc.abstractmethod
-    def read_book_id_with_file_id_file_ext_file_name_and_file_size(self):
-        ...
 
-    @abc.abstractmethod
-    def read_book_sizes_max_mode(self):
-        ...
 
-    @abc.abstractmethod
-    def read_book_sizes_min_mode(self):
-        ...
 
-    @abc.abstractmethod
-    def read_book_sizes_sum_mode(self):
-        ...
 
     @abc.abstractmethod
     def read_cc_value_from_meta_2(self, num: int, book_id: int, conn: Optional[sqlite3.Connection]=None) -> Iterable[Union[int, str, float]]:
         ...
 
-    @abc.abstractmethod
-    def read_creator_with_sort_and_link(self):
-        ...
 
-    @abc.abstractmethod
-    def read_file_backups_for_book(self, book_id):
-        ...
 
-    @abc.abstractmethod
-    def read_file_properties_for_book(self, book_id):
-        ...
 
     @abc.abstractmethod
     def read_link_property_trios(self, link_table, link_property_col, first_id, second_id):
         ...
 
-    @abc.abstractmethod
-    def read_primary_title_series_id_from_meta(self, title_id):
-        ...
 
-    @abc.abstractmethod
-    def remove_unused_series(self):
-        ...
 
-    @abc.abstractmethod
-    def replace_in_cover_path(self, target_str, replacement):
-        ...
 
-    @abc.abstractmethod
-    def replace_in_file_path(self, target_str, replacement):
-        ...
 
-    @abc.abstractmethod
-    def replace_in_folder_path(self, target_str, replacement):
-        ...
 
-    @abc.abstractmethod
-    def replace_in_folder_store_marker_path(self, target_str, replacement):
-        ...
 
-    @abc.abstractmethod
-    def replace_in_folder_store_path(self, target_str, replacement):
-        ...
 
     @abc.abstractmethod
     def repoint_cc_lt_values(self, lt, new_id, old_id):
@@ -550,73 +369,40 @@ class MacrosAPI(abc.ABC):
     def reprioritize_link(self, link_table, left_link_col, right_link_col, left_id, right_id, new_type=None, new_priority='MAX'):
         ...
 
-    @abc.abstractmethod
-    def set_author_sort(self, title_id, sort):
-        ...
+
 
     @abc.abstractmethod
-    def set_conversion_options(self, book_id, fmt, options):
-        ...
-
-    @abc.abstractmethod
-    def set_custom_column_metadata(self, num, name=None, label=None, is_editable=None, display=None, in_table=None, conn=None):
+    def set_custom_column_metadata(
+        self,
+        num: int,
+        name: Optional[str]=None,
+        label: Optional[str]=None,
+        is_editable: Optional[bool]=None,
+        display: Optional[str]=None,
+        in_table: Optional[str]=None,
+        conn=None,
+    ) -> bool:
         ...
 
     @abc.abstractmethod
     def set_database_version(self, new_val):
         ...
 
-    @abc.abstractmethod
-    def set_feeds(self, feeds):
-        ...
 
-    @abc.abstractmethod
-    def set_file_name(self, file_id, new_fname):
-        ...
 
-    @abc.abstractmethod
-    def set_file_size(self, file_id, size):
-        ...
 
-    @abc.abstractmethod
-    def set_file_size_and_name(self, file_id, size, fname):
-        ...
 
-    @abc.abstractmethod
-    def set_has_cover(self, book_id, value):
-        ...
 
     @abc.abstractmethod
     def set_library_id(self, new_val):
         ...
 
-    @abc.abstractmethod
-    def set_override_book_path(self, book_id, path):
-        ...
 
-    @abc.abstractmethod
-    def set_title_identifier(self, title_id, id_type, id_val):
-        ...
 
-    @abc.abstractmethod
-    def set_title_isbn(self, title_id, isbn):
-        ...
 
-    @abc.abstractmethod
-    def set_title_primary_language(self, title_id, lang_id):
-        ...
 
-    @abc.abstractmethod
-    def set_title_rating(self, title_id, rating):
-        ...
 
-    @abc.abstractmethod
-    def unapply_series_tags(self, series_id, tags):
-        ...
 
-    @abc.abstractmethod
-    def update_book_last_modified(self, book_id, last_modified):
-        ...
 
     @abc.abstractmethod
     def update_cc_lt_value_by_value(self, lt, new_value_id, old_value_id, conn=None):
@@ -630,34 +416,8 @@ class MacrosAPI(abc.ABC):
     def update_column_in_table(self, table, column, table_id_col, item_id, new_value):
         ...
 
-    @abc.abstractmethod
-    def update_creator_links(self, values):
-        ...
+
 
     @abc.abstractmethod
-    def update_creator_sorts(self, values):
-        ...
-
-    @abc.abstractmethod
-    def update_custom_column_additional_column_many(self, table, column, sequence) -> set[int]:
-        ...
-
-    @abc.abstractmethod
-    def update_feed(self, feed_id, script, title):
-        ...
-
-    @abc.abstractmethod
-    def update_index_for_series_title_link(self, title_id, series_id, index):
-        ...
-
-    @abc.abstractmethod
-    def update_title(self, title_id, title):
-        ...
-
-    @abc.abstractmethod
-    def update_title_author_link_priority(self, title_id, creator_id, new_priority):
-        ...
-
-    @abc.abstractmethod
-    def update_title_creator_sort(self, title_id, creator_val):
+    def update_custom_column_additional_column_many(self, table, column, sequence):
         ...

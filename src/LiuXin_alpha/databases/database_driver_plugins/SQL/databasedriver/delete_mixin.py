@@ -30,13 +30,13 @@ class DeleteMixin:
         row_ids = ((str(rid),) for rid in row_ids)
 
         # Todo: Check that this is used everywhere it should be
-        if not self.validate_existing_table_name(target_table):
+        if not self.direct_validate_existing_table_name(target_table):
             err_str = "target_table not found in database.\n"
             err_str = default_log.log_variables(err_str, "ERROR", ("target_table", target_table), ("row_ids", row_ids))
             raise InputIntegrityError(err_str)
 
         conn = self.get_connection()
-        target_table_id_column = self._get_id_column(target_table)
+        target_table_id_column = self.direct_get_id_column(target_table)
         stmt = "DELETE FROM {} WHERE {} = ?;".format(target_table, target_table_id_column)
 
         try:
@@ -168,7 +168,7 @@ class DeleteMixin:
             raise InputIntegrityError(err_str)
 
         conn = self.get_connection()
-        target_table_id_column = self._get_id_column(target_table)
+        target_table_id_column = self.direct_get_id_column(target_table)
         stmt = "DELETE FROM {} WHERE {} = ?;".format(target_table, target_table_id_column)
 
         try:
@@ -215,7 +215,7 @@ class DeleteMixin:
         :param prompt:
         :return:
         """
-        if not self.validate_existing_table_name(target_table):
+        if not self.direct_validate_existing_table_name(target_table):
             err_str = "target_table not found in database.\n"
             err_str = default_log.log_variables(err_str, "ERROR", ("target_table", target_table))
             raise InputIntegrityError(err_str)

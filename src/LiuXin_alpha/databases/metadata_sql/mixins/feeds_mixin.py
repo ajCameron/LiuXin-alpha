@@ -6,9 +6,9 @@ Feeds mixin - methods to access, delete and update feeds.
 from __future__ import annotations
 
 
-class CatalogMacrosFeedsMixin:
+class FeedsMixin:
     """
-    Feeds mixin for the catalog macros.
+    Feeds SQL helpers.
     """
 
     # ------------------------------------------------------------------------------------------------------------------

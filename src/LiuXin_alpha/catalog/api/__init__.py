@@ -14,11 +14,13 @@ from .common import (
     WemiBundle,
     WemiLevel,
 )
+from .mutations import CatalogMutationsAPI
 
 __all__ = [
     "CatalogAPI",
     "CatalogError",
     "CatalogMutationError",
+    "CatalogMutationsAPI",
     "CatalogNotFoundError",
     "EntityId",
     "IdentifierCandidate",

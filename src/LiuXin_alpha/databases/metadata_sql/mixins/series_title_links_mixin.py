@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
-# Todo: This is also a catalog level macro
 class SeriesTitleLinkMacros:
     """
     Macros for controlling series title links.

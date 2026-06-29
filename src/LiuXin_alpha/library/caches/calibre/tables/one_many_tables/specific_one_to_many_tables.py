@@ -82,7 +82,7 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         self.book_col_map = defaultdict(self._container_for_book)
         self.col_book_map = defaultdict(set)
 
-        for book, typ, val in db.macros.read_all_identifiers():
+        for book, typ, val in db.metadata_sql.read_all_identifiers():
             # Ignore malformed identifier entries
             if typ is not None and val is not None:
                 self.col_book_map[typ].add(book)
@@ -97,7 +97,7 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         :param db: The database to preform the edit in
         :return None: Data is written blind
         """
-        db.macros.delete_title_identifiers(book_id)
+        db.metadata_sql.delete_title_identifiers(book_id)
         db.macros.delete_in_table("identifier_title_links", "identifier_title_link_title_id", book_id)
 
         title_row = db.get_row_from_id("titles", row_id=book_id)
@@ -200,23 +200,23 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
             if isinstance(book_val, str):
                 # Assume we're dealing with an isbn and add it as such
                 if ":" not in book_val:
-                    db.macros.add_title_identifier(title_id=book_id, id_type="isbn", id_val=book_val)
+                    db.metadata_sql.add_title_identifier(title_id=book_id, id_type="isbn", id_val=book_val)
                 else:
                     # Todo: Add checking that the id_type is one of the allowable values
                     id_type, id_val = book_val.split(":")
-                    db.macros.add_title_identifier(title_id=book_id, id_type=id_type, id_val=id_val)
+                    db.metadata_sql.add_title_identifier(title_id=book_id, id_type=id_type, id_val=id_val)
 
             # Assume we're doing a wholesale replace on available isbns
             elif isinstance(book_val, (tuple, list, set, frozenset)):
-                db.macros.delete_title_identifiers(book_id, id_type="isbn")
+                db.metadata_sql.delete_title_identifiers(book_id, id_type="isbn")
                 for new_id in book_val:
-                    db.macros.add_title_identifier(title_id=book_id, id_type="isbn", id_val=new_id)
+                    db.metadata_sql.add_title_identifier(title_id=book_id, id_type="isbn", id_val=new_id)
 
             elif isinstance(book_val, (dict, OrderedDict)):
-                db.macros.delete_title_identifiers(book_id)
+                db.metadata_sql.delete_title_identifiers(book_id)
                 for id_type, id_vals in iteritems(book_val):
                     for new_id in id_vals:
-                        db.macros.add_title_identifier(title_id=book_id, id_type=id_type, id_val=new_id)
+                        db.metadata_sql.add_title_identifier(title_id=book_id, id_type=id_type, id_val=new_id)
 
             else:
                 raise NotImplementedError("book_id_val_map value not recognized")

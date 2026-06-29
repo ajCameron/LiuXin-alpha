@@ -3,7 +3,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from copy import deepcopy
 
 from LiuXin_alpha.catalog.write.base_writer import BaseWriter
-from LiuXin_alpha.catalog.write.library_macros import library_set_publisher, library_unset_series, \
+from LiuXin_alpha.catalog.catalog_macros import library_set_publisher, library_unset_series, \
     library_set_series
 from LiuXin_alpha.catalog.write.utils import UpdateDict
 from LiuXin_alpha.errors import InvalidUpdate, NotInCache
@@ -118,7 +118,7 @@ class ManyToManyWriter(BaseWriter):
         if field.name == "tags":
             for target_book_id, update_form in iteritems(book_id_val_map):
                 if isinstance(update_form, set):
-                    db.macros.break_generic_link(
+                    db.metadata_sql.break_generic_link(
                         link_table="tag_title_links",
                         link_col="tag_title_link_title_id",
                         remove_id=target_book_id,
@@ -424,11 +424,11 @@ class ManyToManyWriter(BaseWriter):
         vals = ((book_id, val) for book_id, vals in iteritems(updated) for val in vals)
 
         # Todo: HAVE to standardize creator and other types - triggers in the database?
-        db.macros.break_creator_title_links(title_id=(k for k in updated))
-        db.macros.break_creator_title_links(title_id=(k for k in deleted))
+        db.metadata_sql.break_creator_title_links(title_id=(k for k in updated))
+        db.metadata_sql.break_creator_title_links(title_id=(k for k in deleted))
 
         # Todo: Fold into a library author set method
-        db.macros.make_creator_title_links(id_pairs=vals)
+        db.metadata_sql.make_creator_title_links(id_pairs=vals)
 
     # Todo: What about the nullified elements?
     # Todo: What about all the OTHER languages? Are they being handled correctly?
@@ -445,7 +445,7 @@ class ManyToManyWriter(BaseWriter):
         """
         for book_id in updated:
             lang_id = updated[book_id][0]
-            db.macros.set_title_primary_language(book_id, lang_id)
+            db.metadata_sql.set_title_primary_language(book_id, lang_id)
 
     @staticmethod
     def do_series_many_many_db_update(
@@ -475,7 +475,7 @@ class ManyToManyWriter(BaseWriter):
                 # Any entries in both the old and the new list will be reordered - but we need to eliminate entries from
                 # the new list which do no appear in the old
                 # Have to go for the database as the cache has already been updated at this point
-                non_overlap_set = db.macros.get_title_series_ids_set(book_id) - set(series_id)
+                non_overlap_set = db.metadata_sql.get_title_series_ids_set(book_id) - set(series_id)
                 for remove_series_id in non_overlap_set:
                     library_unset_series(db=db, title_id=book_id, series_id=remove_series_id)
 
@@ -504,11 +504,11 @@ class ManyToManyWriter(BaseWriter):
         :param is_authors:
         :return:
         """
-        db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, tuple(k for k in deleted))
+        db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, tuple(k for k in deleted))
 
         vals = tuple((book_id, val) for book_id, vals in iteritems(updated) for val in vals)
 
-        db.macros.break_generic_link(table.link_table, table.link_table_bt_id_column, tuple(k for k in updated))
+        db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, tuple(k for k in updated))
 
         db.macros.make_generic_link_no_priority(
             table.link_table,
@@ -526,7 +526,7 @@ class ManyToManyWriter(BaseWriter):
         :param deleted:
         :return:
         """
-        db.macros.break_lang_title_primary_link((k for k in deleted))
+        db.metadata_sql.break_lang_title_primary_link((k for k in deleted))
 
     @staticmethod
     def generic_many_many_db_clean_links(db, table, deleted):
@@ -550,7 +550,7 @@ class ManyToManyWriter(BaseWriter):
         :return:
         """
         if not is_authors:
-            db.macros.break_generic_link(
+            db.metadata_sql.break_generic_link(
                 table.lx_table_name,
                 table.table_id_col,
                 ((item_id,) for item_id in remove),
@@ -567,7 +567,7 @@ class ManyToManyWriter(BaseWriter):
         :param field:
         :return:
         """
-        db.macros.creator_clear_unused()
+        db.metadata_sql.creator_clear_unused()
 
     @staticmethod
     def get_language_id(
@@ -645,7 +645,7 @@ class ManyToManyWriter(BaseWriter):
         :param field:
         :return:
         """
-        db.macros.publisher_clear_unused()
+        db.metadata_sql.publisher_clear_unused()
 
     @staticmethod
     def dummy_many_one_clear_unused(db, table, field):

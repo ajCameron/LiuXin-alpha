@@ -8,7 +8,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.catalog.write.base_writer import BaseWriter
-from LiuXin_alpha.catalog.write.library_macros import library_set_cover
+from LiuXin_alpha.catalog.catalog_macros import library_set_cover
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 

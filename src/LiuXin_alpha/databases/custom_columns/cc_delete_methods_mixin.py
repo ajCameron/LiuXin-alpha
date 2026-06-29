@@ -1,4 +1,15 @@
 
+"""
+Methods for deleting from custom columns.
+"""
+
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.custom_columns_api import CustomColumnsAPI
 
 
 class CCDeleteMethodsMixin:
@@ -6,7 +17,11 @@ class CCDeleteMethodsMixin:
     Methods to delete entries from custom columns.
     """
 
-    def delete_custom_item_using_id(self, idx, label=None, num=None):
+    def delete_custom_item_using_id(
+            self: "CustomColumnsAPI",
+            idx: Optional[int],
+            label: Optional[str] = None,
+            num: Optional[int] = None) -> None:
         """
         Delete the custom item using its id
 
@@ -16,9 +31,12 @@ class CCDeleteMethodsMixin:
         :param num:
         :return:
         """
+        # Todo: Whhyyyyyyyy?
         if idx:
+
             if label is not None:
                 data = self.custom_column_label_map[label]
+
             elif num is not None:
                 data = self.custom_column_num_map[num]
             else:
@@ -34,9 +52,14 @@ class CCDeleteMethodsMixin:
             # Delete from the link table and the actual table
             self.db.macros.delete_cc_item(table, lt, idx)
 
-            self.rename_custom_item_in_data(book_ids=book_ids, column_num=data["num"], new_value=None)
+            self.rename_custom_item_in_data(target_ids=book_ids, column_num=data["num"], new_value=None)
 
-    def delete_item_from_multiple(self, item, label=None, num=None):
+    # Todo: We seem to be assuming items are strings a lot - this feels like custom tags
+    def delete_item_from_multiple(
+            self: "CustomColumnsAPI",
+            item: str,
+            label: Optional[str] = None,
+            num: Optional[int] = None) -> list[int]:
         """
         Delete an item which is reference by multiple books.
 

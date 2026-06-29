@@ -36,7 +36,7 @@ class TreeMethodsMixin:
         """
         target_table = deepcopy(target_table)
         conn = self.get_connection()
-        target_table_id_column = self._get_id_column(target_table)
+        target_table_id_column = self.direct_get_id_column(target_table)
         target_table_full_column = self.get_full_column_name(target_table)
         if target_table_full_column is None:
             err_str = "Cannot set full column - table: {} - does not have one".format(target_table)
@@ -85,7 +85,7 @@ class TreeMethodsMixin:
         :return:
         """
         table = deepcopy(table)
-        table_id_column = self._get_id_column(table)
+        table_id_column = self.direct_get_id_column(table)
         table_tree_id_column = self.get_tree_id_column(table)
         if table_tree_id_column is None:
             err_str = "Cannot set_tree_ids - there doesn't seem to be a tree id for this table - {}".format(table)
@@ -135,7 +135,7 @@ class TreeMethodsMixin:
         :param start_row:
         :return:
         """
-        row_table = self.identify_table_from_row(start_row)
+        row_table = self.direct_identify_table_from_row(start_row)
         row_parent_column = self.get_parent_column_name(row_table)
         root_series = self.get_root_series(start_row)
 
@@ -239,7 +239,7 @@ class TreeMethodsMixin:
         .......... -> grandparent_series -> parent_series -> series
         """
         start_row_dict = start_row
-        row_table = self.identify_table_from_row(start_row_dict)
+        row_table = self.direct_identify_table_from_row(start_row_dict)
         row_parent_column = self.get_parent_column_name(row_table)
         linear_index = []
         current_row = start_row_dict

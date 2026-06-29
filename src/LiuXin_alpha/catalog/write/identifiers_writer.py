@@ -69,6 +69,6 @@ class IdentifiersWrite(BaseWriter):
 
         # Write the updated identifiers out to the database
         for book_id, id_type, id_val in updates:
-            db.macros.set_title_identifier(title_id=book_id, id_type=id_type, id_val=id_val)
+            db.metadata_sql.set_title_identifier(title_id=book_id, id_type=id_type, id_val=id_val)
 
         return set(book_id_val_map)

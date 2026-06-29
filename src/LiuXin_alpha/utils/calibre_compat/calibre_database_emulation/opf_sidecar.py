@@ -31,10 +31,10 @@ from pathlib import Path
 import re
 import zlib
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, IO, Iterator, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, IO, Iterator, List, Mapping, Optional, Tuple
 
-from .errors import CalibreUnsafePathError
-from .types import CalibreBookNormalized, CalibreFormatRef, CalibreSeriesRef
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.errors import CalibreUnsafePathError
+from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.types import CalibreBookNormalized, CalibreFormatRef, CalibreSeriesRef
 
 
 # ----------------------------
@@ -147,9 +147,13 @@ class ParsedOPF:
 
 
 def parse_metadata_opf(opf_path: Path) -> ParsedOPF:
-    """Parse a Calibre ``metadata.opf`` file best-effort.
+    """
+    Parse a Calibre ``metadata.opf`` file best-effort.
 
     Returns a ParsedOPF with warnings filled if parsing was partial.
+
+    :param opf_path:
+    :return:
     """
     warnings: List[str] = []
     try:
@@ -360,7 +364,12 @@ def _ensure_path_under_root(library_root: Path, p: Path) -> Path:
 
 
 def _synthetic_id_from_relpath(rel: str) -> int:
-    # Deterministic negative int.
+    """
+    Deterministic negative int.
+
+    :param rel:
+    :return:
+    """
     b = rel.encode("utf-8", errors="ignore")
     crc = zlib.crc32(b) & 0xFFFFFFFF
     if crc == 0:
@@ -369,7 +378,12 @@ def _synthetic_id_from_relpath(rel: str) -> int:
 
 
 def _find_cover_file(book_dir: Path) -> Optional[Path]:
-    # Calibre default is cover.jpg, but we allow a few variants.
+    """
+    Calibre default is cover.jpg, but we allow a few variants.
+
+    :param book_dir:
+    :return:
+    """
     candidates = ["cover.jpg", "cover.jpeg", "cover.png", "Cover.jpg", "Cover.jpeg", "Cover.png"]
     for c in candidates:
         p = book_dir / c
@@ -410,26 +424,53 @@ def _list_format_files(book_dir: Path) -> Tuple[CalibreFormatRef, ...]:
 
 @dataclass(frozen=True, slots=True)
 class CalibreSidecarReader:
-    """Stream Calibre payloads using per-book sidecar files (no metadata.db)."""
+    """
+    Stream Calibre payloads using per-book sidecar files (no metadata.db).
+    """
 
     library_root: Path
 
     @classmethod
     def from_root(cls, library_root: str | Path) -> "CalibreSidecarReader":
+        """
+        Populate the sidecar reader from a Calibre library.
+
+        :param library_root:
+        :return:
+        """
         return cls(library_root=Path(library_root))
 
     def open_cover(self, cover_path: Path) -> IO[bytes]:
+        """
+        Open a cover file.
+
+        :param cover_path:
+        :return:
+        """
         root = Path(self.library_root)
         safe = _ensure_path_under_root(root, Path(cover_path))
         return open(safe, "rb")
 
     def open_format(self, fmt: CalibreFormatRef) -> IO[bytes]:
+        """
+        Open a format file.
+
+        :param fmt:
+        :return:
+        """
         root = Path(self.library_root)
         safe = _ensure_path_under_root(root, Path(fmt.file_path))
         return open(safe, "rb")
 
     @staticmethod
     def iter_file_chunks(fh: IO[bytes], *, chunk_size: int = 1024 * 1024) -> Iterator[bytes]:
+        """
+        Iterate over a file in chunks.
+
+        :param fh:
+        :param chunk_size:
+        :return:
+        """
         while True:
             chunk = fh.read(int(chunk_size))
             if not chunk:
@@ -445,7 +486,16 @@ class CalibreSidecarReader:
         best_effort: bool = True,
         max_books: Optional[int] = None,
     ) -> Iterator[CalibreBookNormalized]:
-        """Walk the library and yield per-book payloads based on ``metadata.opf``."""
+        """
+        Walk the library and yield per-book payloads based on ``metadata.opf``.
+
+        :param include_formats:
+        :param include_cover_path:
+        :param strict_paths:
+        :param best_effort:
+        :param max_books:
+        :return:
+        """
         root = Path(self.library_root)
         yielded = 0
 

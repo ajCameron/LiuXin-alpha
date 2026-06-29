@@ -142,7 +142,7 @@ class OneToManyWriter(ManyToOneWriter):
 
             # Todo: Write out the algorithm for what happens when an update dict of a certain form is passed to an update method
             # If we're being passed a string, then add it as the only value
-            db.macros.break_generic_link(link_table=link_table, link_col=link_col, remove_id=book_id)
+            db.metadata_sql.break_generic_link(link_table=link_table, link_col=link_col, remove_id=book_id)
 
             # If the link has the concept of priority this should set it correctly - if not it doesn't matter
             book_vals = list(bv for bv in book_vals)
@@ -166,7 +166,7 @@ class OneToManyWriter(ManyToOneWriter):
                     # specified title
 
                     # Break an existing link to the item
-                    db.macros.break_generic_link(
+                    db.metadata_sql.break_generic_link(
                         link_table=link_table,
                         link_col=right_link_col,
                         remove_id=book_val,
@@ -216,7 +216,7 @@ class OneToManyWriter(ManyToOneWriter):
 
             # Todo: Write out the algorithm for what happens when an update dict of a certain form is passed to an update method
             # If we're being passed a string, then add it as the only value
-            db.macros.break_generic_link(link_table=link_table, link_col=link_col, remove_id=book_id)
+            db.metadata_sql.break_generic_link(link_table=link_table, link_col=link_col, remove_id=book_id)
 
             # If the link has the concept of priority this should set it correctly - if not it doesn't matter
             book_vals = list(bv for bv in book_vals) if book_vals is not None else []
@@ -242,7 +242,7 @@ class OneToManyWriter(ManyToOneWriter):
                     # specified title
 
                     # Break an existing link to the item
-                    db.macros.break_generic_link(
+                    db.metadata_sql.break_generic_link(
                         link_table=link_table,
                         link_col=right_link_col,
                         remove_id=book_val,
@@ -308,7 +308,7 @@ class OneToManyWriter(ManyToOneWriter):
 
                 # Todo: This destroys information which has been added to the link
                 # After this, there should be no links of any kind to the book - they all need to be re-added
-                db.macros.break_generic_link(
+                db.metadata_sql.break_generic_link(
                     link_table=link_table,
                     link_col=link_col,
                     remove_id=book_id,
@@ -362,14 +362,14 @@ class OneToManyWriter(ManyToOneWriter):
         for book_id, type_dict in iteritems(final_book_id_val_map):
 
             if type_dict is None:
-                db.macros.break_generic_link(link_table=link_table, link_col=link_col, remove_id=book_id)
+                db.metadata_sql.break_generic_link(link_table=link_table, link_col=link_col, remove_id=book_id)
                 continue
 
             for link_type, book_vals in iteritems(type_dict):
 
                 # Break any links which exist between the book and the item with that type
                 if book_vals is None:
-                    db.macros.break_generic_link(
+                    db.metadata_sql.break_generic_link(
                         link_table=link_table,
                         link_col=left_link_col,
                         remove_id=book_id,
@@ -384,7 +384,7 @@ class OneToManyWriter(ManyToOneWriter):
                 book_vals.reverse()
                 for item_id in book_vals:
                     # Break any existing link to the item
-                    db.macros.break_generic_link(
+                    db.metadata_sql.break_generic_link(
                         link_table=link_table,
                         link_col=right_link_col,
                         remove_id=item_id,
@@ -428,7 +428,7 @@ class OneToManyWriter(ManyToOneWriter):
 
                 # Todo: This destroys information which has been added to the link
                 # After this, there should be no links of any kind to the book - they all need to be re-added
-                db.macros.break_generic_link(
+                db.metadata_sql.break_generic_link(
                     link_table=link_table,
                     link_col=link_col,
                     remove_id=book_id,
@@ -482,7 +482,7 @@ class OneToManyWriter(ManyToOneWriter):
         for book_id, type_dict in iteritems(final_book_id_val_map):
 
             if type_dict is None:
-                db.macros.break_generic_link(link_table=link_table, link_col=link_col, remove_id=book_id)
+                db.metadata_sql.break_generic_link(link_table=link_table, link_col=link_col, remove_id=book_id)
                 continue
 
             for link_type, book_vals in iteritems(type_dict):
@@ -498,7 +498,7 @@ class OneToManyWriter(ManyToOneWriter):
                 for item_id in book_vals:
 
                     # Break any existing link to the item
-                    db.macros.break_generic_link(
+                    db.metadata_sql.break_generic_link(
                         link_table=link_table,
                         link_col=right_link_col,
                         remove_id=item_id,

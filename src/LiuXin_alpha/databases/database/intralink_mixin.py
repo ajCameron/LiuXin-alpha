@@ -1,5 +1,11 @@
 
+"""
+Method to handle intralink rows.
+"""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional
 
 from LiuXin_alpha.errors import InputIntegrityError, DatabaseIntegrityError
 
@@ -7,6 +13,11 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 from LiuXin_alpha.databases.row import Row
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI, IntralinkRowAPI
 
 
 class DatabaseIntralinkRowsMixin:
@@ -19,9 +30,14 @@ class DatabaseIntralinkRowsMixin:
     # - METHODS TO WRITE TO INTRALINK TABLES START HERE
 
     # Todo: Need to extend to account for the other interlink data types
-    def intralink_rows(self, primary_row, secondary_row, link_type):
+    def intralink_rows(
+            self: "DatabaseAPI",
+            primary_row: "RowAPI",
+            secondary_row: "RowAPI",
+            link_type: str) -> "IntralinkRowAPI":
         """
         Intralink two rows - with an allowed link_type.
+
         :param primary_row: This will be entered as the primary row
         :param secondary_row: This will be entered as the secondary row
         :param link_type:
@@ -93,9 +109,13 @@ class DatabaseIntralinkRowsMixin:
     #
     # - METHODS TO READ INTRALINKED ROWS START HERE
 
-    def get_intralink_row(self, primary_row, secondary_row):
+    def get_intralink_row(
+            self: "DatabaseAPI",
+            primary_row: "RowAPI",
+            secondary_row: "RowAPI") -> Optional["IntralinkRowAPI"]:
         """
         Get the intralink row connecting the primary and secondary row - if any.
+
         :param primary_row:
         :param secondary_row:
         :return:
@@ -128,22 +148,29 @@ class DatabaseIntralinkRowsMixin:
 
         if len(candidate_rows) == 0:
             return None
+
         elif len(candidate_rows) == 1:
             return candidate_rows[0]
-        else:
-            err_str = "Rows are joined by more than one intralink row - which shouldn't happen."
-            err_str = default_log.log_variables(
-                err_str,
-                "ERROR",
-                ("candidate_rows", candidate_rows),
-                ("primary_row", primary_row),
-                ("secondary_row", secondary_row),
-            )
-            raise DatabaseIntegrityError(err_str)
 
-    def get_intralink_rows(self, row, primary=True, secondary=True, link_type_filter=None):
+        err_str = "Rows are joined by more than one intralink row - which shouldn't happen."
+        err_str = default_log.log_variables(
+            err_str,
+            "ERROR",
+            ("candidate_rows", candidate_rows),
+            ("primary_row", primary_row),
+            ("secondary_row", secondary_row),
+        )
+        raise DatabaseIntegrityError(err_str)
+
+    def get_intralink_rows(
+            self: "DatabaseAPI",
+            row: "RowAPI",
+            primary: bool = True,
+            secondary: bool = True,
+            link_type_filter: Optional[str] = None) -> list["RowAPI"]:
         """
         Returns all intralink rows involving the given row.
+
         :param row:
         :param primary: If True return link rows where this row is the primary
         :type primary: bool
@@ -187,9 +214,13 @@ class DatabaseIntralinkRowsMixin:
             ]
             return filtered_row_pool
 
-    def get_intralinked_rows(self, primary_row, secondary_row):
+    def get_intralinked_rows(
+            self: "DatabaseAPI",
+            primary_row: "RowAPI",
+            secondary_row: "RowAPI") -> Optional[list["RowAPI"]]:
         """
         Get any rows intralinked to the given primary row.
+
         The row must be primary in the link - if it's secondary that means something different.
         If the primary_row is not None, and the secondary row is None, returns every title linked to that row with that
         row as the primary_id (so returns purely secondary rows).
@@ -264,9 +295,13 @@ class DatabaseIntralinkRowsMixin:
     # - METHODS TO DELETE INTRALINK ROWS START HERE
 
     # Todo: Consider renaming - unlink_intralink
-    def unlinked_intralink(self, primary_row, secondary_row):
+    def unlinked_intralink(
+            self: "DatabaseAPI",
+            primary_row: "RowAPI",
+            secondary_row: "RowAPI") -> None:
         """
-        Unlink two rows that have been interlinked.
+        Unlink two rows that have been intralinked.
+
         If primary_row and secondary_row are both not None, removes any interlink between the primary and the
         secondary row.
         If the primary_row is not None - deletes any intralink rows with that row as the primary.

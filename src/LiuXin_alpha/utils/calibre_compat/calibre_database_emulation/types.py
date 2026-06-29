@@ -17,11 +17,24 @@ from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, Tuple
 
 
+# Todo: These are not, in fact, types. They're adapters
 def _jsonify_path(p: Optional[Path]) -> Optional[str]:
+    """
+    Take a path, and turn it into a json string.
+
+    :param p:
+    :return:
+    """
     return None if p is None else str(p)
 
 
 def _jsonify_seq(seq: Sequence[Any]) -> list[Any]:
+    """
+    Any sequence will come out as a json list.
+
+    :param seq:
+    :return:
+    """
     # Convert tuples to lists, and recursively jsonify paths / dataclasses.
     out: list[Any] = []
     for item in seq:
@@ -36,7 +49,9 @@ def _jsonify_seq(seq: Sequence[Any]) -> list[Any]:
 
 @dataclass(frozen=True, slots=True)
 class CalibreLibraryPaths:
-    """Filesystem paths for a Calibre library."""
+    """
+    Filesystem paths for a Calibre library.
+    """
 
     library_root: Path
     metadata_db_path: Path
@@ -45,6 +60,12 @@ class CalibreLibraryPaths:
 
     @classmethod
     def from_root(cls, library_root: Path) -> "CalibreLibraryPaths":
+        """
+        Populate self with likely library paths.
+
+        :param library_root:
+        :return:
+        """
         root = Path(library_root)
         return cls(
             library_root=root,
@@ -54,6 +75,11 @@ class CalibreLibraryPaths:
         )
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Return the contents of this class as a dict.
+
+        :return:
+        """
         return {
             "library_root": str(self.library_root),
             "metadata_db_path": str(self.metadata_db_path),
@@ -64,7 +90,8 @@ class CalibreLibraryPaths:
 
 @dataclass(frozen=True, slots=True)
 class CalibreCustomColumnDef:
-    """Definition of a Calibre custom column from the `custom_columns` table.
+    """
+    Definition of a Calibre custom column from the `custom_columns` table.
 
     Calibre creates dynamic tables per custom column id:
 
@@ -147,10 +174,11 @@ class CalibreCustomColumnDef:
 
 @dataclass(frozen=True, slots=True)
 class CalibreIssue:
-    """Structured issues discovered while reading a Calibre library.
+    """
+    Structured issues discovered while reading a Calibre library.
 
-    These are intended for diagnostics and snapshot tests, not as a logging
-    system. Keep messages short and stable.
+    These are intended for diagnostics and snapshot tests, not as a logging system.
+    Keep messages short and stable.
     """
 
     severity: str  # "info" | "warning" | "error"
@@ -169,7 +197,8 @@ class CalibreIssue:
 
 @dataclass(frozen=True, slots=True)
 class CalibreDriftEvent:
-    """Per-book filesystem drift events.
+    """
+    Per-book filesystem drift events.
 
     These are derived from reconciling DB expectations with on-disk reality.
     Keep codes stable so callers can build ingestion policies.
@@ -191,7 +220,8 @@ class CalibreDriftEvent:
 
 @dataclass(frozen=True, slots=True)
 class CalibreVersionPlan:
-    """A lightweight plan/report for handling a Calibre schema version.
+    """
+    A lightweight plan/report for handling a Calibre schema version.
 
     This is advisory only: it records what we observed and how it compares to
     the Calibre SQL snapshot vendored with LiuXin (if available).
@@ -209,6 +239,11 @@ class CalibreVersionPlan:
     warnings: Tuple[str, ...] = ()
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        dict based representation of this plan.
+
+        :return:
+        """
         return {
             "application_id": self.application_id,
             "user_version": self.user_version,
@@ -225,7 +260,9 @@ class CalibreVersionPlan:
 
 @dataclass(frozen=True, slots=True)
 class CalibreSchemaInfo:
-    """Observed schema information for a Calibre library."""
+    """
+    Observed schema information for a Calibre library.
+    """
 
     application_id: int
     user_version: int
@@ -253,7 +290,9 @@ class CalibreSchemaInfo:
 
 @dataclass(frozen=True, slots=True)
 class CalibreSeriesRef:
-    """Series value (name + optional numeric index)."""
+    """
+    Series value (name + optional numeric index).
+    """
 
     name: str
     index: Optional[float] = None
@@ -264,13 +303,20 @@ class CalibreSeriesRef:
 
 @dataclass(frozen=True, slots=True)
 class CalibreFormatRef:
-    """A reference to a format file on disk."""
+    """
+    A reference to a format file on disk.
+    """
 
     fmt: str
     file_path: Path
     size_bytes: Optional[int] = None
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Dict based rep of the format on disk.
+
+        :return:
+        """
         return {
             "fmt": self.fmt,
             "file_path": str(self.file_path),
@@ -280,7 +326,8 @@ class CalibreFormatRef:
 
 @dataclass(frozen=True, slots=True)
 class CalibreBookRow:
-    """A *raw-ish* book row plus common pre-joined fields.
+    """
+    A *raw-ish* book row plus common pre-joined fields.
 
     This is intended for reader internals: it can retain the original DB row
     (as a mapping) while also carrying resolved/joined relationships.
@@ -299,6 +346,11 @@ class CalibreBookRow:
     custom_values: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Dict based rep of the format on disk.
+
+        :return:
+        """
         return {
             "book_id": self.book_id,
             "book_row": dict(self.book_row),
@@ -316,7 +368,11 @@ class CalibreBookRow:
 
 @dataclass(frozen=True, slots=True)
 class CalibreBookNormalized:
-    """A normalised import payload derived from a Calibre library."""
+    """
+    A normalised import payload derived from a Calibre library.
+
+    This represents a single book which can be pulled into LiuXin.
+    """
 
     calibre_book_id: int
     title: str
@@ -352,7 +408,9 @@ class CalibreBookNormalized:
 
 @dataclass(frozen=True, slots=True)
 class CalibreScanCounts:
-    """Aggregate counts produced by a best-effort scan."""
+    """
+    Aggregate counts produced by a best-effort scan.
+    """
 
     books: int = 0
     formats_total: int = 0
@@ -374,7 +432,9 @@ class CalibreScanCounts:
 
 @dataclass(frozen=True, slots=True)
 class CalibreDriftSummary:
-    """Summary of filesystem drift observations."""
+    """
+    Summary of filesystem drift observations.
+    """
 
     by_code: Mapping[str, int] = field(default_factory=dict)
     by_severity: Mapping[str, int] = field(default_factory=dict)
@@ -414,7 +474,8 @@ class CalibreScanReport:
 
 @dataclass(frozen=True, slots=True)
 class CalibreImportPolicy:
-    """Policy for classifying Calibre books into ingestion jobs.
+    """
+    Policy for classifying Calibre books into ingestion jobs.
 
     This is deliberately simple and stable; callers can layer more complex
     behaviour on top.
@@ -444,7 +505,11 @@ class CalibreImportPolicy:
 
 @dataclass(frozen=True, slots=True)
 class CalibreImportJob:
-    """A single streaming ingestion job yielded by :func:`iter_import_jobs`."""
+    """
+    A single streaming ingestion job yielded by :func:`iter_import_jobs`.
+
+    Individual tasks to be done to import a book from calibre into Liuxin.
+    """
 
     library_root: Path
     source_mode: str  # "db" | "opf"
@@ -453,6 +518,11 @@ class CalibreImportJob:
     payload: Optional[CalibreBookNormalized] = None
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Render the import job as a dict.
+
+        :return:
+        """
         return {
             "library_root": str(self.library_root),
             "source_mode": self.source_mode,

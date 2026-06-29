@@ -310,7 +310,7 @@ class SQLBaseDriver:
         else:
             self.event_count += 1
 
-    def identify_table_from_row(self, row_dict: dict[str, Any]) -> Optional[str]:
+    def direct_identify_table_from_row(self, row_dict: dict[str, Any]) -> Optional[str]:
         """
         Takes a row. Attempts to identify which row it came from.
 
@@ -325,14 +325,14 @@ class SQLBaseDriver:
         row_columns_set = set(key for key in row_dict.keys())
 
         if VERBOSE_DEBUG:
-            err_str = "Calling identify_table_from_row.\n"
+            err_str = "Calling direct_identify_table_from_row.\n"
             err_str += "Table_and_columns: " + repr(tables_and_columns) + "\n"
             err_str += "Tables: " + repr(table) + "\n"
             LiuXin_debug_print(err_str)
 
         # if this method is called with a null row it will complain. If warn is true
         if len(row_dict) == 0:
-            info_str = "Warning - identify_table_from_row called with empty row."
+            info_str = "Warning - direct_identify_table_from_row called with empty row."
             default_log.info(info_str)
             return False
 
@@ -349,12 +349,12 @@ class SQLBaseDriver:
 
         for column_heading in row_dict.keys():
             try:
-                column_table = self.identify_table_from_column(column_heading, print_error=False)
+                column_table = self.direct_identify_table_from_column(column_heading)
                 partial_match_tables.add(column_table)
             except InputIntegrityError:
                 unmatched_columns.add(column_heading)
 
-        err_str = "SQLite:databasedriver:identify_table_from_row unable to find matching table.\n"
+        err_str = "SQLite:databasedriver:direct_identify_table_from_row unable to find matching table.\n"
         if len(partial_match_tables) > 0:
             err_str += "partial matches found for some column_headings.\n"
             err_str += "partial_match_tables: " + pprint.pformat(partial_match_tables) + "\n"
@@ -378,8 +378,8 @@ class SQLBaseDriver:
         Takes a row. Extracts an id from it if possible. If not returns False
         :param row_dict:
         """
-        row_table = self.identify_table_from_row(row_dict)
-        row_id_column = self._get_id_column(row_table)
+        row_table = self.direct_identify_table_from_row(row_dict)
+        row_id_column = self.direct_get_id_column(row_table)
 
         if row_id_column not in row_dict.keys():
             return False

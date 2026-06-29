@@ -18,8 +18,8 @@ from LiuXin_alpha.catalog.repositories import (
     TitleRepository,
     WorkRepository,
 )
+from .mutations import CatalogMutations
 from .retrieval import CatalogRetrieval
-from .writing import CatalogWriting
 
 
 @dataclass(slots=True)
@@ -41,7 +41,7 @@ class Catalog:
 
     This object is where callers should enter the catalog layer. It should remain
     a composition root, not a God object: substantive behavior belongs in the
-    repository, matcher, retrieval, and storage modules.
+    repository, matcher, retrieval, and mutation modules.
     """
 
     def __init__(self, db: DatabaseHandle) -> None:
@@ -58,7 +58,7 @@ class Catalog:
         )
         self.matching = CatalogMatching(db=db, repositories=self.repositories)
         self.retrieval = CatalogRetrieval(db=db, repositories=self.repositories)
-        self.storage = CatalogWriting(db=db, repositories=self.repositories)
+        self.mutations = CatalogMutations(db=db, repositories=self.repositories)
 
     @property
     def works(self) -> WorkRepository:

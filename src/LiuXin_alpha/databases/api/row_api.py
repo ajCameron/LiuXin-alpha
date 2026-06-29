@@ -579,6 +579,13 @@ class InterlinkRowAPI(RowAPI):
 
 
 # Todo: Actually write this
+class IntralinkRowAPI(RowAPI):
+    """
+Represents an Intralink row
+    """
+
+
+# Todo: Actually write this
 class ViewRowAPI(RowAPI):
     """
     Represents a row in a view.

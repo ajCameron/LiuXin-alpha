@@ -136,7 +136,7 @@ class SQLiteCustomColumnsDriverMixin:
 
             # MAIN TABLE
 
-            target_table_id_col = self._get_id_column(target_table)
+            target_table_id_col = self.direct_get_id_column(target_table)
             target_table_col_name = self._get_table_col_base(target_table)
 
             # The table name - includes the name of the table linked to and the name of the custom column
