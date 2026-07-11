@@ -16,7 +16,7 @@ def test_import_time_modules_do_not_print_to_stdout_or_stderr(tmp_path) -> None:
     code = (
         "import importlib\n"
         "mods = [\n"
-        "    'LiuXin_alpha.surfaces.field_metadata',\n"
+        "    'LiuXin_alpha.catalog.field_metadata',\n"
         "    'LiuXin_alpha.utils.text.icu',\n"
         "    'LiuXin_alpha.utils.libraries.liuxin_dateutil.tz',\n"
         "    'LiuXin_alpha.file_formats.conversion.plugins.html_input',\n"

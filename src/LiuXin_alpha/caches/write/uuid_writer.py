@@ -1,8 +1,6 @@
 
 """
-Writer responsible for writing UUID changes out to the Database.
-
-The cache components, and write out to them, is controlled in caches.
+Writer responsible for writing UUID changes out to the database.
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
@@ -45,5 +43,10 @@ class UUIDWriter(OneToOneWriter):
 
         :return:
         """
+        # Todo: This should not have to happen here
+        # Update the cache
+        if field is not None:
+            field.table.update_uuid_cache(book_id_val_map)
+
         # Update the database through the uuid field
         return self.one_one_in_books(book_id_val_map, db, field, *args)

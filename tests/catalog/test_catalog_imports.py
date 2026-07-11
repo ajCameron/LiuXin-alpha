@@ -1,7 +1,22 @@
 """Smoke tests for the catalog API skeleton."""
 
 from LiuXin_alpha.catalog import Catalog
-from LiuXin_alpha.catalog.api import CatalogAPI, CatalogMutationsAPI, IdentifierCandidate, MetadataCandidate
+from LiuXin_alpha.catalog.field_metadata import CalibreFieldMetadata, FieldMetadata
+from LiuXin_alpha.catalog.api import (
+    AddAPI,
+    ApplyAPI,
+    BackendGetterAPI,
+    CalibreFieldMetadataAPI,
+    CatalogAPI,
+    CatalogMetadataToolsAPI,
+    CatalogMutationsAPI,
+    EnsureAPI,
+    FieldMetadataAPI,
+    FingerprintToolsAPI,
+    IdentifierCandidate,
+    IntralinkerAPI,
+    MetadataCandidate,
+)
 
 
 class DummyDatabase:
@@ -30,3 +45,18 @@ def test_catalog_matches_protocol_shape() -> None:
     catalog = Catalog(DummyDatabase())
     assert isinstance(catalog, CatalogAPI)
     assert isinstance(catalog.mutations, CatalogMutationsAPI)
+
+
+def test_metadata_tools_api_contracts_import() -> None:
+    assert AddAPI is not None
+    assert ApplyAPI is not None
+    assert BackendGetterAPI is not None
+    assert CatalogMetadataToolsAPI is not None
+    assert EnsureAPI is not None
+    assert FingerprintToolsAPI is not None
+    assert IntralinkerAPI is not None
+
+
+def test_field_metadata_api_contracts_import_and_match() -> None:
+    assert isinstance(FieldMetadata(), FieldMetadataAPI)
+    assert isinstance(CalibreFieldMetadata(), CalibreFieldMetadataAPI)

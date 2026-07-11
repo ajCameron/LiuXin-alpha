@@ -5,14 +5,15 @@ Custom column writers - responsible for writing information out to custom column
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
-from typing import TYPE_CHECKING, Sequence, Union
+from typing import TYPE_CHECKING
 
-from LiuXin_alpha.catalog.write import BaseWriter
+from LiuXin_alpha.caches.write import BaseWriter
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.catalog.api import CatalogAPI
+    from LiuXin_alpha.caches.api.storage_cache_api import FieldBasicInterfaceAPI
 
 
 class CustomSeriesIndexWriter(BaseWriter):
@@ -20,7 +21,7 @@ class CustomSeriesIndexWriter(BaseWriter):
     Class for writing data out to custom series index tables.
     """
 
-    def __init__(self, field) -> None:
+    def __init__(self, field: "FieldBasicInterfaceAPI") -> None:
         """
         Startup the custom series index writer.
 
@@ -30,7 +31,7 @@ class CustomSeriesIndexWriter(BaseWriter):
         self.set_books_func = self.custom_series_index
 
     @staticmethod
-    def custom_series_index(book_id_val_map, db: "DatabaseAPI", field, *args) -> set[int]:
+    def custom_series_index(book_id_val_map, db: "CatalogAPI", field, *args) -> set[int]:
         """
         Table of type series have an extra column in their link table - which is the index of that custom series.
 

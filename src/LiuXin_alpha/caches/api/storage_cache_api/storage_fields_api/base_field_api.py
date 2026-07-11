@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import ClassVar, Generic, TYPE_CHECKING, Union, TypeVar, Iterable, Optional
+from typing import ClassVar, Generic, TYPE_CHECKING, Union, TypeVar, Iterable, Optional, Literal
 
 from LiuXin_alpha.databases.api import DatabaseAPI
 
@@ -10,10 +10,12 @@ if TYPE_CHECKING:
         StorageStorageCacheSingleTableAPI,
     )
     from LiuXin_alpha.databases.db_types import MainTableName, MainTableID
+    from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
 
 T = TypeVar("T")
 
 
+# Todo: We should include metadata...
 class FieldBasicInterfaceAPI(abc.ABC, Generic[T]):
     """
     Basic interface for the field system.
@@ -22,6 +24,27 @@ class FieldBasicInterfaceAPI(abc.ABC, Generic[T]):
     on their concrete storage model. They must not implicitly delete owner rows;
     owner-row lifecycle belongs to table/cache/database APIs.
     """
+
+    metadata: "FieldMetadataAPI"
+
+    name: Union[Literal["text"],
+                Literal["series"],
+                Literal["datetime"],
+                Literal["int"],
+                Literal["float"],
+                Literal["bool"],
+                Literal["comments"],
+                Literal["rating"],
+                Literal["enumeration"],
+                Literal["composite"],
+                Literal["title"],
+                Literal["author_sort"],
+                Literal["authors"],
+                Literal["timestamp"],
+                Literal["last_modified"],
+                Literal["series_index"],
+                Literal["languages"],
+                Literal["identifiers"]]
 
     #: High-level storage/behavior category for the field.
     field_storage_shape: ClassVar[str] = "generic"

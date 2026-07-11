@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 
 
+# Todo: We need a names mixin
 class DatabaseAPI(
     DatabaseRatingMixinAPI,
     DatabaseNullRowsMixinAPI,
@@ -218,4 +219,18 @@ class DatabaseAPI(
     @abc.abstractmethod
     def update_columns(self, values_map: Any, field: Optional[str] = None, table: Optional[str] = None) -> None:
         """Bulk update columns (pass-through to the wrapper)."""
+
+    # ------------------------------------
+    # Basic id methods
+    # ------------------------------------
+
+    @abc.abstractmethod
+    def get_table_from_column(self, column_name: str) -> str:
+        """
+        Return the table a column is in.
+
+        :param column_name:
+        :return:
+        """
+
 

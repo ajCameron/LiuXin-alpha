@@ -7,9 +7,9 @@ from __future__ import annotations
 from typing import Any, Callable, Iterable, Mapping, MutableMapping, Optional, Protocol, TYPE_CHECKING, TypeAlias
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types import MainTableName
-    from LiuXin_alpha.databases.field_metadata_bridge import FieldMetadata
 
 
 CustomColumnMetadata: TypeAlias = MutableMapping[str, Any]
@@ -30,7 +30,7 @@ class CustomColumnsAPI(Protocol):
     data: Any
     prefs: Any
     FIELD_MAP: MutableMapping[Any, int]
-    field_metadata: "FieldMetadata"
+    field_metadata: "FieldMetadataAPI"
     custom_column_label_map: MutableMapping[str, CustomColumnMetadata]
     custom_column_num_map: MutableMapping[int, CustomColumnMetadata]
     custom_column_num_to_label_map: MutableMapping[int, str]

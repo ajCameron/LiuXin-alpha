@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from LiuXin_alpha.catalog.api.matching.agent_matcher import AgentMatcherAPI
-from LiuXin_alpha.catalog.api.matching.identifier_matcher import IdentifierMatcherAPI
-from LiuXin_alpha.catalog.api.matching.work_matcher import WorkMatcherAPI
+from LiuXin_alpha.catalog.api.matching_api.agent_matcher import AgentMatcherAPI
+from LiuXin_alpha.catalog.api.matching_api.identifier_matcher import IdentifierMatcherAPI
+from LiuXin_alpha.catalog.api.matching_api.work_matcher import WorkMatcherAPI
 
 
 @runtime_checkable

@@ -138,6 +138,10 @@ The read-only web, Calibre-style web, JSON API, and OPDS surfaces can serve
 metadata reads through either the live database or a storage-cache snapshot.
 The live database remains the default.
 
+For the full appliance startup checklist, including explicit ports, smoke
+checks, and background-process commands, see
+[`read-only-surface-appliance-startup.md`](read-only-surface-appliance-startup.md).
+
 Use cache-backed metadata reads when startup can afford to load the cache and
 route handlers should avoid repeated direct database lookups:
 

@@ -7,14 +7,15 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 from typing import TYPE_CHECKING
 
-from LiuXin_alpha.catalog.write.base_writer import BaseWriter
+from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.catalog.catalog_macros import library_set_cover
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.catalog.api import CatalogAPI
+    from LiuXin_alpha.caches.api.storage_cache_api import FieldBasicInterfaceAPI#
 
 
 class CoversWrite(BaseWriter):
@@ -22,7 +23,7 @@ class CoversWrite(BaseWriter):
     Class for writing covers information out to the table.
     """
 
-    def __init__(self, field):
+    def __init__(self, field: "FieldBasicInterfaceAPI") -> None:
         """
         Constructor.
 
@@ -32,7 +33,11 @@ class CoversWrite(BaseWriter):
         self.set_books_func = self.set_cover_exists
 
     @staticmethod
-    def set_cover_exists(book_id_val_map, db: "DatabaseAPI", field, *args):
+    def set_cover_exists(
+            book_id_val_map: dict[int, bool],
+            db: "CatalogAPI",
+            field: "FieldBasicInterfaceAPI",
+            *args):
         """
         Set a flag to indicate if the works have a cover or not
 

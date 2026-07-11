@@ -1,67 +1,27 @@
 
 """
-The one to one writer is intended for writing one to one fields.
+One to one writers are responsible for writing to a single value item.
 
-There are two types
- - OneToOneSingleTableWriter
- - OneToOneJoinedWriter
-
- The first is for writing into a single table.
- The second is for writing when the one to one is in a different table.
-
+This may, or many not, be in another table.
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from typing import Callable, Any, Optional
-
 from LiuXin_alpha.databases.adaptors import sqlite_datetime
-from LiuXin_alpha.catalog.write.base_writer import BaseDBWriter
+from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.catalog.catalog_macros import library_set_last_modified, library_set_comment
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.logging import default_log
 
 
-class OneToOneDBWriterBase(BaseDBWriter):
-    """
-    Base class for the two one-to-one database writers.
-    """
-    def __init__(
-            self,
-            table: str,
-            column: str,
-            adapter: Callable[[Any, ], str] = lambda x: str(x),
-            accept_vals: Callable[[Any, ], bool] = lambda x: True,
-            name: Optional[str] = None,
-            link_table: Optional[str] = None,
-            link_table_bt_id_column: Optional[str] = None,
-            link_table_item_id_column: Optional[str] = None,
-    ) -> None:
-
-        super(OneToOneDBWriterBase, self).__init__(
-            table=table,
-            column=column,
-            adapter=adapter,
-            accept_vals=accept_vals,
-            name=name,
-            link_table=link_table,
-            link_table_bt_id_column=link_table_bt_id_column,
-            link_table_item_id_column=link_table_item_id_column)
-
-        # Todo: This is a calibre compatibility issue - probably we need calibre compat writers and regular writes
-        # self.set_books_func = self.one_one_in_books if field.metadata["table"] == "books" else self.one_one_in_other
+class OneToOneWriter(BaseWriter):
+    def __init__(self, field):
+        super(OneToOneWriter, self).__init__(field)
+        self.set_books_func = self.one_one_in_books if field.metadata["table"] == "books" else self.one_one_in_other
 
         if self.name in {"timestamp", "uuid", "sort"}:
             self.accept_vals = bool
-
-    def is_same_table(self) -> bool:
-        """
-        Checks to see if the 1-1 relation is in one table or two.
-
-        :return:
-        """
-        return self.table == self.db.get_table
 
     # Todo: Cache updates should be handled by a seperate process (with reference to the docstring)
     def one_one_in_books(self, book_id_val_map, db, field, *args):
