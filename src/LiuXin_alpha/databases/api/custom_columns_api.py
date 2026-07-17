@@ -60,9 +60,8 @@ class CustomColumnsAPI(Protocol):
         :return:
         """
 
-    @property
-    def direct_custom_tables(self) -> set[str]:
-        """Return custom-column storage/link table names directly from the database."""
+    def get_custom_tables(self) -> set[str]:
+        """Return custom-column storage/link table names from the database."""
 
     def all_custom(self, label: Optional[str] = None, num: Optional[int] = None) -> set[Any]:
         """

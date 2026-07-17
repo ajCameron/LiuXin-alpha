@@ -42,7 +42,7 @@ class TreeMethodsMixin:
             err_str = "Cannot set full column - table: {} - does not have one".format(target_table)
             raise InputIntegrityError(err_str)
 
-        target_table_display_column = self.get_display_column(target_table)
+        target_table_display_column = self.direct_get_display_column(target_table)
 
         for row in self.direct_get_row_dict_iterator(target_table):
 
@@ -86,11 +86,11 @@ class TreeMethodsMixin:
         """
         table = deepcopy(table)
         table_id_column = self.direct_get_id_column(table)
-        table_tree_id_column = self.get_tree_id_column(table)
+        table_tree_id_column = self.direct_get_tree_id_column(table)
         if table_tree_id_column is None:
             err_str = "Cannot set_tree_ids - there doesn't seem to be a tree id for this table - {}".format(table)
             raise InputIntegrityError(err_str)
-        table_display_column = self.get_display_column(table)
+        table_display_column = self.direct_get_display_column(table)
         conn = self.get_connection()
 
         stmt = "UPDATE {} SET {} = ? WHERE {} = ?".format(table, table_tree_id_column, table_id_column)
@@ -101,7 +101,7 @@ class TreeMethodsMixin:
 
             row_id = row[table_id_column]
 
-            root_series = self.get_root_series(row)
+            root_series = self.direct_get_root_series(row)
             root_phash = "{}_{}".format(root_series[table_id_column], root_series[table_display_column])
             conn.execute(final_stmt, (root_phash, row_id))
             conn.commit()
@@ -136,8 +136,8 @@ class TreeMethodsMixin:
         :return:
         """
         row_table = self.direct_identify_table_from_row(start_row)
-        row_parent_column = self.get_parent_column_name(row_table)
-        root_series = self.get_root_series(start_row)
+        row_parent_column = self.direct_get_parent_column_name(row_table)
+        root_series = self.direct_get_root_series(start_row)
 
         row_pool = [root_series]
 
@@ -240,7 +240,7 @@ class TreeMethodsMixin:
         """
         start_row_dict = start_row
         row_table = self.direct_identify_table_from_row(start_row_dict)
-        row_parent_column = self.get_parent_column_name(row_table)
+        row_parent_column = self.direct_get_parent_column_name(row_table)
         linear_index = []
         current_row = start_row_dict
         try:

@@ -54,8 +54,9 @@ class DatabaseDriverAPI(
         :param dirty_records_queue:
         """
 
+    @staticmethod
     @abc.abstractmethod
-    def _canonicalise_table_name_for_cache(self, table: str) -> str:
+    def _canonicalise_table_name_for_cache(table: str) -> str:
         """
         Bring the table name into standard form for the cache.
 
@@ -65,7 +66,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def _close_all_open_connections(self) -> str:
+    def _close_all_open_connections(self) -> None:
         """
         Used when shutting the database down to make sure there are no stale connections to the file on disk.
 
@@ -73,7 +74,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def _coerce_db_value(self, value: Any, declared_type: Any) -> Any:
+    def _coerce_db_value(self, value: Any, declared_type: Any) -> Optional[Union[bool, int, float, str, bytes]]:
         """
         Attempt, via several fallbacks, to bring a database value into properly stored form.
 
@@ -82,8 +83,9 @@ class DatabaseDriverAPI(
         :return:
         """
 
+    @staticmethod
     @abc.abstractmethod
-    def _coerce_untyped_value(self, value: Any) -> Any:
+    def _coerce_untyped_value(value: Any) -> Optional[Union[bool, int, float, str, bytes]]:
         """
         Attempt the same with an untyped value.
 
@@ -225,7 +227,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def direct_get_db_unique_id(self) -> str:
+    def direct_get_db_unique_id(self) -> Optional[str]:
         """
         Direct get a unique id for use on the database.
 
@@ -233,7 +235,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def direct_get_null_row(self, table: str) -> dict[str, Any]:
+    def direct_get_null_row(self, table: str) -> Optional[dict[str, Any]] | bool:
         """
         Direct get a null row from the database.
 
@@ -279,7 +281,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def dirty_record(self, table: str, table_id: int, reason: str) -> None:
+    def direct_dirty_record(self, table: str, table_id: int, reason: str) -> None:
         """
         Record that a record has been dirited.
 
@@ -300,7 +302,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def execute_sql(self, sql: str, values=None):
+    def direct_execute_sql(self, sql: str, parameters=None) -> Optional[int]:
         """
         Execute SQL on the database.
 
@@ -310,7 +312,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def executescript(self, script: Union[str, list[str]]) -> None:
+    def direct_executescript(self, sqlscript):
         """
         Execute SQL on the database as a script.
 
@@ -330,7 +332,7 @@ class DatabaseDriverAPI(
     # Todo: Need a protocol for this
     # Todo: direct_*
     @abc.abstractmethod
-    def get_connection(self) -> Any:
+    def get_connection(self):
         """
         Get a connection to the database.
 
@@ -350,8 +352,7 @@ class DatabaseDriverAPI(
     def direct_identify_table_from_column(
             self,
             column_heading: str,
-            headings_and_columns: Optional[dict[str, set[str]]] = None,
-            print_error: bool = True) -> str:
+            headings_and_columns: Optional[dict[str, set[str]]] = None) -> str:
         """
         Identify a table from a column.
 
@@ -362,7 +363,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def direct_identify_table_from_row(self, row_dict: dict[str, Any]) -> str:
+    def direct_identify_table_from_row(self, row_dict: dict[str, Any]) -> Optional[str]:
         """
         Take a row dict and identify a table from it.
 
@@ -371,11 +372,12 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def iterator_return(self,
-                        stmt: str,
-                        headings: Iterable[str],
-                        table: Optional[str] = None,
-                        bindings = None) -> Iterator[dict[str, Any]]:
+    def direct_iterator_return(
+            self,
+            stmt: str,
+            headings: Iterable[str],
+            table: Optional[str] = None,
+            bindings: Optional[tuple[str, ...]] = None) -> None:
         """
         Execute a statement and return the results of that statement.
 
@@ -397,7 +399,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def make_scratch(self) -> None:
+    def make_scratch(self) -> str:
         """
         Trabsform the database into a scratch version of itself.
 

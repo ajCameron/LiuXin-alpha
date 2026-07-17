@@ -41,3 +41,12 @@ bash scripts/run_type_checks.sh
 The type-check helper installs the `typing` extra into `.venv` before running
 `basedpyright` and `mypy`. Use `--skip-install` to reuse an already prepared
 environment.
+
+## PostgreSQL Backend
+
+For large-library work, install the `postgres` extra and follow the PostgreSQL
+setup/check/smoke runbook:
+
+```text
+docs/development/postgresql-backend.md
+```

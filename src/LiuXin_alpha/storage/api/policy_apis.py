@@ -146,7 +146,7 @@ class BackupPolicy:
 
 
 # Todo: We want a backup status?
-@dataclasses.dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True, init=False)
 class ReplicationStatus:
     """
     Snapshot of how one managed digital asset currently relates to a replication policy.
@@ -170,9 +170,46 @@ class ReplicationStatus:
 
     errors: tuple[str, ...] = ()
 
+    def __init__(
+        self,
+        digital_asset_identifier: Optional[str] = None,
+        policy_name: Optional[str] = None,
+        present_store_identifiers: tuple[str, ...] = (),
+        healthy_store_identifiers: tuple[str, ...] = (),
+        copy_count: int = 0,
+        healthy_copy_count: int = 0,
+        meets_minimum: bool = False,
+        meets_target: bool = False,
+        errors: tuple[str, ...] = (),
+        *,
+        file_identifier: Optional[str] = None,
+    ) -> None:
+        if policy_name is None:
+            raise TypeError("ReplicationStatus requires policy_name.")
+        if (
+            digital_asset_identifier is not None
+            and file_identifier is not None
+            and digital_asset_identifier != file_identifier
+        ):
+            raise ValueError("digital_asset_identifier and file_identifier must match when both are provided.")
+
+        object.__setattr__(self, "digital_asset_identifier", digital_asset_identifier if file_identifier is None else file_identifier)
+        object.__setattr__(self, "policy_name", policy_name)
+        object.__setattr__(self, "present_store_identifiers", present_store_identifiers)
+        object.__setattr__(self, "healthy_store_identifiers", healthy_store_identifiers)
+        object.__setattr__(self, "copy_count", copy_count)
+        object.__setattr__(self, "healthy_copy_count", healthy_copy_count)
+        object.__setattr__(self, "meets_minimum", meets_minimum)
+        object.__setattr__(self, "meets_target", meets_target)
+        object.__setattr__(self, "errors", errors)
+
+    @property
+    def file_identifier(self) -> Optional[str]:
+        return self.digital_asset_identifier
+
 
 # Todo: Backup plan?
-@dataclasses.dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True, init=False)
 class ReplicationPlan:
     """
     Planner output describing the next storage actions needed for one managed digital asset.
@@ -184,6 +221,37 @@ class ReplicationPlan:
     stores_to_remove: tuple[str, ...] = ()
     stores_to_verify: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
+
+    def __init__(
+        self,
+        digital_asset_identifier: Optional[str] = None,
+        policy_name: Optional[str] = None,
+        stores_to_add: tuple[str, ...] = (),
+        stores_to_remove: tuple[str, ...] = (),
+        stores_to_verify: tuple[str, ...] = (),
+        warnings: tuple[str, ...] = (),
+        *,
+        file_identifier: Optional[str] = None,
+    ) -> None:
+        if policy_name is None:
+            raise TypeError("ReplicationPlan requires policy_name.")
+        if (
+            digital_asset_identifier is not None
+            and file_identifier is not None
+            and digital_asset_identifier != file_identifier
+        ):
+            raise ValueError("digital_asset_identifier and file_identifier must match when both are provided.")
+
+        object.__setattr__(self, "digital_asset_identifier", digital_asset_identifier if file_identifier is None else file_identifier)
+        object.__setattr__(self, "policy_name", policy_name)
+        object.__setattr__(self, "stores_to_add", stores_to_add)
+        object.__setattr__(self, "stores_to_remove", stores_to_remove)
+        object.__setattr__(self, "stores_to_verify", stores_to_verify)
+        object.__setattr__(self, "warnings", warnings)
+
+    @property
+    def file_identifier(self) -> Optional[str]:
+        return self.digital_asset_identifier
 
 
 __all__ = [

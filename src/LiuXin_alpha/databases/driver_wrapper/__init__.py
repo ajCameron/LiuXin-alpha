@@ -977,7 +977,7 @@ class DriverWrapper(
         assert link_type is not None, (
             "You have to provide a link type from {}".format(["many_many", "many_one", "one_many", "one_one"]))
 
-        self.driver.direct_create_new_main_table(table_name=table_name, column_headings=column_headings)
+        self.driver.direct_create_main_table(table_name=table_name, column_headings=column_headings)
 
         # Link the new main table to an existing main table - if requested
         if link_to is not None:

@@ -323,7 +323,9 @@ class RcloneHttpReadOnlyStorageBackend(StorePluginAPI):
             path = it.get("Path") or it.get("Name")
             if not path:
                 continue
-            yield self.locate(path)
+            location = self.locate(path)
+            setattr(location, "_cached_stat_blob", dict(it))
+            yield location
 
     def write_bytes(
         self,

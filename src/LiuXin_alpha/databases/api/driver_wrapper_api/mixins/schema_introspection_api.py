@@ -38,7 +38,7 @@ class SchemaIntrospectionAPI(abc.ABC):
         table2: str,
         *,
         force_refresh: bool = False,
-    ) -> Optional[StorageLinkSpec]:
+    ) -> Optional["StorageLinkSpec"]:
         """
         Return the interlink spec between two tables, or None if no link exists.
         """

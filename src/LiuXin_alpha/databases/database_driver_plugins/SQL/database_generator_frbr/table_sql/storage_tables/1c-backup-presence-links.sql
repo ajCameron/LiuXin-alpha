@@ -10,16 +10,16 @@
 CREATE TABLE IF NOT EXISTS `backup_presence_links` (
   `backup_presence_link_id` INTEGER PRIMARY KEY,
 
-  `backup_presence_link_backup_store_id` INTEGER NOT NULL,
+  `backup_presence_link_backup_store_id` INTEGER NULL,
   `backup_presence_link_workflow_id` INTEGER NULL,
 
-  `backup_presence_link_source_identifier` TEXT NOT NULL,
+  `backup_presence_link_source_identifier` TEXT NULL,
   `backup_presence_link_source_kind` TEXT NULL,
   `backup_presence_link_source_file_id` INTEGER NULL,
   `backup_presence_link_source_asset_replica_id` INTEGER NULL,
   `backup_presence_link_source_store_id` INTEGER NULL,
 
-  `backup_presence_link_archive_path` TEXT NOT NULL,
+  `backup_presence_link_archive_path` TEXT NULL,
   `backup_presence_link_type` TEXT NOT NULL DEFAULT 'packed_presence',
   `backup_presence_link_source` TEXT NULL,
   `backup_presence_link_output_url` TEXT NULL,

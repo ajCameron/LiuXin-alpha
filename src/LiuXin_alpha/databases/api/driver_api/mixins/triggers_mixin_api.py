@@ -14,7 +14,7 @@ class DriverTriggersMixinAPI(abc.ABC):
     """
 
     @abc.abstractmethod
-    def direct_drop_triggers(self, triggers: Iterable[str]) -> None:
+    def direct_drop_triggers(self, triggers: Iterable[str]) -> bool:
         """
         Drop triggers directly from the database.
 
@@ -30,4 +30,3 @@ class DriverTriggersMixinAPI(abc.ABC):
 
         :return:
         """
-

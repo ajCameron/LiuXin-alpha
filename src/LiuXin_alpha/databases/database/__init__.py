@@ -12,6 +12,7 @@ import re
 import os
 import pprint
 from copy import deepcopy
+from urllib.parse import urlsplit
 
 
 from typing import Optional, TYPE_CHECKING
@@ -73,6 +74,40 @@ class _NoopMaintainerCallback:
 
     def dirty_interlink_record(self, update_type, table1, table2, table1_id, table2_id):  # noqa: ANN001
         pass
+
+
+def _metadata_uses_server_database(metadata, db_type: str) -> bool:
+    """
+    Return True when database metadata points at a server backend rather than a filesystem file.
+
+    The database constructor historically assumes ``database_path`` means an on-disk SQLite file and creates it when
+    missing. PostgreSQL DSNs must not be routed through that path.
+    """
+
+    db_type_text = str(db_type or "").strip().casefold()
+    if db_type_text in {"postgres", "postgresql", "pg"}:
+        return True
+
+    if not metadata:
+        return False
+
+    for key in ("postgres_service", "database_service"):
+        value = metadata.get(key)
+        text = str(value or "").strip()
+        if text:
+            return True
+
+    for key in ("postgres_url", "database_url", "dsn", "url", "database_path"):
+        value = metadata.get(key)
+        text = str(value or "").strip()
+        if not text:
+            continue
+        try:
+            if urlsplit(text).scheme.casefold() in {"postgres", "postgresql"}:
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 class Database(
@@ -334,13 +369,15 @@ class Database(
             metadata = {"database_path": LiuXin_default_database}
 
         db_path = metadata.get("database_path")
-        path_existed = bool(db_path) and db_path != ":memory:" and os.path.exists(db_path)
+        server_database = _metadata_uses_server_database(metadata, db_type)
+        path_backed = not server_database
+        path_existed = bool(db_path) and path_backed and db_path != ":memory:" and os.path.exists(db_path)
 
         self.metadata = metadata
         self.type = db_type
         self.set_driver(loadDatabaseDriver(db_type)(self.metadata, self))
 
-        if create or (not path_existed and db_path not in (None, ":memory:")):
+        if create or (path_backed and not path_existed and db_path not in (None, ":memory:")):
             if path_existed:
                 self.create_new_database(blank=True, backup=backup)
             else:

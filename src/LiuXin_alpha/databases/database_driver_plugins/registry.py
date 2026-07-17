@@ -198,6 +198,14 @@ def register_builtin_database_drivers() -> None:
         package_dir=os.path.join(base_dir, "SQLite_apsw"),
         aliases=("sqlite_apsw", "apsw"),
     )
+    register_database_driver(
+        "PostgreSQL",
+        driver_module="LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver",
+        direct_access_module="LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver",
+        builder_module="LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.schema",
+        package_dir=os.path.join(base_dir, "PostgreSQL"),
+        aliases=("postgres", "postgresql", "pg"),
+    )
 
 
 # Get the existing database drivers in the regustry.

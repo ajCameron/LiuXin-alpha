@@ -13,8 +13,9 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
     Mixin methods to add to the database.
     """
 
+    @staticmethod
     @abc.abstractmethod
-    def direct_get_custom_column_table_name(self, table: str, column_name: str) -> str:
+    def direct_get_custom_column_table_name(table: str, column_name: str) -> str:
         """
         Get the table name for a custom column to add the
 
@@ -29,7 +30,7 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
             in_table: str,
             column_name: str,
             data_type: str = 'TEXT',
-            multi: bool = False) -> str:
+            multi: bool = False) -> None:
         """
         Direct create a custom column in the database.
 
@@ -73,7 +74,7 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
             self,
             target_table: str,
             custom_column_name: str,
-            datatype: str = 'TEXT') -> None:
+            datatype: str = 'TEXT') -> str:
         """
         Directly create a one to many custom column in the database attatched to the given table.
 
@@ -89,7 +90,7 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
             target_table: str,
             custom_column_name: str,
             datatype: str = 'TEXT',
-            normalized: bool = False) -> None:
+            normalized: bool = False) -> str:
         """
         Direct create a one to one custom column in the database attatched to the given table.
 

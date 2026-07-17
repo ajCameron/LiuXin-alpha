@@ -10,7 +10,7 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
     """
 
     @abc.abstractmethod
-    def _get_declared_types_for_table(self, table: str) -> dict[str, str]:
+    def direct_get_declared_types_for_table(self, table: str) -> dict[str, str]:
         """
         Get the declared column/type pairs for the given table.
 
@@ -57,7 +57,7 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_tables(self, force_refresh: bool = False) -> set[str]:
+    def direct_get_tables(self, force_refresh: bool = False) -> dict[str, list[str]]:
         """
         Get all tables.
 
@@ -66,7 +66,7 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_tables_and_columns(self, force_refresh: bool = False) -> dict[str, set[str]]:
+    def direct_get_tables_and_columns(self, force_refresh: bool = False) -> dict[str, list[str]]:
         """
         Direct get all tables and columns.
 

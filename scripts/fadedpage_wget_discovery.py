@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import posixpath
 import re
 import shutil
@@ -130,8 +131,22 @@ class LiveProgressDisplay:
         self._last_line = ""
         self._last_rendered_width = 0
 
+    def _terminal_width(self) -> int | None:
+        try:
+            fileno = self.stream.fileno()
+        except Exception:
+            return None
+        try:
+            if not os.isatty(fileno):
+                return None
+        except Exception:
+            return None
+        return max(20, int(shutil.get_terminal_size(fallback=(120, 20)).columns))
+
     def _fit(self, text: str) -> str:
-        width = max(20, int(shutil.get_terminal_size(fallback=(120, 20)).columns))
+        width = self._terminal_width()
+        if width is None:
+            return text
         if len(text) <= width:
             return text
         if width <= 3:

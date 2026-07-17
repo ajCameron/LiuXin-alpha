@@ -10,7 +10,7 @@ from copy import deepcopy
 
 from typing import Optional, Union, Iterator, Any, Self, ClassVar
 
-from LiuXin_alpha.errors import DatabaseDriverError, RowReadOnlyError
+from LiuXin_alpha.errors import DatabaseDriverError, InputIntegrityError, RowReadOnlyError
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
@@ -84,7 +84,7 @@ class Row(RowAPI):
 
         table = self.table
         if table is None:
-            return None
+            raise InputIntegrityError("Cannot resolve row_id for a row with no identified table")
 
         # If the id column is present but None, omit it so SQLite assigns an id.
         id_col = self.db.driver_wrapper.get_id_column(table)
@@ -413,7 +413,7 @@ class Row(RowAPI):
         :return:
         """
         row_dict = object.__getattribute__(self, "int_row_dict")
-        target_table = self.db.driver_wrapper.direct_identify_table_from_column(key, error=False)
+        target_table = self.db.driver_wrapper.identify_table_from_column(key, error=False)
         if target_table is None:
             err_str = "Cannot set item - does not correspond to a column heading from any table in this database"
             err_str = default_log.log_variables(err_str, "ERROR", ("db", self.db), ("key", key), ("value", value))

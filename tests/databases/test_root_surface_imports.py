@@ -25,3 +25,4 @@ def test_database_driver_registry_lists_builtins() -> None:
     names = set(get_registered_database_driver_names())
     assert "SQLite" in names
     assert "SQLite_apsw" in names
+    assert "PostgreSQL" in names

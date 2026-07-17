@@ -14,7 +14,7 @@ from .errors import (
     CalibreUnsafePathError,
 )
 from .readers import CalibreReader
-from .opf_sidecar import CalibreSidecarReader
+from .opf_sidecar import CalibreSidecarReader, ParsedOPF, parse_metadata_opf
 from .scan import iter_import_jobs, scan_calibre_library
 from .types import (
     CalibreBookNormalized,
@@ -40,6 +40,8 @@ __all__ = [
     "CalibreDB",
     "CalibreReader",
     "CalibreSidecarReader",
+    "ParsedOPF",
+    "parse_metadata_opf",
     "CalibreLibraryNotFoundError",
     "CalibreSchemaError",
     "CalibreUnsupportedVersionError",

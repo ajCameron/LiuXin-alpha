@@ -95,7 +95,15 @@ class CustomColumns(
 
         :return:
         """
-        return self.direct_custom_tables
+        return self.get_custom_tables()
+
+    def get_custom_tables(self) -> set[str]:
+        """
+        Return the custom table names defined on the owning database.
+
+        :return:
+        """
+        return self.db.driver_wrapper.get_custom_tables()
 
     def __init__(
         self,
