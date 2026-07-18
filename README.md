@@ -26,6 +26,17 @@ Run the test suite with:
 .venv/bin/python -m pytest
 ```
 
+For a smaller local confidence pass—representative database contracts plus
+smoke coverage across the rest of the project—run:
+
+```bash
+.venv/bin/python scripts/run_test_stream.py --stream confidence
+```
+
+The runner also exposes `database` and `smoke` streams; omitting `--stream`
+still runs the full suite. See `docs/development/test-streams.md` for the
+selection and maintenance rules.
+
 The full-suite helper also expects this repo-local venv:
 
 ```bash
