@@ -5,6 +5,17 @@ import sys
 import types
 from typing import Any
 
+import pytest
+
+from LiuXin_alpha.databases.column_metadata import (
+    ColumnEmptyValuePolicy,
+    ColumnMergePolicy,
+    ColumnNormalizationProfile,
+    ColumnSemanticRole,
+    ColumnValidationProfile,
+)
+from LiuXin_alpha.errors import InputIntegrityError
+
 
 def test_postgresql_driver_is_registered() -> None:
     from LiuXin_alpha.databases.database_driver_plugins.registry import (
@@ -185,6 +196,17 @@ def test_postgresql_schema_catalog_satisfies_checker_contract() -> None:
     for table_name, required_columns in LIUXIN_POSTGRES_REQUIRED_COLUMNS.items():
         assert set(required_columns) <= set(catalog[table_name])
     assert "custom_column_label" in catalog["custom_columns"]
+    assert {
+        "column_metadata_table_name",
+        "column_metadata_column_name",
+        "column_metadata_case_sensitive",
+        "column_metadata_semantic_role",
+        "column_metadata_normalization_profile",
+        "column_metadata_comparison_column",
+        "column_metadata_empty_value_policy",
+        "column_metadata_merge_policy",
+        "column_metadata_validation_profile",
+    } <= set(catalog["column_metadata"])
     assert "workflow_step_code" in catalog["workflow_steps"]
 
 
@@ -204,12 +226,16 @@ class _RecordingSchemaConnection:
 
 
 def test_postgresql_schema_builder_executes_core_and_storage_tables() -> None:
-    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.schema import create_postgres_schema
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.schema import (
+        create_postgres_schema,
+        schema_table_catalog,
+    )
 
     conn = _RecordingSchemaConnection()
 
     create_postgres_schema(conn, schema="liuxin_test")
     ddl = "\n".join(conn.statements)
+    ddl_lower = ddl.lower()
 
     assert 'create schema if not exists "liuxin_test"' in ddl
     assert 'create table if not exists "works"' in ddl
@@ -217,6 +243,21 @@ def test_postgresql_schema_builder_executes_core_and_storage_tables() -> None:
     assert 'create table if not exists "digital_assets"' in ddl
     assert '"digital_asset_size_bytes" bigint null' in ddl
     assert 'create table if not exists "asset_replicas"' in ddl
+    assert 'create table if not exists "column_metadata"' in ddl_lower
+    assert (
+        "values ('works', 'work_title', 0, 'title', "
+        "'unicode_nfc_trim_casefold', null, 'null_or_blank_is_missing', "
+        "'replace', 'display_text') on conflict "
+        '("column_metadata_table_name", "column_metadata_column_name") do nothing'
+    ) in ddl
+    assert (
+        "values ('works', 'work_id', 1, 'identifier', 'none', null, "
+        "'null_is_missing', 'preserve_existing', 'identifier') on conflict "
+        '("column_metadata_table_name", "column_metadata_column_name") do nothing'
+    ) in ddl
+    assert ddl.count('insert into "column_metadata"') == sum(
+        len(columns) for columns in schema_table_catalog().values()
+    )
 
 
 def test_postgresql_schema_builder_entrypoint_uses_metadata_schema(monkeypatch) -> None:
@@ -437,6 +478,23 @@ class _RecordingDriverConnection:
     def execute(self, sql: str, values=None):
         self.calls.append((sql, values))
         lowered = sql.lower()
+        if (
+            lowered.lstrip().startswith("select")
+            and "column_metadata_case_sensitive" in lowered
+        ):
+            return _ResultCursor(
+                [
+                    (
+                        1,
+                        "title",
+                        "unicode_nfc_trim_casefold",
+                        None,
+                        "null_or_blank_is_missing",
+                        "replace",
+                        "display_text",
+                    )
+                ]
+            )
         if "from information_schema.columns" in lowered and "rating_view" in tuple(str(value) for value in (values or ())):
             return _ResultCursor([("id",), ("label",), ("rating",)])
         if "from information_schema.triggers" in lowered and "event_object_table" in lowered:
@@ -497,6 +555,11 @@ def test_postgresql_driver_connects_and_introspects(monkeypatch) -> None:
     assert drv.direct_get_tables() == ["database_metadata", "stores", "digital_assets"]
     assert drv.direct_get_tables_and_columns()["stores"] == ["store_id", "store_kind"]
     assert drv.direct_get_declared_types_for_table("digital_assets")["digital_asset_size_bytes"] == "bigint"
+    assert drv.direct_get_declared_column_datatype("digital_assets", "digital_asset_size_bytes") == "bigint"
+    with pytest.raises(InputIntegrityError, match="column"):
+        drv.direct_get_declared_column_datatype("digital_assets", "missing_column")
+    with pytest.raises(InputIntegrityError, match="table"):
+        drv.direct_get_declared_column_datatype("missing_table", "missing_column")
     assert raw_connections
     assert raw_connections[0].closed is True
     assert any('set search_path to "public"' in cursor.sql for cursor in raw_connections[0].cursors)
@@ -626,6 +689,158 @@ def test_postgresql_driver_query_helpers_are_native_and_schema_qualified(monkeyp
         and values == (0,)
         for sql, values in conn.calls
     )
+
+
+def test_postgresql_column_case_sensitivity_uses_schema_catalog(monkeypatch) -> None:
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
+
+    drv = pg_driver.DatabaseDriver(
+        {
+            "postgres_url": "postgresql://liuxin:secret@example.invalid/library",
+            "schema": "liuxin_test",
+        },
+        set_conn=False,
+    )
+    conn = _RecordingDriverConnection()
+    drv.conn = conn
+    monkeypatch.setattr(drv, "_short_connection", lambda: conn)
+    monkeypatch.setattr(drv, "direct_get_tables", lambda force_refresh=False: ["works", "column_metadata"])
+    monkeypatch.setattr(drv, "direct_get_column_headings", lambda table, normalize=False: ["work_title"])
+
+    metadata = drv.direct_get_column_metadata("works", "work_title")
+    assert metadata.case_sensitive is True
+    assert metadata.semantic_role is ColumnSemanticRole.TITLE
+    assert (
+        metadata.normalization_profile
+        is ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD
+    )
+    assert drv.direct_get_case_sensitivity("works", "work_title") is True
+    assert drv.direct_is_column_case_sensitive("works", "work_title") is True
+    assert (
+        drv.direct_get_semantic_role("works", "work_title")
+        is ColumnSemanticRole.TITLE
+    )
+    assert (
+        drv.direct_get_normalization_profile("works", "work_title")
+        is ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD
+    )
+    assert drv.direct_get_comparison_column("works", "work_title") is None
+    assert (
+        drv.direct_get_empty_value_policy("works", "work_title")
+        is ColumnEmptyValuePolicy.NULL_OR_BLANK_IS_MISSING
+    )
+    assert (
+        drv.direct_get_merge_policy("works", "work_title")
+        is ColumnMergePolicy.REPLACE
+    )
+    assert (
+        drv.direct_get_validation_profile("works", "work_title")
+        is ColumnValidationProfile.DISPLAY_TEXT
+    )
+    drv.direct_set_column_metadata(metadata)
+    drv.direct_set_case_sensitivity("works", "work_title", False)
+
+    assert any(
+        'from "liuxin_test"."column_metadata"' in sql
+        and values == ("works", "work_title")
+        for sql, values in conn.calls
+    )
+    assert any(
+        'insert into "liuxin_test"."column_metadata"' in sql
+        and values
+        == (
+            "works",
+            "work_title",
+            1,
+            "title",
+            "unicode_nfc_trim_casefold",
+            None,
+            "null_or_blank_is_missing",
+            "replace",
+            "display_text",
+        )
+        for sql, values in conn.calls
+    )
+    assert any(
+        'insert into "liuxin_test"."column_metadata"' in sql
+        and values == ("works", "work_title", 0)
+        for sql, values in conn.calls
+    )
+
+
+def test_postgresql_individual_column_metadata_setters_use_full_record_upsert(
+    monkeypatch,
+) -> None:
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import databasedriver as pg_driver
+
+    drv = pg_driver.DatabaseDriver(
+        {
+            "postgres_url": "postgresql://liuxin:secret@example.invalid/library",
+            "schema": "liuxin_test",
+        },
+        set_conn=False,
+    )
+    conn = _RecordingDriverConnection()
+    drv.conn = conn
+    monkeypatch.setattr(drv, "_short_connection", lambda: conn)
+    monkeypatch.setattr(
+        drv,
+        "direct_get_tables",
+        lambda force_refresh=False: ["works", "column_metadata"],
+    )
+    monkeypatch.setattr(
+        drv,
+        "direct_get_column_headings",
+        lambda table, normalize=False: ["work_title"],
+    )
+
+    base_values = [
+        "works",
+        "work_title",
+        1,
+        "title",
+        "unicode_nfc_trim_casefold",
+        None,
+        "null_or_blank_is_missing",
+        "replace",
+        "display_text",
+    ]
+    cases = (
+        ("direct_set_semantic_role", ColumnSemanticRole.LABEL, 3, "label"),
+        (
+            "direct_set_normalization_profile",
+            ColumnNormalizationProfile.UNICODE_NFC,
+            4,
+            "unicode_nfc",
+        ),
+        ("direct_set_comparison_column", "work_title", 5, "work_title"),
+        (
+            "direct_set_empty_value_policy",
+            ColumnEmptyValuePolicy.PRESERVE,
+            6,
+            "preserve",
+        ),
+        (
+            "direct_set_merge_policy",
+            ColumnMergePolicy.PRESERVE_EXISTING,
+            7,
+            "preserve_existing",
+        ),
+        (
+            "direct_set_validation_profile",
+            ColumnValidationProfile.VERBATIM_TEXT,
+            8,
+            "verbatim_text",
+        ),
+    )
+
+    for method_name, value, value_index, expected_db_value in cases:
+        getattr(drv, method_name)("works", "work_title", value)
+        insert_sql, insert_values = conn.calls[-1]
+        assert 'insert into "liuxin_test"."column_metadata"' in insert_sql
+        expected_values = list(base_values)
+        expected_values[value_index] = expected_db_value
+        assert insert_values == tuple(expected_values)
 
 
 def test_postgresql_driver_creates_main_tables_with_native_ddl(monkeypatch) -> None:

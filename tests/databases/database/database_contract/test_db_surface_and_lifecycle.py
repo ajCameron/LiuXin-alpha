@@ -13,11 +13,20 @@ resource leaks, thread leaks, and reference-cycle bugs early.
 
 from __future__ import annotations
 
+from dataclasses import replace
 import os
 import types
 from pathlib import Path
 
 import pytest
+
+from LiuXin_alpha.databases.column_metadata import (
+    ColumnEmptyValuePolicy,
+    ColumnMergePolicy,
+    ColumnNormalizationProfile,
+    ColumnSemanticRole,
+    ColumnValidationProfile,
+)
 
 
 def _assert_any_operation_fails(conn) -> None:
@@ -80,6 +89,98 @@ def test_database_construction_surface(open_db):
     assert db.driver_wrapper.lock is not None
     assert db.driver.conn is not None
     assert db.driver_wrapper.lock is not db.driver.conn
+
+
+def test_declared_column_datatype_propagates_through_database_layers(open_db):
+    table = "database_metadata"
+    column = "database_metadata_unique_id"
+
+    assert open_db.driver.direct_get_declared_column_datatype(table, column) == "TEXT"
+    assert open_db.driver_wrapper.get_declared_column_datatype(table, column) == "TEXT"
+    assert open_db.get_declared_column_datatype(table, column) == "TEXT"
+
+
+def test_column_case_sensitivity_propagates_through_database_layers(open_db):
+    table = "works"
+    column = "work_title"
+
+    assert open_db.driver.direct_get_case_sensitivity(table, column) is False
+    assert open_db.driver_wrapper.get_case_sensitivity(table, column) is False
+    assert open_db.get_case_sensitivity(table, column) is False
+    metadata = open_db.get_column_metadata(table, column)
+    assert open_db.driver.direct_get_column_metadata(table, column) == metadata
+    assert open_db.driver_wrapper.get_column_metadata(table, column) == metadata
+
+    changed_metadata = replace(
+        metadata,
+        merge_policy=ColumnMergePolicy.PRESERVE_EXISTING,
+    )
+    try:
+        open_db.set_column_metadata(changed_metadata)
+        assert open_db.driver_wrapper.get_column_metadata(table, column) == changed_metadata
+        assert open_db.driver.direct_get_column_metadata(table, column) == changed_metadata
+
+        open_db.set_case_sensitivity(table, column, True)
+        assert open_db.driver_wrapper.get_case_sensitivity(table, column) is True
+        assert open_db.driver.direct_get_case_sensitivity(table, column) is True
+        assert open_db.is_column_case_sensitive(table, column) is True
+        assert open_db.get_column_metadata(table, column).case_sensitive is True
+    finally:
+        open_db.set_column_metadata(metadata)
+
+
+def test_column_metadata_field_accessors_propagate_through_database_layers(open_db):
+    table = "works"
+    column = "work_title"
+    original = open_db.get_column_metadata(table, column)
+
+    getters = (
+        ("get_semantic_role", original.semantic_role),
+        ("get_normalization_profile", original.normalization_profile),
+        ("get_comparison_column", original.comparison_column),
+        ("get_empty_value_policy", original.empty_value_policy),
+        ("get_merge_policy", original.merge_policy),
+        ("get_validation_profile", original.validation_profile),
+    )
+    for method_name, expected_value in getters:
+        assert getattr(open_db.driver, f"direct_{method_name}")(table, column) == expected_value
+        assert getattr(open_db.driver_wrapper, method_name)(table, column) == expected_value
+        assert getattr(open_db, method_name)(table, column) == expected_value
+
+    expected = replace(
+        original,
+        semantic_role=ColumnSemanticRole.LABEL,
+        normalization_profile=ColumnNormalizationProfile.UNICODE_NFC,
+        comparison_column="work_sort_title",
+        empty_value_policy=ColumnEmptyValuePolicy.PRESERVE,
+        merge_policy=ColumnMergePolicy.PRESERVE_EXISTING,
+        validation_profile=ColumnValidationProfile.VERBATIM_TEXT,
+    )
+    try:
+        open_db.set_semantic_role(table, column, expected.semantic_role)
+        open_db.set_normalization_profile(
+            table,
+            column,
+            expected.normalization_profile,
+        )
+        open_db.set_comparison_column(table, column, expected.comparison_column)
+        open_db.set_empty_value_policy(
+            table,
+            column,
+            expected.empty_value_policy,
+        )
+        open_db.set_merge_policy(table, column, expected.merge_policy)
+        open_db.set_validation_profile(
+            table,
+            column,
+            expected.validation_profile,
+        )
+
+        assert open_db.get_column_metadata(table, column) == expected
+        assert open_db.driver_wrapper.get_column_metadata(table, column) == expected
+        assert open_db.driver.direct_get_column_metadata(table, column) == expected
+    finally:
+        open_db.set_column_metadata(original)
 
 
 def test_dirty_records_queue_is_shared(open_db):

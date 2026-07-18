@@ -96,12 +96,15 @@ class MetadataMethodMixin:
 
     def _invalidate_schema_caches(self) -> None:
         """
-        Invalidate schema-related caches (tables, tables_and_columns).
+        Invalidate schema-related caches.
 
         :return:
         """
         self.tables = None
         self.tables_and_columns = None
+        declared_types_cache = getattr(self, "_declared_types_cache", None)
+        if isinstance(declared_types_cache, dict):
+            declared_types_cache.clear()
         try:
             delattr(self, "_schema_version_cached")
         except Exception:

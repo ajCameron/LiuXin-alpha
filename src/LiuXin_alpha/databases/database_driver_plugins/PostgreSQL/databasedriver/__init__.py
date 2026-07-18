@@ -7,6 +7,11 @@ from copy import deepcopy
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
 
+from LiuXin_alpha.databases.column_metadata import (
+    COLUMN_METADATA_TABLE,
+    ColumnMetadata,
+    infer_column_metadata,
+)
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
     DEFAULT_POSTGRES_SCHEMA,
     configured_postgres_schema,
@@ -94,6 +99,7 @@ class DatabaseDriver(
         self.helper_tables = [
             "conversion_options",
             "compressed_files",
+            "column_metadata",
             "new_books",
             "database_metadata",
             "hashes",
@@ -486,6 +492,9 @@ class DatabaseDriver(
     def _invalidate_schema_caches(self) -> None:
         self.tables = None
         self.tables_and_columns = None
+        declared_types_cache = getattr(self, "_declared_types_cache", None)
+        if isinstance(declared_types_cache, dict):
+            declared_types_cache.clear()
         try:
             delattr(self, "_schema_version_cached")
         except Exception:
@@ -590,6 +599,153 @@ class DatabaseDriver(
 
     def _get_declared_types_for_table(self, table: str) -> dict[str, str]:
         return self.direct_get_declared_types_for_table(table)
+
+    def direct_get_case_sensitivity(self, table: str, column: str) -> bool:
+        return self.direct_get_column_metadata(table, column).case_sensitive
+
+    def direct_get_column_metadata(self, table: str, column: str) -> ColumnMetadata:
+        table_name, column_name = self._validated_column_metadata_target(table, column)
+        try:
+            declared_type = self.direct_get_declared_column_datatype(
+                table_name,
+                column_name,
+            )
+        except DatabaseIntegrityError:
+            declared_type = None
+        fallback = infer_column_metadata(
+            table_name,
+            column_name,
+            declared_type,
+        )
+        if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
+            return fallback
+
+        conn = self._short_connection()
+        try:
+            cur = conn.execute(
+                f"""
+                select
+                  "column_metadata_case_sensitive",
+                  "column_metadata_semantic_role",
+                  "column_metadata_normalization_profile",
+                  "column_metadata_comparison_column",
+                  "column_metadata_empty_value_policy",
+                  "column_metadata_merge_policy",
+                  "column_metadata_validation_profile"
+                from {self._table_sql(COLUMN_METADATA_TABLE)}
+                where "column_metadata_table_name" = %s
+                  and "column_metadata_column_name" = %s
+                limit 1
+                """,
+                (table_name, column_name),
+            )
+            row = cur.fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            return fallback
+        return self._column_metadata_from_values(
+            table_name,
+            column_name,
+            *(
+                _row_value(row, index, name)
+                for index, name in enumerate(
+                    (
+                        "column_metadata_case_sensitive",
+                        "column_metadata_semantic_role",
+                        "column_metadata_normalization_profile",
+                        "column_metadata_comparison_column",
+                        "column_metadata_empty_value_policy",
+                        "column_metadata_merge_policy",
+                        "column_metadata_validation_profile",
+                    )
+                )
+            ),
+        )
+
+    def direct_set_column_metadata(self, metadata: ColumnMetadata) -> None:
+        metadata = self._validated_column_metadata_input(metadata)
+        if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
+            raise DatabaseIntegrityError(
+                "database has no column_metadata table; migrate the schema before storing column policy"
+            )
+
+        conn = self._primary_connection()
+        with conn:
+            conn.execute(
+                f"""
+                insert into {self._table_sql(COLUMN_METADATA_TABLE)} (
+                  "column_metadata_table_name",
+                  "column_metadata_column_name",
+                  "column_metadata_case_sensitive",
+                  "column_metadata_semantic_role",
+                  "column_metadata_normalization_profile",
+                  "column_metadata_comparison_column",
+                  "column_metadata_empty_value_policy",
+                  "column_metadata_merge_policy",
+                  "column_metadata_validation_profile"
+                ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                on conflict (
+                  "column_metadata_table_name",
+                  "column_metadata_column_name"
+                ) do update set
+                  "column_metadata_case_sensitive" = excluded."column_metadata_case_sensitive",
+                  "column_metadata_semantic_role" = excluded."column_metadata_semantic_role",
+                  "column_metadata_normalization_profile" = excluded."column_metadata_normalization_profile",
+                  "column_metadata_comparison_column" = excluded."column_metadata_comparison_column",
+                  "column_metadata_empty_value_policy" = excluded."column_metadata_empty_value_policy",
+                  "column_metadata_merge_policy" = excluded."column_metadata_merge_policy",
+                  "column_metadata_validation_profile" = excluded."column_metadata_validation_profile"
+                """,
+                self._column_metadata_db_values(metadata),
+            )
+
+    def direct_set_case_sensitivity(
+        self,
+        table: str,
+        column: str,
+        case_sensitive: bool,
+    ) -> None:
+        table_name, column_name = self._validated_column_metadata_target(table, column)
+        if type(case_sensitive) is not bool:
+            raise InputIntegrityError("case_sensitive must be a bool")
+        if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
+            raise DatabaseIntegrityError(
+                "database has no column_metadata table; migrate the schema before storing column policy"
+            )
+
+        conn = self._primary_connection()
+        with conn:
+            conn.execute(
+                f"""
+                insert into {self._table_sql(COLUMN_METADATA_TABLE)} (
+                  "column_metadata_table_name",
+                  "column_metadata_column_name",
+                  "column_metadata_case_sensitive"
+                ) values (%s, %s, %s)
+                on conflict (
+                  "column_metadata_table_name",
+                  "column_metadata_column_name"
+                ) do update set
+                  "column_metadata_case_sensitive" = excluded."column_metadata_case_sensitive"
+                """,
+                (table_name, column_name, int(case_sensitive)),
+            )
+
+    def direct_is_column_case_sensitive(self, table: str, column: str) -> bool:
+        """Compatibility alias for :meth:`direct_get_case_sensitivity`."""
+
+        return self.direct_get_case_sensitivity(table, column)
+
+    def direct_set_column_case_sensitive(
+        self,
+        table: str,
+        column: str,
+        case_sensitive: bool,
+    ) -> None:
+        """Compatibility alias for :meth:`direct_set_case_sensitivity`."""
+
+        self.direct_set_case_sensitivity(table, column, case_sensitive)
 
     def direct_get_relation_type(self, name: str) -> str | None:
         conn = self._short_connection()

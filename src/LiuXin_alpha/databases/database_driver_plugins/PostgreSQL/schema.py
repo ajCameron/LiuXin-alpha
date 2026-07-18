@@ -9,6 +9,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from LiuXin_alpha.databases.database.constants import HELPER_TABLES
+from LiuXin_alpha.databases.column_metadata import (
+    ColumnMetadata,
+    infer_column_metadata,
+)
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
     PostgresConnectionAdapter,
     connect_postgres,
@@ -91,6 +95,7 @@ def build_schema_statements(*, schema: str = "public") -> tuple[str, ...]:
         statements.append(_create_table_sql(table))
         statements.extend(table.indexes)
     statements.extend(_helper_sql_statements())
+    statements.extend(_column_metadata_seed_statements())
     return tuple(statements)
 
 
@@ -131,6 +136,110 @@ def _helper_table_catalog() -> dict[str, tuple[str, ...]]:
         translated = _translate_sqlite_statement(sqlite_statement)
         catalog[table_name] = _create_statement_column_names(translated)
     return catalog
+
+
+def _column_metadata_seed_statements() -> tuple[str, ...]:
+    statements: list[str] = []
+    for metadata in _schema_column_metadata_defaults():
+        statements.append(
+            'insert into "column_metadata" ('
+            '"column_metadata_table_name", '
+            '"column_metadata_column_name", '
+            '"column_metadata_case_sensitive", '
+            '"column_metadata_semantic_role", '
+            '"column_metadata_normalization_profile", '
+            '"column_metadata_comparison_column", '
+            '"column_metadata_empty_value_policy", '
+            '"column_metadata_merge_policy", '
+            '"column_metadata_validation_profile"'
+            f") values ("
+            f"{_sql_literal(metadata.table)}, "
+            f"{_sql_literal(metadata.column)}, "
+            f"{int(metadata.case_sensitive)}, "
+            f"{_sql_literal(metadata.semantic_role.value)}, "
+            f"{_sql_literal(metadata.normalization_profile.value)}, "
+            f"{_sql_nullable_literal(metadata.comparison_column)}, "
+            f"{_sql_literal(metadata.empty_value_policy.value)}, "
+            f"{_sql_literal(metadata.merge_policy.value)}, "
+            f"{_sql_literal(metadata.validation_profile.value)}"
+            ") "
+            'on conflict ("column_metadata_table_name", "column_metadata_column_name") do nothing'
+        )
+    return tuple(statements)
+
+
+def _schema_column_metadata_defaults() -> tuple[ColumnMetadata, ...]:
+    """Infer one complete metadata record per physical PostgreSQL column."""
+
+    records: dict[tuple[str, str], ColumnMetadata] = {}
+
+    for table in TABLE_DEFINITIONS:
+        foreign_keys = _foreign_key_columns("\n".join(table.constraints))
+        for declaration in table.columns:
+            parsed = _column_declaration(declaration)
+            if parsed is None:
+                continue
+            column, declared_type = parsed
+            records[(table.name, column)] = infer_column_metadata(
+                table.name,
+                column,
+                declared_type,
+                is_primary_key="primary key" in declared_type.casefold(),
+                is_foreign_key=column in foreign_keys,
+            )
+
+    for statement in _helper_sql_statements():
+        table = _statement_table_name(statement)
+        if table is None:
+            continue
+        foreign_keys = _foreign_key_columns(statement)
+        for column, declared_type in _create_statement_column_declarations(statement):
+            records[(table, column)] = infer_column_metadata(
+                table,
+                column,
+                declared_type,
+                is_primary_key="primary key" in declared_type.casefold(),
+                is_foreign_key=column in foreign_keys,
+            )
+
+    return tuple(records[key] for key in sorted(records))
+
+
+def _column_declaration(declaration: str) -> tuple[str, str] | None:
+    match = re.match(r'^\s*"([^"]+)"\s+(.+?)\s*,?\s*$', declaration)
+    if match is None:
+        return None
+    return match.group(1), match.group(2)
+
+
+def _create_statement_column_declarations(
+    sql: str,
+) -> tuple[tuple[str, str], ...]:
+    declarations: list[tuple[str, str]] = []
+    in_constraints = False
+    for line in sql.splitlines():
+        text = line.strip().casefold()
+        if text.startswith(
+            ("constraint ", "primary key", "foreign key", "unique ", "check ")
+        ):
+            in_constraints = True
+        if in_constraints:
+            continue
+        parsed = _column_declaration(line)
+        if parsed is not None:
+            declarations.append(parsed)
+    return tuple(declarations)
+
+
+def _foreign_key_columns(sql: str) -> set[str]:
+    return {
+        match.group(1)
+        for match in re.finditer(
+            r'foreign\s+key\s*\(\s*"([^"]+)"\s*\)',
+            sql,
+            flags=re.IGNORECASE,
+        )
+    }
 
 
 def _sqlite_helper_statements() -> tuple[str, ...]:
@@ -195,15 +304,9 @@ def _statement_index_table_name(sql: str) -> str | None:
 
 
 def _create_statement_column_names(sql: str) -> tuple[str, ...]:
-    names: list[str] = []
-    for line in sql.splitlines():
-        text = line.strip()
-        if not text.startswith('"'):
-            continue
-        parts = text.split('"', 2)
-        if len(parts) >= 2:
-            names.append(parts[1])
-    return tuple(names)
+    return tuple(
+        column for column, _declared_type in _create_statement_column_declarations(sql)
+    )
 
 
 def _column_names(columns: Sequence[str]) -> tuple[str, ...]:
@@ -234,6 +337,14 @@ def _scratch_column(table_singular: str) -> str:
 
 def _quote_identifier(identifier: str) -> str:
     return '"' + str(identifier).replace('"', '""') + '"'
+
+
+def _sql_literal(value: str) -> str:
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _sql_nullable_literal(value: str | None) -> str:
+    return "null" if value is None else _sql_literal(value)
 
 
 TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (

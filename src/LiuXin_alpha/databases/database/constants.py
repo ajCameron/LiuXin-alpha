@@ -11,6 +11,7 @@ HELPER_TABLES = frozenset(
     {
         "conversion_options",
         "compressed_files",
+        "column_metadata",
         "custom_columns",
         "database_metadata",
         "database_version",
