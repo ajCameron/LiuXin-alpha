@@ -18,6 +18,7 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import smart_dictionary_merge, get_unique_id
 from LiuXin_alpha.databases.schema_specs import (
+    LinkCardinality,
     RelationKind,
     StorageLinkSpec,
     StorageSchemaSpec,
@@ -317,10 +318,18 @@ class DriverWrapper(
                 allowed_types_table = cand
                 break
 
+        cardinality, type_part_of_identity = self._link_constraint_shape(
+            link_table,
+            primary_link_col,
+            secondary_link_col,
+            type_link_col,
+        )
+
         spec = StorageLinkSpec(
             primary_table=table1,
             secondary_table=table2,
             link_table=link_table,
+            cardinality=cardinality,
             primary_id_col=self.get_id_column(table1),
             secondary_id_col=self.get_id_column(table2),
             primary_link_col=primary_link_col,
@@ -329,11 +338,51 @@ class DriverWrapper(
             type_link_col=type_link_col,
             ordered=priority_link_col is not None,
             typed=type_link_col is not None,
+            type_part_of_identity=type_part_of_identity,
             allowed_types_table=allowed_types_table,
             extra_link_columns=extra_specs,
         )
         self._cached_link_specs[(table1, table2)] = spec
         return spec
+
+    def _link_constraint_shape(
+        self,
+        link_table: str,
+        primary_link_col: str,
+        secondary_link_col: str,
+        type_link_col: str | None,
+    ) -> tuple[LinkCardinality, bool]:
+        """Infer cardinality and typed identity from backend unique indexes."""
+
+        getter = getattr(self.driver, "_get_unique_column_groups", None)
+        if not callable(getter):
+            return LinkCardinality.UNKNOWN, False
+        try:
+            groups = tuple(tuple(group) for group in getter(link_table))
+        except Exception:
+            return LinkCardinality.UNKNOWN, False
+        group_sets = {frozenset(group) for group in groups}
+        primary_unique = frozenset((primary_link_col,)) in group_sets
+        secondary_unique = frozenset((secondary_link_col,)) in group_sets
+        pair = frozenset((primary_link_col, secondary_link_col))
+        pair_unique = pair in group_sets
+        typed_pair_unique = (
+            type_link_col is not None
+            and frozenset((primary_link_col, secondary_link_col, type_link_col))
+            in group_sets
+        )
+
+        if primary_unique and secondary_unique:
+            cardinality = LinkCardinality.ONE_TO_ONE
+        elif primary_unique:
+            cardinality = LinkCardinality.MANY_TO_ONE
+        elif secondary_unique:
+            cardinality = LinkCardinality.ONE_TO_MANY
+        elif pair_unique or typed_pair_unique:
+            cardinality = LinkCardinality.MANY_TO_MANY
+        else:
+            cardinality = LinkCardinality.UNKNOWN
+        return cardinality, bool(typed_pair_unique and not pair_unique)
 
     def iter_table_specs(
         self,
@@ -400,10 +449,18 @@ class DriverWrapper(
                 allowed_types_table = cand
                 break
 
+        cardinality, type_part_of_identity = self._link_constraint_shape(
+            link_table,
+            primary_link_col,
+            secondary_link_col,
+            type_link_col,
+        )
+
         spec = StorageLinkSpec(
             primary_table=table,
             secondary_table=table,
             link_table=link_table,
+            cardinality=cardinality,
             primary_id_col=self.get_id_column(table),
             secondary_id_col=self.get_id_column(table),
             primary_link_col=primary_link_col,
@@ -412,6 +469,7 @@ class DriverWrapper(
             type_link_col=type_link_col,
             ordered=priority_link_col is not None,
             typed=type_link_col is not None,
+            type_part_of_identity=type_part_of_identity,
             allowed_types_table=allowed_types_table,
             extra_link_columns=extra_specs,
         )

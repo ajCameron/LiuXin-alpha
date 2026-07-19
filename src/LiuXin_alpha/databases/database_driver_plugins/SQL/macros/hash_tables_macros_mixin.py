@@ -5,7 +5,7 @@ Hash methods - to monitor tables for changes.
 
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable
 
 if TYPE_CHECKING:
 
@@ -29,19 +29,8 @@ class HashTablesMacrosMixin:
         :param columns:
         :return:
         """
-        columns = tuple(columns)
-
-        import hashlib
-
-        m = hashlib.md5()
-
-        for row in self.db.get_all_rows(target_table):
-            current_row_list = []
-            for col in columns:
-                current_row_list.append(row[col])
-
-            current_row_tuple = tuple(current_row_list)
-
-            m.update(str(current_row_tuple))
-
-        return m.hexdigest()
+        return self.fingerprint_table(
+            target_table,
+            columns=tuple(columns),
+            algorithm="md5",
+        )

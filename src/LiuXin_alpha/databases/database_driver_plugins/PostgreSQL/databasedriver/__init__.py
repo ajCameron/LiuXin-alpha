@@ -28,6 +28,10 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import SQ
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_names_mixin import TableNamesMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.value_casting_mixin import ValueCastingMixin
 from LiuXin_alpha.databases.database_driver_plugins.macros_base import MacrosBase
+from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_mixin import (
+    SQLPortableMacrosMixin,
+)
 from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
 from LiuXin_alpha.errors import DatabaseDriverError, DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
@@ -37,7 +41,11 @@ from LiuXin_alpha.utils.logging import default_log
 DEFAULT_SCHEMA = DEFAULT_POSTGRES_SCHEMA
 
 
-class PostgresDatabaseMacros(MacrosBase):
+class PostgresDatabaseMacros(
+    MacrosBase,
+    SQLPortableMacrosMixin,
+    PortableMacrosAPI,
+):
     """PostgreSQL macro surface for operations that are implemented by the driver today."""
 
     @property
@@ -557,6 +565,46 @@ class DatabaseDriver(
             self.tables = sorted(tables_and_columns)
             self._schema_version_cached = self.direct_get_schema_version()
             return tables_and_columns
+        finally:
+            conn.close()
+
+    def _get_unique_column_groups(self, table: str) -> tuple[tuple[str, ...], ...]:
+        """Return the ordered column groups enforced by PostgreSQL unique indexes."""
+
+        table = _assert_safe_identifier(
+            self._canonicalise_table_name_for_cache(table),
+            kind="table",
+        )
+        sql = """
+            select array_agg(attribute.attname order by key_column.ordinality) as columns
+            from pg_catalog.pg_index as index_info
+            join pg_catalog.pg_class as relation
+              on relation.oid = index_info.indrelid
+            join pg_catalog.pg_namespace as namespace
+              on namespace.oid = relation.relnamespace
+            cross join lateral unnest(index_info.indkey)
+              with ordinality as key_column(attribute_number, ordinality)
+            join pg_catalog.pg_attribute as attribute
+              on attribute.attrelid = relation.oid
+             and attribute.attnum = key_column.attribute_number
+            where namespace.nspname = %s
+              and relation.relname = %s
+              and index_info.indisunique
+              and index_info.indisvalid
+              and index_info.indpred is null
+              and index_info.indexprs is null
+            group by index_info.indexrelid
+            order by index_info.indexrelid
+        """
+        conn = self._short_connection()
+        try:
+            rows = conn.execute(sql, (self.schema, table))
+            groups: list[tuple[str, ...]] = []
+            for row in rows:
+                columns = _row_value(row, 0, "columns")
+                if columns:
+                    groups.append(tuple(str(column) for column in columns))
+            return tuple(groups)
         finally:
             conn.close()
 

@@ -159,8 +159,8 @@ def collect_methods(
     for node in cls.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        if node.name.startswith("__") and not node.name.endswith("__"):
-            # Ignore class-private name-mangled helpers.
+        if node.name.startswith("_") and node.name != "__init__":
+            # Private implementation helpers are deliberately not API methods.
             continue
         methods[node.name] = MethodSpec(
             kind=classify_method(node),
@@ -211,3 +211,33 @@ def test_macros_api_matches_sqlite_macros_full_signature_surface() -> None:
         + ", ".join(signature_mismatches[:20])
         + (f" ... (+{len(signature_mismatches) - 20} more)" if len(signature_mismatches) > 20 else "")
     )
+
+
+def test_portable_macros_api_is_concrete_on_every_sql_backend() -> None:
+    portable_methods = collect_methods(
+        "LiuXin_alpha.databases.api.portable_macros_api",
+        "PortableMacrosAPI",
+        strict=True,
+    )
+    sqlite_methods = collect_methods(
+        "LiuXin_alpha.databases.database_driver_plugins.SQL.macros",
+        "SQLiteDatabaseMacros",
+        strict=True,
+    )
+    postgres_methods = collect_methods(
+        "LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver",
+        "PostgresDatabaseMacros",
+        strict=True,
+    )
+
+    for backend, methods in (("SQLite", sqlite_methods), ("PostgreSQL", postgres_methods)):
+        missing = sorted(set(portable_methods) - set(methods))
+        assert not missing, f"{backend} is missing portable macros: {', '.join(missing)}"
+        mismatched = sorted(
+            name
+            for name, spec in portable_methods.items()
+            if methods[name].kind != spec.kind or methods[name].args != spec.args
+        )
+        assert not mismatched, (
+            f"{backend} has portable macro signature mismatches: {', '.join(mismatched)}"
+        )

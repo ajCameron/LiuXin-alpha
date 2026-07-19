@@ -99,6 +99,9 @@ class StorageLinkSpec:
 
     ordered: bool = False
     typed: bool = False
+    # Strict typed links identify a row by the endpoint pair and may update its
+    # type. Non-exclusive role links identify rows by (pair, type).
+    type_part_of_identity: bool = False
     nullable_fks: bool = False
     symmetric: bool = False
 

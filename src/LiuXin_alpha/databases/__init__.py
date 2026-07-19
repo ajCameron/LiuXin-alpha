@@ -33,6 +33,7 @@ if TYPE_CHECKING:  # pragma: no cover
         register_database_driver,
     )
     from LiuXin_alpha.databases.maintenance import Maintainer
+    from LiuXin_alpha.databases.macro_types import LinkRow, LinkValue, UnreferencedRowsSpec
     from LiuXin_alpha.databases.row import Row
 
 
@@ -49,8 +50,11 @@ __all__ = [
     "DatabaseDriverAPI",
     "DatabaseDriverWrapperAPI",
     "Maintainer",
+    "LinkRow",
+    "LinkValue",
     "Row",
     "RowAPI",
+    "UnreferencedRowsSpec",
     "VALID_DATA_TYPES",
     "_get_next_series_num_for_list",
     "_get_series_values",
@@ -81,6 +85,10 @@ def __getattr__(name: str):
         from LiuXin_alpha.databases.maintenance import Maintainer
 
         return Maintainer
+    if name in {"LinkRow", "LinkValue", "UnreferencedRowsSpec"}:
+        from LiuXin_alpha.databases import macro_types as _macro_types
+
+        return getattr(_macro_types, name)
     if name in {
         "ColumnEmptyValuePolicy",
         "ColumnMergePolicy",

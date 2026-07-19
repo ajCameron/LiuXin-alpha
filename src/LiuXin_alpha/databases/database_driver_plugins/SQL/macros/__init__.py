@@ -19,14 +19,15 @@ from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin import \
     SQLiteDatabaseCustomColumnMacros
-from LiuXin_alpha.errors import DatabaseDriverError
-
 from LiuXin_alpha.databases.api import MacrosAPI
 
 # Todo: This needs to be replaced with a column name factory
 from LiuXin_alpha.databases.database_driver_plugins.macros_base import MacrosBase
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.temp_tables_macros_mixin import TempTablesMacrosMixin
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.hash_tables_macros_mixin import HashTablesMacrosMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_mixin import (
+    SQLPortableMacrosMixin,
+)
 
 
 if TYPE_CHECKING:
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
 
 class SQLiteDatabaseMacros(
     MacrosBase,
+    SQLPortableMacrosMixin,
     SQLiteDatabaseCustomColumnMacros,
     TempTablesMacrosMixin,
     HashTablesMacrosMixin,
@@ -91,7 +93,7 @@ class SQLiteDatabaseMacros(
 
     def make_generic_link(self, link_table, left_link_col, right_link_col, priority_col, left_id, right_id):
         """
-        Make a generic link between two entities without a priority column.
+        Make a generic link between two entities with the next local priority.
 
         :param link_table:
         :param left_link_col:
@@ -103,10 +105,15 @@ class SQLiteDatabaseMacros(
         """
         stmt = (
             "INSERT INTO {0}({1}, {2}, {3}) "
-            "SELECT ?, ?, MAX({3}) "
-            "FROM {0}".format(link_table, left_link_col, right_link_col, priority_col)
+            "SELECT ?, ?, COALESCE(MAX({3}), 0) + 1 "
+            "FROM {0} WHERE {1} = ?".format(
+                link_table,
+                left_link_col,
+                right_link_col,
+                priority_col,
+            )
         )
-        self.execute(stmt, (left_id, right_id))
+        self.execute(stmt, (left_id, right_id, left_id))
 
     # Todo: The interface for this macro is terrible and you should feel bad. Fix it.
     def make_generic_link_no_priority(
@@ -181,7 +188,7 @@ class SQLiteDatabaseMacros(
         :return:
         """
         stmt = "UPDATE {0} SET {1} = ? WHERE {2} = ?;".format(table, column, table_id_col)
-        self.execute(stmt, (item_id, new_value))
+        self.execute(stmt, (new_value, item_id))
 
     def update_column_in_table(self, table, column, table_id_col, item_id, new_value):
         """
@@ -299,22 +306,48 @@ class SQLiteDatabaseMacros(
         :param values:
         :return:
         """
-        stmt = "INSERT INTO {0}({1}, {2}) VALUES (?,?);".format(link_table, src_col, dst_col)
-        try:
+        values = tuple(values)
+        headings = set(self.db.driver_wrapper.get_column_headings(link_table))
+        priority_col = "{}_priority".format(
+            self.db.driver_wrapper.get_column_base(link_table)
+        )
+        if priority_col not in headings:
+            stmt = "INSERT INTO {0}({1}, {2}) VALUES (?,?);".format(
+                link_table,
+                src_col,
+                dst_col,
+            )
             self.executemany(stmt, values)
-        except DatabaseDriverError:
-            with self.db.lock:
-                # There is probably a priority column - which we need to deal with
-                for val_pair in values:
-                    link_row = self.db.get_blank_row(link_table)
-                    link_row[src_col] = val_pair[0]
-                    link_row[dst_col] = val_pair[1]
+            return
 
-                    priority_col = "{}_priority".format(link_table[:-1])
-
-                    link_row[priority_col] = self.db.get_max(priority_col) + 1
-
-                    link_row.sync()
+        next_priorities = {}
+        prepared_values = []
+        for src_id, dst_id in values:
+            if src_id not in next_priorities:
+                row = next(
+                    iter(
+                        self.execute(
+                            "SELECT COALESCE(MAX({0}), 0) FROM {1} WHERE {2}=?".format(
+                                priority_col,
+                                link_table,
+                                src_col,
+                            ),
+                            (src_id,),
+                        )
+                    )
+                )
+                next_priorities[src_id] = row[0]
+            next_priorities[src_id] += 1
+            prepared_values.append((src_id, dst_id, next_priorities[src_id]))
+        self.executemany(
+            "INSERT INTO {0}({1}, {2}, {3}) VALUES (?,?,?);".format(
+                link_table,
+                src_col,
+                dst_col,
+                priority_col,
+            ),
+            prepared_values,
+        )
 
     def reprioritize_link(
         self,
@@ -342,10 +375,12 @@ class SQLiteDatabaseMacros(
         link_priority_col = "{0}_priority".format(link_base_col)
 
         if new_type is None:
-            stmt = "UPDATE {0} SET {1} = (SELECT MAX({1}) + 1 FROM {0})" " WHERE {2} = ? AND {3} = ?;".format(
-                link_table, link_priority_col, left_link_col, right_link_col
-            )
-            self.execute(stmt, (left_id, right_id))
+            stmt = (
+                "UPDATE {0} "
+                "SET {1} = (SELECT COALESCE(MAX({1}), 0) + 1 FROM {0} WHERE {2} = ?) "
+                "WHERE {2} = ? AND {3} = ?;"
+            ).format(link_table, link_priority_col, left_link_col, right_link_col)
+            self.execute(stmt, (left_id, left_id, right_id))
         else:
             # First change the priority
             self.reprioritize_link(
@@ -405,20 +440,31 @@ class SQLiteDatabaseMacros(
         :return:
         """
 
-        all_table_link_data = dict()
-
-        for target_row in self.db.get_all_rows(table1):
-
-            all_table_link_data[target_row.row_id] = dict(
-                self.get_link_data(
-                    table1,
-                    table2,
-                    table1_id=target_row.row_id,
-                    typed=typed,
-                    priority=priority,
-                )
-            )
-
+        link_spec = self.db.driver_wrapper.get_link_spec(table1, table2)
+        if link_spec is None:
+            return {}
+        primary_ids = tuple(row.row_id for row in self.db.get_all_rows(table1))
+        grouped = self.get_link_rows_bulk(link_spec, primary_ids)
+        all_table_link_data = {}
+        for primary_id, rows in grouped.items():
+            if not typed and not priority:
+                all_table_link_data[primary_id] = {
+                    row.secondary_id for row in rows
+                }
+            elif not typed and priority:
+                all_table_link_data[primary_id] = [
+                    row.secondary_id for row in rows
+                ]
+            elif typed and not priority:
+                link_data = defaultdict(set)
+                for row in rows:
+                    link_data[row.link_type].add(row.secondary_id)
+                all_table_link_data[primary_id] = link_data
+            else:
+                link_data = defaultdict(list)
+                for row in rows:
+                    link_data[row.link_type].append(row.secondary_id)
+                all_table_link_data[primary_id] = link_data
         return all_table_link_data
 
     def get_link_data(self, table1, table2, table1_id, typed=False, priority=False):
@@ -431,66 +477,23 @@ class SQLiteDatabaseMacros(
         :param priority:
         :return:
         """
-        table2_id_col = self.db.driver_wrapper.get_id_column(table2)
-
+        link_spec = self.db.driver_wrapper.get_link_spec(table1, table2)
+        if link_spec is None:
+            return [] if priority else set()
+        rows = self.get_link_rows(link_spec, table1_id)
         if not typed and not priority:
-            table1_row = self.db.get_row_from_id(table1, table1_id)
-            linked_rows = self.db.get_interlinked_rows(table1_row, table2)
-            return set([lr[table2_id_col] for lr in linked_rows])
-
-        elif not typed and priority:
-            table1_row = self.db.get_row_from_id(table1, table1_id)
-            linked_rows = self.db.get_interlinked_rows(table1_row, table2)
-            return [lr[table2_id_col] for lr in linked_rows]
-
-        elif typed and not priority:
-            table1_id_col = self.db.driver_wrapper.get_id_column(table1)
-
-            link_table = self.db.driver_wrapper.get_link_table_name(table1, table2)
-
-            link_table_type_col = self.db.driver_wrapper.get_link_column(table1, table2, "type")
-            link_table_t1_id_col = self.db.driver_wrapper.get_link_column(table1, table2, table1_id_col)
-            link_table_t2_id_col = self.db.driver_wrapper.get_link_column(table1, table2, table2_id_col)
-
-            stmt = "SELECT {1}, {2} FROM {3} WHERE {0} = ?;".format(
-                link_table_t1_id_col,
-                link_table_t2_id_col,
-                link_table_type_col,
-                link_table,
-            )
-
+            return {row.secondary_id for row in rows}
+        if not typed and priority:
+            return [row.secondary_id for row in rows]
+        if typed and not priority:
             link_container = defaultdict(set)
-            for other_id, link_type in self.db.driver_wrapper.execute(stmt, table1_id):
-                link_container[link_type].add(other_id)
-
+            for row in rows:
+                link_container[row.link_type].add(row.secondary_id)
             return link_container
-
-        elif typed and priority:
-            table1_id_col = self.db.driver_wrapper.get_id_column(table1)
-
-            link_table = self.db.driver_wrapper.get_link_table_name(table1, table2)
-
-            link_table_type_col = self.db.driver_wrapper.get_link_column(table1, table2, "type")
-            link_table_priority_col = self.db.driver_wrapper.get_link_column(table1, table2, "priority")
-            link_table_t1_id_col = self.db.driver_wrapper.get_link_column(table1, table2, table1_id_col)
-            link_table_t2_id_col = self.db.driver_wrapper.get_link_column(table1, table2, table2_id_col)
-
-            stmt = "SELECT {1}, {2} FROM {3} WHERE {0} = ? ORDER BY {4} DESC ;".format(
-                link_table_t1_id_col,
-                link_table_t2_id_col,
-                link_table_type_col,
-                link_table,
-                link_table_priority_col,
-            )
-
-            link_container = defaultdict(list)
-            for other_id, link_type in self.db.driver_wrapper.execute(stmt, table1_id):
-                link_container[link_type].append(other_id)
-
-            return link_container
-
-        else:
-            raise NotImplementedError
+        link_container = defaultdict(list)
+        for row in rows:
+            link_container[row.link_type].append(row.secondary_id)
+        return link_container
 
 
     def get_linked_ids(self, link_table, left_id_col, right_id_col, left_id, type_filter=None):
@@ -573,7 +576,7 @@ class SQLiteDatabaseMacros(
         :param new_val:
         :return:
         """
-        if self.db.driver_wrapper.get_record_count("library_id"):
+        if self.db.driver_wrapper.get_record_count("database_version"):
             self.execute("UPDATE database_version SET database_version_version = ?", (new_val,))
 
         else:
