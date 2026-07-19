@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import os
+import sqlite3
 import types
 from pathlib import Path
 
@@ -27,6 +28,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
 def _assert_any_operation_fails(conn) -> None:
@@ -181,6 +183,38 @@ def test_column_metadata_field_accessors_propagate_through_database_layers(open_
         assert open_db.driver.direct_get_column_metadata(table, column) == expected
     finally:
         open_db.set_column_metadata(original)
+
+
+def test_legacy_database_without_column_metadata_uses_inferred_read_policy(
+    db_path: Path,
+    db_metadata: dict,
+    driver_spec,
+):
+    with sqlite3.connect(str(db_path)) as conn:
+        conn.execute("DROP TABLE column_metadata")
+
+    from LiuXin_alpha.databases.database import Database
+
+    with Database(
+        metadata=db_metadata,
+        db_type=driver_spec.db_type,
+        create=False,
+        backup=False,
+        enable_maintenance=False,
+    ) as db:
+        assert "column_metadata" not in db.all_tables
+
+        metadata = db.get_column_metadata("works", "work_title")
+        assert metadata.case_sensitive is False
+        assert metadata.semantic_role is ColumnSemanticRole.TITLE
+        assert (
+            metadata.normalization_profile
+            is ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD
+        )
+        assert db.get_case_sensitivity("works", "work_title") is False
+
+        with pytest.raises(DatabaseIntegrityError, match="no column_metadata table"):
+            db.set_column_metadata(metadata)
 
 
 def test_dirty_records_queue_is_shared(open_db):

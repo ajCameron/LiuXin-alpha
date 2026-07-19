@@ -20,7 +20,10 @@ from typing import Optional, TYPE_CHECKING
 from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseDriverWrapperAPI, DatabaseDriverAPI
 
 from LiuXin_alpha.constants.paths import LiuXin_default_database
-from LiuXin_alpha.databases.database.constants import HELPER_TABLES
+from LiuXin_alpha.databases.database.constants import (
+    HELPER_TABLES,
+    OPTIONAL_HELPER_TABLES,
+)
 
 from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
 from LiuXin_alpha.databases.metadata_sql import MetadataSQL
@@ -768,8 +771,14 @@ class Database(
         self._interlink_tables = set()
         self.intralink_tables = set()
         self.allowed_type_tables = set()
-        # Check helper tables exist (report *all* missing; helper_tables is a set-like).
-        missing_helpers = sorted(set(self.helper_tables) - set(self.all_tables))
+        # Check required helper tables exist. Compatibility catalogs are
+        # optional so older databases can open and use their inferred read
+        # fallbacks until explicitly migrated.
+        missing_helpers = sorted(
+            set(self.helper_tables)
+            - set(OPTIONAL_HELPER_TABLES)
+            - set(self.all_tables)
+        )
         if missing_helpers:
             import difflib
 
