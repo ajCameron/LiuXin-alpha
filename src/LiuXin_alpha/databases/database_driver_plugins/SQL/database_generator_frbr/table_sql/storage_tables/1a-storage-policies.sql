@@ -7,7 +7,7 @@
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `replication_policies` (
   `replication_policy_id` INTEGER PRIMARY KEY,
-  `replication_policy_name` TEXT NOT NULL,
+  `replication_policy_name` TEXT NULL,
   `replication_policy_min_copies` INTEGER NOT NULL DEFAULT 1,
   `replication_policy_target_copies` INTEGER NULL,
   `replication_policy_distinct_by_json` TEXT NULL,
@@ -48,7 +48,7 @@ ON `replication_policies` (`replication_policy_name`);
 CREATE TABLE IF NOT EXISTS `backup_policies` (
   `backup_policy_id` INTEGER PRIMARY KEY,
 
-  `backup_policy_name` TEXT NOT NULL,
+  `backup_policy_name` TEXT NULL,
 
   `backup_policy_min_backup_copies` INTEGER NOT NULL DEFAULT 1,
   `backup_policy_target_backup_copies` INTEGER NULL,

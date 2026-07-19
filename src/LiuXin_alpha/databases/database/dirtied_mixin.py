@@ -179,7 +179,7 @@ class TelemetryMaintainerProxy:
                 row_id=row_id,
                 reason="DIRTY_RECORD",
             )
-        return self._target.direct_dirty_record(table, row_id)
+        return self._target.dirty_record(table, row_id)
 
     def new_dirty_record(self, table: str, row_id: int) -> None:  # noqa: ANN001 - callback compatibility
         """
@@ -359,7 +359,7 @@ class DatabaseDirtiedRecordsMixin:
 
         # Discover which columns exist (legacy schemas vary).
         try:
-            headings = set(self.driver_wrapper.direct_get_column_headings(table))
+            headings = set(self.driver_wrapper.get_column_headings(table))
         except Exception:
             return 0
 

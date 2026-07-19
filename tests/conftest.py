@@ -132,6 +132,10 @@ def _top_level_entries(root: Path) -> set[str]:
     return {entry.name for entry in root.iterdir()}
 
 
+def _is_expected_repo_root_tool_artifact(name: str) -> bool:
+    return name == ".coverage" or name.startswith(".coverage.")
+
+
 def _remove_path(path: Path) -> None:
     if path.is_symlink() or path.is_file():
         path.unlink(missing_ok=True)
@@ -250,7 +254,11 @@ def _sandbox_test_cwd_and_guard_project_root(
     monkeypatch.chdir(tmp_path)
     yield
 
-    leaked = sorted(_top_level_entries(project_root) - before)
+    leaked = sorted(
+        name
+        for name in _top_level_entries(project_root) - before
+        if not _is_expected_repo_root_tool_artifact(name)
+    )
     if not leaked:
         return
 

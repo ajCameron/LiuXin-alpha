@@ -13,7 +13,7 @@ class DriverTablesMixinAPI(abc.ABC):
     Mixin methods to manipulate the tables within the database.
     """
     @abc.abstractmethod
-    def direct_create_new_main_table(
+    def direct_create_main_table(
             self,
             table_name: str,
             column_headings: Optional[Iterable[str]] = None,
@@ -21,7 +21,7 @@ class DriverTablesMixinAPI(abc.ABC):
             default_datatype: str = 'TEXT',
             default_unique: bool = False) -> None:
         """
-        Call to directly create a new main table on the database.
+        Call to directly create a main table on the database.
 
         :param table_name:
         :param column_headings:

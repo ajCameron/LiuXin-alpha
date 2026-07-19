@@ -7,7 +7,7 @@ CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_storage_key_must_be_relative`
 BEFORE INSERT ON `asset_replicas`
 BEGIN
   SELECT CASE
-    WHEN NEW.`asset_replica_storage_key` IS NULL OR LENGTH(TRIM(NEW.`asset_replica_storage_key`)) = 0
+    WHEN NEW.`asset_replica_storage_key` IS NOT NULL AND LENGTH(TRIM(NEW.`asset_replica_storage_key`)) = 0
     THEN RAISE(ABORT, 'asset_replicas.asset_replica_storage_key must be a non-empty relative key')
     WHEN NEW.`asset_replica_storage_key` LIKE '%://%'
     THEN RAISE(ABORT, 'asset_replicas.asset_replica_storage_key must be relative (no URI scheme)')
@@ -21,7 +21,7 @@ CREATE TRIGGER IF NOT EXISTS `trg_asset_replicas_storage_key_must_be_relative_up
 BEFORE UPDATE OF `asset_replica_storage_key` ON `asset_replicas`
 BEGIN
   SELECT CASE
-    WHEN NEW.`asset_replica_storage_key` IS NULL OR LENGTH(TRIM(NEW.`asset_replica_storage_key`)) = 0
+    WHEN NEW.`asset_replica_storage_key` IS NOT NULL AND LENGTH(TRIM(NEW.`asset_replica_storage_key`)) = 0
     THEN RAISE(ABORT, 'asset_replicas.asset_replica_storage_key must be a non-empty relative key')
     WHEN NEW.`asset_replica_storage_key` LIKE '%://%'
     THEN RAISE(ABORT, 'asset_replicas.asset_replica_storage_key must be relative (no URI scheme)')

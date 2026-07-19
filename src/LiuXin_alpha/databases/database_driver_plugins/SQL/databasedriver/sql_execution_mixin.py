@@ -63,7 +63,10 @@ class SQLExecutionMixin:
                 sql = sql[2:]
 
         conn = self.get_connection()
-        last_row_id = conn.execute(sql, parameters).lastrowid
+        if parameters is None:
+            last_row_id = conn.execute(sql).lastrowid
+        else:
+            last_row_id = conn.execute(sql, parameters).lastrowid
         conn.commit()
         return last_row_id
 

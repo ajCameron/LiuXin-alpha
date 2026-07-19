@@ -12,6 +12,7 @@ import re
 import os
 import pprint
 from copy import deepcopy
+from urllib.parse import urlsplit
 
 
 from typing import Optional, TYPE_CHECKING
@@ -19,7 +20,10 @@ from typing import Optional, TYPE_CHECKING
 from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseDriverWrapperAPI, DatabaseDriverAPI
 
 from LiuXin_alpha.constants.paths import LiuXin_default_database
-from LiuXin_alpha.databases.database.constants import HELPER_TABLES
+from LiuXin_alpha.databases.database.constants import (
+    HELPER_TABLES,
+    OPTIONAL_HELPER_TABLES,
+)
 
 from LiuXin_alpha.databases.database_driver_plugins import loadDatabaseDriver
 from LiuXin_alpha.databases.metadata_sql import MetadataSQL
@@ -48,6 +52,7 @@ from LiuXin_alpha.databases.database.interlink_mixin import DatabaseInterlinkRow
 from LiuXin_alpha.databases.database.intralink_mixin import DatabaseIntralinkRowsMixin
 from LiuXin_alpha.databases.database.tree_mixin import DatabaseTreeMixin
 from LiuXin_alpha.databases.database.linked_rows_mixin import DatabaseLinkedRowsMixin
+from LiuXin_alpha.databases.maintenance import Maintainer
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
@@ -72,6 +77,40 @@ class _NoopMaintainerCallback:
 
     def dirty_interlink_record(self, update_type, table1, table2, table1_id, table2_id):  # noqa: ANN001
         pass
+
+
+def _metadata_uses_server_database(metadata, db_type: str) -> bool:
+    """
+    Return True when database metadata points at a server backend rather than a filesystem file.
+
+    The database constructor historically assumes ``database_path`` means an on-disk SQLite file and creates it when
+    missing. PostgreSQL DSNs must not be routed through that path.
+    """
+
+    db_type_text = str(db_type or "").strip().casefold()
+    if db_type_text in {"postgres", "postgresql", "pg"}:
+        return True
+
+    if not metadata:
+        return False
+
+    for key in ("postgres_service", "database_service"):
+        value = metadata.get(key)
+        text = str(value or "").strip()
+        if text:
+            return True
+
+    for key in ("postgres_url", "database_url", "dsn", "url", "database_path"):
+        value = metadata.get(key)
+        text = str(value or "").strip()
+        if not text:
+            continue
+        try:
+            if urlsplit(text).scheme.casefold() in {"postgres", "postgresql"}:
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 class Database(
@@ -333,13 +372,15 @@ class Database(
             metadata = {"database_path": LiuXin_default_database}
 
         db_path = metadata.get("database_path")
-        path_existed = bool(db_path) and db_path != ":memory:" and os.path.exists(db_path)
+        server_database = _metadata_uses_server_database(metadata, db_type)
+        path_backed = not server_database
+        path_existed = bool(db_path) and path_backed and db_path != ":memory:" and os.path.exists(db_path)
 
         self.metadata = metadata
         self.type = db_type
         self.set_driver(loadDatabaseDriver(db_type)(self.metadata, self))
 
-        if create or (not path_existed and db_path not in (None, ":memory:")):
+        if create or (path_backed and not path_existed and db_path not in (None, ":memory:")):
             if path_existed:
                 self.create_new_database(blank=True, backup=backup)
             else:
@@ -730,8 +771,14 @@ class Database(
         self._interlink_tables = set()
         self.intralink_tables = set()
         self.allowed_type_tables = set()
-        # Check helper tables exist (report *all* missing; helper_tables is a set-like).
-        missing_helpers = sorted(set(self.helper_tables) - set(self.all_tables))
+        # Check required helper tables exist. Compatibility catalogs are
+        # optional so older databases can open and use their inferred read
+        # fallbacks until explicitly migrated.
+        missing_helpers = sorted(
+            set(self.helper_tables)
+            - set(OPTIONAL_HELPER_TABLES)
+            - set(self.all_tables)
+        )
         if missing_helpers:
             import difflib
 

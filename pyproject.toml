@@ -24,6 +24,9 @@ test = [
 search = [
   "rapidfuzz>=3.9",
 ]
+postgres = [
+  "psycopg2-binary>=2.9",
+]
 typing = [
   "basedpyright>=1.39,<2",
   "mypy>=1.20,<3",

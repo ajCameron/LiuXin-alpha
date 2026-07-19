@@ -68,7 +68,13 @@ def test_pure_driver_imports_without_apsw() -> None:
 
     mod = "LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver"
 
-    with _temporary_module_purge((mod, "LiuXin_alpha.databases.database_driver_plugins.SQLite")):
+    with _temporary_module_purge(
+        (
+            mod,
+            "LiuXin_alpha.databases.database_driver_plugins.SQLite",
+            "apsw",
+        )
+    ):
         with _block_import("apsw"):
             imported = importlib.import_module(mod)
             assert imported is not None

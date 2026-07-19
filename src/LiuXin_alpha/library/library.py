@@ -22,7 +22,7 @@ from LiuXin_alpha.ingest import (
     register_wget_html_readonly_store_files,
 )
 from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
-from LiuXin_alpha.storage.api import StoreContainerAPI, StoreLocationMixinAPI
+from LiuXin_alpha.storage.api import StoreContainerAPI, StoreLocationMixinAPI, StorePluginAPI
 from LiuXin_alpha.storage.reconcile import (
     SquashfsArchivePublishReport,
     SquashfsDesignationReport,
@@ -378,8 +378,8 @@ class Library:
             strict=strict,
         )
 
-    def get_store(self, store_identifier: str) -> StoreContainerAPI:
-        return self.storage.get_store_container(store_identifier)
+    def get_store(self, store_identifier: str) -> StorePluginAPI:
+        return self.storage.get_store(store_identifier)
 
     def iter_stores(self) -> Iterator[StoreContainerAPI]:
         return self.storage.iter_store_containers()

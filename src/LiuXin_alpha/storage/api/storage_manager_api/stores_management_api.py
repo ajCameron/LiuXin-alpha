@@ -55,6 +55,9 @@ class StoresManagerAPI(abc.ABC):
     def get_store_plugin(self, store_ref: "StoreRef") -> "StorePluginAPI":
         return self.get_store_container(store_ref).plugin
 
+    def get_store(self, store_ref: "StoreRef") -> "StorePluginAPI":
+        return self.get_store_plugin(store_ref)
+
     def iter_store_plugins(self) -> Iterator["StorePluginAPI"]:
         for store_container in self.iter_store_containers():
             yield store_container.plugin

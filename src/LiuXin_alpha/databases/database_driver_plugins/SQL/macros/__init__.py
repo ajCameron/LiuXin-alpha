@@ -517,6 +517,39 @@ class SQLiteDatabaseMacros(
     # ------------------------------------------------------------------------------------------------------------------
 
 
+    def replace_in_folder_store_path(self, target_str: str, replacement: str) -> None:
+        """
+        Replace text in the physical folder-store path column.
+
+        :param target_str:
+        :param replacement:
+        :return:
+        """
+        replace_sql = "UPDATE folder_stores SET folder_store_path = replace(folder_store_path, ?, ?);"
+        self.execute(replace_sql, (target_str, replacement))
+
+    def replace_in_folder_store_marker_path(self, target_str: str, replacement: str) -> None:
+        """
+        Replace text in the folder-store marker path column.
+
+        :param target_str:
+        :param replacement:
+        :return:
+        """
+        replace_sql = "UPDATE folder_stores SET folder_store_marker_path = replace(folder_store_marker_path, ?, ?);"
+        self.execute(replace_sql, (target_str, replacement))
+
+    def replace_in_folder_path(self, target_str: str, replacement: str) -> None:
+        """
+        Replace text in folder paths.
+
+        :param target_str:
+        :param replacement:
+        :return:
+        """
+        replace_sql = "UPDATE folders SET folder_path = replace(folder_path, ?, ?);"
+        self.execute(replace_sql, (target_str, replacement))
+
     # Todo: Do you need two different unique ids stores in two different places?
     def set_library_id(self, new_val):
         """

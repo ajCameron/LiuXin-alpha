@@ -181,7 +181,7 @@ def test_reset_allows_reuse() -> None:
     ],
 )
 def test_malformed_inputs_do_not_hang(data: bytes) -> None:
-    status, _ = _decompress_with_timeout(data, outlen=8, timeout_s=2.0)
+    status, _ = _decompress_with_timeout(data, outlen=8)
     assert status in {"ok", "exc"}
 
 
@@ -190,5 +190,5 @@ def test_small_random_fuzz_does_not_hang() -> None:
     for _ in range(10):
         ln = rng.randint(1, 64)
         blob = os.urandom(ln)
-        status, _ = _decompress_with_timeout(blob, outlen=32, timeout_s=2.0)
+        status, _ = _decompress_with_timeout(blob, outlen=32)
         assert status in {"ok", "exc"}

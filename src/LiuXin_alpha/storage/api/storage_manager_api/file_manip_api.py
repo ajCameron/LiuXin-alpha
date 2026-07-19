@@ -29,6 +29,15 @@ class StoreFileOrchestrationAPI(abc.ABC):
     ) -> "StoreLocationMixinAPI":
         ...
 
+    def add_file(
+        self,
+        file_bytes: bytes,
+        metadata: "MetadataContainerAPI | None" = None,
+        *,
+        preferred_store: "StoreRef | None" = None,
+    ) -> "StoreLocationMixinAPI":
+        return self.store_bytes(file_bytes=file_bytes, metadata=metadata, preferred_store=preferred_store)
+
     @abc.abstractmethod
     def locate_file(
         self,
@@ -38,6 +47,15 @@ class StoreFileOrchestrationAPI(abc.ABC):
         preferred_store: "StoreRef | None" = None,
     ) -> "StoreLocationMixinAPI":
         ...
+
+    def retrieve_file(
+        self,
+        file_url: str | None = None,
+        metadata: "MetadataContainerAPI | None" = None,
+        *,
+        preferred_store: "StoreRef | None" = None,
+    ) -> "StoreLocationMixinAPI":
+        return self.locate_file(file_url=file_url, metadata=metadata, preferred_store=preferred_store)
 
     @abc.abstractmethod
     def locate_folder(
@@ -57,6 +75,17 @@ class StoreFileOrchestrationAPI(abc.ABC):
     ) -> bool:
         ...
 
+    def delete_file(
+        self,
+        file_url: str | None = None,
+        metadata: "MetadataContainerAPI | None" = None,
+        file_container: "StoreLocationMixinAPI | None" = None,
+    ) -> bool:
+        return self.delete_location(file_url=file_url, metadata=metadata, location=file_container)
+
     @abc.abstractmethod
     def iter_locations(self) -> Iterator["StoreLocationMixinAPI"]:
         ...
+
+    def iter(self) -> Iterator["StoreLocationMixinAPI"]:
+        return self.iter_locations()

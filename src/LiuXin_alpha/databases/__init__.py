@@ -18,6 +18,14 @@ from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES, VALID_DATA_TYPES
 
 if TYPE_CHECKING:  # pragma: no cover
     from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseDriverAPI, DatabaseDriverWrapperAPI, RowAPI
+    from LiuXin_alpha.databases.column_metadata import (
+        ColumnEmptyValuePolicy,
+        ColumnMergePolicy,
+        ColumnMetadata,
+        ColumnNormalizationProfile,
+        ColumnSemanticRole,
+        ColumnValidationProfile,
+    )
     from LiuXin_alpha.databases.database import Database
     from LiuXin_alpha.databases.database_driver_plugins import (
         get_registered_database_driver_names,
@@ -30,6 +38,12 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = [
     "CUSTOM_DATA_TYPES",
+    "ColumnEmptyValuePolicy",
+    "ColumnMergePolicy",
+    "ColumnMetadata",
+    "ColumnNormalizationProfile",
+    "ColumnSemanticRole",
+    "ColumnValidationProfile",
     "Database",
     "DatabaseAPI",
     "DatabaseDriverAPI",
@@ -67,6 +81,17 @@ def __getattr__(name: str):
         from LiuXin_alpha.databases.maintenance import Maintainer
 
         return Maintainer
+    if name in {
+        "ColumnEmptyValuePolicy",
+        "ColumnMergePolicy",
+        "ColumnMetadata",
+        "ColumnNormalizationProfile",
+        "ColumnSemanticRole",
+        "ColumnValidationProfile",
+    }:
+        from LiuXin_alpha.databases import column_metadata as _column_metadata
+
+        return getattr(_column_metadata, name)
     if name in {"DatabaseAPI", "DatabaseDriverAPI", "DatabaseDriverWrapperAPI", "RowAPI"}:
         from LiuXin_alpha.databases import api as _api
 

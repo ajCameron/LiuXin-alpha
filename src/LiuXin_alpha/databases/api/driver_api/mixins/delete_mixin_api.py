@@ -15,7 +15,7 @@ class DriverDeleteMixinAPI(abc.ABC):
     """
 
     @abc.abstractmethod
-    def direct_clear_table(self, target_table: str) -> None:
+    def direct_clear_table(self, target_table: str) -> bool:
         """
         Clear the specified table entirely.
 
@@ -29,7 +29,7 @@ class DriverDeleteMixinAPI(abc.ABC):
             target_table: str,
             column: str,
             value: Any,
-            many: bool = False) -> None:
+            many: bool = False) -> bool:
         """
         Delete one or more entries from the specified table matching the given value.
 
@@ -58,7 +58,7 @@ class DriverDeleteMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_delete_many_by_ids(self, target_table: str, row_ids: Iterable[int]) -> None:
+    def direct_delete_many_by_ids(self, target_table: str, row_ids: Iterable[int]) -> bool:
         """
         Directly delete many entries from the target table by their ids.
 
@@ -68,7 +68,7 @@ class DriverDeleteMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_delete_row_by_id(self, target_table: str, row_id: int) -> None:
+    def direct_delete_row_by_id(self, target_table: str, row_id: int) -> bool:
         """
         Delete a single row by its id - if it exists.
 

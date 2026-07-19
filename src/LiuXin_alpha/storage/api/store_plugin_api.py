@@ -92,6 +92,10 @@ class StorePluginAPI(abc.ABC):
     def uuid(self) -> Optional[str]:
         return self._uuid
 
+    @property
+    def store_uuid(self) -> Optional[str]:
+        return self._uuid
+
     @uuid.setter
     def uuid(self, uuid: str) -> None:
         raise AttributeError("Cannot directly set the uuid of a store plugin.")

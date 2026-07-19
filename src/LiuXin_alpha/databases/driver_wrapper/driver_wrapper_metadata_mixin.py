@@ -8,6 +8,15 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from typing import Optional, Iterable, TYPE_CHECKING
 
+from LiuXin_alpha.databases.column_metadata import (
+    ColumnEmptyValuePolicy,
+    ColumnMergePolicy,
+    ColumnMetadata,
+    ColumnNormalizationProfile,
+    ColumnSemanticRole,
+    ColumnValidationProfile,
+)
+
 if TYPE_CHECKING:
 
     from LiuXin_alpha.databases.api.driver_api.driver_api import DatabaseDriverAPI
@@ -62,6 +71,185 @@ class DriverWrapperMetadataMixin:
         :return column_headings: An index of column headings in the order they appear on the database
         """
         return self.driver.direct_get_column_headings(table)
+
+    def get_declared_column_datatype(self, table: str, column: str) -> str:
+        """
+        Return the database-native declared datatype for one column.
+
+        :param table:
+        :param column:
+        :return:
+        """
+        return self.driver.direct_get_declared_column_datatype(table, column)
+
+    def get_case_sensitivity(self, table: str, column: str) -> bool:
+        """
+        Return whether text equality for this column is case-sensitive.
+
+        :param table:
+        :param column:
+        :return:
+        """
+        return self.driver.direct_get_case_sensitivity(table, column)
+
+    def get_column_metadata(self, table: str, column: str) -> ColumnMetadata:
+        """Return the complete semantic/writer policy for one column."""
+
+        return self.driver.direct_get_column_metadata(table, column)
+
+    def set_column_metadata(self, metadata: ColumnMetadata) -> None:
+        """Persist the complete semantic/writer policy for one column."""
+
+        self.driver.direct_set_column_metadata(metadata)
+
+    def get_semantic_role(self, table: str, column: str) -> ColumnSemanticRole:
+        """Return the semantic role for one column."""
+
+        return self.driver.direct_get_semantic_role(table, column)
+
+    def set_semantic_role(
+        self,
+        table: str,
+        column: str,
+        semantic_role: ColumnSemanticRole,
+    ) -> None:
+        """Persist the semantic role for one column."""
+
+        self.driver.direct_set_semantic_role(table, column, semantic_role)
+
+    def get_normalization_profile(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnNormalizationProfile:
+        """Return the comparison-normalization profile for one column."""
+
+        return self.driver.direct_get_normalization_profile(table, column)
+
+    def set_normalization_profile(
+        self,
+        table: str,
+        column: str,
+        normalization_profile: ColumnNormalizationProfile,
+    ) -> None:
+        """Persist the comparison-normalization profile for one column."""
+
+        self.driver.direct_set_normalization_profile(
+            table,
+            column,
+            normalization_profile,
+        )
+
+    def get_comparison_column(self, table: str, column: str) -> str | None:
+        """Return the derived comparison column, if any."""
+
+        return self.driver.direct_get_comparison_column(table, column)
+
+    def set_comparison_column(
+        self,
+        table: str,
+        column: str,
+        comparison_column: str | None,
+    ) -> None:
+        """Persist the derived comparison column for one column."""
+
+        self.driver.direct_set_comparison_column(
+            table,
+            column,
+            comparison_column,
+        )
+
+    def get_empty_value_policy(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnEmptyValuePolicy:
+        """Return the empty-value policy for one column."""
+
+        return self.driver.direct_get_empty_value_policy(table, column)
+
+    def set_empty_value_policy(
+        self,
+        table: str,
+        column: str,
+        empty_value_policy: ColumnEmptyValuePolicy,
+    ) -> None:
+        """Persist the empty-value policy for one column."""
+
+        self.driver.direct_set_empty_value_policy(
+            table,
+            column,
+            empty_value_policy,
+        )
+
+    def get_merge_policy(self, table: str, column: str) -> ColumnMergePolicy:
+        """Return the merge policy for one column."""
+
+        return self.driver.direct_get_merge_policy(table, column)
+
+    def set_merge_policy(
+        self,
+        table: str,
+        column: str,
+        merge_policy: ColumnMergePolicy,
+    ) -> None:
+        """Persist the merge policy for one column."""
+
+        self.driver.direct_set_merge_policy(table, column, merge_policy)
+
+    def get_validation_profile(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnValidationProfile:
+        """Return the validation profile for one column."""
+
+        return self.driver.direct_get_validation_profile(table, column)
+
+    def set_validation_profile(
+        self,
+        table: str,
+        column: str,
+        validation_profile: ColumnValidationProfile,
+    ) -> None:
+        """Persist the validation profile for one column."""
+
+        self.driver.direct_set_validation_profile(
+            table,
+            column,
+            validation_profile,
+        )
+
+    def set_case_sensitivity(
+        self,
+        table: str,
+        column: str,
+        case_sensitive: bool,
+    ) -> None:
+        """
+        Persist text equality policy for one column.
+
+        :param table:
+        :param column:
+        :param case_sensitive:
+        :return:
+        """
+        self.driver.direct_set_case_sensitivity(table, column, case_sensitive)
+
+    def is_column_case_sensitive(self, table: str, column: str) -> bool:
+        """Compatibility alias for :meth:`get_case_sensitivity`."""
+
+        return self.get_case_sensitivity(table, column)
+
+    def set_column_case_sensitive(
+        self,
+        table: str,
+        column: str,
+        case_sensitive: bool,
+    ) -> None:
+        """Compatibility alias for :meth:`set_case_sensitivity`."""
+
+        self.set_case_sensitivity(table, column, case_sensitive)
 
     def get_tables_and_columns(self) -> dict[str, set[str]]:
         """

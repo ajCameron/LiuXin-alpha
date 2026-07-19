@@ -39,7 +39,7 @@ class CustomColumnsEnsureValueMacrosMixin:
         :return:
         """
         # Todo: Hopefully? Making a value column method would be good here.
-        cc_val_column = self.db.driver_wrapper.direct_get_display_column(cc_table)
+        cc_val_column = self.db.driver_wrapper.get_display_column(cc_table)
         cc_id_column = self.db.driver_wrapper.get_id_column(cc_table)
 
         # Todo: The custom columns table have a different structure - account for it

@@ -18,4 +18,3 @@ class SearchCommand(TerminalCommandAPI):
 
 
 __all__ = ["SearchCommand"]
-

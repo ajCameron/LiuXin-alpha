@@ -13,7 +13,7 @@ class DriverMetadataMixinAPI(abc.ABC):
     # Toodo: not clear how different to database version.
     @property
     @abc.abstractmethod
-    def user_version(self) -> str:
+    def user_version(self) -> Optional[str]:
         """
         Get the user version of the database.
 
@@ -39,7 +39,7 @@ class DriverMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def _get_schema_version(self) -> str:
+    def direct_get_schema_version(self) -> Optional[int]:
         """
         Return the schema version of the database.
 
@@ -83,7 +83,7 @@ class DriverMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def last_modified(self) -> Optional[str]:
+    def last_modified(self):
         """
         Return the last modified date of the database.
 

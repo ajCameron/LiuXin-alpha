@@ -4,7 +4,6 @@
 import copy
 import traceback
 
-import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.constants import VERBOSE_DEBUG as DEBUG
 
 from LiuXin_alpha.utils.calibre_compat.metadata.calibre_metadata_constants import (
@@ -628,7 +627,7 @@ class calibreMetadata(object):
         if other.title and other.title != unknown:
             self.title = other.title
             if hasattr(other, "title_sort"):
-                self.title_sort = LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort
+                self.title_sort = other.title_sort
 
         if other.authors and (
             other.authors[0] != unknown

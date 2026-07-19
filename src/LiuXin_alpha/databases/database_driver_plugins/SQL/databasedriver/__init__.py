@@ -87,6 +87,15 @@ class SQLBaseDriver:
 
         self.locations = None
 
+        # Schema mutations can leave wrapper-side derived caches stale when callers use the raw driver API.
+        try:
+            driver_wrapper = getattr(self.db, "driver_wrapper", None)
+            clear_derived = getattr(driver_wrapper, "_clear_derived_schema_caches", None)
+            if clear_derived is not None:
+                clear_derived()
+        except Exception:
+            pass
+
         try:
             self.db.refresh_db_metadata()
         except Exception as e:

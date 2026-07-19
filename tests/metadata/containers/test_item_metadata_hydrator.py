@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import pytest
 
+from LiuXin_alpha.databases.column_metadata import (
+    ColumnMetadata,
+    default_column_metadata,
+)
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError
 from LiuXin_alpha.metadata.api import UnloadedMetadataProjectionError, WorkRelationLink
@@ -38,6 +42,7 @@ SINGULARS = {
     "folders": "folder",
     "genres": "genre",
     "labels": "label",
+    "notes": "note",
     "series": "series",
     "tags": "tag",
     "languages": "language",
@@ -105,6 +110,8 @@ class FakeDriverWrapper:
         for table, singular in SINGULARS.items():
             id_column = f"{singular}_id"
             if id_column in keys:
+                return table
+            if singular in keys:
                 return table
             prefix = singular + "_"
             if any(str(key).startswith(prefix) for key in keys):
@@ -182,6 +189,7 @@ class FakeDatabase:
     interlink_queries: list[tuple[str, int, str]] = field(default_factory=list)
     search_queries: list[tuple[str, str, Any]] = field(default_factory=list)
     dirtied: list[tuple[str, int, str]] = field(default_factory=list)
+    column_case_sensitivity: dict[tuple[str, str], bool] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.driver_wrapper = FakeDriverWrapper(self.tables_and_columns, self)
@@ -228,6 +236,27 @@ class FakeDatabase:
             if row.row_dict.get(str(column)) == search_term:
                 out.append(row)
         return out
+
+    def get_all_rows(
+        self,
+        table: str,
+        iterator_return: bool = True,
+    ) -> Iterable[Row]:
+        rows = list(self.rows_by_table.get(str(table), []))
+        return iter(rows) if iterator_return else rows
+
+    def get_case_sensitivity(self, table: str, column: str) -> bool:
+        return self.column_case_sensitivity.get((str(table), str(column)), False)
+
+    def get_column_metadata(self, table: str, column: str) -> ColumnMetadata:
+        metadata = default_column_metadata(table, column)
+        return replace(
+            metadata,
+            case_sensitive=self.get_case_sensitivity(table, column),
+        )
+
+    def is_column_case_sensitive(self, table: str, column: str) -> bool:
+        return self.get_case_sensitivity(table, column)
 
     def get_interlink_rows(self, primary_row: Row, secondary_table: str) -> list[dict[str, Any]]:
         key = (str(primary_row.table), int(primary_row.row_id), str(secondary_table))
@@ -1348,6 +1377,57 @@ def test_liuxin_wemi_metadata_write_to_database_adds_missing_relation_terms() ->
     assert no_change_report.changed is False
     assert no_change_report.rows_added == []
     assert no_change_report.links_added == []
+
+
+def test_liuxin_wemi_metadata_writer_obeys_column_case_sensitivity() -> None:
+    db = _build_fake_database()
+    db.tables_and_columns["notes"] = ["note_id", "note"]
+    db.driver_wrapper.tables_and_columns["notes"] = ["note_id", "note"]
+    db.add_row("notes", {"note_id": 97, "note": "Mind US"})
+    db.interlinks[("works", 30, "notes")] = [
+        {
+            "note_work_link_note_id": 97,
+            "note_work_link_priority": 1,
+            "note_work_link_source": "fixture",
+        }
+    ]
+    db.column_case_sensitivity[("tags", "tag")] = False
+    db.column_case_sensitivity[("labels", "label_text")] = False
+    db.column_case_sensitivity[("notes", "note")] = True
+    metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+
+    metadata.tags = "space opera"
+    metadata.labels = "science fiction"
+    metadata.notes = "Mind us"
+
+    report = metadata.write_to_database(
+        db,
+        fields=("tags", "labels", "notes"),
+        mark_dirty=False,
+    )
+
+    assert [row["text"] for row in report.rows_added] == ["Mind us"]
+    assert [row.row_dict["tag"] for row in db.rows_by_table["tags"]] == [
+        "Space Opera",
+    ]
+    assert [row.row_dict["label_text"] for row in db.rows_by_table["labels"]] == [
+        "Science Fiction",
+    ]
+    assert [row.row_dict["note"] for row in db.rows_by_table["notes"]] == [
+        "Mind US",
+        "Mind us",
+    ]
+
+    rehydrated = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
+    assert [
+        target.row_dict["tag"]
+        for target in rehydrated.get_wemi_related("work", "tags")
+    ] == ["Space Opera"]
+    assert list(rehydrated.labels.keys()) == ["Science Fiction"]
+    assert [
+        target.row_dict["note"]
+        for target in rehydrated.get_wemi_related("work", "notes")
+    ] == ["Mind US", "Mind us"]
 
 
 def test_liuxin_wemi_metadata_write_to_database_can_replace_relation_terms() -> None:

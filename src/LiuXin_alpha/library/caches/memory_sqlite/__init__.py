@@ -136,7 +136,7 @@ class MemoryDatabaseDriver(DatabaseDriver):
 
         # More generally, add a function which will callback to the maintenance bot to tell it that particular row in
         # a table has changed and might need attention
-        conn.create_function("DIRTY_RECORD", 2, lambda table, row_id: self.maintainer_callback.direct_dirty_record(table, row_id))
+        conn.create_function("DIRTY_RECORD", 2, lambda table, row_id: self.maintainer_callback.dirty_record(table, row_id))
         conn.create_function("DIRTY_INTERLINK_RECORD", 4, self.maintainer_callback.dirty_interlink_record)
         conn.create_function("NEW_DIRTY_RECORD", 2, lambda table, row_id: self.maintainer_callback.new_dirty_record(table, row_id))
 

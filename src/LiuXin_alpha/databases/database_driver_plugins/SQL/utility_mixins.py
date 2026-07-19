@@ -206,7 +206,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         )
 
         try:
-            self.executescript("\n".join(link_sql_list))
+            self.direct_executescript("\n".join(link_sql_list))
         except sqlite3.OperationalError as e:
             err_msg = ["Operational error when trying to link tables", "primary_table: {}".format(primary_table),
                        "secondary_table: {}".format(secondary_table), "link_type: {}".format(link_type),

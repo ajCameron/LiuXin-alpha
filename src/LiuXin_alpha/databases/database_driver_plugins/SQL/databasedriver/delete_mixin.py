@@ -274,8 +274,8 @@ class DeleteMixin:
             table_name
         )
 
-        self.execute_sql(unlink_sqlite)
+        self.direct_execute_sql(unlink_sqlite)
+        self._zero_prop_cache()
 
     #
     # ----------------------------------------------------------------------------------------------------------------------
-

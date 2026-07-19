@@ -161,7 +161,7 @@ class DatabaseSearchMixin:
         :return:
         """
         column = six_unicode(deepcopy(column))
-        column_table = self.driver_wrapper.direct_identify_table_from_column(column)
+        column_table = self.driver_wrapper.identify_table_from_column(column)
 
         # Iterate over the table - yield rows from the table in chunks
         if target_table is None or (target_table == column_table):

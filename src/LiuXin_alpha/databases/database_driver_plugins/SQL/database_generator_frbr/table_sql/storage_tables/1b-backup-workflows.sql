@@ -7,13 +7,13 @@
 CREATE TABLE IF NOT EXISTS `backup_workflows` (
   `backup_workflow_id` INTEGER PRIMARY KEY,
 
-  `backup_workflow_name` TEXT NOT NULL,
-  `backup_workflow_kind` TEXT NOT NULL,
+  `backup_workflow_name` TEXT NULL,
+  `backup_workflow_kind` TEXT NULL,
 
   `backup_workflow_destination_store_id` INTEGER NULL,
   `backup_workflow_staging_store_id` INTEGER NULL,
 
-  `backup_workflow_output_url` TEXT NOT NULL,
+  `backup_workflow_output_url` TEXT NULL,
   `backup_workflow_verify_after_build` INTEGER NOT NULL DEFAULT 1,
   `backup_workflow_cleanup_staging_after_success` INTEGER NOT NULL DEFAULT 0,
   `backup_workflow_staging_root` TEXT NULL,
@@ -72,11 +72,11 @@ ON `backup_workflows` (`backup_workflow_destination_store_id`);
 CREATE TABLE IF NOT EXISTS `backup_workflow_sources` (
   `backup_workflow_source_id` INTEGER PRIMARY KEY,
 
-  `backup_workflow_source_workflow_id` INTEGER NOT NULL,
-  `backup_workflow_source_ordinal` INTEGER NOT NULL,
-  `backup_workflow_source_kind` TEXT NOT NULL,
-  `backup_workflow_source_identifier` TEXT NOT NULL,
-  `backup_workflow_source_archive_path` TEXT NOT NULL,
+  `backup_workflow_source_workflow_id` INTEGER NULL,
+  `backup_workflow_source_ordinal` INTEGER NULL,
+  `backup_workflow_source_kind` TEXT NULL,
+  `backup_workflow_source_identifier` TEXT NULL,
+  `backup_workflow_source_archive_path` TEXT NULL,
   `backup_workflow_source_expected_size` INTEGER NULL,
   `backup_workflow_source_expected_hash` TEXT NULL,
   `backup_workflow_source_file_id` INTEGER NULL,
@@ -127,7 +127,7 @@ ON `backup_workflow_sources` (`backup_workflow_source_workflow_id`);
 CREATE TABLE IF NOT EXISTS `backup_workflow_state` (
   `backup_workflow_state_id` INTEGER PRIMARY KEY,
 
-  `backup_workflow_state_workflow_id` INTEGER NOT NULL,
+  `backup_workflow_state_workflow_id` INTEGER NULL,
   `backup_workflow_state_status` TEXT NOT NULL DEFAULT 'draft',
   `backup_workflow_state_next_source_index` INTEGER NOT NULL DEFAULT 0,
   `backup_workflow_state_staged_source_count` INTEGER NOT NULL DEFAULT 0,
@@ -177,8 +177,8 @@ ON `backup_workflow_state` (`backup_workflow_state_workflow_id`);
 CREATE TABLE IF NOT EXISTS `backup_workflow_outputs` (
   `backup_workflow_output_id` INTEGER PRIMARY KEY,
 
-  `backup_workflow_output_workflow_id` INTEGER NOT NULL,
-  `backup_workflow_output_url` TEXT NOT NULL,
+  `backup_workflow_output_workflow_id` INTEGER NULL,
+  `backup_workflow_output_url` TEXT NULL,
   `backup_workflow_output_digital_asset_id` INTEGER NULL,
   `backup_workflow_output_asset_replica_id` INTEGER NULL,
   `backup_workflow_output_store_id` INTEGER NULL,

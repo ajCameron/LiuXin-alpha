@@ -89,7 +89,7 @@ class FactoryMethodsMixin:
         for table in standard_tables:
 
             standard_rows = db.get_linked_rows(title_row, table)
-            standard_display_column = db.driver_wrapper.direct_get_display_column(table)
+            standard_display_column = db.driver_wrapper.get_display_column(table)
             for standard_link in standard_rows:
                 dis_value = standard_link[standard_display_column]
 
@@ -191,5 +191,4 @@ class FactoryMethodsMixin:
         if len(series_rows) > 0:
             main_series_row = series_rows[0]
             _data["series_index"] = main_series_row["series_title_link_priority"]
-
 

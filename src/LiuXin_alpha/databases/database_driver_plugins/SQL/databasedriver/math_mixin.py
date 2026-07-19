@@ -24,19 +24,19 @@ class MathFunctionsMixin:
         max_val = next(conn.execute(stmt))[0]
         try:
             return int(max_val)
-        except ValueError:
+        except (TypeError, ValueError):
             return None
 
     def direct_get_min(self, column: str) -> Optional[int]:
         """
         Get the maximum value from a column and return it.
         """
-        col_table = self.dirct_identify_table_from_column(column)
+        col_table = self.direct_identify_table_from_column(column)
         stmt = "SELECT MIN({}) FROM {};".format(column, col_table)
 
         conn = self.get_connection()
         min_val = next(conn.execute(stmt))[0]
         try:
             return int(min_val)
-        except TypeError:
+        except (TypeError, ValueError):
             return None

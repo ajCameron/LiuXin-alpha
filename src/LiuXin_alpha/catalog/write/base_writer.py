@@ -1,6 +1,9 @@
 
+# Todo: Split the database module - the base database stuff deserves to be it's own module
+#       Then the metadata aware bits are their own thing?
+
 """
-Base class for the writers - responsible for writing structured data to the database.
+Base class for the writers  -responsible for writing structured data to the database.
 
 Writers are convenience methods to streamline getting data into the database.
 These include functions such as
@@ -9,17 +12,6 @@ These include functions such as
  - write identifiers
 
 and so on.
-
-They are NOT responsible for cache updates - those happen in the cache.
-
-A note on teminology.
-
-An ITEM is the thing on the left of the join.
-A VALUE is the thing on the right of the join.
-
-You set a VALUE for an ITEM.
-If this is not reflected in the naming, it should be.
-
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
@@ -27,11 +19,11 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 import pprint
 from copy import deepcopy
 
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Iterable, Union
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional
 
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
-from LiuXin_alpha.databases.adaptors import get_adapter_from_name_and_dt
+from LiuXin_alpha.databases.adaptors import get_adapter
 from LiuXin_alpha.errors import DatabaseIntegrityError
 from LiuXin_alpha.metadata.ebook_metadata_tools import author_to_author_sort
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, basestring, \
@@ -40,137 +32,33 @@ from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.catalog.api import CatalogAPI
-    from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
-class BaseCatalogWriter:
+class BaseWriter:
     """
-    Base class for a catalog writer.
+    Base clas for a calibre-style database writer.
 
-    Exists to write metadata out to the database.
-    Database, and metadata aware. Thus, a catalog object.
+    This assumes, at present, that we're writing into a table linked to books.
     """
 
-    def __init__(
-            self,
-            catalog: "CatalogAPI",
-            table: str,
-            column: str,
-            adapter: Callable[[Any, ], str] = lambda x: str(x),
-            accept_vals: Callable[[Any, ], bool] = lambda x: True,
-            name: Optional[str] = None,
-            link_table: Optional[str] = None,
-            link_table_bt_id_column: Optional[str] = None,
-            link_table_item_id_column: Optional[str] = None,
-            datatype: Optional[str] = None,
-    ) -> None:
+    def __init__(self, field):
         """
-        Specify the table, or the combination of tables, to write to.
+        Writer base which should be valid for every writer.
 
-        :param catalog: The catalog to write out to
-
-        :param table: String Name of the table.
-                      This is the table containing the ITEMS.
-
-                      If we're writing into a single table, then this SHOULD be a table that contains the COLUMN to
-                      update.
-
-                      E.g. If we're writing "series" to the "series" table, both the table and the column should be
-                      "series"
-
-                      E.g. if we're writing "tags" to the "tags" table, then the table should be "tags" and the column
-                      should be "tag".
-
-                      If we're writing into multiple tables, then the "column" probably isn't in the "table".
-
-                      E.g. if we're writing "tags" to "works", then the table is "works" and the column is "tag".
-
-                      E.g. if we're writing "series" to "works", then the table is "works" and the column is "series".
-
-        :param column: Column the VALUE(s) are being written to.
-
-                       Updates are going to be of the form dict[int, Any] - the int is an id in the table we're planning
-                       to write to.
-                       Any is some form of update instruction for the column values.
-
-        :param adapter: Takes the update values and renders them as strings for writing
-
-        :param name: The name for the table - if there is one.
-                     If None, it'll default to "{table}--{column}"
-
-        :param link_table: If provided, the table linking the table and the column-table - can be derived.
-                           None if no link
-
-        :param datatype: The datatype of the values we're writing to - used for validation.
-
+        :param field:
         """
-        self.catalog = catalog
+        self.adapter = get_adapter(field.name, field.metadata)
+        self.name = field.name
+        self.field = field
+        self.dt = field.metadata["datatype"]
+        self.accept_vals = lambda x: True
 
-        # The table the writer is targeting
-        self.table = table
-
-        # The table the column is in
-        self.column_table = table
-        # The column itself to update
-        self.column = column
-
-        self.name = name if name is not None else f"{table}--{column}"
-
-        self.link_table = link_table
-        self.link_table_bt_id_column = link_table_bt_id_column
-        self.link_table_table_id_column = link_table_item_id_column
-        self.link_table_priority_col = None
-
-        self.adapter = adapter
-
-        self.accept_vals = accept_vals
-
-        self._sanity_check_connection()
-
-        self.custom = self.is_custom()
-
-        # We can mostly infer this from knowing the dst column
-        self.datatype = datatype
-
-    def is_custom(self) -> bool:
+    def set_books_func(self, book_id_val_map, db: "DatabaseAPI", field, allow_case_change: bool = False) -> set[int]:
         """
-        We should be able to work this out.
+        Should be over-ridden by the specified writer.
 
-        :return:
-        """
-        raise NotImplementedError()
-
-    def _sanity_check_connection(self) -> None:
-        """
-        Check all the variables we need are set.
-
-        :return:
-        """
-        raise NotImplementedError(
-            "We need to sanity check and set vars - does the link we're trying to write to exist?"
-        )
-
-    def update_precheck(self, src_id_dst_val_map, id_map_update: Optional[dict[str, Any]]) -> bool:
-        """
-
-        :param src_id_dst_val_map:
-        :param id_map_update:
-        :return:
-        """
-        raise NotImplementedError(
-            "Has to be swapped out for the right one as required."
-        )
-
-    def set_values_func(
-            self,
-            item_id_val_map: dict[int, str],
-            allow_case_change: bool = False) -> set[int]:
-        """
-        Does the work of writing the final, adapted values out to the database.
-
-        The name is for legacy compatibility reasons.
-        :param item_id_val_map:
+        :param book_id_val_map:
         :param db:
         :param field:
         :param allow_case_change:
@@ -178,10 +66,7 @@ class BaseCatalogWriter:
         """
         raise NotImplementedError("Needs to be overridden.")
 
-    def no_adapter_set_values(
-            self,
-            book_id_val_map: dict[int, str],
-            allow_case_change: bool = True) -> set[int]:
+    def no_adapter_set_books(self, book_id_val_map, db: "DatabaseAPI", allow_case_change: bool = True) -> set[int]:
         """
         Used when the values in question should not be run through an adapter before being written out to the database.
 
@@ -194,94 +79,138 @@ class BaseCatalogWriter:
             return set()
 
         try:
-            dirtied = self.set_values_func(book_id_val_map, self.catalog, allow_case_change)
+            dirtied = self.set_books_func(book_id_val_map, db, self.field, allow_case_change)
         except Exception as e:
             err_str = "error while calling self.set_books_func"
-            default_log.log_exception(err_str, e, "ERROR", ("self.set_books_func", self.set_values_func))
+            default_log.log_exception(err_str, e, "ERROR", ("self.set_books_func", self.set_books_func))
             raise
 
         return dirtied
 
-    def set_values(
-            self,
-            item_id_val_map: dict[int, Any],
-            allow_case_change: bool = True) -> set[int]:
+    def set_books(self, book_id_val_map: dict[int, Any], db: "DatabaseAPI", allow_case_change: bool = True):
         """
         Preform the write for the given metadata into the books in accordance with the book_id_val_mpa.
 
-        :param item_id_val_map:
+        :param book_id_val_map:
         :param db:
         :param allow_case_change:
         :return:
         """
-        item_id_val_map = {k: self.adapter(v) for k, v in iteritems(item_id_val_map) if self.accept_vals(v)}
+        book_id_val_map = {k: self.adapter(v) for k, v in iteritems(book_id_val_map) if self.accept_vals(v)}
 
-        if not item_id_val_map:
+        if not book_id_val_map:
             return set()
 
         try:
-            dirtied = self.set_values_func(item_id_val_map, self.catalog, allow_case_change)
+            dirtied = self.set_books_func(book_id_val_map, db, self.field, allow_case_change)
         except Exception as e:
             err_str = "error while calling self.set_books_func"
-            default_log.log_exception(err_str, e, "ERROR", ("self.set_books_func", self.set_values_func))
+            default_log.log_exception(err_str, e, "ERROR", ("self.set_books_func", self.set_books_func))
             raise
 
         return dirtied
 
-    # Todo: We need to be able to type table
-    def add_and_get_db_id(
-        self,
-        val: Any,
+    # Todo: We need to be able to type table - also - why can't this just be field like everything else? Or as well?
+    @staticmethod
+    def get_db_id(
+        val,
+        db: "DatabaseAPI",
+        m,
+        table,
+        kmap: Callable[[str, ], str],
+        rid_map: Mapping[str, int],
+        allow_case_change: bool,
+        case_changes,
+        val_map,
         is_authors: bool = False,
         id_map_update = None,
-    ) -> int:
+    ):
         """
-        Add a value to the db and return its value.
+        Get the db id for the value val - creating if necessary.
 
-        If the val does not exist in the db it will be created.
-
+        If the val does not exist in the db it is inserted into it.
         :param val: The value to search for
         :param db: The database to do the search in.
+        :param m: field.metadata for the field being searched
+        :param table:
+        :param kmap: Case mapper - usually either icu_lower or the identity function
+        :param rid_map: Keyed with values from the database and valued with the id corresponding to that value
+        :param allow_case_change:
+        :param case_changes: A dictionary recording the required case changes to get a match
+        :param val_map: A map keyed with the value and valued with its id
         :param is_authors: Is the value from the authors table?
         :param id_map_update:
-
         :return None: All changes happen internally to the value passed into the function
         """
+        id_map_update = id_map_update if id_map_update is not None else dict()
+
         # Process m to extract the table and column the value will be added into - adding flexibility
         # Todo: Account for is_authors - use the author phash search system here
-        m_table = self.column_table
-        m_col = self.column
-
-        # Todo: This should, tbh, be a separate method
-        if is_authors:
-
-            # Todo: Use this in the add.creator method, by default
-            aus = author_to_author_sort(val)
-
-            # Todo: Why does this happen? Make sure that it happens everywhere it should. Should add to add.creator
-            val_row = self.catalog.add.creator(creator=val.replace(",", "|"), creator_sort=aus).row_dict
-
-            item_id = val_row["creator_id"]
-
-        elif m_table in self.catalog.custom_tables:
-
-            item_id = self.catalog.macros.ensure_custom_column_value(m_table, val)
-
+        if isinstance(m, string_types):
+            m_table = m
+            m_col = db.get_display_column(m_table)
         else:
+            m_table = m["table"]
+            m_col = m["column"]
 
-            # Deal with the generic case
-            val_row = self.catalog.get_blank_row(m_table)
-            val_row[m_col] = val
-            val_row.sync()
-            item_id = val_row.row_id
+        # Tries looking the value up in the cache - if it fails starts checking the database
+        kval = kmap(val)
+        item_id = rid_map.get(kval, None)
 
-        return item_id
+        # If the item can't be found in the cache then it needs to be added to the database
+        if item_id is None:
 
-    # Todo: This should not be here
+            if is_authors:
+
+                # Todo: Use this in the add.creator method, by default
+                aus = author_to_author_sort(val)
+
+                # Todo: Why does this happen? Make sure that it happens everywhere it should. Should add to add.creator
+                val_row = db.add.creator(creator=val.replace(",", "|"), creator_sort=aus).row_dict
+
+                item_id = val_row["creator_id"]
+                try:
+                    table.seen_item_ids.add(item_id)
+                except:
+                    pass
+
+                # Writing the values which are unique to authors into the cache
+                table.asort_map[item_id] = aus
+                table.alink_map[item_id] = ""
+
+            elif m_table in db.custom_tables:
+
+                item_id = db.macros.ensure_custom_column_value(m_table, val)
+
+            else:
+
+                # Deal with the generic case
+                val_row = db.get_blank_row(m_table)
+                val_row[m_col] = val
+                val_row.sync()
+                item_id = val_row.row_id
+                try:
+                    table.seen_item_ids.add(item_id)
+                except:
+                    pass
+
+            # Store the new values for later write out into the cache
+            rid_map[kval] = item_id
+
+        # If the value is already in the cache/ the table check to see if it has the same case as the given value
+        # If it doesn't register the cahnge - if it does no further action need be taken
+        elif allow_case_change and val != table.id_map[item_id]:
+            case_changes[item_id] = val
+
+        # Finally writing the full analyzed value, id pair into the cache update
+        id_map_update[item_id] = val
+        val_map[val] = item_id
+
+        return id_map_update
+
     # Generic one to one methods in other tables
-    def delete_one_to_one_in_other(
-            self,
-            deleted: Union[tuple[Union[str, int], ...], list[Union[str, int]], tuple[tuple[int, Any], ...]]) -> None:
+    @staticmethod
+    def delete_one_to_one_in_other(db: "DatabaseAPI", field, deleted) -> None:
         """
         Remove one to one entries in a table not of books type.
 
@@ -295,12 +224,10 @@ class BaseCatalogWriter:
 
         # Delete all references to the book from the link table - foreign keys should take out the value from the
         # one_to_one table as well
-        self.catalog.metadata_sql.break_generic_link(self.link_table, self.link_table_bt_id_column, deleted_ids)
+        db.metadata_sql.break_generic_link(field.table.link_table, field.table.link_table_bt_id_column, deleted_ids)
 
-    # Todo: This should also not be here
-    def custom_delete_one_to_one_in_other(
-            self,
-            deleted: Union[tuple[Union[str, int], ...], list[Union[str, int]], tuple[tuple[int, Any], ...]]) -> None:
+    @staticmethod
+    def custom_delete_one_to_one_in_other(db: "DatabaseAPI", field, deleted):
         """
         Remove one to one entries in a custom table attached to books.
 
@@ -311,24 +238,30 @@ class BaseCatalogWriter:
         """
         deleted_ids = tuple(de[0] for de in deleted)
 
-        self.catalog.macros.break_cc_links_by_book_id(lt=self.link_table, book_id=deleted_ids)
+        db.macros.break_cc_links_by_book_id(lt=field.metadata["table"], book_id=deleted_ids)
 
     # Todo: Check that dirtied has an update method
-    def change_case(self,
-                    case_changes: dict[int, Any],
-                    dirtied: set[int],
-                    is_authors: bool = False) -> set[int]:
+    @staticmethod
+    def change_case(case_changes, dirtied, db, table, m, is_authors=False):
         """
         Write case changes into the database.
 
         :param case_changes: A list of case changes to be applied to the database
-        :param dirtied: A set of values which may have been dirtied
-        :param is_authors: Should we use the authors metrics?
-
+        :param dirtied: An object containing the dirtied books
+        :param db: A database to write the changes to
+        :param table: A Table object to cache the changes
+        :param m:
+        :param is_authors: Should
         :return:
         """
         # Process the field to get the table and the column the update should happen in
         # Todo: Account for the authors-creators change
+        if isinstance(m, string_types):
+            m_table = m
+            m_col = db.get_display_column(m)
+        else:
+            m_table = m["table"]
+            m_col = m["column"]
 
         # Processing the author strings to ensure safety when written into the database
         if is_authors:
@@ -337,17 +270,23 @@ class BaseCatalogWriter:
             vals = {item_id: val for item_id, val in iteritems(case_changes)}
 
         # Update the database with the case change
-        self.catalog.update_columns(values_map=vals, field=self.column, table=self.table)
+        db.update_columns(values_map=vals, field=m_col, table=m_table)
 
-        return set(vals).union(dirtied)
+        # Write the case changes into the cache and dirty the appropriate books
+        for item_id, val in iteritems(case_changes):
+            table.id_map[item_id] = val
+            dirtied.update(table.col_book_map[item_id])
+            if is_authors:
+                table.asort_map[item_id] = author_to_author_sort(val)
 
-    # Todo: This should not be here
     def do_generic_one_to_many_db_update(
         self,
-        db: "CatalogAPI",
-        is_custom_series: bool,
-        updated: Union[dict[int, Any], dict[int, str]],
-        deleted: Union[tuple[str], list[str]],
+        db: "DatabaseAPI",
+        table,
+        field,
+        is_custom_series,
+        updated,
+        deleted,
         clean_before_write: bool = False,
         link_type: Optional[str] = None,
     ):
@@ -355,8 +294,6 @@ class BaseCatalogWriter:
         Generic handler for applying changes to the db.
 
         Should be fairly general.
-        Give it some values to update, and some values to delete and it'll do that.
-
         :param db:
         :param table:
         :param field:
@@ -374,11 +311,11 @@ class BaseCatalogWriter:
             # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, ((k,) for k in deleted))
             # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
             for del_id in deleted:
-                db.metadata_sql.break_generic_link(self.link_table, self.link_table_bt_id_column, del_id)
+                db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, del_id)
 
         if updated:
             if is_custom_series:
-
+                m = field.metadata
                 # Todo: Should trip this mess
                 raise NotImplementedError
                 # del_stmt = 'DELETE FROM {0} WHERE book=?; '.format(table.link_table)
@@ -401,15 +338,15 @@ class BaseCatalogWriter:
 
                         # Done here to allow the recursive call for the dict process
                         db.metadata_sql.break_generic_link(
-                            link_table=self.link_table,
-                            link_col=self.link_table_bt_id_column,
+                            link_table=table.link_table,
+                            link_col=table.link_table_bt_id_column,
                             remove_id=book_id,
                             link_type=link_type,
                         )
                         # Break any existing links to the item - they need to be repointed
                         db.metadata_sql.break_generic_link(
-                            link_table=self.link_table,
-                            link_col=self.link_table_table_id_column,
+                            link_table=table.link_table,
+                            link_col=table.link_table_table_id_column,
                             remove_id=item_id,
                             link_type=link_type,
                         )
@@ -437,8 +374,8 @@ class BaseCatalogWriter:
 
                         # Done here to allow the recursive call for the dict process
                         db.metadata_sql.break_generic_link(
-                            link_table=self.link_table,
-                            link_col=self.link_table_bt_id_column,
+                            link_table=table.link_table,
+                            link_col=table.link_table_bt_id_column,
                             remove_id=book_id,
                             link_type=link_type,
                         )
@@ -447,14 +384,14 @@ class BaseCatalogWriter:
                         item_id.reverse()
 
                         for true_item_id in item_id:
-                            # Break any existing links to the item - with any type - they need to be repointed
+                            # Break any existing links to the item - with any type- they need to be repointed
                             db.metadata_sql.break_generic_link(
-                                link_table=self.link_table,
-                                link_col=self.link_table_table_id_column,
+                                link_table=table.link_table,
+                                link_col=table.link_table_table_id_column,
                                 remove_id=true_item_id,
                             )
 
-                            item_row = db.get_row_from_id(self.column_table, row_id=true_item_id)
+                            item_row = db.get_row_from_id(table.name, row_id=true_item_id)
                             db.interlink_rows(
                                 primary_row=title_row,
                                 secondary_row=item_row,
@@ -482,6 +419,8 @@ class BaseCatalogWriter:
                             if link_vals is not None:
                                 self.do_generic_one_to_many_db_update(
                                     db,
+                                    table=table,
+                                    field=field,
                                     is_custom_series=is_custom_series,
                                     updated={book_id: link_vals},
                                     deleted=set(),
@@ -490,8 +429,8 @@ class BaseCatalogWriter:
                                 )
                             else:
                                 db.metadata_sql.break_generic_link(
-                                    link_table=self.link_table,
-                                    link_col=self.link_table_bt_id_column,
+                                    link_table=table.link_table,
+                                    link_col=table.link_table_bt_id_column,
                                     remove_id=book_id,
                                     link_type=local_link_type,
                                 )
@@ -503,10 +442,12 @@ class BaseCatalogWriter:
 
         return None, None
 
-    # Todo: This should, also, not be here
     def do_generic_many_to_many_db_update(
         self,
-        is_custom_series: bool,
+        db: "DatabaseAPI",
+        table,
+        field,
+        is_custom_series,
         updated,
         deleted,
         clean_before_write: bool = False,
@@ -532,10 +473,11 @@ class BaseCatalogWriter:
             # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, ((k,) for k in deleted))
             # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
             for del_id in deleted:
-                db.metadata_sql.break_generic_link(self.link_table, self.link_table_bt_id_column, del_id)
+                db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, del_id)
 
         if updated:
             if is_custom_series:
+                m = field.metadata
                 # Todo: Should trip this mess
                 raise NotImplementedError
                 # del_stmt = 'DELETE FROM {0} WHERE book=?; '.format(table.link_table)
@@ -544,31 +486,31 @@ class BaseCatalogWriter:
                 pass
 
             # Lock the database to stop anything else from writing to it while doing the update
-            with self.catalog.lock:
+            with db.lock:
                 # Todo: This macro just won't work in this form
                 # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column,
                 #                              (book_id for book_id in iterkeys(updated)))
 
                 for book_id, item_id in iteritems(updated):
 
-                    title_row = self.catalog.get_row_from_id("titles", row_id=book_id)
+                    title_row = db.get_row_from_id("titles", row_id=book_id)
 
                     # Todo: With how the data is currently being used, this should never be triggered
                     if isinstance(item_id, int):
 
-                        item_row = self.catalog.get_row_from_id(self.column_table, row_id=item_id)
+                        item_row = db.get_row_from_id(table.name, row_id=item_id)
                         try:
-                            self.catalog.interlink_rows(
+                            db.interlink_rows(
                                 primary_row=title_row,
                                 secondary_row=item_row,
                                 type=link_type,
                             )
                         except DatabaseIntegrityError:
                             # The link exists - but it needs to be repointed - and, potentially, retyped
-                            self.catalog.macros.reprioritize_link(
-                                link_table=self.link_table,
-                                left_link_col=self.link_table_bt_id_column,
-                                right_link_col=self.link_table_table_id_column,
+                            db.macros.reprioritize_link(
+                                link_table=table.link_table,
+                                left_link_col=table.link_table_bt_id_column,
+                                right_link_col=table.link_table_table_id_column,
                                 left_id=book_id,
                                 right_id=item_id,
                                 new_type=link_type,
@@ -590,9 +532,9 @@ class BaseCatalogWriter:
 
                         # Need to know the links before and after - the valid links will be repointed
                         existing_item_ids = db.macros.get_linked_ids(
-                            link_table=self.link_table,
-                            left_id_col=self.link_table_bt_id_column,
-                            right_id_col=self.link_table_table_id_column,
+                            link_table=table.link_table,
+                            left_id_col=table.link_table_bt_id_column,
+                            right_id_col=table.link_table_table_id_column,
                             left_id=book_id,
                             type_filter=link_type,
                         )
@@ -605,10 +547,10 @@ class BaseCatalogWriter:
                             # If the item is already linked to the book, then repoint it
                             # This preserves any additional data which might be associated with the link
                             if true_item_id in existing_item_ids:
-                                self.catalog.macros.reprioritize_link(
-                                    link_table=self.link_table,
-                                    left_link_col=self.link_table_bt_id_column,
-                                    right_link_col=self.link_table_table_id_column,
+                                db.macros.reprioritize_link(
+                                    link_table=table.link_table,
+                                    left_link_col=table.link_table_bt_id_column,
+                                    right_link_col=table.link_table_table_id_column,
                                     left_id=book_id,
                                     right_id=true_item_id,
                                     new_type=link_type,
@@ -616,9 +558,9 @@ class BaseCatalogWriter:
                                 continue
 
                             # If the item is not linked to the book - then it has to be - retrieve and link
-                            item_row = self.catalog.get_row_from_id(self.column_table, row_id=true_item_id)
+                            item_row = db.get_row_from_id(table.name, row_id=true_item_id)
                             try:
-                                self.catalog.interlink_rows(
+                                db.interlink_rows(
                                     primary_row=title_row,
                                     secondary_row=item_row,
                                     type=link_type,
@@ -626,10 +568,10 @@ class BaseCatalogWriter:
                             except DatabaseIntegrityError:
                                 # Item may already be linked to the book - but with a different type - repointing
                                 # anyway
-                                self.catalog.macros.reprioritize_link(
-                                    link_table=self.link_table,
-                                    left_link_col=self.link_table_bt_id_column,
-                                    right_link_col=self.link_table_table_id_column,
+                                db.macros.reprioritize_link(
+                                    link_table=table.link_table,
+                                    left_link_col=table.link_table_bt_id_column,
+                                    right_link_col=table.link_table_table_id_column,
                                     left_id=book_id,
                                     right_id=true_item_id,
                                     new_type=link_type,
@@ -638,10 +580,10 @@ class BaseCatalogWriter:
                         # Remove the links which once existed but are no longer needed
                         for excess_item_id in set(existing_item_ids) - set(item_id):
 
-                            self.catalog.metadata_sql.break_generic_single_link(
-                                link_table=self.link_table,
-                                left_link_col=self.link_table_bt_id_column,
-                                right_link_col=self.link_table_table_id_column,
+                            db.metadata_sql.break_generic_single_link(
+                                link_table=table.link_table,
+                                left_link_col=table.link_table_bt_id_column,
+                                right_link_col=table.link_table_table_id_column,
                                 left_id=book_id,
                                 right_id=excess_item_id,
                             )
@@ -665,6 +607,9 @@ class BaseCatalogWriter:
                         for local_link_type, link_vals in iteritems(item_id):
                             if link_vals is not None:
                                 self.do_generic_many_to_many_db_update(
+                                    db,
+                                    table=table,
+                                    field=field,
                                     is_custom_series=is_custom_series,
                                     updated={book_id: link_vals},
                                     deleted=set(),
@@ -672,9 +617,9 @@ class BaseCatalogWriter:
                                     link_type=local_link_type,
                                 )
                             else:
-                                self.catalog.metadata_sql.break_generic_link(
-                                    link_table=self.link_table,
-                                    link_col=self.link_table_bt_id_column,
+                                db.metadata_sql.break_generic_link(
+                                    link_table=table.link_table,
+                                    link_col=table.link_table_bt_id_column,
                                     remove_id=book_id,
                                     link_type=local_link_type,
                                 )
@@ -686,18 +631,118 @@ class BaseCatalogWriter:
 
         return None, None
 
+    def _do_vals_to_ids(
+        self,
+        book_id_val_map,
+        db_id_matcher,
+        db,
+        m,
+        table,
+        kmap,
+        rid_map,
+        allow_case_change,
+        case_changes,
+        val_map,
+        id_map_update,
+    ):
+        """
+        Attempt to map values to ids.
+
+        :param book_id_val_map:
+        :param db_id_matcher:
+        :param db:
+        :param m:
+        :param table:
+        :param kmap:
+        :param rid_map:
+        :param allow_case_change:
+        :param case_changes:
+        :param val_map:
+        :param id_map_update:
+        :return:
+        """
+        def _process_list_set_str_val(val) -> None:
+            """
+
+            :param val:
+            :return:
+            """
+
+            # We have a list or set of values
+            if isinstance(val, (set, list)):
+                # To keep compatibility with other methods
+                if isinstance(val, list):
+                    true_vals = deepcopy(val)
+                    true_vals.reverse()
+                else:
+                    true_vals = val
+
+                for true_val in true_vals:
+                    if isinstance(true_val, int):
+                        pass
+                    else:
+                        db_id_matcher(
+                            true_val,
+                            db,
+                            m,
+                            table,
+                            kmap,
+                            rid_map,
+                            allow_case_change,
+                            case_changes,
+                            val_map,
+                            id_map_update=id_map_update,
+                        )
+
+            elif isinstance(val, basestring):
+
+                db_id_matcher(
+                    val,
+                    db,
+                    m,
+                    table,
+                    kmap,
+                    rid_map,
+                    allow_case_change,
+                    case_changes,
+                    val_map,
+                    id_map_update=id_map_update,
+                )
+
+            elif isinstance(val, int):
+                pass
+
+            else:
+                raise NotImplementedError
+
+        for val in itervalues(book_id_val_map):
+            if val is not None:
+                if isinstance(val, (basestring, set, list)):
+                    _process_list_set_str_val(val)
+
+                # Presumably match has occurred already. Or something has gone terribly wrong.
+                elif isinstance(val, int):
+                    pass
+
+                elif isinstance(val, dict):
+                    for nested_vals in itervalues(val):
+                        if nested_vals:
+                            _process_list_set_str_val(nested_vals)
+                else:
+                    raise NotImplementedError(self._unexpected_val_in_book_id_val_map(book_id_val_map, val))
+
     @staticmethod
-    def _unexpected_val_in_item_id_val_map(item_id_val_map, val):
+    def _unexpected_val_in_book_id_val_map(book_id_val_map, val):
         """
         Err msg.
 
-        :param item_id_val_map:
+        :param book_id_val_map:
         :param val:
         :return:
         """
         err_msg = [
             "Unexpected value found in book_id_val_map",
-            "book_id_val_map: \n{}\n".format(pprint.pformat(item_id_val_map)),
+            "book_id_val_map: \n{}\n".format(pprint.pformat(book_id_val_map)),
             "val: {}".format(val),
             "type(val): {}".format(type(val)),
         ]

@@ -126,7 +126,7 @@ def test_set_metadata_unicode_torture_roundtrip_and_deterministic(opf_mod, paylo
     mi.publisher = "Éditions Δ / 出版社 / دار نشر"
     mi.tags = list(UNICODE_TORTURE_TAGS)
     mi.comments = UNICODE_TORTURE_COMMENTS
-    LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = "Sort Ω — Ångström"
+    mi.title_sort = "Sort Ω — Ångström"
     mi.series = "シリーズΩ"
     mi.series_index = 12.75
     mi.set_identifier("custom", "urn:unicode:δοκιμή:測試")

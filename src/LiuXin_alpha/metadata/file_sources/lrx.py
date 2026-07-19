@@ -8,7 +8,6 @@ import os
 import struct
 from zlib import decompress
 
-import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.metadata.utils import calibreMetaInformation, string_to_authors
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
@@ -93,7 +92,7 @@ def _parse_lrx_xml(payload: bytes, mi) -> None:
             mi.title = title
         title_sort = _clean_text(title_node.get("reading", None))
         if title_sort:
-            LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = title_sort
+            mi.title_sort = title_sort
 
     author_node = book_info.find("Author")
     if author_node is not None:

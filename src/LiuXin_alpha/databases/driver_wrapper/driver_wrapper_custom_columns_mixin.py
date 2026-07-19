@@ -167,12 +167,10 @@ class CustomColumnsDriverWrapperMixin:
         if num_table_lt_map:
             self.db.macros.preform_cc_column_delete_from_map(num_table_lt_map, conn=self.conn)
 
-    @property
-    def direct_custom_tables(self) -> set[str]:
+    def get_custom_tables(self) -> set[str]:
         """
         Get the names of all the custom tables currently registered on the database.
 
-        Replaces the custom_tables property.
         :return:
         """
         # Always use the driver's live connection to avoid stale db.conn aliases pointing

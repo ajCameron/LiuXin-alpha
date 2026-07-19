@@ -167,6 +167,10 @@ class RcloneHttpReadOnlyStoreLocation(ReadOnlySyncNativePretendAsyncLocation):
     # --- stat / existence ---
 
     def _stat_blob(self) -> Dict[str, Any] | None:
+        cached = getattr(self, "_cached_stat_blob", None)
+        if isinstance(cached, dict):
+            return cached
+
         # rclone lsjson --stat returns a JSON object; raises on missing.
         p = self._rclone_path()
         try:

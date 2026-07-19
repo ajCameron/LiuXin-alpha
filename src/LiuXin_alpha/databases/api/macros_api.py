@@ -354,6 +354,18 @@ class MacrosAPI(abc.ABC):
     def read_link_property_trios(self, link_table, link_property_col, first_id, second_id):
         ...
 
+    @abc.abstractmethod
+    def replace_in_folder_path(self, target_str: str, replacement: str) -> None:
+        ...
+
+    @abc.abstractmethod
+    def replace_in_folder_store_marker_path(self, target_str: str, replacement: str) -> None:
+        ...
+
+    @abc.abstractmethod
+    def replace_in_folder_store_path(self, target_str: str, replacement: str) -> None:
+        ...
+
 
 
 

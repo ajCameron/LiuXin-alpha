@@ -1085,3 +1085,51 @@ link_type = "many_to_many"
 requested_columns = ["priority", "type",]
 nullable = true
 rationale = "You can assign synopses to works."
+
+# -----------------------------------------------------
+# Legacy file compatibility linkage
+# -----------------------------------------------------
+
+[[interlinks]]
+left_table = "devices"
+right_table = "files"
+link_type = "many_to_many"
+requested_columns = ["type"]
+types = ["load_when_can", "ensure_on_device", "delete_when_possible"]
+nullable = true
+rationale = """
+Compatibility link for legacy device/file policies while device placement moves
+to digital assets.
+"""
+
+[[interlinks]]
+left_table = "files"
+right_table = "folders"
+link_type = "many_to_many"
+requested_columns = []
+nullable = true
+rationale = """
+Compatibility link for legacy folder/file fixture builders.
+"""
+
+[[interlinks]]
+left_table = "files"
+right_table = "languages"
+link_type = "many_to_one"
+requested_columns = []
+nullable = true
+rationale = """
+Compatibility link for legacy file language metadata.
+"""
+
+[[interlinks]]
+left_table = "files"
+right_table = "stores"
+link_type = "many_to_many"
+requested_columns = ["priority", "type", "policy"]
+types = ["primary", "squashfs_designation"]
+nullable = true
+rationale = """
+Compatibility link used by store reconciliation and SquashFS archive workflows
+until those flows are fully migrated to asset replicas.
+"""

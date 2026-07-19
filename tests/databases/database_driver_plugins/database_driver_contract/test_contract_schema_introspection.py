@@ -8,10 +8,18 @@ The tests are intentionally backend-agnostic and run for every selected driver.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Iterable
 
 import pytest
 
+from LiuXin_alpha.databases.column_metadata import (
+    ColumnEmptyValuePolicy,
+    ColumnMergePolicy,
+    ColumnNormalizationProfile,
+    ColumnSemanticRole,
+    ColumnValidationProfile,
+)
 from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
@@ -114,6 +122,193 @@ def test_direct_get_tables_and_columns_is_total_and_stable(driver) -> None:
 
     assert exercised_id_helpers > 0
     assert exercised_datestamp_helpers > 0
+
+
+def test_declared_column_datatype_is_available_and_strict(driver) -> None:
+    assert (
+        driver.direct_get_declared_column_datatype(
+            "database_metadata",
+            "database_metadata_id",
+        )
+        == "INTEGER"
+    )
+    assert (
+        driver.direct_get_declared_column_datatype(
+            "database_metadata",
+            "database_metadata_unique_id",
+        )
+        == "TEXT"
+    )
+
+    with pytest.raises(InputIntegrityError, match="column"):
+        driver.direct_get_declared_column_datatype(
+            "database_metadata",
+            "__definitely_not_a_real_column__",
+        )
+
+    with pytest.raises(InputIntegrityError, match="table"):
+        driver.direct_get_declared_column_datatype(
+            "__definitely_not_a_real_table__",
+            "id",
+        )
+
+
+def test_declared_column_datatype_cache_is_invalidated_with_schema_cache(driver) -> None:
+    driver.direct_get_declared_column_datatype(
+        "database_metadata",
+        "database_metadata_unique_id",
+    )
+    declared_types_cache = getattr(driver, "_declared_types_cache")
+    assert declared_types_cache
+
+    driver._invalidate_schema_caches()
+
+    assert declared_types_cache == {}
+
+
+def test_column_case_sensitivity_is_persisted_and_strict(driver) -> None:
+    assert driver.direct_get_case_sensitivity("tags", "tag") is False
+    assert driver.direct_get_case_sensitivity("works", "work_title") is False
+    assert driver.direct_get_case_sensitivity("notes", "note") is True
+    assert driver.direct_is_column_case_sensitive("tags", "tag") is False
+
+    original = driver.direct_get_case_sensitivity("works", "work_title")
+    try:
+        driver.direct_set_case_sensitivity("works", "work_title", not original)
+        assert driver.direct_get_case_sensitivity("works", "work_title") is not original
+    finally:
+        driver.direct_set_case_sensitivity("works", "work_title", original)
+
+    with pytest.raises(InputIntegrityError, match="bool"):
+        driver.direct_set_case_sensitivity("works", "work_title", 1)
+    with pytest.raises(InputIntegrityError, match="column"):
+        driver.direct_get_case_sensitivity("works", "__missing_column__")
+    with pytest.raises(InputIntegrityError, match="table"):
+        driver.direct_get_case_sensitivity("__missing_table__", "title")
+
+
+def test_column_metadata_policy_is_complete_and_persisted(driver) -> None:
+    metadata = driver.direct_get_column_metadata("tags", "tag")
+
+    assert metadata.semantic_role is ColumnSemanticRole.TAXONOMY_TERM
+    assert metadata.normalization_profile is ColumnNormalizationProfile.TAG_SEARCH_TERM
+    assert metadata.comparison_column == "tag_phash"
+    assert metadata.empty_value_policy is ColumnEmptyValuePolicy.NULL_OR_BLANK_IS_MISSING
+    assert metadata.merge_policy is ColumnMergePolicy.SET_UNION
+    assert metadata.validation_profile is ColumnValidationProfile.TAXONOMY_TERM
+
+    identifier_metadata = driver.direct_get_column_metadata("works", "work_id")
+    assert identifier_metadata.semantic_role is ColumnSemanticRole.IDENTIFIER
+    assert identifier_metadata.validation_profile is ColumnValidationProfile.IDENTIFIER
+    assert identifier_metadata.merge_policy is ColumnMergePolicy.PRESERVE_EXISTING
+
+    foreign_key_metadata = driver.direct_get_column_metadata(
+        "works",
+        "work_original_language_id",
+    )
+    assert foreign_key_metadata.semantic_role is ColumnSemanticRole.RELATIONSHIP_KEY
+    assert foreign_key_metadata.validation_profile is ColumnValidationProfile.IDENTIFIER
+
+    scratch_metadata = driver.direct_get_column_metadata("works", "work_scratch")
+    assert scratch_metadata.semantic_role is ColumnSemanticRole.SCRATCH
+    assert scratch_metadata.empty_value_policy is ColumnEmptyValuePolicy.PRESERVE
+    assert scratch_metadata.validation_profile is ColumnValidationProfile.NONE
+
+    title_metadata = driver.direct_get_column_metadata("works", "work_title")
+    changed = replace(
+        title_metadata,
+        merge_policy=ColumnMergePolicy.PRESERVE_EXISTING,
+    )
+    try:
+        driver.direct_set_column_metadata(changed)
+        assert driver.direct_get_column_metadata("works", "work_title") == changed
+    finally:
+        driver.direct_set_column_metadata(title_metadata)
+
+    with pytest.raises(InputIntegrityError, match="comparison column"):
+        driver.direct_set_column_metadata(
+            replace(title_metadata, comparison_column="__missing_column__")
+        )
+
+
+def test_column_metadata_field_accessors_are_typed_and_persisted(driver) -> None:
+    table = "works"
+    column = "work_title"
+    original = driver.direct_get_column_metadata(table, column)
+
+    assert driver.direct_get_semantic_role(table, column) is original.semantic_role
+    assert (
+        driver.direct_get_normalization_profile(table, column)
+        is original.normalization_profile
+    )
+    assert driver.direct_get_comparison_column(table, column) == original.comparison_column
+    assert (
+        driver.direct_get_empty_value_policy(table, column)
+        is original.empty_value_policy
+    )
+    assert driver.direct_get_merge_policy(table, column) is original.merge_policy
+    assert (
+        driver.direct_get_validation_profile(table, column)
+        is original.validation_profile
+    )
+
+    expected = replace(
+        original,
+        semantic_role=ColumnSemanticRole.LABEL,
+        normalization_profile=ColumnNormalizationProfile.UNICODE_NFC,
+        comparison_column="work_sort_title",
+        empty_value_policy=ColumnEmptyValuePolicy.PRESERVE,
+        merge_policy=ColumnMergePolicy.PRESERVE_EXISTING,
+        validation_profile=ColumnValidationProfile.VERBATIM_TEXT,
+    )
+    try:
+        driver.direct_set_semantic_role(table, column, expected.semantic_role)
+        driver.direct_set_normalization_profile(
+            table,
+            column,
+            expected.normalization_profile,
+        )
+        driver.direct_set_comparison_column(
+            table,
+            column,
+            expected.comparison_column,
+        )
+        driver.direct_set_empty_value_policy(
+            table,
+            column,
+            expected.empty_value_policy,
+        )
+        driver.direct_set_merge_policy(table, column, expected.merge_policy)
+        driver.direct_set_validation_profile(
+            table,
+            column,
+            expected.validation_profile,
+        )
+
+        assert driver.direct_get_semantic_role(table, column) is expected.semantic_role
+        assert (
+            driver.direct_get_normalization_profile(table, column)
+            is expected.normalization_profile
+        )
+        assert (
+            driver.direct_get_comparison_column(table, column)
+            == expected.comparison_column
+        )
+        assert (
+            driver.direct_get_empty_value_policy(table, column)
+            is expected.empty_value_policy
+        )
+        assert driver.direct_get_merge_policy(table, column) is expected.merge_policy
+        assert (
+            driver.direct_get_validation_profile(table, column)
+            is expected.validation_profile
+        )
+        assert driver.direct_get_column_metadata(table, column) == expected
+    finally:
+        driver.direct_set_column_metadata(original)
+
+    with pytest.raises(InputIntegrityError, match="comparison column"):
+        driver.direct_set_comparison_column(table, column, "__missing_column__")
 
 
 def test_column_naming_helpers_match_pluralizer(driver) -> None:
