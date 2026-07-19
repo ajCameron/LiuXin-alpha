@@ -27,7 +27,6 @@ import json
 import copy
 from urllib.parse import unquote, urlparse
 
-import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 
 from LiuXin_alpha.file_formats.chardet import xml_to_unicode
@@ -1762,8 +1761,8 @@ def metadata_to_opf(mi, as_string=True, default_lang=None):
         meta("timestamp", isoformat(mi.timestamp))
     if mi.publication_type:
         meta("publication_type", mi.publication_type)
-    if LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort:
-        meta("title_sort", LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort)
+    if mi.title_sort:
+        meta("title_sort", mi.title_sort)
     if mi.user_categories:
         meta("user_categories", dump_dict(mi.user_categories))
 
@@ -1792,7 +1791,7 @@ def test_m2o():
     from LiuXin_alpha.utils.date import now as nowf
 
     mi = MetaInformation("test & title", ['a"1', "a'2"])
-    LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = "a'\"b"
+    mi.title_sort = "a'\"b"
     mi.author_sort = "author sort"
     mi.pubdate = nowf()
     mi.language = "en"

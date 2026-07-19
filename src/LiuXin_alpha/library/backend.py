@@ -264,7 +264,7 @@ class DB(Database):
         self.create_custom_column = self.driver_wrapper.create_custom_column
         self.custom_table_names = self.driver_wrapper.custom_table_names
         self.set_custom_column_metadata = self.driver_wrapper.set_custom_column_metadata
-        self.direct_custom_tables = self.driver_wrapper.direct_custom_tables
+        self.get_custom_tables = self.driver_wrapper.get_custom_tables
 
     def initialize_prefs(self, default_prefs, restore_all_prefs, progress_callback=lambda x, y: True):
         """

@@ -18,8 +18,6 @@ from functools import partial
 from math import ceil, floor
 from urllib.parse import unquote
 
-import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
-
 try:
     from PIL import Image as PILImage
 
@@ -2046,7 +2044,7 @@ def process_file(path, options, logger):
             soup = BeautifulSoup(val)
             setattr(options, prop, six_unicode(soup))
 
-    title = (options.title, LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort)
+    title = (options.title, options.title_sort)
     author = (options.author, options.author_sort)
 
     args = dict(

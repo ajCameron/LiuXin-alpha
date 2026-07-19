@@ -6,14 +6,22 @@ from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
+import unicodedata
 
+from LiuXin_alpha.databases.column_metadata import (
+    ColumnMetadata,
+    ColumnNormalizationProfile,
+)
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError
 from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
     MetadataWriteRecord,
     MetadataWriteReportMapping,
 )
-from LiuXin_alpha.metadata.standardization import make_tag_search_term
+from LiuXin_alpha.metadata.standardization import (
+    make_tag_search_term,
+    make_title_search_term,
+)
 
 
 @dataclass(frozen=True)
@@ -202,6 +210,8 @@ class LiuXinWEMIMetadataWriter:
             self._tables_and_columns = dict(self.db.get_tables_and_columns())
         except Exception:
             self._tables_and_columns = {}
+        self._column_case_sensitivity: dict[tuple[str, str], bool] = {}
+        self._column_metadata: dict[tuple[str, str], ColumnMetadata | None] = {}
 
     def write(
         self,
@@ -279,7 +289,7 @@ class LiuXinWEMIMetadataWriter:
             existing = self._existing_terms(source_row, spec)
             desired_links = self._desired_relation_links(metadata, spec, actual_level)
             for text, row_id in desired.items():
-                key = self._term_key(text)
+                key = self._term_key(text, spec)
                 if not key or key in existing:
                     continue
                 target_row, created = self._ensure_relation_row(spec, text, row_id)
@@ -316,7 +326,7 @@ class LiuXinWEMIMetadataWriter:
                 existing[key] = target_row
 
             if replace:
-                desired_keys = {self._term_key(text) for text in desired}
+                desired_keys = {self._term_key(text, spec) for text in desired}
                 for key, target_row in list(existing.items()):
                     if key in desired_keys:
                         continue
@@ -696,7 +706,7 @@ class LiuXinWEMIMetadataWriter:
             if not self._relation_link_applies_to_level(link, target_level):
                 continue
             text, _row_id = self._relation_target_term(getattr(link, "target", link), spec)
-            key = self._term_key(text)
+            key = self._term_key(text, spec)
             if key:
                 out[key] = link
         return out
@@ -789,7 +799,7 @@ class LiuXinWEMIMetadataWriter:
             if target_row is None:
                 continue
             text = self._row_text(target_row, spec)
-            key = self._term_key(text)
+            key = self._term_key(text, spec)
             if key:
                 out[key] = target_row
         return out
@@ -826,9 +836,15 @@ class LiuXinWEMIMetadataWriter:
             if row is not None:
                 return row, False
 
-        norm_value = self._norm_value(spec, text)
-        if spec.norm_column and norm_value and self._has_column(spec.table, spec.norm_column):
-            rows = self._search(spec.table, spec.norm_column, norm_value)
+        case_sensitive = self._is_case_sensitive(spec)
+        comparison_column, norm_value = self._comparison_value(spec, text)
+        if (
+            not case_sensitive
+            and comparison_column
+            and norm_value
+            and self._has_column(spec.table, comparison_column)
+        ):
+            rows = self._search(spec.table, comparison_column, norm_value)
             if rows:
                 return rows[0], False
 
@@ -838,8 +854,17 @@ class LiuXinWEMIMetadataWriter:
             rows = self._search(spec.table, column, text)
             if rows:
                 return rows[0], False
+            if not case_sensitive:
+                rows = self._rows_matching_text_policy(spec, text)
+                if rows:
+                    return rows[0], False
 
-        payload = self._new_row_payload(spec, text, norm_value)
+        payload = self._new_row_payload(
+            spec,
+            text,
+            comparison_column,
+            norm_value,
+        )
         if not payload:
             return None, False
         try:
@@ -857,6 +882,7 @@ class LiuXinWEMIMetadataWriter:
         self,
         spec: LegacyRelationFieldSpec,
         text: str,
+        comparison_column: str | None,
         norm_value: str | None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {}
@@ -864,8 +890,12 @@ class LiuXinWEMIMetadataWriter:
             if self._has_column(spec.table, column):
                 payload[column] = text
                 break
-        if spec.norm_column and norm_value and self._has_column(spec.table, spec.norm_column):
-            payload[spec.norm_column] = norm_value
+        if (
+            comparison_column
+            and norm_value
+            and self._has_column(spec.table, comparison_column)
+        ):
+            payload[comparison_column] = norm_value
         return payload
 
     def _link_rows(
@@ -1317,6 +1347,36 @@ class LiuXinWEMIMetadataWriter:
         except Exception:
             return []
 
+    def _rows_matching_text_policy(
+        self,
+        spec: LegacyRelationFieldSpec,
+        text: str,
+    ) -> list[Row]:
+        get_all_rows = getattr(self.db, "get_all_rows", None)
+        if not callable(get_all_rows):
+            return []
+        try:
+            candidates = get_all_rows(spec.table, iterator_return=True)
+        except TypeError:
+            try:
+                candidates = get_all_rows(spec.table)
+            except Exception:
+                return []
+        except Exception:
+            return []
+
+        target_key = self._term_key(text, spec)
+        matches: list[Row] = []
+        try:
+            for row in candidates:
+                if not isinstance(row, Row):
+                    continue
+                if self._term_key(self._row_text(row, spec), spec) == target_key:
+                    matches.append(row)
+        except Exception:
+            return []
+        return matches
+
     def _relation_supported(self, source_table: str, target_table: str) -> bool:
         try:
             return bool(self.db.driver_wrapper.get_link_table_name(source_table, target_table))
@@ -1385,12 +1445,100 @@ class LiuXinWEMIMetadataWriter:
         except (TypeError, ValueError, OverflowError):
             return None
 
-    @staticmethod
-    def _term_key(text: Any) -> str:
-        return str(text or "").strip().casefold()
+    def _term_key(self, text: Any, spec: LegacyRelationFieldSpec) -> str:
+        policy = self._get_column_metadata(spec)
+        if policy is not None:
+            return self._normalize_text(text, policy.normalization_profile)
+        value = str(text or "").strip()
+        if self._is_case_sensitive(spec):
+            return value
+        return value.casefold()
+
+    def _is_case_sensitive(self, spec: LegacyRelationFieldSpec) -> bool:
+        column = next(
+            (name for name in spec.text_columns if self._has_column(spec.table, name)),
+            spec.text_columns[0],
+        )
+        key = (spec.table, column)
+        policy = self._get_column_metadata(spec)
+        if policy is not None:
+            return policy.case_sensitive
+        if key in self._column_case_sensitivity:
+            return self._column_case_sensitivity[key]
+
+        getter = getattr(self.db, "get_case_sensitivity", None)
+        if not callable(getter):
+            getter = getattr(self.db, "is_column_case_sensitive", None)
+        if callable(getter):
+            try:
+                case_sensitive = bool(getter(spec.table, column))
+            except Exception:
+                case_sensitive = False
+        else:
+            # Preserve the writer's historical case-insensitive behaviour for
+            # lightweight adapters that do not yet expose column metadata.
+            case_sensitive = False
+        self._column_case_sensitivity[key] = case_sensitive
+        return case_sensitive
+
+    def _get_column_metadata(
+        self,
+        spec: LegacyRelationFieldSpec,
+    ) -> ColumnMetadata | None:
+        column = next(
+            (name for name in spec.text_columns if self._has_column(spec.table, name)),
+            spec.text_columns[0],
+        )
+        key = (spec.table, column)
+        if key in self._column_metadata:
+            return self._column_metadata[key]
+
+        getter = getattr(self.db, "get_column_metadata", None)
+        if callable(getter):
+            try:
+                metadata = getter(spec.table, column)
+            except Exception:
+                metadata = None
+            if not isinstance(metadata, ColumnMetadata):
+                metadata = None
+        else:
+            metadata = None
+        self._column_metadata[key] = metadata
+        return metadata
+
+    def _comparison_value(
+        self,
+        spec: LegacyRelationFieldSpec,
+        text: str,
+    ) -> tuple[str | None, str | None]:
+        policy = self._get_column_metadata(spec)
+        if policy is not None and policy.comparison_column:
+            return (
+                policy.comparison_column,
+                self._normalize_text(text, policy.normalization_profile),
+            )
+        return spec.norm_column, self._legacy_norm_value(spec, text)
 
     @staticmethod
-    def _norm_value(spec: LegacyRelationFieldSpec, text: str) -> str | None:
+    def _normalize_text(
+        text: Any,
+        profile: ColumnNormalizationProfile,
+    ) -> str:
+        value = str(text or "")
+        if profile is ColumnNormalizationProfile.NONE:
+            return value
+        if profile is ColumnNormalizationProfile.UNICODE_NFC:
+            return unicodedata.normalize("NFC", value)
+        if profile is ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD:
+            return unicodedata.normalize("NFC", value).strip().casefold()
+        if profile is ColumnNormalizationProfile.TAG_SEARCH_TERM:
+            return str(make_tag_search_term(value))
+        if profile is ColumnNormalizationProfile.TITLE_SEARCH_TERM:
+            return str(make_title_search_term(value))
+        return value
+
+    @staticmethod
+    def _legacy_norm_value(spec: LegacyRelationFieldSpec, text: str) -> str | None:
         if spec.norm_function is None:
             return None
         try:

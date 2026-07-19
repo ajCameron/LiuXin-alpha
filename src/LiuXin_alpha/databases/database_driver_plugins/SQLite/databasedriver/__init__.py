@@ -12,6 +12,7 @@ import re
 import sqlite3
 import uuid
 from functools import partial
+from typing import Iterator
 
 from LiuXin_alpha.utils.date import utcfromtimestamp
 
@@ -219,7 +220,7 @@ class DatabaseDriver(
         # This will be usefully set when the database starts up
         self.dirty_records_queue = dirty_records_queue
 
-    def direct_run_ta_update(self, ta_row_id):
+    def direct_run_ta_update(self, ta_row_id) -> None:
         """
         Runs the separate worker process which updates the titles_aggregate table after the basic update has occured.
         :param ta_row_id:
@@ -246,7 +247,7 @@ class DatabaseDriver(
     # Todo: We need a registyr to make sure we have singleton connections to each db
     # Todo: We need a registyr to make sure we have singleton connections to each db
     # Internal, implementation dependant method. Should not be exposed to the outside
-    def get_connection(self):
+    def get_connection(self) -> "sqlite3.Connection":
         """
         Method which creates a connection with foreign key support. Returns a connection.
         :return conn: A connection to the database
@@ -358,7 +359,7 @@ class DatabaseDriver(
 
         return self._register_open_connection(conn)
 
-    def last_modified(self):
+    def last_modified(self) -> "datetime.date":
         """
         Return last modified time as a UTC datetime object
         :return:
@@ -366,7 +367,7 @@ class DatabaseDriver(
         return utcfromtimestamp(os.stat(self.database_path).st_mtime)
 
     # Use with extreme caution - no safeguards
-    def shell(self):
+    def shell(self) -> None:
         """
         Drops you into an SQLite shell.
         Be careful. There are no safeguards.
@@ -408,7 +409,7 @@ class DatabaseDriver(
 
         conn.close()
 
-    def sql_dump(self):
+    def sql_dump(self) -> Iterator[str]:
         """
         Dump the current database out to a series of sql statements.
         :return:
@@ -417,7 +418,7 @@ class DatabaseDriver(
             for line in self.conn.iterdump():
                 yield line
 
-    def dump_and_restore(self, callback=lambda x: x, sql=None):
+    def dump_and_restore(self, callback=lambda x: x, sql=None) -> None:
         """
         Dump the database to SQL, restore it into a fresh temp db, then atomically replace.
 

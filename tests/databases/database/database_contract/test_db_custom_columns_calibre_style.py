@@ -345,7 +345,7 @@ def test_create_custom_column_creates_normalized_tables_and_is_discoverable(db, 
     assert db.categorize_table(tables.link_table) == "custom"
 
     # Macro-level discovery
-    direct = set(db.driver_wrapper.direct_custom_tables)
+    direct = set(db.driver_wrapper.get_custom_tables())
     assert tables.cc_table in direct
     assert tables.link_table in direct
 

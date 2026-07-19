@@ -132,12 +132,12 @@ class SQLiteCustomColumnsDriverMixin:
             assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
 
             # Check the components which are going to go into the table name
-            assert self._validate_table_name(table_name=custom_column_name), "custom column name not valid"
+            assert self.direct_validate_table_name(table_name=custom_column_name), "custom column name not valid"
 
             # MAIN TABLE
 
             target_table_id_col = self.direct_get_id_column(target_table)
-            target_table_col_name = self._get_table_col_base(target_table)
+            target_table_col_name = self.direct_get_table_col_base(target_table)
 
             # The table name - includes the name of the table linked to and the name of the custom column
             custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
@@ -193,7 +193,7 @@ class SQLiteCustomColumnsDriverMixin:
             # BUILD
             sql_scripts = [cc_sqlite_template, table_id_ref_index, col_value_ref]
 
-            self.executescript("\n".join(sql_scripts))
+            self.direct_executescript("\n".join(sql_scripts))
 
             # Todo: Merge these two methods
             self.call_after_table_changes()
@@ -225,7 +225,7 @@ class SQLiteCustomColumnsDriverMixin:
 
         :return custom_col_table: The name of the table holding the new custom column
         """
-        assert self._validate_table_name(table_name=custom_column_name)
+        assert self.direct_validate_table_name(table_name=custom_column_name)
         assert target_table != "custom_columns", "Cannot Create a custom column on the custom_columns table"
 
         # Create a custom table to hold the custom column data - then link it over to the main table which it's supposed
@@ -233,7 +233,7 @@ class SQLiteCustomColumnsDriverMixin:
         custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
 
         # Make the new main table which will be used to hold the custom column information
-        self.direct_create_new_main_table(table_name=custom_col_table, column_headings=None)
+        self.direct_create_main_table(table_name=custom_col_table, column_headings=None)
 
         # Link the new, storage main table over to the table which it's supposed to represent a custom column in
         link_table_name = self.direct_link_main_tables(
@@ -267,7 +267,7 @@ class SQLiteCustomColumnsDriverMixin:
         """.format(
             custom_col_table, target_table, link_table, cc_id_col, link_table_cc_id_col
         )
-        self.execute_sql(cc_cleanup_trigger)
+        self.direct_execute_sql(cc_cleanup_trigger)
 
         self.call_after_table_changes()
 
@@ -294,14 +294,14 @@ class SQLiteCustomColumnsDriverMixin:
         :return:
         """
         assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
-        assert self._validate_table_name(table_name=custom_column_name)
+        assert self.direct_validate_table_name(table_name=custom_column_name)
 
         # Create a custom table to hold the custom column data - then link it over to the main table which it's supposed
         # to be a custom column in
         custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
 
         # Make the new main table which will be used to hold the custom column information
-        self.direct_create_new_main_table(table_name=custom_col_table, column_headings=None)
+        self.direct_create_main_table(table_name=custom_col_table, column_headings=None)
 
         # Link the new, storage main table over to the table which it's supposed to represent a custom column in
         self.direct_link_main_tables(
@@ -331,14 +331,14 @@ class SQLiteCustomColumnsDriverMixin:
         :return:
         """
         assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
-        assert self._validate_table_name(table_name=custom_column_name)
+        assert self.direct_validate_table_name(table_name=custom_column_name)
 
         # Create a custom table to hold the custom column data - then link it over to the main table which it's supposed
         # to be a custom column in
         custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
 
         # Make the new main table which will be used to hold the custom column information
-        self.direct_create_new_main_table(table_name=custom_col_table, column_headings=None)
+        self.direct_create_main_table(table_name=custom_col_table, column_headings=None)
 
         # Link the new, storage main table over to the table which it's supposed to represent a custom column in
         self.direct_link_main_tables(

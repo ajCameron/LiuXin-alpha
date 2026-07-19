@@ -20,7 +20,7 @@ class DriverViewMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_view_row_dict_from_id(self, view: str, row_id: int) -> dict[str, Any]:
+    def direct_get_view_row_dict_from_id(self, view: str, row_id: int) -> Optional[dict[str, Any]]:
         """
         Get a view row dict for the given id and view.
 
@@ -28,4 +28,3 @@ class DriverViewMixinAPI(abc.ABC):
         :param row_id:
         :return:
         """
-

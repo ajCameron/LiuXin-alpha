@@ -6,7 +6,6 @@ import re
 import zipfile
 from typing import Iterable
 
-import LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils
 from LiuXin_alpha.file_formats.odf.draw import Frame as ODFFrame
 from LiuXin_alpha.file_formats.odf.draw import Image as ODFImage
 from LiuXin_alpha.file_formats.odf.namespaces import DCNS, METANS
@@ -328,7 +327,7 @@ def get_metadata(stream, extract_cover: bool = True, *, fallback_on_parse_error:
 
     title_sort = user_defined.get("opf.titlesort")
     if title_sort:
-        LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = title_sort
+        mi.title_sort = title_sort
 
     comments = _first_ns_text(root, DCNS, "description")
     if comments:

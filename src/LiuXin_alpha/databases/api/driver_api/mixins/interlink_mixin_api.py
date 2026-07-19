@@ -142,7 +142,7 @@ class DriverInterlinkMixinAPI(abc.ABC):
             index_both: bool = True,
             allowed_types: Optional[str] = None,
             override_restriction_sql: str = None,
-            nullable_fks: bool = True) -> None:
+            nullable_fks: bool = True) -> str:
         """
         Directly link two main tables.
 

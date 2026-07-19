@@ -287,7 +287,7 @@ ALWAYS_IGNORED_NAMES: set[str] = {"__init__"}
         (
             ClassRef("LiuXin_alpha.databases.api.row_api", "RowAPI"),
             [ClassRef("LiuXin_alpha.databases.row", "Row")],
-            {"__hash__"},
+            set(),
         ),
         (
             ClassRef("LiuXin_alpha.databases.api.driver_wrapper_api.driver_wrapper_api", "DatabaseDriverWrapperAPI"),
@@ -310,7 +310,7 @@ ALWAYS_IGNORED_NAMES: set[str] = {"__init__"}
         (
             ClassRef("LiuXin_alpha.databases.api.maintenance_api", "MaintenanceBotAPI"),
             [ClassRef("LiuXin_alpha.databases.maintenance.engine", "MaintenanceEngine")],
-            {"rename_item"},
+            set(),
         ),
     ],
 )

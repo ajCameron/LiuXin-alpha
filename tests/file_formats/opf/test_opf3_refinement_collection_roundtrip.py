@@ -78,7 +78,7 @@ def test_opf3_set_metadata_preserves_non_series_collection_and_title_refines(opf
     assert float(mi.series_index) == 4.0
 
     mi.title = "Updated Title"
-    LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils.title_sort = "Title, Updated"
+    mi.title_sort = "Title, Updated"
     mi.series = "Updated Series"
     mi.series_index = 8.0
 

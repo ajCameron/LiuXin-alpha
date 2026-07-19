@@ -38,7 +38,6 @@ class StoreDBAPI(abc.ABC):
         :param replica_id:
         :return:
         """
-
     @abc.abstractmethod
     def check_replica(self, replica_id: int) -> bool:
         """
@@ -47,4 +46,3 @@ class StoreDBAPI(abc.ABC):
         :param replica_id:
         :return:
         """
-

@@ -4,6 +4,14 @@ import abc
 from abc import abstractmethod
 from typing import Iterator, Optional
 
+from LiuXin_alpha.databases.column_metadata import (
+    ColumnEmptyValuePolicy,
+    ColumnMergePolicy,
+    ColumnMetadata,
+    ColumnNormalizationProfile,
+    ColumnSemanticRole,
+    ColumnValidationProfile,
+)
 from LiuXin_alpha.databases.schema_specs import (
     StorageSchemaSpec,
     StorageTableSpec,
@@ -12,6 +20,141 @@ from LiuXin_alpha.databases.schema_specs import (
 
 
 class SchemaIntrospectionAPI(abc.ABC):
+
+    @abstractmethod
+    def get_declared_column_datatype(self, table: str, column: str) -> str:
+        """
+        Return the database-native declared datatype for one column.
+
+        Raises when the table or column does not exist. A valid SQLite column
+        declared without a datatype returns an empty string.
+        """
+
+    @abstractmethod
+    def get_case_sensitivity(self, table: str, column: str) -> bool:
+        """Return whether text equality for this column is case-sensitive."""
+
+    @abstractmethod
+    def get_column_metadata(self, table: str, column: str) -> ColumnMetadata:
+        """Return the complete semantic/writer policy for one column."""
+
+    @abstractmethod
+    def set_column_metadata(self, metadata: ColumnMetadata) -> None:
+        """Persist the complete semantic/writer policy for one column."""
+
+    @abstractmethod
+    def get_semantic_role(self, table: str, column: str) -> ColumnSemanticRole:
+        """Return the semantic role for one column."""
+
+    @abstractmethod
+    def set_semantic_role(
+        self,
+        table: str,
+        column: str,
+        semantic_role: ColumnSemanticRole,
+    ) -> None:
+        """Persist the semantic role for one column."""
+
+    @abstractmethod
+    def get_normalization_profile(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnNormalizationProfile:
+        """Return the comparison-normalization profile for one column."""
+
+    @abstractmethod
+    def set_normalization_profile(
+        self,
+        table: str,
+        column: str,
+        normalization_profile: ColumnNormalizationProfile,
+    ) -> None:
+        """Persist the comparison-normalization profile for one column."""
+
+    @abstractmethod
+    def get_comparison_column(self, table: str, column: str) -> str | None:
+        """Return the derived comparison column, if any."""
+
+    @abstractmethod
+    def set_comparison_column(
+        self,
+        table: str,
+        column: str,
+        comparison_column: str | None,
+    ) -> None:
+        """Persist the derived comparison column for one column."""
+
+    @abstractmethod
+    def get_empty_value_policy(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnEmptyValuePolicy:
+        """Return the empty-value policy for one column."""
+
+    @abstractmethod
+    def set_empty_value_policy(
+        self,
+        table: str,
+        column: str,
+        empty_value_policy: ColumnEmptyValuePolicy,
+    ) -> None:
+        """Persist the empty-value policy for one column."""
+
+    @abstractmethod
+    def get_merge_policy(self, table: str, column: str) -> ColumnMergePolicy:
+        """Return the merge policy for one column."""
+
+    @abstractmethod
+    def set_merge_policy(
+        self,
+        table: str,
+        column: str,
+        merge_policy: ColumnMergePolicy,
+    ) -> None:
+        """Persist the merge policy for one column."""
+
+    @abstractmethod
+    def get_validation_profile(
+        self,
+        table: str,
+        column: str,
+    ) -> ColumnValidationProfile:
+        """Return the validation profile for one column."""
+
+    @abstractmethod
+    def set_validation_profile(
+        self,
+        table: str,
+        column: str,
+        validation_profile: ColumnValidationProfile,
+    ) -> None:
+        """Persist the validation profile for one column."""
+
+    @abstractmethod
+    def set_case_sensitivity(
+        self,
+        table: str,
+        column: str,
+        case_sensitive: bool,
+    ) -> None:
+        """Persist text equality policy for one column."""
+
+    def is_column_case_sensitive(self, table: str, column: str) -> bool:
+        """Compatibility alias for :meth:`get_case_sensitivity`."""
+
+        return self.get_case_sensitivity(table, column)
+
+    def set_column_case_sensitive(
+        self,
+        table: str,
+        column: str,
+        case_sensitive: bool,
+    ) -> None:
+        """Compatibility alias for :meth:`set_case_sensitivity`."""
+
+        self.set_case_sensitivity(table, column, case_sensitive)
 
     @abstractmethod
     def get_table_spec(self, table: str, force_refresh: bool = False) -> StorageTableSpec:
@@ -38,7 +181,7 @@ class SchemaIntrospectionAPI(abc.ABC):
         table2: str,
         *,
         force_refresh: bool = False,
-    ) -> Optional[StorageLinkSpec]:
+    ) -> Optional["StorageLinkSpec"]:
         """
         Return the interlink spec between two tables, or None if no link exists.
         """

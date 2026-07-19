@@ -23,7 +23,7 @@ class DriverAddMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_add_simple_row_dict(self, row_dict: dict[str, Any]) -> None:
+    def direct_add_simple_row_dict(self, row_dict: dict[str, Any]) -> int:
         """
         Direct add a single entry to the database.
 

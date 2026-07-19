@@ -7,7 +7,7 @@ A collection of methods that fit nowhere else.
 
 from __future__ import unicode_literals, annotations
 
-from typing import Optional, TYPE_CHECKING, Union, Literal, Any, Iterable
+from typing import Optional, TYPE_CHECKING, Union, Literal, Any, Iterable, Iterator
 
 from copy import deepcopy
 
@@ -21,6 +21,8 @@ from LiuXin_alpha.databases.schema_specs import (
     RelationKind,
     StorageLinkSpec,
     StorageSchemaSpec,
+    StorageColumnSpec,
+    StorageTableSpec,
     build_row_dataclass_for_table,
 )
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_names_mixin import DriverWrapperNamesMixin
@@ -35,8 +37,6 @@ from LiuXin_alpha.databases.api.driver_wrapper_api.driver_wrapper_api import Dat
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import MacrosAPI, DatabaseAPI, DatabaseDriverAPI
-    from LiuXin_alpha.databases.schema_specs import (
-        StorageTableSpec, StorageColumnSpec,)
 
 
 class DriverWrapper(
@@ -83,6 +83,7 @@ class DriverWrapper(
 
         # Acquires a lock for the database that can be used in a with statement.
         self.lock = self.get_connection()
+        self._clear_derived_schema_caches()
 
         super(DriverWrapper, self).__init__(db=db, macros=None)
 
@@ -93,10 +94,55 @@ class DriverWrapper(
         Should be called after schema changes - so should almost never be called.
         :return:
         """
-        self._link_table_name_cache = {}
+        self._cached_table_specs: dict[str, StorageTableSpec] = {}
+        self._cached_link_specs: dict[tuple[str, str], Optional[StorageLinkSpec]] = {}
+        self._cached_intralink_specs: dict[str, Optional[StorageLinkSpec]] = {}
+        self._cached_schema_spec: Optional[StorageSchemaSpec] = None
+        self._cached_row_dataclasses: dict[str, type] = {}
+        self._cached_link_row_dataclasses: dict[tuple[str, str], Optional[type]] = {}
+        self._link_table_name_cache: dict[tuple[str, str], str | bool] = {}
         self._link_table_name_cache_schema_version = None
 
-    def get_table_spec(self, table: str, force_refresh: bool = False) -> "StorageTableSpec":
+    def _group_names(self, attr_name: str) -> tuple[str, ...]:
+        names = getattr(self, attr_name, None)
+        if not names:
+            return ()
+        return tuple(sorted(set(names)))
+
+    def _main_table_names(self) -> tuple[str, ...]:
+        names = self._group_names("main_tables")
+        if names:
+            return names
+
+        all_names = set(self.get_tables(force_refresh=False))
+        interlinks = set(self._interlink_table_names())
+        intralinks = set(self._intralink_table_names())
+        helpers = set(self._group_names("helper_tables"))
+        return tuple(sorted(all_names - interlinks - intralinks - helpers))
+
+    def _interlink_table_names(self) -> tuple[str, ...]:
+        names = self._group_names("interlink_tables")
+        if names:
+            return names
+        return tuple(
+            sorted(
+                table for table in self.get_tables(force_refresh=False)
+                if table.endswith("_links") and not table.endswith("_intralinks")
+            )
+        )
+
+    def _intralink_table_names(self) -> tuple[str, ...]:
+        names = self._group_names("intralink_tables")
+        if names:
+            return names
+        return tuple(
+            sorted(
+                table for table in self.get_tables(force_refresh=False)
+                if table.endswith("_intralinks")
+            )
+        )
+
+    def get_table_spec(self, table: str, force_refresh: bool = False) -> StorageTableSpec:
         """
         Provides a spec for the given table.
 
@@ -106,10 +152,16 @@ class DriverWrapper(
         """
         if force_refresh:
             self._clear_derived_schema_caches()
+        elif table in self._cached_table_specs:
+            return self._cached_table_specs[table]
 
         relation_type = self.get_relation_type(table)
         if relation_type is None:
             raise ValueError(f"No such relation: {table!r}")
+
+        main_tables = set(self._main_table_names())
+        interlink_tables = set(self._interlink_table_names())
+        intralink_tables = set(self._intralink_table_names())
 
         columns: list[StorageColumnSpec] = []
         headings = (
@@ -197,7 +249,7 @@ class DriverWrapper(
         if not parent_column:
             parent_column = None
 
-        return StorageTableSpec(
+        spec = StorageTableSpec(
             name=table,
             relation_kind=RelationKind(relation_type),
             columns=tuple(columns),
@@ -205,11 +257,13 @@ class DriverWrapper(
             parent_column=parent_column,
             datestamp_column=_optional_datestamp_column(),
             scratch_column=_optional_scratch_column(),
-            is_main_table=table in getattr(self, "main_tables", ()),
-            is_link_table=table in getattr(self, "interlink_tables", ()),
-            is_intralink_table=table in getattr(self, "intralink_tables", ()),
+            is_main_table=table in main_tables,
+            is_link_table=table in interlink_tables,
+            is_intralink_table=table in intralink_tables,
             linked_tables=tuple(sorted(self.get_interlinked_tables(table))) if relation_type == "table" else (),
         )
+        self._cached_table_specs[table] = spec
+        return spec
 
     def get_link_spec(self, table1: str, table2: str, *, force_refresh: bool = False) -> Optional["StorageLinkSpec"]:
         """
@@ -222,9 +276,14 @@ class DriverWrapper(
         """
         if force_refresh:
             self._clear_derived_schema_caches()
+        else:
+            cache_key = (table1, table2)
+            if cache_key in self._cached_link_specs:
+                return self._cached_link_specs[cache_key]
 
         link_table = self.get_link_table_name(table1, table2)
         if not link_table:
+            self._cached_link_specs[(table1, table2)] = None
             return None
 
         primary_link_col = self.get_link_column(table1, table2, self.get_id_column(table1))
@@ -258,7 +317,7 @@ class DriverWrapper(
                 allowed_types_table = cand
                 break
 
-        return StorageLinkSpec(
+        spec = StorageLinkSpec(
             primary_table=table1,
             secondary_table=table2,
             link_table=link_table,
@@ -273,119 +332,184 @@ class DriverWrapper(
             allowed_types_table=allowed_types_table,
             extra_link_columns=extra_specs,
         )
+        self._cached_link_specs[(table1, table2)] = spec
+        return spec
 
     def iter_table_specs(
         self,
         *,
         force_refresh: bool = False,
         include_views: bool = True,
-    ):
-        """
-        Itterate over the specs for all tables on the database.
-
-        :param force_refresh:
-        :param include_views:
-        :return:
-        """
+    ) -> Iterator[StorageTableSpec]:
         if force_refresh:
             self._clear_derived_schema_caches()
+
         seen: set[str] = set()
         for table in self.get_tables(force_refresh=False):
-            yield self.get_table_spec(table, force_refresh=False)
             seen.add(str(table))
+            yield self.get_table_spec(table, force_refresh=False)
         if include_views:
             for view in self.get_views(force_refresh=False):
                 if str(view) in seen:
                     continue
                 yield self.get_table_spec(view, force_refresh=False)
 
-    def get_intralink_spec(self, table: str, *, force_refresh: bool = False) -> Optional["StorageLinkSpec"]:
-        """
-        Get an intralink spec for self links within the target table - if such exist.
+    def get_intralink_spec(
+        self,
+        table: str,
+        *,
+        force_refresh: bool = False,
+    ) -> Optional[StorageLinkSpec]:
+        if force_refresh:
+            self._clear_derived_schema_caches()
+        elif table in self._cached_intralink_specs:
+            return self._cached_intralink_specs[table]
 
-        :param table:
-        :param force_refresh:
-        :return:
-        """
-        return self.get_link_spec(table, table, force_refresh=force_refresh)
+        link_table = self.check_for_intralink_table(table)
+        if not link_table:
+            self._cached_intralink_specs[table] = None
+            return None
 
-    # Todo: Consider different link spec classes for intralink and interlink - and add more tree support
+        primary_link_col = self.get_intralink_column(table, "primary_id")
+        secondary_link_col = self.get_intralink_column(table, "secondary_id")
+
+        try:
+            priority_link_col = self.get_intralink_column(table, "priority")
+        except Exception:
+            priority_link_col = None
+
+        try:
+            type_link_col = self.get_intralink_column(table, "type")
+        except Exception:
+            type_link_col = None
+
+        used = {primary_link_col, secondary_link_col}
+        if priority_link_col:
+            used.add(priority_link_col)
+        if type_link_col:
+            used.add(type_link_col)
+
+        extra_specs = tuple(
+            col for col in self.get_table_spec(link_table).columns
+            if col.name not in used
+        )
+
+        allowed_types_table = None
+        for cand in (f"{link_table}__types", f"allowed_types__{link_table}"):
+            if cand in set(self.get_tables(force_refresh=False)):
+                allowed_types_table = cand
+                break
+
+        spec = StorageLinkSpec(
+            primary_table=table,
+            secondary_table=table,
+            link_table=link_table,
+            primary_id_col=self.get_id_column(table),
+            secondary_id_col=self.get_id_column(table),
+            primary_link_col=primary_link_col,
+            secondary_link_col=secondary_link_col,
+            priority_link_col=priority_link_col,
+            type_link_col=type_link_col,
+            ordered=priority_link_col is not None,
+            typed=type_link_col is not None,
+            allowed_types_table=allowed_types_table,
+            extra_link_columns=extra_specs,
+        )
+        self._cached_intralink_specs[table] = spec
+        return spec
+
     def iter_link_specs(
         self,
         *,
         force_refresh: bool = False,
         include_intralinks: bool = True,
-    ):
-        """
-        Iterate over all available link specs - interlink and intralink.
-
-        :param force_refresh:
-        :param include_intralinks:
-        :return:
-        """
+    ) -> Iterator[StorageLinkSpec]:
         if force_refresh:
             self._clear_derived_schema_caches()
-        seen: set[tuple[str, str, str]] = set()
-        for table in self.get_tables(force_refresh=False):
-            try:
-                linked = self.get_interlinked_tables(table)
-            except Exception:
-                linked = ()
-            for other in linked:
-                if table == other and not include_intralinks:
+
+        seen_link_tables: set[str] = set()
+        main_tables = self._main_table_names()
+
+        for idx, primary_table in enumerate(main_tables):
+            for secondary_table in main_tables[idx + 1:]:
+                spec = self.get_link_spec(primary_table, secondary_table, force_refresh=False)
+                if spec is None or spec.link_table in seen_link_tables:
                     continue
-                spec = self.get_link_spec(table, other, force_refresh=False)
-                if spec is None:
-                    continue
-                key = (spec.link_table, spec.primary_table, spec.secondary_table)
-                reverse = (spec.link_table, spec.secondary_table, spec.primary_table)
-                if key in seen or reverse in seen:
-                    continue
-                seen.add(key)
+                seen_link_tables.add(spec.link_table)
                 yield spec
 
-    # Todo: These could be their own mixin?
-    def get_schema_spec(self, force_refresh: bool = False) -> "StorageSchemaSpec":
-        """
-        Return the storage schema spec for the entire database.
+        if not include_intralinks:
+            return
 
-        :param force_refresh:
-        :return:
-        """
-        tables = {spec.name: spec for spec in self.iter_table_specs(force_refresh=force_refresh, include_views=True)}
-        interlinks = []
-        intralinks = []
-        for spec in self.iter_link_specs(force_refresh=force_refresh, include_intralinks=True):
-            if spec.primary_table == spec.secondary_table:
-                intralinks.append(spec)
-            else:
-                interlinks.append(spec)
-        return StorageSchemaSpec(tables=tables, interlinks=tuple(interlinks), intralinks=tuple(intralinks))
+        for table in main_tables:
+            spec = self.get_intralink_spec(table, force_refresh=False)
+            if spec is not None:
+                yield spec
 
-    def get_row_dataclass(self, table: str, *, force_refresh: bool = False) -> type:
-        """
-        Return the dataclass used to represent a row on the database.
+    def get_schema_spec(self, force_refresh: bool = False) -> StorageSchemaSpec:
+        if force_refresh:
+            self._clear_derived_schema_caches()
+        elif self._cached_schema_spec is not None:
+            return self._cached_schema_spec
 
-        :param table:
-        :param force_refresh:
-        :return:
-        """
-        return build_row_dataclass_for_table(self.get_table_spec(table, force_refresh=force_refresh))
+        tables = {
+            spec.name: spec
+            for spec in self.iter_table_specs(force_refresh=False, include_views=True)
+        }
+        interlinks = tuple(self.iter_link_specs(force_refresh=False, include_intralinks=False))
+        intralinks = tuple(
+            spec for spec in self.iter_link_specs(force_refresh=False, include_intralinks=True)
+            if spec.primary_table == spec.secondary_table
+        )
 
-    # Todo: Do think that interlink and intralink should have their own classes
-    def get_link_row_dataclass(self, table1: str, table2: str, *, force_refresh: bool = False):
-        """
-        Return the dataclass used to represent a link row on the database.
+        schema = StorageSchemaSpec(
+            tables=tables,
+            interlinks=interlinks,
+            intralinks=intralinks,
+        )
+        self._cached_schema_spec = schema
+        return schema
 
-        :param table1:
-        :param table2:
-        :param force_refresh:
-        :return:
-        """
-        spec = self.get_link_spec(table1, table2, force_refresh=force_refresh)
+    def get_row_dataclass(
+        self,
+        table: str,
+        *,
+        force_refresh: bool = False,
+    ) -> type:
+        if force_refresh:
+            self._clear_derived_schema_caches()
+        elif table in self._cached_row_dataclasses:
+            return self._cached_row_dataclasses[table]
+
+        dataclass_type = build_row_dataclass_for_table(self.get_table_spec(table, force_refresh=False))
+        self._cached_row_dataclasses[table] = dataclass_type
+        return dataclass_type
+
+    def get_link_row_dataclass(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> Optional[type]:
+        cache_key = (table1, table2)
+        if force_refresh:
+            self._clear_derived_schema_caches()
+        elif cache_key in self._cached_link_row_dataclasses:
+            return self._cached_link_row_dataclasses[cache_key]
+
+        spec = (
+            self.get_intralink_spec(table1, force_refresh=False)
+            if table1 == table2
+            else self.get_link_spec(table1, table2, force_refresh=False)
+        )
         if spec is None:
+            self._cached_link_row_dataclasses[cache_key] = None
             return None
-        return build_row_dataclass_for_table(self.get_table_spec(spec.link_table, force_refresh=force_refresh))
+
+        dataclass_type = build_row_dataclass_for_table(self.get_table_spec(spec.link_table, force_refresh=False))
+        self._cached_link_row_dataclasses[cache_key] = dataclass_type
+        return dataclass_type
 
     def get_allowed_tables_snapshot(self) -> frozenset[str]:
         """
@@ -510,9 +634,9 @@ class DriverWrapper(
         :return linked_tables:
         """
         linked_tables = set()
-        for main_table in self.main_tables:
+        for main_table in self._main_table_names():
             possible_interlink_table = self.get_link_table_name(main_table, table_name)
-            if possible_interlink_table in self.interlink_tables:
+            if possible_interlink_table in self._interlink_table_names():
                 linked_tables.add(main_table)
         return linked_tables
 
@@ -578,7 +702,7 @@ class DriverWrapper(
     def identify_table_from_row_dict(self, row_dict: dict[str, Any]) -> Union[str, Literal[False]]:
         """
         Attempts to identify which table a row came from.
-        
+
         On failure, returns False.
         :param row_dict: The row (dict) to be parsed
         :return table_name: The table name (string)
@@ -627,7 +751,7 @@ class DriverWrapper(
     def get_id_from_row(self, row_dict: dict[str, Any]) -> Optional[int]:
         """
         Extracts the id from a row dict - if one is present.
-        
+
         :param row_dict:
         """
         row_table = self.identify_table_from_row_dict(row_dict)
@@ -853,7 +977,7 @@ class DriverWrapper(
         assert link_type is not None, (
             "You have to provide a link type from {}".format(["many_many", "many_one", "one_many", "one_one"]))
 
-        self.driver.direct_create_new_main_table(table_name=table_name, column_headings=column_headings)
+        self.driver.direct_create_main_table(table_name=table_name, column_headings=column_headings)
 
         # Link the new main table to an existing main table - if requested
         if link_to is not None:

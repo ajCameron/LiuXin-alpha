@@ -285,7 +285,7 @@ class TableNamesMixin:
     # Todo: If this is still true, it really shouldn't be (see below)
     # Tree-like tables may use either a legacy ``*_parent`` column or a foreign-key-shaped
     # ``*_parent_id`` column to point at the row above them.
-    def direct_get_parent_column_name(self, table_name: str) -> Optional[str]:
+    def direct_get_parent_column_name(self, table_name: str) -> Optional[str] | bool:
         """
         Returns the parent column name for a table with a tree like structure - if it exists.
 
@@ -324,7 +324,7 @@ class TableNamesMixin:
         elif len(candidate_index) == 1:
             return candidate_index[0]
         elif len(candidate_index) == 0:
-            return None
+            return False
         else:
             raise LogicalError
 

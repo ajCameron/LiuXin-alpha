@@ -8,7 +8,7 @@ on:
 jobs:
   smoke:
     if: github.event_name == 'push'
-    name: Smoke Tests (push)
+    name: Confidence Tests (push)
     runs-on: ubuntu-latest
 
     steps:
@@ -26,18 +26,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ".[test]"
 
-      - name: Run smoke tests
+      - name: Run confidence test stream
         env:
           PYTHONPATH: src
-        shell: bash
-        run: |
-          mapfile -d '' SMOKE_FILES < <(find tests -type f -name '*smoke*.py' -print0 | sort -z)
-          if (( ${#SMOKE_FILES[@]} == 0 )); then
-            echo "No smoke tests found (expected at least one *smoke*.py file)."
-            exit 1
-          fi
-          echo "Running ${#SMOKE_FILES[@]} smoke test files"
-          pytest -q --maxfail=1 "${SMOKE_FILES[@]}"
+        run: python scripts/run_test_stream.py --stream confidence -- --maxfail=1
 
   file-formats-fast:
     if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'

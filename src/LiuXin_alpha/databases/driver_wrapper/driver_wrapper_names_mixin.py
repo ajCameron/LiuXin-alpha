@@ -207,7 +207,7 @@ class DriverWrapperNamesMixin:
         err_str = default_log.log_variables(err_str, "ERROR", ("table", table), ("column_headings", column_headings))
         raise DatabaseIntegrityError(err_str)
 
-    def get_parent_column(self, table_name: str) -> Optional[str]:
+    def get_parent_column(self, table_name: str) -> Optional[str] | bool:
         """
         Returns the parent column for the table if it exists.
 
@@ -234,7 +234,7 @@ class DriverWrapperNamesMixin:
         elif len(candidate_index) == 1:
             return candidate_index[0]
         elif len(candidate_index) == 0:
-            return None
+            return False
         else:
             raise LogicalError
 

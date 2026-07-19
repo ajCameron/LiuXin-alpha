@@ -399,6 +399,15 @@ class StoreListCommand(TerminalCommandAPI):
 
         table_rows: list[list[object]] = []
         for info in window:
+            browser.emit(
+                "store id={} name={} kind={} status={} files={}".format(
+                    info.store_id,
+                    info.name,
+                    info.kind,
+                    info.status,
+                    info.files,
+                )
+            )
             table_rows.append(
                 [
                     info.store_id,

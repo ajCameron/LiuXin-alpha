@@ -1,10 +1,15 @@
 # Working Memory Index
 
-Updated: 2026-06-08
+Updated: 2026-07-18
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [postgresql-deployment-checkpoint-2026-07-18.md](postgresql-deployment-checkpoint-2026-07-18.md)
+  Pre-direction-change checkpoint covering database/storage stabilization,
+  metadata title-sort isolation, the PostgreSQL backend and CLI, deployment
+  source packaging, the data-submodule update, and final verification.
 
 - [codex-collaboration-contract-2026-05-25.md](/mnt/c/Users/Thane-Winterscale/LiuXin-alpha-mainline/working-memory/codex-collaboration-contract-2026-05-25.md)
   Lightweight operating contract for future Codex work: ask or state

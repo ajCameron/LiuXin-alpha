@@ -259,7 +259,7 @@ class SearchMixin:
         for value in values_set:
             yield value
 
-    def direct_get_row_dict_from_id(self, table: str, row_id: int) -> Optional[dict[str, Any]]:
+    def direct_get_row_dict_from_id(self, table: str, row_id: int) -> Optional[dict[str, Any]] | bool:
         """
         Attempts to get a specific row from the table give.
 
@@ -301,7 +301,7 @@ class SearchMixin:
             info_str = "Warning - search yielded no results. Consider sources of logical error."
             default_log.log_variables(info_str, "INFO", ("table", table), ("row_id", row_id))
             conn.close()
-            return None
+            return False
 
         else:
             conn.close()
@@ -339,7 +339,7 @@ class SearchMixin:
         finally:
             conn.close()
 
-    def direct_get_null_row(self, table: str) -> Optional[dict[str, Any]]:
+    def direct_get_null_row(self, table: str) -> Optional[dict[str, Any]] | bool:
         """
         Fetch the sentinel/null row at id=0, or False if none exists.
 
@@ -348,7 +348,7 @@ class SearchMixin:
         """
         table = force_unicode(table)
         if not self.direct_has_null_row(table):
-            return None
+            return False
         return self.direct_get_row_dict_from_id(table, 0)
 
     # Todo: Go through and add :raises : whereever we can

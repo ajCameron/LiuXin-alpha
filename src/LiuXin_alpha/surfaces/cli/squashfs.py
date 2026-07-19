@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.surfaces.cli.postgres import build_postgres_parser
 from LiuXin_alpha.storage.reconcile import (
     publish_open_squashfs_store,
     publish_squashfs_archive_from_file_ids,
@@ -309,6 +310,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="LiuXin CLI surfaces")
     subparsers = parser.add_subparsers(dest="surface", required=True)
     build_squashfs_parser(subparsers)
+    build_postgres_parser(subparsers)
     args = parser.parse_args(argv)
 
     handler = getattr(args, "handler", None)

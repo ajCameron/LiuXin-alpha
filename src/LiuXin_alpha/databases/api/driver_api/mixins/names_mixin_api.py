@@ -13,7 +13,7 @@ class DriverNamesMixinAPI(abc.ABC):
     # Todo: First class method. Should be used in more places. Including custom columns.
     @staticmethod
     @abc.abstractmethod
-    def _validate_table_name(table_name: str) -> bool:
+    def direct_validate_table_name(table_name: str) -> bool:
         """
         Check that the trial table name is actually a valid SQL(e.t.c) table name.
 
@@ -44,7 +44,7 @@ class DriverNamesMixinAPI(abc.ABC):
     # Todo: The two methods seem to be doing the same thing
     @staticmethod
     @abc.abstractmethod
-    def _get_table_col_base(table_name: str) -> str:
+    def direct_get_table_col_base(table_name: str) -> str:
         """
         Get the base column name for a given table.
 
@@ -52,8 +52,9 @@ class DriverNamesMixinAPI(abc.ABC):
         :return:
         """
 
+    @staticmethod
     @abc.abstractmethod
-    def direct_get_column_name(self, table_name: str) -> str:
+    def direct_get_column_name(table_name: str) -> str:
         """
         Get the column name for a given table.
 
@@ -107,7 +108,7 @@ class DriverNamesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_display_column(self, table_name: str) -> str:
+    def direct_get_display_column(self, table_name: str) -> str:
         """
         Return the display column for the given table - if it exists.
 
@@ -117,7 +118,7 @@ class DriverNamesMixinAPI(abc.ABC):
 
     # Todo: This sounds like several others methods...
     @abc.abstractmethod
-    def get_full_column_name(self, target_table):
+    def direct_get_full_column_name(self, target_table: str) -> Optional[str]:
         """
         Return thw full column name for the given table.
 
@@ -137,7 +138,7 @@ class DriverNamesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_parent_column_name(self, table_name: str) -> str:
+    def direct_get_parent_column_name(self, table_name: str) -> Optional[str] | bool:
         """
         Get the parent column name for a given table.
 
@@ -146,7 +147,7 @@ class DriverNamesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_tree_id_column(self, target_table: str) -> str:
+    def direct_get_tree_id_column(self, target_table: str) -> Optional[str]:
         """
         Get the tree structure id column for the given table.
 

@@ -53,6 +53,10 @@ from LiuXin_alpha.databases.db_types import (
     IdentifierEntityType,
     OBSERVED_ITEM_IDENTIFIER_SCHEMES,
 )
+from LiuXin_alpha.databases.column_metadata import (
+    COLUMN_METADATA_TABLE,
+    infer_column_metadata,
+)
 from LiuXin_alpha.metadata.constants.container_vocabularies import (
     GenreKind,
     IdentifierStatus,
@@ -555,10 +559,14 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         # 9) Add the aggregate tables (here mostly views)
         self.create_aggregate_tables()
 
-        # 10) Set the version - so we can check the database and driver version used to build this database
+        # 10) Persist a complete policy for every physical column, including
+        # dynamically generated interlink and intralink tables.
+        self.seed_column_metadata()
+
+        # 11) Set the version - so we can check the database and driver version used to build this database
         self.set_database_version()
 
-        # 11) Lock constant tables so they are stable reference data.
+        # 12) Lock constant tables so they are stable reference data.
         self.lock_constant_tables()
 
 
@@ -573,6 +581,69 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         - languages: ISO-639 (1/2B/2T) + BCP47 base tags
         """
         self.seed_languages_table()
+
+    def seed_column_metadata(self) -> None:
+        """Seed a complete database-owned policy for every physical column."""
+
+        try:
+            tables = self.direct_get_tables()
+        except Exception:
+            tables = set()
+        if COLUMN_METADATA_TABLE not in tables:
+            return
+
+        rows: list[tuple[Any, ...]] = []
+        for table in sorted(table for table in tables if not table.startswith("sqlite_")):
+            quoted_table = table.replace("`", "``")
+            table_info = list(
+                self.conn.execute(f"PRAGMA table_info(`{quoted_table}`);")
+            )
+            foreign_keys = {
+                str(row[3])
+                for row in self.conn.execute(
+                    f"PRAGMA foreign_key_list(`{quoted_table}`);"
+                )
+            }
+            for column_info in table_info:
+                column = str(column_info[1])
+                metadata = infer_column_metadata(
+                    table,
+                    column,
+                    str(column_info[2] or ""),
+                    is_primary_key=bool(column_info[5]),
+                    is_foreign_key=column in foreign_keys,
+                )
+                rows.append(
+                    (
+                        metadata.table,
+                        metadata.column,
+                        int(metadata.case_sensitive),
+                        metadata.semantic_role.value,
+                        metadata.normalization_profile.value,
+                        metadata.comparison_column,
+                        metadata.empty_value_policy.value,
+                        metadata.merge_policy.value,
+                        metadata.validation_profile.value,
+                    )
+                )
+
+        self.conn.executemany(
+            """
+            INSERT OR IGNORE INTO column_metadata (
+              column_metadata_table_name,
+              column_metadata_column_name,
+              column_metadata_case_sensitive,
+              column_metadata_semantic_role,
+              column_metadata_normalization_profile,
+              column_metadata_comparison_column,
+              column_metadata_empty_value_policy,
+              column_metadata_merge_policy,
+              column_metadata_validation_profile
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """.strip(),
+            rows,
+        )
+        self.conn.commit()
 
 
     def seed_languages_table(self) -> None:

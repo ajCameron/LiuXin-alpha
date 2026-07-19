@@ -110,7 +110,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def check_for_intralink_table(self, table_name: str) -> bool:
+    def check_for_intralink_table(self, table_name: str) -> Union[str, Literal[False]]:
         """
         Check to see if the given table supports one (or more) intralink tables.
 
@@ -254,9 +254,8 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         :return:
         """
 
-    @property
     @abc.abstractmethod
-    def direct_custom_tables(self) -> None:
+    def get_custom_tables(self) -> set[str]:
         """
         Get whatever custom tables exist.
 
@@ -463,7 +462,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def get_id_from_row(self, row_dict: dict[str, Any]) -> int:
+    def get_id_from_row(self, row_dict: dict[str, Any]) -> Optional[int]:
         """
         Extract and return the id from a given row.
 
@@ -483,7 +482,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def get_interlinked_tables(self, table_name: str) -> list[str]:
+    def get_interlinked_tables(self, table_name: str) -> set[str]:
         """
         Get all the tables interlinked to the given table.
 
@@ -643,7 +642,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     # Todo: Just error - don't given an option
     @abc.abstractmethod
-    def identify_table_from_column(self, column_heading: str, error: bool = True) -> str:
+    def identify_table_from_column(self, column_heading: str, error: bool = True) -> Optional[str]:
         """
         Identify a table from the column.
 

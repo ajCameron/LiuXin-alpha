@@ -270,7 +270,7 @@ class DatabaseInterlinkRowsMixin:
         :param secondary_column:
         :return values_set:
         """
-        secondary_table = self.driver_wrapper.direct_identify_table_from_column(secondary_column)
+        secondary_table = self.driver_wrapper.identify_table_from_column(secondary_column)
         linked_rows = self.get_interlinked_rows(target_row=target_row, secondary_table=secondary_table)
         return set([r[secondary_column] for r in linked_rows])
 

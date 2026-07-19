@@ -131,6 +131,6 @@ class TableCreationMixin:
         # default_col_index = "CREATE INDEX {0}_default_col_index ON {0} ({1});".format(table_name, table_col)
         # full_script.append(default_col_index)
 
-        self.executescript("\n".join(full_script))
+        self.direct_executescript("\n".join(full_script))
 
         self._zero_prop_cache()
