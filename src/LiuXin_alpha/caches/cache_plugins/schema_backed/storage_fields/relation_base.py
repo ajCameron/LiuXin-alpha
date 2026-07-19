@@ -166,9 +166,9 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
     def read(self, db: Any) -> None:
         db = _ensure_db(self._db, db)
         self._db = db
-        self.src_table.db = db
-        self.dst_table.db = db
-        self.link_table.db = db
+        self.src_table.catalog = db
+        self.dst_table.catalog = db
+        self.link_table.catalog = db
         self._read_relation_cache()
 
     def refresh_ids(

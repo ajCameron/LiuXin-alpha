@@ -41,7 +41,7 @@ def resolve_show_kind_table(browser, token: str) -> str:
     if not text:
         raise ValueError("Linked kind/table cannot be blank.")
 
-    tables = set(browser.db.get_tables())
+    tables = set(browser.catalog.get_tables())
 
     tag_or_label_table = resolve_tag_or_label_table_token(text, tables)
     if tag_or_label_table is not None:
@@ -110,7 +110,7 @@ def _parse_target_row(browser, args: list[str], *, usage: str):
             )
         raise ValueError("Row id must be an integer.")
 
-    target_row = browser.db.get_row_from_id(target_table, target_id)
+    target_row = browser.catalog.get_row_from_id(target_table, target_id)
     if target_row is None:
         raise ValueError("No row found in {} for id {}.".format(target_table, target_id))
 
@@ -118,10 +118,10 @@ def _parse_target_row(browser, args: list[str], *, usage: str):
 
 
 def _get_linked_rows(browser, *, target_table: str, target_row, linked_table: str):
-    link_table = browser.db.driver_wrapper.get_link_table_name(linked_table, target_table)
+    link_table = browser.catalog.driver_wrapper.get_link_table_name(linked_table, target_table)
     if not link_table:
         raise ValueError("No link table exists between {} and {}.".format(linked_table, target_table))
-    return browser.db.get_interlinked_rows(primary_row=target_row, secondary_table=linked_table)
+    return browser.catalog.get_interlinked_rows(primary_row=target_row, secondary_table=linked_table)
 
 
 def _render_default_rows(browser, *, target_table: str, target_id: int, linked_table: str, rows):

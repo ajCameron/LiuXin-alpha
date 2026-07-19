@@ -13,22 +13,28 @@ There are two types
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from typing import Callable, Any, Optional
+from typing import Callable, Any, Optional, TYPE_CHECKING
 
 from LiuXin_alpha.databases.adaptors import sqlite_datetime
-from LiuXin_alpha.catalog.write.base_writer import BaseDBWriter
+from LiuXin_alpha.catalog.write.base_writer import BaseCatalogWriter
 from LiuXin_alpha.catalog.catalog_macros import library_set_last_modified, library_set_comment
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.catalog.catalog_macros import library_set_series_index
+
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.catalog.api import CatalogAPI
 
 
-class OneToOneDBWriterBase(BaseDBWriter):
+class OneToOneCatalogWriterBase(BaseCatalogWriter):
     """
     Base class for the two one-to-one database writers.
     """
     def __init__(
             self,
+            catalog: "CatalogAPI",
             table: str,
             column: str,
             adapter: Callable[[Any, ], str] = lambda x: str(x),
@@ -37,9 +43,24 @@ class OneToOneDBWriterBase(BaseDBWriter):
             link_table: Optional[str] = None,
             link_table_bt_id_column: Optional[str] = None,
             link_table_item_id_column: Optional[str] = None,
+            datatype: Optional[str] = None,
     ) -> None:
+        """
+        Constructor for the one-to-one database writer.
 
-        super(OneToOneDBWriterBase, self).__init__(
+        :param catalog:
+        :param table:
+        :param column:
+        :param adapter:
+        :param accept_vals:
+        :param name:
+        :param link_table:
+        :param link_table_bt_id_column:
+        :param link_table_item_id_column:
+        """
+
+        super(OneToOneCatalogWriterBase, self).__init__(
+            catalog=catalog,
             table=table,
             column=column,
             adapter=adapter,
@@ -47,10 +68,10 @@ class OneToOneDBWriterBase(BaseDBWriter):
             name=name,
             link_table=link_table,
             link_table_bt_id_column=link_table_bt_id_column,
-            link_table_item_id_column=link_table_item_id_column)
+            link_table_item_id_column=link_table_item_id_column,
+            datatype=datatype,)
 
-        # Todo: This is a calibre compatibility issue - probably we need calibre compat writers and regular writes
-        # self.set_books_func = self.one_one_in_books if field.metadata["table"] == "books" else self.one_one_in_other
+        self.set_values_func = self.one_one_in_one_table if self.is_same_table() else self.one_one_in_other
 
         if self.name in {"timestamp", "uuid", "sort"}:
             self.accept_vals = bool
@@ -61,259 +82,225 @@ class OneToOneDBWriterBase(BaseDBWriter):
 
         :return:
         """
-        return self.table == self.db.get_table
+        return self.table == self.catalog.get_table_from_column(self.column)
 
-    # Todo: Cache updates should be handled by a seperate process (with reference to the docstring)
-    def one_one_in_books(self, book_id_val_map, db, field, *args):
+    # def set_values_func(
+    #         self,
+    #         item_id_val_map: dict[int, str],
+    #         allow_case_change: bool = False) -> set[int]:
+
+    def one_one_in_one_table(
+            self,
+            item_id_val_map: dict[int, Any],
+            allow_case_change: bool = False) -> set[int]:
         """
         Set fields for a one-one field in the books/title table.
+
         Preform an update of the database and cache for a generic database field.
-        :param book_id_val_map: Keyed with the id of the book and valued with the value to set for in the database.
-        :param db: db object to preform the update on
-        :param field: Object representing the field to update (must have a column item - which describes the column to
-                      update)
-                      Typically an in memory store of the item.
-        :param args:
+        :param item_id_val_map: Keyed with the id of the item and valued with the value to set for in the database.
+        :param allow_case_change:
+
         :return affects_ids: The book ids which have been changed by this operation
         """
-        if args:
-            info_str = "unexpected args passed to one_one_in_books"
-            default_log.log_variables(info_str, "INFO", ("args", args))
 
         db_updater = {
             "series_index": self.series_index_one_one_db_updater,
             "last_modified": self.last_modified_one_one_db_updater,
         }.get(self.name, self.generic_one_one_db_updater)
 
-        # Check that the given field is allowed in the books table and error if it isn't
-        col = (
-            field.metadata["column"]
-            if "liuxin_table_name" not in field.metadata
-            else field.metadata["liuxin_table_name"]
-        )
-
-        if "in_table" in field.metadata.keys():
-            dst_table = field.metadata["in_table"]
-        else:
-            if col.startswith("book") or col.startswith("title"):
-                dst_table = "books" if col.startswith("book") else "titles"
-            else:
-                dst_table = "titles"
-
-        if dst_table == "titles" and not col.startswith("title"):
-            table_col = "title_{}".format(col)
-        elif dst_table == "books" and not col.startswith("book"):
-            table_col = "book_{}".format(col)
-        else:
-            table_col = col
-
-        # Todo: This is a stupid patch - fix it by renaming the column
-        if table_col == "title_pubdate":
-            table_col = "book_pubdate"
-
-        if book_id_val_map:
+        if item_id_val_map:
 
             # Writing the changes out the database
-            book_val_map = {k: sqlite_datetime(v) for k, v in iteritems(book_id_val_map)}
+            item_id_val_map = {k: self.adapter(v) for k, v in iteritems(item_id_val_map)}
 
-            db_updater(db=db, values_map=book_val_map, field=table_col, table=dst_table)
-
-            # Updating the cache - if one is present in the field
-            try:
-                field.table.book_col_map.update(book_id_val_map)
-            except AttributeError:
-                pass
+            db_updater(db=self.catalog, values_map=item_id_val_map, allow_case_change=allow_case_change)
 
         # Return a set of the touched ids
-        return set(book_id_val_map)
+        return set(item_id_val_map)
+
+    def update_precheck(self,
+            book_id_item_id_map,
+            id_map_update,
+            acceptance_functions,
+        ) -> None:
+        """
+        Preform a precheck of the update before writing to the database.
+
+        :param book_id_item_id_map:
+        :param id_map_update:
+        :param acceptance_functions:
+        :return:
+        """
+        # field.table.update_precheck(
+        #     book_id_item_id_map=book_id_val_map,
+        #     id_map_update=dict(),
+        #     acceptance_functions=[self.accept_vals, self.adapter],
+        # )
+        raise NotImplementedError()
 
     # Todo: Comments should really be "one_many" - and need to test that this works properly with
     #       actualy one_one in other
-    def one_one_in_other(self, book_id_val_map, db, field, *args):
+    def one_one_in_other(
+            self,
+            item_id_val_map: dict[int, Any],
+            allow_case_change: bool = False) -> set[int]:
         """
         Set a one-one field in a non-books table.
+
         If a field is not one-one, then the new value is guaranteed to be the highest priority of the item type linked
         to that book record - but old max value won't be deleted by default.
         This should provide calibre emulation - while retaining data for later use.
-        :param book_id_val_map:
-        :param db:
-        :param field:
-        :param args:
+
+        :param item_id_val_map:
+        :param allow_case_change:
+
         :return:
         """
-        field.table.update_precheck(
-            book_id_item_id_map=book_id_val_map,
+        db_updater = {
+        }.get(self.name, self.generic_one_one_db_updater)
+
+        # Todo: Need to go and get this logic and implement it here
+        self.update_precheck(
+            book_id_item_id_map=item_id_val_map,
             id_map_update=dict(),
             acceptance_functions=[self.accept_vals, self.adapter],
         )
-
-        if args:
-            info_str = "Unexpected arguments passed to LiuXin.databases.write:one_one_in_other.\n"
-            default_log.log_variables(info_str, "INFO", ("args", args))
-
-        if not field.table.custom:
-            db_updater = {"comments": self.comments_one_one_in_other_updater}.get(
-                field.table.name, self.generic_one_one_in_other_updater
-            )
-
-        else:
-            db_updater = self.cc_one_one_updater
 
         id_map = None
 
         # Process the book_id_val_map - if the value is set to None then all the entries in the other table should be
         # deleted
-        deleted = tuple((k, None) for k, v in iteritems(book_id_val_map) if v is None)
+        deleted = tuple((k, None) for k, v in iteritems(item_id_val_map) if v is None)
         if deleted:
 
-            if not field.table.custom:
-                self.delete_one_to_one_in_other(db, field, deleted)
+            if not self.custom:
+                self.delete_one_to_one_in_other(deleted)
             else:
-                self.custom_delete_one_to_one_in_other(db, field, deleted)
-
-            # Todo: See below AND DO NOT DO THIS HERE - SEPERATION OF CONCERNS. THIS IS THE WRITER! IT WRITES TO THE DB!
-
-            # Remove the deleted values form the cache - if the passed in field is a cache like object
-            if hasattr(field, "table") and hasattr(field, "complex_update") and not field.complex_update:
-                for book_id in deleted:
-                    field.table.book_col_map.pop(book_id[0], None)
+                self.custom_delete_one_to_one_in_other(deleted)
 
         # Make the text which will be written to the database - the cases where the comment are to be set None have
         # already been acted on
-        updated = {k: v for k, v in iteritems(book_id_val_map) if v is not None}
+        updated = {k: v for k, v in iteritems(item_id_val_map) if v is not None}
         book_col_map = None
         if updated:
 
-            id_map, book_col_map = db_updater(db, field, updated)
-
-            # Todo: This is REALLY stupid - there is a call to a cache update method in the set_field function in the
-            #       cache
-            # which probably triggered all these calls - UPDATE THE DATABASE. THEN UPDATE THE CACHE. DO EACH with the
-            # FUNCTIONS WHICH CLAIM TO DO THAT!
-
-            # Update the cache - if the passed in field has a cache like structure
-            if field.table.name != "comments":
-                if hasattr(field, "table") and hasattr(field, "complex_update") and not field.complex_update:
-                    field.table.book_col_map.update(updated)
+            id_map, book_col_map = db_updater(item_id_val_map, allow_case_change=allow_case_change)
 
         if id_map is None and not deleted:
-            return set(book_id_val_map)
+            return set(item_id_val_map)
 
-        elif id_map is None and deleted:
-            rtn_info = dict()
-            rtn_info["dirtied"] = set(book_id_val_map)
-            rtn_info["id_map"] = None
-            rtn_info["book_col_map"] = dict(did for did in deleted)
-            return rtn_info
+        raise NotImplementedError("Need to do some more work to figure out what actually updated.")
 
-        else:
-            # Todo: Need to rename id_map
-            rtn_info = dict()
-            rtn_info["dirtied"] = set(book_id_val_map)
-            rtn_info["id_map"] = id_map
-            rtn_info["book_col_map"] = book_col_map
-            return rtn_info
-
-    @staticmethod
-    def generic_one_one_db_updater(db, values_map, field, table):
+    def generic_one_one_db_updater(self, values_map, allow_case_change=False) -> set[int]:
         """
         Generic update method - applies the book_id_val_map to the database.
-        :param db:
-        :param values_map:
-        :param field:
-        :param table:
+
+        :param values_map: Map to write out for the given 1-1 link.
+        :param allow_case_change:
+
         :return:
         """
-        db.update_columns(values_map=values_map, field=field, table=table)
+        # Todo: Perhaps we can do better on the return?
+        self.catalog.update_columns(values_map=values_map, field=self.column, table=self.table)
+        return set(values_map)
 
-    @staticmethod
-    def series_index_one_one_db_updater(db, values_map, field, table):
+    def series_index_one_one_db_updater(self, values_map, allow_case_change: bool = False) -> set[int]:
         """
-        Do an update on the series_index - this should update the series index for the primary index of all entries in
-        the values_map - creating a link to the null series if required.
-        :param db: The database to do the update on
+        Do an update on the series_index.
+
+        This should update the series index for the primary index of all entries in the values_map - creating a link to
+        the null series if required.
+
         :param values_map: Keyed with the id of the book and valued with the new series index
-        :param field:
-        :param table:
+        :param allow_case_change:
+
         :return:
         """
         for book_id in values_map:
             series_index_val = values_map[book_id]
-            library_set_series_index(db=db, title_id=book_id, idx=series_index_val)
+            library_set_series_index(db=self.catalog, title_id=book_id, idx=series_index_val)
 
-    @staticmethod
-    def last_modified_one_one_db_updater(db, values_map, field, table):
+        return set(values_map)
+
+    def last_modified_one_one_db_updater(self, values_map, allow_case_change: bool = False) -> set[int]:
         """
         Do an update on the last_modified field in the books table.
-        :param db: The database to do the update on.
+
         :param values_map: Keyed with the book id and valued with the new last_modified value.
-        :param field:
-        :param table:
+        :param allow_case_change:
+
         :return:
         """
         for book_id in values_map:
-            library_set_last_modified(db, book_id, values_map[book_id])
+            library_set_last_modified(self.catalog, book_id, values_map[book_id])
 
-    @staticmethod
-    def comments_one_one_in_other_updater(db, field, updated):
+        return set(values_map)
+
+    def comments_one_one_in_other_updater(
+            self,
+            values_map: dict[int, str],
+            allow_case_change: bool = False) -> set[int]:
         """
         Updater for the comments table
-        :param db:
-        :param field:
-        :param updated:
+
+        :param values_map:
+        :param allow_case_change: May actually mean something in this context ...
+
         :return:
         """
         id_map = dict()
         book_col_map = dict()
 
-        for book_id in updated:
-            comment_val = updated[book_id]
-            book_comment_id = library_set_comment(db, book_id, comment_val)
+        for book_id in values_map:
+            comment_val = values_map[book_id]
+            book_comment_id = library_set_comment(self.catalog, book_id, comment_val)
 
             id_map[book_comment_id] = comment_val
             book_col_map[book_id] = book_comment_id
 
-        return id_map, book_col_map
+        return set(values_map)
 
-    @staticmethod
-    def generic_one_one_in_other_updater(db, field, updated):
+    def generic_one_one_in_other_updater(
+            self,
+            values_map: dict[int, Any],
+            allow_case_change: bool = False) -> set[int]:
         """
         Generic one-one in other table updater.
+
         :return:
         """
-        # Update the database - unlinking the records in the other database from the books - they should be fielded by
-        # the maintenance bot
+        # Update the database - unlinking the records in the other database from the books - they should be garbage
+        # collected by the maintenance bot
         # Todo: What? Probably shouldn't be comments
-        for book_id, val in iteritems(updated):
-            comment_row = db.get_blank_row("comments")
+        for book_id, val in iteritems(values_map):
+            comment_row = self.catalog.get_blank_row("comments")
             comment_row["comment"] = val
             comment_row.sync()
-            db.macros.make_generic_link(
-                field.table.link_table,
-                field.table.link_table_bt_id_column,
-                field.table.link_table_table_id_column,
-                field.table.link_table_priority_col,
+            self.catalog.macros.make_generic_link(
+                self.link_table,
+                self.link_table_bt_id_column,
+                self.link_table_table_id_column,
+                self.link_table_priority_col,
                 book_id,
                 comment_row["comment_id"],
             )
 
-        return None, None
+        return set(values_map)
 
-    @staticmethod
-    def cc_one_one_updater(db, field, updated):
+    def cc_one_one_updater(self, values_map: dict[int, Any], allow_case_change: bool = False) -> set[int]:
         """
         Updater for the comments table
-        :param db:
-        :param field:
-        :param updated:
+
+        :param values_map:
+        :param allow_case_change:
         :return:
         """
-        for book_id, val in iteritems(updated):
+        for book_id, val in iteritems(values_map):
 
             # break the old link - if one exists
-            db.macros.break_cc_lt_link(lt=field.metadata["table"], book=book_id)
+            self.catalog.macros.break_cc_lt_link(lt=self.link_table, book=book_id)
 
             # write the new value to the custom column table
-            db.macros.add_cc_link_with_extra(lt=field.metadata["table"], book_id=book_id, value_id=val)
+            self.catalog.macros.add_cc_link_with_extra(lt=self.link_table, book_id=book_id, value_id=val)
 
-        return None, None
+        return set(values_map)

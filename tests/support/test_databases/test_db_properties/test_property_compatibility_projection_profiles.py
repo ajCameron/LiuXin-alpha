@@ -14,7 +14,7 @@ COMPATIBILITY_PROJECTION_DB_NAMES = (
 )
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 @pytest.mark.parametrize("db_name", COMPATIBILITY_PROJECTION_DB_NAMES)
 def test_profiled_fixtures_expose_current_compatibility_projection(
     provision_test_database,

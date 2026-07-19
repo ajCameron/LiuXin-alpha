@@ -5,6 +5,8 @@ Writer responsible for writing UUID changes out to the Database.
 The cache components, and write out to them, is controlled in caches.
 """
 
+# Todo: Do we want uuids for the entire wemi stacK? Prrooobably.
+
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
 from typing import TYPE_CHECKING

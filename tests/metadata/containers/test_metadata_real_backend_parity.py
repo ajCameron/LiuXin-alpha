@@ -310,7 +310,7 @@ def test_isfdb_backed_metadata_database_cache_lazy_parity_and_write_back(
         assert rehydrated_snapshot == _metadata_snapshot(_lazy_metadata(db, item_id))
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_metadata_rich_fixture_operational_round_trip_contract(
     provision_test_database,
 ) -> None:

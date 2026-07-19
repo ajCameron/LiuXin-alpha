@@ -66,7 +66,7 @@ def _resolve_row_or_error(browser, table_token: str, id_token: str):
     row_id = _safe_int(id_token)
     if row_id is None:
         raise ValueError("Row id must be an integer: {!r}".format(id_token))
-    row = browser.db.get_row_from_id(table, row_id)
+    row = browser.catalog.get_row_from_id(table, row_id)
     if row is None:
         raise ValueError("No row found in {} for id {}.".format(table, row_id))
     return table, row

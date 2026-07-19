@@ -44,8 +44,8 @@ def initialise_database_runtime(
     db.preferences = preferences_obj
 
     # Ensure all major collaborators can refer back to the live database object.
-    db.driver_wrapper.db = db
-    db.driver.db = db
+    db.driver_wrapper.catalog = db
+    db.driver.catalog = db
     db.macros.db = db
     db.metadata_sql.db = db
 

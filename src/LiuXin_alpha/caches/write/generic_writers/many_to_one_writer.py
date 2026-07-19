@@ -70,6 +70,10 @@ class ManyToOneWriter(BaseWriter):
         # columns prefix - #
         is_custom_series = dt == "series" and table.name.startswith("#")
 
+        # Todo: We need some way to do this independent of the cache
+        # Todo: We also need
+
+        # Todo: SOD ME. No wonder calibre is a barely functional mess! This is happening whenever there's a write
         # Map values to db ids - including any new values
         # Creating a map which will, in turn, be used to actually find all the ids in the table - by turning the id:item
         # relation around and applying a normalization function to every element in the table

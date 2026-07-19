@@ -2496,7 +2496,7 @@ def generate_test_tree(
     lx_random = LiuXinBadPseudoRandomGenerator(seed)
 
     table = root_row.table
-    db = root_row.db
+    db = root_row.catalog
     table_col_base = db.driver_wrapper.get_column_base(table)
     parent_col = "{}_parent".format(table_col_base)
     parent_pos = "{}_parent_position".format(table_col_base)
@@ -2571,7 +2571,7 @@ def generate_test_tree_with_datestamps(
     lx_random = LiuXinBadPseudoRandomGenerator(seed)
 
     table = root_row.table
-    db = root_row.db
+    db = root_row.catalog
     table_col_base = db.driver_wrapper.get_column_base(table)
     parent_col = "{}_parent".format(table_col_base)
     parent_pos = "{}_parent_position".format(table_col_base)
