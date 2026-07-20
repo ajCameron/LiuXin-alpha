@@ -9,7 +9,10 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-from LiuXin_alpha.databases.database.constants import HELPER_TABLES
+from LiuXin_alpha.databases.database.constants import (
+    HELPER_TABLES,
+    OPTIONAL_HELPER_TABLES,
+)
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
     DEFAULT_POSTGRES_SCHEMA,
     configured_postgres_schema,
@@ -39,7 +42,13 @@ STORAGE_REQUIRED_TABLES = (
     "digital_assets",
     "asset_replicas",
 )
-HELPER_REQUIRED_TABLES = tuple(sorted(set(HELPER_TABLES) - set(CORE_REQUIRED_TABLES)))
+HELPER_REQUIRED_TABLES = tuple(
+    sorted(
+        set(HELPER_TABLES)
+        - set(CORE_REQUIRED_TABLES)
+        - set(OPTIONAL_HELPER_TABLES)
+    )
+)
 LIUXIN_POSTGRES_REQUIRED_TABLES = CORE_REQUIRED_TABLES + STORAGE_REQUIRED_TABLES + HELPER_REQUIRED_TABLES
 
 CORE_REQUIRED_COLUMNS: dict[str, tuple[str, ...]] = {

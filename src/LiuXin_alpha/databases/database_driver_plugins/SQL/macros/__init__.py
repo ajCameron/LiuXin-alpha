@@ -28,6 +28,10 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.hash_tables_macro
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_mixin import (
     SQLPortableMacrosMixin,
 )
+from LiuXin_alpha.databases.normalized_identities import (
+    default_normalized_identity_spec,
+    normalize_identity_value,
+)
 
 
 if TYPE_CHECKING:
@@ -187,8 +191,34 @@ class SQLiteDatabaseMacros(
         :param table_id_col:
         :return:
         """
-        stmt = "UPDATE {0} SET {1} = ? WHERE {2} = ?;".format(table, column, table_id_col)
-        self.execute(stmt, (new_value, item_id))
+        spec = default_normalized_identity_spec(table, column)
+        if (
+            spec is not None
+            and spec.identity_column
+            in set(self.db.driver_wrapper.get_column_headings(table))
+        ):
+            identity_value = (
+                None
+                if new_value is None
+                else normalize_identity_value(
+                    new_value,
+                    spec.normalization_profile,
+                )
+            )
+            stmt = "UPDATE {0} SET {1} = ?, {2} = ? WHERE {3} = ?;".format(
+                table,
+                column,
+                spec.identity_column,
+                table_id_col,
+            )
+            self.execute(stmt, (new_value, identity_value, item_id))
+        else:
+            stmt = "UPDATE {0} SET {1} = ? WHERE {2} = ?;".format(
+                table,
+                column,
+                table_id_col,
+            )
+            self.execute(stmt, (new_value, item_id))
 
     def update_column_in_table(self, table, column, table_id_col, item_id, new_value):
         """

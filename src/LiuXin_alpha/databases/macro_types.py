@@ -51,9 +51,55 @@ class UnreferencedRowsSpec:
     protected_ids: tuple[Any, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class CanonicalIdentity:
+    """One stored canonical value resolved through its derived identity."""
+
+    table: str
+    row_id: Any
+    value_column: str
+    canonical_value: Any
+    identity_column: str
+    identity_value: Any
+    scope_values: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class NormalizedIdentityCollision:
+    """Rows which would share one declared normalized identity."""
+
+    table: str
+    value_column: str
+    identity_column: str
+    identity_value: Any
+    scope_values: Mapping[str, Any]
+    row_ids: tuple[Any, ...]
+    canonical_values: tuple[Any, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class NormalizedIdentityMigrationReport:
+    """Result of auditing or migrating declared normalized identities."""
+
+    declarations_checked: int
+    rows_examined: int
+    rows_needing_update: int
+    rows_updated: int
+    columns_added: tuple[str, ...] = ()
+    indexes_created: tuple[str, ...] = ()
+    collisions: tuple[NormalizedIdentityCollision, ...] = ()
+
+    @property
+    def clean(self) -> bool:
+        return not self.collisions
+
+
 __all__ = [
     "LINK_TYPE_UNSET",
+    "CanonicalIdentity",
     "LinkRow",
     "LinkValue",
+    "NormalizedIdentityCollision",
+    "NormalizedIdentityMigrationReport",
     "UnreferencedRowsSpec",
 ]

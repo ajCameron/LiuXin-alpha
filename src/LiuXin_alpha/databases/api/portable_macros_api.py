@@ -7,10 +7,12 @@ from contextlib import AbstractContextManager
 from typing import Any, Iterable, Mapping
 
 from LiuXin_alpha.databases.macro_types import (
+    CanonicalIdentity,
     LINK_TYPE_UNSET,
     LinkRow,
     LinkValue,
     UnreferencedRowsSpec,
+    NormalizedIdentityMigrationReport,
 )
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 
@@ -112,6 +114,69 @@ class PortableMacrosAPI(abc.ABC):
         additional_values: Mapping[str, Any] | None = None,
     ) -> dict[Any, Any]:
         """Ensure several values atomically, mapping each input value to its id."""
+
+    @abc.abstractmethod
+    def derive_identity_value(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+    ) -> Any:
+        """Derive the declared normalized identity for a display value."""
+
+    @abc.abstractmethod
+    def get_canonical_identity(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+        id_column: str | None = None,
+    ) -> CanonicalIdentity | None:
+        """Resolve a display value to the complete stored canonical identity."""
+
+    @abc.abstractmethod
+    def get_canonical_identity_by_key(
+        self,
+        table: str,
+        value_column: str,
+        identity_value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+        id_column: str | None = None,
+    ) -> CanonicalIdentity | None:
+        """Resolve an already-derived identity to its canonical stored row."""
+
+    @abc.abstractmethod
+    def get_canonical_value(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> Any | None:
+        """Resolve a display value and return its canonical stored spelling."""
+
+    @abc.abstractmethod
+    def get_canonical_value_by_identity(
+        self,
+        table: str,
+        value_column: str,
+        identity_value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> Any | None:
+        """Resolve a derived identity and return its canonical stored spelling."""
+
+    @abc.abstractmethod
+    def audit_normalized_identities(self) -> NormalizedIdentityMigrationReport:
+        """Report stale keys and collisions without changing the database."""
+
+    @abc.abstractmethod
+    def migrate_normalized_identities(self) -> NormalizedIdentityMigrationReport:
+        """Install, backfill, and index normalized identities atomically."""
 
     @abc.abstractmethod
     def temporary_value_table(

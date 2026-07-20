@@ -15,7 +15,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import (
 )
 from LiuXin_alpha.databases.macro_types import LinkValue, UnreferencedRowsSpec
 from LiuXin_alpha.databases.schema_specs import StorageColumnSpec, StorageLinkSpec
-from LiuXin_alpha.errors import InputIntegrityError
+from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
 
 def _pynocase(left, right) -> int:
@@ -50,6 +50,14 @@ class _Wrapper:
 
     def get_column_headings(self, table: str) -> list[str]:
         return [row[1] for row in self.driver.conn.execute(f'PRAGMA table_info("{table}")')]
+
+    def get_tables(self) -> tuple[str, ...]:
+        return tuple(
+            row[0]
+            for row in self.driver.conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+            )
+        )
 
     def get_id_column(self, table: str) -> str:
         info = list(self.driver.conn.execute(f'PRAGMA table_info("{table}")'))
@@ -166,6 +174,18 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             work_id INTEGER PRIMARY KEY,
             work_title TEXT
         );
+        CREATE TABLE genres (
+            genre_id INTEGER PRIMARY KEY,
+            genre TEXT,
+            genre_phash TEXT,
+            genre_parent_id INTEGER REFERENCES genres(genre_id)
+        );
+        CREATE UNIQUE INDEX genres_root_identity
+          ON genres(genre_phash)
+          WHERE genre_parent_id IS NULL AND genre_phash IS NOT NULL;
+        CREATE UNIQUE INDEX genres_scoped_identity
+          ON genres(genre_parent_id, genre_phash)
+          WHERE genre_parent_id IS NOT NULL AND genre_phash IS NOT NULL;
         CREATE TABLE demo_links (
             demo_link_id INTEGER PRIMARY KEY,
             demo_link_left_id INTEGER,
@@ -326,6 +346,122 @@ def test_policy_aware_ensure_uses_comparison_column_and_preserves_display_text(m
         "SELECT work_title FROM works WHERE work_id=?",
         (work_id,),
     ).fetchone()[0] == "Example Title"
+    unicode_work_id = macros.ensure_table_value(
+        "works",
+        "work_title",
+        "Die Straße",
+    )
+    assert macros.ensure_table_value(
+        "works",
+        "work_title",
+        "DIE STRASSE",
+    ) == unicode_work_id
+
+    assert macros.derive_identity_value(
+        "tags",
+        "tag",
+        " SCIENCE FICTION ",
+    ) == "sciencefiction"
+    identity = macros.get_canonical_identity_by_key(
+        "tags",
+        "tag",
+        "sciencefiction",
+    )
+    assert identity is not None
+    assert identity.row_id == first
+    assert identity.canonical_value == "Science Fiction"
+    assert macros.get_canonical_value(
+        "tags",
+        "tag",
+        "  SCIENCE FICTION ",
+    ) == "Science Fiction"
+
+
+def test_scoped_identity_lookup_and_ensure(macro_db):
+    macros, db = macro_db
+    db.driver.conn.executemany(
+        "INSERT INTO genres(genre_id, genre, genre_phash) VALUES (?, ?, ?)",
+        ((1, "Fiction", "fiction"), (2, "Media", "media")),
+    )
+
+    first = macros.ensure_table_value(
+        "genres",
+        "genre",
+        "Science Fiction",
+        additional_values={"genre_parent_id": 1},
+    )
+    assert macros.ensure_table_value(
+        "genres",
+        "genre",
+        "science fiction",
+        additional_values={"genre_parent_id": 1},
+    ) == first
+    second = macros.ensure_table_value(
+        "genres",
+        "genre",
+        "Science Fiction",
+        additional_values={"genre_parent_id": 2},
+    )
+    assert second != first
+
+    key = macros.derive_identity_value("genres", "genre", "SCIENCE FICTION")
+    assert macros.get_canonical_value_by_identity(
+        "genres",
+        "genre",
+        key,
+        scope_values={"genre_parent_id": 1},
+    ) == "Science Fiction"
+    with pytest.raises(InputIntegrityError, match="scope"):
+        macros.get_canonical_value_by_identity(
+            "genres",
+            "genre",
+            key,
+        )
+
+
+def test_normalized_identity_migration_reports_collisions_then_backfills():
+    db = _DB(postgres_shaped=False)
+    _create_schema(db.driver.conn)
+    macros = SQLiteDatabaseMacros(db)
+    db.driver.conn.execute(
+        """
+        CREATE TABLE custom_columns (
+            custom_column_id INTEGER PRIMARY KEY,
+            custom_column_label TEXT,
+            custom_column_name TEXT
+        )
+        """
+    )
+    db.driver.conn.execute(
+        "INSERT INTO custom_columns(custom_column_label, custom_column_name) "
+        "VALUES ('Reading State', 'reading_state')"
+    )
+    db.driver.conn.executemany(
+        "INSERT INTO tags(tag) VALUES (?)",
+        (("Duplicate Tag",), (" duplicate tag ",)),
+    )
+    db.driver.conn.commit()
+
+    audit = macros.audit_normalized_identities()
+    assert audit.rows_needing_update == 4
+    assert len(audit.collisions) == 1
+    with pytest.raises(DatabaseIntegrityError, match="collisions"):
+        macros.migrate_normalized_identities()
+    assert "normalized_identities" not in db.driver_wrapper.get_tables()
+
+    db.driver.conn.execute("DELETE FROM tags WHERE tag_id = 2")
+    report = macros.migrate_normalized_identities()
+    assert report.clean
+    assert report.rows_updated == 3
+    assert set(report.columns_added) == {
+        "custom_columns.custom_column_label_norm",
+        "custom_columns.custom_column_name_norm",
+    }
+    assert db.driver.conn.execute(
+        "SELECT tag_phash FROM tags WHERE tag_id = 1"
+    ).fetchone()[0] == "duplicatetag"
+    assert "normalized_identities" in db.driver_wrapper.get_tables()
+    db.driver.conn.close()
 
 
 def test_temporary_value_and_id_tables_are_scoped_and_removed(macro_db):

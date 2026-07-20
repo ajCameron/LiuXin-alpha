@@ -17,6 +17,7 @@ from dataclasses import replace
 import os
 import sqlite3
 import types
+import uuid
 from pathlib import Path
 
 import pytest
@@ -183,6 +184,38 @@ def test_column_metadata_field_accessors_propagate_through_database_layers(open_
         assert open_db.driver.direct_get_column_metadata(table, column) == expected
     finally:
         open_db.set_column_metadata(original)
+
+
+def test_normalized_identity_and_canonical_query_propagate_through_database_layers(
+    open_db,
+):
+    table = "tags"
+    column = "tag"
+    driver_spec = open_db.driver.direct_get_normalized_identity_spec(table, column)
+
+    assert driver_spec is not None
+    assert (
+        open_db.driver_wrapper.get_normalized_identity_spec(table, column)
+        == driver_spec
+    )
+    assert open_db.get_normalized_identity_spec(table, column) == driver_spec
+    assert driver_spec in tuple(open_db.driver.direct_iter_normalized_identity_specs())
+    assert driver_spec in tuple(open_db.driver_wrapper.iter_normalized_identity_specs())
+    assert driver_spec in tuple(open_db.iter_normalized_identity_specs())
+    assert open_db.get_normalized_identity_spec("works", "work_title") is None
+
+    canonical = f"Canonical Tag {uuid.uuid4().hex}"
+    row_id = open_db.macros.ensure_table_value(table, column, canonical)
+    key = open_db.derive_identity_value(table, column, canonical.swapcase())
+    identity = open_db.get_canonical_identity_by_key(table, column, key)
+    assert identity is not None
+    assert identity.row_id == row_id
+    assert identity.canonical_value == canonical
+    assert open_db.get_canonical_value(
+        table,
+        column,
+        f"  {canonical.swapcase()}  ",
+    ) == canonical
 
 
 def test_legacy_database_without_column_metadata_uses_inferred_read_policy(

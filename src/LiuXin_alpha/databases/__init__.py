@@ -33,12 +33,21 @@ if TYPE_CHECKING:  # pragma: no cover
         register_database_driver,
     )
     from LiuXin_alpha.databases.maintenance import Maintainer
-    from LiuXin_alpha.databases.macro_types import LinkRow, LinkValue, UnreferencedRowsSpec
+    from LiuXin_alpha.databases.macro_types import (
+        CanonicalIdentity,
+        LinkRow,
+        LinkValue,
+        NormalizedIdentityCollision,
+        NormalizedIdentityMigrationReport,
+        UnreferencedRowsSpec,
+    )
+    from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
     from LiuXin_alpha.databases.row import Row
 
 
 __all__ = [
     "CUSTOM_DATA_TYPES",
+    "CanonicalIdentity",
     "ColumnEmptyValuePolicy",
     "ColumnMergePolicy",
     "ColumnMetadata",
@@ -52,6 +61,9 @@ __all__ = [
     "Maintainer",
     "LinkRow",
     "LinkValue",
+    "NormalizedIdentityCollision",
+    "NormalizedIdentityMigrationReport",
+    "NormalizedIdentitySpec",
     "Row",
     "RowAPI",
     "UnreferencedRowsSpec",
@@ -85,10 +97,21 @@ def __getattr__(name: str):
         from LiuXin_alpha.databases.maintenance import Maintainer
 
         return Maintainer
-    if name in {"LinkRow", "LinkValue", "UnreferencedRowsSpec"}:
+    if name in {
+        "CanonicalIdentity",
+        "LinkRow",
+        "LinkValue",
+        "NormalizedIdentityCollision",
+        "NormalizedIdentityMigrationReport",
+        "UnreferencedRowsSpec",
+    }:
         from LiuXin_alpha.databases import macro_types as _macro_types
 
         return getattr(_macro_types, name)
+    if name == "NormalizedIdentitySpec":
+        from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
+
+        return NormalizedIdentitySpec
     if name in {
         "ColumnEmptyValuePolicy",
         "ColumnMergePolicy",

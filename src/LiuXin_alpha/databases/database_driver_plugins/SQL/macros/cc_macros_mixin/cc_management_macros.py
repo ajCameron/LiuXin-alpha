@@ -13,6 +13,8 @@ from typing import Optional, TYPE_CHECKING
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
+from LiuXin_alpha.databases.column_metadata import ColumnNormalizationProfile
+from LiuXin_alpha.databases.normalized_identities import normalize_identity_value
 
 if TYPE_CHECKING:
 
@@ -66,18 +68,51 @@ class CustomColumnsManagementMacrosMixin:
         conn = conn if conn is not None else self.db.driver.conn
 
         changed = False
+        custom_columns_headings = set(
+            self.db.driver_wrapper.get_column_headings("custom_columns")
+        )
         if name is not None:
-            conn.execute(
-                "UPDATE custom_columns SET custom_column_name=? WHERE custom_column_id=?",
-                (name, num),
-            )
+            if "custom_column_name_norm" in custom_columns_headings:
+                conn.execute(
+                    "UPDATE custom_columns "
+                    "SET custom_column_name=?, custom_column_name_norm=? "
+                    "WHERE custom_column_id=?",
+                    (
+                        name,
+                        normalize_identity_value(
+                            name,
+                            ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
+                        ),
+                        num,
+                    ),
+                )
+            else:
+                conn.execute(
+                    "UPDATE custom_columns SET custom_column_name=? WHERE custom_column_id=?",
+                    (name, num),
+                )
             changed = True
 
         if label is not None:
-            conn.execute(
-                "UPDATE custom_columns SET custom_column_label=? WHERE custom_column_id=?",
-                (label, num),
-            )
+            if "custom_column_label_norm" in custom_columns_headings:
+                conn.execute(
+                    "UPDATE custom_columns "
+                    "SET custom_column_label=?, custom_column_label_norm=? "
+                    "WHERE custom_column_id=?",
+                    (
+                        label,
+                        normalize_identity_value(
+                            label,
+                            ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
+                        ),
+                        num,
+                    ),
+                )
+            else:
+                conn.execute(
+                    "UPDATE custom_columns SET custom_column_label=? WHERE custom_column_id=?",
+                    (label, num),
+                )
             changed = True
 
         if is_editable is not None:
@@ -514,4 +549,3 @@ class CustomColumnsManagementMacrosMixin:
 
         conn.execute("DELETE FROM custom_columns WHERE custom_column_mark_for_delete=1;")
         conn.commit()
-

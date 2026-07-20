@@ -12,6 +12,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 from LiuXin_alpha.databases.schema_specs import (
     StorageSchemaSpec,
     StorageTableSpec,
@@ -75,6 +76,18 @@ class SchemaIntrospectionAPI(abc.ABC):
     @abstractmethod
     def get_comparison_column(self, table: str, column: str) -> str | None:
         """Return the derived comparison column, if any."""
+
+    @abstractmethod
+    def get_normalized_identity_spec(
+        self,
+        table: str,
+        value_column: str,
+    ) -> NormalizedIdentitySpec | None:
+        """Return the normalized row-identity declaration for a display column."""
+
+    @abstractmethod
+    def iter_normalized_identity_specs(self) -> Iterator[NormalizedIdentitySpec]:
+        """Yield every normalized row identity declared by the database."""
 
     @abstractmethod
     def set_comparison_column(

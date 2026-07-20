@@ -13,6 +13,12 @@ from typing import Any
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems, force_unicode
 
 from LiuXin_alpha.errors import RowIntegrityError, DatabaseIntegrityError, DatabaseDriverError
+from LiuXin_alpha.databases.normalized_identities import (
+    add_derived_identity_values,
+    default_normalized_identity_spec,
+    normalize_identity_value,
+    normalized_identity_defaults_for_table,
+)
 
 from LiuXin_alpha.utils.logging import default_log
 
@@ -41,7 +47,7 @@ class UpdateMixin:
             if len(int_id_values_map) == 0:
                 return None
 
-            sample_key = iter(int_id_values_map).next()
+            sample_key = next(iter(int_id_values_map))
             sample_values = int_id_values_map[sample_key]
             if isinstance(sample_values, dict):
                 return "many"
@@ -53,7 +59,7 @@ class UpdateMixin:
         if mode == "one":
 
             # Checking that the field and table make sense
-            field_table = self.__identify_table_from_column(field)
+            field_table = self.direct_identify_table_from_column(field)
 
             if table is not None:
                 if field_table != table:
@@ -70,19 +76,50 @@ class UpdateMixin:
                 else:
                     target_table = table
             else:
-                target_table = table
+                target_table = field_table
 
-            # Building the sequence - need it in the form of a tuple of tuples - value, id
-            sequence = ((v, k) for k, v in iteritems(id_values_map))
-
-            # Building the statement
             table_id_col = self.direct_get_id_column(target_table)
-            stmt = "UPDATE {} SET {}=? WHERE {}=?".format(target_table, field, table_id_col)
+            identity_spec = default_normalized_identity_spec(target_table, field)
+            if (
+                identity_spec is not None
+                and identity_spec.identity_column
+                in set(self.direct_get_column_headings(target_table))
+            ):
+                sequence = (
+                    (
+                        value,
+                        None
+                        if value is None
+                        else normalize_identity_value(
+                            value,
+                            identity_spec.normalization_profile,
+                        ),
+                        row_id,
+                    )
+                    for row_id, value in iteritems(id_values_map)
+                )
+                stmt = "UPDATE {} SET {}=?, {}=? WHERE {}=?".format(
+                    target_table,
+                    field,
+                    identity_spec.identity_column,
+                    table_id_col,
+                )
+            else:
+                # Building the sequence - need it in the form of a tuple of tuples - value, id
+                sequence = ((v, k) for k, v in iteritems(id_values_map))
+                stmt = "UPDATE {} SET {}=? WHERE {}=?".format(
+                    target_table,
+                    field,
+                    table_id_col,
+                )
 
             # Executing the statement and the sequence together
             conn = self.get_connection()
-            conn.executemany(stmt, sequence)
-            conn.commit()
+            try:
+                conn.executemany(stmt, sequence)
+                conn.commit()
+            finally:
+                conn.close()
 
         elif mode == "many":
 
@@ -109,6 +146,14 @@ class UpdateMixin:
             else:
                 new_row_dict[column] = row_dict[column]
         row_dict = new_row_dict
+        if normalized_identity_defaults_for_table(target_table):
+            row_dict = add_derived_identity_values(
+                target_table,
+                row_dict,
+                available_columns=set(
+                    self.direct_get_column_headings(target_table)
+                ),
+            )
 
         # working out what the id column for the table is called
         row_id = self.direct_get_id_column(target_table)

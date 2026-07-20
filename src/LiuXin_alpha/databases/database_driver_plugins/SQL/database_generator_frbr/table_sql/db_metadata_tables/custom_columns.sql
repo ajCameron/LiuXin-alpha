@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS `custom_columns` (
   `custom_column_in_table` TEXT NULL,
 
   `custom_column_label` TEXT NULL,
+  `custom_column_label_norm` TEXT NULL,
   `custom_column_name` TEXT NULL,
+  `custom_column_name_norm` TEXT NULL,
 
   `custom_column_datatype` TEXT NULL,
   `custom_column_db_datatype` TEXT NULL,
@@ -37,5 +39,19 @@ CREATE TABLE IF NOT EXISTS `custom_columns` (
   )
 ;
 
+
+-- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_custom_columns_unique_label_norm`
+ON `custom_columns` (`custom_column_label_norm`)
+WHERE `custom_column_label_norm` IS NOT NULL;
+
+-- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_custom_columns_unique_name_norm`
+ON `custom_columns` (`custom_column_name_norm`)
+WHERE `custom_column_name_norm` IS NOT NULL;
 
 -- BREAK

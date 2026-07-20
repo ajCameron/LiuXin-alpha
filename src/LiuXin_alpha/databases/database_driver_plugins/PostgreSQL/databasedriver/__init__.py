@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from copy import deepcopy
 from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import replace
 from typing import Any
 
 from LiuXin_alpha.databases.column_metadata import (
@@ -31,6 +32,12 @@ from LiuXin_alpha.databases.database_driver_plugins.macros_base import MacrosBas
 from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_mixin import (
     SQLPortableMacrosMixin,
+)
+from LiuXin_alpha.databases.normalized_identities import (
+    add_derived_identity_values,
+    default_normalized_identity_spec,
+    normalize_identity_value,
+    normalized_identity_defaults_for_table,
 )
 from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
 from LiuXin_alpha.errors import DatabaseDriverError, DatabaseIntegrityError, InputIntegrityError
@@ -61,8 +68,32 @@ class PostgresDatabaseMacros(
         return self.db.driver_wrapper.executemany
 
     def direct_update_column_in_table(self, table, column, table_id_col, item_id, new_value):
-        stmt = f"update {self._table_sql(table)} set {_q(column)} = %s where {_q(table_id_col)} = %s"
-        self.execute(stmt, (new_value, item_id))
+        spec = default_normalized_identity_spec(table, column)
+        if (
+            spec is not None
+            and spec.identity_column
+            in set(self.db.driver_wrapper.get_column_headings(table))
+        ):
+            identity_value = (
+                None
+                if new_value is None
+                else normalize_identity_value(
+                    new_value,
+                    spec.normalization_profile,
+                )
+            )
+            stmt = (
+                f"update {self._table_sql(table)} "
+                f"set {_q(column)} = %s, {_q(spec.identity_column)} = %s "
+                f"where {_q(table_id_col)} = %s"
+            )
+            self.execute(stmt, (new_value, identity_value, item_id))
+        else:
+            stmt = (
+                f"update {self._table_sql(table)} "
+                f"set {_q(column)} = %s where {_q(table_id_col)} = %s"
+            )
+            self.execute(stmt, (new_value, item_id))
 
     def _table_sql(self, table: str) -> str:
         driver = getattr(getattr(self.db, "driver_wrapper", None), "driver", None)
@@ -713,6 +744,7 @@ class DatabaseDriver(
 
     def direct_set_column_metadata(self, metadata: ColumnMetadata) -> None:
         metadata = self._validated_column_metadata_input(metadata)
+        self._validate_normalized_identity_metadata(metadata)
         if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
             raise DatabaseIntegrityError(
                 "database has no column_metadata table; migrate the schema before storing column policy"
@@ -757,6 +789,12 @@ class DatabaseDriver(
         table_name, column_name = self._validated_column_metadata_target(table, column)
         if type(case_sensitive) is not bool:
             raise InputIntegrityError("case_sensitive must be a bool")
+        self._validate_normalized_identity_metadata(
+            replace(
+                self.direct_get_column_metadata(table_name, column_name),
+                case_sensitive=case_sensitive,
+            )
+        )
         if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
             raise DatabaseIntegrityError(
                 "database has no column_metadata table; migrate the schema before storing column policy"
@@ -1124,6 +1162,14 @@ class DatabaseDriver(
         row_dict = dict(row_dict)
         target_table = self.direct_identify_table_from_row(row_dict)
         row_dict.pop("table", None)
+        if normalized_identity_defaults_for_table(target_table):
+            row_dict = add_derived_identity_values(
+                target_table,
+                row_dict,
+                available_columns=set(
+                    self.direct_get_column_headings(target_table)
+                ),
+            )
 
         table_id_col = self.direct_get_id_column(target_table)
         columns = list(row_dict)
@@ -1166,6 +1212,18 @@ class DatabaseDriver(
         target_table = self.direct_identify_table_from_row(row_dict)
         row_dict = deepcopy(dict(row_dict))
         row_dict.pop("table", None)
+        row_dict = {
+            column: None if value == "None" else value
+            for column, value in row_dict.items()
+        }
+        if normalized_identity_defaults_for_table(target_table):
+            row_dict = add_derived_identity_values(
+                target_table,
+                row_dict,
+                available_columns=set(
+                    self.direct_get_column_headings(target_table)
+                ),
+            )
 
         table_id_col = self.direct_get_id_column(target_table)
         if table_id_col not in row_dict:
@@ -1175,7 +1233,7 @@ class DatabaseDriver(
             return True
 
         assignments = ", ".join(f"{_q(column)} = %s" for column in row_dict)
-        values = tuple(None if value == "None" else value for value in row_dict.values()) + (target_row_id,)
+        values = tuple(row_dict.values()) + (target_row_id,)
         stmt = f"update {self._table_sql(target_table)} set {assignments} where {_q(table_id_col)} = %s"
 
         conn = self._primary_connection()
@@ -1202,16 +1260,44 @@ class DatabaseDriver(
             raise InputIntegrityError("PostgreSQL direct_update_columns requires a field for one-column updates.")
         target_table = table or self.direct_identify_table_from_column(field)
         table_id_col = self.direct_get_id_column(target_table)
-        rows = [
-            (None if value == "None" else value, row_id)
-            for row_id, value in id_values_map.items()
-        ]
+        identity_spec = default_normalized_identity_spec(target_table, field)
+        if (
+            identity_spec is not None
+            and identity_spec.identity_column
+            in set(self.direct_get_column_headings(target_table))
+        ):
+            rows = [
+                (
+                    None if value == "None" else value,
+                    (
+                        None
+                        if value in (None, "None")
+                        else normalize_identity_value(
+                            value,
+                            identity_spec.normalization_profile,
+                        )
+                    ),
+                    row_id,
+                )
+                for row_id, value in id_values_map.items()
+            ]
+            stmt = (
+                f"update {self._table_sql(target_table)} "
+                f"set {_q(field)} = %s, {_q(identity_spec.identity_column)} = %s "
+                f"where {_q(table_id_col)} = %s"
+            )
+        else:
+            rows = [
+                (None if value == "None" else value, row_id)
+                for row_id, value in id_values_map.items()
+            ]
+            stmt = (
+                f"update {self._table_sql(target_table)} "
+                f"set {_q(field)} = %s where {_q(table_id_col)} = %s"
+            )
         conn = self._primary_connection()
         with conn:
-            conn.executemany(
-                f"update {self._table_sql(target_table)} set {_q(field)} = %s where {_q(table_id_col)} = %s",
-                rows,
-            )
+            conn.executemany(stmt, rows)
         self._zero_prop_cache()
         return True
 

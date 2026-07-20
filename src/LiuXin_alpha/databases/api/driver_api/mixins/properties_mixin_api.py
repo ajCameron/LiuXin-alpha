@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Optional, Iterable, Any
+from typing import Optional, Iterable, Iterator, Any
 
 from LiuXin_alpha.databases.column_metadata import (
     ColumnEmptyValuePolicy,
@@ -11,6 +11,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 
 
 class DriverDatabasePropertiesMixinAPI(abc.ABC):
@@ -87,6 +88,20 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         column: str,
     ) -> str | None:
         """Return the derived comparison column, if any."""
+
+    @abc.abstractmethod
+    def direct_get_normalized_identity_spec(
+        self,
+        table: str,
+        value_column: str,
+    ) -> NormalizedIdentitySpec | None:
+        """Return the normalized row-identity declaration for a display column."""
+
+    @abc.abstractmethod
+    def direct_iter_normalized_identity_specs(
+        self,
+    ) -> Iterator[NormalizedIdentitySpec]:
+        """Yield every normalized row identity declared by the database."""
 
     @abc.abstractmethod
     def direct_set_comparison_column(

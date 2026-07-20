@@ -26,8 +26,11 @@ book groups, etc.).
 from __future__ import annotations
 
 from typing import Dict
+import uuid
 
 import pytest
+
+from LiuXin_alpha.metadata.standardization import make_tag_search_term
 
 
 _CONTRACT_TABLE = "contract_crud_roundtrips"
@@ -165,6 +168,25 @@ def test_update_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pi
     # text2 was never set; should remain None/empty (driver dependent). We only
     # assert it didn't spontaneously become the old text.
     assert after.get(crud_cols["text2"]) != original_text
+
+
+def test_identity_key_is_derived_on_direct_insert_and_update(driver) -> None:
+    original = f"Driver Identity {uuid.uuid4().hex}"
+    row_id = driver.direct_add_simple_row_dict({"tag": original})
+    row = driver.direct_get_row_dict_from_id("tags", row_id)
+    assert row["tag_phash"] == make_tag_search_term(original)
+
+    changed = f"Changed Identity {uuid.uuid4().hex}"
+    driver.direct_update_row_dict({"tag_id": row_id, "tag": changed})
+    row = driver.direct_get_row_dict_from_id("tags", row_id)
+    assert row["tag"] == changed
+    assert row["tag_phash"] == make_tag_search_term(changed)
+
+    bulk_changed = f"Bulk Identity {uuid.uuid4().hex}"
+    driver.direct_update_columns({row_id: bulk_changed}, field="tag")
+    row = driver.direct_get_row_dict_from_id("tags", row_id)
+    assert row["tag"] == bulk_changed
+    assert row["tag_phash"] == make_tag_search_term(bulk_changed)
 
 
 def test_delete_roundtrip(driver, crud_table: str, crud_cols: Dict[str, str], pick_payload) -> None:

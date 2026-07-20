@@ -11,21 +11,32 @@ import hashlib
 import json
 import math
 import re
-import unicodedata
 import uuid
 from typing import Any, Iterator
 
 from LiuXin_alpha.databases.column_metadata import (
+    COLUMN_METADATA_TABLE,
     ColumnEmptyValuePolicy,
     ColumnMetadata,
     ColumnNormalizationProfile,
     infer_column_metadata,
 )
 from LiuXin_alpha.databases.macro_types import (
+    CanonicalIdentity,
     LINK_TYPE_UNSET,
     LinkRow,
     LinkValue,
     UnreferencedRowsSpec,
+    NormalizedIdentityCollision,
+    NormalizedIdentityMigrationReport,
+)
+from LiuXin_alpha.databases.normalized_identities import (
+    NORMALIZED_IDENTITIES_TABLE,
+    NormalizedIdentitySpec,
+    default_normalized_identity_spec,
+    iter_normalized_identity_defaults,
+    normalize_identity_value,
+    normalized_identity_db_values,
 )
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
@@ -729,23 +740,7 @@ class SQLPortableMacrosMixin:
 
     @staticmethod
     def _normalise_value(value: Any, profile: ColumnNormalizationProfile) -> Any:
-        if not isinstance(value, str):
-            return value
-        if profile is ColumnNormalizationProfile.NONE:
-            return value
-        if profile is ColumnNormalizationProfile.UNICODE_NFC:
-            return unicodedata.normalize("NFC", value)
-        if profile is ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD:
-            return unicodedata.normalize("NFC", value).strip().casefold()
-        if profile is ColumnNormalizationProfile.TAG_SEARCH_TERM:
-            from LiuXin_alpha.metadata.standardization import make_tag_search_term
-
-            return make_tag_search_term(unicodedata.normalize("NFC", value))
-        if profile is ColumnNormalizationProfile.TITLE_SEARCH_TERM:
-            from LiuXin_alpha.metadata.standardization import make_title_search_term
-
-            return make_title_search_term(unicodedata.normalize("NFC", value))
-        raise InputIntegrityError(f"Unsupported normalization profile: {profile!r}")
+        return normalize_identity_value(value, profile)
 
     @staticmethod
     def _validate_ensure_value(value: Any, metadata: ColumnMetadata) -> None:
@@ -775,8 +770,17 @@ class SQLPortableMacrosMixin:
         value: Any,
         metadata: ColumnMetadata,
         comparison_value: Any,
+        scope_values: Mapping[str, Any],
     ) -> Any | None:
         search_column = metadata.comparison_column or value_column
+        scope_conditions: list[str] = []
+        scope_bindings: list[Any] = []
+        for column, scoped_value in scope_values.items():
+            if scoped_value is None:
+                scope_conditions.append(f"{_quoted(column)} IS NULL")
+            else:
+                scope_conditions.append(f"{_quoted(column)} = ?")
+                scope_bindings.append(scoped_value)
         if (
             metadata.comparison_column is None
             and metadata.normalization_profile is not ColumnNormalizationProfile.NONE
@@ -785,23 +789,12 @@ class SQLPortableMacrosMixin:
                 f"SELECT {_quoted(id_column)}, {_quoted(value_column)} "
                 f"FROM {self._macro_table_sql(table)}"
             )
-            values: tuple[Any, ...] = ()
-            if (
-                metadata.normalization_profile
-                is ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD
-                and isinstance(value, str)
-            ):
-                if hasattr(self._macro_driver(), "schema"):
-                    sql += (
-                        f" WHERE LOWER(TRIM({_quoted(value_column)})) "
-                        "= LOWER(TRIM(?))"
-                    )
-                else:
-                    sql += (
-                        f" WHERE TRIM({_quoted(value_column)}) "
-                        "= TRIM(?) COLLATE PYNOCASE"
-                    )
-                values = (value,)
+            if scope_conditions:
+                sql += " WHERE " + " AND ".join(scope_conditions)
+            # Python's Unicode casefolding is deliberately authoritative.
+            # SQL LOWER/NOCASE are only approximate and can discard valid
+            # matches such as "Straße" versus "STRASSE".
+            values = tuple(scope_bindings)
             matches = [
                 _row_value(row, 0, id_column)
                 for row in conn.execute(sql, values)
@@ -837,6 +830,9 @@ class SQLPortableMacrosMixin:
         else:
             sql += " = ? COLLATE PYNOCASE"
             values = (search_value,)
+        if scope_conditions:
+            sql += " AND " + " AND ".join(scope_conditions)
+            values = (*values, *scope_bindings)
         rows = list(conn.execute(sql, values))
         if len(rows) > 1:
             raise DatabaseIntegrityError(
@@ -856,6 +852,26 @@ class SQLPortableMacrosMixin:
     ) -> Any:
         metadata = self._column_metadata(table, value_column)
         self._validate_ensure_value(value, metadata)
+        identity_spec = self._optional_normalized_identity_spec(
+            table,
+            value_column,
+        )
+        scope_values: dict[str, Any] = {}
+        if identity_spec is not None and identity_spec.scope_columns:
+            missing_scope = [
+                column
+                for column in identity_spec.scope_columns
+                if column not in additional_values
+            ]
+            if missing_scope:
+                raise InputIntegrityError(
+                    f"Ensuring {table}.{value_column} requires identity scope "
+                    f"column(s): {', '.join(missing_scope)}"
+                )
+            scope_values = {
+                column: additional_values[column]
+                for column in identity_spec.scope_columns
+            }
         comparison_value = self._normalise_value(value, metadata.normalization_profile)
         existing_id = self._find_ensured_id(
             conn,
@@ -865,6 +881,7 @@ class SQLPortableMacrosMixin:
             value=value,
             metadata=metadata,
             comparison_value=comparison_value,
+            scope_values=scope_values,
         )
         if existing_id is not None:
             return existing_id
@@ -889,6 +906,7 @@ class SQLPortableMacrosMixin:
             value=value,
             metadata=metadata,
             comparison_value=comparison_value,
+            scope_values=scope_values,
         )
         if ensured_id is None:
             raise DatabaseIntegrityError(
@@ -972,6 +990,745 @@ class SQLPortableMacrosMixin:
                 )
                 for value in materialized
             }
+
+    def _optional_normalized_identity_spec(
+        self,
+        table: str,
+        value_column: str,
+    ) -> NormalizedIdentitySpec | None:
+        getter = getattr(
+            self.db.driver_wrapper,
+            "get_normalized_identity_spec",
+            None,
+        )
+        if callable(getter):
+            return getter(table, value_column)
+        else:
+            spec = default_normalized_identity_spec(table, value_column)
+        return spec
+
+    def _normalized_identity_spec(
+        self,
+        table: str,
+        value_column: str,
+    ) -> NormalizedIdentitySpec:
+        spec = self._optional_normalized_identity_spec(table, value_column)
+        if spec is None:
+            raise InputIntegrityError(
+                f"{table}.{value_column} is not declared as a normalized identity."
+            )
+        self._validate_columns(
+            spec.table,
+            (
+                spec.value_column,
+                spec.identity_column,
+                *spec.scope_columns,
+            ),
+        )
+        return spec
+
+    def derive_identity_value(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+    ) -> Any:
+        """Derive the database-declared identity key for a display value."""
+
+        table = _identifier(table, kind="table name")
+        value_column = _identifier(value_column, kind="column name")
+        spec = self._normalized_identity_spec(table, value_column)
+        return normalize_identity_value(value, spec.normalization_profile)
+
+    @staticmethod
+    def _identity_scope_values(
+        spec: NormalizedIdentitySpec,
+        scope_values: Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        supplied = dict(scope_values or {})
+        expected = set(spec.scope_columns)
+        if set(supplied) != expected:
+            missing = sorted(expected - set(supplied))
+            unexpected = sorted(set(supplied) - expected)
+            details = []
+            if missing:
+                details.append("missing " + ", ".join(missing))
+            if unexpected:
+                details.append("unexpected " + ", ".join(unexpected))
+            suffix = ": " + "; ".join(details) if details else ""
+            raise InputIntegrityError(
+                f"Identity scope for {spec.table}.{spec.value_column} must "
+                f"contain exactly {list(spec.scope_columns)!r}{suffix}"
+            )
+        return {
+            column: supplied[column]
+            for column in spec.scope_columns
+        }
+
+    def get_canonical_identity_by_key(
+        self,
+        table: str,
+        value_column: str,
+        identity_value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+        id_column: str | None = None,
+    ) -> CanonicalIdentity | None:
+        """Resolve a derived identity key to the canonical stored row/value."""
+
+        table = _identifier(table, kind="table name")
+        value_column = _identifier(value_column, kind="column name")
+        spec = self._normalized_identity_spec(table, value_column)
+        if identity_value is None:
+            raise InputIntegrityError("A normalized identity key cannot be NULL.")
+        scope = self._identity_scope_values(spec, scope_values)
+        id_column = (
+            _identifier(id_column, kind="id column")
+            if id_column is not None
+            else self.db.driver_wrapper.get_id_column(table)
+        )
+        self._validate_columns(table, (id_column,))
+
+        selected = (
+            id_column,
+            spec.value_column,
+            spec.identity_column,
+            *spec.scope_columns,
+        )
+        conditions = [f"{_quoted(spec.identity_column)} = ?"]
+        values: list[Any] = [identity_value]
+        for column, value in scope.items():
+            if value is None:
+                conditions.append(f"{_quoted(column)} IS NULL")
+            else:
+                conditions.append(f"{_quoted(column)} = ?")
+                values.append(value)
+        sql = (
+            f"SELECT {', '.join(_quoted(column) for column in selected)} "
+            f"FROM {self._macro_table_sql(table)} "
+            f"WHERE {' AND '.join(conditions)}"
+        )
+        rows = list(self._macro_connection().execute(sql, tuple(values)))
+        if len(rows) > 1:
+            raise DatabaseIntegrityError(
+                f"Normalized identity matched multiple rows in "
+                f"{table}.{spec.identity_column}."
+            )
+        if not rows:
+            return None
+        row = rows[0]
+        return CanonicalIdentity(
+            table=table,
+            row_id=_row_value(row, 0, id_column),
+            value_column=spec.value_column,
+            canonical_value=_row_value(row, 1, spec.value_column),
+            identity_column=spec.identity_column,
+            identity_value=_row_value(row, 2, spec.identity_column),
+            scope_values={
+                column: _row_value(row, index + 3, column)
+                for index, column in enumerate(spec.scope_columns)
+            },
+        )
+
+    def get_canonical_identity(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+        id_column: str | None = None,
+    ) -> CanonicalIdentity | None:
+        """Resolve a display value to the canonical stored row/value."""
+
+        identity_value = self.derive_identity_value(table, value_column, value)
+        return self.get_canonical_identity_by_key(
+            table,
+            value_column,
+            identity_value,
+            scope_values=scope_values,
+            id_column=id_column,
+        )
+
+    def get_canonical_value_by_identity(
+        self,
+        table: str,
+        value_column: str,
+        identity_value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> Any | None:
+        """Resolve a derived key and return only the canonical display value."""
+
+        identity = self.get_canonical_identity_by_key(
+            table,
+            value_column,
+            identity_value,
+            scope_values=scope_values,
+        )
+        return None if identity is None else identity.canonical_value
+
+    def get_canonical_value(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> Any | None:
+        """Resolve a display value and return only its canonical spelling."""
+
+        identity = self.get_canonical_identity(
+            table,
+            value_column,
+            value,
+            scope_values=scope_values,
+        )
+        return None if identity is None else identity.canonical_value
+
+    def _existing_normalized_identity_specs(
+        self,
+    ) -> tuple[
+        tuple[NormalizedIdentitySpec, ...],
+        dict[str, set[str]],
+    ]:
+        tables = set(self.db.driver_wrapper.get_tables())
+        columns_by_table = {
+            table: set(self._column_names(table))
+            for table in tables
+        }
+        specs: dict[tuple[str, str], NormalizedIdentitySpec] = {}
+        for spec in iter_normalized_identity_defaults():
+            columns = columns_by_table.get(spec.table)
+            if columns is None:
+                continue
+            if spec.value_column not in columns:
+                continue
+            if not set(spec.scope_columns) <= columns:
+                continue
+            specs[(spec.table, spec.value_column)] = spec
+
+        iterator = getattr(
+            self.db.driver_wrapper,
+            "iter_normalized_identity_specs",
+            None,
+        )
+        if callable(iterator):
+            try:
+                declared_specs = tuple(iterator())
+            except DatabaseIntegrityError:
+                declared_specs = ()
+            for spec in declared_specs:
+                columns = columns_by_table.get(spec.table)
+                if columns is None:
+                    continue
+                required = {spec.value_column, *spec.scope_columns}
+                if required <= columns:
+                    specs[(spec.table, spec.value_column)] = spec
+        return (
+            tuple(specs[key] for key in sorted(specs)),
+            columns_by_table,
+        )
+
+    def _inspect_normalized_identities(
+        self,
+        conn: Any,
+        specs: tuple[NormalizedIdentitySpec, ...],
+        columns_by_table: Mapping[str, set[str]],
+    ) -> tuple[
+        NormalizedIdentityMigrationReport,
+        tuple[tuple[NormalizedIdentitySpec, str, Any, Any], ...],
+    ]:
+        rows_examined = 0
+        rows_needing_update = 0
+        updates: list[tuple[NormalizedIdentitySpec, str, Any, Any]] = []
+        collisions: list[NormalizedIdentityCollision] = []
+
+        for spec in specs:
+            columns = columns_by_table[spec.table]
+            has_identity_column = spec.identity_column in columns
+            id_column = self.db.driver_wrapper.get_id_column(spec.table)
+            selected = [
+                id_column,
+                spec.value_column,
+                *(
+                    (spec.identity_column,)
+                    if has_identity_column
+                    else ()
+                ),
+                *spec.scope_columns,
+            ]
+            sql = (
+                f"SELECT {', '.join(_quoted(column) for column in selected)} "
+                f"FROM {self._macro_table_sql(spec.table)} "
+                f"ORDER BY {_quoted(id_column)}"
+            )
+            identity_offset = 2 if has_identity_column else None
+            scope_offset = 3 if has_identity_column else 2
+            groups: dict[
+                tuple[tuple[Any, ...], Any],
+                list[tuple[Any, Any]],
+            ] = {}
+            for row in conn.execute(sql):
+                rows_examined += 1
+                row_id = _row_value(row, 0, id_column)
+                canonical_value = _row_value(row, 1, spec.value_column)
+                current_identity = (
+                    _row_value(row, identity_offset, spec.identity_column)
+                    if identity_offset is not None
+                    else None
+                )
+                desired_identity = (
+                    None
+                    if canonical_value is None
+                    else normalize_identity_value(
+                        canonical_value,
+                        spec.normalization_profile,
+                    )
+                )
+                scope_tuple = tuple(
+                    _row_value(row, scope_offset + index, column)
+                    for index, column in enumerate(spec.scope_columns)
+                )
+                if desired_identity is not None:
+                    groups.setdefault(
+                        (scope_tuple, desired_identity),
+                        [],
+                    ).append((row_id, canonical_value))
+                if (
+                    not has_identity_column
+                    and desired_identity is not None
+                ) or (
+                    has_identity_column
+                    and current_identity != desired_identity
+                ):
+                    rows_needing_update += 1
+                    updates.append(
+                        (spec, id_column, row_id, desired_identity)
+                    )
+
+            if spec.unique:
+                for (scope_tuple, identity_value), members in groups.items():
+                    if len(members) < 2:
+                        continue
+                    collisions.append(
+                        NormalizedIdentityCollision(
+                            table=spec.table,
+                            value_column=spec.value_column,
+                            identity_column=spec.identity_column,
+                            identity_value=identity_value,
+                            scope_values=dict(
+                                zip(spec.scope_columns, scope_tuple)
+                            ),
+                            row_ids=tuple(member[0] for member in members),
+                            canonical_values=tuple(
+                                member[1] for member in members
+                            ),
+                        )
+                    )
+
+        return (
+            NormalizedIdentityMigrationReport(
+                declarations_checked=len(specs),
+                rows_examined=rows_examined,
+                rows_needing_update=rows_needing_update,
+                rows_updated=0,
+                collisions=tuple(collisions),
+            ),
+            tuple(updates),
+        )
+
+    def audit_normalized_identities(self) -> NormalizedIdentityMigrationReport:
+        """Report stale derived keys and collisions without changing data."""
+
+        specs, columns_by_table = self._existing_normalized_identity_specs()
+        report, _updates = self._inspect_normalized_identities(
+            self._macro_connection(),
+            specs,
+            columns_by_table,
+        )
+        return report
+
+    @staticmethod
+    def _normalized_identity_index_name(
+        spec: NormalizedIdentitySpec,
+        suffix: str,
+    ) -> str:
+        schema_names = {
+            ("backup_policies", "backup_policy_name", "global"):
+                "idx_backup_policies_unique_name_norm",
+            ("custom_columns", "custom_column_label", "global"):
+                "idx_custom_columns_unique_label_norm",
+            ("custom_columns", "custom_column_name", "global"):
+                "idx_custom_columns_unique_name_norm",
+            ("genres", "genre", "scope_0"):
+                "idx_genres_unique_root_phash",
+            ("genres", "genre", "scope_1"):
+                "idx_genres_unique_parent_phash",
+            ("labels", "label_text", "global"):
+                "idx_labels_unique_norm",
+            ("replication_policies", "replication_policy_name", "global"):
+                "idx_replication_policies_unique_name_norm",
+            ("series", "series", "global"):
+                "idx_series_unique_name_norm",
+            ("subjects", "subject", "scope_0"):
+                "idx_subjects_unique_root_phash",
+            ("subjects", "subject", "scope_1"):
+                "idx_subjects_unique_parent_phash",
+            ("tags", "tag", "global"):
+                "idx_tags_unique_phash",
+        }
+        declared_name = schema_names.get(
+            (spec.table, spec.value_column, suffix)
+        )
+        if declared_name is not None:
+            return declared_name
+        name = (
+            f"uidx_{spec.table}_{spec.identity_column}_identity_{suffix}"
+        )
+        if len(name) <= 60:
+            return name
+        digest = hashlib.sha1(name.encode("utf-8")).hexdigest()[:10]
+        return f"uidx_{spec.table[:24]}_{digest}_{suffix}"[:60]
+
+    def _normalized_identity_index_statements(
+        self,
+        spec: NormalizedIdentitySpec,
+    ) -> tuple[tuple[str, str], ...]:
+        # SQLite's CREATE INDEX grammar does not accept a schema-qualified
+        # table after ON, even though ordinary SELECT/UPDATE statements do.
+        table_sql = (
+            self._macro_table_sql(spec.table)
+            if hasattr(self._macro_driver(), "schema")
+            else _quoted(spec.table)
+        )
+        key_sql = _quoted(spec.identity_column)
+        if not spec.scope_columns:
+            name = self._normalized_identity_index_name(spec, "global")
+            return (
+                (
+                    name,
+                    f"CREATE UNIQUE INDEX IF NOT EXISTS {_quoted(name)} "
+                    f"ON {table_sql} ({key_sql}) "
+                    f"WHERE {key_sql} IS NOT NULL",
+                ),
+            )
+
+        statements: list[tuple[str, str]] = []
+        # One partial index per NULL/non-NULL scope pattern makes NULL a real
+        # scope value on both SQLite and PostgreSQL.  A plain composite UNIQUE
+        # index would permit duplicate root taxonomy rows.
+        for mask in range(1 << len(spec.scope_columns)):
+            non_null_columns = [
+                column
+                for index, column in enumerate(spec.scope_columns)
+                if mask & (1 << index)
+            ]
+            suffix = f"scope_{mask:0{len(spec.scope_columns)}b}"
+            name = self._normalized_identity_index_name(spec, suffix)
+            indexed = [*non_null_columns, spec.identity_column]
+            conditions = [f"{key_sql} IS NOT NULL"]
+            for index, column in enumerate(spec.scope_columns):
+                conditions.append(
+                    f"{_quoted(column)} IS "
+                    + ("NOT NULL" if mask & (1 << index) else "NULL")
+                )
+            statements.append(
+                (
+                    name,
+                    f"CREATE UNIQUE INDEX IF NOT EXISTS {_quoted(name)} "
+                    f"ON {table_sql} "
+                    f"({', '.join(_quoted(column) for column in indexed)}) "
+                    f"WHERE {' AND '.join(conditions)}",
+                )
+            )
+        return tuple(statements)
+
+    @staticmethod
+    def _column_metadata_values(
+        metadata: ColumnMetadata,
+    ) -> tuple[Any, ...]:
+        return (
+            metadata.table,
+            metadata.column,
+            int(metadata.case_sensitive),
+            metadata.semantic_role.value,
+            metadata.normalization_profile.value,
+            metadata.comparison_column,
+            metadata.empty_value_policy.value,
+            metadata.merge_policy.value,
+            metadata.validation_profile.value,
+        )
+
+    def _seed_normalized_identity_column_metadata(
+        self,
+        conn: Any,
+        specs: tuple[NormalizedIdentitySpec, ...],
+        columns_by_table: Mapping[str, set[str]],
+    ) -> None:
+        catalog_columns = columns_by_table.get(COLUMN_METADATA_TABLE)
+        required_catalog_columns = {
+            "column_metadata_table_name",
+            "column_metadata_column_name",
+            "column_metadata_case_sensitive",
+            "column_metadata_semantic_role",
+            "column_metadata_normalization_profile",
+            "column_metadata_comparison_column",
+            "column_metadata_empty_value_policy",
+            "column_metadata_merge_policy",
+            "column_metadata_validation_profile",
+        }
+        if (
+            catalog_columns is None
+            or not required_catalog_columns <= catalog_columns
+        ):
+            return
+
+        catalog_sql = self._macro_table_sql(COLUMN_METADATA_TABLE)
+        for spec in specs:
+            expected_case_sensitive = spec.normalization_profile in {
+                ColumnNormalizationProfile.NONE,
+                ColumnNormalizationProfile.UNICODE_NFC,
+            }
+            display_metadata = replace(
+                infer_column_metadata(
+                    spec.table,
+                    spec.value_column,
+                    "TEXT",
+                ),
+                case_sensitive=expected_case_sensitive,
+                normalization_profile=spec.normalization_profile,
+                comparison_column=spec.identity_column,
+            )
+            conn.execute(
+                f"""
+                INSERT INTO {catalog_sql} (
+                  column_metadata_table_name,
+                  column_metadata_column_name,
+                  column_metadata_case_sensitive,
+                  column_metadata_semantic_role,
+                  column_metadata_normalization_profile,
+                  column_metadata_comparison_column,
+                  column_metadata_empty_value_policy,
+                  column_metadata_merge_policy,
+                  column_metadata_validation_profile
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (
+                  column_metadata_table_name,
+                  column_metadata_column_name
+                ) DO UPDATE SET
+                  column_metadata_case_sensitive =
+                    excluded.column_metadata_case_sensitive,
+                  column_metadata_normalization_profile =
+                    excluded.column_metadata_normalization_profile,
+                  column_metadata_comparison_column =
+                    excluded.column_metadata_comparison_column
+                """,
+                self._column_metadata_values(display_metadata),
+            )
+
+            identity_metadata = infer_column_metadata(
+                spec.table,
+                spec.identity_column,
+                "TEXT",
+            )
+            conn.execute(
+                f"""
+                INSERT INTO {catalog_sql} (
+                  column_metadata_table_name,
+                  column_metadata_column_name,
+                  column_metadata_case_sensitive,
+                  column_metadata_semantic_role,
+                  column_metadata_normalization_profile,
+                  column_metadata_comparison_column,
+                  column_metadata_empty_value_policy,
+                  column_metadata_merge_policy,
+                  column_metadata_validation_profile
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (
+                  column_metadata_table_name,
+                  column_metadata_column_name
+                ) DO NOTHING
+                """,
+                self._column_metadata_values(identity_metadata),
+            )
+
+        for column in sorted(
+            columns_by_table.get(NORMALIZED_IDENTITIES_TABLE, ())
+        ):
+            catalog_metadata = infer_column_metadata(
+                NORMALIZED_IDENTITIES_TABLE,
+                column,
+                (
+                    "INTEGER"
+                    if column == "normalized_identity_unique"
+                    else "TEXT"
+                ),
+                is_primary_key=column in {
+                    "normalized_identity_table_name",
+                    "normalized_identity_value_column",
+                },
+            )
+            conn.execute(
+                f"""
+                INSERT INTO {catalog_sql} (
+                  column_metadata_table_name,
+                  column_metadata_column_name,
+                  column_metadata_case_sensitive,
+                  column_metadata_semantic_role,
+                  column_metadata_normalization_profile,
+                  column_metadata_comparison_column,
+                  column_metadata_empty_value_policy,
+                  column_metadata_merge_policy,
+                  column_metadata_validation_profile
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (
+                  column_metadata_table_name,
+                  column_metadata_column_name
+                ) DO NOTHING
+                """,
+                self._column_metadata_values(catalog_metadata),
+            )
+
+    def migrate_normalized_identities(self) -> NormalizedIdentityMigrationReport:
+        """Install declarations, backfill keys, and enforce uniqueness.
+
+        The operation is atomic.  If normalization reveals two rows with the
+        same scoped identity, no schema or data changes are retained; call
+        :meth:`audit_normalized_identities` first to inspect those rows.
+        """
+
+        specs, columns_by_table = self._existing_normalized_identity_specs()
+        columns_added: list[str] = []
+        indexes_created: list[str] = []
+        with self._macro_transaction() as conn:
+            if (
+                not hasattr(self._macro_driver(), "schema")
+                and hasattr(conn, "in_transaction")
+                and not conn.in_transaction
+            ):
+                # sqlite3's connection context only commits/rolls back a
+                # transaction that has already begun.  Start one explicitly
+                # so DDL and backfill are one unit.
+                conn.execute("BEGIN")
+            report, updates = self._inspect_normalized_identities(
+                conn,
+                specs,
+                columns_by_table,
+            )
+            if report.collisions:
+                rendered = "; ".join(
+                    (
+                        f"{collision.table}.{collision.value_column} "
+                        f"key={collision.identity_value!r} "
+                        f"scope={dict(collision.scope_values)!r} "
+                        f"rows={collision.row_ids!r}"
+                    )
+                    for collision in report.collisions[:10]
+                )
+                raise DatabaseIntegrityError(
+                    "Normalized identity migration found collisions; "
+                    f"no changes were applied. {rendered}"
+                )
+
+            conn.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS
+                {self._macro_table_sql(NORMALIZED_IDENTITIES_TABLE)} (
+                  normalized_identity_table_name TEXT NOT NULL,
+                  normalized_identity_value_column TEXT NOT NULL,
+                  normalized_identity_key_column TEXT NOT NULL,
+                  normalized_identity_normalization_profile TEXT NOT NULL,
+                  normalized_identity_scope_columns_json TEXT NOT NULL DEFAULT '[]',
+                  normalized_identity_unique INTEGER NOT NULL DEFAULT 1,
+                  PRIMARY KEY (
+                    normalized_identity_table_name,
+                    normalized_identity_value_column
+                  ),
+                  CHECK (normalized_identity_unique IN (0, 1))
+                )
+                """
+            )
+            columns_by_table[NORMALIZED_IDENTITIES_TABLE] = {
+                "normalized_identity_table_name",
+                "normalized_identity_value_column",
+                "normalized_identity_key_column",
+                "normalized_identity_normalization_profile",
+                "normalized_identity_scope_columns_json",
+                "normalized_identity_unique",
+            }
+            for spec in specs:
+                columns = columns_by_table[spec.table]
+                if spec.identity_column in columns:
+                    continue
+                conn.execute(
+                    f"ALTER TABLE {self._macro_table_sql(spec.table)} "
+                    f"ADD COLUMN {_quoted(spec.identity_column)} TEXT NULL"
+                )
+                columns.add(spec.identity_column)
+                columns_added.append(
+                    f"{spec.table}.{spec.identity_column}"
+                )
+
+            self._seed_normalized_identity_column_metadata(
+                conn,
+                specs,
+                columns_by_table,
+            )
+
+            for spec, id_column, row_id, identity_value in updates:
+                conn.execute(
+                    f"UPDATE {self._macro_table_sql(spec.table)} "
+                    f"SET {_quoted(spec.identity_column)} = ? "
+                    f"WHERE {_quoted(id_column)} = ?",
+                    (identity_value, row_id),
+                )
+
+            for spec in specs:
+                values = normalized_identity_db_values(spec)
+                conn.execute(
+                    f"""
+                    INSERT INTO
+                    {self._macro_table_sql(NORMALIZED_IDENTITIES_TABLE)} (
+                      normalized_identity_table_name,
+                      normalized_identity_value_column,
+                      normalized_identity_key_column,
+                      normalized_identity_normalization_profile,
+                      normalized_identity_scope_columns_json,
+                      normalized_identity_unique
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (
+                      normalized_identity_table_name,
+                      normalized_identity_value_column
+                    ) DO UPDATE SET
+                      normalized_identity_key_column =
+                        excluded.normalized_identity_key_column,
+                      normalized_identity_normalization_profile =
+                        excluded.normalized_identity_normalization_profile,
+                      normalized_identity_scope_columns_json =
+                        excluded.normalized_identity_scope_columns_json,
+                      normalized_identity_unique =
+                        excluded.normalized_identity_unique
+                    """,
+                    values,
+                )
+                if not spec.unique:
+                    continue
+                for index_name, statement in (
+                    self._normalized_identity_index_statements(spec)
+                ):
+                    conn.execute(statement)
+                    indexes_created.append(index_name)
+
+        return NormalizedIdentityMigrationReport(
+            declarations_checked=report.declarations_checked,
+            rows_examined=report.rows_examined,
+            rows_needing_update=report.rows_needing_update,
+            rows_updated=len(updates),
+            columns_added=tuple(columns_added),
+            indexes_created=tuple(indexes_created),
+            collisions=(),
+        )
 
     # ------------------------------------------------------------------------------------------------------------------
     # Temporary value tables

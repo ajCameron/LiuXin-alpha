@@ -7,11 +7,12 @@ lowercases, title-cases, or otherwise rewrites stored display text.
 
 ## Decision rule
 
-Human-facing display columns fall into two groups:
+Human-facing display columns fall into two comparison groups:
 
-- **Case-insensitive identity** — names, titles, labels, taxonomy terms, sort
-  values, and human assignee/actor names. Case is presentation rather than
-  identity, so `Space Opera` and `space opera` denote the same tag.
+- **Case-insensitive comparison** — names, titles, labels, taxonomy terms, sort
+  values, and human assignee/actor names. Case is presentation for searching
+  and matching. This does not imply uniqueness: two works may legitimately
+  have the same title.
 - **Case-sensitive verbatim text** — prose, annotations, descriptions, reasons,
   errors, and resource names. A case-only edit can carry meaning in prose, and
   case-distinct resource names can coexist on case-sensitive filesystems.
@@ -81,8 +82,45 @@ The current derived comparison keys are:
 | `tags.tag` | `tags.tag_phash` | `tag_search_term` |
 | `labels.label_text` | `labels.label_text_norm` | `tag_search_term` |
 | `genres.genre` | `genres.genre_phash` | `title_search_term` |
-| `subjects.subject` | `subjects.subject_sort` | `title_search_term` |
+| `subjects.subject` | `subjects.subject_phash` | `title_search_term` |
 | `series.series` | `series.series_name_norm` | `title_search_term` |
+| `custom_columns.custom_column_label` | `custom_columns.custom_column_label_norm` | `unicode_nfc_trim_casefold` |
+| `custom_columns.custom_column_name` | `custom_columns.custom_column_name_norm` | `unicode_nfc_trim_casefold` |
+| `replication_policies.replication_policy_name` | `replication_policies.replication_policy_name_norm` | `unicode_nfc_trim_casefold` |
+| `backup_policies.backup_policy_name` | `backup_policies.backup_policy_name_norm` | `unicode_nfc_trim_casefold` |
+
+## Normalized row identities
+
+`normalized_identities` is the database-side catalog for the smaller set of
+display columns whose normalized value really does identify a row. Its
+declarations include the table, display column, derived key column,
+normalization profile, scope columns, and whether the identity is unique.
+
+The declared identities are:
+
+| Display column | Scope | Enforcement |
+| --- | --- | --- |
+| `tags.tag` | Global | Unique `tag_phash` |
+| `labels.label_text` | Global | Unique `label_text_norm` |
+| `series.series` | Global | Unique `series_name_norm` |
+| `custom_columns.custom_column_label` | Global | Unique normalized label |
+| `custom_columns.custom_column_name` | Global | Unique normalized name |
+| `replication_policies.replication_policy_name` | Global | Unique normalized name |
+| `backup_policies.backup_policy_name` | Global | Unique normalized name |
+| `genres.genre` | `genre_parent_id` | Unique derived key within the parent |
+| `subjects.subject` | `subject_parent_id` | Unique derived key within the parent |
+
+Root taxonomy rows receive a separate partial unique index. This is necessary
+because both SQLite and PostgreSQL otherwise allow multiple `NULL` values in a
+composite unique key. Work titles, agent names, and the other
+case-insensitive display columns are intentionally not in this catalog.
+
+Supported driver writes derive the key whenever the display value is inserted
+or changed; callers should not treat the derived column as independently
+editable. The database's unique indexes are the final collision guard.
+For a declared identity, the display column's case policy, normalization
+profile, and comparison column are schema invariants; the ordinary column
+metadata setters reject attempts to make them disagree with the declaration.
 
 ## Case-insensitive display columns
 
@@ -169,7 +207,7 @@ The same interface is available at each database layer:
 
 ```python
 database.get_case_sensitivity("tags", "tag")  # False
-database.set_case_sensitivity("tags", "tag", True)
+database.set_case_sensitivity("works", "work_title", False)
 
 metadata = database.get_column_metadata("tags", "tag")
 database.set_column_metadata(metadata)
@@ -186,6 +224,25 @@ database.set_normalization_profile(
 
 database.get_comparison_column("tags", "tag")
 database.set_comparison_column("tags", "tag", "tag_phash")
+
+database.get_normalized_identity_spec("tags", "tag")
+tuple(database.iter_normalized_identity_specs())
+
+key = database.derive_identity_value("tags", "tag", " Science Fiction ")
+database.get_canonical_value_by_identity("tags", "tag", key)
+# "Science Fiction" (the spelling retained by the first stored row)
+
+identity = database.get_canonical_identity_by_key("tags", "tag", key)
+identity.row_id
+identity.canonical_value
+
+genre_key = database.derive_identity_value("genres", "genre", "Space Opera")
+database.get_canonical_value_by_identity(
+    "genres",
+    "genre",
+    genre_key,
+    scope_values={"genre_parent_id": None},  # root scope is explicit
+)
 
 database.get_empty_value_policy("tags", "tag")
 database.set_empty_value_policy(
@@ -220,6 +277,20 @@ setter.
 `get_column_metadata` returns a frozen typed `ColumnMetadata` value. To change
 one field while retaining the rest, use `dataclasses.replace` and persist the
 result with `set_column_metadata`.
+
+For an older database, first inspect the conversion:
+
+```python
+report = database.audit_normalized_identities()
+report.rows_needing_update
+report.collisions
+```
+
+`database.migrate_normalized_identities()` atomically adds missing key/catalog
+columns, backfills derived values, stores the declarations, and creates the
+unique indexes. If normalization exposes a collision, it raises and rolls the
+whole operation back; the audit report contains the row ids and canonical
+spellings which need an explicit merge decision.
 
 When adding any physical column, the schema generator supplies a machine
 default automatically. When it is human-facing display text, add it to exactly one of

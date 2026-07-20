@@ -231,6 +231,38 @@ def test_column_metadata_policy_is_complete_and_persisted(driver) -> None:
         )
 
 
+def test_normalized_identity_declarations_are_database_backed(driver) -> None:
+    tag_spec = driver.direct_get_normalized_identity_spec("tags", "tag")
+    assert tag_spec is not None
+    assert tag_spec.identity_column == "tag_phash"
+    assert tag_spec.scope_columns == ()
+
+    genre_spec = driver.direct_get_normalized_identity_spec("genres", "genre")
+    assert genre_spec is not None
+    assert genre_spec.identity_column == "genre_phash"
+    assert genre_spec.scope_columns == ("genre_parent_id",)
+
+    declarations = tuple(driver.direct_iter_normalized_identity_specs())
+    assert tag_spec in declarations
+    assert genre_spec in declarations
+    assert driver.direct_get_normalized_identity_spec("works", "work_title") is None
+
+    tag_metadata = driver.direct_get_column_metadata("tags", "tag")
+    with pytest.raises(InputIntegrityError, match="normalized identity"):
+        driver.direct_set_column_metadata(
+            replace(
+                tag_metadata,
+                normalization_profile=ColumnNormalizationProfile.UNICODE_NFC,
+            )
+        )
+    with pytest.raises(InputIntegrityError, match="normalized identity"):
+        driver.direct_set_column_metadata(
+            replace(tag_metadata, comparison_column=None)
+        )
+    with pytest.raises(InputIntegrityError, match="normalized identity"):
+        driver.direct_set_case_sensitivity("tags", "tag", True)
+
+
 def test_column_metadata_field_accessors_are_typed_and_persisted(driver) -> None:
     table = "works"
     column = "work_title"
