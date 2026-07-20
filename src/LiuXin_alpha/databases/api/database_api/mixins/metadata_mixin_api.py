@@ -16,6 +16,7 @@ from LiuXin_alpha.databases.macro_types import (
     CanonicalIdentity,
     NormalizedIdentityMigrationReport,
 )
+from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 
 
 class DatabaseMetadataMixinAPI(abc.ABC):
@@ -107,6 +108,16 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         :param column:
         :return:
         """
+
+    @abc.abstractmethod
+    def get_link_capabilities(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return type/priority capabilities for an interlink or intralink."""
 
     @abc.abstractmethod
     def get_case_sensitivity(self, table: str, column: str) -> bool:

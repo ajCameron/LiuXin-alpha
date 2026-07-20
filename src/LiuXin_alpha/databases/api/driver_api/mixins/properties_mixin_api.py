@@ -12,12 +12,23 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnValidationProfile,
 )
 from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
+from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 
 
 class DriverDatabasePropertiesMixinAPI(abc.ABC):
     """
     Contains the API for driver level database properties mixins.
     """
+
+    @abc.abstractmethod
+    def direct_get_link_capabilities(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return type/priority capabilities for an interlink or intralink."""
 
     @abc.abstractmethod
     def direct_get_declared_column_datatype(self, table: str, column: str) -> str:

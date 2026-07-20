@@ -63,7 +63,7 @@ if TYPE_CHECKING:
 
 # Todo: Embed this version number in the database - so that we can check the version of the code used to produce each
 #       test database
-__object_version__ = (1, 1, 0)
+__object_version__ = (1, 2, 0)
 
 # Todo: Point uuid requests to the library_id instead
 

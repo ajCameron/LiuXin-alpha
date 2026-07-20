@@ -14,6 +14,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.schema_specs import LinkKind
 from LiuXin_alpha.errors import InputIntegrityError
 
 
@@ -574,6 +575,38 @@ def test_postgresql_driver_connects_and_introspects(monkeypatch) -> None:
         for connection in raw_connections
         for cursor in connection.cursors
     )
+
+
+def test_postgresql_driver_inherits_link_capability_introspection(monkeypatch) -> None:
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import (
+        databasedriver as pg_driver,
+    )
+
+    drv = pg_driver.DatabaseDriver(
+        {"postgres_url": "postgresql://liuxin:secret@example.invalid/library"},
+        set_conn=False,
+    )
+    catalog = {
+        "agents": ["agent_id"],
+        "works": ["work_id"],
+        "agent_work_links": [
+            "agent_work_link_agent_id",
+            "agent_work_link_work_id",
+            "agent_work_link_type",
+            "agent_work_link_priority",
+        ],
+    }
+    monkeypatch.setattr(
+        drv,
+        "direct_get_tables_and_columns",
+        lambda force_refresh=False: catalog,
+    )
+
+    capabilities = drv.direct_get_link_capabilities("agents", "works")
+
+    assert capabilities is not None
+    assert capabilities.kind is LinkKind.TYPED_PRIORITY
+    assert capabilities.link_table == "agent_work_links"
 
 
 def test_postgresql_driver_basic_insert_and_update_sql(monkeypatch) -> None:

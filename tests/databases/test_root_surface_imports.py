@@ -18,6 +18,8 @@ def test_databases_root_lazy_exports_concrete_types() -> None:
         ColumnNormalizationProfile,
         ColumnSemanticRole,
         Database,
+        LinkCapabilities,
+        LinkKind,
         Maintainer,
         Row,
     )
@@ -25,6 +27,8 @@ def test_databases_root_lazy_exports_concrete_types() -> None:
     assert Database is not None
     assert Row is not None
     assert Maintainer is not None
+    assert LinkCapabilities is not None
+    assert LinkKind.TYPED_PRIORITY.value == "typed_priority"
     assert ColumnMetadata is not None
     assert ColumnSemanticRole.TITLE.value == "title"
     assert ColumnNormalizationProfile.TAG_SEARCH_TERM.value == "tag_search_term"

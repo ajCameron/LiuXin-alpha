@@ -37,6 +37,62 @@ class LinkCardinality(str, Enum):
     UNKNOWN = "unknown"
 
 
+class LinkKind(str, Enum):
+    """Classify the optional semantics carried by a link table."""
+
+    PLAIN = "plain"
+    TYPED = "typed"
+    PRIORITY = "priority"
+    TYPED_PRIORITY = "typed_priority"
+
+
+@dataclass(frozen=True, slots=True)
+class LinkCapabilities:
+    """Describe whether a physical link carries type and/or priority data."""
+
+    primary_table: str
+    secondary_table: str
+    link_table: str
+    type_column: Optional[str] = None
+    priority_column: Optional[str] = None
+
+    @property
+    def typed(self) -> bool:
+        """Return whether the link has a type column."""
+
+        return self.type_column is not None
+
+    @property
+    def priority(self) -> bool:
+        """Return whether the link has a priority column."""
+
+        return self.priority_column is not None
+
+    @property
+    def ordered(self) -> bool:
+        """Compatibility spelling matching :class:`StorageLinkSpec`."""
+
+        return self.priority
+
+    @property
+    def both(self) -> bool:
+        """Return whether the link carries both type and priority."""
+
+        return self.typed and self.priority
+
+    @property
+    def kind(self) -> LinkKind:
+        """Return the exhaustive four-way link classification."""
+
+        if self.both:
+            return LinkKind.TYPED_PRIORITY
+        if self.typed:
+            return LinkKind.TYPED
+        if self.priority:
+            return LinkKind.PRIORITY
+        return LinkKind.PLAIN
+
+
 # Todo: Check this doc string is accurate
 @dataclass(frozen=True, slots=True)
 class StorageColumnSpec:

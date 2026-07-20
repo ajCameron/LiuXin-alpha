@@ -19,6 +19,7 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import smart_dictionary_merge, get_unique_id
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
+    LinkCapabilities,
     RelationKind,
     StorageLinkSpec,
     StorageSchemaSpec,
@@ -96,6 +97,10 @@ class DriverWrapper(
         :return:
         """
         self._cached_table_specs: dict[str, StorageTableSpec] = {}
+        self._cached_link_capabilities: dict[
+            tuple[str, str],
+            Optional[LinkCapabilities],
+        ] = {}
         self._cached_link_specs: dict[tuple[str, str], Optional[StorageLinkSpec]] = {}
         self._cached_intralink_specs: dict[str, Optional[StorageLinkSpec]] = {}
         self._cached_schema_spec: Optional[StorageSchemaSpec] = None
@@ -142,6 +147,29 @@ class DriverWrapper(
                 if table.endswith("_intralinks")
             )
         )
+
+    def get_link_capabilities(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return the type/priority capabilities of one interlink or intralink."""
+
+        cache_key = (str(table1), str(table2))
+        if force_refresh:
+            self._clear_derived_schema_caches()
+        elif cache_key in self._cached_link_capabilities:
+            return self._cached_link_capabilities[cache_key]
+
+        capabilities = self.driver.direct_get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        self._cached_link_capabilities[cache_key] = capabilities
+        return capabilities
 
     def get_table_spec(self, table: str, force_refresh: bool = False) -> StorageTableSpec:
         """
@@ -282,25 +310,22 @@ class DriverWrapper(
             if cache_key in self._cached_link_specs:
                 return self._cached_link_specs[cache_key]
 
-        link_table = self.get_link_table_name(table1, table2)
-        if not link_table:
+        capabilities = self.get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        if capabilities is None:
             self._cached_link_specs[(table1, table2)] = None
             return None
+        link_table = capabilities.link_table
 
         primary_link_col = self.get_link_column(table1, table2, self.get_id_column(table1))
         secondary_link_col = self.get_link_column(table1, table2, self.get_id_column(table2))
 
-        try:
-            priority_link_col = self.get_link_column(table1, table2, "priority")
-        except Exception:
-            priority_link_col = None
+        priority_link_col = capabilities.priority_column
+        type_link_col = capabilities.type_column
 
-        try:
-            type_link_col = self.get_link_column(table1, table2, "type")
-        except Exception:
-            type_link_col = None
-
-        link_columns = set(self.get_column_headings(link_table))
         used = {primary_link_col, secondary_link_col}
         if priority_link_col:
             used.add(priority_link_col)
@@ -414,23 +439,21 @@ class DriverWrapper(
         elif table in self._cached_intralink_specs:
             return self._cached_intralink_specs[table]
 
-        link_table = self.check_for_intralink_table(table)
-        if not link_table:
+        capabilities = self.get_link_capabilities(
+            table,
+            table,
+            force_refresh=force_refresh,
+        )
+        if capabilities is None:
             self._cached_intralink_specs[table] = None
             return None
+        link_table = capabilities.link_table
 
         primary_link_col = self.get_intralink_column(table, "primary_id")
         secondary_link_col = self.get_intralink_column(table, "secondary_id")
 
-        try:
-            priority_link_col = self.get_intralink_column(table, "priority")
-        except Exception:
-            priority_link_col = None
-
-        try:
-            type_link_col = self.get_intralink_column(table, "type")
-        except Exception:
-            type_link_col = None
+        priority_link_col = capabilities.priority_column
+        type_link_col = capabilities.type_column
 
         used = {primary_link_col, secondary_link_col}
         if priority_link_col:

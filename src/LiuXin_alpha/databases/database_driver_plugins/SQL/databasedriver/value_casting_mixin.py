@@ -37,6 +37,7 @@ from LiuXin_alpha.databases.normalized_identities import (
     iter_normalized_identity_defaults,
     normalized_identity_from_db_values,
 )
+from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 
@@ -47,6 +48,58 @@ class ValueCastingMixin:
     """
 
     _DECLARED_TYPES_CACHE_ATTR = "_declared_types_cache"
+
+    def direct_get_link_capabilities(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return the type/priority capabilities of the link between two tables.
+
+        Endpoint tables must exist.  ``None`` means that both endpoints exist
+        but the physical interlink or intralink table does not.
+        """
+
+        primary_table = self._canonicalise_table_name_for_cache(table1)
+        secondary_table = self._canonicalise_table_name_for_cache(table2)
+        tables_and_columns = self.direct_get_tables_and_columns(
+            force_refresh=force_refresh,
+        )
+        for endpoint in (primary_table, secondary_table):
+            if endpoint not in tables_and_columns:
+                raise InputIntegrityError(
+                    f"link endpoint table {endpoint!r} not found"
+                )
+
+        primary_base = self.direct_get_table_col_base(primary_table)
+        secondary_base = self.direct_get_table_col_base(secondary_table)
+        if primary_table == secondary_table:
+            link_column_base = f"{primary_base}_{primary_base}_intralink"
+            link_table = f"{link_column_base}s"
+        else:
+            ordered_bases = sorted((primary_base, secondary_base))
+            link_column_base = f"{ordered_bases[0]}_{ordered_bases[1]}_link"
+            link_table = f"{link_column_base}s"
+
+        headings = tables_and_columns.get(link_table)
+        if headings is None:
+            return None
+
+        type_column = f"{link_column_base}_type"
+        priority_column = f"{link_column_base}_priority"
+        return LinkCapabilities(
+            primary_table=primary_table,
+            secondary_table=secondary_table,
+            link_table=link_table,
+            type_column=type_column if type_column in headings else None,
+            priority_column=(
+                priority_column
+                if priority_column in headings
+                else None
+            ),
+        )
 
     def direct_get_declared_column_datatype(self, table: str, column: str) -> str:
         """

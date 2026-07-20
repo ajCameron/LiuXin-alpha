@@ -43,6 +43,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
     from LiuXin_alpha.databases.row import Row
+    from LiuXin_alpha.databases.schema_specs import LinkCapabilities, LinkKind
 
 
 __all__ = [
@@ -59,6 +60,8 @@ __all__ = [
     "DatabaseDriverAPI",
     "DatabaseDriverWrapperAPI",
     "Maintainer",
+    "LinkCapabilities",
+    "LinkKind",
     "LinkRow",
     "LinkValue",
     "NormalizedIdentityCollision",
@@ -112,6 +115,10 @@ def __getattr__(name: str):
         from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 
         return NormalizedIdentitySpec
+    if name in {"LinkCapabilities", "LinkKind"}:
+        from LiuXin_alpha.databases import schema_specs as _schema_specs
+
+        return getattr(_schema_specs, name)
     if name in {
         "ColumnEmptyValuePolicy",
         "ColumnMergePolicy",

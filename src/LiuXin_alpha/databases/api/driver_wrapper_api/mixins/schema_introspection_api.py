@@ -14,6 +14,7 @@ from LiuXin_alpha.databases.column_metadata import (
 )
 from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 from LiuXin_alpha.databases.schema_specs import (
+    LinkCapabilities,
     StorageSchemaSpec,
     StorageTableSpec,
     StorageLinkSpec,
@@ -21,6 +22,16 @@ from LiuXin_alpha.databases.schema_specs import (
 
 
 class SchemaIntrospectionAPI(abc.ABC):
+
+    @abstractmethod
+    def get_link_capabilities(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return type/priority capabilities for an interlink or intralink."""
 
     @abstractmethod
     def get_declared_column_datatype(self, table: str, column: str) -> str:

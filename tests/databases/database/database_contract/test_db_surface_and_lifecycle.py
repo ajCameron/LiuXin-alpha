@@ -29,6 +29,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.schema_specs import LinkKind
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
@@ -101,6 +102,31 @@ def test_declared_column_datatype_propagates_through_database_layers(open_db):
     assert open_db.driver.direct_get_declared_column_datatype(table, column) == "TEXT"
     assert open_db.driver_wrapper.get_declared_column_datatype(table, column) == "TEXT"
     assert open_db.get_declared_column_datatype(table, column) == "TEXT"
+
+
+def test_link_capabilities_propagate_through_database_layers(open_db):
+    table1 = "agents"
+    table2 = "works"
+
+    direct = open_db.driver.direct_get_link_capabilities(table1, table2)
+    wrapped = open_db.driver_wrapper.get_link_capabilities(table1, table2)
+    public = open_db.get_link_capabilities(table1, table2)
+
+    assert direct is not None
+    assert wrapped == direct
+    assert public == direct
+    assert public.kind is LinkKind.TYPED_PRIORITY
+    assert public.typed is True
+    assert public.priority is True
+    assert public.both is True
+
+    spec = open_db.driver_wrapper.get_link_spec(table1, table2)
+    assert spec is not None
+    assert spec.link_table == public.link_table
+    assert spec.type_link_col == public.type_column
+    assert spec.priority_link_col == public.priority_column
+    assert spec.typed is public.typed
+    assert spec.ordered is public.priority
 
 
 def test_column_case_sensitivity_propagates_through_database_layers(open_db):

@@ -24,6 +24,7 @@ from LiuXin_alpha.databases.macro_types import (
     NormalizedIdentityMigrationReport,
 )
 from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
+from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 if TYPE_CHECKING:
@@ -145,6 +146,21 @@ class DatabaseMetadataMixin:
         :return:
         """
         return self.driver_wrapper.get_declared_column_datatype(table, column)
+
+    def get_link_capabilities(
+        self: "DatabaseAPI",
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return the type/priority capabilities of one interlink or intralink."""
+
+        return self.driver_wrapper.get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
 
     def get_case_sensitivity(self: "DatabaseAPI", table: str, column: str) -> bool:
         """

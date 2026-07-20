@@ -1,5 +1,5 @@
 # Increment this if ANY submodule is changed
-__driver_version__ = (0, 5, 0)
+__driver_version__ = (0, 6, 0)
 
 
 # Todo: I think this is being called and used in the wrong places
