@@ -144,7 +144,7 @@ class ManyToOneWriter(BaseCatalogWriter):
         if case_changes:
             self.change_case(case_changes, dirtied)
 
-        book_col_map, id_map = db_update_links(db, table, field, is_custom_series, updated, deleted)
+        book_col_map, id_map = db_update_links()
 
         rtn_info = dict()
         rtn_info["dirtied"] = set(updated.keys()).union(deleted)
@@ -404,45 +404,41 @@ class ManyToOneWriter(BaseCatalogWriter):
             target_ids = set([k for k in deleted])
             self.catalog.macros.break_cc_links_by_book_id(lt=cc_table, book_id=target_ids)
 
-        # Preformaing an update to the custom columns
+        # Preforming an update to the custom columns
         if updated:
 
+            # We are writing custom series data as well
             if is_custom_series:
-                try:
-                    cc_table = table.link_table
-                except AttributeError:
-                    cc_table = table.metadata["table"]
+
+                cc_table = self.link_table
 
                 # Lock the database to stop anything else from writing to it while doing the update
-                with db.lock:
+                with self.catalog.lock:
 
-                    db.macros.break_cc_links_by_book_id(
+                    self.catalog.macros.break_cc_links_by_book_id(
                         lt=cc_table,
                         book_id=((book_id,) for book_id in iterkeys(updated)),
                     )
-                    db.macros.add_cc_link_with_extra_multi(
+                    self.catalog.macros.add_cc_link_with_extra_multi(
                         lt=cc_table,
                         sequence=((book_id, item_id, 1.0) for book_id, item_id in iteritems(updated)),
                         extra=True,
-                        target_column=m["link_column"],
+                        target_column=self.link_table_bt_id_column,
                     )
 
             else:
 
-                try:
-                    cc_table = table.link_table
-                except AttributeError:
-                    cc_table = table.metadata["table"]
+                cc_table = self.link_table
 
                 # Lock the database to stop anything else from writing to it while doing the update
-                with db.lock:
+                with self.catalog.lock:
 
-                    db.macros.break_cc_links_by_book_id(
+                    self.catalog.macros.break_cc_links_by_book_id(
                         lt=cc_table,
                         book_id=((book_id,) for book_id in iterkeys(updated)),
                     )
 
-                    db.macros.add_cc_link_with_extra_multi(
+                    self.catalog.macros.add_cc_link_with_extra_multi(
                         lt=cc_table,
                         sequence=(
                             (
@@ -456,32 +452,21 @@ class ManyToOneWriter(BaseCatalogWriter):
 
         return None, None
 
-    # Todo: Probably needs to be in the ensure method
-    @staticmethod
     def get_rating_id(
+        self,
         val,
-        db,
-        m,
-        table,
-        kmap,
-        rid_map,
+        val_map,
         allow_case_change,
         case_changes,
-        val_map,
         is_authors=False,
-        id_map_update=None,
-    ):
+    ) -> None:
         """
         Attempts to match the given rating value to an entry in the ratings table.
+
         :param val: The value to match - will fail if it's not an integer in the range 1-10.
-        :param db:
-        :param m:
-        :param table:
-        :param kmap:
-        :param rid_map:
+        :param val_map:
         :param allow_case_change:
         :param case_changes:
-        :param val_map:
         :param is_authors:
         :return:
         """

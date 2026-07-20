@@ -1,13 +1,24 @@
 
 """
 Writer responsible for writing many-to many-relations out to the database.
+
+Many-to-many relations are extremely common.
+Examples include
+ - WEMI to tags
+ - Works to Series
+E.t.c. Really the counter examples are the rare ones
+
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from copy import deepcopy
 
-from LiuXin_alpha.caches.write.base_writer import BaseWriter
+from collections import defaultdict
+
+from typing import Optional, Any, TYPE_CHECKING, Callable, Optional, Union, TypeAlias
+
+from LiuXin_alpha.catalog.write.base_writer import BaseCatalogWriter
 from LiuXin_alpha.catalog.catalog_macros import library_set_publisher, library_unset_series, \
     library_set_series
 from LiuXin_alpha.caches.write.utils import UpdateDict
@@ -18,10 +29,65 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import uniq
 from LiuXin_alpha.utils.text.icu import safe_lower, strcmp
 
+if TYPE_CHECKING:
 
-class ManyToManyWriter(BaseWriter):
-    def __init__(self, field):
-        super(ManyToManyWriter, self).__init__(field)
+    from LiuXin_alpha.catalog.api.catalog import CatalogAPI
+
+
+MANY_TO_MANY_UPDATE_TYPE = Union[
+    dict[int, int],
+    dict[int, list[Any]],
+    dict[int, set[Any]],
+    dict[int, dict[int, Any]],
+    dict[int, dict[int, set[Any]]],
+    dict[int, dict[int, list[Any]]],
+]
+
+
+class ManyToManyWriter(BaseCatalogWriter):
+    """
+    Base class for a many-to-many writer.
+    """
+    def __init__(
+            self,
+            catalog: "CatalogAPI",
+            table: str,
+            column: str,
+            adapter: Callable[[Any, ], str] = lambda x: str(x),
+            accept_vals: Callable[[Any, ], bool] = lambda x: True,
+            name: Optional[str] = None,
+            link_table: Optional[str] = None,
+            link_table_bt_id_column: Optional[str] = None,
+            link_table_item_id_column: Optional[str] = None,
+            datatype: Optional[str] = None,
+    ) -> None:
+        """
+        Many to many writer init.
+
+        :param catalog:
+        :param table:
+        :param column:
+        :param adapter:
+        :param accept_vals:
+        :param name:
+        :param link_table:
+        :param link_table_bt_id_column:
+        :param link_table_item_id_column:
+        :param datatype:
+        """
+
+        super(ManyToManyWriter, self).__init__(
+            catalog=catalog,
+            table=table,
+            column=column,
+            adapter=adapter,
+            accept_vals=accept_vals,
+            name=name,
+            link_table=link_table,
+            link_table_bt_id_column=link_table_bt_id_column,
+            link_table_item_id_column=link_table_item_id_column,
+            datatype=datatype,)
+
         self.set_books_func = self.generic_many_many
         self.set_books = self.no_adapter_set_books
 
@@ -52,98 +118,91 @@ class ManyToManyWriter(BaseWriter):
             "series": self.dummy_many_one_clear_unused,
         }.get(self.name, None)
 
-        if field.table.priority is False and field.table.typed is False:
-            self.set_books_func = self.generic_many_many
+        # if field.table.priority is False and field.table.typed is False:
+        #     self.set_books_func = self.generic_many_many
+        #
+        # elif field.table.priority is True and field.table.typed is False:
+        #     self.set_books_func = self.generic_many_many
+        #
+        # elif field.table.priority is False and field.table.typed is True:
+        #     self.set_books_func = self.generic_many_many
+        #
+        # elif field.table.priority is True and field.table.typed is True:
+        #     self.set_books_func = self.generic_many_many
+        #
+        # else:
+        #     raise NotImplementedError
 
-        elif field.table.priority is True and field.table.typed is False:
-            self.set_books_func = self.generic_many_many
+        # Todo: We need to solve for the different types of passed in structure
+        # Todo: A single normalizer which turns it into standard write form
+        self.set_books_func = self.generic_many_many
 
-        elif field.table.priority is False and field.table.typed is True:
-            self.set_books_func = self.generic_many_many
-
-        elif field.table.priority is True and field.table.typed is True:
-            self.set_books_func = self.generic_many_many
-
-        else:
-            raise NotImplementedError
-
-    def generic_many_many(self, book_id_val_map, db, field, allow_case_change, *args):
+    def generic_many_many(
+            self,
+            src_id_dst_val_map: dict[int, Optional[Union[set[Any], list[Any]]]],
+            allow_case_change: bool = False,
+            link_type: Optional[str] = None,
+    ):
         """
         Update entries for a table which has a priority many to many link to books. E.G. publishers.
-        :param book_id_val_map:
-        :param db:
-        :param field:
+
+        :param src_id_dst_val_map:
         :param allow_case_change:
-        :param args:
+        :param link_type: Forces the update to work only in a single li
+
         :return:
         """
-        if args:
-            info_str = "Unexpected arguments passed to many_many"
-            default_log.log_variables(info_str, "INFO", ("args", args))
+        # Conceptually, an update needs a few steps in order
+        # We are fed a dict. Keyed with work ids and valued with either None, val, list[val], set[val]
+        # Or a dict[type, [the above]]
+        # None - means blank those links
+        # val - means set that value as the highest priority
+        # list[val] - if this is an order
 
         # Todo: Need to actually plumb this in - and also write it
+        # 1) Ensure the db is in a predictable form before updating
         db_clean_unused_items = self.db_clean_unused_items
 
         dirtied = set()
-        m = field.metadata
-        table = field.table
-        dt = m["datatype"]
-        is_authors = field.name == "authors"
+        is_authors = self.name == "authors"
 
-        # Todo: This is HEINOUSLY stupidly inefficient. FIX THIS MESS!
-        # Map values to db ids, including any new values - this will be used to match any new values to existing ones on the
-        # database
-        # 1) Build a val_id map for every element
-        kmap = safe_lower if dt == "text" else lambda x: x
-        rid_map = {kmap(item): item_id for item_id, item in iteritems(table.id_map)}
-
-        # 2) Check to see if the table has some entries that differ only in case, fix it
-        if len(rid_map) != len(table.id_map):
-            table.fix_case_duplicates(db)
-            rid_map = {kmap(item): item_id for item_id, item in iteritems(table.id_map)}
-
-        # 3) kmap is used to eliminate
-        id_map_update = dict()
+        # 2) Use update precheck to
         try:
-            book_id_val_map, id_map_update = field.update_preflight(book_id_val_map, dict(), dirtied)
-        except AttributeError:
-            pass
+            src_id_dst_id_map, id_map_update = self.update_preflight(src_id_dst_val_map, dict(), dirtied)
         except NotImplementedError as e:
             # Probably an unexpected case in the update_preflight logic
             err_str = "Error when trying to run update_preflight"
-            err_str = default_log.log_exception(err_str, e, "ERROR", ("book_id_val_map", book_id_val_map))
+            err_str = default_log.log_exception(err_str, e, "ERROR", ("book_id_val_map", src_id_dst_id_map))
             raise InvalidUpdate(err_str)
 
-        # Todo: Need to rename this to something a but more revealing - db_update_precheck?
-        # Todo: Ideally, this should occur AFTER the id_map_update is created - go back and change it
-        field.table.update_precheck(book_id_val_map, id_map_update)
-        book_id_val_map = UpdateDict(book_id_val_map)
-        book_id_val_map.checked = True
+        self.update_precheck(src_id_dst_id_map, id_map_update)
+        src_id_dst_id_map = UpdateDict(src_id_dst_id_map)
+        src_id_dst_id_map.checked = True
 
-        if field.name == "tags":
-            for target_book_id, update_form in iteritems(book_id_val_map):
+        if self.name == "tags":
+            for target_book_id, update_form in iteritems(src_id_dst_id_map):
                 if isinstance(update_form, set):
-                    db.metadata_sql.break_generic_link(
+                    self.catalog.metadata_sql.break_generic_link(
                         link_table="tag_title_links",
                         link_col="tag_title_link_title_id",
                         remove_id=target_book_id,
                     )
 
         # 3) Eliminate duplicates
-        if field.name not in ["series", "authors", "publisher"]:
-            try:
-                book_id_val_map = self._do_duplicate_elimination(book_id_val_map, kmap)
-            except TypeError as e:
-                err_str = "TypeError while trying to normalize the book_id_val_map"
-                default_log.log_exception(err_str, e, "ERROR", ("book_id_val_map", book_id_val_map))
-                raise
+        # if self.name not in ["series", "authors", "publisher"]:
+        #     try:
+        #         src_id_dst_id_map = self._do_duplicate_elimination(src_id_dst_id_map)
+        #     except TypeError as e:
+        #         err_str = "TypeError while trying to normalize the book_id_val_map"
+        #         default_log.log_exception(err_str, e, "ERROR", ("book_id_val_map", src_id_dst_id_map))
+        #         raise
 
         # 4) Match the remaining values to their corresponding entries on the table (creating them if required)
         # Generate maps keyed with the normalized
         val_map = {}
         case_changes = {}
         self._do_db_id_match(
-            book_id_val_map,
+            src_id_dst_id_map,
             db,
             m,
             table,
@@ -156,9 +215,9 @@ class ManyToManyWriter(BaseWriter):
         )
 
         # Todo: Move this into the database metadata
-        if field.name in ["series", "authors", "publisher", "publishers"]:
+        if self.name in ["series", "authors", "publisher", "publishers"]:
             update_id_map = {value: key for key, value in iteritems(val_map)}
-            book_id_val_map, id_map_update = field.update_preflight(book_id_val_map, update_id_map)
+            src_id_dst_id_map, id_map_update = field.update_preflight(src_id_dst_id_map, update_id_map)
 
         id_map_update = {v: k for k, v in iteritems(val_map)}
 
@@ -174,7 +233,7 @@ class ManyToManyWriter(BaseWriter):
                             # The sort strings differ only by case, update the db sort
                             field.author_sort_field.writer.set_books({book_id: new_sort}, db)
 
-        book_id_item_id_map = self._do_vals_to_ids(book_id_val_map, val_map)
+        book_id_item_id_map = self._do_vals_to_ids(src_id_dst_id_map, val_map)
 
         # Todo: This might fail - we're using tupes here and lists elsewhere - need a more complex test
         # Todo: Will also probably trip NotInCache a few times - need to fix that
@@ -202,9 +261,6 @@ class ManyToManyWriter(BaseWriter):
 
         override_link_type = getattr(table, "table_type_filter", None)
         self.db_update_links(
-            db=db,
-            table=table,
-            field=field,
             is_custom_series=False,
             updated=updated,
             deleted=deleted,
@@ -214,29 +270,112 @@ class ManyToManyWriter(BaseWriter):
         # Remove no longer used items
         remove = {item_id for item_id in table.id_map if not table.col_book_map.get(item_id, False)}
 
-        # Todo: Fix this and plumb it back in
-        # if remove:
-        #
-        #     db_remove_links(db, table, field, remove, is_authors)
-        #
-        #     # Todo: Need to move this over into the cache - probably never actually being used at present
-        #     for item_id in remove:
-        #         del table.id_map[item_id]
-        #         table.col_book_map.pop(item_id, None)
-        #         if is_authors:
-        #             table.asort_map.pop(item_id, None)
-        #             table.alink_map.pop(item_id, None)
-
         if db_clean_unused_items is not None:
             pass
 
-        update_data = dict()
-        update_data["dirtied"] = dirtied
-        update_data["cache_update_needed"] = False
-        update_data["id_map"] = id_map_update
-        update_data["book_col_map"] = book_id_item_id_map
+        return None
 
-        return update_data
+    def update_precheck(self, book_id_item_id_map, id_map_update):
+        """
+        Check that an update is of a valid form before writing it out to the cache and the database.
+
+        Called when you know the ids you want to assign to the book after the update. Checks those ids are valid.
+        No changes will be made to the :param book_id_item_id_map: (e.g. if the map is valued with tuples - not lists
+        as expected - this will not be corrected.
+        Raised InvalidCacheUpdate if the cache update is invalid in some way.
+        :param book_id_item_id_map: Keyed with the ids of the books to update and valued with the
+        :param id_map_update:
+        :return:
+        """
+        for book_id, book_vals in iteritems(book_id_item_id_map):
+
+            # We're clearing all entries for the given field
+            if book_vals is None:
+                continue
+
+            # Check that the new valued for the book_id are ordered - in some way
+            if not isinstance(book_vals, dict):
+                raise InvalidCacheUpdate("Map needs to be keyed with a dict")
+
+            # Check that all the ids are valid
+            for link_type, link_vals in iteritems(book_vals):
+                if link_vals is None:
+                    continue
+
+                # If this is a int, then check it is a valid id and pass it if so
+                # Note - this has to be overridden if the method is being used to write integers
+                if isinstance(link_vals, int):
+                    if not (link_vals in self.id_map or link_vals in id_map_update):
+                        err_str = "Cannot match update id - cannot preform update as cannot link"
+                        err_str = default_log.log_variables(
+                            err_str,
+                            "ERROR",
+                            ("link_vals", link_vals),
+                            ("id_map_update", id_map_update),
+                        )
+                        raise InvalidCacheUpdate(err_str)
+                    continue
+
+                for item_id in link_vals:
+
+                    # Todo: Need to restructure so this is not necessary - the check should be run after the full update
+                    #       has been built
+                    if isinstance(item_id, basestring):
+                        continue
+
+                    if not (item_id in self.id_map or item_id in id_map_update):
+                        err_str = "Cannot match update id - cannot preform update as cannot link"
+                        err_str = default_log.log_variables(
+                            err_str,
+                            "ERROR",
+                            ("item_id", item_id),
+                            ("id_map_update", id_map_update),
+                        )
+                        raise InvalidCacheUpdate(err_str)
+
+
+    def update_preflight(
+        self,
+        book_id_item_id_map: dict[SrcTableID, dict[str, list[DstTableID]]],
+        id_map_update: Optional[dict[DstTableID, T]] = None,
+        dirtied: Optional[set[SrcTableID]] = None,
+    ) -> tuple[dict[SrcTableID, dict[str, Optional[list[DstTableID]]]], dict[DstTableID, T]]:
+        """
+        Processes the book_id_item_id_map to bring it into a useful form to write an update out to the db and the cache.
+
+        :param book_id_item_id_map:
+        :param id_map_update:
+        :return:
+        """
+        dirtied = set() if dirtied is None else dirtied
+
+        clean_book_id_item_id_map = defaultdict(dict)
+        for book_id, book_update_dir in iteritems(book_id_item_id_map):
+
+            if book_update_dir is None:
+                clean_book_id_item_id_map[book_id] = None
+                continue
+
+            for link_type, link_vals in iteritems(book_update_dir):
+
+                # Todo: Implement checking that the link type is allowed - after we have a table of allowed values
+
+                # Use the original values from the update
+                if link_vals is None:
+                    clean_book_id_item_id_map[book_id][link_type] = None
+
+                elif isinstance(link_vals, list):
+                    clean_book_id_item_id_map[book_id][link_type] = book_update_dir[link_type]
+
+                elif isinstance(link_vals, (basestring, int)):
+                    clean_book_id_item_id_map[book_id][link_type] = [book_update_dir[link_type],] + self.book_col_map[
+                        link_type
+                    ][book_id]
+
+                else:
+                    raise NotImplementedError
+
+        return clean_book_id_item_id_map, id_map_update
 
     def _do_vals_to_ids(self, book_id_val_map, val_map):
         """
@@ -270,6 +409,7 @@ class ManyToManyWriter(BaseWriter):
     def _do_duplicate_elimination(self, book_id_val_map, kmap):
         """
         Eliminate any duplicates using the provided hash function - recursing if the dictionary structure is nested
+
         :param book_id_val_map:
         :param kmap:
         :return:
@@ -291,16 +431,18 @@ class ManyToManyWriter(BaseWriter):
     def _do_db_id_match(
         self,
         book_id_val_map,
-        db,
-        m,
-        table,
-        kmap,
-        rid_map,
         allow_case_change,
-        case_changes,
-        val_map,
-        is_authors=False,
+        is_authors: bool = False,
     ):
+        """
+        We're matching values to their ids on the database.
+
+        :param book_id_val_map:
+        :param allow_case_change:
+        :param is_authors:
+
+        :return:
+        """
 
         db_id_matcher = self.db_id_matcher
 
@@ -309,6 +451,7 @@ class ManyToManyWriter(BaseWriter):
             if vals is None:
                 continue
 
+            # Matching down case by case
             if isinstance(vals, (basestring,)):
                 db_id_matcher(
                     vals,
@@ -403,16 +546,12 @@ class ManyToManyWriter(BaseWriter):
         return book_col_map, id_map
 
     # Todo: Check this is only taking out authors - might need to be renamed
-    @staticmethod
     def authors_many_many_db_update(
-        db,
-        table,
-        field=None,
-        is_custom_series=False,
-        updated=None,
-        deleted=None,
-        is_authors=False,
-        link_type=None,
+        self,
+        updated: Optional[dict[int, int]] = None,
+        deleted: Optional[set[int]] = None,
+        is_authors: bool = False,
+        link_type: Optional[str] = None,
     ):
         """
         Do update in the authors table.
@@ -442,6 +581,7 @@ class ManyToManyWriter(BaseWriter):
     def language_many_many_db_update(db, table, updated, is_authors, field=None, is_custom_series=False):
         """
         Preform an update of the languages linked to a book.
+
         :param db:
         :param table:
         :param updated:
@@ -589,6 +729,7 @@ class ManyToManyWriter(BaseWriter):
     ):
         """
         Attempts to match the given val to a valid entry in the languages table.
+
         :param val:
         :param db:
         :param m:
