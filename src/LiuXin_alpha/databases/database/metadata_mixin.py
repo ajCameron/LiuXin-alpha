@@ -5,7 +5,7 @@ Mixin to handle metadata for the actual database.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, Iterator, Mapping, TYPE_CHECKING
 
 import uuid
 
@@ -19,6 +19,12 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.macro_types import (
+    CanonicalIdentity,
+    NormalizedIdentityMigrationReport,
+)
+from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
+from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 if TYPE_CHECKING:
@@ -141,6 +147,51 @@ class DatabaseMetadataMixin:
         """
         return self.driver_wrapper.get_declared_column_datatype(table, column)
 
+    def get_link_capabilities(
+        self: "DatabaseAPI",
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return the type/priority capabilities of one interlink or intralink."""
+
+        return self.driver_wrapper.get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+
+    def is_link_typed(
+        self: "DatabaseAPI",
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a type column."""
+
+        return self.driver_wrapper.is_link_typed(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+
+    def is_link_priority(
+        self: "DatabaseAPI",
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a priority column."""
+
+        return self.driver_wrapper.is_link_priority(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+
     def get_case_sensitivity(self: "DatabaseAPI", table: str, column: str) -> bool:
         """
         Return whether text equality for this column is case-sensitive.
@@ -218,6 +269,118 @@ class DatabaseMetadataMixin:
         """Return the derived comparison column, if any."""
 
         return self.driver_wrapper.get_comparison_column(table, column)
+
+    def get_normalized_identity_spec(
+        self: "DatabaseAPI",
+        table: str,
+        value_column: str,
+    ) -> NormalizedIdentitySpec | None:
+        """Return the normalized row-identity declaration for a display column."""
+
+        return self.driver_wrapper.get_normalized_identity_spec(table, value_column)
+
+    def iter_normalized_identity_specs(
+        self: "DatabaseAPI",
+    ) -> Iterator[NormalizedIdentitySpec]:
+        """Yield every normalized row identity declared by the database."""
+
+        yield from self.driver_wrapper.iter_normalized_identity_specs()
+
+    def derive_identity_value(
+        self: "DatabaseAPI",
+        table: str,
+        value_column: str,
+        value: Any,
+    ) -> Any:
+        """Derive the declared normalized identity for a display value."""
+
+        return self.macros.derive_identity_value(table, value_column, value)
+
+    def get_canonical_identity(
+        self: "DatabaseAPI",
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+        id_column: str | None = None,
+    ) -> CanonicalIdentity | None:
+        """Resolve a display value to its complete stored canonical identity."""
+
+        return self.macros.get_canonical_identity(
+            table,
+            value_column,
+            value,
+            scope_values=scope_values,
+            id_column=id_column,
+        )
+
+    def get_canonical_identity_by_key(
+        self: "DatabaseAPI",
+        table: str,
+        value_column: str,
+        identity_value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+        id_column: str | None = None,
+    ) -> CanonicalIdentity | None:
+        """Resolve an already-derived identity to its canonical stored row."""
+
+        return self.macros.get_canonical_identity_by_key(
+            table,
+            value_column,
+            identity_value,
+            scope_values=scope_values,
+            id_column=id_column,
+        )
+
+    def get_canonical_value(
+        self: "DatabaseAPI",
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> Any | None:
+        """Resolve a display value and return its canonical stored spelling."""
+
+        return self.macros.get_canonical_value(
+            table,
+            value_column,
+            value,
+            scope_values=scope_values,
+        )
+
+    def get_canonical_value_by_identity(
+        self: "DatabaseAPI",
+        table: str,
+        value_column: str,
+        identity_value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> Any | None:
+        """Resolve a derived identity and return its canonical stored spelling."""
+
+        return self.macros.get_canonical_value_by_identity(
+            table,
+            value_column,
+            identity_value,
+            scope_values=scope_values,
+        )
+
+    def audit_normalized_identities(
+        self: "DatabaseAPI",
+    ) -> NormalizedIdentityMigrationReport:
+        """Report stale keys and collisions without changing the database."""
+
+        return self.macros.audit_normalized_identities()
+
+    def migrate_normalized_identities(
+        self: "DatabaseAPI",
+    ) -> NormalizedIdentityMigrationReport:
+        """Install, backfill, and index normalized identities atomically."""
+
+        return self.macros.migrate_normalized_identities()
 
     def set_comparison_column(
         self: "DatabaseAPI",

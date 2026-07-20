@@ -312,6 +312,18 @@ if sum(len(group) for group in _ROLE_GROUPS) != len(DISPLAY_COLUMNS):
     raise RuntimeError("display-column semantic-role groups cannot overlap")
 
 COMPARISON_COLUMNS: dict[tuple[str, str], tuple[str, ColumnNormalizationProfile]] = {
+    ("backup_policies", "backup_policy_name"): (
+        "backup_policy_name_norm",
+        ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
+    ),
+    ("custom_columns", "custom_column_label"): (
+        "custom_column_label_norm",
+        ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
+    ),
+    ("custom_columns", "custom_column_name"): (
+        "custom_column_name_norm",
+        ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
+    ),
     ("tags", "tag"): ("tag_phash", ColumnNormalizationProfile.TAG_SEARCH_TERM),
     ("labels", "label_text"): (
         "label_text_norm",
@@ -322,12 +334,16 @@ COMPARISON_COLUMNS: dict[tuple[str, str], tuple[str, ColumnNormalizationProfile]
         ColumnNormalizationProfile.TITLE_SEARCH_TERM,
     ),
     ("subjects", "subject"): (
-        "subject_sort",
+        "subject_phash",
         ColumnNormalizationProfile.TITLE_SEARCH_TERM,
     ),
     ("series", "series"): (
         "series_name_norm",
         ColumnNormalizationProfile.TITLE_SEARCH_TERM,
+    ),
+    ("replication_policies", "replication_policy_name"): (
+        "replication_policy_name_norm",
+        ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
     ),
 }
 

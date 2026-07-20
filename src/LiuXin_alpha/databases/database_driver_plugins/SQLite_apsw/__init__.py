@@ -5,7 +5,7 @@ Master version for the apsw SQLite driver.
 
 # Increment this if ANY submodule is changed
 
-__driver_version__ = (0, 0, 1)
+__driver_version__ = (0, 2, 0)
 
 
 # Todo: Include the constants now used to determine allowable values against this as well

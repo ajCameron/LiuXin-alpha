@@ -17,6 +17,7 @@ from dataclasses import replace
 import os
 import sqlite3
 import types
+import uuid
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.schema_specs import LinkKind
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
@@ -100,6 +102,37 @@ def test_declared_column_datatype_propagates_through_database_layers(open_db):
     assert open_db.driver.direct_get_declared_column_datatype(table, column) == "TEXT"
     assert open_db.driver_wrapper.get_declared_column_datatype(table, column) == "TEXT"
     assert open_db.get_declared_column_datatype(table, column) == "TEXT"
+
+
+def test_link_capabilities_propagate_through_database_layers(open_db):
+    table1 = "agents"
+    table2 = "works"
+
+    direct = open_db.driver.direct_get_link_capabilities(table1, table2)
+    wrapped = open_db.driver_wrapper.get_link_capabilities(table1, table2)
+    public = open_db.get_link_capabilities(table1, table2)
+
+    assert direct is not None
+    assert wrapped == direct
+    assert public == direct
+    assert public.kind is LinkKind.TYPED_PRIORITY
+    assert public.typed is True
+    assert public.priority is True
+    assert public.both is True
+    assert open_db.driver.direct_is_link_typed(table1, table2) is True
+    assert open_db.driver.direct_is_link_priority(table1, table2) is True
+    assert open_db.driver_wrapper.is_link_typed(table1, table2) is True
+    assert open_db.driver_wrapper.is_link_priority(table1, table2) is True
+    assert open_db.is_link_typed(table1, table2) is True
+    assert open_db.is_link_priority(table1, table2) is True
+
+    spec = open_db.driver_wrapper.get_link_spec(table1, table2)
+    assert spec is not None
+    assert spec.link_table == public.link_table
+    assert spec.type_link_col == public.type_column
+    assert spec.priority_link_col == public.priority_column
+    assert spec.typed is public.typed
+    assert spec.ordered is public.priority
 
 
 def test_column_case_sensitivity_propagates_through_database_layers(open_db):
@@ -183,6 +216,38 @@ def test_column_metadata_field_accessors_propagate_through_database_layers(open_
         assert open_db.driver.direct_get_column_metadata(table, column) == expected
     finally:
         open_db.set_column_metadata(original)
+
+
+def test_normalized_identity_and_canonical_query_propagate_through_database_layers(
+    open_db,
+):
+    table = "tags"
+    column = "tag"
+    driver_spec = open_db.driver.direct_get_normalized_identity_spec(table, column)
+
+    assert driver_spec is not None
+    assert (
+        open_db.driver_wrapper.get_normalized_identity_spec(table, column)
+        == driver_spec
+    )
+    assert open_db.get_normalized_identity_spec(table, column) == driver_spec
+    assert driver_spec in tuple(open_db.driver.direct_iter_normalized_identity_specs())
+    assert driver_spec in tuple(open_db.driver_wrapper.iter_normalized_identity_specs())
+    assert driver_spec in tuple(open_db.iter_normalized_identity_specs())
+    assert open_db.get_normalized_identity_spec("works", "work_title") is None
+
+    canonical = f"Canonical Tag {uuid.uuid4().hex}"
+    row_id = open_db.macros.ensure_table_value(table, column, canonical)
+    key = open_db.derive_identity_value(table, column, canonical.swapcase())
+    identity = open_db.get_canonical_identity_by_key(table, column, key)
+    assert identity is not None
+    assert identity.row_id == row_id
+    assert identity.canonical_value == canonical
+    assert open_db.get_canonical_value(
+        table,
+        column,
+        f"  {canonical.swapcase()}  ",
+    ) == canonical
 
 
 def test_legacy_database_without_column_metadata_uses_inferred_read_policy(

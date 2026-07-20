@@ -38,6 +38,7 @@ from LiuXin_alpha.databases.api.driver_api.driver_api import DatabaseDriverAPI
 from LiuXin_alpha.databases.api.driver_wrapper_api.driver_wrapper_api import DatabaseDriverWrapperAPI
 from LiuXin_alpha.databases.api.macros_api import MacrosAPI
 from LiuXin_alpha.databases.api.metadata_sql_api import MetadataSQLAPI
+from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
 from LiuXin_alpha.databases.api.maintenance_api import (
     DatabaseMaintainerAPI,
     MaintenanceBotAPI,
@@ -72,5 +73,6 @@ __all__ = [
     "MaintenancePluginAPI",
     "MaintenanceServiceAPI",
     "MetadataSQLAPI",
+    "PortableMacrosAPI",
     "RowAPI",
 ]

@@ -20,6 +20,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.schema_specs import LinkKind
 from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
@@ -166,6 +167,73 @@ def test_declared_column_datatype_cache_is_invalidated_with_schema_cache(driver)
     assert declared_types_cache == {}
 
 
+@pytest.mark.parametrize(
+    ("table1", "table2", "expected_kind"),
+    (
+        ("agents", "labels", LinkKind.PLAIN),
+        ("languages", "manifestations", LinkKind.TYPED),
+        ("tags", "works", LinkKind.PRIORITY),
+        ("agents", "works", LinkKind.TYPED_PRIORITY),
+    ),
+)
+def test_direct_link_capabilities_classify_physical_link_columns(
+    driver,
+    table1: str,
+    table2: str,
+    expected_kind: LinkKind,
+) -> None:
+    capabilities = driver.direct_get_link_capabilities(table1, table2)
+
+    assert capabilities is not None
+    assert capabilities.kind is expected_kind
+    assert capabilities.typed is (
+        expected_kind in {LinkKind.TYPED, LinkKind.TYPED_PRIORITY}
+    )
+    assert capabilities.priority is (
+        expected_kind in {LinkKind.PRIORITY, LinkKind.TYPED_PRIORITY}
+    )
+    assert capabilities.both is (expected_kind is LinkKind.TYPED_PRIORITY)
+    assert driver.direct_is_link_typed(table1, table2) is capabilities.typed
+    assert (
+        driver.direct_is_link_priority(table1, table2)
+        is capabilities.priority
+    )
+    if capabilities.typed:
+        assert capabilities.type_column in driver.direct_get_column_headings(
+            capabilities.link_table
+        )
+    if capabilities.priority:
+        assert capabilities.priority_column in driver.direct_get_column_headings(
+            capabilities.link_table
+        )
+
+
+def test_direct_link_capabilities_distinguish_absent_and_invalid_links(driver) -> None:
+    assert (
+        driver.direct_get_link_capabilities("agents", "database_metadata")
+        is None
+    )
+    assert driver.direct_is_link_typed("agents", "database_metadata") is False
+    assert driver.direct_is_link_priority("agents", "database_metadata") is False
+
+    with pytest.raises(InputIntegrityError, match="table"):
+        driver.direct_get_link_capabilities("__missing_table__", "works")
+    with pytest.raises(InputIntegrityError, match="table"):
+        driver.direct_is_link_typed("__missing_table__", "works")
+    with pytest.raises(InputIntegrityError, match="table"):
+        driver.direct_is_link_priority("__missing_table__", "works")
+
+
+def test_direct_link_capabilities_support_intralinks(driver) -> None:
+    capabilities = driver.direct_get_link_capabilities("works", "works")
+
+    assert capabilities is not None
+    assert capabilities.link_table == "work_work_intralinks"
+    assert capabilities.kind is LinkKind.TYPED
+    assert capabilities.type_column == "work_work_intralink_type"
+    assert capabilities.priority_column is None
+
+
 def test_column_case_sensitivity_is_persisted_and_strict(driver) -> None:
     assert driver.direct_get_case_sensitivity("tags", "tag") is False
     assert driver.direct_get_case_sensitivity("works", "work_title") is False
@@ -229,6 +297,38 @@ def test_column_metadata_policy_is_complete_and_persisted(driver) -> None:
         driver.direct_set_column_metadata(
             replace(title_metadata, comparison_column="__missing_column__")
         )
+
+
+def test_normalized_identity_declarations_are_database_backed(driver) -> None:
+    tag_spec = driver.direct_get_normalized_identity_spec("tags", "tag")
+    assert tag_spec is not None
+    assert tag_spec.identity_column == "tag_phash"
+    assert tag_spec.scope_columns == ()
+
+    genre_spec = driver.direct_get_normalized_identity_spec("genres", "genre")
+    assert genre_spec is not None
+    assert genre_spec.identity_column == "genre_phash"
+    assert genre_spec.scope_columns == ("genre_parent_id",)
+
+    declarations = tuple(driver.direct_iter_normalized_identity_specs())
+    assert tag_spec in declarations
+    assert genre_spec in declarations
+    assert driver.direct_get_normalized_identity_spec("works", "work_title") is None
+
+    tag_metadata = driver.direct_get_column_metadata("tags", "tag")
+    with pytest.raises(InputIntegrityError, match="normalized identity"):
+        driver.direct_set_column_metadata(
+            replace(
+                tag_metadata,
+                normalization_profile=ColumnNormalizationProfile.UNICODE_NFC,
+            )
+        )
+    with pytest.raises(InputIntegrityError, match="normalized identity"):
+        driver.direct_set_column_metadata(
+            replace(tag_metadata, comparison_column=None)
+        )
+    with pytest.raises(InputIntegrityError, match="normalized identity"):
+        driver.direct_set_case_sensitivity("tags", "tag", True)
 
 
 def test_column_metadata_field_accessors_are_typed_and_persisted(driver) -> None:

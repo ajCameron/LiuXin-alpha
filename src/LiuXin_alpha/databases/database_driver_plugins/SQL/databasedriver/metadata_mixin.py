@@ -266,6 +266,44 @@ class MetadataMethodMixin:
 
         return self.tables_and_columns
 
+    def _get_unique_column_groups(self, table: str) -> tuple[tuple[str, ...], ...]:
+        """Return the ordered column groups enforced by SQLite unique indexes."""
+
+        table = self._canonicalise_table_name_for_cache(table)
+        if (
+            not table
+            or table[0].isdigit()
+            or not all(char.isalnum() or char == "_" for char in table)
+        ):
+            raise InputIntegrityError(f"Unsafe table name for index introspection: {table!r}")
+        owns_connection = self.conn is None
+        conn = self.get_connection() if owns_connection else self.conn
+        try:
+            groups: list[tuple[str, ...]] = []
+            for index_row in conn.execute(f'PRAGMA index_list("{table}")'):
+                is_unique = bool(index_row[2])
+                is_partial = len(index_row) > 4 and bool(index_row[4])
+                if not is_unique or is_partial:
+                    continue
+                index_name = str(index_row[1])
+                if not all(char.isalnum() or char == "_" for char in index_name):
+                    raise DatabaseIntegrityError(
+                        f"SQLite returned an unsafe index name: {index_name!r}"
+                    )
+                index_columns = tuple(
+                    column_row[2]
+                    for column_row in conn.execute(f'PRAGMA index_info("{index_name}")')
+                )
+                if not index_columns or any(column is None for column in index_columns):
+                    continue
+                columns = tuple(str(column) for column in index_columns)
+                if columns:
+                    groups.append(columns)
+            return tuple(groups)
+        finally:
+            if owns_connection:
+                conn.close()
+
 
     def direct_get_highest_id(self, target_table: str) -> Optional[dict[str, Any]]:
         """

@@ -14,6 +14,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.schema_specs import LinkKind
 from LiuXin_alpha.errors import InputIntegrityError
 
 
@@ -402,6 +403,8 @@ class _FakeDriverCursor:
 
     def fetchall(self):
         lowered = self.sql.lower()
+        if "from pg_catalog.pg_index" in lowered:
+            return [(["digital_asset_id", "digital_asset_size_bytes"],)]
         if "from information_schema.tables" in lowered:
             return [("database_metadata",), ("stores",), ("digital_assets",)]
         if "from information_schema.columns" in lowered and "table_name, column_name" in lowered:
@@ -556,6 +559,9 @@ def test_postgresql_driver_connects_and_introspects(monkeypatch) -> None:
     assert drv.direct_get_tables_and_columns()["stores"] == ["store_id", "store_kind"]
     assert drv.direct_get_declared_types_for_table("digital_assets")["digital_asset_size_bytes"] == "bigint"
     assert drv.direct_get_declared_column_datatype("digital_assets", "digital_asset_size_bytes") == "bigint"
+    assert drv._get_unique_column_groups("digital_assets") == (
+        ("digital_asset_id", "digital_asset_size_bytes"),
+    )
     with pytest.raises(InputIntegrityError, match="column"):
         drv.direct_get_declared_column_datatype("digital_assets", "missing_column")
     with pytest.raises(InputIntegrityError, match="table"):
@@ -563,6 +569,46 @@ def test_postgresql_driver_connects_and_introspects(monkeypatch) -> None:
     assert raw_connections
     assert raw_connections[0].closed is True
     assert any('set search_path to "public"' in cursor.sql for cursor in raw_connections[0].cursors)
+    assert any(
+        "index_info.indpred is null" in cursor.sql
+        and "index_info.indexprs is null" in cursor.sql
+        for connection in raw_connections
+        for cursor in connection.cursors
+    )
+
+
+def test_postgresql_driver_inherits_link_capability_introspection(monkeypatch) -> None:
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import (
+        databasedriver as pg_driver,
+    )
+
+    drv = pg_driver.DatabaseDriver(
+        {"postgres_url": "postgresql://liuxin:secret@example.invalid/library"},
+        set_conn=False,
+    )
+    catalog = {
+        "agents": ["agent_id"],
+        "works": ["work_id"],
+        "agent_work_links": [
+            "agent_work_link_agent_id",
+            "agent_work_link_work_id",
+            "agent_work_link_type",
+            "agent_work_link_priority",
+        ],
+    }
+    monkeypatch.setattr(
+        drv,
+        "direct_get_tables_and_columns",
+        lambda force_refresh=False: catalog,
+    )
+
+    capabilities = drv.direct_get_link_capabilities("agents", "works")
+
+    assert capabilities is not None
+    assert capabilities.kind is LinkKind.TYPED_PRIORITY
+    assert capabilities.link_table == "agent_work_links"
+    assert drv.direct_is_link_typed("agents", "works") is True
+    assert drv.direct_is_link_priority("agents", "works") is True
 
 
 def test_postgresql_driver_basic_insert_and_update_sql(monkeypatch) -> None:

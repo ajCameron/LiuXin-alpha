@@ -33,11 +33,22 @@ if TYPE_CHECKING:  # pragma: no cover
         register_database_driver,
     )
     from LiuXin_alpha.databases.maintenance import Maintainer
+    from LiuXin_alpha.databases.macro_types import (
+        CanonicalIdentity,
+        LinkRow,
+        LinkValue,
+        NormalizedIdentityCollision,
+        NormalizedIdentityMigrationReport,
+        UnreferencedRowsSpec,
+    )
+    from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
     from LiuXin_alpha.databases.row import Row
+    from LiuXin_alpha.databases.schema_specs import LinkCapabilities, LinkKind
 
 
 __all__ = [
     "CUSTOM_DATA_TYPES",
+    "CanonicalIdentity",
     "ColumnEmptyValuePolicy",
     "ColumnMergePolicy",
     "ColumnMetadata",
@@ -49,8 +60,16 @@ __all__ = [
     "DatabaseDriverAPI",
     "DatabaseDriverWrapperAPI",
     "Maintainer",
+    "LinkCapabilities",
+    "LinkKind",
+    "LinkRow",
+    "LinkValue",
+    "NormalizedIdentityCollision",
+    "NormalizedIdentityMigrationReport",
+    "NormalizedIdentitySpec",
     "Row",
     "RowAPI",
+    "UnreferencedRowsSpec",
     "VALID_DATA_TYPES",
     "_get_next_series_num_for_list",
     "_get_series_values",
@@ -81,6 +100,25 @@ def __getattr__(name: str):
         from LiuXin_alpha.databases.maintenance import Maintainer
 
         return Maintainer
+    if name in {
+        "CanonicalIdentity",
+        "LinkRow",
+        "LinkValue",
+        "NormalizedIdentityCollision",
+        "NormalizedIdentityMigrationReport",
+        "UnreferencedRowsSpec",
+    }:
+        from LiuXin_alpha.databases import macro_types as _macro_types
+
+        return getattr(_macro_types, name)
+    if name == "NormalizedIdentitySpec":
+        from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
+
+        return NormalizedIdentitySpec
+    if name in {"LinkCapabilities", "LinkKind"}:
+        from LiuXin_alpha.databases import schema_specs as _schema_specs
+
+        return getattr(_schema_specs, name)
     if name in {
         "ColumnEmptyValuePolicy",
         "ColumnMergePolicy",

@@ -9,11 +9,13 @@ import sqlite3
 from typing import Optional, Union, TYPE_CHECKING, Any, Iterable
 import datetime
 
+from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
+
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 
-class MacrosAPI(abc.ABC):
+class MacrosAPI(PortableMacrosAPI, abc.ABC):
     """
     Abstract API for SQL macros implementations.
 

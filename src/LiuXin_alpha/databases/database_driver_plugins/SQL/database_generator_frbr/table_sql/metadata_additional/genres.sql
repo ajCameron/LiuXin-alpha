@@ -58,3 +58,17 @@ ON `genres` (`genre_full` COLLATE NOCASE)
 WHERE `genre_full` IS NOT NULL;
 
 -- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_genres_unique_root_phash`
+ON `genres` (`genre_phash`)
+WHERE `genre_parent_id` IS NULL AND `genre_phash` IS NOT NULL;
+
+-- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_genres_unique_parent_phash`
+ON `genres` (`genre_parent_id`, `genre_phash`)
+WHERE `genre_parent_id` IS NOT NULL AND `genre_phash` IS NOT NULL;
+
+-- BREAK

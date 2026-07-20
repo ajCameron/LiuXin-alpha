@@ -14,13 +14,6 @@ if TYPE_CHECKING:
 
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
-    from LiuXin_alpha.catalog.api.metadata_tools_api.add_api import AddAPI
-    from LiuXin_alpha.catalog.api.metadata_tools_api.ensure_api import EnsureAPI
-    from LiuXin_alpha.catalog.api.metadata_tools_api.apply_api import ApplyAPI
-
-
-
-
 @runtime_checkable
 class CatalogAddinsAPI(Protocol):
     """
@@ -37,10 +30,9 @@ class CatalogAddinsAPI(Protocol):
 
 
 @runtime_checkable
-class CatalogAPI(CatalogAddinsAPI, DatabaseAPI):
+class CatalogAPI(CatalogAddinsAPI, Protocol):
     """
-    API for the catalog - a database with metadata manipulation plugins.
+    Structural API for the metadata-aware facade over a database handle.
     """
-    add: "AddAPI"
-    ensure: "EnsureAPI"
-    apply: "ApplyAPI"
+
+    db: "DatabaseAPI"

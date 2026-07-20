@@ -18,6 +18,8 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import smart_dictionary_merge, get_unique_id
 from LiuXin_alpha.databases.schema_specs import (
+    LinkCardinality,
+    LinkCapabilities,
     RelationKind,
     StorageLinkSpec,
     StorageSchemaSpec,
@@ -95,6 +97,10 @@ class DriverWrapper(
         :return:
         """
         self._cached_table_specs: dict[str, StorageTableSpec] = {}
+        self._cached_link_capabilities: dict[
+            tuple[str, str],
+            Optional[LinkCapabilities],
+        ] = {}
         self._cached_link_specs: dict[tuple[str, str], Optional[StorageLinkSpec]] = {}
         self._cached_intralink_specs: dict[str, Optional[StorageLinkSpec]] = {}
         self._cached_schema_spec: Optional[StorageSchemaSpec] = None
@@ -141,6 +147,61 @@ class DriverWrapper(
                 if table.endswith("_intralinks")
             )
         )
+
+    def get_link_capabilities(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return the type/priority capabilities of one interlink or intralink."""
+
+        cache_key = (str(table1), str(table2))
+        if force_refresh:
+            self._clear_derived_schema_caches()
+        elif cache_key in self._cached_link_capabilities:
+            return self._cached_link_capabilities[cache_key]
+
+        capabilities = self.driver.direct_get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        self._cached_link_capabilities[cache_key] = capabilities
+        return capabilities
+
+    def is_link_typed(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a type column."""
+
+        capabilities = self.get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        return bool(capabilities is not None and capabilities.typed)
+
+    def is_link_priority(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a priority column."""
+
+        capabilities = self.get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        return bool(capabilities is not None and capabilities.priority)
 
     def get_table_spec(self, table: str, force_refresh: bool = False) -> StorageTableSpec:
         """
@@ -281,25 +342,22 @@ class DriverWrapper(
             if cache_key in self._cached_link_specs:
                 return self._cached_link_specs[cache_key]
 
-        link_table = self.get_link_table_name(table1, table2)
-        if not link_table:
+        capabilities = self.get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        if capabilities is None:
             self._cached_link_specs[(table1, table2)] = None
             return None
+        link_table = capabilities.link_table
 
         primary_link_col = self.get_link_column(table1, table2, self.get_id_column(table1))
         secondary_link_col = self.get_link_column(table1, table2, self.get_id_column(table2))
 
-        try:
-            priority_link_col = self.get_link_column(table1, table2, "priority")
-        except Exception:
-            priority_link_col = None
+        priority_link_col = capabilities.priority_column
+        type_link_col = capabilities.type_column
 
-        try:
-            type_link_col = self.get_link_column(table1, table2, "type")
-        except Exception:
-            type_link_col = None
-
-        link_columns = set(self.get_column_headings(link_table))
         used = {primary_link_col, secondary_link_col}
         if priority_link_col:
             used.add(priority_link_col)
@@ -317,10 +375,18 @@ class DriverWrapper(
                 allowed_types_table = cand
                 break
 
+        cardinality, type_part_of_identity = self._link_constraint_shape(
+            link_table,
+            primary_link_col,
+            secondary_link_col,
+            type_link_col,
+        )
+
         spec = StorageLinkSpec(
             primary_table=table1,
             secondary_table=table2,
             link_table=link_table,
+            cardinality=cardinality,
             primary_id_col=self.get_id_column(table1),
             secondary_id_col=self.get_id_column(table2),
             primary_link_col=primary_link_col,
@@ -329,11 +395,51 @@ class DriverWrapper(
             type_link_col=type_link_col,
             ordered=priority_link_col is not None,
             typed=type_link_col is not None,
+            type_part_of_identity=type_part_of_identity,
             allowed_types_table=allowed_types_table,
             extra_link_columns=extra_specs,
         )
         self._cached_link_specs[(table1, table2)] = spec
         return spec
+
+    def _link_constraint_shape(
+        self,
+        link_table: str,
+        primary_link_col: str,
+        secondary_link_col: str,
+        type_link_col: str | None,
+    ) -> tuple[LinkCardinality, bool]:
+        """Infer cardinality and typed identity from backend unique indexes."""
+
+        getter = getattr(self.driver, "_get_unique_column_groups", None)
+        if not callable(getter):
+            return LinkCardinality.UNKNOWN, False
+        try:
+            groups = tuple(tuple(group) for group in getter(link_table))
+        except Exception:
+            return LinkCardinality.UNKNOWN, False
+        group_sets = {frozenset(group) for group in groups}
+        primary_unique = frozenset((primary_link_col,)) in group_sets
+        secondary_unique = frozenset((secondary_link_col,)) in group_sets
+        pair = frozenset((primary_link_col, secondary_link_col))
+        pair_unique = pair in group_sets
+        typed_pair_unique = (
+            type_link_col is not None
+            and frozenset((primary_link_col, secondary_link_col, type_link_col))
+            in group_sets
+        )
+
+        if primary_unique and secondary_unique:
+            cardinality = LinkCardinality.ONE_TO_ONE
+        elif primary_unique:
+            cardinality = LinkCardinality.MANY_TO_ONE
+        elif secondary_unique:
+            cardinality = LinkCardinality.ONE_TO_MANY
+        elif pair_unique or typed_pair_unique:
+            cardinality = LinkCardinality.MANY_TO_MANY
+        else:
+            cardinality = LinkCardinality.UNKNOWN
+        return cardinality, bool(typed_pair_unique and not pair_unique)
 
     def iter_table_specs(
         self,
@@ -365,23 +471,21 @@ class DriverWrapper(
         elif table in self._cached_intralink_specs:
             return self._cached_intralink_specs[table]
 
-        link_table = self.check_for_intralink_table(table)
-        if not link_table:
+        capabilities = self.get_link_capabilities(
+            table,
+            table,
+            force_refresh=force_refresh,
+        )
+        if capabilities is None:
             self._cached_intralink_specs[table] = None
             return None
+        link_table = capabilities.link_table
 
         primary_link_col = self.get_intralink_column(table, "primary_id")
         secondary_link_col = self.get_intralink_column(table, "secondary_id")
 
-        try:
-            priority_link_col = self.get_intralink_column(table, "priority")
-        except Exception:
-            priority_link_col = None
-
-        try:
-            type_link_col = self.get_intralink_column(table, "type")
-        except Exception:
-            type_link_col = None
+        priority_link_col = capabilities.priority_column
+        type_link_col = capabilities.type_column
 
         used = {primary_link_col, secondary_link_col}
         if priority_link_col:
@@ -400,10 +504,18 @@ class DriverWrapper(
                 allowed_types_table = cand
                 break
 
+        cardinality, type_part_of_identity = self._link_constraint_shape(
+            link_table,
+            primary_link_col,
+            secondary_link_col,
+            type_link_col,
+        )
+
         spec = StorageLinkSpec(
             primary_table=table,
             secondary_table=table,
             link_table=link_table,
+            cardinality=cardinality,
             primary_id_col=self.get_id_column(table),
             secondary_id_col=self.get_id_column(table),
             primary_link_col=primary_link_col,
@@ -412,6 +524,7 @@ class DriverWrapper(
             type_link_col=type_link_col,
             ordered=priority_link_col is not None,
             typed=type_link_col is not None,
+            type_part_of_identity=type_part_of_identity,
             allowed_types_table=allowed_types_table,
             extra_link_columns=extra_specs,
         )

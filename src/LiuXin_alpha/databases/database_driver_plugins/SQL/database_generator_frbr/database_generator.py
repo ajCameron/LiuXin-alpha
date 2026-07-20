@@ -57,6 +57,11 @@ from LiuXin_alpha.databases.column_metadata import (
     COLUMN_METADATA_TABLE,
     infer_column_metadata,
 )
+from LiuXin_alpha.databases.normalized_identities import (
+    NORMALIZED_IDENTITIES_TABLE,
+    iter_normalized_identity_defaults,
+    normalized_identity_db_values,
+)
 from LiuXin_alpha.metadata.constants.container_vocabularies import (
     GenreKind,
     IdentifierStatus,
@@ -562,6 +567,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         # 10) Persist a complete policy for every physical column, including
         # dynamically generated interlink and intralink tables.
         self.seed_column_metadata()
+        self.seed_normalized_identities()
 
         # 11) Set the version - so we can check the database and driver version used to build this database
         self.set_database_version()
@@ -640,6 +646,52 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
               column_metadata_merge_policy,
               column_metadata_validation_profile
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """.strip(),
+            rows,
+        )
+        self.conn.commit()
+
+    def seed_normalized_identities(self) -> None:
+        """Seed relation-level normalized identity declarations."""
+
+        try:
+            tables = set(self.direct_get_tables())
+        except Exception:
+            tables = set()
+        if NORMALIZED_IDENTITIES_TABLE not in tables:
+            return
+
+        table_columns = {
+            table: {
+                str(row[1])
+                for row in self.conn.execute(
+                    f"PRAGMA table_info(`{table.replace('`', '``')}`);"
+                )
+            }
+            for table in tables
+            if not table.startswith("sqlite_")
+        }
+        rows = [
+            normalized_identity_db_values(spec)
+            for spec in iter_normalized_identity_defaults()
+            if spec.table in table_columns
+            and {
+                spec.value_column,
+                spec.identity_column,
+                *spec.scope_columns,
+            }
+            <= table_columns[spec.table]
+        ]
+        self.conn.executemany(
+            """
+            INSERT OR IGNORE INTO normalized_identities (
+              normalized_identity_table_name,
+              normalized_identity_value_column,
+              normalized_identity_key_column,
+              normalized_identity_normalization_profile,
+              normalized_identity_scope_columns_json,
+              normalized_identity_unique
+            ) VALUES (?, ?, ?, ?, ?, ?);
             """.strip(),
             rows,
         )

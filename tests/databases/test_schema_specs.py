@@ -1,8 +1,8 @@
 """Tests for LiuXin_alpha.databases.schema_specs.
 
 Covers the dataclasses (StorageColumnSpec, StorageTableSpec, StorageLinkSpec,
-StorageSchemaSpec), the enums (RelationKind, LinkCardinality), and the
-build_row_dataclass_for_table factory.
+StorageSchemaSpec, LinkCapabilities), the enums (RelationKind,
+LinkCardinality, LinkKind), and the build_row_dataclass_for_table factory.
 """
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ import pytest
 
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
+    LinkCapabilities,
+    LinkKind,
     RelationKind,
     StorageColumnSpec,
     StorageLinkSpec,
@@ -139,6 +141,46 @@ class TestStorageTableSpec:
         )
         with pytest.raises((AttributeError, TypeError)):
             spec.name = "other"  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# LinkCapabilities
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("type_column", "priority_column", "expected_kind"),
+    (
+        (None, None, LinkKind.PLAIN),
+        ("demo_link_type", None, LinkKind.TYPED),
+        (None, "demo_link_priority", LinkKind.PRIORITY),
+        (
+            "demo_link_type",
+            "demo_link_priority",
+            LinkKind.TYPED_PRIORITY,
+        ),
+    ),
+)
+def test_link_capabilities_four_way_classification(
+    type_column: str | None,
+    priority_column: str | None,
+    expected_kind: LinkKind,
+) -> None:
+    capabilities = LinkCapabilities(
+        primary_table="left",
+        secondary_table="right",
+        link_table="left_right_links",
+        type_column=type_column,
+        priority_column=priority_column,
+    )
+
+    assert capabilities.typed is (type_column is not None)
+    assert capabilities.priority is (priority_column is not None)
+    assert capabilities.ordered is capabilities.priority
+    assert capabilities.both is (
+        type_column is not None and priority_column is not None
+    )
+    assert capabilities.kind is expected_kind
 
 
 # ---------------------------------------------------------------------------

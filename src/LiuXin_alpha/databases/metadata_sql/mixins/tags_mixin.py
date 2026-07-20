@@ -9,7 +9,13 @@ class CMTagsMixin:
         :param tag:
         :return:
         """
-        self.db.driver.conn.execute("DELETE FROM tags WHERE tag=?;", (tag,))
+        identity = self.db.get_canonical_identity("tags", "tag", tag)
+        if identity is None:
+            return
+        self.db.driver.conn.execute(
+            "DELETE FROM tags WHERE tag_id=?;",
+            (identity.row_id,),
+        )
         self.db.driver.conn.commit()
 
     def get_tag_id_from_value(self, tag):
@@ -18,7 +24,8 @@ class CMTagsMixin:
         :param tag:
         :return:
         """
-        return self.db.driver.conn.get("SELECT tag_id FROM tags WHERE tag=?", (tag,), all=False)
+        identity = self.db.get_canonical_identity("tags", "tag", tag)
+        return None if identity is None else identity.row_id
 
 
     def add_tag(self, tag_value):
@@ -27,4 +34,4 @@ class CMTagsMixin:
         :param tag_value:
         :return:
         """
-        return self.db.driver.conn.execute("INSERT INTO tags(tag) VALUES(?);", (tag_value,)).lastrowid
+        return self.db.macros.ensure_table_value("tags", "tag", tag_value)

@@ -6,7 +6,7 @@ Driver wrapper mixin - for handling metadata concerning the database.
 from __future__ import absolute_import, division, print_function, unicode_literals, annotations
 
 
-from typing import Optional, Iterable, TYPE_CHECKING
+from typing import Optional, Iterable, Iterator, TYPE_CHECKING
 
 from LiuXin_alpha.databases.column_metadata import (
     ColumnEmptyValuePolicy,
@@ -16,6 +16,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 
 if TYPE_CHECKING:
 
@@ -144,6 +145,20 @@ class DriverWrapperMetadataMixin:
         """Return the derived comparison column, if any."""
 
         return self.driver.direct_get_comparison_column(table, column)
+
+    def get_normalized_identity_spec(
+        self,
+        table: str,
+        value_column: str,
+    ) -> NormalizedIdentitySpec | None:
+        """Return the normalized row-identity declaration for a display column."""
+
+        return self.driver.direct_get_normalized_identity_spec(table, value_column)
+
+    def iter_normalized_identity_specs(self) -> Iterator[NormalizedIdentitySpec]:
+        """Yield every normalized row identity declared by the database."""
+
+        yield from self.driver.direct_iter_normalized_identity_specs()
 
     def set_comparison_column(
         self,

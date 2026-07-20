@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Iterable, Any
+from typing import Iterable, Iterator, Mapping, Any
 
 from LiuXin_alpha.databases.column_metadata import (
     ColumnEmptyValuePolicy,
@@ -11,6 +11,12 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
+from LiuXin_alpha.databases.macro_types import (
+    CanonicalIdentity,
+    NormalizedIdentityMigrationReport,
+)
+from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 
 
 class DatabaseMetadataMixinAPI(abc.ABC):
@@ -104,6 +110,36 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
+    def get_link_capabilities(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return type/priority capabilities for an interlink or intralink."""
+
+    @abc.abstractmethod
+    def is_link_typed(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether an interlink or intralink has a type column."""
+
+    @abc.abstractmethod
+    def is_link_priority(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether an interlink or intralink has a priority column."""
+
+    @abc.abstractmethod
     def get_case_sensitivity(self, table: str, column: str) -> bool:
         """
         Return whether text equality for this column is case-sensitive.
@@ -154,6 +190,81 @@ class DatabaseMetadataMixinAPI(abc.ABC):
     @abc.abstractmethod
     def get_comparison_column(self, table: str, column: str) -> str | None:
         """Return the derived comparison column, if any."""
+
+    @abc.abstractmethod
+    def get_normalized_identity_spec(
+        self,
+        table: str,
+        value_column: str,
+    ) -> NormalizedIdentitySpec | None:
+        """Return the normalized row-identity declaration for a display column."""
+
+    @abc.abstractmethod
+    def iter_normalized_identity_specs(self) -> Iterator[NormalizedIdentitySpec]:
+        """Yield every normalized row identity declared by the database."""
+
+    @abc.abstractmethod
+    def derive_identity_value(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+    ) -> Any:
+        """Derive the declared normalized identity for a display value."""
+
+    @abc.abstractmethod
+    def get_canonical_identity(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+        id_column: str | None = None,
+    ) -> CanonicalIdentity | None:
+        """Resolve a display value to its complete stored canonical identity."""
+
+    @abc.abstractmethod
+    def get_canonical_identity_by_key(
+        self,
+        table: str,
+        value_column: str,
+        identity_value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+        id_column: str | None = None,
+    ) -> CanonicalIdentity | None:
+        """Resolve an already-derived identity to its canonical stored row."""
+
+    @abc.abstractmethod
+    def get_canonical_value(
+        self,
+        table: str,
+        value_column: str,
+        value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> Any | None:
+        """Resolve a display value and return its canonical stored spelling."""
+
+    @abc.abstractmethod
+    def get_canonical_value_by_identity(
+        self,
+        table: str,
+        value_column: str,
+        identity_value: Any,
+        *,
+        scope_values: Mapping[str, Any] | None = None,
+    ) -> Any | None:
+        """Resolve a derived identity and return its canonical stored spelling."""
+
+    @abc.abstractmethod
+    def audit_normalized_identities(self) -> NormalizedIdentityMigrationReport:
+        """Report stale keys and collisions without changing the database."""
+
+    @abc.abstractmethod
+    def migrate_normalized_identities(self) -> NormalizedIdentityMigrationReport:
+        """Install, backfill, and index normalized identities atomically."""
 
     @abc.abstractmethod
     def set_comparison_column(

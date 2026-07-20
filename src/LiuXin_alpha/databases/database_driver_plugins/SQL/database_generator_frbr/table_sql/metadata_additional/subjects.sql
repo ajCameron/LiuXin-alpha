@@ -58,3 +58,17 @@ ON `subjects` (`subject_full` COLLATE NOCASE)
 WHERE `subject_full` IS NOT NULL;
 
 -- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_subjects_unique_root_phash`
+ON `subjects` (`subject_phash`)
+WHERE `subject_parent_id` IS NULL AND `subject_phash` IS NOT NULL;
+
+-- BREAK
+-- BREAK
+
+CREATE UNIQUE INDEX IF NOT EXISTS `idx_subjects_unique_parent_phash`
+ON `subjects` (`subject_parent_id`, `subject_phash`)
+WHERE `subject_parent_id` IS NOT NULL AND `subject_phash` IS NOT NULL;
+
+-- BREAK

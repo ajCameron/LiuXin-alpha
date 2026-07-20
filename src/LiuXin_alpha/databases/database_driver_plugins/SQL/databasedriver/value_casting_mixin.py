@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import replace
 import re
 
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, Iterator, Optional, Sequence, Union
 
 from LiuXin_alpha.databases.column_metadata import (
     COLUMN_METADATA_TABLE,
@@ -30,6 +30,14 @@ from LiuXin_alpha.databases.column_metadata import (
     default_column_metadata,
     infer_column_metadata,
 )
+from LiuXin_alpha.databases.normalized_identities import (
+    NORMALIZED_IDENTITIES_TABLE,
+    NormalizedIdentitySpec,
+    default_normalized_identity_spec,
+    iter_normalized_identity_defaults,
+    normalized_identity_from_db_values,
+)
+from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 
@@ -40,6 +48,90 @@ class ValueCastingMixin:
     """
 
     _DECLARED_TYPES_CACHE_ATTR = "_declared_types_cache"
+
+    def direct_get_link_capabilities(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return the type/priority capabilities of the link between two tables.
+
+        Endpoint tables must exist.  ``None`` means that both endpoints exist
+        but the physical interlink or intralink table does not.
+        """
+
+        primary_table = self._canonicalise_table_name_for_cache(table1)
+        secondary_table = self._canonicalise_table_name_for_cache(table2)
+        tables_and_columns = self.direct_get_tables_and_columns(
+            force_refresh=force_refresh,
+        )
+        for endpoint in (primary_table, secondary_table):
+            if endpoint not in tables_and_columns:
+                raise InputIntegrityError(
+                    f"link endpoint table {endpoint!r} not found"
+                )
+
+        primary_base = self.direct_get_table_col_base(primary_table)
+        secondary_base = self.direct_get_table_col_base(secondary_table)
+        if primary_table == secondary_table:
+            link_column_base = f"{primary_base}_{primary_base}_intralink"
+            link_table = f"{link_column_base}s"
+        else:
+            ordered_bases = sorted((primary_base, secondary_base))
+            link_column_base = f"{ordered_bases[0]}_{ordered_bases[1]}_link"
+            link_table = f"{link_column_base}s"
+
+        headings = tables_and_columns.get(link_table)
+        if headings is None:
+            return None
+
+        type_column = f"{link_column_base}_type"
+        priority_column = f"{link_column_base}_priority"
+        return LinkCapabilities(
+            primary_table=primary_table,
+            secondary_table=secondary_table,
+            link_table=link_table,
+            type_column=type_column if type_column in headings else None,
+            priority_column=(
+                priority_column
+                if priority_column in headings
+                else None
+            ),
+        )
+
+    def direct_is_link_typed(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a type column."""
+
+        capabilities = self.direct_get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        return bool(capabilities is not None and capabilities.typed)
+
+    def direct_is_link_priority(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a priority column."""
+
+        capabilities = self.direct_get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        return bool(capabilities is not None and capabilities.priority)
 
     def direct_get_declared_column_datatype(self, table: str, column: str) -> str:
         """
@@ -170,6 +262,7 @@ class ValueCastingMixin:
         """Persist the complete database-owned policy for one physical column."""
 
         metadata = self._validated_column_metadata_input(metadata)
+        self._validate_normalized_identity_metadata(metadata)
         if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
             raise DatabaseIntegrityError(
                 "database has no column_metadata table; migrate the schema before storing column policy"
@@ -219,6 +312,40 @@ class ValueCastingMixin:
             conn.commit()
         finally:
             conn.close()
+
+    def _validate_normalized_identity_metadata(
+        self,
+        metadata: ColumnMetadata,
+    ) -> None:
+        """Keep column policy coherent with an immutable identity declaration."""
+
+        identity_spec = self.direct_get_normalized_identity_spec(
+            metadata.table,
+            metadata.column,
+        )
+        if identity_spec is None:
+            return
+        if metadata.comparison_column != identity_spec.identity_column:
+            raise InputIntegrityError(
+                f"{metadata.table}.{metadata.column} is a normalized identity; "
+                f"its comparison column must remain "
+                f"{identity_spec.identity_column!r}."
+            )
+        if metadata.normalization_profile is not identity_spec.normalization_profile:
+            raise InputIntegrityError(
+                f"{metadata.table}.{metadata.column} is a normalized identity; "
+                f"its normalization profile must remain "
+                f"{identity_spec.normalization_profile.value!r}."
+            )
+        expected_case_sensitive = identity_spec.normalization_profile in {
+            ColumnNormalizationProfile.NONE,
+            ColumnNormalizationProfile.UNICODE_NFC,
+        }
+        if metadata.case_sensitive is not expected_case_sensitive:
+            raise InputIntegrityError(
+                f"{metadata.table}.{metadata.column} is a normalized identity; "
+                f"case sensitivity must remain {expected_case_sensitive!r}."
+            )
 
     def direct_get_semantic_role(
         self,
@@ -274,6 +401,127 @@ class ValueCastingMixin:
         """Return the derived comparison column, if any."""
 
         return self.direct_get_column_metadata(table, column).comparison_column
+
+    def _default_normalized_identity_if_supported(
+        self,
+        table: str,
+        value_column: str,
+    ) -> NormalizedIdentitySpec | None:
+        spec = default_normalized_identity_spec(table, value_column)
+        if spec is None:
+            return None
+        available = set(self.direct_get_column_headings(table))
+        required = {
+            spec.value_column,
+            spec.identity_column,
+            *spec.scope_columns,
+        }
+        return spec if required <= available else None
+
+    def direct_get_normalized_identity_spec(
+        self,
+        table: str,
+        value_column: str,
+    ) -> NormalizedIdentitySpec | None:
+        """Return the database declaration for one normalized identity."""
+
+        table_name, column_name = self._validated_column_metadata_target(
+            table,
+            value_column,
+        )
+        if NORMALIZED_IDENTITIES_TABLE not in set(self.direct_get_tables()):
+            return self._default_normalized_identity_if_supported(
+                table_name,
+                column_name,
+            )
+
+        conn = self.get_connection()
+        try:
+            row = conn.execute(
+                """
+                SELECT
+                  normalized_identity_table_name,
+                  normalized_identity_value_column,
+                  normalized_identity_key_column,
+                  normalized_identity_normalization_profile,
+                  normalized_identity_scope_columns_json,
+                  normalized_identity_unique
+                FROM normalized_identities
+                WHERE normalized_identity_table_name = ?
+                  AND normalized_identity_value_column = ?
+                LIMIT 1;
+                """,
+                (table_name, column_name),
+            ).fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            return None
+        spec = normalized_identity_from_db_values(*row)
+        available = set(self.direct_get_column_headings(table_name))
+        required = {
+            spec.value_column,
+            spec.identity_column,
+            *spec.scope_columns,
+        }
+        if not required <= available:
+            raise DatabaseIntegrityError(
+                f"Normalized identity declaration for {table_name}.{column_name} "
+                "references missing physical columns."
+            )
+        return spec
+
+    def direct_iter_normalized_identity_specs(
+        self,
+    ) -> Iterator[NormalizedIdentitySpec]:
+        """Yield every normalized identity supported by this database."""
+
+        if NORMALIZED_IDENTITIES_TABLE not in set(self.direct_get_tables()):
+            for spec in iter_normalized_identity_defaults():
+                if spec.table not in set(self.direct_get_tables()):
+                    continue
+                supported = self._default_normalized_identity_if_supported(
+                    spec.table,
+                    spec.value_column,
+                )
+                if supported is not None:
+                    yield supported
+            return
+
+        conn = self.get_connection()
+        try:
+            rows = list(
+                conn.execute(
+                    """
+                    SELECT
+                      normalized_identity_table_name,
+                      normalized_identity_value_column,
+                      normalized_identity_key_column,
+                      normalized_identity_normalization_profile,
+                      normalized_identity_scope_columns_json,
+                      normalized_identity_unique
+                    FROM normalized_identities
+                    ORDER BY normalized_identity_table_name,
+                             normalized_identity_value_column;
+                    """
+                )
+            )
+        finally:
+            conn.close()
+        for row in rows:
+            spec = normalized_identity_from_db_values(*row)
+            available = set(self.direct_get_column_headings(spec.table))
+            required = {
+                spec.value_column,
+                spec.identity_column,
+                *spec.scope_columns,
+            }
+            if not required <= available:
+                raise DatabaseIntegrityError(
+                    f"Normalized identity declaration for "
+                    f"{spec.table}.{spec.value_column} references missing physical columns."
+                )
+            yield spec
 
     def direct_set_comparison_column(
         self,
@@ -386,6 +634,12 @@ class ValueCastingMixin:
         table_name, column_name = self._validated_column_metadata_target(table, column)
         if type(case_sensitive) is not bool:
             raise InputIntegrityError("case_sensitive must be a bool")
+        self._validate_normalized_identity_metadata(
+            replace(
+                self.direct_get_column_metadata(table_name, column_name),
+                case_sensitive=case_sensitive,
+            )
+        )
         if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
             raise DatabaseIntegrityError(
                 "database has no column_metadata table; migrate the schema before storing column policy"

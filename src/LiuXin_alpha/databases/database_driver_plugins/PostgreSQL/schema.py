@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 from collections.abc import Mapping, Sequence
@@ -12,6 +13,9 @@ from LiuXin_alpha.databases.database.constants import HELPER_TABLES
 from LiuXin_alpha.databases.column_metadata import (
     ColumnMetadata,
     infer_column_metadata,
+)
+from LiuXin_alpha.databases.normalized_identities import (
+    iter_normalized_identity_defaults,
 )
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
     PostgresConnectionAdapter,
@@ -96,6 +100,7 @@ def build_schema_statements(*, schema: str = "public") -> tuple[str, ...]:
         statements.extend(table.indexes)
     statements.extend(_helper_sql_statements())
     statements.extend(_column_metadata_seed_statements())
+    statements.extend(_normalized_identity_seed_statements())
     return tuple(statements)
 
 
@@ -164,6 +169,43 @@ def _column_metadata_seed_statements() -> tuple[str, ...]:
             f"{_sql_literal(metadata.validation_profile.value)}"
             ") "
             'on conflict ("column_metadata_table_name", "column_metadata_column_name") do nothing'
+        )
+    return tuple(statements)
+
+
+def _normalized_identity_seed_statements() -> tuple[str, ...]:
+    """Seed declarations which are supported by the physical PG catalog."""
+
+    statements: list[str] = []
+    catalog = schema_table_catalog()
+    for spec in iter_normalized_identity_defaults():
+        columns = set(catalog.get(spec.table, ()))
+        required = {
+            spec.value_column,
+            spec.identity_column,
+            *spec.scope_columns,
+        }
+        if not required <= columns:
+            continue
+        scope_json = json.dumps(spec.scope_columns, separators=(",", ":"))
+        statements.append(
+            'insert into "normalized_identities" ('
+            '"normalized_identity_table_name", '
+            '"normalized_identity_value_column", '
+            '"normalized_identity_key_column", '
+            '"normalized_identity_normalization_profile", '
+            '"normalized_identity_scope_columns_json", '
+            '"normalized_identity_unique"'
+            f") values ("
+            f"{_sql_literal(spec.table)}, "
+            f"{_sql_literal(spec.value_column)}, "
+            f"{_sql_literal(spec.identity_column)}, "
+            f"{_sql_literal(spec.normalization_profile.value)}, "
+            f"{_sql_literal(scope_json)}, "
+            f"{int(spec.unique)}"
+            ") "
+            'on conflict ("normalized_identity_table_name", '
+            '"normalized_identity_value_column") do nothing'
         )
     return tuple(statements)
 
@@ -537,6 +579,7 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
         columns=(
             _identity_pk("series_id"),
             '"series" text null',
+            '"series_name_norm" text null',
             '"series_sort" text null',
             _epoch_column("series_created_timestamp_ep_k"),
             _epoch_column("series_modified_timestamp_ep_k"),
@@ -544,7 +587,11 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             _nullable_epoch_column("series_source_modified_datestamp_ep_k"),
             _scratch_column("series"),
         ),
-        indexes=('create index if not exists "idx_series_series" on "series" ("series")',),
+        indexes=(
+            'create index if not exists "idx_series_series" on "series" ("series")',
+            'create unique index if not exists "idx_series_unique_name_norm" '
+            'on "series" ("series_name_norm") where "series_name_norm" is not null',
+        ),
     ),
     TableDefinition(
         name="ratings",
@@ -566,6 +613,7 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
         columns=(
             _identity_pk("replication_policy_id"),
             '"replication_policy_name" text null unique',
+            '"replication_policy_name_norm" text null',
             '"replication_policy_min_copies" bigint not null default 1',
             '"replication_policy_target_copies" bigint null',
             '"replication_policy_distinct_by_json" text null',
@@ -588,12 +636,18 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             'constraint "replication_policy_mode_check" check ("replication_policy_mode" in '
             "('active','backup','archive'))",
         ),
+        indexes=(
+            'create unique index if not exists "idx_replication_policies_unique_name_norm" '
+            'on "replication_policies" ("replication_policy_name_norm") '
+            'where "replication_policy_name_norm" is not null',
+        ),
     ),
     TableDefinition(
         name="backup_policies",
         columns=(
             _identity_pk("backup_policy_id"),
             '"backup_policy_name" text null unique',
+            '"backup_policy_name_norm" text null',
             '"backup_policy_min_backup_copies" bigint not null default 1',
             '"backup_policy_target_backup_copies" bigint null',
             '"backup_policy_distinct_by_json" text null',
@@ -613,6 +667,11 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             'constraint "backup_policy_periodic_verification_bool" check ("backup_policy_periodic_verification" in (0,1))',
             'constraint "backup_policy_retention_locked_bool" check ("backup_policy_retention_locked" in (0,1))',
             'constraint "backup_policy_mode_check" check ("backup_policy_mode" in (\'backup\',\'archive\'))',
+        ),
+        indexes=(
+            'create unique index if not exists "idx_backup_policies_unique_name_norm" '
+            'on "backup_policies" ("backup_policy_name_norm") '
+            'where "backup_policy_name_norm" is not null',
         ),
     ),
     TableDefinition(

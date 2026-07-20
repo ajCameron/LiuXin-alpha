@@ -12,7 +12,9 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
+from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 from LiuXin_alpha.databases.schema_specs import (
+    LinkCapabilities,
     StorageSchemaSpec,
     StorageTableSpec,
     StorageLinkSpec,
@@ -20,6 +22,36 @@ from LiuXin_alpha.databases.schema_specs import (
 
 
 class SchemaIntrospectionAPI(abc.ABC):
+
+    @abstractmethod
+    def get_link_capabilities(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> LinkCapabilities | None:
+        """Return type/priority capabilities for an interlink or intralink."""
+
+    @abstractmethod
+    def is_link_typed(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether an interlink or intralink has a type column."""
+
+    @abstractmethod
+    def is_link_priority(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether an interlink or intralink has a priority column."""
 
     @abstractmethod
     def get_declared_column_datatype(self, table: str, column: str) -> str:
@@ -75,6 +107,18 @@ class SchemaIntrospectionAPI(abc.ABC):
     @abstractmethod
     def get_comparison_column(self, table: str, column: str) -> str | None:
         """Return the derived comparison column, if any."""
+
+    @abstractmethod
+    def get_normalized_identity_spec(
+        self,
+        table: str,
+        value_column: str,
+    ) -> NormalizedIdentitySpec | None:
+        """Return the normalized row-identity declaration for a display column."""
+
+    @abstractmethod
+    def iter_normalized_identity_specs(self) -> Iterator[NormalizedIdentitySpec]:
+        """Yield every normalized row identity declared by the database."""
 
     @abstractmethod
     def set_comparison_column(

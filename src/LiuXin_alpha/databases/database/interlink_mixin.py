@@ -295,15 +295,18 @@ class DatabaseInterlinkRowsMixin:
         """
         if link_table_name in self._link_has_priority:
             return self._link_has_priority[link_table_name]
-        else:
-            try:
-                self.driver_wrapper.get_link_column(primary_link_table_name, secondary_link_table_name, "priority")
-            except DatabaseIntegrityError:
-                self._link_has_priority[link_table_name] = False
-                return False
 
-            self._link_has_priority[link_table_name] = True
-            return True
+        capabilities = self.get_link_capabilities(
+            primary_link_table_name,
+            secondary_link_table_name,
+        )
+        has_priority = bool(
+            capabilities is not None
+            and capabilities.link_table == link_table_name
+            and capabilities.priority
+        )
+        self._link_has_priority[link_table_name] = has_priority
+        return has_priority
 
     # Todo: Remain type to link type
     # Todo: Extend with the other permissable link attributes

@@ -21,6 +21,7 @@ HELPER_TABLES = frozenset(
         "library_id",
         "metadata_dirtied_books",
         "new_books",
+        "normalized_identities",
         "preferences",
         # FRBR plugin data
         "works_plugin_data",
@@ -48,5 +49,6 @@ HELPER_TABLES = frozenset(
 OPTIONAL_HELPER_TABLES = frozenset(
     {
         "column_metadata",
+        "normalized_identities",
     }
 )
