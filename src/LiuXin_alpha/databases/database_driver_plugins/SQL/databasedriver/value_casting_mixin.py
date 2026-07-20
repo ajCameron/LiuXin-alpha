@@ -101,6 +101,38 @@ class ValueCastingMixin:
             ),
         )
 
+    def direct_is_link_typed(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a type column."""
+
+        capabilities = self.direct_get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        return bool(capabilities is not None and capabilities.typed)
+
+    def direct_is_link_priority(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a priority column."""
+
+        capabilities = self.direct_get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        return bool(capabilities is not None and capabilities.priority)
+
     def direct_get_declared_column_datatype(self, table: str, column: str) -> str:
         """
         Return the database-native declared datatype for one column.

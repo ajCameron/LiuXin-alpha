@@ -34,6 +34,26 @@ class SchemaIntrospectionAPI(abc.ABC):
         """Return type/priority capabilities for an interlink or intralink."""
 
     @abstractmethod
+    def is_link_typed(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether an interlink or intralink has a type column."""
+
+    @abstractmethod
+    def is_link_priority(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether an interlink or intralink has a priority column."""
+
+    @abstractmethod
     def get_declared_column_datatype(self, table: str, column: str) -> str:
         """
         Return the database-native declared datatype for one column.

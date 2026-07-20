@@ -162,6 +162,36 @@ class DatabaseMetadataMixin:
             force_refresh=force_refresh,
         )
 
+    def is_link_typed(
+        self: "DatabaseAPI",
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a type column."""
+
+        return self.driver_wrapper.is_link_typed(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+
+    def is_link_priority(
+        self: "DatabaseAPI",
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a priority column."""
+
+        return self.driver_wrapper.is_link_priority(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+
     def get_case_sensitivity(self: "DatabaseAPI", table: str, column: str) -> bool:
         """
         Return whether text equality for this column is case-sensitive.

@@ -120,6 +120,26 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """Return type/priority capabilities for an interlink or intralink."""
 
     @abc.abstractmethod
+    def is_link_typed(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether an interlink or intralink has a type column."""
+
+    @abc.abstractmethod
+    def is_link_priority(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether an interlink or intralink has a priority column."""
+
+    @abc.abstractmethod
     def get_case_sensitivity(self, table: str, column: str) -> bool:
         """
         Return whether text equality for this column is case-sensitive.

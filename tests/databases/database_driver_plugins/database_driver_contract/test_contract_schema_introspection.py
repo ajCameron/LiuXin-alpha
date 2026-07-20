@@ -193,6 +193,11 @@ def test_direct_link_capabilities_classify_physical_link_columns(
         expected_kind in {LinkKind.PRIORITY, LinkKind.TYPED_PRIORITY}
     )
     assert capabilities.both is (expected_kind is LinkKind.TYPED_PRIORITY)
+    assert driver.direct_is_link_typed(table1, table2) is capabilities.typed
+    assert (
+        driver.direct_is_link_priority(table1, table2)
+        is capabilities.priority
+    )
     if capabilities.typed:
         assert capabilities.type_column in driver.direct_get_column_headings(
             capabilities.link_table
@@ -208,9 +213,15 @@ def test_direct_link_capabilities_distinguish_absent_and_invalid_links(driver) -
         driver.direct_get_link_capabilities("agents", "database_metadata")
         is None
     )
+    assert driver.direct_is_link_typed("agents", "database_metadata") is False
+    assert driver.direct_is_link_priority("agents", "database_metadata") is False
 
     with pytest.raises(InputIntegrityError, match="table"):
         driver.direct_get_link_capabilities("__missing_table__", "works")
+    with pytest.raises(InputIntegrityError, match="table"):
+        driver.direct_is_link_typed("__missing_table__", "works")
+    with pytest.raises(InputIntegrityError, match="table"):
+        driver.direct_is_link_priority("__missing_table__", "works")
 
 
 def test_direct_link_capabilities_support_intralinks(driver) -> None:

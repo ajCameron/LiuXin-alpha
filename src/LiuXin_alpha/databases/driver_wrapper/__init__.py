@@ -171,6 +171,38 @@ class DriverWrapper(
         self._cached_link_capabilities[cache_key] = capabilities
         return capabilities
 
+    def is_link_typed(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a type column."""
+
+        capabilities = self.get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        return bool(capabilities is not None and capabilities.typed)
+
+    def is_link_priority(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether the link between two tables has a priority column."""
+
+        capabilities = self.get_link_capabilities(
+            table1,
+            table2,
+            force_refresh=force_refresh,
+        )
+        return bool(capabilities is not None and capabilities.priority)
+
     def get_table_spec(self, table: str, force_refresh: bool = False) -> StorageTableSpec:
         """
         Provides a spec for the given table.

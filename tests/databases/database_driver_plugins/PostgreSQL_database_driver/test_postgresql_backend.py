@@ -607,6 +607,8 @@ def test_postgresql_driver_inherits_link_capability_introspection(monkeypatch) -
     assert capabilities is not None
     assert capabilities.kind is LinkKind.TYPED_PRIORITY
     assert capabilities.link_table == "agent_work_links"
+    assert drv.direct_is_link_typed("agents", "works") is True
+    assert drv.direct_is_link_priority("agents", "works") is True
 
 
 def test_postgresql_driver_basic_insert_and_update_sql(monkeypatch) -> None:

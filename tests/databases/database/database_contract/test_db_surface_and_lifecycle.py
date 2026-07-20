@@ -119,6 +119,12 @@ def test_link_capabilities_propagate_through_database_layers(open_db):
     assert public.typed is True
     assert public.priority is True
     assert public.both is True
+    assert open_db.driver.direct_is_link_typed(table1, table2) is True
+    assert open_db.driver.direct_is_link_priority(table1, table2) is True
+    assert open_db.driver_wrapper.is_link_typed(table1, table2) is True
+    assert open_db.driver_wrapper.is_link_priority(table1, table2) is True
+    assert open_db.is_link_typed(table1, table2) is True
+    assert open_db.is_link_priority(table1, table2) is True
 
     spec = open_db.driver_wrapper.get_link_spec(table1, table2)
     assert spec is not None

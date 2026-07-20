@@ -31,6 +31,26 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         """Return type/priority capabilities for an interlink or intralink."""
 
     @abc.abstractmethod
+    def direct_is_link_typed(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether an interlink or intralink has a type column."""
+
+    @abc.abstractmethod
+    def direct_is_link_priority(
+        self,
+        table1: str,
+        table2: str,
+        *,
+        force_refresh: bool = False,
+    ) -> bool:
+        """Return whether an interlink or intralink has a priority column."""
+
+    @abc.abstractmethod
     def direct_get_declared_column_datatype(self, table: str, column: str) -> str:
         """
         Return the database-native declared datatype for one column.
