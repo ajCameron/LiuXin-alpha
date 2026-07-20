@@ -1,11 +1,16 @@
+
+"""
+Writer responsible for writing many-to many-relations out to the database.
+"""
+
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from copy import deepcopy
 
-from LiuXin_alpha.catalog.write.base_writer import BaseWriter
+from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.catalog.catalog_macros import library_set_publisher, library_unset_series, \
     library_set_series
-from LiuXin_alpha.catalog.write.utils import UpdateDict
+from LiuXin_alpha.caches.write.utils import UpdateDict
 from LiuXin_alpha.errors import InvalidUpdate, NotInCache
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, dict_itervalues as itervalues, \
     basestring

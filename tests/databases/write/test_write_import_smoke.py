@@ -9,5 +9,5 @@ def test_basic_write_imports_for_loops() -> None:
 
     :return:
     """
-    from LiuXin_alpha.catalog.write import DummyWriter
+    from LiuXin_alpha.caches.write import DummyWriter
     assert DummyWriter is not None

@@ -250,7 +250,7 @@ def fuzz_table(open_db, request) -> ContractTable:
 
 
 @pytest.mark.slow
-@pytest.mark.db
+@pytest.mark.catalog
 def test_slow_fuzz_bulk_insert_roundtrip_and_no_schema_damage(
     open_db,
     fuzz_table: ContractTable,
@@ -350,7 +350,7 @@ def test_slow_fuzz_bulk_insert_roundtrip_and_no_schema_damage(
 
 
 @pytest.mark.slow
-@pytest.mark.db
+@pytest.mark.catalog
 def test_slow_fuzz_random_crud_sequences_do_not_corrupt(
     open_db,
     fuzz_table: ContractTable,

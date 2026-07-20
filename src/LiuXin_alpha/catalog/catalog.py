@@ -18,13 +18,15 @@ from LiuXin_alpha.catalog.repositories import (
     TitleRepository,
     WorkRepository,
 )
-from .mutations import CatalogMutations
-from .retrieval import CatalogRetrieval
+from LiuXin_alpha.catalog.mutations import CatalogMutations
+from LiuXin_alpha.catalog.retrieval import CatalogRetrieval
 
 
 @dataclass(slots=True)
 class CatalogRepositories:
-    """Grouped repository implementations exposed by `Catalog.repositories`."""
+    """
+    Grouped repository implementations exposed by `Catalog.repositories`.
+    """
 
     works: WorkRepository
     expressions: ExpressionRepository
@@ -37,7 +39,8 @@ class CatalogRepositories:
 
 
 class Catalog:
-    """Metadata-aware facade over a raw database handle.
+    """
+    Metadata-aware facade over a raw database handle.
 
     This object is where callers should enter the catalog layer. It should remain
     a composition root, not a God object: substantive behavior belongs in the
@@ -45,6 +48,11 @@ class Catalog:
     """
 
     def __init__(self, db: DatabaseHandle) -> None:
+        """
+        Constructor.
+
+        :param db:
+        """
         self.db = db
         self.repositories = CatalogRepositories(
             works=WorkRepository(db),
@@ -62,30 +70,42 @@ class Catalog:
 
     @property
     def works(self) -> WorkRepository:
-        """Convenience alias for `catalog.repositories.works`."""
+        """
+        Convenience alias for `catalog.repositories.works`.
+        """
         return self.repositories.works
 
     @property
     def expressions(self) -> ExpressionRepository:
-        """Convenience alias for `catalog.repositories.expressions`."""
+        """
+        Convenience alias for `catalog.repositories.expressions`.
+        """
         return self.repositories.expressions
 
     @property
     def manifestations(self) -> ManifestationRepository:
-        """Convenience alias for `catalog.repositories.manifestations`."""
+        """
+        Convenience alias for `catalog.repositories.manifestations`.
+        """
         return self.repositories.manifestations
 
     @property
     def items(self) -> ItemRepository:
-        """Convenience alias for `catalog.repositories.items`."""
+        """
+        Convenience alias for `catalog.repositories.items`.
+        """
         return self.repositories.items
 
     @property
     def agents(self) -> AgentRepository:
-        """Convenience alias for `catalog.repositories.agents`."""
+        """
+        Convenience alias for `catalog.repositories.agents`.
+        """
         return self.repositories.agents
 
     @property
     def identifiers(self) -> IdentifierRepository:
-        """Convenience alias for `catalog.repositories.identifiers`."""
+        """
+        Convenience alias for `catalog.repositories.identifiers`.
+        """
         return self.repositories.identifiers

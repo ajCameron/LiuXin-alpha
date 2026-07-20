@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_db_20_identifier_profile_is_empty_but_views_exist(
     provision_test_database,
 ) -> None:

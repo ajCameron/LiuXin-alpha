@@ -235,9 +235,7 @@ def adapt_identifiers(to_tuple: Callable[[str, ], dict[str, str]], x: Union[dict
             ans[k] = v
     return ans
 
-
-# Todo: This has to be typed - as a Protocol?
-def get_adapter(name: Union[
+FIELD_NAMES = Union[
     Literal["text"],
     Literal["series"],
     Literal["datetime"],
@@ -255,7 +253,11 @@ def get_adapter(name: Union[
     Literal["last_modified"],
     Literal["series_index"],
     Literal["languages"],
-    Literal["identifiers"]], metadata):
+    Literal["identifiers"]]
+
+
+# Todo: This has to be typed - as a Protocol?
+def get_adapter(name: FIELD_NAMES, metadata):
     """
     Return an adaptor appropriate for the given field.
 
@@ -328,6 +330,89 @@ def get_adapter(name: Union[
         return partial(adapt_identifiers, ans)
 
     return ans
+
+
+def get_adapter_from_name_and_dt(
+        name: FIELD_NAMES,
+        datatype,
+        is_multiple: bool = False,
+        ui_to_list: Optional[str] = None,
+        list_to_ui: Optional[str] = None):
+    """
+    Return an adaptor appropriate for the given field.
+
+    :param name:
+    :param datatype:
+    :param is_multiple:
+    :param ui_to_list:
+    :param list_to_ui:
+
+    :return:
+    """
+    dt = datatype
+
+    if dt == "text":
+        if is_multiple:
+            ans = partial(multiple_text, ui_to_list, list_to_ui)
+        else:
+            ans = single_text
+
+    elif dt == "series":
+        ans = single_text
+
+    elif dt == "datetime":
+        ans = adapt_date if name == "pubdate" else adapt_datetime
+
+    elif dt == "int":
+        ans = partial(adapt_number, int)
+
+    elif dt == "float":
+        ans = partial(adapt_number, float)
+
+    elif dt == "bool":
+        ans = adapt_bool
+
+    elif dt == "comments":
+        ans = single_text
+
+    elif dt == "rating":
+        # Rating is stored as a number between 0-10 - but is displayed as a number of stars between 0-5
+        def ans(x):
+            return None if x in {None, 0} else min(10, max(0, adapt_number(int, x)))
+
+    elif dt == "enumeration":
+        ans = single_text
+
+    elif dt == "composite":
+
+        def ans(x):
+            return x
+
+    else:
+        err_str = "LiuXin.databases.write:get_adapter failed.\n"
+        err_str += "metadata datatype was not recognized.\n"
+        err_str += "name: {}\n".format(name)
+        err_str += "dt: {}\n".format(dt)
+        default_log.error(err_str)
+        raise NotImplementedError(err_str)
+
+    if name == "title":
+        return lambda x: ans(x) or _("Unknown")
+    if name == "author_sort":
+        return lambda x: ans(x) or ""
+    if name == "authors":
+        return lambda x: tuple(y.replace("|", ",") for y in ans(x)) or (_("Unknown"),)
+    if name in {"timestamp", "last_modified"}:
+        return lambda x: ans(x) or UNDEFINED_DATE
+    if name == "series_index":
+        return lambda x: 1.0 if ans(x) is None else ans(x)
+    if name == "languages":
+        return partial(adapt_languages, ans)
+    if name == "identifiers":
+        return partial(adapt_identifiers, ans)
+
+    return ans
+
 
 
 def cc_adapt_text(x, d) -> Optional[Union[str, list[str]]]:

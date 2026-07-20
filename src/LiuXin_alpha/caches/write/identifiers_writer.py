@@ -7,12 +7,13 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 from typing import TYPE_CHECKING
 
-from LiuXin_alpha.catalog.write import BaseWriter
+from LiuXin_alpha.caches.write import BaseWriter
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.catalog.api import CatalogAPI
+    from LiuXin_alpha.caches.api.storage_cache_api import FieldBasicInterfaceAPI
 
 
 class IdentifiersWrite(BaseWriter):
@@ -33,7 +34,11 @@ class IdentifiersWrite(BaseWriter):
 
     # Todo: Tbh, the fact that we need to keep giving these methods the field is stupid.
     @staticmethod
-    def identifiers(book_id_val_map, db: "DatabaseAPI", field, *args):  # {{{
+    def identifiers(
+            book_id_val_map,
+            db: "CatalogAPI",
+            field: "FieldBasicInterfaceAPI",
+            *args) -> set[int]:
         """
         Write identifiers out to the table.
 

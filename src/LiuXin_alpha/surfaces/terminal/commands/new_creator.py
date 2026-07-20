@@ -122,7 +122,7 @@ class NewCreatorWizardCommand(TerminalCommandAPI):
         return True
 
     def _find_existing_person_agent(self, browser, creator_name: str):
-        rows = browser.db.search("agents", "agent_canonical_name", creator_name)
+        rows = browser.catalog.search("agents", "agent_canonical_name", creator_name)
         for row in rows:
             try:
                 if str(row["agent_type"]).lower() == "person":

@@ -14,7 +14,7 @@ EMPTY_CUSTOM_COLUMN_PROFILE_DB_NAMES = (
 )
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 @pytest.mark.parametrize("db_name", EMPTY_CUSTOM_COLUMN_PROFILE_DB_NAMES)
 def test_profiled_fixtures_expose_empty_custom_column_profile(
     provision_test_database,

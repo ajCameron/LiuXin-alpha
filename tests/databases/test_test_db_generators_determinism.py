@@ -68,7 +68,7 @@ def _build_and_dump(
     return _canonical_snapshot(provisioned.db_path)
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 @pytest.mark.slow
 @pytest.mark.parametrize("db_name", ALL_TEST_DB_NAMES)
 def test_test_db_generators_are_deterministic(tmp_path: Path, db_name: str) -> None:

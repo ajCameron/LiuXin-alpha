@@ -2,8 +2,8 @@
 
 - Decide whether we want `python-event-bus` for a unified event system.
 - Work down the conversion pipeline sign-off plan in
-  [conversion_pipeline_todo.md](conversion_pipeline_todo.md), using
-  [conversion_pipeline_signoff.md](conversion_pipeline_signoff.md) as the
+  [conversion_pipeline_todo.md](conversion_pipeline/conversion_pipeline_todo.md), using
+  [conversion_pipeline_signoff.md](conversion_pipeline/conversion_pipeline_signoff.md) as the
   durable format/edge status matrix: visible/reportable loss diagnostics,
   explicit capability edges, fallback reporting, shared archive preflight, and
   format-level done criteria.

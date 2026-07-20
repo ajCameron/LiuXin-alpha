@@ -1,4 +1,5 @@
 
+# Todo: These need to be mirror'd/moved to dev docs?
 """
 Catalog is intended for metadata aware database operations.
 
@@ -289,6 +290,6 @@ Design rules
 """
 
 
-from .catalog import Catalog
+from LiuXin_alpha.catalog.catalog import Catalog
 
 __all__ = ["Catalog"]

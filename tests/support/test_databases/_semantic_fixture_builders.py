@@ -7,7 +7,7 @@ from pathlib import Path
 
 from LiuXin_alpha.databases.custom_columns import CustomColumns
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.databases.field_metadata_bridge import FieldMetadata
+from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 from tests.support._surface_storage_tables import ensure_surface_asset_tables_sqlite
 from tests.support import test_resources_manager as trm
 

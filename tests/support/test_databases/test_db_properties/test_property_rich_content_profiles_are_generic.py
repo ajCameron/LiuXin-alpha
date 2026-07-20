@@ -11,7 +11,7 @@ RICH_CONTENT_PROFILE_DB_NAMES = (
 )
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 @pytest.mark.parametrize("db_name", RICH_CONTENT_PROFILE_DB_NAMES)
 def test_profiled_rich_content_fixtures_are_now_generic(
     provision_test_database,

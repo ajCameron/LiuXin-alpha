@@ -31,7 +31,7 @@ LEGACY_SPECIAL_TABLES = (
 )
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 @pytest.mark.parametrize("db_name", LEGACY_SECONDARY_UUID_CLUSTER_DB_NAMES)
 def test_profiled_fixtures_do_not_materialize_legacy_secondary_uuid_cluster(
     provision_test_database,

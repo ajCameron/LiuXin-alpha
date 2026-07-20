@@ -882,7 +882,7 @@ class BaseNameGenerator:
         :param extension:
         :return:
         """
-        book_meta_row = book_row.db.driver_wrapper.get_view_row_from_id("meta", book_row["book_id"])
+        book_meta_row = book_row.catalog.driver_wrapper.get_view_row_from_id("meta", book_row["book_id"])
         return self.make_book_cover_name_meta(book_meta_row, cover_id, extension)
 
     def make_book_cover_name_meta(self, book_meta_row, cover_id, extension):

@@ -210,7 +210,7 @@ def test_test_db_3_generates_formats_fixture(provision_test_database) -> None:
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 @pytest.mark.slow
 def test_benchmark_db_smoke_generates_expected_shape(provision_test_database) -> None:
     provisioned = provision_test_database("benchmark_db_smoke")
@@ -235,7 +235,7 @@ def test_benchmark_db_smoke_generates_expected_shape(provision_test_database) ->
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 @pytest.mark.slow
 @pytest.mark.parametrize("db_name", ALL_TEST_DB_NAMES)
 def test_all_test_db_profiles_smoke_and_shape(provision_test_database, db_name: str) -> None:
@@ -278,7 +278,7 @@ def test_all_test_db_profiles_smoke_and_shape(provision_test_database, db_name: 
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_semantic_asset_profile_partition(provision_test_database) -> None:
     asset_set = set(ASSET_HEAVY_DB_NAMES)
     all_file_counts: dict[str, int] = {}
@@ -302,7 +302,7 @@ def test_semantic_asset_profile_partition(provision_test_database) -> None:
         assert all_file_counts[db_name] == 0
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 @pytest.mark.parametrize(
     ("db_name", "expected_folders", "expected_files"),
     (
@@ -333,7 +333,7 @@ def test_provisioned_profiles_do_not_materialize_legacy_folder_stores(
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_semantic_book_count_bands(provision_test_database) -> None:
     counts: dict[str, int] = {}
     for db_name in ("test_db_2", "test_db_16", "test_db_7", "test_db_8", "test_db_14", "test_db_17", "test_db_4", "test_db_20"):
@@ -371,7 +371,7 @@ def test_provisioned_copies_are_independent(tmp_path, test_resources_manager) ->
     assert _count_titles(db1.db_path) == _count_titles(db2.db_path) + 1
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_metadata_rich_db_0_provisions_distinct_optional_metadata(provision_test_database) -> None:
     provisioned = provision_test_database("metadata_rich_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -416,7 +416,7 @@ def test_metadata_rich_db_0_provisions_distinct_optional_metadata(provision_test
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_metadata_rich_db_1_provisions_multilingual_dense_metadata(provision_test_database) -> None:
     provisioned = provision_test_database("metadata_rich_db_1")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -462,7 +462,7 @@ def test_metadata_rich_db_1_provisions_multilingual_dense_metadata(provision_tes
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_stores_assets_db_0_provisions_real_store_backed_assets(provision_test_database, driver_spec, tmp_path: Path) -> None:
     provisioned = provision_test_database("stores_assets_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -522,7 +522,7 @@ def test_stores_assets_db_0_provisions_real_store_backed_assets(provision_test_d
         assert got.as_bytes() == b"EPUB-ASSET-ONE\n"
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_stores_assets_db_1_provisions_multi_store_assets(provision_test_database, driver_spec) -> None:
     provisioned = provision_test_database("stores_assets_db_1")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -576,7 +576,7 @@ def test_stores_assets_db_1_provisions_multi_store_assets(provision_test_databas
         assert got_secondary.as_bytes() == b"MOBI-TWO\n"
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_images_covers_db_0_provisions_cover_heavy_store_assets(provision_test_database, driver_spec) -> None:
     provisioned = provision_test_database("images_covers_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -631,7 +631,7 @@ def test_images_covers_db_0_provisions_cover_heavy_store_assets(provision_test_d
         assert got.as_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_images_covers_db_1_provisions_cover_variants_and_gaps(provision_test_database, driver_spec) -> None:
     provisioned = provision_test_database("images_covers_db_1")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -676,7 +676,7 @@ def test_images_covers_db_1_provisions_cover_variants_and_gaps(provision_test_da
         assert got.as_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_custom_columns_populated_db_0_provisions_live_generated_tables(provision_test_database) -> None:
     provisioned = provision_test_database("custom_columns_populated_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -742,7 +742,7 @@ def test_custom_columns_populated_db_0_provisions_live_generated_tables(provisio
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_custom_columns_populated_db_1_provisions_series_and_scalar_variants(provision_test_database) -> None:
     provisioned = provision_test_database("custom_columns_populated_db_1")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -778,7 +778,7 @@ def test_custom_columns_populated_db_1_provisions_series_and_scalar_variants(pro
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_identifiers_db_0_provisions_rich_identifier_views(provision_test_database) -> None:
     provisioned = provision_test_database("identifiers_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -823,7 +823,7 @@ def test_identifiers_db_0_provisions_rich_identifier_views(provision_test_databa
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_identifiers_db_1_provisions_wider_identifier_matrix(provision_test_database) -> None:
     provisioned = provision_test_database("identifiers_db_1")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -847,7 +847,7 @@ def test_identifiers_db_1_provisions_wider_identifier_matrix(provision_test_data
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_pathological_relations_db_0_provisions_dense_relation_graph(provision_test_database) -> None:
     provisioned = provision_test_database("pathological_relations_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -890,7 +890,7 @@ def test_pathological_relations_db_0_provisions_dense_relation_graph(provision_t
         conn.close()
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 def test_weird_data_db_0_provisions_unicode_and_odd_paths(provision_test_database) -> None:
     provisioned = provision_test_database("weird_data_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))

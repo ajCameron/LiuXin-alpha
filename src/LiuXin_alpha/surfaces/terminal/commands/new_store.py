@@ -379,7 +379,7 @@ class NewStoreWizardCommand(TerminalCommandAPI):
 
     @staticmethod
     def _local_library(browser) -> Library:
-        return Library(database=browser.db, close_database_on_close=False)
+        return Library(database=browser.catalog, close_database_on_close=False)
 
     def _find_existing_store(self, browser, *, root_uri: str, store_name: str):
         if hasattr(browser, "supports_core_queries") and bool(browser.supports_core_queries()):

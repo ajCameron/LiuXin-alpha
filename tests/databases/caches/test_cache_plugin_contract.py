@@ -434,10 +434,10 @@ def test_cache_plugin_lifecycle_contract(
 
     detached_db = cache.detach_db()
     assert detached_db is unicode_contract_db
-    assert cache.db is None
+    assert cache.catalog is None
 
     cache.read(detached_db)
-    assert cache.db is unicode_contract_db
+    assert cache.catalog is unicode_contract_db
     assert cache.is_loaded is True
     assert cache.is_initialized is True
 
@@ -453,7 +453,7 @@ def test_cache_plugin_lifecycle_contract(
     assert cache.is_initialized is True
 
     cache.close()
-    assert cache.db is None
+    assert cache.catalog is None
     assert cache.is_loaded is False
     assert cache.is_initialized is False
     assert cache.main_tables == {}

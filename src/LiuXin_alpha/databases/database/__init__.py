@@ -1087,6 +1087,19 @@ class Database(
         else:
             return False
 
+    #  Todo: We need a names methods mixin
+
+    def get_table_from_column(self, column_name: str) -> str:
+        """
+        ID a table from a column - should always be possible.
+
+        :param column_name:
+        :return:
+        """
+        for tab, col_set in self.get_tables_and_columns():
+            if column_name in col_set:
+                return tab
+        raise InputIntegrityError("The column is not in a table - as far as we can tell.")
 
 #
 # ----------------------------------------------------------------------------------------------------------------------

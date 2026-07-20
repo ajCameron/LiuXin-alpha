@@ -14,7 +14,7 @@ from LiuXin_alpha.utils.calibre_compat.metadata.calibre_metadata_constants impor
     ALL_METADATA_FIELDS,
 )
 
-from LiuXin_alpha.surfaces.field_metadata import FieldMetadata
+from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 
 from LiuXin_alpha.utils.logging import prints
 from LiuXin_alpha.utils.text.icu import sort_key, lower as icu_lower

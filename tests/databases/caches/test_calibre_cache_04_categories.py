@@ -47,7 +47,7 @@ if _LIBS.exists() and str(_LIBS) not in sys.path:
 from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
 from LiuXin_alpha.databases.custom_columns import CustomColumns
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.surfaces.field_metadata import FieldMetadata
+from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 
 
 class TestPrefs(dict):

@@ -65,7 +65,7 @@ class FactoryMethodsMixin:
         """
         _data = object.__getattribute__(self, "_data")
 
-        db = title_row.db
+        db = title_row.catalog
 
         # Loading the title sections
         title_row_dict = db.get_linked_rows(title_row, "titles")[0]

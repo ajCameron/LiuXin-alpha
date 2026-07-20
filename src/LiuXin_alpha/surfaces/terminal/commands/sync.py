@@ -649,17 +649,17 @@ def _safe_int(value: str) -> Optional[int]:
 
 
 def _resolve_store_row(browser, store_ref: str):
-    if "stores" not in set(browser.db.get_tables()):
+    if "stores" not in set(browser.catalog.get_tables()):
         raise ValueError("Database schema does not contain `stores` table.")
 
     store_id = _safe_int(store_ref)
     if store_id is not None:
-        row = browser.db.get_row_from_id("stores", store_id)
+        row = browser.catalog.get_row_from_id("stores", store_id)
         if row is None:
             raise ValueError("No store found for id {}.".format(store_id))
         return row
 
-    rows = browser.db.search("stores", "store_name", str(store_ref))
+    rows = browser.catalog.search("stores", "store_name", str(store_ref))
     if not rows:
         raise ValueError("No store found for name {!r}.".format(store_ref))
     if len(rows) > 1:

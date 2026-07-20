@@ -1,10 +1,12 @@
 
 """
-Contains metadata on derived and built in fields.
+Catalog field metadata for built-in and custom calibre-compatible fields.
 
-Fields are, in many cases, a useful abstraction when it comes to display.
-They're intimately connected with the database - both in what they display and the user's preferences as to them.
-As such they - just about - get to be database objects.
+Fields are logical catalog/cache concepts: each descriptor maps a public field
+name to storage tables, columns, link columns, datatypes, search aliases, and
+custom-column metadata. Surface code may read display hints from these
+descriptors, but ownership lives with catalog because the table mapping drives
+cache construction, search, and metadata writes.
 """
 
 
@@ -22,7 +24,6 @@ from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.databases.constants import VALID_DATA_TYPES
 
 
-# Todo: Probably shouldn't live here.
 def calibre_name_to_liuxin_name(table_name: str) -> str:
     """
     Take the name of a calibre table and return the LiuXin equivalent table.

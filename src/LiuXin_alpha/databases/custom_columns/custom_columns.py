@@ -28,7 +28,7 @@ from LiuXin_alpha.databases.utils import cleanup_tags, _get_next_series_num_for_
 
 from LiuXin_alpha.errors import InvalidUpdate
 
-from LiuXin_alpha.databases.field_metadata_bridge import FieldMetadata
+from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 
 from LiuXin_alpha.utils.logging import prints, default_log
 

@@ -8,15 +8,19 @@ This document records the initial LiuXin policy for Calibre compatibility, espec
 
 The key decision is:
 
-> LiuXin treats each imported Calibre `books` row as a Manifestation-anchored compatibility record, then projects upward to Expression and Work, and downward to Item and DigitalAsset.
+> LiuXin treats each imported Calibre `books` row as a Manifestation-anchored compatibility record, 
+> then projects upward to Expression and Work, and downward to Item and DigitalAsset.
 
-This is the initial policy for the first compatibility implementation. It is not a claim that every Calibre library has the same semantics. Future import profiles may support other interpretations.
+This is the initial policy for the first compatibility implementation. 
+It is not a claim that every Calibre library has the same semantics. 
+Future import profiles may support other interpretations.
 
 ---
 
 ## Background
 
-Calibre's `books` table is the centre of the Calibre data model. Most other Calibre metadata either hangs directly off `books.id`, links back to it, or assumes it as the main object of user interaction.
+Calibre's `books` table is the centre of the Calibre data model. 
+Most other Calibre metadata either hangs directly off `books.id`, links back to it, or assumes it as the main object of user interaction.
 
 LiuXin does not have a direct canonical equivalent to `books`. LiuXin uses a WEMI-style model:
 

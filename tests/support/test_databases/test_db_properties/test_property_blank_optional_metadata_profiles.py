@@ -22,7 +22,7 @@ BLANK_OPTIONAL_METADATA_DB_NAMES = (
 )
 
 
-@pytest.mark.db
+@pytest.mark.catalog
 @pytest.mark.parametrize("db_name", BLANK_OPTIONAL_METADATA_DB_NAMES)
 def test_blank_optional_metadata_profiles_are_stable(provision_test_database, db_name: str) -> None:
     provisioned = provision_test_database(db_name)

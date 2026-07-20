@@ -135,7 +135,7 @@ class MetadataFromBookRow(object):
         :type file_form: str - choices are 'path', 'scratch_path', 'raw_data'
         """
         self.lib = library
-        self.db = library.db
+        self.db = library.catalog
 
         self.book_id = book_id
         self.title_row = self.db.get_row_from_id("titles", self.book_id)
@@ -500,7 +500,7 @@ class MeatdataToBookRow(object):
         """
         self.md = md
         self.library = library
-        self.db = self.library.db
+        self.db = self.library.catalog
 
         self.add = library.add
         self.ensure = library.ensure
@@ -1444,7 +1444,7 @@ class MeatdataToBookRow(object):
         :param publisher_type: The type of publisher (options are "imprint" or "publisher")
         :return:
         """
-        max_pt_link_priority = title_row.db.get_max("publisher_title_link_priority")
+        max_pt_link_priority = title_row.catalog.get_max("publisher_title_link_priority")
         max_pt_link_priority = 0 if max_pt_link_priority is None else max_pt_link_priority
 
         priority = max_pt_link_priority + len(publishers) + 1

@@ -1,8 +1,7 @@
 """Top-level surface package.
 
-Keep package import side effects minimal so submodules such as
-``LiuXin_alpha.surfaces.field_metadata`` can be imported directly without
-pulling in unrelated front ends.
+Keep package import side effects minimal so submodules can be imported directly
+without pulling in unrelated front ends.
 """
 
 from __future__ import annotations
@@ -17,7 +16,6 @@ _LAZY_SUBMODULES = {
     "catalog",
     "categories",
     "cli",
-    "field_metadata",
     "images",
     "metadata_facets",
     "opds",

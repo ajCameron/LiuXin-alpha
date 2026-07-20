@@ -163,7 +163,7 @@ def _consume_target_tokens(args: list[str], *, usage: str) -> tuple[str, int, li
 
 
 def _local_library(browser) -> Library:
-    return Library(database=browser.db, close_database_on_close=False)
+    return Library(database=browser.catalog, close_database_on_close=False)
 
 
 def _fetch_row(browser, *, table: str, row_id: int):

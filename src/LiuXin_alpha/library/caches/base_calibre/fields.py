@@ -34,7 +34,7 @@ from LiuXin_alpha.customize.cache.base_field import BaseField
 
 from LiuXin_alpha.library.tag_classes import BaseTagClass
 from LiuXin_alpha.databases.utils import force_to_bool
-from LiuXin_alpha.catalog.write import get_writer, DummyWriter
+from LiuXin_alpha.caches.write import get_writer, DummyWriter
 from LiuXin_alpha.databases.db_types import (
     LangMap,
     SrcTableID,

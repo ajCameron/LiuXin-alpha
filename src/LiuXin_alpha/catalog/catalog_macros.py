@@ -17,10 +17,10 @@ from LiuXin_alpha.utils.text import isbytestring
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.catalog.api import CatalogAPI
 
 
-def library_set_title(db: "DatabaseAPI", title_id: int, title: str) -> None:
+def library_set_title(db: "CatalogAPI", title_id: int, title: str) -> None:
     """
     Set the title of the work - updates both the title table and the books table.
 
@@ -33,7 +33,7 @@ def library_set_title(db: "DatabaseAPI", title_id: int, title: str) -> None:
     db.metadata_sql.update_title(title_id=title_id, title=title)
 
 
-def library_add_feed(db: "DatabaseAPI", title: Union[bytes, str], script: Union[bytes, str]) -> None:
+def library_add_feed(db: "CatalogAPI", title: Union[bytes, str], script: Union[bytes, str]) -> None:
     """
     Add to the field table - assume that the title and script is encoded in utf-8.
 
@@ -49,7 +49,7 @@ def library_add_feed(db: "DatabaseAPI", title: Union[bytes, str], script: Union[
     db.metadata_sql.add_feed(title, script)
 
 
-def library_remove_feeds(db: "DatabaseAPI", ids: set[int]) -> None:
+def library_remove_feeds(db: "CatalogAPI", ids: set[int]) -> None:
     """
     Remove feeds from the feeds table.
 
@@ -60,7 +60,7 @@ def library_remove_feeds(db: "DatabaseAPI", ids: set[int]) -> None:
     db.metadata_sql.delete_feed(ids)
 
 
-def library_unapply_series_tags(db: "DatabaseAPI", series_id: int, tags: Iterable[str]):
+def library_unapply_series_tags(db: "CatalogAPI", series_id: int, tags: Iterable[str]):
     """
     Remove every tag in the given iterator of tags from the given series with the given series_id.
 
@@ -73,7 +73,7 @@ def library_unapply_series_tags(db: "DatabaseAPI", series_id: int, tags: Iterabl
     db.metadata_sql.unapply_series_tags(series_id, tags)
 
 
-def library_update_feed(db: "DatabaseAPI", feed_id: int, script: Union[bytes, str], title: str) -> None:
+def library_update_feed(db: "CatalogAPI", feed_id: int, script: Union[bytes, str], title: str) -> None:
     """
     Update the feed table with a new script and title.
 
@@ -86,7 +86,7 @@ def library_update_feed(db: "DatabaseAPI", feed_id: int, script: Union[bytes, st
     db.metadata_sql.update_feed(feed_id, script, title)
 
 
-def library_set_feeds(db: "DatabaseAPI", feeds: Iterable[Union[bytes, str]]) -> None:
+def library_set_feeds(db: "CatalogAPI", feeds: Iterable[Union[bytes, str]]) -> None:
     """
     Clears the entire feed table and updates it with entirely new feeds.
 
@@ -98,7 +98,7 @@ def library_set_feeds(db: "DatabaseAPI", feeds: Iterable[Union[bytes, str]]) -> 
     db.metadata_sql.set_feeds(feeds)
 
 
-def library_set_author_sort(db: "DatabaseAPI", title_id, sort):
+def library_set_author_sort(db: "CatalogAPI", title_id, sort):
     """
     Sets the author sort field for the given book/title id.
 
@@ -111,7 +111,7 @@ def library_set_author_sort(db: "DatabaseAPI", title_id, sort):
 
 
 # Todo: I guess this would be in items now? Does it still exist?
-def library_set_cover(db: "DatabaseAPI", book_id: int, value: bool) -> None:
+def library_set_cover(db: "CatalogAPI", book_id: int, value: bool) -> None:
     """
     Update the flag stored in the books table - in book_has_cover
 
@@ -123,7 +123,7 @@ def library_set_cover(db: "DatabaseAPI", book_id: int, value: bool) -> None:
     db.metadata_sql.set_has_cover(book_id, value)
 
 
-def library_remove_unused_series(db: "DatabaseAPI") -> None:
+def library_remove_unused_series(db: "CatalogAPI") -> None:
     """
     Remove series that are not currently in use from the specified database.
 
@@ -144,7 +144,7 @@ def library_remove_unused_series(db: "DatabaseAPI") -> None:
 # Todo: I've never been clear why this isn a book level thing anyways - or what these options are
 # Todo: Formats can definitely be typed fully
 # Todo: If this means, really, conversion policy, then we should be able to set it at multiple levels
-def library_set_conversion_options(db: "DatabaseAPI", book_id: int, fmt: str, options):
+def library_set_conversion_options(db: "CatalogAPI", book_id: int, fmt: str, options):
     """
     Sets a conversion option for a book.
 
@@ -158,7 +158,7 @@ def library_set_conversion_options(db: "DatabaseAPI", book_id: int, fmt: str, op
     db.metadata_sql.set_conversion_options(book_id=book_id, fmt=fmt, options=options)
 
 
-def library_delete_conversion_options(db: "DatabaseAPI", book_id: int, fmt: str, commit: bool = True) -> None:
+def library_delete_conversion_options(db: "CatalogAPI", book_id: int, fmt: str, commit: bool = True) -> None:
     """
     Remove a conversion option for a given format from a given id
 
@@ -172,7 +172,7 @@ def library_delete_conversion_options(db: "DatabaseAPI", book_id: int, fmt: str,
 
 
 # Todo: Sensible, but there are, again, multiple levels this could be applied to.
-def library_set_isbn(db: "DatabaseAPI", title_id: int, isbn: str) -> bool:
+def library_set_isbn(db: "CatalogAPI", title_id: int, isbn: str) -> bool:
     """
     Set an isbn in the identifiers table.
 
@@ -185,7 +185,7 @@ def library_set_isbn(db: "DatabaseAPI", title_id: int, isbn: str) -> bool:
 
 
 def library_set_publisher(
-        db: "DatabaseAPI",
+        db: "CatalogAPI",
         title_id: int,
         publisher: Optional[str] = None,
         publisher_id: Optional[int] = None) -> tuple[Optional[int], Optional[str]]:
@@ -273,7 +273,7 @@ def library_set_publisher(
 
 # Todo: Again, we have a problem re. where this comment should be set by default
 # Todo: Probably the answer is items. By default, I think the answer is items
-def library_set_comment(db: "DatabaseAPI", title_id: int, text: Optional[str]) -> Optional[int]:
+def library_set_comment(db: "CatalogAPI", title_id: int, text: Optional[str]) -> Optional[int]:
     """
     Set the primary comment/note on a title (and thus on a book) to be this text.
 
@@ -296,7 +296,7 @@ def library_set_comment(db: "DatabaseAPI", title_id: int, text: Optional[str]) -
 
 
 # Todo: This should probably be a bool - as the tag might not match
-def library_delete_tag(db: "DatabaseAPI", tag: str) -> None:
+def library_delete_tag(db: "CatalogAPI", tag: str) -> None:
     """
     Delete a tag from the tag text.
 
@@ -307,7 +307,7 @@ def library_delete_tag(db: "DatabaseAPI", tag: str) -> None:
     db.metadata_sql.delete_tag_by_value(tag)
 
 
-def library_delete_tags(db: "DatabaseAPI", tags: Iterable[str]) -> None:
+def library_delete_tags(db: "CatalogAPI", tags: Iterable[str]) -> None:
     """
     Delete every tag from an iterable of tags.
 
@@ -320,7 +320,7 @@ def library_delete_tags(db: "DatabaseAPI", tags: Iterable[str]) -> None:
         library_delete_tag(db, tag)
 
 
-def library_unapply_tags(db: "DatabaseAPI", book_id: int, tags: Iterable[str]) -> set[int]:
+def library_unapply_tags(db: "CatalogAPI", book_id: int, tags: Iterable[str]) -> set[int]:
     """
     Remove every tag in the given tags from the given book_id.
 
@@ -340,7 +340,7 @@ def library_unapply_tags(db: "DatabaseAPI", book_id: int, tags: Iterable[str]) -
     return tag_ids
 
 
-def library_unapply_creator_tags(db: "DatabaseAPI", creator_id: int, tags: Iterable[str]) -> None:
+def library_unapply_creator_tags(db: "CatalogAPI", creator_id: int, tags: Iterable[str]) -> None:
     """
     Remove every tag in the given iterator of tags from the given creator with the given creator_id.
 
@@ -359,7 +359,7 @@ def library_unapply_creator_tags(db: "DatabaseAPI", creator_id: int, tags: Itera
     db.driver.conn.commit()
 
 
-def library_unapply_title_tags(db: "DatabaseAPI", book_id: int, tags: Iterable[str]) -> set[int]:
+def library_unapply_title_tags(db: "CatalogAPI", book_id: int, tags: Iterable[str]) -> set[int]:
     """
     Remove every tag in the given tags from the given book_id.
 
@@ -372,7 +372,7 @@ def library_unapply_title_tags(db: "DatabaseAPI", book_id: int, tags: Iterable[s
     return library_unapply_tags(db, book_id, tags)
 
 
-def library_set_tags(db: "DatabaseAPI", title_id: int, tags: Iterable[str], append: bool = False) -> set[int]:
+def library_set_tags(db: "CatalogAPI", title_id: int, tags: Iterable[str], append: bool = False) -> set[int]:
     """
     Append or replace the given iterable of tag texts for the given book/title id.
 
@@ -413,7 +413,7 @@ def library_set_tags(db: "DatabaseAPI", title_id: int, tags: Iterable[str], appe
     return tag_ids
 
 
-def library_set_creator_tags(db: "DatabaseAPI", creator_id: int, tags: Iterable[str], append: bool = False) -> None:
+def library_set_creator_tags(db: "CatalogAPI", creator_id: int, tags: Iterable[str], append: bool = False) -> None:
     """
     Set the given iterable of tag texts for the creator specified with the given id.
 
@@ -443,7 +443,7 @@ def library_set_creator_tags(db: "DatabaseAPI", creator_id: int, tags: Iterable[
     db.driver.conn.commit()
 
 
-def library_set_series_tags(db: "DatabaseAPI", series_id: int, tags: Iterable[str], append: bool = False) -> None:
+def library_set_series_tags(db: "CatalogAPI", series_id: int, tags: Iterable[str], append: bool = False) -> None:
     """
     Set the given iterable of tag texts for the series specified with the given id.
 
@@ -473,7 +473,7 @@ def library_set_series_tags(db: "DatabaseAPI", series_id: int, tags: Iterable[st
     db.driver.conn.commit()
 
 
-def library_set_title_tags(db: "DatabaseAPI", title_id: int, tags: Iterable[str], append: bool = False) -> set[int]:
+def library_set_title_tags(db: "CatalogAPI", title_id: int, tags: Iterable[str], append: bool = False) -> set[int]:
     """
     Sets the tags for a given title row - see the set_tags method.
 
@@ -488,7 +488,7 @@ def library_set_title_tags(db: "DatabaseAPI", title_id: int, tags: Iterable[str]
 
 # Todo: How do we determine what series an item is in? So we can unset it.
 def library_unset_series(
-        db: "DatabaseAPI",
+        db: "CatalogAPI",
         title_id: int,
         series: Optional[Union[int, str]] = None,
         series_id: int = None) -> None:
@@ -507,7 +507,7 @@ def library_unset_series(
 
 
 def library_set_series(
-    db: "DatabaseAPI",
+    db: "CatalogAPI",
     title_id: int,
     series: Optional[Union[int, str]] = None,
     series_id: Optional[int] = None,
@@ -638,7 +638,7 @@ def dummy_series_id(*args, **kwargs):
 
 
 def library_set_series_index(
-        db: "DatabaseAPI",
+        db: "CatalogAPI",
         title_id: int,
         idx: Optional[Union[float, int]],
         series_id = dummy_series_id,
@@ -674,7 +674,7 @@ def library_set_series_index(
 
 
 def library_set_last_modified(
-        db: "DatabaseAPI",
+        db: "CatalogAPI",
         book_id: int,
         last_modified) -> None:
     """
@@ -689,7 +689,7 @@ def library_set_last_modified(
 
 
 def library_set_authors_from_ids(
-        db: "DatabaseAPI",
+        db: "CatalogAPI",
         title_id: int,
         author_ids: Union[list[int], tuple[int]],
         append: bool = False) -> None:
@@ -705,7 +705,7 @@ def library_set_authors_from_ids(
                    title and replace with the given list.
     :return:
     """
-    # If not append then clear the author type creator links to to the book and add the new set back in
+    # If not append then clear the author type creator links to the book and add the new set back in
     if not append:
         db.metadata_sql.clear_title_creator_links_for_given_type_and_title(title_id)
 
@@ -750,7 +750,7 @@ def library_set_authors_from_ids(
         ct_link_priority -= 1
 
 
-def library_set_language(db: "DatabaseAPI", title_id: int, lang_string: str) -> None:
+def library_set_language(db: "CatalogAPI", title_id: int, lang_string: str) -> None:
     """
     Set the primary language of a work - preforms the set from a string value of the language.
 

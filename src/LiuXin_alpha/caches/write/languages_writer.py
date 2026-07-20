@@ -3,18 +3,20 @@
 Write language information into the database.
 """
 
-
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
 from typing import TYPE_CHECKING
 
-from LiuXin_alpha.catalog.write import BaseWriter
+from LiuXin_alpha.caches.write import BaseWriter
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, six_string_types
 from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.catalog.api import CatalogAPI
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field import (
+        FieldBasicInterfaceAPI,
+    )
 
 
 class LanguagesWriter(BaseWriter):
@@ -22,7 +24,7 @@ class LanguagesWriter(BaseWriter):
     Class for writing languages information out to the table.
     """
 
-    def __init__(self, field) -> None:
+    def __init__(self, field: "FieldBasicInterfaceAPI") -> None:
         """
         Constructor.
 
@@ -34,7 +36,11 @@ class LanguagesWriter(BaseWriter):
         self.set_books_func = self.set_languages
 
     @staticmethod
-    def set_languages(book_id_val_map, db: "DatabaseAPI", field, *args) -> set[int]:
+    def set_languages(
+            book_id_val_map,
+            db: "CatalogAPI",
+            field: "FieldBasicInterfaceAPI",
+            *args) -> set[int]:
         """
         Preforms a set into the languages table.
 
@@ -54,9 +60,12 @@ class LanguagesWriter(BaseWriter):
                 db.metadata_sql.break_lang_title_links(book_id, link_type="primary")
 
                 title_row = db.get_row_from_id("titles", row_id=book_id)
+
                 # Todo: ensure.language is being called at least three times in this module - does it need to be?
+                # Todo: We need to find ensure and us it.
                 lang_row = db.ensure.language(lang_code, lang_code="either")
                 db.interlink_rows(primary_row=title_row, secondary_row=lang_row, type="primary")
+
                 continue
 
             elif isinstance(lang_code, dict):

@@ -1,21 +1,55 @@
+
+"""
+Writer for two entities which have a one-to-many relationship.
+"""
+
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from collections import defaultdict
 
-from LiuXin_alpha.catalog.write import ManyToOneWriter
+from typing import Callable, Any, Optional, TYPE_CHECKING
+
+from LiuXin_alpha.catalog.write.generic_writers.many_to_one_writer import ManyToOneWriter
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, six_string_types, basestring, \
     dict_iterkeys as iterkeys
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.text.icu import safe_lower
 
+if TYPE_CHECKING:
+
+    from LiuXin_alpha.catalog.api import CatalogAPI
+
 
 class OneToManyWriter(ManyToOneWriter):
     """
-    Writer for objects with a One To Many relationship.
+    Writer for objects with a One-To-Many relationship with each other.
     """
 
-    def __init__(self, field):
-        super(OneToManyWriter, self).__init__(field)
+    def __init__(
+            self,
+            catalog: "CatalogAPI",
+            table: str,
+            column: str,
+            adapter: Callable[[Any, ], str] = lambda x: str(x),
+            accept_vals: Callable[[Any, ], bool] = lambda x: True,
+            name: Optional[str] = None,
+            link_table: Optional[str] = None,
+            link_table_bt_id_column: Optional[str] = None,
+            link_table_item_id_column: Optional[str] = None,
+    ) -> None:
+
+
+
+        super(OneToManyWriter, self).__init__(
+            catalog=catalog,
+            table=table,
+            column=column,
+            adapter=adapter,
+            accept_vals=accept_vals,
+            name=name,
+            link_table=link_table,
+            link_table_bt_id_column=link_table_bt_id_column,
+            link_table_item_id_column=link_table_item_id_column)
 
         self.m_table = self.field.metadata["table"]
         self.m_column = self.field.metadata["column"]
